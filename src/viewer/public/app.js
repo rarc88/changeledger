@@ -6,6 +6,7 @@ const filters = { text: '', type: 'all', statuses: new Set() };
 let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
+let currentProject = null;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -28,9 +29,29 @@ function renderMermaid(root) {
   if (nodes.length) mermaid.run({ nodes });
 }
 
+async function loadProjects() {
+  const { projects, current } = await fetch('/api/projects').then((r) => r.json());
+  const sel = $('#project');
+  sel.innerHTML = projects
+    .map(
+      (p) =>
+        `<option value="${p.id}" ${p.alive ? '' : 'disabled'}>${esc(p.name)}${p.alive ? '' : ' (missing)'}</option>`,
+    )
+    .join('');
+  currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
+  if (currentProject) sel.value = currentProject;
+  sel.style.display = projects.length > 1 ? '' : 'none';
+  await load();
+}
+
 async function load() {
+  if (!currentProject) {
+    $('#board').innerHTML =
+      '<p class="empty" style="padding:20px">No projects registered. Run `sl init` in a repo.</p>';
+    return;
+  }
   try {
-    const res = await fetch('/api/repo');
+    const res = await fetch(`/api/repo?project=${encodeURIComponent(currentProject)}`);
     const text = await res.text();
     if (text === lastJson) return;
     lastJson = text;
@@ -42,26 +63,30 @@ async function load() {
   }
 }
 
+// Rebuilt on each project load (types/statuses can differ per project).
 function hydrateFilters() {
-  if ($('#type-filter').dataset.ready) return;
-  $('#type-filter').dataset.ready = '1';
   $('#type-filter').innerHTML =
     '<option value="all">All types</option>' +
     repo.types.map((t) => `<option value="${t}">${t}</option>`).join('');
+  $('#type-filter').value = filters.type;
   $('#lang').textContent = repo.language;
 
   const sf = $('#status-filter');
   sf.innerHTML = repo.statuses
-    .map((s) => `<button class="chip" data-status="${s}">${s}</button>`)
+    .map(
+      (s) =>
+        `<button type="button" class="chip ${filters.statuses.has(s) ? 'active' : ''}" data-status="${s}">${s}</button>`,
+    )
     .join('');
-  sf.querySelectorAll('.chip').forEach((el) => {
+  for (const el of sf.querySelectorAll('.chip')) {
     el.onclick = () => {
       const s = el.dataset.status;
-      filters.statuses.has(s) ? filters.statuses.delete(s) : filters.statuses.add(s);
+      if (filters.statuses.has(s)) filters.statuses.delete(s);
+      else filters.statuses.add(s);
       el.classList.toggle('active', filters.statuses.has(s));
       render();
     };
-  });
+  }
 }
 
 // Full-text haystack: id, title, type, stage headings/bodies and task text.
@@ -428,9 +453,16 @@ $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
 $('#view-specs').onclick = () => setView('specs');
+$('#project').onchange = (e) => {
+  currentProject = e.target.value;
+  lastJson = '';
+  filters.type = 'all';
+  filters.statuses.clear();
+  load();
+};
 document.onkeydown = (e) => {
   if (e.key === 'Escape') closeDetail();
 };
 
-load();
+loadProjects();
 setInterval(load, 5000);

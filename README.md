@@ -20,7 +20,7 @@ ordered by the lifecycle.
 ```
 sl init         # set up .sl/ in the repo, give it an identity, register it
 sl register     # (re)link this repo's path in the global registry (moved/cloned)
-sl view         # launch the local viewer in the browser
+sl view         # launch the viewer — all registered projects (sl view . for current only)
 sl new <type> <slug> <title>   # scaffold a change (slug is the English filename)
 sl check [id]   # validate the repo (or one change) and its health (exit ≠ 0 on errors)
 

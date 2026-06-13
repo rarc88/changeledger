@@ -2,7 +2,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { findSpecDir, loadConfig } from '../config.mjs';
 import { publicDir } from '../paths.mjs';
+import { listProjects } from '../registry.mjs';
 import { loadRepo } from '../repo.mjs';
 
 const MIME = {
@@ -39,22 +41,64 @@ function serialize(repo) {
   };
 }
 
+const isAlive = (p) => fs.existsSync(path.join(p, '.sl', 'config.yml'));
+
+// The project list and which one is "current" (the repo the command ran in).
+export function resolveProjects(cwd, localOnly) {
+  const specDir = findSpecDir(cwd);
+  const repoRoot = specDir ? path.dirname(specDir) : null;
+
+  if (localOnly) {
+    if (!repoRoot) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
+    const config = loadConfig(specDir);
+    const id = config.project_id ?? 'local';
+    const name = config.project_name ?? path.basename(repoRoot);
+    return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
+  }
+
+  const projects = listProjects().map((p) => ({ ...p, alive: isAlive(p.path) }));
+  let current = null;
+  if (repoRoot) {
+    const match = projects.find((p) => path.resolve(p.path) === repoRoot);
+    if (match) current = match.id;
+  }
+  return { projects, current };
+}
+
 function send(res, code, type, body) {
   res.writeHead(code, { 'Content-Type': type });
   res.end(body);
 }
 
 export async function view(args = [], cwd = process.cwd()) {
-  loadRepo(cwd); // fail fast if this is not a Spec Ledger repo
+  const localOnly = args.includes('.');
+  resolveProjects(cwd, localOnly); // fail fast if local mode outside a repo
 
   const server = http.createServer((req, res) => {
     try {
-      if (req.url.split('?')[0] === '/api/repo') {
-        // Re-read on every request so the viewer is always live.
-        send(res, 200, MIME['.json'], JSON.stringify(serialize(loadRepo(cwd))));
+      const [route, query] = req.url.split('?');
+      const params = new URLSearchParams(query);
+
+      if (route === '/api/projects') {
+        send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));
         return;
       }
-      const urlPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+      if (route === '/api/repo') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
+        if (!proj) {
+          send(res, 404, MIME['.json'], JSON.stringify({ error: 'no project' }));
+          return;
+        }
+        if (!proj.alive) {
+          send(res, 410, MIME['.json'], JSON.stringify({ error: 'project path is gone' }));
+          return;
+        }
+        send(res, 200, MIME['.json'], JSON.stringify(serialize(loadRepo(proj.path))));
+        return;
+      }
+
+      const urlPath = route === '/' ? '/index.html' : route;
       const file = path.join(publicDir, path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, ''));
       if (file.startsWith(publicDir) && fs.existsSync(file) && fs.statSync(file).isFile()) {
         send(res, 200, MIME[path.extname(file)] ?? 'text/plain', fs.readFileSync(file));
@@ -66,7 +110,7 @@ export async function view(args = [], cwd = process.cwd()) {
     }
   });
 
-  const port = await listen(server, Number(args[0]) || 4040);
+  const port = await listen(server, Number(args.find((a) => /^\d+$/.test(a))) || 4040);
   const url = `http://localhost:${port}`;
   console.log(`Spec Ledger viewer → ${url}  (Ctrl+C to stop)`);
   openBrowser(url);
