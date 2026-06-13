@@ -1,7 +1,7 @@
 ---
 id: "20260613-205853"
 title: Check con scope por id y validación de config
-type: refactor
+type: feature
 status: draft
 created: 2026-06-13T20:58:53Z
 depends_on: ["20260613-135500"]
@@ -16,6 +16,14 @@ Dos mejoras a `sl check`:
    todo el repo + agregados.
 2. **Validar `config.yml`**: hoy `check` valida changes contra el config, pero no
    el config en sí. Si está ausente o mal formado, todo se rompe en silencio.
+
+## Investigation
+
+- `checkRepo` ya recibe `{ config, changes }`; falta validar el `config` mismo
+  antes de usarlo como referencia de enums/stages.
+- El scope por id es filtrar `changes` al solicitado antes de las reglas por
+  archivo; los agregados (ids, deps, ciclos) solo aplican al repo completo.
+- Reusa `loadRepo` y `checkRepo`; el comando decide el scope.
 
 ## Proposal
 
