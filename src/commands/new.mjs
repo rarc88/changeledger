@@ -19,10 +19,28 @@ export function newChange({ type, slug, title, now }, cwd = process.cwd()) {
   const changesDir = path.join(repoRoot, config.changes_dir);
   fs.mkdirSync(changesDir, { recursive: true });
 
-  const id = idFromTimestamp(now);
+  // Guarantee a unique id even for changes created within the same second
+  // (an agent creating several in a loop). Bump by 1s until free; keep created
+  // coherent with the id.
+  let created = now;
+  let id = idFromTimestamp(created);
+  while (idTaken(changesDir, id)) {
+    created = bumpSecond(created);
+    id = idFromTimestamp(created);
+  }
+
   const file = path.join(changesDir, `${id}-${slugify(slug)}.md`);
-  fs.writeFileSync(file, render({ id, title, type, stages: typeDef.stages, now }));
+  fs.writeFileSync(file, render({ id, title, type, stages: typeDef.stages, now: created }));
   return file;
+}
+
+function idTaken(changesDir, id) {
+  return fs.readdirSync(changesDir).some((name) => name.startsWith(`${id}-`));
+}
+
+function bumpSecond(iso) {
+  const t = new Date(iso).getTime() + 1000;
+  return new Date(t).toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 // Derives the canonical id from an ISO 8601 UTC timestamp: YYYYMMDD-HHMMSS.

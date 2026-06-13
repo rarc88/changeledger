@@ -54,6 +54,20 @@ test('new normalizes the slug to kebab ascii', () => {
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
 });
 
+test('new bumps the id to stay unique within the same second', () => {
+  const root = tmp();
+  init(root);
+  const now = '2026-06-13T15:00:00Z';
+  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root);
+  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root);
+  assert.equal(path.basename(a), '20260613-150000-one.md');
+  assert.equal(path.basename(b), '20260613-150001-two.md');
+
+  const c = parseChange(fs.readFileSync(b, 'utf8'));
+  assert.equal(c.frontmatter.id, '20260613-150001');
+  assert.equal(c.frontmatter.created, '2026-06-13T15:00:01Z');
+});
+
 test('new rejects an unknown type', () => {
   const root = tmp();
   init(root);
