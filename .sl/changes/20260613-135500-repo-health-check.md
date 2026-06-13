@@ -1,10 +1,10 @@
 ---
-id: "0002"
+id: "20260613-135500"
 title: Validación y health del repositorio (sl check)
 type: feature
 status: approved
 created: 2026-06-13T13:55:00Z
-depends_on: ["0001"]
+depends_on: ["20260613-134548"]
 ---
 
 ## Request

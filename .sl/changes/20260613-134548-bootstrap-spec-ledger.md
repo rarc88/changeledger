@@ -1,5 +1,5 @@
 ---
-id: "0001"
+id: "20260613-134548"
 title: Bootstrap de Spec Ledger
 type: feature
 status: done

@@ -1,10 +1,10 @@
 ---
-id: "0005"
+id: "20260613-150500"
 title: Diagramas — renderizar mermaid y priorizar lo visual
 type: feature
 status: approved
 created: 2026-06-13T15:05:00Z
-depends_on: ["0001"]
+depends_on: ["20260613-134548"]
 ---
 
 ## Request

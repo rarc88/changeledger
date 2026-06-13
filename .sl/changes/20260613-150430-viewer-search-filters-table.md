@@ -1,10 +1,10 @@
 ---
-id: "0004"
+id: "20260613-150430"
 title: Visor — búsqueda en contenido, filtros, vista tabla y responsive
 type: feature
 status: approved
 created: 2026-06-13T15:04:30Z
-depends_on: ["0001"]
+depends_on: ["20260613-134548"]
 ---
 
 ## Request
