@@ -59,6 +59,24 @@ body {
   cursor: pointer;
 }
 .tab.active { color: var(--text); border-color: var(--accent); }
+.tabs { display: flex; gap: 6px; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font-size: 12px; padding: 5px 10px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+  cursor: pointer; text-transform: capitalize;
+}
+.chip.active { color: var(--text); border-color: var(--accent); background: rgba(91, 157, 255, 0.12); }
+
+/* Table view */
+.table-view { padding: 16px; overflow-x: auto; }
+.grid { width: 100%; border-collapse: collapse; }
+.grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.grid th { color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--bg); }
+.grid tbody tr { cursor: pointer; }
+.grid tbody tr:hover { background: var(--panel); }
+.mono { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
 
 .badge {
   font-size: 11px;
@@ -176,3 +194,14 @@ body {
 .node text { fill: var(--text); font-size: 12px; }
 .node .nid { fill: var(--muted); font-family: ui-monospace, monospace; font-size: 10px; }
 .edge { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+
+/* Responsive: stack on narrow viewports (mobile) */
+@media (max-width: 680px) {
+  .topbar { flex-wrap: wrap; }
+  .search { width: 100%; order: 1; }
+  .spacer { display: none; }
+  .board { flex-direction: column; overflow-x: visible; }
+  .column { max-width: none; min-width: 0; width: 100%; }
+  .detail { width: 100vw; padding: 18px 16px 60px; }
+  .grid th, .grid td { padding: 8px 8px; }
+}

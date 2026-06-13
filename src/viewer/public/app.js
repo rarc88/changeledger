@@ -2,8 +2,10 @@ const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 let repo = null;
 let lastJson = '';
-const filters = { text: '', type: 'all' };
+const filters = { text: '', type: 'all', statuses: new Set() };
 let currentView = 'board';
+let sortKey = 'id';
+let sortDir = 1;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -22,26 +24,48 @@ async function load() {
 }
 
 function hydrateFilters() {
-  const sel = $('#type-filter');
-  if (sel.dataset.ready) return;
-  sel.dataset.ready = '1';
-  sel.innerHTML =
+  if ($('#type-filter').dataset.ready) return;
+  $('#type-filter').dataset.ready = '1';
+  $('#type-filter').innerHTML =
     '<option value="all">All types</option>' +
     repo.types.map((t) => `<option value="${t}">${t}</option>`).join('');
   $('#lang').textContent = repo.language;
+
+  const sf = $('#status-filter');
+  sf.innerHTML = repo.statuses
+    .map((s) => `<button class="chip" data-status="${s}">${s}</button>`)
+    .join('');
+  sf.querySelectorAll('.chip').forEach((el) => {
+    el.onclick = () => {
+      const s = el.dataset.status;
+      filters.statuses.has(s) ? filters.statuses.delete(s) : filters.statuses.add(s);
+      el.classList.toggle('active', filters.statuses.has(s));
+      render();
+    };
+  });
+}
+
+// Full-text haystack: id, title, type, stage headings/bodies and task text.
+function haystack(c) {
+  const stages = c.stages.map((s) => `${s.heading} ${s.body}`).join(' ');
+  const tasks = c.tasks.map((t) => `${t.text} ${(t.criteria || []).join(' ')} ${t.reason || ''}`).join(' ');
+  return `${c.id} ${c.title} ${c.type} ${c.status} ${stages} ${tasks}`.toLowerCase();
 }
 
 function visibleChanges() {
   const q = filters.text.toLowerCase();
   return repo.changes.filter((c) => {
     if (filters.type !== 'all' && c.type !== filters.type) return false;
+    if (filters.statuses.size && !filters.statuses.has(c.status)) return false;
     if (!q) return true;
-    return `${c.id} ${c.title} ${c.type}`.toLowerCase().includes(q);
+    return haystack(c).includes(q);
   });
 }
 
 function render() {
-  currentView === 'graph' ? renderGraph() : renderBoard();
+  if (currentView === 'graph') renderGraph();
+  else if (currentView === 'table') renderTable();
+  else renderBoard();
 }
 
 function renderBoard() {
@@ -220,12 +244,70 @@ function renderGraph() {
   });
 }
 
+/* Table view */
+function renderTable() {
+  const cols = [
+    { key: 'id', label: 'ID' },
+    { key: 'title', label: 'Title' },
+    { key: 'type', label: 'Type' },
+    { key: 'status', label: 'Status' },
+    { key: 'progress', label: 'Progress' },
+    { key: 'deps', label: 'Deps' },
+  ];
+  const rows = visibleChanges().slice().sort((a, b) => {
+    const va = sortVal(a, sortKey), vb = sortVal(b, sortKey);
+    return va < vb ? -sortDir : va > vb ? sortDir : 0;
+  });
+
+  $('#table').innerHTML = `
+    <table class="grid">
+      <thead><tr>${cols
+        .map((c) => `<th data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`)
+        .join('')}</tr></thead>
+      <tbody>${rows.map(tableRow).join('')}</tbody>
+    </table>`;
+
+  $('#table').querySelectorAll('th[data-sort]').forEach((el) => {
+    el.onclick = () => {
+      const k = el.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir;
+      else { sortKey = k; sortDir = 1; }
+      renderTable();
+    };
+  });
+  $('#table').querySelectorAll('tr[data-id]').forEach((el) => {
+    el.onclick = () => openDetail(el.dataset.id);
+  });
+}
+
+function sortVal(c, key) {
+  if (key === 'progress') return c.progress.total ? c.progress.done / c.progress.total : -1;
+  if (key === 'deps') return (c.depends_on || []).length;
+  if (key === 'id') return String(c.id);
+  return String(c[key] ?? '');
+}
+
+function tableRow(c) {
+  const pct = c.progress.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0;
+  const prog = c.progress.total
+    ? `${c.progress.done}/${c.progress.total}${c.progress.blocked ? ` · ${c.progress.blocked}!` : ''} (${pct}%)`
+    : '—';
+  return `<tr data-id="${c.id}">
+    <td class="mono">#${shortId(c.id)}</td>
+    <td>${esc(c.title)}</td>
+    <td><span class="type-tag" style="--type-color: var(--${c.type})">${c.type}</span></td>
+    <td>${c.status}</td>
+    <td class="mono">${prog}</td>
+    <td class="mono">${(c.depends_on || []).map(shortId).join(', ') || '—'}</td>
+  </tr>`;
+}
+
 function setView(v) {
   currentView = v;
-  $('#view-board').classList.toggle('active', v === 'board');
-  $('#view-graph').classList.toggle('active', v === 'graph');
-  $('#board').classList.toggle('hidden', v !== 'board');
-  $('#graph').classList.toggle('hidden', v !== 'graph');
+  for (const name of ['board', 'table', 'graph']) {
+    $('#view-' + name).classList.toggle('active', v === name);
+    $('#' + name).classList.toggle('hidden', v !== name);
+  }
   render();
 }
 
@@ -240,6 +322,7 @@ const shortId = (id) => {
 $('#search').oninput = (e) => { filters.text = e.target.value; render(); };
 $('#type-filter').onchange = (e) => { filters.type = e.target.value; render(); };
 $('#view-board').onclick = () => setView('board');
+$('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
 document.onkeydown = (e) => { if (e.key === 'Escape') closeDetail(); };
 

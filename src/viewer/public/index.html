@@ -10,14 +10,19 @@
   <body>
     <header class="topbar">
       <div class="brand">Spec&nbsp;Ledger <span id="lang" class="badge"></span></div>
-      <input id="search" class="search" type="search" placeholder="Search id, title, type…" />
+      <input id="search" class="search" type="search" placeholder="Search anything…" />
       <select id="type-filter" class="filter"></select>
+      <div id="status-filter" class="chips"></div>
       <div class="spacer"></div>
-      <button id="view-board" class="tab active">Board</button>
-      <button id="view-graph" class="tab">Graph</button>
+      <div class="tabs">
+        <button id="view-board" class="tab active">Board</button>
+        <button id="view-table" class="tab">Table</button>
+        <button id="view-graph" class="tab">Graph</button>
+      </div>
     </header>
 
     <main id="board" class="board"></main>
+    <section id="table" class="table-view hidden"></section>
     <section id="graph" class="graph hidden"></section>
 
     <div id="overlay" class="overlay hidden">
