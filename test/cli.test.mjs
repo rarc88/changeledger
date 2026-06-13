@@ -1,0 +1,53 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { init } from '../src/commands/init.mjs';
+import { newChange } from '../src/commands/new.mjs';
+import { parseChange } from '../src/change.mjs';
+
+function tmp() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cli-'));
+}
+
+test('init creates .sl/ with config and AGENTS.md', () => {
+  const root = tmp();
+  init(root);
+  assert.ok(fs.existsSync(path.join(root, '.sl', 'config.yml')));
+  assert.ok(fs.existsSync(path.join(root, '.sl', 'changes')));
+  assert.ok(fs.existsSync(path.join(root, 'AGENTS.md')));
+});
+
+test('init refuses to overwrite an existing .sl/', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(() => init(root), /already exists/);
+});
+
+test('new scaffolds a change with active stages for its type', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange({ type: 'bug', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' }, root);
+  assert.equal(path.basename(file), '0001-token-expira-mal.md');
+
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.type, 'bug');
+  assert.equal(c.frontmatter.status, 'draft');
+  assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
+  assert.deepEqual(c.stages.map((s) => s.key), ['request', 'investigation', 'specification', 'plan', 'log']);
+});
+
+test('new increments the id', () => {
+  const root = tmp();
+  init(root);
+  newChange({ type: 'chore', title: 'one', now: '2026-06-13T15:00:00Z' }, root);
+  const second = newChange({ type: 'chore', title: 'two', now: '2026-06-13T15:01:00Z' }, root);
+  assert.equal(path.basename(second), '0002-two.md');
+});
+
+test('new rejects an unknown type', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(() => newChange({ type: 'nope', title: 't', now: 'x' }, root), /Unknown type/);
+});
