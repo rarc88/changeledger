@@ -2,7 +2,7 @@
 id: "20260613-205056"
 title: sl new colisiona ids creados en el mismo segundo
 type: bug
-status: draft
+status: done
 created: 2026-06-13T20:50:56Z
 depends_on: ["20260613-150402"]
 ---
@@ -39,12 +39,15 @@ Detectado por dogfooding: tres `sl new` seguidos produjeron el mismo id
 
 ## Plan
 
-- [ ] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre (CR1)
-- [ ] Derivar `created` del id final ajustado (CR2)
-- [ ] Test: dos `sl new` con el mismo `now` producen ids consecutivos distintos
+- [x] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre (CR1) — 2026-06-13T20:57:00Z
+- [x] Derivar `created` del id final ajustado (CR2) — 2026-06-13T20:57:00Z
+- [x] Test: dos `sl new` con el mismo `now` producen ids consecutivos distintos — 2026-06-13T20:58:00Z
 
 ## Log
 
 - **2026-06-13T20:50:56Z** — Creado en draft. Bug encontrado por dogfooding al
   crear los changes del CLI/specs. Fix: guardia de unicidad en `sl new`
   (incrementar segundos hasta id libre), manteniendo el formato.
+- **2026-06-13T20:58:00Z** — Aprobado e implementado. `sl new` ahora incrementa
+  el id 1s hasta uno libre; `created` coherente. Verificado: 3 `sl new` seguidos
+  → ids consecutivos. 36 tests verde. `in-progress → done`.
