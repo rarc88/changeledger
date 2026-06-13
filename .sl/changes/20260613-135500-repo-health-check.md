@@ -2,7 +2,7 @@
 id: "20260613-135500"
 title: Validación y health del repositorio (sl check)
 type: feature
-status: approved
+status: done
 created: 2026-06-13T13:55:00Z
 depends_on: ["20260613-134548"]
 ---
@@ -99,12 +99,12 @@ _Alternativas descartadas:_
 
 ## Plan
 
-- [ ] Parser de change: frontmatter + etapas + tareas (reutilizable por el visor)
-- [ ] Validaciones por archivo (CR1–CR4)
-- [ ] Validaciones agregadas: ids únicos, depends_on, ciclos (CR5–CR6)
-- [ ] Checks de consistencia estado↔tareas (CR7)
-- [ ] Comando `sl check` con salida legible + `--json` (CR8)
-- [ ] Documentar uso en pre-commit / CI
+- [x] Parser de change: frontmatter + etapas + tareas (reutilizable por el visor) — 2026-06-13T15:15:00Z
+- [x] Validaciones por archivo (CR1–CR4) — 2026-06-13T15:17:00Z
+- [x] Validaciones agregadas: ids únicos, depends_on, ciclos (CR5–CR6) — 2026-06-13T15:18:00Z
+- [x] Checks de consistencia estado↔tareas (CR7) — 2026-06-13T15:19:00Z
+- [x] Comando `sl check` con salida legible + `--json` (CR8) — 2026-06-13T15:20:00Z
+- [x] Documentar uso en pre-commit / CI — 2026-06-13T15:21:36Z
 
 ## Log
 
@@ -115,3 +115,7 @@ _Alternativas descartadas:_
   fijo (un `### CRn` por escenario).
 - **2026-06-13T14:20:00Z** — Aprobado por el humano (draft → approved). Listo
   para implementar tras la base de 0001.
+- **2026-06-13T15:21:36Z** — Implementado con TDD (12 tests, 35 total verde):
+  validador puro `checkRepo` + comando `sl check` (errores/warnings, `--json`,
+  exit ≠ 0). CR1–CR8 cubiertos. `sl check` pasa limpio sobre este repo (5 changes).
+  Uso en pre-commit/CI documentado en README. `in-progress → done`.
