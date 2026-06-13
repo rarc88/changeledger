@@ -54,15 +54,48 @@ _Alternativas descartadas:_
 
 ## Specification
 
-- **CR1** — Dado un change con frontmatter inválido, cuando ejecuto `sl check`,
-  entonces reporta un error con archivo, campo y motivo, y termina con exit ≠ 0.
-- **CR2** — Dado un `type`/`status` fuera de enum, entonces error.
-- **CR3** — Dado un change al que le falta una etapa activa de su tipo, entonces error.
-- **CR4** — Dado un heading de etapa desconocido o fuera de orden, entonces error.
-- **CR5** — Dado un `depends_on` colgante o un ciclo de dependencias, entonces error.
-- **CR6** — Dado `id` duplicado, entonces error.
-- **CR7** — Dado `status: done` con tareas sin marcar, entonces warning (no rompe build).
-- **CR8** — Sin errors → exit 0. `--json` emite el reporte estructurado.
+### CR1 — Frontmatter inválido es error
+- **Given** un change con frontmatter incompleto o mal tipado
+- **When** ejecuto `sl check`
+- **Then** reporta un error con archivo, campo y motivo
+- **And** termina con exit ≠ 0
+
+### CR2 — Enum fuera de rango
+- **Given** un `type` o `status` fuera de los enums de `config.yml`
+- **When** ejecuto `sl check`
+- **Then** reporta un error
+
+### CR3 — Etapa activa ausente
+- **Given** un change al que le falta una etapa activa de su tipo
+- **When** ejecuto `sl check`
+- **Then** reporta un error
+
+### CR4 — Heading inválido o desordenado
+- **Given** un heading de etapa desconocido o fuera de orden
+- **When** ejecuto `sl check`
+- **Then** reporta un error
+
+### CR5 — Dependencias colgantes o cíclicas
+- **Given** un `depends_on` que apunta a un id inexistente o forma un ciclo
+- **When** ejecuto `sl check`
+- **Then** reporta un error
+
+### CR6 — Ids duplicados
+- **Given** dos changes con el mismo `id`
+- **When** ejecuto `sl check`
+- **Then** reporta un error
+
+### CR7 — Inconsistencia estado↔tareas
+- **Given** un change `status: done` con tareas sin marcar
+- **When** ejecuto `sl check`
+- **Then** reporta un warning
+- **And** no rompe el build (exit 0)
+
+### CR8 — Repo sano y salida máquina
+- **Given** un repo sin errors
+- **When** ejecuto `sl check`
+- **Then** termina con exit 0
+- **And** con `--json` emite el reporte estructurado
 
 ## Plan
 
@@ -78,3 +111,5 @@ _Alternativas descartadas:_
 - **2026-06-13T13:55:00Z** — Creado en `draft` a partir de feedback humano:
   hace falta validar well-formedness y health del repo. No se implementa aún;
   queda en el plan esperando aprobación. Depende de 0001 (parser/CLI base).
+- **2026-06-13T14:10:00Z** — Specification migrada al formato G/W/T estructurado
+  fijo (un `### CRn` por escenario).

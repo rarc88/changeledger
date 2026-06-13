@@ -59,30 +59,56 @@ _Alternativas descartadas:_
 
 ## Specification
 
-- **CR1** — Dado un repo sin inicializar, cuando ejecuto `sl init`, entonces se
-  crea `.sl/` con `config.yml` y se materializa `AGENTS.md`.
-- **CR2** — Dado un repo con changes, cuando ejecuto `sl view`, entonces se
-  levanta un server local y se abre el navegador con el tablero.
-- **CR3** — El visor muestra los changes en kanban por `status`, con filtros
-  (tipo, estado, texto) y búsqueda.
-- **CR4** — Al abrir un change, el visor lo renderiza como pipeline de etapas
-  (solo las activas del tipo), no como markdown crudo.
-- **CR5** — El visor deriva progreso y estado "bloqueado" de las marcas de
-  checklist (`[ ]`/`[x]`/`[!]`).
-- **CR6** — El visor dibuja el grafo de dependencias desde `depends_on`.
-- **CR7** — El contrato (`AGENTS.md`) es legible y suficiente para que cualquier
-  agente siga la convención sin tooling propietario.
+### CR1 — Init crea la estructura
+- **Given** un repo sin inicializar
+- **When** ejecuto `sl init`
+- **Then** se crea `.sl/` con `config.yml`
+- **And** se materializa `AGENTS.md`
+
+### CR2 — View levanta el visor
+- **Given** un repo con changes
+- **When** ejecuto `sl view`
+- **Then** se levanta un server local
+- **And** se abre el navegador con el tablero
+
+### CR3 — Kanban con filtros y búsqueda
+- **Given** changes en el repo
+- **When** abro el visor
+- **Then** los muestra en kanban por `status`
+- **And** puedo filtrar por tipo, estado y texto
+
+### CR4 — Render por etapas, no markdown crudo
+- **Given** un change de un tipo dado
+- **When** lo abro en el visor
+- **Then** se renderiza como pipeline de etapas
+- **And** solo muestra las etapas activas de su tipo
+
+### CR5 — Progreso desde el checklist
+- **Given** un change con tareas `[ ]`/`[x]`/`[!]`
+- **When** el visor lo procesa
+- **Then** deriva el progreso de tareas
+- **And** marca estado "bloqueado" si existe alguna `[!]`
+
+### CR6 — Grafo de dependencias
+- **Given** changes con `depends_on`
+- **When** abro el visor
+- **Then** dibuja el grafo de dependencias
+
+### CR7 — Contrato autosuficiente
+- **Given** un agente nuevo en el repo
+- **When** lee `AGENTS.md`
+- **Then** puede seguir la convención sin tooling propietario
 
 ## Plan
 
-- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas)
+- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7)
 - [x] Definir política de idioma (estructura inglés, contenido según `language`)
-- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template
+- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1)
 - [x] Change bootstrap (este documento) como formato vivo
-- [ ] CLI `sl` con `init` / `view` / `new <tipo>`
+- [ ] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2)
 - [ ] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON
-- [ ] Visor: UI kanban + pipeline de etapas + filtros y búsqueda
-- [ ] Visor: grafo `depends_on` + progreso de tareas
+- [ ] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4)
+- [ ] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6)
 
 ## Log
 
@@ -100,3 +126,8 @@ _Alternativas descartadas:_
   (estructura inglés, contenido según `config.language`); `created` ahora es
   timestamp ISO 8601 UTC completo. `AGENTS.md` reescrito como spec canónica en
   inglés. Historial de los 4 commits iniciales rehecho limpio (sin residuo "awc").
+- **2026-06-13T14:10:00Z** — Contrato: criterios de aceptación ahora en formato
+  G/W/T estructurado fijo (un `### CRn` por escenario, pasos por línea), sin
+  inline. Añadida trazabilidad criterio↔tarea (las tareas referencian `(CRn)`).
+  TDD parqueado para análisis posterior. Specification de este change migrada al
+  nuevo formato.
