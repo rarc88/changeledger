@@ -101,10 +101,10 @@ _Alternativas descartadas:_
 
 ## Plan
 
-- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7)
-- [x] Definir política de idioma (estructura inglés, contenido según `language`)
-- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1)
-- [x] Change bootstrap (este documento) como formato vivo
+- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7) — 2026-06-13
+- [x] Definir política de idioma (estructura inglés, contenido según `language`) — 2026-06-13
+- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1) — 2026-06-13
+- [x] Change bootstrap (este documento) como formato vivo — 2026-06-13
 - [ ] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2)
 - [ ] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON
 - [ ] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4)
@@ -131,3 +131,6 @@ _Alternativas descartadas:_
   inline. Añadida trazabilidad criterio↔tarea (las tareas referencian `(CRn)`).
   TDD parqueado para análisis posterior. Specification de este change migrada al
   nuevo formato.
+- **2026-06-13T14:20:00Z** — Contrato: las tareas `[x]` llevan fecha de
+  resolución `— YYYY-MM-DD` (solo día; el segundo exacto lo da git). Estampadas
+  las tareas ya completadas de este change.

@@ -98,9 +98,9 @@ One block per scenario (`CR1`, `CR2`, …). The step keywords (`Given`, `When`,
 Markdown checklist. State convention by marker:
 
 ```markdown
-- [ ] Pending task
-- [x] Completed task
-- [!] Blocked task — reason for the block
+- [ ] Pending task (CR1)
+- [x] Completed task (CR1) — 2026-06-13
+- [!] Blocked task (CR1) — reason for the block
 ```
 
 The viewer derives progress and the "blocked" state from these markers.
@@ -108,6 +108,11 @@ The viewer derives progress and the "blocked" state from these markers.
 **Traceability.** Each task references the criteria it satisfies, in trailing
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
 criterion → task, so coverage is auditable.
+
+**Resolution date.** A completed task (`[x]`) carries a trailing
+`— YYYY-MM-DD` with the day it was resolved (date only; git holds the exact
+moment). Pending tasks have none; blocked tasks use the suffix for the reason.
+Order on the line: `description (CRn) — date|reason`.
 
 ## 5. Lifecycle (`status`)
 
