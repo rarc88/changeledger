@@ -2,7 +2,7 @@
 id: "0001"
 title: Bootstrap de Spec Ledger
 type: feature
-status: in-progress
+status: done
 created: 2026-06-13T13:45:48Z
 depends_on: []
 ---
@@ -105,10 +105,10 @@ _Alternativas descartadas:_
 - [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1) — 2026-06-13T13:35:00Z
 - [x] Change bootstrap (este documento) como formato vivo — 2026-06-13T13:40:00Z
 - [x] Definir política de idioma (estructura inglés, contenido según `language`) — 2026-06-13T13:45:48Z
-- [ ] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2)
-- [ ] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON
-- [ ] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4)
-- [ ] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6)
+- [x] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2) — 2026-06-13T14:30:00Z
+- [x] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON — 2026-06-13T14:35:00Z
+- [x] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4) — 2026-06-13T14:38:00Z
+- [x] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6) — 2026-06-13T14:40:44Z
 
 ## Log
 
@@ -135,3 +135,9 @@ _Alternativas descartadas:_
   resolución ISO 8601 UTC completo (solo-día no preserva el orden de tareas del
   mismo día). Tareas ya completadas re-estampadas con timestamps reconstruidos
   y ordenados; de aquí en más se registra el momento real.
+- **2026-06-13T14:40:44Z** — Base implementada con TDD (22 tests verde): parser
+  YAML, parser de change, carga de repo, CLI `sl init`/`new`/`view`, server
+  `node:http` y visor (kanban, filtros, pipeline de etapas, progreso, grafo
+  `depends_on`). CR1–CR7 verificados (incl. visualmente en el visor). `marked`
+  vendorizado (MIT). Change cerrado: `in-progress → done`. Próximo: graduar
+  verdad a `specs/` e implementar 0002 (`sl check`).
