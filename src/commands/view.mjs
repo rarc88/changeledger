@@ -1,11 +1,30 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
 import { loadRepo } from '../repo.mjs';
+
+const require = createRequire(import.meta.url);
+
+// Browser builds of the markdown/diagram libs, resolved from node_modules
+// (installed as dependencies) and served under /vendor/*.
+function vendorFile(route) {
+  try {
+    if (route === '/vendor/marked.min.js') {
+      return path.join(path.dirname(require.resolve('marked/package.json')), 'lib/marked.umd.js');
+    }
+    if (route === '/vendor/mermaid.min.js') {
+      return require.resolve('mermaid/dist/mermaid.min.js');
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -95,6 +114,13 @@ export async function view(args = [], cwd = process.cwd()) {
           return;
         }
         send(res, 200, MIME['.json'], JSON.stringify(serialize(loadRepo(proj.path))));
+        return;
+      }
+
+      const vendor = vendorFile(route);
+      if (vendor) {
+        if (fs.existsSync(vendor)) send(res, 200, MIME['.js'], fs.readFileSync(vendor));
+        else send(res, 404, 'text/plain', 'vendor lib not installed');
         return;
       }
 

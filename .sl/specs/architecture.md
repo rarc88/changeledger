@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-13T21:13:36Z
+updated: 2026-06-13T22:33:11Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -66,4 +66,6 @@ inglés canónico.
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
 request (live) y expone JSON; la UI rinde board (kanban), table, graph
 (`depends_on`) y specs, con búsqueda full-text, filtros y render de markdown +
-mermaid. Cero dependencias npm; `marked` y `mermaid` vendorizados.
+mermaid. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
+`node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
+el visor lee el registro y muestra todos los proyectos (selector + autoenfoque).
