@@ -30,6 +30,7 @@ sl log <id> <message>                    # append a timestamped Log entry
 sl task <id> done|block <n> [reason]     # mark a Plan task
 sl list [--status S] [--type T] [--json] # list changes
 sl show <id> [--json]                    # print a change
+sl graduate <change-id> <spec-slug>      # scaffold a spec seeded from a change
 ```
 
 `sl check` validates every change against the contract (frontmatter, enums,

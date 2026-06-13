@@ -181,6 +181,7 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl log <id> "<message>"` — append a timestamped Log entry.
 - `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
 - `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
+- `sl graduate <change-id> <spec-slug>` — scaffold a spec seeded from the change.
 - `sl check [id]` — validate before committing.
 
 ## 10. Specs (persistent truth)
@@ -201,5 +202,7 @@ tags: []
 ```
 
 When a change reaches `done`, update or create the spec(s) it affects. A change
-is the journey; a spec is the destination. Prefer diagrams (§9 / mermaid) where
-they explain the system better than prose.
+is the journey; a spec is the destination. `sl graduate <change-id> <spec-slug>`
+scaffolds a spec seeded from the change's Specification/Proposal and links it back
+in the change's Log — then refine the wording by hand. Prefer diagrams (§9 /
+mermaid) where they explain the system better than prose.

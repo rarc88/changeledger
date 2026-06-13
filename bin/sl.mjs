@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { list, log, show, status, task } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
+import { graduate } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { view } from '../src/commands/view.mjs';
@@ -16,7 +17,8 @@ const USAGE = `Spec Ledger (sl)
   sl log <id> <message>            append a timestamped Log entry
   sl task <id> done|block <n> [reason]   mark a Plan task
   sl list [--status S] [--type T] [--json]   list changes
-  sl show <id> [--json]            print a change`;
+  sl show <id> [--json]            print a change
+  sl graduate <change-id> <spec-slug>   graduate a change to a spec`;
 
 const flagVal = (args, flag) => {
   const i = args.indexOf(flag);
@@ -85,6 +87,13 @@ try {
       const c = show(id);
       if (args.includes('--json')) console.log(JSON.stringify(c, null, 2));
       else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+      break;
+    }
+    case 'graduate': {
+      const [id, slug] = args;
+      if (!id || !slug) throw new Error('Usage: sl graduate <change-id> <spec-slug>');
+      const file = graduate(id, slug);
+      console.log(`Graduated #${id} → ${file}`);
       break;
     }
     case undefined:
