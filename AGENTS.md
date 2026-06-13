@@ -99,7 +99,7 @@ Markdown checklist. State convention by marker:
 
 ```markdown
 - [ ] Pending task (CR1)
-- [x] Completed task (CR1) — 2026-06-13
+- [x] Completed task (CR1) — 2026-06-13T14:20:00Z
 - [!] Blocked task (CR1) — reason for the block
 ```
 
@@ -109,10 +109,10 @@ The viewer derives progress and the "blocked" state from these markers.
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
 criterion → task, so coverage is auditable.
 
-**Resolution date.** A completed task (`[x]`) carries a trailing
-`— YYYY-MM-DD` with the day it was resolved (date only; git holds the exact
-moment). Pending tasks have none; blocked tasks use the suffix for the reason.
-Order on the line: `description (CRn) — date|reason`.
+**Resolution timestamp.** A completed task (`[x]`) carries a trailing
+`— <ISO 8601 UTC>` with the exact moment it was resolved (full timestamp, so
+same-day tasks keep their order). Pending tasks have none; blocked tasks use the
+suffix for the reason. Order on the line: `description (CRn) — timestamp|reason`.
 
 ## 5. Lifecycle (`status`)
 
