@@ -2,13 +2,15 @@
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { view } from '../src/commands/view.mjs';
+import { check } from '../src/commands/check.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const USAGE = `Spec Ledger (sl)
 
   sl init                 set up .sl/ in the current repo
   sl new <type> <title>   scaffold a new change
-  sl view [port]          launch the local viewer (default port 4040)`;
+  sl view [port]          launch the local viewer (default port 4040)
+  sl check [--json]       validate changes and repo health`;
 
 const [cmd, ...args] = process.argv.slice(2);
 
@@ -29,6 +31,9 @@ try {
     }
     case 'view':
       await view(args);
+      break;
+    case 'check':
+      process.exit(check(args));
       break;
     case undefined:
     case '-h':

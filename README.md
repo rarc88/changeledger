@@ -18,9 +18,19 @@ ordered by the lifecycle.
 - Any agent reads `AGENTS.md` and follows the convention. No agent-specific tooling.
 
 ```
-sl init        # set up .sl/ in the repo
-sl view        # launch the local viewer in the browser
-sl new <type>  # scaffold a change
+sl init         # set up .sl/ in the repo
+sl view         # launch the local viewer in the browser
+sl new <type>   # scaffold a change
+sl check        # validate changes and repo health (exit ≠ 0 on errors)
+```
+
+`sl check` validates every change against the contract (frontmatter, enums,
+stages, dependencies, unique ids) and reports health warnings. It exits non-zero
+on errors, so it drops into a pre-commit hook or CI step:
+
+```sh
+# .git/hooks/pre-commit  (or a CI job)
+sl check || exit 1
 ```
 
 ## Status
