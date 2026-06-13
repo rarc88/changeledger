@@ -76,6 +76,23 @@ order:
 
 The real matrix lives in `config.yml`; it can be tuned per repo.
 
+### Specification scenarios
+
+Acceptance criteria use one **fixed, structured Given/When/Then format** — never
+inline. Each criterion is an `###` block with id `CRn` and a short name, followed
+by per-line steps:
+
+```markdown
+### CR1 — Short name
+- **Given** precondition
+- **When** action
+- **Then** expected outcome
+- **And** extra step (optional, repeatable after any Given/When/Then)
+```
+
+One block per scenario (`CR1`, `CR2`, …). The step keywords (`Given`, `When`,
+`Then`, `And`) are fixed English; the rest is content (per `language`).
+
 ## 4. Tasks (inside `## Plan`)
 
 Markdown checklist. State convention by marker:
@@ -87,6 +104,10 @@ Markdown checklist. State convention by marker:
 ```
 
 The viewer derives progress and the "blocked" state from these markers.
+
+**Traceability.** Each task references the criteria it satisfies, in trailing
+parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
+criterion → task, so coverage is auditable.
 
 ## 5. Lifecycle (`status`)
 
