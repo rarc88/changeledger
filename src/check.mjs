@@ -5,17 +5,26 @@ const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 
-export function checkRepo({ config, changes }) {
+export function checkRepo({ config, changes }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
   const warn = (c, message) => warnings.push({ file: c?.name ?? '(repo)', message });
 
+  checkConfig(config, err);
+
   const statuses = config.statuses ?? [];
   const types = config.types ?? {};
   const canonical = config.stages ?? [];
 
-  for (const c of changes) {
+  // Scope: a single change (fast, post-write check) or the whole repo.
+  let targets = changes;
+  if (opts.id) {
+    targets = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
+    if (!targets.length) err(null, `no change with id "${opts.id}"`);
+  }
+
+  for (const c of targets) {
     const fm = c.frontmatter ?? {};
 
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
@@ -49,7 +58,9 @@ export function checkRepo({ config, changes }) {
     }
   }
 
-  // Aggregate checks across the repo.
+  // Aggregate checks only make sense over the whole repo.
+  if (opts.id) return { errors, warnings };
+
   const seen = new Map();
   for (const c of changes) {
     const id = c.frontmatter?.id;
@@ -73,6 +84,21 @@ export function checkRepo({ config, changes }) {
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
   return { errors, warnings };
+}
+
+function checkConfig(config, err) {
+  const c = config ?? {};
+  for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
+    if (!(k in c)) err(null, `config missing "${k}"`);
+  }
+  if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
+  if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
+  const canonical = Array.isArray(c.stages) ? c.stages : [];
+  for (const [type, def] of Object.entries(c.types ?? {})) {
+    for (const s of def?.stages ?? []) {
+      if (!canonical.includes(s)) err(null, `config type "${type}" references unknown stage "${s}"`);
+    }
+  }
 }
 
 function findCycle(graph) {

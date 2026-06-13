@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { checkRepo } from '../src/check.mjs';
 
 const config = {
+  changes_dir: '.sl/changes',
   statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
@@ -102,4 +103,29 @@ test('CR7: done with unfinished tasks is a warning, not an error', () => {
 test('id not matching filename is an error', () => {
   const { errors } = run([change({ name: 'wrong-name.md' })]);
   assert.ok(msgs(errors).some((m) => /filename does not match id/.test(m)));
+});
+
+test('config missing a required key is an error', () => {
+  const bad = { ...config, statuses: undefined };
+  delete bad.statuses;
+  const { errors } = checkRepo({ config: bad, changes: [change()] });
+  assert.ok(msgs(errors).some((m) => /config missing "statuses"/.test(m)));
+});
+
+test('config type referencing an unknown stage is an error', () => {
+  const bad = { ...config, types: { feature: { stages: ['request', 'banana'] } } };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  assert.ok(msgs(errors).some((m) => /references unknown stage "banana"/.test(m)));
+});
+
+test('scoped check validates only the requested change', () => {
+  const good = change();
+  const bad = change({ frontmatter: { id: '20260613-130000', type: 'nope' }, name: '20260613-130000-y.md' });
+  const { errors } = checkRepo({ config, changes: [good, bad] }, { id: good.frontmatter.id });
+  assert.deepEqual(errors, []);
+});
+
+test('scoped check on a missing id is an error', () => {
+  const { errors } = checkRepo({ config, changes: [change()] }, { id: 'nope' });
+  assert.ok(msgs(errors).some((m) => /no change with id "nope"/.test(m)));
 });
