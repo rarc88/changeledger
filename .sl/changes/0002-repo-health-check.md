@@ -2,7 +2,7 @@
 id: "0002"
 title: Validación y health del repositorio (sl check)
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T13:55:00Z
 depends_on: ["0001"]
 ---
@@ -113,3 +113,5 @@ _Alternativas descartadas:_
   queda en el plan esperando aprobación. Depende de 0001 (parser/CLI base).
 - **2026-06-13T14:10:00Z** — Specification migrada al formato G/W/T estructurado
   fijo (un `### CRn` por escenario).
+- **2026-06-13T14:20:00Z** — Aprobado por el humano (draft → approved). Listo
+  para implementar tras la base de 0001.
