@@ -1,0 +1,29 @@
+# Spec Ledger — repo configuration
+# Repo specifics: documentation language, change types and active stages per type.
+
+# Language for generated documentation CONTENT. Structure (headings, keys, enums)
+# is always English. See AGENTS.md §8.
+language: en
+
+changes_dir: .sl/changes
+specs_dir: .sl/specs
+id_digits: 4            # zero-padded id width: 0001
+
+# Valid lifecycle statuses (order = progress)
+statuses: [draft, approved, in-progress, blocked, done]
+
+# Canonical stages (## headings in the change body)
+stages: [request, investigation, proposal, specification, plan, log]
+
+# Active stages per type. The viewer shows only these.
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+  bug:
+    stages: [request, investigation, specification, plan, log]
+  audit:
+    stages: [request, investigation, log]
+  refactor:
+    stages: [request, proposal, plan, log]
+  chore:
+    stages: [request, plan]
