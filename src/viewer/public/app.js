@@ -114,7 +114,7 @@ function card(c) {
   return `
     <div class="card" data-id="${c.id}" style="--type-color: var(--${c.type})">
       <div class="card-top">
-        <span class="card-id" title="${c.id}">#${shortId(c.id)}</span>
+        <span class="card-id">#${c.id}</span>
         <span class="type-tag">${c.type}</span>
       </div>
       <div class="card-title">${esc(c.title)}</div>
@@ -245,7 +245,7 @@ function renderGraph() {
       const p = pos.get(String(c.id));
       return `<g class="node" data-id="${c.id}" transform="translate(${p.x},${p.y})">
         <rect width="${W}" height="${H}" stroke="var(--${c.type})"></rect>
-        <text class="nid" x="10" y="18">#${shortId(c.id)} · ${c.status}</text>
+        <text class="nid" x="10" y="18">#${c.id} · ${c.status}</text>
         <text x="10" y="36">${esc(clip(c.title, 24))}</text>
       </g>`;
     })
@@ -314,12 +314,12 @@ function tableRow(c) {
     ? `${c.progress.done}/${c.progress.total}${c.progress.blocked ? ` · ${c.progress.blocked}!` : ''} (${pct}%)`
     : '—';
   return `<tr data-id="${c.id}">
-    <td class="mono">#${shortId(c.id)}</td>
+    <td class="mono">#${c.id}</td>
     <td>${esc(c.title)}</td>
     <td><span class="type-tag" style="--type-color: var(--${c.type})">${c.type}</span></td>
     <td>${c.status}</td>
     <td class="mono">${prog}</td>
-    <td class="mono">${(c.depends_on || []).map(shortId).join(', ') || '—'}</td>
+    <td class="mono">${(c.depends_on || []).join(', ') || '—'}</td>
   </tr>`;
 }
 
@@ -374,11 +374,6 @@ function setView(v) {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-// Abbreviate a YYYYMMDD-HHMMSS id to MMDD-HHMM for compact display.
-const shortId = (id) => {
-  const m = String(id).match(/^\d{4}(\d{4})-(\d{4})\d{2}$/);
-  return m ? `${m[1]}-${m[2]}` : id;
-};
 
 $('#search').oninput = (e) => { filters.text = e.target.value; render(); };
 $('#type-filter').onchange = (e) => { filters.type = e.target.value; render(); };
