@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spec Ledger</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/vendor/marked.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Spec&nbsp;Ledger <span id="lang" class="badge"></span></div>
+      <input id="search" class="search" type="search" placeholder="Search id, title, type…" />
+      <select id="type-filter" class="filter"></select>
+      <div class="spacer"></div>
+      <button id="view-board" class="tab active">Board</button>
+      <button id="view-graph" class="tab">Graph</button>
+    </header>
+
+    <main id="board" class="board"></main>
+    <section id="graph" class="graph hidden"></section>
+
+    <div id="overlay" class="overlay hidden">
+      <div id="detail" class="detail"></div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
