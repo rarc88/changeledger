@@ -1,0 +1,22 @@
+{
+  "name": "spec-ledger",
+  "version": "0.1.0",
+  "description": "Plan before coding. Documents are the source of truth; code is their reflection.",
+  "type": "module",
+  "bin": {
+    "sl": "bin/sl.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "AGENTS.md"
+  ],
+  "license": "MIT"
+}
