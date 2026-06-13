@@ -2,7 +2,7 @@
 id: "20260613-221111"
 title: Visor global multiproyecto
 type: feature
-status: approved
+status: done
 created: 2026-06-13T22:11:11Z
 depends_on: ["20260613-221110"]
 ---
@@ -59,14 +59,17 @@ dentro de uno. `sl view .` muestra solo el actual.
 
 ## Plan
 
-- [ ] Server: `/api/projects` + `/api/repo?project=id` desde el registro
-- [ ] UI: selector de proyecto + carga por proyecto (CR1, CR3)
-- [ ] Autoenfoque del cwd; `sl view .` solo actual (CR2, CR4)
-- [ ] Manejo de paths muertos (CR5)
-- [ ] Tests del server multiproyecto
-- [ ] Documentar en README
+- [x] Server: `/api/projects` + `/api/repo?project=id` desde el registro — 2026-06-13T22:19:38Z
+- [x] UI: selector de proyecto + carga por proyecto (CR1, CR3) — 2026-06-13T22:19:39Z
+- [x] Autoenfoque del cwd; `sl view .` solo actual (CR2, CR4) — 2026-06-13T22:19:39Z
+- [x] Manejo de paths muertos (CR5) — 2026-06-13T22:19:39Z
+- [x] Tests del server multiproyecto — 2026-06-13T22:19:39Z
+- [x] Documentar en README — 2026-06-13T22:19:39Z
 
 ## Log
 
 - **2026-06-13T22:11:11Z** — Creado. Aprobado: `sl view` global con selector,
   autoenfoque del actual, `sl view .` para el repo actual.
+- **2026-06-13T22:16:08Z** — status: approved → in-progress
+- **2026-06-13T22:19:39Z** — status: in-progress → done
+- **2026-06-13T22:19:39Z** — Implementado: server con /api/projects y /api/repo?project, selector en UI con autoenfoque del actual, sl view . para local, paths muertos deshabilitados. 4 tests de resolveProjects. Verificado en navegador.
