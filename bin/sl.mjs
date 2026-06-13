@@ -8,7 +8,7 @@ import { nowUtc } from '../src/paths.mjs';
 const USAGE = `Spec Ledger (sl)
 
   sl init                 set up .sl/ in the current repo
-  sl new <type> <title>   scaffold a new change
+  sl new <type> <slug> <title>   scaffold a new change (slug is the English filename)
   sl view [port]          launch the local viewer (default port 4040)
   sl check [--json]       validate changes and repo health`;
 
@@ -22,10 +22,10 @@ try {
       break;
     }
     case 'new': {
-      const [type, ...rest] = args;
+      const [type, slug, ...rest] = args;
       const title = rest.join(' ').trim();
-      if (!type || !title) throw new Error('Usage: sl new <type> <title>');
-      const file = newChange({ type, title, now: nowUtc() });
+      if (!type || !slug || !title) throw new Error('Usage: sl new <type> <slug> <title>');
+      const file = newChange({ type, slug, title, now: nowUtc() });
       console.log(`Created ${file}`);
       break;
     }

@@ -3,7 +3,9 @@ import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
 
 // Scaffolds a new change file with the active stages for its type.
-export function newChange({ type, title, now }, cwd = process.cwd()) {
+// `slug` is the English filename slug (structure); `title` is the content title
+// (repo language). See AGENTS.md §7-§8.
+export function newChange({ type, slug, title, now }, cwd = process.cwd()) {
   const specDir = findSpecDir(cwd);
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
 
@@ -18,8 +20,7 @@ export function newChange({ type, title, now }, cwd = process.cwd()) {
   fs.mkdirSync(changesDir, { recursive: true });
 
   const id = idFromTimestamp(now);
-  const slug = slugify(title);
-  const file = path.join(changesDir, `${id}-${slug}.md`);
+  const file = path.join(changesDir, `${id}-${slugify(slug)}.md`);
   fs.writeFileSync(file, render({ id, title, type, stages: typeDef.stages, now }));
   return file;
 }

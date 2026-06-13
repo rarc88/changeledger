@@ -154,6 +154,10 @@ Timestamp ids are unique without central coordination, so concurrent
 devs/agents on parallel branches never collide. They sort chronologically. The
 viewer may display an abbreviated form (`#0613-1504`); the full id is canonical.
 
+The `{slug}` is **always English** (it is part of the filename — structure, not
+content; see §8), even when the change content is in another language. `sl new`
+takes it explicitly: `sl new <type> <slug> "<title>"`.
+
 ## 8. Language policy
 
 | Always English (fixed) | Variable (per `config.yml` `language`) |

@@ -20,7 +20,7 @@ ordered by the lifecycle.
 ```
 sl init         # set up .sl/ in the repo
 sl view         # launch the local viewer in the browser
-sl new <type>   # scaffold a change
+sl new <type> <slug> <title>   # scaffold a change (slug is the English filename)
 sl check        # validate changes and repo health (exit ≠ 0 on errors)
 ```
 

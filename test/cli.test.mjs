@@ -29,27 +29,29 @@ test('idFromTimestamp derives YYYYMMDD-HHMMSS from an ISO UTC instant', () => {
   assert.equal(idFromTimestamp('2026-06-13T15:04:02Z'), '20260613-150402');
 });
 
-test('new scaffolds a change with active stages and a timestamp id', () => {
+test('new uses the English slug for the file and keeps the title as content', () => {
   const root = tmp();
   init(root);
-  const file = newChange({ type: 'bug', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' }, root);
-  assert.equal(path.basename(file), '20260613-150000-token-expira-mal.md');
+  const file = newChange(
+    { type: 'bug', slug: 'token-expiry', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' },
+    root,
+  );
+  assert.equal(path.basename(file), '20260613-150000-token-expiry.md');
 
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.id, '20260613-150000');
+  assert.equal(c.frontmatter.title, 'Token expira mal');
   assert.equal(c.frontmatter.type, 'bug');
   assert.equal(c.frontmatter.status, 'draft');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
   assert.deepEqual(c.stages.map((s) => s.key), ['request', 'investigation', 'specification', 'plan', 'log']);
 });
 
-test('new derives distinct ids from distinct timestamps', () => {
+test('new normalizes the slug to kebab ascii', () => {
   const root = tmp();
   init(root);
-  const a = newChange({ type: 'chore', title: 'one', now: '2026-06-13T15:00:00Z' }, root);
-  const b = newChange({ type: 'chore', title: 'two', now: '2026-06-13T15:01:00Z' }, root);
-  assert.equal(path.basename(a), '20260613-150000-one.md');
-  assert.equal(path.basename(b), '20260613-150100-two.md');
+  const file = newChange({ type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' }, root);
+  assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
 });
 
 test('new rejects an unknown type', () => {
