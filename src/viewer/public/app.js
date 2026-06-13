@@ -9,6 +9,25 @@ let sortDir = 1;
 
 const $ = (sel) => document.querySelector(sel);
 
+if (typeof mermaid !== 'undefined') {
+  mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+}
+
+// Replace ```mermaid code blocks (rendered by marked as <pre><code>) with live
+// diagrams. Uses textContent so escaped chars (-->, etc.) are decoded first.
+function renderMermaid(root) {
+  if (typeof mermaid === 'undefined') return;
+  const blocks = root.querySelectorAll('pre > code.language-mermaid');
+  blocks.forEach((code) => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    code.parentElement.replaceWith(div);
+  });
+  const nodes = root.querySelectorAll('.mermaid');
+  if (nodes.length) mermaid.run({ nodes });
+}
+
 async function load() {
   try {
     const res = await fetch('/api/repo');
@@ -140,6 +159,7 @@ function openDetail(id) {
   $('#detail').querySelectorAll('[data-dep]').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.dep);
   });
+  renderMermaid($('#detail'));
 }
 
 function stageBlock(c, s) {

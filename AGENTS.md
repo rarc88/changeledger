@@ -139,6 +139,9 @@ draft → approved → in-progress → done
    The document reflects reality at all times.
 6. **On completion**, propose which truth graduates to `specs/` (once that layer exists).
 7. **No residue:** no TODO/FIXME or dead code without explicit agreement.
+8. **Prefer visuals.** When a diagram explains something better than prose
+   (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
+   diagram text is the source; the viewer renders it. Humans grasp it faster.
 
 ## 7. IDs
 
