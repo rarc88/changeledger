@@ -130,13 +130,15 @@ draft → approved → in-progress → done
 
 ## 6. Agent rules
 
-1. **Do not implement in `draft`.** Create the change, wait for human approval.
-2. **Single source of truth.** Do not duplicate info across stages; link instead.
-3. **Atomic commits** that reference the id: `feat(scope): description [#0001]`.
-4. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
+1. **One concern per change.** If a request mixes unrelated concerns, split it
+   into separate changes (e.g. a bug fix and a new feature are two changes).
+2. **Do not implement in `draft`.** Create the change, wait for human approval.
+3. **Single source of truth.** Do not duplicate info across stages; link instead.
+4. **Atomic commits** that reference the id: `feat(scope): description [#0001]`.
+5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
-5. **On completion**, propose which truth graduates to `specs/` (once that layer exists).
-6. **No residue:** no TODO/FIXME or dead code without explicit agreement.
+6. **On completion**, propose which truth graduates to `specs/` (once that layer exists).
+7. **No residue:** no TODO/FIXME or dead code without explicit agreement.
 
 ## 7. IDs
 
