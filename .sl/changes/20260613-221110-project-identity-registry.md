@@ -2,7 +2,7 @@
 id: "20260613-221110"
 title: Identidad de proyecto y registro global
 type: feature
-status: approved
+status: done
 created: 2026-06-13T22:11:10Z
 depends_on: ["20260613-134548"]
 ---
@@ -58,14 +58,17 @@ vive cada uno. Repos movidos o clonados en otro equipo deben poder revincularse.
 
 ## Plan
 
-- [ ] `src/registry.mjs` (read/write `~/.spec-ledger/registry.json`)
-- [ ] `config.yml` template: `project_id`/`project_name`; generación en `init`
-- [ ] `sl init`: generar identidad + registrar; no clobbear (CR1, CR4)
-- [ ] `sl register` command (CR2, CR3)
-- [ ] Tests (init registra, register revincula, no duplica)
-- [ ] Documentar en README y AGENTS.md
+- [x] `src/registry.mjs` (read/write `~/.spec-ledger/registry.json`) — 2026-06-13T22:15:38Z
+- [x] `config.yml` template: `project_id`/`project_name`; generación en `init` — 2026-06-13T22:15:38Z
+- [x] `sl init`: generar identidad + registrar; no clobbear (CR1, CR4) — 2026-06-13T22:15:38Z
+- [x] `sl register` command (CR2, CR3) — 2026-06-13T22:15:38Z
+- [x] Tests (init registra, register revincula, no duplica) — 2026-06-13T22:15:38Z
+- [x] Documentar en README y AGENTS.md — 2026-06-13T22:15:38Z
 
 ## Log
 
 - **2026-06-13T22:11:10Z** — Creado. Aprobado: id aleatorio + nombre; registro
   global keyado por id; `sl register` para revincular.
+- **2026-06-13T22:12:45Z** — status: approved → in-progress
+- **2026-06-13T22:15:38Z** — status: in-progress → done
+- **2026-06-13T22:15:38Z** — Implementado: registry.mjs, identidad en config (init inyecta id+name), sl register, tests (registro aislado por SPEC_LEDGER_HOME). Este repo registrado como 304c473ce5.
