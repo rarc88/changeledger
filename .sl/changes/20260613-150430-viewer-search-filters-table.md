@@ -2,7 +2,7 @@
 id: "20260613-150430"
 title: Visor — búsqueda en contenido, filtros, vista tabla y responsive
 type: feature
-status: approved
+status: done
 created: 2026-06-13T15:04:30Z
 depends_on: ["20260613-134548"]
 ---
@@ -56,13 +56,19 @@ Mejorar el consumo humano del visor:
 
 ## Plan
 
-- [ ] Fix búsqueda: indexar cuerpo de etapas + tareas (CR1)
-- [ ] Filtro de estado multi, combinable (CR3)
-- [ ] Vista tabla ordenable (CR2)
-- [ ] CSS responsive / breakpoints móvil (CR4)
+- [x] Fix búsqueda: indexar cuerpo de etapas + tareas (CR1) — 2026-06-13T15:26:00Z
+- [x] Filtro de estado multi, combinable (CR3) — 2026-06-13T15:28:00Z
+- [x] Vista tabla ordenable (CR2) — 2026-06-13T15:30:00Z
+- [x] CSS responsive / breakpoints móvil (CR4) — 2026-06-13T15:32:00Z
 
 ## Log
 
 - **2026-06-13T15:04:30Z** — Creado en draft a partir de feedback humano tras
   probar el visor. Incluye el bug de búsqueda en contenido.
 - **2026-06-13T15:08:09Z** — Aprobado (draft → approved).
+- **2026-06-13T15:32:37Z** — Implementado y verificado en navegador (móvil
+  incluido): búsqueda full-text (id/title/type/cuerpo de etapas/tareas) — "awc"
+  ahora encuentra los changes que lo mencionan; filtro de estado multi (chips,
+  combinable con búsqueda y tipo); vista tabla ordenable (id, title, type,
+  status, progreso, deps); layout responsive (columnas apiladas en móvil).
+  `in-progress → done`.
