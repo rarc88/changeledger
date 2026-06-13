@@ -2,7 +2,7 @@
 id: "20260613-205853"
 title: Check con scope por id y validación de config
 type: feature
-status: draft
+status: done
 created: 2026-06-13T20:58:53Z
 depends_on: ["20260613-135500"]
 ---
@@ -52,13 +52,16 @@ Dos mejoras a `sl check`:
 
 ## Plan
 
-- [ ] `checkConfig(config)` con reglas CR2/CR3
-- [ ] `sl check [id]`: filtrar al change pedido; correr config siempre
-- [ ] Tests de config inválido y scope
-- [ ] Actualizar README/AGENTS si cambia el uso
+- [x] `checkConfig(config)` con reglas CR2/CR3 — 2026-06-13T21:02:00Z
+- [x] `sl check [id]`: filtrar al change pedido; correr config siempre — 2026-06-13T21:03:00Z
+- [x] Tests de config inválido y scope — 2026-06-13T21:04:00Z
+- [x] Actualizar README/AGENTS si cambia el uso — 2026-06-13T21:04:30Z
 
 ## Log
 
 - **2026-06-13T20:58:53Z** — Creado en draft a partir de la duda humana sobre si
   `check` es por-change o global. Resolución: un comando con scope opcional +
   validación de config.
+- **2026-06-13T21:04:30Z** — Aprobado e implementado. `checkConfig` valida el
+  `config.yml` (claves, tipos de stage); `sl check [id]` valida un change o todo
+  el repo. 40 tests verde; README actualizado. `draft → done`.
