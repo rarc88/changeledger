@@ -30,7 +30,8 @@ export function checkRepo({ config, changes }, opts = {}) {
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
     if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
-    if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`)) err(c, `filename does not match id "${fm.id}"`);
+    if (fm.id && c.name && !c.name.startsWith(`${fm.id}-`))
+      err(c, `filename does not match id "${fm.id}"`);
     if (fm.type && !types[fm.type]) err(c, `unknown type "${fm.type}"`);
     if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
@@ -44,8 +45,10 @@ export function checkRepo({ config, changes }, opts = {}) {
 
     const active = types[fm.type]?.stages;
     if (active) {
-      for (const k of active) if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
-      for (const k of known) if (!active.includes(k)) err(c, `stage "## ${k}" is not active for type ${fm.type}`);
+      for (const k of active)
+        if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
+      for (const k of known)
+        if (!active.includes(k)) err(c, `stage "## ${k}" is not active for type ${fm.type}`);
     }
 
     const tasks = c.tasks ?? [];
@@ -77,7 +80,11 @@ export function checkRepo({ config, changes }, opts = {}) {
     for (const d of deps) {
       if (!ids.has(d)) err(c, `depends_on references missing change "${d}"`);
     }
-    if (id) graph.set(id, deps.filter((d) => ids.has(d)));
+    if (id)
+      graph.set(
+        id,
+        deps.filter((d) => ids.has(d)),
+      );
   }
 
   const cycle = findCycle(graph);
@@ -96,13 +103,16 @@ function checkConfig(config, err) {
   const canonical = Array.isArray(c.stages) ? c.stages : [];
   for (const [type, def] of Object.entries(c.types ?? {})) {
     for (const s of def?.stages ?? []) {
-      if (!canonical.includes(s)) err(null, `config type "${type}" references unknown stage "${s}"`);
+      if (!canonical.includes(s))
+        err(null, `config type "${type}" references unknown stage "${s}"`);
     }
   }
 }
 
 function findCycle(graph) {
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    GRAY = 1,
+    BLACK = 2;
   const color = new Map([...graph.keys()].map((k) => [k, WHITE]));
   const stack = [];
 

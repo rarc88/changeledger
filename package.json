@@ -7,7 +7,11 @@
     "sl": "bin/sl.mjs"
   },
   "scripts": {
-    "test": "node --test"
+    "lint": "biome check",
+    "format": "biome check --write",
+    "test": "node --test",
+    "check": "node bin/sl.mjs check",
+    "verify": "pnpm lint && pnpm test && pnpm check"
   },
   "engines": {
     "node": ">=18"
@@ -18,5 +22,8 @@
     "templates",
     "AGENTS.md"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.0"
+  }
 }

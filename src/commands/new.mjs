@@ -77,5 +77,5 @@ function render({ id, title, type, stages, now }) {
     '',
   ].join('\n');
   const body = stages.map((s) => `## ${heading(s)}\n`).join('\n');
-  return fm + '\n' + body;
+  return `${fm}\n${body}`;
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import { list, log, show, status, task } from '../src/commands/agent.mjs';
+import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { view } from '../src/commands/view.mjs';
-import { check } from '../src/commands/check.mjs';
-import { status, log, task, list, show } from '../src/commands/agent.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const USAGE = `Spec Ledger (sl)
@@ -72,8 +72,11 @@ try {
     }
     case 'list': {
       const items = list({ status: flagVal(args, '--status'), type: flagVal(args, '--type') });
-      if (args.includes('--json')) console.log(JSON.stringify(items, null, 2));
-      else items.forEach((c) => console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`));
+      if (args.includes('--json')) {
+        console.log(JSON.stringify(items, null, 2));
+      } else {
+        for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
+      }
       break;
     }
     case 'show': {

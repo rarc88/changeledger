@@ -34,7 +34,7 @@ function splitStages(body) {
       current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), body: '' };
       stages.push(current);
     } else if (current) {
-      current.body += line + '\n';
+      current.body += `${line}\n`;
     }
   }
   for (const s of stages) s.body = s.body.trim();

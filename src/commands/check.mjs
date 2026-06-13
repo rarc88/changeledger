@@ -1,5 +1,5 @@
-import { loadRepo } from '../repo.mjs';
 import { checkRepo } from '../check.mjs';
+import { loadRepo } from '../repo.mjs';
 
 // Validates the repo (or a single change with `sl check <id>`). Prints findings
 // and returns an exit code (1 if errors).
@@ -11,7 +11,10 @@ export function check(args = [], cwd = process.cwd()) {
   try {
     repo = loadRepo(cwd);
   } catch (e) {
-    if (json) console.log(JSON.stringify({ errors: [{ file: '(repo)', message: e.message }], warnings: [] }, null, 2));
+    if (json)
+      console.log(
+        JSON.stringify({ errors: [{ file: '(repo)', message: e.message }], warnings: [] }, null, 2),
+      );
     else console.error(`  error  (repo): ${e.message}`);
     return 1;
   }

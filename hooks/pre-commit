@@ -1,0 +1,4 @@
+#!/bin/sh
+# Spec Ledger quality gate: lint + test + sl check. Blocks the commit on failure.
+# Enable in this repo with: git config core.hooksPath hooks
+exec pnpm verify

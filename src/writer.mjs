@@ -17,7 +17,10 @@ export function appendLog(text, iso, message) {
 
   let end = lines.length;
   for (let j = start + 1; j < lines.length; j++) {
-    if (/^##\s+/.test(lines[j])) { end = j; break; }
+    if (/^##\s+/.test(lines[j])) {
+      end = j;
+      break;
+    }
   }
   let at = end;
   while (at > start + 1 && lines[at - 1].trim() === '') at--;
@@ -38,7 +41,10 @@ export function setTask(text, n, state, { iso, reason } = {}) {
     if (/^##\s+/.test(lines[j])) break;
     if (/^- \[( |x|!)\]/.test(lines[j].trim())) {
       count++;
-      if (count === n) { target = j; break; }
+      if (count === n) {
+        target = j;
+        break;
+      }
     }
   }
   if (target === -1) throw new Error(`no task #${n} in ## Plan`);

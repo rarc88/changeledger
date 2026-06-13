@@ -1,5 +1,5 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 
 const SAMPLE = `---
@@ -37,7 +37,10 @@ test('parses frontmatter with types', () => {
 
 test('splits body into stages by ## heading', () => {
   const c = parseChange(SAMPLE);
-  assert.deepEqual(c.stages.map((s) => s.key), ['request', 'plan', 'log']);
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'plan', 'log'],
+  );
   assert.match(c.stages[0].body, /Build the thing/);
 });
 

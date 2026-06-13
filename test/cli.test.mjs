@@ -1,11 +1,11 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { init } from '../src/commands/init.mjs';
-import { newChange, idFromTimestamp } from '../src/commands/new.mjs';
+import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
+import { init } from '../src/commands/init.mjs';
+import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 
 function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cli-'));
@@ -44,13 +44,19 @@ test('new uses the English slug for the file and keeps the title as content', ()
   assert.equal(c.frontmatter.type, 'bug');
   assert.equal(c.frontmatter.status, 'draft');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
-  assert.deepEqual(c.stages.map((s) => s.key), ['request', 'investigation', 'specification', 'plan', 'log']);
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'investigation', 'specification', 'plan', 'log'],
+  );
 });
 
 test('new normalizes the slug to kebab ascii', () => {
   const root = tmp();
   init(root);
-  const file = newChange({ type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' }, root);
+  const file = newChange(
+    { type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' },
+    root,
+  );
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
 });
 

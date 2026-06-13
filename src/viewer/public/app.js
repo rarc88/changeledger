@@ -67,7 +67,9 @@ function hydrateFilters() {
 // Full-text haystack: id, title, type, stage headings/bodies and task text.
 function haystack(c) {
   const stages = c.stages.map((s) => `${s.heading} ${s.body}`).join(' ');
-  const tasks = c.tasks.map((t) => `${t.text} ${(t.criteria || []).join(' ')} ${t.reason || ''}`).join(' ');
+  const tasks = c.tasks
+    .map((t) => `${t.text} ${(t.criteria || []).join(' ')} ${t.reason || ''}`)
+    .join(' ');
   return `${c.id} ${c.title} ${c.type} ${c.status} ${stages} ${tasks}`.toLowerCase();
 }
 
@@ -153,13 +155,20 @@ function openDetail(id) {
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
   $('.close').onclick = closeDetail;
-  overlay.onclick = (e) => { if (e.target === overlay) closeDetail(); };
-  $('#detail').querySelectorAll('[data-go]').forEach((el) => {
-    el.onclick = () => $('#' + el.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  $('#detail').querySelectorAll('[data-dep]').forEach((el) => {
-    el.onclick = () => openDetail(el.dataset.dep);
-  });
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeDetail();
+  };
+  $('#detail')
+    .querySelectorAll('[data-go]')
+    .forEach((el) => {
+      el.onclick = () =>
+        $(`#${el.dataset.go}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  $('#detail')
+    .querySelectorAll('[data-dep]')
+    .forEach((el) => {
+      el.onclick = () => openDetail(el.dataset.dep);
+    });
   renderMermaid($('#detail'));
 }
 
@@ -213,16 +222,22 @@ function renderGraph() {
   };
 
   const layers = {};
-  changes.forEach((c) => {
+  for (const c of changes) {
     const d = depth(String(c.id));
-    (layers[d] ||= []).push(c);
-  });
+    layers[d] ||= [];
+    layers[d].push(c);
+  }
 
-  const COL = 230, ROW = 78, W = 180, H = 52;
+  const COL = 230,
+    ROW = 78,
+    W = 180,
+    H = 52;
   const pos = new Map();
-  Object.entries(layers).forEach(([d, items]) => {
-    items.forEach((c, i) => pos.set(String(c.id), { x: +d * COL + 30, y: i * ROW + 30 }));
-  });
+  for (const [d, items] of Object.entries(layers)) {
+    items.forEach((c, i) => {
+      pos.set(String(c.id), { x: +d * COL + 30, y: i * ROW + 30 });
+    });
+  }
 
   const width = (Math.max(...Object.keys(layers).map(Number)) + 1) * COL + 60;
   const height = Math.max(...Object.values(layers).map((l) => l.length)) * ROW + 60;
@@ -234,7 +249,10 @@ function renderGraph() {
         .map((d) => ({ from: pos.get(String(d)), to: pos.get(String(c.id)) })),
     )
     .map((e) => {
-      const x1 = e.from.x + W, y1 = e.from.y + H / 2, x2 = e.to.x, y2 = e.to.y + H / 2;
+      const x1 = e.from.x + W,
+        y1 = e.from.y + H / 2,
+        x2 = e.to.x,
+        y2 = e.to.y + H / 2;
       const mx = (x1 + x2) / 2;
       return `<path class="edge" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" />`;
     })
@@ -260,9 +278,11 @@ function renderGraph() {
       </defs>
       ${edges}${nodes}
     </svg>`;
-  $('#graph').querySelectorAll('.node').forEach((el) => {
-    el.onclick = () => openDetail(el.dataset.id);
-  });
+  $('#graph')
+    .querySelectorAll('.node')
+    .forEach((el) => {
+      el.onclick = () => openDetail(el.dataset.id);
+    });
 }
 
 /* Table view */
@@ -275,30 +295,43 @@ function renderTable() {
     { key: 'progress', label: 'Progress' },
     { key: 'deps', label: 'Deps' },
   ];
-  const rows = visibleChanges().slice().sort((a, b) => {
-    const va = sortVal(a, sortKey), vb = sortVal(b, sortKey);
-    return va < vb ? -sortDir : va > vb ? sortDir : 0;
-  });
+  const rows = visibleChanges()
+    .slice()
+    .sort((a, b) => {
+      const va = sortVal(a, sortKey),
+        vb = sortVal(b, sortKey);
+      return va < vb ? -sortDir : va > vb ? sortDir : 0;
+    });
 
   $('#table').innerHTML = `
     <table class="grid">
       <thead><tr>${cols
-        .map((c) => `<th data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`)
+        .map(
+          (c) =>
+            `<th data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
+        )
         .join('')}</tr></thead>
       <tbody>${rows.map(tableRow).join('')}</tbody>
     </table>`;
 
-  $('#table').querySelectorAll('th[data-sort]').forEach((el) => {
-    el.onclick = () => {
-      const k = el.dataset.sort;
-      if (sortKey === k) sortDir = -sortDir;
-      else { sortKey = k; sortDir = 1; }
-      renderTable();
-    };
-  });
-  $('#table').querySelectorAll('tr[data-id]').forEach((el) => {
-    el.onclick = () => openDetail(el.dataset.id);
-  });
+  $('#table')
+    .querySelectorAll('th[data-sort]')
+    .forEach((el) => {
+      el.onclick = () => {
+        const k = el.dataset.sort;
+        if (sortKey === k) sortDir = -sortDir;
+        else {
+          sortKey = k;
+          sortDir = 1;
+        }
+        renderTable();
+      };
+    });
+  $('#table')
+    .querySelectorAll('tr[data-id]')
+    .forEach((el) => {
+      el.onclick = () => openDetail(el.dataset.id);
+    });
 }
 
 function sortVal(c, key) {
@@ -341,9 +374,11 @@ function renderSpecs() {
         )
         .join('')
     : `<p class="empty">No specs yet. Truth graduates here as changes complete.</p>`;
-  $('#specs').querySelectorAll('.spec-card').forEach((el) => {
-    el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
-  });
+  $('#specs')
+    .querySelectorAll('.spec-card')
+    .forEach((el) => {
+      el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
+    });
 }
 
 function openSpec(s) {
@@ -359,29 +394,43 @@ function openSpec(s) {
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
   $('.close').onclick = closeDetail;
-  overlay.onclick = (e) => { if (e.target === overlay) closeDetail(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeDetail();
+  };
   renderMermaid($('#detail'));
 }
 
 function setView(v) {
   currentView = v;
   for (const name of ['board', 'table', 'graph', 'specs']) {
-    $('#view-' + name).classList.toggle('active', v === name);
-    $('#' + name).classList.toggle('hidden', v !== name);
+    $(`#view-${name}`).classList.toggle('active', v === name);
+    $(`#${name}`).classList.toggle('hidden', v !== name);
   }
   render();
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+  );
+const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-$('#search').oninput = (e) => { filters.text = e.target.value; render(); };
-$('#type-filter').onchange = (e) => { filters.type = e.target.value; render(); };
+$('#search').oninput = (e) => {
+  filters.text = e.target.value;
+  render();
+};
+$('#type-filter').onchange = (e) => {
+  filters.type = e.target.value;
+  render();
+};
 $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
 $('#view-specs').onclick = () => setView('specs');
-document.onkeydown = (e) => { if (e.key === 'Escape') closeDetail(); };
+document.onkeydown = (e) => {
+  if (e.key === 'Escape') closeDetail();
+};
 
 load();
 setInterval(load, 5000);

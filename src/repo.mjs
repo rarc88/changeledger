@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findSpecDir, loadConfig } from './config.mjs';
 import { parseChange } from './change.mjs';
+import { findSpecDir, loadConfig } from './config.mjs';
 import { parseSpec } from './spec.mjs';
 
 // Loads a Spec Ledger repo: locates .sl/, reads config and every change file.

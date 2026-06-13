@@ -53,6 +53,23 @@ see [`.sl/changes/`](.sl/changes/).
 
 The full contract for agents lives in [`AGENTS.md`](AGENTS.md).
 
+## Development
+
+Managed with **pnpm**. Lint/format via **Biome**; the source itself ships zero
+runtime dependencies.
+
+```sh
+pnpm install                  # dev deps (Biome)
+pnpm lint                     # Biome lint + format check
+pnpm format                   # Biome auto-fix
+pnpm test                     # node --test
+pnpm verify                   # lint + test + sl check (the quality gate)
+git config core.hooksPath hooks   # enable the pre-commit gate
+```
+
+The versioned `hooks/pre-commit` runs `pnpm verify`, so commits that fail lint,
+tests, or `sl check` are blocked — agents can't quietly accumulate debt.
+
 ## Language policy
 
 Structure is always English (frontmatter keys, enum values, stage headings, CLI,

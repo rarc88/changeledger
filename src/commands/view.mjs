@@ -1,9 +1,9 @@
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { loadRepo } from '../repo.mjs';
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
 import { publicDir } from '../paths.mjs';
+import { loadRepo } from '../repo.mjs';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -89,7 +89,11 @@ function openBrowser(url) {
   const cmd =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
-    spawn(cmd, [url], { stdio: 'ignore', detached: true, shell: process.platform === 'win32' }).unref();
+    spawn(cmd, [url], {
+      stdio: 'ignore',
+      detached: true,
+      shell: process.platform === 'win32',
+    }).unref();
   } catch {
     // best-effort; the URL is printed above
   }

@@ -1,19 +1,22 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { test } from 'node:test';
+import { parseChange } from '../src/change.mjs';
+import { list, log, show, status, task } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
-import { status, log, task, list, show } from '../src/commands/agent.mjs';
-import { parseChange } from '../src/change.mjs';
 
 function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
   init(root);
-  const file = newChange({ type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' }, root);
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
   // give it a task to operate on
-  let text = fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] do it\n');
+  const text = fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] do it\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { templatesDir, agentsTemplate } from '../paths.mjs';
+import { agentsTemplate, templatesDir } from '../paths.mjs';
 
 // Sets up `.sl/` in the repo and materializes the AGENTS.md contract.
 export function init(cwd = process.cwd()) {

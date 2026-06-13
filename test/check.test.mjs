@@ -1,5 +1,5 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { checkRepo } from '../src/check.mjs';
 
 const config = {
@@ -69,7 +69,9 @@ test('CR4: unknown stage heading is an error', () => {
 });
 
 test('CR4: stages out of canonical order is an error', () => {
-  const { errors } = run([change({ stages: [{ key: 'plan' }, { key: 'request' }, { key: 'log' }] })]);
+  const { errors } = run([
+    change({ stages: [{ key: 'plan' }, { key: 'request' }, { key: 'log' }] }),
+  ]);
   assert.ok(msgs(errors).some((m) => /out of canonical order/.test(m)));
 });
 
@@ -80,7 +82,10 @@ test('CR5: dangling dependency is an error', () => {
 
 test('CR5: dependency cycle is an error', () => {
   const a = change({ frontmatter: { id: '20260613-120000', depends_on: ['20260613-130000'] } });
-  const b = change({ frontmatter: { id: '20260613-130000', depends_on: ['20260613-120000'] }, name: '20260613-130000-y.md' });
+  const b = change({
+    frontmatter: { id: '20260613-130000', depends_on: ['20260613-120000'] },
+    name: '20260613-130000-y.md',
+  });
   assert.ok(msgs(run([a, b]).errors).some((m) => /dependency cycle/.test(m)));
 });
 
@@ -120,7 +125,10 @@ test('config type referencing an unknown stage is an error', () => {
 
 test('scoped check validates only the requested change', () => {
   const good = change();
-  const bad = change({ frontmatter: { id: '20260613-130000', type: 'nope' }, name: '20260613-130000-y.md' });
+  const bad = change({
+    frontmatter: { id: '20260613-130000', type: 'nope' },
+    name: '20260613-130000-y.md',
+  });
   const { errors } = checkRepo({ config, changes: [good, bad] }, { id: good.frontmatter.id });
   assert.deepEqual(errors, []);
 });

@@ -1,7 +1,7 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setStatus, appendLog, setTask } from '../src/writer.mjs';
+import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
+import { appendLog, setStatus, setTask } from '../src/writer.mjs';
 
 const DOC = `---
 id: "20260613-120000"

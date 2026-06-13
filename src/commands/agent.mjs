@@ -4,11 +4,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { findSpecDir, loadConfig } from '../config.mjs';
-import { loadRepo } from '../repo.mjs';
 import { parseChange } from '../change.mjs';
-import { setStatus, appendLog, setTask } from '../writer.mjs';
+import { findSpecDir, loadConfig } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
+import { loadRepo } from '../repo.mjs';
+import { appendLog, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
   const specDir = findSpecDir(cwd);
@@ -64,5 +64,11 @@ export function list({ status: byStatus, type: byType } = {}, cwd = process.cwd(
 export function show(id, cwd = process.cwd()) {
   const c = loadRepo(cwd).changes.find((x) => String(x.frontmatter.id) === String(id));
   if (!c) throw new Error(`No change with id "${id}"`);
-  return { id: c.frontmatter.id, frontmatter: c.frontmatter, stages: c.stages, tasks: c.tasks, progress: c.progress };
+  return {
+    id: c.frontmatter.id,
+    frontmatter: c.frontmatter,
+    stages: c.stages,
+    tasks: c.tasks,
+    progress: c.progress,
+  };
 }
