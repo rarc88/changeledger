@@ -2,7 +2,7 @@
 id: "20260613-205854"
 title: Capa specs: verdad persistente y graduación
 type: feature
-status: draft
+status: done
 created: 2026-06-13T20:58:54Z
 depends_on: ["20260613-134548"]
 ---
@@ -67,14 +67,16 @@ spec. El código refleja los specs.
 
 ## Plan
 
-- [ ] Parser de spec (frontmatter + cuerpo) y carga desde `specs_dir`
-- [ ] Exponer specs en el JSON del visor
-- [ ] Sección Specs en el visor (lista + render + búsqueda) (CR2, CR3)
-- [ ] Regla de graduación en `AGENTS.md` (CR4)
-- [ ] Primer spec: arquitectura de Spec Ledger (dogfood)
-- [ ] Tests del parser de spec (CR1)
+- [x] Parser de spec (frontmatter + cuerpo) y carga desde `specs_dir` — 2026-06-13T21:15:04Z
+- [x] Exponer specs en el JSON del visor — 2026-06-13T21:15:04Z
+- [x] Sección Specs en el visor (lista + render + búsqueda) (CR2, CR3) — 2026-06-13T21:15:04Z
+- [x] Regla de graduación en `AGENTS.md` (CR4) — 2026-06-13T21:15:04Z
+- [x] Primer spec: arquitectura de Spec Ledger (dogfood) — 2026-06-13T21:15:04Z
+- [x] Tests del parser de spec (CR1) — 2026-06-13T21:15:04Z
 
 ## Log
 
 - **2026-06-13T20:58:54Z** — Creado en draft. Estrena la capa persistente diferida
   desde 0001. Specs sin ciclo de vida; graduación manual por ahora.
+- **2026-06-13T21:15:04Z** — status: in-progress → done
+- **2026-06-13T21:15:04Z** — Implementado con TDD (54 tests verde). Visor con vista Specs y render mermaid verificado. Primer spec: arquitectura.
