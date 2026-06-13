@@ -22,6 +22,14 @@ sl init         # set up .sl/ in the repo
 sl view         # launch the local viewer in the browser
 sl new <type> <slug> <title>   # scaffold a change (slug is the English filename)
 sl check [id]   # validate the repo (or one change) and its health (exit ≠ 0 on errors)
+
+# Agent helpers — files stay the source of truth; these inject correct
+# timestamps/markers and validate transitions:
+sl status <id> <status>                  # move lifecycle + log the transition
+sl log <id> <message>                    # append a timestamped Log entry
+sl task <id> done|block <n> [reason]     # mark a Plan task
+sl list [--status S] [--type T] [--json] # list changes
+sl show <id> [--json]                    # print a change
 ```
 
 `sl check` validates every change against the contract (frontmatter, enums,

@@ -169,3 +169,15 @@ takes it explicitly: `sl new <type> <slug> "<title>"`.
 
 This contract (`AGENTS.md`) is the canonical spec and stays in English regardless
 of the repo's configured language.
+
+## 9. Optional CLI helpers
+
+Files are the source of truth; you may edit them directly. But the CLI does the
+error-prone parts (UTC timestamps, status enums, task markers) for you:
+
+- `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
+- `sl status <id> <status>` — move the lifecycle and log the transition.
+- `sl log <id> "<message>"` — append a timestamped Log entry.
+- `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
+- `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
+- `sl check [id]` — validate before committing.
