@@ -195,6 +195,16 @@ body {
 .node .nid { fill: var(--muted); font-family: ui-monospace, monospace; font-size: 10px; }
 .edge { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
 
+/* Specs view */
+.specs-view { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.spec-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 13px 15px; cursor: pointer;
+}
+.spec-card:hover { border-color: var(--accent); }
+.spec-title { font-weight: 600; margin-bottom: 6px; }
+.empty { color: var(--muted); padding: 8px; }
+
 /* Responsive: stack on narrow viewports (mobile) */
 @media (max-width: 680px) {
   .topbar { flex-wrap: wrap; }

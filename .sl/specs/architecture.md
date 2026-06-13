@@ -1,0 +1,69 @@
+---
+title: Arquitectura de Spec Ledger
+updated: 2026-06-13T21:13:36Z
+tags: [architecture, cli, viewer]
+---
+
+# Arquitectura de Spec Ledger
+
+Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
+de **presentación** (un visor agradable para el humano). Es un CLI global; en
+cada repo solo viven los documentos bajo `.sl/`.
+
+## Componentes
+
+```mermaid
+flowchart TD
+  subgraph repo[".sl/ en el repo"]
+    CFG[config.yml]
+    CH[changes/*.md]
+    SP[specs/*.md]
+  end
+  subgraph core["núcleo (src/)"]
+    YAML[yaml.mjs] --> CHANGE[change.mjs]
+    YAML --> SPEC[spec.mjs]
+    CFG --> REPO[repo.mjs]
+    CHANGE --> REPO
+    SPEC --> REPO
+    REPO --> CHECK[check.mjs]
+    REPO --> WRITER[writer.mjs]
+  end
+  subgraph cli["CLI (bin/sl)"]
+    INIT[init] --> repo
+    NEW[new] --> CH
+    CHECKC[check] --> CHECK
+    AGENT[status/log/task/list/show] --> WRITER
+    VIEW[view] --> SRV
+  end
+  SRV[server node:http] --> REPO
+  SRV --> UI[visor: board / table / graph / specs]
+```
+
+## Modelo de datos
+
+- **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
+  `type`, `status`, `created`, `depends_on`) + etapas (`## Request`…`## Log`)
+  según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
+  con `blocked`). Tareas en `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
+- **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
+  `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
+  gradúa su verdad aquí.
+
+## Identidad
+
+`id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
+sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
+segundo. Ordenable cronológicamente.
+
+## Política de idioma
+
+La estructura es inglés fijo (claves, enums, headings de etapa, nombres de
+archivo, CLI). El contenido sigue `config.language`. El contrato (`AGENTS.md`) es
+inglés canónico.
+
+## Presentación
+
+El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
+request (live) y expone JSON; la UI rinde board (kanban), table, graph
+(`depends_on`) y specs, con búsqueda full-text, filtros y render de markdown +
+mermaid. Cero dependencias npm; `marked` y `mermaid` vendorizados.

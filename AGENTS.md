@@ -137,7 +137,8 @@ draft → approved → in-progress → done
 4. **Atomic commits** that reference the id: `feat(scope): description [#0001]`.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
-6. **On completion**, propose which truth graduates to `specs/` (once that layer exists).
+6. **On completion**, graduate the truth: update or create the `specs/` doc(s)
+   that capture the new persistent state (see §10).
 7. **No residue:** no TODO/FIXME or dead code without explicit agreement.
 8. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
@@ -181,3 +182,24 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
 - `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
 - `sl check [id]` — validate before committing.
+
+## 10. Specs (persistent truth)
+
+`changes/` are deltas with a lifecycle; `.sl/specs/*.md` are the **persistent
+truth** — the current state of the system (capabilities, architecture, domain).
+Code reflects the specs.
+
+Specs have **no lifecycle** (no `status`). Minimal frontmatter, free markdown
+body (headings are not stages):
+
+```yaml
+---
+title: Short title
+updated: 2026-06-13T21:00:00Z   # ISO 8601 UTC
+tags: []
+---
+```
+
+When a change reaches `done`, update or create the spec(s) it affects. A change
+is the journey; a spec is the destination. Prefer diagrams (§9 / mermaid) where
+they explain the system better than prose.

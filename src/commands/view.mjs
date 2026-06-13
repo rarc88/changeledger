@@ -29,6 +29,13 @@ function serialize(repo) {
       tasks: c.tasks,
       progress: c.progress,
     })),
+    specs: (repo.specs ?? []).map((s) => ({
+      name: s.name,
+      title: s.frontmatter.title,
+      updated: s.frontmatter.updated,
+      tags: s.frontmatter.tags ?? [],
+      body: s.body,
+    })),
   };
 }
 

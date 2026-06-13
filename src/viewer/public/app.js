@@ -84,6 +84,7 @@ function visibleChanges() {
 function render() {
   if (currentView === 'graph') renderGraph();
   else if (currentView === 'table') renderTable();
+  else if (currentView === 'specs') renderSpecs();
   else renderBoard();
 }
 
@@ -322,9 +323,49 @@ function tableRow(c) {
   </tr>`;
 }
 
+/* Specs view */
+function renderSpecs() {
+  const q = filters.text.toLowerCase();
+  const specs = (repo.specs || []).filter(
+    (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
+  );
+  $('#specs').innerHTML = specs.length
+    ? specs
+        .map(
+          (s, i) => `<div class="spec-card" data-i="${i}">
+            <div class="spec-title">${esc(s.title)}</div>
+            <div class="card-meta"><span>${s.updated || ''}</span>${(s.tags || [])
+              .map((t) => `<span class="pill">${esc(t)}</span>`)
+              .join('')}</div>
+          </div>`,
+        )
+        .join('')
+    : `<p class="empty">No specs yet. Truth graduates here as changes complete.</p>`;
+  $('#specs').querySelectorAll('.spec-card').forEach((el) => {
+    el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
+  });
+}
+
+function openSpec(s) {
+  $('#detail').innerHTML = `
+    <span class="close">×</span>
+    <h1>${esc(s.title)}</h1>
+    <div class="detail-meta">
+      <span class="pill">spec</span>
+      <span class="pill">${s.updated || ''}</span>
+      ${(s.tags || []).map((t) => `<span class="pill">${esc(t)}</span>`).join('')}
+    </div>
+    <div class="stage-content">${marked.parse(s.body || '')}</div>`;
+  const overlay = $('#overlay');
+  overlay.classList.remove('hidden');
+  $('.close').onclick = closeDetail;
+  overlay.onclick = (e) => { if (e.target === overlay) closeDetail(); };
+  renderMermaid($('#detail'));
+}
+
 function setView(v) {
   currentView = v;
-  for (const name of ['board', 'table', 'graph']) {
+  for (const name of ['board', 'table', 'graph', 'specs']) {
     $('#view-' + name).classList.toggle('active', v === name);
     $('#' + name).classList.toggle('hidden', v !== name);
   }
@@ -344,6 +385,7 @@ $('#type-filter').onchange = (e) => { filters.type = e.target.value; render(); }
 $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
+$('#view-specs').onclick = () => setView('specs');
 document.onkeydown = (e) => { if (e.key === 'Escape') closeDetail(); };
 
 load();
