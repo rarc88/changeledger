@@ -7,7 +7,6 @@ language: en
 
 changes_dir: .sl/changes
 specs_dir: .sl/specs
-id_digits: 4            # zero-padded id width: 0001
 
 # Valid lifecycle statuses (order = progress)
 statuses: [draft, approved, in-progress, blocked, done]

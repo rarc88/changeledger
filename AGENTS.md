@@ -142,8 +142,14 @@ draft → approved → in-progress → done
 
 ## 7. IDs
 
-Sequential, 4 digits, zero-padded: `0001`, `0002`. Filename is `{id}-{slug}.md`,
-e.g. `0001-bootstrap-spec-ledger.md`.
+The `id` is the UTC creation instant in `YYYYMMDD-HHMMSS` form, derived from
+`created` (one instant, one source). Example: `created: 2026-06-13T15:04:02Z` →
+`id: "20260613-150402"`. Filename is `{id}-{slug}.md`, e.g.
+`20260613-150402-timestamp-ids.md`.
+
+Timestamp ids are unique without central coordination, so concurrent
+devs/agents on parallel branches never collide. They sort chronologically. The
+viewer may display an abbreviated form (`#0613-1504`); the full id is canonical.
 
 ## 8. Language policy
 

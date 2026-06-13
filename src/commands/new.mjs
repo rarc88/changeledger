@@ -17,22 +17,19 @@ export function newChange({ type, title, now }, cwd = process.cwd()) {
   const changesDir = path.join(repoRoot, config.changes_dir);
   fs.mkdirSync(changesDir, { recursive: true });
 
-  const id = nextId(changesDir, config.id_digits ?? 4);
+  const id = idFromTimestamp(now);
   const slug = slugify(title);
   const file = path.join(changesDir, `${id}-${slug}.md`);
   fs.writeFileSync(file, render({ id, title, type, stages: typeDef.stages, now }));
   return file;
 }
 
-function nextId(changesDir, digits) {
-  let max = 0;
-  if (fs.existsSync(changesDir)) {
-    for (const name of fs.readdirSync(changesDir)) {
-      const m = name.match(/^(\d+)-/);
-      if (m) max = Math.max(max, Number(m[1]));
-    }
-  }
-  return String(max + 1).padStart(digits, '0');
+// Derives the canonical id from an ISO 8601 UTC timestamp: YYYYMMDD-HHMMSS.
+export function idFromTimestamp(iso) {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) throw new Error(`Invalid ISO timestamp: ${iso}`);
+  const [, y, mo, d, h, mi, s] = m;
+  return `${y}${mo}${d}-${h}${mi}${s}`;
 }
 
 function slugify(title) {

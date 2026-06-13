@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { init } from '../src/commands/init.mjs';
-import { newChange } from '../src/commands/new.mjs';
+import { newChange, idFromTimestamp } from '../src/commands/new.mjs';
 import { parseChange } from '../src/change.mjs';
 
 function tmp() {
@@ -25,25 +25,31 @@ test('init refuses to overwrite an existing .sl/', () => {
   assert.throws(() => init(root), /already exists/);
 });
 
-test('new scaffolds a change with active stages for its type', () => {
+test('idFromTimestamp derives YYYYMMDD-HHMMSS from an ISO UTC instant', () => {
+  assert.equal(idFromTimestamp('2026-06-13T15:04:02Z'), '20260613-150402');
+});
+
+test('new scaffolds a change with active stages and a timestamp id', () => {
   const root = tmp();
   init(root);
   const file = newChange({ type: 'bug', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' }, root);
-  assert.equal(path.basename(file), '0001-token-expira-mal.md');
+  assert.equal(path.basename(file), '20260613-150000-token-expira-mal.md');
 
   const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.id, '20260613-150000');
   assert.equal(c.frontmatter.type, 'bug');
   assert.equal(c.frontmatter.status, 'draft');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
   assert.deepEqual(c.stages.map((s) => s.key), ['request', 'investigation', 'specification', 'plan', 'log']);
 });
 
-test('new increments the id', () => {
+test('new derives distinct ids from distinct timestamps', () => {
   const root = tmp();
   init(root);
-  newChange({ type: 'chore', title: 'one', now: '2026-06-13T15:00:00Z' }, root);
-  const second = newChange({ type: 'chore', title: 'two', now: '2026-06-13T15:01:00Z' }, root);
-  assert.equal(path.basename(second), '0002-two.md');
+  const a = newChange({ type: 'chore', title: 'one', now: '2026-06-13T15:00:00Z' }, root);
+  const b = newChange({ type: 'chore', title: 'two', now: '2026-06-13T15:01:00Z' }, root);
+  assert.equal(path.basename(a), '20260613-150000-one.md');
+  assert.equal(path.basename(b), '20260613-150100-two.md');
 });
 
 test('new rejects an unknown type', () => {
