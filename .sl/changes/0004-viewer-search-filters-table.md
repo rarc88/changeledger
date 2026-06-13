@@ -2,7 +2,7 @@
 id: "0004"
 title: Visor — búsqueda en contenido, filtros, vista tabla y responsive
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T15:04:30Z
 depends_on: ["0001"]
 ---
@@ -65,3 +65,4 @@ Mejorar el consumo humano del visor:
 
 - **2026-06-13T15:04:30Z** — Creado en draft a partir de feedback humano tras
   probar el visor. Incluye el bug de búsqueda en contenido.
+- **2026-06-13T15:08:09Z** — Aprobado (draft → approved).

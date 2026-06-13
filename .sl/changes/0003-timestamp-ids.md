@@ -2,7 +2,7 @@
 id: "0003"
 title: IDs basados en timestamp para autoría concurrente
 type: refactor
-status: draft
+status: approved
 created: 2026-06-13T15:04:02Z
 depends_on: ["0001"]
 ---
@@ -43,3 +43,4 @@ _Alternativas descartadas:_
 
 - **2026-06-13T15:04:02Z** — Creado en draft tras detectar colisión de ids
   secuenciales en escenarios multi-dev. Decisión: timestamp UTC `YYYYMMDD-HHMMSS`.
+- **2026-06-13T15:08:09Z** — Aprobado (draft → approved). Implementación: primero.

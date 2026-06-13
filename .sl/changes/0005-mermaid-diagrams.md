@@ -2,7 +2,7 @@
 id: "0005"
 title: Diagramas — renderizar mermaid y priorizar lo visual
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T15:05:00Z
 depends_on: ["0001"]
 ---
@@ -51,3 +51,4 @@ mermaid es declarativo en texto, mejor para documentación versionada.
 
 - **2026-06-13T15:05:00Z** — Creado en draft a partir de feedback humano: priorizar
   explicaciones visuales con mermaid.
+- **2026-06-13T15:08:09Z** — Aprobado (draft → approved).
