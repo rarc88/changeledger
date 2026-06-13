@@ -8,6 +8,9 @@ import { list, log, show, status, task } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 
+// Isolate the global registry so init() doesn't touch the real home.
+process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+
 function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
   init(root);

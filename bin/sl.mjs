@@ -4,12 +4,14 @@ import { check } from '../src/commands/check.mjs';
 import { graduate } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import { registerRepo } from '../src/commands/register.mjs';
 import { view } from '../src/commands/view.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const USAGE = `Spec Ledger (sl)
 
-  sl init                          set up .sl/ in the current repo
+  sl init                          set up .sl/ in the current repo (+ register it)
+  sl register                      (re)link this repo's path in the global registry
   sl new <type> <slug> <title>     scaffold a new change (slug is the English filename)
   sl view [port]                   launch the local viewer (default port 4040)
   sl check [id] [--json]           validate the repo or one change
@@ -32,6 +34,11 @@ try {
     case 'init': {
       const dir = init();
       console.log(`Initialized Spec Ledger at ${dir}`);
+      break;
+    }
+    case 'register': {
+      const { id, path: p } = registerRepo();
+      console.log(`Registered ${id} → ${p}`);
       break;
     }
     case 'new': {

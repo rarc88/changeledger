@@ -176,6 +176,7 @@ of the repo's configured language.
 Files are the source of truth; you may edit them directly. But the CLI does the
 error-prone parts (UTC timestamps, status enums, task markers) for you:
 
+- `sl register` — (re)link this repo's path in the global registry after a move/clone.
 - `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
 - `sl status <id> <status>` — move the lifecycle and log the transition.
 - `sl log <id> "<message>"` — append a timestamped Log entry.

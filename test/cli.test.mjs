@@ -7,6 +7,9 @@ import { parseChange } from '../src/change.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 
+// Isolate the global registry so init() doesn't touch the real home.
+process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+
 function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cli-'));
 }

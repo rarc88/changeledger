@@ -18,7 +18,8 @@ ordered by the lifecycle.
 - Any agent reads `AGENTS.md` and follows the convention. No agent-specific tooling.
 
 ```
-sl init         # set up .sl/ in the repo
+sl init         # set up .sl/ in the repo, give it an identity, register it
+sl register     # (re)link this repo's path in the global registry (moved/cloned)
 sl view         # launch the local viewer in the browser
 sl new <type> <slug> <title>   # scaffold a change (slug is the English filename)
 sl check [id]   # validate the repo (or one change) and its health (exit ≠ 0 on errors)

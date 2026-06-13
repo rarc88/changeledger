@@ -26,3 +26,7 @@ types:
     stages: [request, proposal, plan, log]
   chore:
     stages: [request, plan]
+
+# Project identity (stable; the global registry maps it to a path)
+project_id: "304c473ce5"
+project_name: spec-ledger

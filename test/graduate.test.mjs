@@ -8,6 +8,9 @@ import { graduate } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { parseSpec } from '../src/spec.mjs';
 
+// Isolate the global registry so init() doesn't touch the real home.
+process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-grad-'));
   init(root);
