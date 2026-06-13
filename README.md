@@ -1,36 +1,43 @@
 # Spec Ledger (`sl`)
 
-> Los documentos son la fuente de verdad. El código es su reflejo.
+> Documents are the source of truth. Code is their reflection.
 
-Spec Ledger es una herramienta para **planificar antes de codificar**. Cada cambio
-en un repo (feature, bug, auditoría, refactor) nace de una conversación con un
-agente, se documenta como un **change** con su ciclo de vida, y queda tangible,
-trackeable y accionable: qué se hizo, qué falta, qué está bloqueado.
+Spec Ledger is a tool for **planning before coding**. Every change in a repo
+(feature, bug, audit, refactor) starts from a conversation with an agent, is
+captured as a **change** with its own lifecycle, and stays tangible, trackable
+and actionable: what's done, what's pending, what's blocked.
 
-Lo que la diferencia: una **capa de consumo humana**. No lees markdown crudo —
-un visor local consolida los documentos en un tablero navegable, filtrable y
-ordenado por el ciclo de vida.
+What sets it apart: a **human consumption layer**. You don't read raw markdown —
+a local viewer consolidates the documents into a navigable, filterable board
+ordered by the lifecycle.
 
-## Cómo funciona
+## How it works
 
-- **CLI global** (`sl`). El código del visor vive en la instalación global, no en tu repo.
-- En cada repo solo viven los documentos y la config, bajo `.sl/`.
-- Cualquier agente lee `AGENTS.md` y sigue la convención. Sin tooling atado a un agente.
+- **Global CLI** (`sl`). The viewer's code lives in the global install, not in your repo.
+- Each repo holds only the documents and config, under `.sl/`.
+- Any agent reads `AGENTS.md` and follows the convention. No agent-specific tooling.
 
 ```
-sl init      # prepara .sl/ en el repo
-sl view      # levanta el visor local en el navegador
-sl new <tipo>  # scaffold de un change
+sl init        # set up .sl/ in the repo
+sl view        # launch the local viewer in the browser
+sl new <type>  # scaffold a change
 ```
 
-## Estado
+## Status
 
-En construcción. Este repo se autodocumenta con su propio formato (dogfooding):
-ver [`.sl/changes/`](.sl/changes/).
+Under construction. This repo documents itself with its own format (dogfooding):
+see [`.sl/changes/`](.sl/changes/).
 
-## Modelo
+## Model
 
-- **`changes/`** — deltas con ciclo de vida (lo que se está trabajando).
-- **`specs/`** — verdad persistente (estado actual del sistema). _Llega cuando el primer change se gradúa._
+- **`changes/`** — deltas with a lifecycle (what's being worked on).
+- **`specs/`** — persistent truth (current state of the system). _Appears once the first change graduates._
 
-El contrato completo para agentes está en [`AGENTS.md`](AGENTS.md).
+The full contract for agents lives in [`AGENTS.md`](AGENTS.md).
+
+## Language policy
+
+Structure is always English (frontmatter keys, enum values, stage headings, CLI,
+file names). Generated **content** follows each repo's `config.yml` `language`.
+This project's own docs (`README.md`, `AGENTS.md`) are canonical English. See
+[`AGENTS.md`](AGENTS.md) §8.
