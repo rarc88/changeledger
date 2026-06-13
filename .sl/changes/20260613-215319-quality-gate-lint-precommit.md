@@ -2,7 +2,7 @@
 id: "20260613-215319"
 title: "Quality gate: Biome lint + pre-commit (lint, test, check)"
 type: feature
-status: approved
+status: done
 created: 2026-06-13T21:53:19Z
 depends_on: ["20260613-135500"]
 ---
@@ -48,14 +48,17 @@ pasen.
 
 ## Plan
 
-- [ ] `pnpm add -D @biomejs/biome` + `biome.json`
-- [ ] Scripts `lint`/`test`/`check`/`verify` en `package.json`
-- [ ] Aplicar Biome al código existente (fix/format) hasta verde
-- [ ] `hooks/pre-commit` + `core.hooksPath`
-- [ ] Documentar en README
-- [ ] `.gitignore`: node_modules ya ignorado; añadir pnpm si aplica
+- [x] `pnpm add -D @biomejs/biome` + `biome.json` — 2026-06-13T21:56:00Z
+- [x] Scripts `lint`/`test`/`check`/`verify` en `package.json` — 2026-06-13T21:57:00Z
+- [x] Aplicar Biome al código existente (fix/format) hasta verde — 2026-06-13T21:59:00Z
+- [x] `hooks/pre-commit` + `core.hooksPath` — 2026-06-13T22:00:00Z
+- [x] Documentar en README — 2026-06-13T22:01:00Z
+- [x] `.gitignore`: node_modules ya ignorado (sin cambios) — 2026-06-13T22:01:30Z
 
 ## Log
 
 - **2026-06-13T21:53:19Z** — Creado. Aprobado: Biome + pnpm, hook versionado vía
   core.hooksPath. Gate = lint + test + check.
+- **2026-06-13T21:54:50Z** — status: approved → in-progress
+- **2026-06-13T21:58:08Z** — status: in-progress → done
+- **2026-06-13T21:58:08Z** — Biome + pnpm, scripts lint/test/check/verify, hook pre-commit vía core.hooksPath. Código formateado a verde. pnpm verify pasa.
