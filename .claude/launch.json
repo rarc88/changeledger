@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "viewer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["bin/sl.mjs", "view", "4055"],
+      "port": 4055
+    }
+  ]
+}
