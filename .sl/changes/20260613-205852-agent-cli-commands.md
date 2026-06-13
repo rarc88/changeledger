@@ -2,7 +2,7 @@
 id: "20260613-205852"
 title: CLI para agentes: status, log, task, list, show
 type: feature
-status: draft
+status: done
 created: 2026-06-13T20:58:52Z
 depends_on: ["20260613-135500"]
 ---
@@ -69,16 +69,18 @@ Todas escriben de forma idempotente y dejan el archivo válido para `sl check`.
 
 ## Plan
 
-- [ ] Escritor de change: editar frontmatter y secciones preservando formato
-- [ ] `sl status` (CR1, CR2)
-- [ ] `sl log` (CR3)
-- [ ] `sl task` done/block (CR4)
-- [ ] `sl list` + `sl show` con `--json` (CR5)
-- [ ] Tests de cada comando
-- [ ] Actualizar AGENTS.md (comandos disponibles para agentes) y README
+- [x] Escritor de change: editar frontmatter y secciones preservando formato — 2026-06-13T21:11:35Z
+- [x] `sl status` (CR1, CR2) — 2026-06-13T21:11:35Z
+- [x] `sl log` (CR3) — 2026-06-13T21:11:35Z
+- [x] `sl task` done/block (CR4) — 2026-06-13T21:11:35Z
+- [x] `sl list` + `sl show` con `--json` (CR5) — 2026-06-13T21:11:35Z
+- [x] Tests de cada comando — 2026-06-13T21:11:35Z
+- [x] Actualizar AGENTS.md (comandos disponibles para agentes) y README — 2026-06-13T21:11:35Z
 
 ## Log
 
 - **2026-06-13T20:58:52Z** — Creado en draft. Comandos elegidos con el humano:
   status, log, task (mutación), list, show (consulta). Aditivos; archivos siguen
   siendo la fuente de verdad.
+- **2026-06-13T21:11:36Z** — status: in-progress → done
+- **2026-06-13T21:11:36Z** — Implementado con TDD (51 tests verde). Cerrado usando los propios comandos sl task/status/log.
