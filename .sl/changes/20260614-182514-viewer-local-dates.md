@@ -2,9 +2,11 @@
 id: "20260614-182514"
 title: Mostrar fechas en formato local en el viewer
 type: refactor
-status: approved
+status: done
 created: 2026-06-14T18:25:14Z
 depends_on: []
+reviewed: true
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -34,9 +36,13 @@ Descartado:
 
 ## Plan
 
-- [ ] `fmtDateTime`/`fmtDate` en `src/viewer/public/app.js` (tolerantes a vacío/ inválido)
-- [ ] Aplicar a `c.created`, `s.updated` (x2) y `c.date`, con `title=` = ISO original
-- [ ] Verificar en preview: pills muestran formato local; hover muestra el ISO; vacío no rompe
+- [x] `fmtDateTime`/`fmtDate` en `src/viewer/public/app.js` (tolerantes a vacío/ inválido) — 2026-06-14T18:45:20Z
+- [x] Aplicar a `c.created`, `s.updated` (x2) y `c.date`, con `title=` = ISO original — 2026-06-14T18:45:20Z
+- [x] Verificar en preview: pills muestran formato local; hover muestra el ISO; vacío no rompe — 2026-06-14T18:45:20Z
 
 ## Log
 - **2026-06-14T18:31:40Z** — status: draft → approved
+- **2026-06-14T18:41:36Z** — status: approved → in-progress
+- **2026-06-14T18:41:37Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-14T18:45:21Z** — status: in-progress → done
+- **2026-06-14T18:45:21Z** — graduation skipped: presentacion del viewer; sin verdad persistente nueva
