@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T12:45:00Z
+updated: 2026-06-14T16:16:14Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -93,6 +93,27 @@ convención de commit `[#<id>]`: lista los commits que lo referencian y las
 branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
 endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 **Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
+
+## Discovery del contrato
+
+El **contrato canónico de la herramienta** (instrucciones de uso) vive separado
+del contrato propio de cada repo: se distribuye como `templates/AGENTS.md` y
+`paths.mjs` lo resuelve como `agentsTemplate`, sin importar la instalación (npm
+global, `pnpm link`, node_modules). Es artefacto **de la herramienta**, no del
+repo. `init`/`register` lo enlazan en cada repo como `.sl/AGENTS.md` — symlink
+**por máquina, gitignored**: nunca se copia (no drifta) ni se committea (no queda
+dangling al clonar). Separarlo del raíz evita la recursión: el `AGENTS.md` raíz
+es el contrato **propio** del proyecto y solo **referencia** al enlazado.
+
+`init` exige el `AGENTS.md` raíz y appendea la referencia como **caja de alerta
+GitHub** (`> [!IMPORTANT]`, marcador `<!-- spec-ledger -->`, idempotente) a cada
+archivo de contrato presente que **no sea symlink** — `AGENTS.md` y `CLAUDE.md` —
+de modo que cualquier agente (Claude, Codex, opencode, Copilot, Cursor…) lo
+descubra sin tooling específico. `contract.mjs` concentra la lógica
+(`linkContract`, `ensureReference`, `ensureGitignore`, `checkContract`);
+`sl check` falla (error, no warning) si falta el raíz, si un contrato presente no
+referencia, o si el link no resuelve — el discovery es condición para que la
+herramienta funcione en el repo.
 
 ## Política de idioma
 

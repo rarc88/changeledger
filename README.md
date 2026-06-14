@@ -15,7 +15,11 @@ ordered by the lifecycle.
 
 - **Global CLI** (`sl`). The viewer's code lives in the global install, not in your repo.
 - Each repo holds only the documents and config, under `.sl/`.
-- Any agent reads `AGENTS.md` and follows the convention. No agent-specific tooling.
+- The contract ships with `sl` and is linked into each repo as `.sl/AGENTS.md`
+  (a per-machine, gitignored symlink — never copied, so it never drifts). The
+  repo's own `AGENTS.md` references it with one line, so any agent (Claude,
+  Codex, opencode, Copilot, Cursor…) discovers the convention. `sl check`
+  enforces that the reference exists.
 
 ```
 sl init         # set up .sl/ in the repo, give it an identity, register it
@@ -71,6 +75,17 @@ git config core.hooksPath hooks   # enable the pre-commit gate
 
 The versioned `hooks/pre-commit` runs `pnpm verify`, so commits that fail lint,
 tests, or `sl check` are blocked — agents can't quietly accumulate debt.
+
+### Using `sl` outside this repo
+
+Not published to npm yet (that's tracked separately). Meanwhile, `pnpm link`
+exposes the `sl` bin globally, pointing at this checkout with live edits:
+
+```sh
+pnpm link --global    # expose `sl` globally from this checkout
+sl --help             # verify it resolves
+pnpm unlink --global  # revert
+```
 
 ## Language policy
 
