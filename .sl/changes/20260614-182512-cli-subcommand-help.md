@@ -2,7 +2,7 @@
 id: "20260614-182512"
 title: Help por subcomando en el CLI
 type: feature
-status: draft
+status: approved
 created: 2026-06-14T18:25:12Z
 depends_on: []
 ---
@@ -66,3 +66,4 @@ Descartado:
 - [ ] Tests de proceso: `sl graduate --help`, `sl task -h`, `sl graduate` (uso/exit) en `test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4)
 
 ## Log
+- **2026-06-14T18:31:06Z** — status: draft → approved
