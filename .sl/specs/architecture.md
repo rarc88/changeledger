@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T12:41:30Z
+updated: 2026-06-14T12:45:00Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -45,14 +45,19 @@ flowchart TD
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional) + etapas
-  (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
-  con `blocked`). Tareas en `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
-El `owner` se autoasigna desde la identidad git local al pasar a `in-progress`
-(cuando empieza el trabajo), salvo que ya esté fijado a mano (`sl owner`).
-
+  (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida
+  (`draft → approved → in-progress → done`, con `blocked`). Tareas en `## Plan`
+  como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
+
+El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
+contenido del tipo: registra cada transición de `status` con su timestamp y se
+crea automáticamente al primer cambio de estado aunque el tipo no lo declare
+(p.ej. `chore`). El `owner` se autoasigna desde la identidad git local al pasar a
+`in-progress` (cuando empieza el trabajo), salvo que ya esté fijado a mano
+(`sl owner`).
 
 Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
