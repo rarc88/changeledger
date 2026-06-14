@@ -2,7 +2,7 @@
 id: "20260614-182513"
 title: "owner desde el username de GitHub (fallback git name)"
 type: feature
-status: draft
+status: approved
 created: 2026-06-14T18:25:13Z
 depends_on: []
 ---
@@ -75,3 +75,4 @@ Descartado:
 - [ ] Contrato: owner auto = GitHub login, fallback git name, en `templates/AGENTS.md` §3 (docs, sin CR)
 
 ## Log
+- **2026-06-14T18:31:34Z** — status: draft → approved
