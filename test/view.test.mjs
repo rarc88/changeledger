@@ -3,8 +3,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { parseChange } from '../src/change.mjs';
 import { init } from '../src/commands/init.mjs';
-import { resolveProjects, searchProjects } from '../src/commands/view.mjs';
+import { newChange } from '../src/commands/new.mjs';
+import { changeStatus, resolveProjects, searchProjects } from '../src/commands/view.mjs';
 
 function isolatedHome() {
   process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -72,6 +74,35 @@ test('searchProjects returns nothing for an empty query', () => {
     searchProjects([{ id: 'a', path: '/a', alive: true }], '  ', () => ({})),
     [],
   );
+});
+
+test('CR1: changeStatus moves the lifecycle and logs it', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const { projects, current } = resolveProjects(root, false);
+  const res = changeStatus(projects, { project: current, id, status: 'approved' });
+  assert.equal(res.code, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+test('CR1: changeStatus rejects an invalid status without writing', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const { projects, current } = resolveProjects(root, false);
+  const before = fs.readFileSync(file, 'utf8');
+  const res = changeStatus(projects, { project: current, id, status: 'weird' });
+  assert.equal(res.code, 400);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('local mode returns only the current repo', () => {

@@ -9,6 +9,7 @@ import { computeMetrics } from '../metrics.mjs';
 import { publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
 import { loadRepo } from '../repo.mjs';
+import { status as applyStatusCmd } from './agent.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -118,6 +119,22 @@ export function searchProjects(projects, q, load = loadRepo) {
   return groups;
 }
 
+// Applies a status move requested from the viewer. Returns { code, body } so the
+// HTTP handler stays thin and the logic is testable. Reuses the `status` command
+// (enum validation + setStatus + appendLog).
+export function changeStatus(projects, { project, id, status }) {
+  const proj = projects.find((p) => p.id === project) ?? projects[0];
+  if (!proj) return { code: 404, body: { error: 'no project' } };
+  if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
+  if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
+  try {
+    applyStatusCmd(id, status, proj.path);
+    return { code: 200, body: { ok: true, id, status } };
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+}
+
 function send(res, code, type, body) {
   res.writeHead(code, { 'Content-Type': type });
   res.end(body);
@@ -131,6 +148,26 @@ export async function view(args = [], cwd = process.cwd()) {
     try {
       const [route, query] = req.url.split('?');
       const params = new URLSearchParams(query);
+
+      if (req.method === 'POST' && route === '/api/status') {
+        let raw = '';
+        req.on('data', (chunk) => {
+          raw += chunk;
+        });
+        req.on('end', () => {
+          let payload;
+          try {
+            payload = JSON.parse(raw || '{}');
+          } catch {
+            send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid JSON body' }));
+            return;
+          }
+          const { projects } = resolveProjects(cwd, localOnly);
+          const { code, body } = changeStatus(projects, payload);
+          send(res, code, MIME['.json'], JSON.stringify(body));
+        });
+        return;
+      }
 
       if (route === '/api/projects') {
         send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));

@@ -92,7 +92,9 @@ inglés canónico.
 ## Presentación
 
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
-request (live) y expone JSON; la UI rinde board (kanban), table, graph
+request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
+permite mover el `status` de un change arrastrando su card entre columnas del
+board (reusa el comando `status`: valida el enum y escribe `setStatus`+`appendLog`); la UI rinde board (kanban), table, graph
 (`depends_on`) y specs, con búsqueda full-text, filtros (tipo, estado, owner) y
 render de markdown + mermaid. Los changes con `archived: true` se ocultan por
 defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin

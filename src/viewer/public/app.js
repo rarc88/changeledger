@@ -136,7 +136,7 @@ function renderBoard() {
     .map((status) => {
       const items = changes.filter((c) => c.status === status);
       return `
-        <div class="column">
+        <div class="column" data-status="${status}">
           <div class="column-head"><span>${status}</span><span class="count">${items.length}</span></div>
           <div class="column-body">${items.map(card).join('')}</div>
         </div>`;
@@ -144,7 +144,47 @@ function renderBoard() {
     .join('');
   board.querySelectorAll('.card').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.id);
+    el.setAttribute('draggable', 'true');
+    el.ondragstart = (e) => {
+      e.dataTransfer.setData('text/plain', el.dataset.id);
+      e.dataTransfer.effectAllowed = 'move';
+    };
   });
+  board.querySelectorAll('.column').forEach((col) => {
+    col.ondragover = (e) => {
+      e.preventDefault();
+      col.classList.add('drop-target');
+    };
+    col.ondragleave = () => col.classList.remove('drop-target');
+    col.ondrop = (e) => {
+      e.preventDefault();
+      col.classList.remove('drop-target');
+      const id = e.dataTransfer.getData('text/plain');
+      const c = repo.changes.find((x) => String(x.id) === String(id));
+      if (c && c.status !== col.dataset.status) moveStatus(id, col.dataset.status);
+    };
+  });
+}
+
+// Persist a drag-drop status move, then refresh the board.
+async function moveStatus(id, status) {
+  try {
+    const res = await fetch('/api/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: currentProject, id, status }),
+    });
+    const out = await res.json();
+    if (!res.ok) {
+      alert(out.error || 'status change failed');
+      return;
+    }
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  lastJson = '';
+  load();
 }
 
 function card(c) {
