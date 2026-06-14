@@ -42,6 +42,12 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     const present = (c.stages ?? []).map((s) => s.key);
     for (const k of present) if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
 
+    const seenStages = new Set();
+    for (const k of present) {
+      if (seenStages.has(k)) err(c, `duplicate stage "## ${k}"`);
+      else seenStages.add(k);
+    }
+
     const known = present.filter((k) => canonical.includes(k));
     const ordered = [...known].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b));
     if (known.join(',') !== ordered.join(',')) err(c, 'stages are out of canonical order');

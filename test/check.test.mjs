@@ -228,3 +228,23 @@ test('CR3: a non-ISO updated is an error', () => {
   const s = spec({ frontmatter: { updated: '2026-06-13' } });
   assert.ok(msgs(runS([change()], [s]).errors).some((m) => /updated not ISO/.test(m)));
 });
+
+test('CR1: a duplicate stage is an error', () => {
+  const c = change({
+    stages: [
+      { key: 'request' },
+      { key: 'proposal' },
+      { key: 'proposal' },
+      { key: 'plan' },
+      { key: 'log' },
+    ],
+  });
+  assert.ok(msgs(run([c]).errors).some((m) => /duplicate stage "## proposal"/.test(m)));
+});
+
+test('CR1: no duplicates does not false-positive', () => {
+  assert.deepEqual(
+    msgs(run([change()]).errors).filter((m) => /duplicate stage/.test(m)),
+    [],
+  );
+});
