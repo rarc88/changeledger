@@ -71,6 +71,8 @@ inglés canónico.
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
 request (live) y expone JSON; la UI rinde board (kanban), table, graph
 (`depends_on`) y specs, con búsqueda full-text, filtros (tipo, estado, owner) y
-render de markdown + mermaid. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
+render de markdown + mermaid. Los changes con `archived: true` se ocultan por
+defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
+sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
 `node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
 el visor lee el registro y muestra todos los proyectos (selector + autoenfoque).

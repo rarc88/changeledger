@@ -175,3 +175,8 @@ test('CR2: cycle graph ignores external deps', () => {
     [],
   );
 });
+
+test('CR3: a non-boolean archived flag is an error', () => {
+  const c = change({ frontmatter: { archived: 1 } });
+  assert.ok(msgs(run([c]).errors).some((m) => /archived must be a boolean/.test(m)));
+});

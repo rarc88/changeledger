@@ -2,7 +2,7 @@ const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 let repo = null;
 let lastJson = '';
-const filters = { text: '', type: 'all', owner: 'all', statuses: new Set() };
+const filters = { text: '', type: 'all', owner: 'all', statuses: new Set(), showArchived: false };
 let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
@@ -111,6 +111,7 @@ function haystack(c) {
 function visibleChanges() {
   const q = filters.text.toLowerCase();
   return repo.changes.filter((c) => {
+    if (c.archived && !filters.showArchived) return false;
     if (filters.type !== 'all' && c.type !== filters.type) return false;
     if (filters.owner !== 'all' && c.owner !== filters.owner) return false;
     if (filters.statuses.size && !filters.statuses.has(c.status)) return false;
@@ -150,7 +151,7 @@ function card(c) {
     ? `<span class="flag-blocked">● ${c.progress.blocked} blocked</span>`
     : '';
   return `
-    <div class="card" data-id="${c.id}" style="--type-color: var(--${c.type})">
+    <div class="card ${c.archived ? 'archived' : ''}" data-id="${c.id}" style="--type-color: var(--${c.type})">
       <div class="card-top">
         <span class="card-id">#${c.id}</span>
         <span class="type-tag">${c.type}</span>
@@ -278,7 +279,7 @@ async function gotoChange(proj, changeId) {
 
 /* Dependency graph */
 function renderGraph() {
-  const changes = repo.changes;
+  const changes = repo.changes.filter((c) => filters.showArchived || !c.archived);
   const byId = new Map(changes.map((c) => [String(c.id), c]));
   const depthCache = new Map();
   const depth = (id, seen = new Set()) => {
@@ -497,6 +498,11 @@ $('#type-filter').onchange = (e) => {
 };
 $('#owner-filter').onchange = (e) => {
   filters.owner = e.target.value;
+  render();
+};
+$('#toggle-archived').onclick = (e) => {
+  filters.showArchived = !filters.showArchived;
+  e.target.classList.toggle('active', filters.showArchived);
   render();
 };
 $('#view-board').onclick = () => setView('board');

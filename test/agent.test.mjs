@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { list, log, owner, show, status, task } from '../src/commands/agent.mjs';
+import { archive, list, log, owner, show, status, task } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 
@@ -70,6 +70,14 @@ test('owner sets and clears the responsible', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'ana');
   owner(id, '-', root);
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+test('archive sets and clears the archived flag', () => {
+  const { root, file, id } = repoWithChange();
+  archive(id, true, root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.archived, true);
+  archive(id, false, root);
+  assert.equal('archived' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
 test('list filters by status and show returns the change', () => {

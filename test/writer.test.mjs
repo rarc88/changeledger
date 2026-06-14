@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { appendLog, setOwner, setStatus, setTask } from '../src/writer.mjs';
+import { appendLog, setArchived, setOwner, setStatus, setTask } from '../src/writer.mjs';
 
 const DOC = `---
 id: "20260613-120000"
@@ -75,4 +75,11 @@ test('setOwner updates an existing owner', () => {
 test('setOwner with falsy value removes the owner line', () => {
   const out = setOwner(setOwner(DOC, 'ana'), null);
   assert.equal('owner' in parseChange(out).frontmatter, false);
+});
+
+test('setArchived adds and removes the archived flag', () => {
+  const on = setArchived(DOC, true);
+  assert.equal(parseChange(on).frontmatter.archived, true);
+  const off = setArchived(on, false);
+  assert.equal('archived' in parseChange(off).frontmatter, false);
 });

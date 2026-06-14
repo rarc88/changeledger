@@ -8,7 +8,7 @@ import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
-import { appendLog, setOwner, setStatus, setTask } from '../writer.mjs';
+import { appendLog, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
   const specDir = findSpecDir(cwd);
@@ -39,6 +39,14 @@ export function owner(id, name, cwd = process.cwd()) {
   const next = name === '-' ? null : name;
   let text = setOwner(fs.readFileSync(file, 'utf8'), next);
   text = appendLog(text, nowUtc(), next ? `owner → ${next}` : 'owner cleared');
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+export function archive(id, on, cwd = process.cwd()) {
+  const { file } = locate(cwd, id);
+  let text = setArchived(fs.readFileSync(file, 'utf8'), on);
+  text = appendLog(text, nowUtc(), on ? 'archived' : 'unarchived');
   fs.writeFileSync(file, text);
   return file;
 }

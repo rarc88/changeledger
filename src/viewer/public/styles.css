@@ -245,6 +245,9 @@ body {
 .owner {
   font-weight: 600;
 }
+.card.archived {
+  opacity: 0.55;
+}
 
 /* Overlay + detail */
 .overlay {

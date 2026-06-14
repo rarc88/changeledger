@@ -23,6 +23,17 @@ export function setOwner(text, owner) {
   return fm + text.slice(m[1].length);
 }
 
+// Sets or removes the optional `archived: true` frontmatter line.
+export function setArchived(text, archived) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  let fm = m[1].replace(/^archived:.*\n/m, '');
+  if (archived) {
+    fm = fm.replace(/^(depends_on:.*\n)/m, '$1archived: true\n');
+  }
+  return fm + text.slice(m[1].length);
+}
+
 export function appendLog(text, iso, message) {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));
