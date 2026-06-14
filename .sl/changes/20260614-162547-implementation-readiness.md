@@ -2,9 +2,10 @@
 id: "20260614-162547"
 title: "Definition of Ready: changes test-grade para implementacion por modelos menos potentes"
 type: feature
-status: approved
+status: done
 created: 2026-06-14T16:25:47Z
 depends_on: ["20260614-151759"]
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -112,15 +113,16 @@ flowchart LR
 - **Then** `.sl/config.yml` contiene `tdd: true`
 
 ### CR2 — check de cobertura: CR sin tarea
-- **Given** `tdd: true` y un change con `specification` activa donde `CR2` no es referenciado por ninguna tarea del Plan
+- **Given** `tdd: true` y un change `approved`/`in-progress` con `specification` activa donde `CR2` no es referenciado por ninguna tarea del Plan
 - **When** corro `sl check`
 - **Then** emite un warning que nombra `CR2` como no cubierto
 - **And** no es error (exit 0 si no hay otros errores)
 
 ### CR3 — check de cobertura: tarea sin CR
-- **Given** `tdd: true` y un change con `specification` activa con una tarea de Plan sin referencia `(CRn)`
+- **Given** `tdd: true` y un change `approved`/`in-progress` con `specification` activa con una tarea de Plan sin referencia `(CRn)`
 - **When** corro `sl check`
 - **Then** emite un warning que nombra esa tarea como sin criterio
+- **And** en `draft` y `done` no se evalúa cobertura (autoría / histórico)
 
 ### CR4 — `tdd: false` desactiva el check de cobertura
 - **Given** `tdd: false`
@@ -134,11 +136,16 @@ flowchart LR
 
 ## Plan
 
-- [ ] Añadir `tdd: true` a `templates/config.yml`; `init` ya lo copia (CR1) — `templates/config.yml`, `test/cli.test.mjs`
-- [ ] Documentar el DoR y el efecto de `tdd` en el contrato (CR2–CR5 contexto) — `templates/AGENTS.md`
-- [ ] `checkRepo` (puro): cobertura CR↔tarea cuando `config.tdd` y el tipo tiene `specification` activa; warnings, no errores (CR2, CR3, CR4, CR5) — `src/check.mjs`, `test/check.test.mjs`
-- [ ] Verificar que el parser expone CR ids y criterios por tarea suficientes para el cruce (ajustar si falta) — `src/change.mjs`
-- [ ] README: mencionar `tdd` y el DoR
+- [x] Añadir `tdd: true` a `templates/config.yml` (copiado por `init`) y a `.sl/config.yml` (CR1) — 2026-06-14T16:43:29Z
+- [x] Parser: exponer CR declarados en `## Specification` desde `src/change.mjs` (`parseChange().criteria`) (CR2) — 2026-06-14T16:43:29Z
+- [x] Cobertura CR↔tarea en `src/check.mjs` (`checkCoverage`), solo `approved`/`in-progress`, warnings no errores (CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
+- [x] Documentar el DoR y el efecto de `tdd` en el contrato `templates/AGENTS.md` §11 (CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
+- [x] Tests de config `tdd` en `test/cli.test.mjs` y de cobertura en `test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
+- [x] README: mencionar el flag `tdd` y el DoR en `README.md` (sin CR — docs) — 2026-06-14T16:43:29Z
 
 ## Log
 - **2026-06-14T16:36:56Z** — status: draft → approved
+- **2026-06-14T16:38:33Z** — status: approved → in-progress
+- **2026-06-14T16:38:33Z** — owner → Roberto Ruiz (auto)
+- **2026-06-14T16:45:00Z** — Spec architecture.md actualizada con seccion Definition of Ready (tdd)
+- **2026-06-14T16:45:00Z** — status: in-progress → done
