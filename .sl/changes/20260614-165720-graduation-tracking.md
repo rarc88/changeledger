@@ -2,7 +2,7 @@
 id: "20260614-165720"
 title: "Rastrear graduacion: listar pendientes y marcar revisados (reviewed)"
 type: feature
-status: draft
+status: approved
 created: 2026-06-14T16:57:20Z
 depends_on: []
 ---
@@ -127,3 +127,4 @@ stateDiagram-v2
 - [ ] README: `sl graduate --pending` / `--skip` (sin CR — docs)
 
 ## Log
+- **2026-06-14T17:09:02Z** — status: draft → approved
