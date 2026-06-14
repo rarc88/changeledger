@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
+import { gitUser as defaultGitUser } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
 import { appendLog, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
@@ -20,15 +21,26 @@ function locate(cwd, id) {
   return { config, file: path.join(dir, name) };
 }
 
-export function status(id, newStatus, cwd = process.cwd()) {
+export function status(id, newStatus, cwd = process.cwd(), { gitUser = defaultGitUser } = {}) {
   const { config, file } = locate(cwd, id);
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
   let text = fs.readFileSync(file, 'utf8');
-  const prev = parseChange(text).frontmatter.status;
+  const fm = parseChange(text).frontmatter;
   text = setStatus(text, newStatus);
-  text = appendLog(text, nowUtc(), `status: ${prev} → ${newStatus}`);
+  text = appendLog(text, nowUtc(), `status: ${fm.status} → ${newStatus}`);
+
+  // Work begins here: assign the owner from the local git identity unless one was
+  // set explicitly (see change 20260614-124047).
+  if (newStatus === 'in-progress' && !fm.owner) {
+    const user = gitUser(path.dirname(file));
+    if (user) {
+      text = setOwner(text, user);
+      text = appendLog(text, nowUtc(), `owner → ${user} (auto)`);
+    }
+  }
+
   fs.writeFileSync(file, text);
   return file;
 }

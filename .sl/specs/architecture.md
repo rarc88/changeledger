@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T12:16:16Z
+updated: 2026-06-14T12:41:30Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -47,6 +47,9 @@ flowchart TD
   `type`, `status`, `created`, `depends_on`, `owner` opcional) + etapas
   (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
   con `blocked`). Tareas en `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
+El `owner` se autoasigna desde la identidad git local al pasar a `in-progress`
+(cuando empieza el trabajo), salvo que ya esté fijado a mano (`sl owner`).
+
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.

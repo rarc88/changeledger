@@ -10,6 +10,16 @@ function defaultRun(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
+// Local git identity (`git config user.name`), or '' if unavailable. Used to
+// auto-assign a change's owner when work starts. Tolerant by design.
+export function gitUser(cwd, run = defaultRun) {
+  try {
+    return run(['config', 'user.name'], cwd).trim();
+  } catch {
+    return '';
+  }
+}
+
 export function gitRefs(repoRoot, id, run = defaultRun) {
   const refs = { commits: [], branches: [] };
   if (!id) return refs;
