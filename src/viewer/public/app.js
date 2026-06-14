@@ -238,7 +238,7 @@ function openDetail(id) {
       <span class="pill" style="color:var(--${c.type})">${c.type}</span>
       <span class="pill">${c.status}</span>
       ${c.owner ? `<span class="pill owner">@${esc(c.owner)}</span>` : ''}
-      <span class="pill">${c.created || ''}</span>
+      <span class="pill" title="${esc(c.created || '')}">${esc(fmtDateTime(c.created))}</span>
       ${deps}
     </div>
     <div class="pipeline">${pipeline}</div>
@@ -293,7 +293,7 @@ async function loadGitRefs(id) {
   const commits = refs.commits
     .map(
       (c) =>
-        `<li><span class="mono">${esc(c.sha.slice(0, 8))}</span> ${esc(c.subject)} <span class="when">${esc((c.date || '').slice(0, 10))}</span></li>`,
+        `<li><span class="mono">${esc(c.sha.slice(0, 8))}</span> ${esc(c.subject)} <span class="when" title="${esc(c.date || '')}">${esc(fmtDate(c.date))}</span></li>`,
     )
     .join('');
   const branches = refs.branches.map((b) => `<span class="pill">${esc(b)}</span>`).join('');
@@ -522,7 +522,9 @@ function renderSpecs() {
         .map(
           (s, i) => `<div class="spec-card" data-i="${i}">
             <div class="spec-title">${esc(s.title)}</div>
-            <div class="card-meta"><span>${s.updated || ''}</span>${(s.tags || [])
+            <div class="card-meta"><span title="${esc(s.updated || '')}">${esc(fmtDateTime(s.updated))}</span>${(
+              s.tags || []
+            )
               .map((t) => `<span class="pill">${esc(t)}</span>`)
               .join('')}</div>
           </div>`,
@@ -542,7 +544,7 @@ function openSpec(s) {
     <h1>${esc(s.title)}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
-      <span class="pill">${s.updated || ''}</span>
+      <span class="pill" title="${esc(s.updated || '')}">${esc(fmtDateTime(s.updated))}</span>
       ${(s.tags || []).map((t) => `<span class="pill">${esc(t)}</span>`).join('')}
     </div>
     <div class="stage-content">${marked.parse(s.body || '')}</div>`;
@@ -716,6 +718,20 @@ const esc = (s) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
   );
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+// Render an ISO UTC timestamp in the viewer's local format. The stored value
+// stays ISO UTC (source of truth); only the display is localized. Empty/invalid
+// input renders as ''.
+const fmtDateTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
+};
+const fmtDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+};
 
 $('#search').oninput = (e) => {
   filters.text = e.target.value;
