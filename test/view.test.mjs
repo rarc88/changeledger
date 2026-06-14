@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { init } from '../src/commands/init.mjs';
-import { resolveProjects } from '../src/commands/view.mjs';
+import { resolveProjects, searchProjects } from '../src/commands/view.mjs';
 
 function isolatedHome() {
   process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -46,6 +46,32 @@ test('a project whose path is gone is marked not alive', () => {
   fs.rmSync(path.join(repo, '.sl'), { recursive: true, force: true });
   const { projects } = resolveProjects(outside, false);
   assert.equal(projects[0].alive, false);
+});
+
+test('searchProjects groups matches and drops projects with none', () => {
+  const fakeRepo = (titles) => ({
+    changes: titles.map((t, i) => ({
+      text: `body ${t}`,
+      frontmatter: { id: `2026010${i}-000000`, title: t, type: 'feature', status: 'draft' },
+    })),
+  });
+  const projects = [
+    { id: 'a', name: 'A', path: '/a', alive: true },
+    { id: 'b', name: 'B', path: '/b', alive: true },
+    { id: 'c', name: 'C', path: '/c', alive: false },
+  ];
+  const load = (p) => fakeRepo(p === '/a' ? ['login flow', 'logout'] : ['unrelated']);
+  const groups = searchProjects(projects, 'log', load);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].project.id, 'a');
+  assert.equal(groups[0].matches.length, 2);
+});
+
+test('searchProjects returns nothing for an empty query', () => {
+  assert.deepEqual(
+    searchProjects([{ id: 'a', path: '/a', alive: true }], '  ', () => ({})),
+    [],
+  );
 });
 
 test('local mode returns only the current repo', () => {

@@ -75,4 +75,6 @@ render de markdown + mermaid. Los changes con `archived: true` se ocultan por
 defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
 sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
 `node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
-el visor lee el registro y muestra todos los proyectos (selector + autoenfoque).
+el visor lee el registro y muestra todos los proyectos (selector + autoenfoque),
+y la búsqueda "Global" (`GET /api/search?q=`) hace match full-text en todos los
+repos vivos y agrupa los resultados por proyecto.

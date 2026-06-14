@@ -8,6 +8,7 @@ let sortKey = 'id';
 let sortDir = 1;
 let currentProject = null;
 let projectsList = [];
+let globalMode = false;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -474,11 +475,64 @@ function openSpec(s) {
 
 function setView(v) {
   currentView = v;
+  if (globalMode) {
+    globalMode = false;
+    $('#toggle-global').classList.remove('active');
+  }
+  $('#global').classList.add('hidden');
   for (const name of ['board', 'table', 'graph', 'specs']) {
     $(`#view-${name}`).classList.toggle('active', v === name);
     $(`#${name}`).classList.toggle('hidden', v !== name);
   }
   render();
+}
+
+// Global search: query every project server-side, render grouped results.
+async function renderGlobal() {
+  const q = filters.text.trim();
+  const el = $('#global');
+  if (!q) {
+    el.innerHTML = '<p class="empty" style="padding:20px">Type to search across all projects.</p>';
+    return;
+  }
+  let groups;
+  try {
+    groups = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.json());
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!groups.length) {
+    el.innerHTML = `<p class="empty" style="padding:20px">No matches for “${esc(q)}”.</p>`;
+    return;
+  }
+  el.innerHTML = groups
+    .map(
+      (g) => `
+      <div class="search-group">
+        <h3>${esc(g.project.name)} <span class="count">${g.matches.length}</span></h3>
+        ${g.matches
+          .map(
+            (m) => `<div class="search-hit" data-proj="${esc(g.project.id)}" data-id="${esc(m.id)}">
+              <span class="card-id">#${esc(m.id)}</span>
+              <span class="type-tag" style="--type-color: var(--${m.type})">${esc(m.type)}</span>
+              <span>${esc(m.title)}</span>
+              <span class="pill">${esc(m.status)}</span>
+            </div>`,
+          )
+          .join('')}
+      </div>`,
+    )
+    .join('');
+  el.querySelectorAll('.search-hit').forEach((hit) => {
+    hit.onclick = () => gotoChange(hit.dataset.proj, hit.dataset.id);
+  });
+}
+
+function enterGlobal() {
+  for (const name of ['board', 'table', 'graph', 'specs']) $(`#${name}`).classList.add('hidden');
+  $('#global').classList.remove('hidden');
+  renderGlobal();
 }
 
 const esc = (s) =>
@@ -490,7 +544,14 @@ const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 $('#search').oninput = (e) => {
   filters.text = e.target.value;
-  render();
+  if (globalMode) renderGlobal();
+  else render();
+};
+$('#toggle-global').onclick = (e) => {
+  globalMode = !globalMode;
+  e.target.classList.toggle('active', globalMode);
+  if (globalMode) enterGlobal();
+  else setView(currentView);
 };
 $('#type-filter').onchange = (e) => {
   filters.type = e.target.value;

@@ -86,6 +86,35 @@ export function resolveProjects(cwd, localOnly) {
   return { projects, current };
 }
 
+// Full-text search across the given (alive) projects. `load` maps a project path
+// to a loaded repo (loadRepo by default). Returns groups with at least one match.
+export function searchProjects(projects, q, load = loadRepo) {
+  const needle = String(q ?? '')
+    .trim()
+    .toLowerCase();
+  if (!needle) return [];
+  const groups = [];
+  for (const p of projects) {
+    if (!p.alive) continue;
+    let repo;
+    try {
+      repo = load(p.path);
+    } catch {
+      continue;
+    }
+    const matches = repo.changes
+      .filter((c) => `${c.text ?? ''} ${c.frontmatter?.title ?? ''}`.toLowerCase().includes(needle))
+      .map((c) => ({
+        id: c.frontmatter.id,
+        title: c.frontmatter.title,
+        type: c.frontmatter.type,
+        status: c.frontmatter.status,
+      }));
+    if (matches.length) groups.push({ project: { id: p.id, name: p.name }, matches });
+  }
+  return groups;
+}
+
 function send(res, code, type, body) {
   res.writeHead(code, { 'Content-Type': type });
   res.end(body);
@@ -102,6 +131,11 @@ export async function view(args = [], cwd = process.cwd()) {
 
       if (route === '/api/projects') {
         send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));
+        return;
+      }
+      if (route === '/api/search') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        send(res, 200, MIME['.json'], JSON.stringify(searchProjects(projects, params.get('q'))));
         return;
       }
       if (route === '/api/repo') {

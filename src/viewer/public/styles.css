@@ -248,6 +248,31 @@ body {
 .card.archived {
   opacity: 0.55;
 }
+.global-view {
+  padding: 18px;
+  overflow: auto;
+}
+.search-group {
+  margin-bottom: 20px;
+}
+.search-group h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.search-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.search-hit:hover {
+  background: var(--panel);
+}
 
 /* Overlay + detail */
 .overlay {
