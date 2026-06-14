@@ -2,7 +2,7 @@
 id: "20260613-222912"
 title: Owner/assignee en changes y filtro por responsable
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T22:29:12Z
 depends_on: []
 ---
@@ -20,3 +20,4 @@ Necesitamos saber quién trabaja en qué. Campo opcional `owner` en el frontmatt
 ## Plan
 
 ## Log
+- **2026-06-14T11:12:23Z** — status: draft → approved

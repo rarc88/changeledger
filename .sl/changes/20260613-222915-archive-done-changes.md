@@ -2,7 +2,7 @@
 id: "20260613-222915"
 title: Archivar changes done para no saturar el board
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T22:29:15Z
 depends_on: []
 ---
@@ -20,3 +20,4 @@ Los changes `done` saturan el board con el tiempo. Archivarlos (mover a `.sl/arc
 ## Plan
 
 ## Log
+- **2026-06-14T11:12:24Z** — status: draft → approved

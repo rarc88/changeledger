@@ -2,7 +2,7 @@
 id: "20260613-222914"
 title: Dependencias entre proyectos
 type: feature
-status: draft
+status: approved
 created: 2026-06-13T22:29:14Z
 depends_on: []
 ---
@@ -20,3 +20,4 @@ Un change puede depender de trabajo en otro proyecto. Referencia tipo `proyecto:
 ## Plan
 
 ## Log
+- **2026-06-14T11:12:24Z** — status: draft → approved
