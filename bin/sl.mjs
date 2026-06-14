@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { archive, list, log, owner, show, status, task } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
-import { graduate } from '../src/commands/graduate.mjs';
+import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -22,7 +22,9 @@ const USAGE = `Spec Ledger (sl)
   sl task <id> done|block <n> [reason]   mark a Plan task
   sl list [--status S] [--type T] [--json]   list changes
   sl show <id> [--json]            print a change
-  sl graduate <change-id> <spec-slug>   graduate a change to a spec`;
+  sl graduate <change-id> <spec-slug>   graduate a change to a spec
+  sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
+  sl graduate --pending                 list done changes not yet reviewed`;
 
 const flagVal = (args, flag) => {
   const i = args.indexOf(flag);
@@ -117,8 +119,27 @@ try {
       break;
     }
     case 'graduate': {
+      if (args.includes('--pending')) {
+        const items = pendingGraduation();
+        if (!items.length) console.log('No changes pending graduation.');
+        for (const c of items) console.log(`#${c.id}  ${c.title}`);
+        break;
+      }
+      const skipIdx = args.indexOf('--skip');
+      if (skipIdx !== -1) {
+        const id = args.find((a) => !a.startsWith('--'));
+        if (!id) throw new Error('Usage: sl graduate <change-id> --skip [reason]');
+        const reason = args
+          .slice(skipIdx + 1)
+          .join(' ')
+          .trim();
+        skipGraduation(id, reason);
+        console.log(`#${id} graduation skipped`);
+        break;
+      }
       const [id, slug] = args;
-      if (!id || !slug) throw new Error('Usage: sl graduate <change-id> <spec-slug>');
+      if (!id || !slug)
+        throw new Error('Usage: sl graduate <change-id> <spec-slug> | --skip [reason] | --pending');
       const file = graduate(id, slug);
       console.log(`Graduated #${id} → ${file}`);
       break;

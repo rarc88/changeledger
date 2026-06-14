@@ -38,6 +38,7 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
+    if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const k of present) if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);

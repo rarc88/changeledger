@@ -34,6 +34,18 @@ export function setArchived(text, archived) {
   return fm + text.slice(m[1].length);
 }
 
+// Sets or removes the optional `reviewed: true` frontmatter line. It marks the
+// graduation question as resolved (graduated to a spec, or deliberately skipped).
+export function setReviewed(text, reviewed) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  let fm = m[1].replace(/^reviewed:.*\n/m, '');
+  if (reviewed) {
+    fm = fm.replace(/^(depends_on:.*\n)/m, '$1reviewed: true\n');
+  }
+  return fm + text.slice(m[1].length);
+}
+
 export function appendLog(text, iso, message) {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));
