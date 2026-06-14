@@ -28,6 +28,7 @@ body {
 }
 
 .hidden {
+  /* biome-ignore lint/complexity/noImportantStyles: utility must beat any element display */
   display: none !important;
 }
 

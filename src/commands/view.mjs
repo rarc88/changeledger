@@ -195,7 +195,7 @@ export async function view(args = [], cwd = process.cwd()) {
       if (route === '/api/git') {
         const { projects } = resolveProjects(cwd, localOnly);
         const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
-        if (!proj || !proj.alive) {
+        if (!proj?.alive) {
           send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
           return;
         }

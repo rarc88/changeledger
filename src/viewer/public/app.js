@@ -344,7 +344,7 @@ function closeDetail() {
 // list, switch to it, then open the target change once its repo has loaded.
 async function gotoChange(proj, changeId) {
   const match = projectsList.find((p) => p.id === proj || p.name === proj);
-  if (!match || !match.alive) {
+  if (!match?.alive) {
     alert(`Project "${proj}" is not registered or its path is gone.`);
     return;
   }

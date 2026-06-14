@@ -45,7 +45,7 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
     refs.branches = out
       .split('\n')
       .map((s) => s.trim())
-      .filter((name) => name && name.includes(id));
+      .filter((name) => name?.includes(id));
   } catch {
     // leave branches empty
   }
