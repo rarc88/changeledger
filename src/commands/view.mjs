@@ -4,6 +4,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
+import { gitRefs } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
@@ -133,6 +134,16 @@ export async function view(args = [], cwd = process.cwd()) {
 
       if (route === '/api/projects') {
         send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));
+        return;
+      }
+      if (route === '/api/git') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
+        if (!proj || !proj.alive) {
+          send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
+          return;
+        }
+        send(res, 200, MIME['.json'], JSON.stringify(gitRefs(proj.path, params.get('id'))));
         return;
       }
       if (route === '/api/search') {

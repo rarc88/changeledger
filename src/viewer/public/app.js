@@ -196,7 +196,8 @@ function openDetail(id) {
       ${deps}
     </div>
     <div class="pipeline">${pipeline}</div>
-    ${stages}`;
+    ${stages}
+    <div id="git-section"></div>`;
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
@@ -224,6 +225,40 @@ function openDetail(id) {
       };
     });
   renderMermaid($('#detail'));
+  loadGitRefs(c.id);
+}
+
+// Fetch and render the git refs (commits/branches) that reference this change.
+async function loadGitRefs(id) {
+  let refs;
+  try {
+    refs = await fetch(
+      `/api/git?project=${encodeURIComponent(currentProject)}&id=${encodeURIComponent(id)}`,
+    ).then((r) => r.json());
+  } catch {
+    return;
+  }
+  const sec = $('#git-section');
+  if (!sec) return;
+  if (!refs.commits.length && !refs.branches.length) {
+    sec.innerHTML = '';
+    return;
+  }
+  const commits = refs.commits
+    .map(
+      (c) =>
+        `<li><span class="mono">${esc(c.sha.slice(0, 8))}</span> ${esc(c.subject)} <span class="when">${esc((c.date || '').slice(0, 10))}</span></li>`,
+    )
+    .join('');
+  const branches = refs.branches.map((b) => `<span class="pill">${esc(b)}</span>`).join('');
+  sec.innerHTML = `
+    <div class="stage">
+      <h2>Git</h2>
+      <div class="stage-content">
+        ${branches ? `<div class="detail-meta">${branches}</div>` : ''}
+        ${refs.commits.length ? `<ul class="git-commits">${commits}</ul>` : ''}
+      </div>
+    </div>`;
 }
 
 function stageBlock(c, s) {

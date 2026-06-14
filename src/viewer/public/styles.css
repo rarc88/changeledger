@@ -321,6 +321,16 @@ body {
   border-radius: 3px;
   min-width: 2px;
 }
+.git-commits {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.git-commits li {
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
 
 /* Overlay + detail */
 .overlay {

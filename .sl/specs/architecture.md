@@ -67,6 +67,14 @@ segundo. Ordenable cronológicamente.
 el throughput agrupa cierres por día. El server las precalcula y el visor las
 pinta en la pestaña **Metrics**.
 
+## Trazabilidad git
+
+`git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
+convención de commit `[#<id>]`: lista los commits que lo referencian y las
+branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
+endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
+**Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
+
 ## Política de idioma
 
 La estructura es inglés fijo (claves, enums, headings de etapa, nombres de
