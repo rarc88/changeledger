@@ -90,7 +90,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
-test('CR1: changeStatus rejects an invalid status without writing', () => {
+test('CR1: changeStatus rejects a non draft→approved move without writing', () => {
   isolatedHome();
   const root = newRepo();
   const file = newChange(
@@ -99,10 +99,18 @@ test('CR1: changeStatus rejects an invalid status without writing', () => {
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
+
+  // draft → done is the agent's job, not the human's: rejected, no write.
   const before = fs.readFileSync(file, 'utf8');
-  const res = changeStatus(projects, { project: current, id, status: 'weird' });
-  assert.equal(res.code, 400);
+  const res = changeStatus(projects, { project: current, id, status: 'done' });
+  assert.equal(res.code, 403);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+
+  // and once approved, the viewer cannot push it further.
+  changeStatus(projects, { project: current, id, status: 'approved' });
+  const res2 = changeStatus(projects, { project: current, id, status: 'in-progress' });
+  assert.equal(res2.code, 403);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
 test('local mode returns only the current repo', () => {

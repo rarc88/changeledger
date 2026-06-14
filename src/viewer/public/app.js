@@ -142,31 +142,37 @@ function renderBoard() {
         </div>`;
     })
     .join('');
+  // The only human-driven lifecycle move is approval: draft → approved. So only
+  // draft cards are draggable, and only the approved column is a drop target.
   board.querySelectorAll('.card').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.id);
-    el.setAttribute('draggable', 'true');
-    el.ondragstart = (e) => {
-      e.dataTransfer.setData('text/plain', el.dataset.id);
-      e.dataTransfer.effectAllowed = 'move';
-    };
+    const c = repo.changes.find((x) => String(x.id) === String(el.dataset.id));
+    if (c && c.status === 'draft') {
+      el.setAttribute('draggable', 'true');
+      el.ondragstart = (e) => {
+        e.dataTransfer.setData('text/plain', el.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+      };
+    }
   });
-  board.querySelectorAll('.column').forEach((col) => {
-    col.ondragover = (e) => {
+  const approvedCol = board.querySelector('.column[data-status="approved"]');
+  if (approvedCol) {
+    approvedCol.ondragover = (e) => {
       e.preventDefault();
-      col.classList.add('drop-target');
+      approvedCol.classList.add('drop-target');
     };
-    col.ondragleave = () => col.classList.remove('drop-target');
-    col.ondrop = (e) => {
+    approvedCol.ondragleave = () => approvedCol.classList.remove('drop-target');
+    approvedCol.ondrop = (e) => {
       e.preventDefault();
-      col.classList.remove('drop-target');
+      approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
       const c = repo.changes.find((x) => String(x.id) === String(id));
-      if (c && c.status !== col.dataset.status) moveStatus(id, col.dataset.status);
+      if (c && c.status === 'draft') moveStatus(id, 'approved');
     };
-  });
+  }
 }
 
-// Persist a drag-drop status move, then refresh the board.
+// Persist the human approval move (draft → approved), then refresh the board.
 async function moveStatus(id, status) {
   try {
     const res = await fetch('/api/status', {

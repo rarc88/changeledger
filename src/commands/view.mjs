@@ -127,6 +127,25 @@ export function changeStatus(projects, { project, id, status }) {
   if (!proj) return { code: 404, body: { error: 'no project' } };
   if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
   if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
+
+  // The viewer is the human's surface, and the only lifecycle move that belongs
+  // to the human is approval: draft → approved. The rest of the cycle is the
+  // agent's job (via `sl status`). Enforce it here — the UI is bypassable.
+  let current;
+  try {
+    const change = loadRepo(proj.path).changes.find((c) => String(c.frontmatter.id) === String(id));
+    if (!change) return { code: 404, body: { error: `no change with id "${id}"` } };
+    current = change.frontmatter.status;
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+  if (current !== 'draft' || status !== 'approved') {
+    return {
+      code: 403,
+      body: { error: 'the viewer only allows the draft → approved transition' },
+    };
+  }
+
   try {
     applyStatusCmd(id, status, proj.path);
     return { code: 200, body: { ok: true, id, status } };
