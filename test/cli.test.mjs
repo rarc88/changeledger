@@ -138,7 +138,19 @@ test('check surfaces discovery errors repo-wide (CR6)', () => {
   const root = tmp();
   init(root);
   fs.unlinkSync(path.join(root, '.sl', 'AGENTS.md'));
-  assert.equal(check([], root), 1);
+  // check() prints findings (console.error) and a summary (console.log);
+  // silence both so this deliberate failure doesn't look like a real error in
+  // the test/verify output.
+  const origErr = console.error;
+  const origLog = console.log;
+  console.error = () => {};
+  console.log = () => {};
+  try {
+    assert.equal(check([], root), 1);
+  } finally {
+    console.error = origErr;
+    console.log = origLog;
+  }
 });
 
 test('init refuses to overwrite an existing .sl/', () => {
