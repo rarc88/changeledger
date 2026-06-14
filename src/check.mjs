@@ -5,7 +5,7 @@ const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 
-export function checkRepo({ config, changes }, opts = {}) {
+export function checkRepo({ config, changes, specs = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
@@ -97,7 +97,64 @@ export function checkRepo({ config, changes }, opts = {}) {
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
+  checkSpecs(changes, specs, ids, err, warn);
+
   return { errors, warnings };
+}
+
+// The latest timestamp found in a change: its `created` plus every `**<iso>**`
+// in its raw text (Log entries, task resolutions). Used to spot stale specs.
+function latestActivity(change) {
+  const stamps = [];
+  if (change.frontmatter?.created) stamps.push(change.frontmatter.created);
+  for (const m of String(change.text ?? '').matchAll(/\*\*(\d{4}-\d{2}-\d{2}T[^*]+)\*\*/g))
+    stamps.push(m[1].trim());
+  return stamps.sort().pop() ?? null;
+}
+
+// Validates the spec layer and its links to changes. `graduate` records two
+// markers: in the change Log `graduado a spec \`<file>\``, and in the spec body
+// `Graduado del change <id>`.
+function checkSpecs(changes, specs, changeIds, err, warn) {
+  const specNames = new Set(specs.map((s) => s.name));
+
+  // change → spec links (from each change's Log graduation marker).
+  const incoming = new Set(); // spec names a change graduated to
+  const activityBySpec = new Map(); // spec name → latest linked-change activity
+  for (const c of changes) {
+    for (const m of String(c.text ?? '').matchAll(/graduado a spec `([^`]+)`/gi)) {
+      const specName = m[1].trim();
+      if (!specNames.has(specName)) {
+        err(c, `graduated to a missing spec "${specName}"`);
+        continue;
+      }
+      incoming.add(specName);
+      const ts = latestActivity(c);
+      const prev = activityBySpec.get(specName);
+      if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
+    }
+  }
+
+  for (const s of specs) {
+    const fm = s.frontmatter ?? {};
+    if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
+
+    // spec → change backlinks.
+    let hasValidBacklink = false;
+    for (const m of String(s.body ?? '').matchAll(/Graduado del change\s+(\d{8}-\d{6})/gi)) {
+      if (changeIds.has(m[1])) hasValidBacklink = true;
+      else err(s, `references a missing change "${m[1]}"`);
+    }
+
+    if (!incoming.has(s.name) && !hasValidBacklink) {
+      warn(s, 'orphan spec (no change graduated it)');
+    }
+
+    const activity = activityBySpec.get(s.name);
+    if (fm.updated && ISO_UTC.test(fm.updated) && activity && activity > fm.updated) {
+      warn(s, `updated (${fm.updated}) is older than linked change activity (${activity})`);
+    }
+  }
 }
 
 // Git merge conflict markers: exactly 7 of <, = or > at the start of a line.

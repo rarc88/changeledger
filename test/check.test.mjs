@@ -180,3 +180,51 @@ test('CR3: a non-boolean archived flag is an error', () => {
   const c = change({ frontmatter: { archived: 1 } });
   assert.ok(msgs(run([c]).errors).some((m) => /archived must be a boolean/.test(m)));
 });
+
+const spec = (over = {}) => ({
+  name: over.name ?? 'arch.md',
+  frontmatter: { title: 'T', updated: '2026-06-13T12:00:00Z', tags: [], ...over.frontmatter },
+  body: over.body ?? '',
+});
+const runS = (changes, specs) => checkRepo({ config, changes, specs });
+
+test('CR1: a change graduating to a missing spec is an error', () => {
+  const c = change({ text: '## Log\n- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n' });
+  assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
+});
+
+test('CR1: a spec referencing a missing change is an error', () => {
+  const s = spec({ body: 'Graduado del change 20990101-000000' });
+  assert.ok(
+    msgs(runS([change()], [s]).errors).some((m) => /missing change "20990101-000000"/.test(m)),
+  );
+});
+
+test('CR2: a spec with no link is an orphan warning, not an error', () => {
+  const { errors, warnings } = runS([change()], [spec()]);
+  assert.deepEqual(errors, []);
+  assert.ok(msgs(warnings).some((m) => /orphan spec/.test(m)));
+});
+
+test('CR2: a spec backlinked to an existing change is not orphan', () => {
+  const c = change({ frontmatter: { id: '20260613-120000' } });
+  const s = spec({ body: 'Graduado del change 20260613-120000' });
+  assert.deepEqual(
+    msgs(runS([c], [s]).warnings).filter((m) => /orphan/.test(m)),
+    [],
+  );
+});
+
+test('CR3: a stale updated is a warning', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
+    text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+  });
+  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
+});
+
+test('CR3: a non-ISO updated is an error', () => {
+  const s = spec({ frontmatter: { updated: '2026-06-13' } });
+  assert.ok(msgs(runS([change()], [s]).errors).some((m) => /updated not ISO/.test(m)));
+});

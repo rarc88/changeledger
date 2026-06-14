@@ -67,6 +67,14 @@ segundo. Ordenable cronológicamente.
 el throughput agrupa cierres por día. El server las precalcula y el visor las
 pinta en la pestaña **Metrics**.
 
+## Validación (`sl check`)
+
+`check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
+la capa de specs y sus enlaces: marcadores de conflicto de merge, enlaces
+change↔spec rotos (error), specs huérfanos y `updated` desfasado respecto a la
+actividad de un change enlazado (warning). Los enlaces salen de los marcadores
+que escribe `sl graduate`.
+
 ## Trazabilidad git
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
