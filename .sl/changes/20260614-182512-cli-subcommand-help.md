@@ -2,9 +2,11 @@
 id: "20260614-182512"
 title: Help por subcomando en el CLI
 type: feature
-status: approved
+status: done
 created: 2026-06-14T18:25:12Z
 depends_on: []
+reviewed: true
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -60,10 +62,14 @@ Descartado:
 
 ## Plan
 
-- [ ] Definir mapa `HELP` por comando en `bin/sl.mjs`, reutilizado por los `Usage:` (CR1, CR2, CR3) — `bin/sl.mjs`
-- [ ] Atajo pre-`switch`: `--help`/`-h` + cmd conocido imprime `HELP[cmd]`, exit 0 (CR1, CR2) — `bin/sl.mjs`
-- [ ] Conservar `--help`/`-h` global (CR4) — `bin/sl.mjs`
-- [ ] Tests de proceso: `sl graduate --help`, `sl task -h`, `sl graduate` (uso/exit) en `test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Mapa `HELP` por comando en `bin/sl.mjs` + `usage(cmd)` reutilizado por los throws (CR1, CR2, CR3) — 2026-06-14T18:36:00Z
+- [x] Atajo pre-`switch` en `bin/sl.mjs`: `--help`/`-h` + cmd conocido imprime `HELP[cmd]`, exit 0 (CR1, CR2) — 2026-06-14T18:36:00Z
+- [x] `--help`/`-h` global conservado en `bin/sl.mjs` (CR4) — 2026-06-14T18:36:00Z
+- [x] Tests de proceso en `test/cli-bin.test.mjs` (`graduate --help`, `task -h`, `graduate` sin args, `--help` global) (CR1, CR2, CR3, CR4) — 2026-06-14T18:36:00Z
 
 ## Log
 - **2026-06-14T18:31:06Z** — status: draft → approved
+- **2026-06-14T18:34:57Z** — status: approved → in-progress
+- **2026-06-14T18:34:57Z** — owner → Roberto Ruiz (auto)
+- **2026-06-14T18:36:58Z** — status: in-progress → done
+- **2026-06-14T18:36:58Z** — graduation skipped: ayuda CLI; el spec no enumera flags por comando
