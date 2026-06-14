@@ -1,10 +1,12 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T11:30:00Z
+updated: 2026-06-14T12:16:16Z
 tags: [architecture, cli, viewer]
 ---
 
 # Arquitectura de Spec Ledger
+
+> Graduado del change 20260613-205854.
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -36,7 +38,7 @@ flowchart TD
     VIEW[view] --> SRV
   end
   SRV[server node:http] --> REPO
-  SRV --> UI[visor: board / table / graph / specs]
+  SRV --> UI[visor: board / table / graph / specs / metrics]
 ```
 
 ## Modelo de datos
@@ -62,18 +64,19 @@ segundo. Ordenable cronológicamente.
 
 ## Métricas
 
-`metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps: el cierre
-(`done`) se lee del `## Log` (`→ done`), el cycle time es `doneAt − created`, y
-el throughput agrupa cierres por día. El server las precalcula y el visor las
-pinta en la pestaña **Metrics**.
+`metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
+(`done`) y el paso a cada estado se leen del `## Log`; de ahí salen: cycle time
+(`done − created`), lead time por etapa, WIP actual, aging de los `in-progress`,
+tiempo bloqueado, throughput por día y desgloses por tipo/owner. El server las
+precalcula y el visor las pinta en la pestaña **Metrics**.
 
 ## Validación (`sl check`)
 
 `check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
-la capa de specs y sus enlaces: marcadores de conflicto de merge, enlaces
-change↔spec rotos (error), specs huérfanos y `updated` desfasado respecto a la
-actividad de un change enlazado (warning). Los enlaces salen de los marcadores
-que escribe `sl graduate`.
+la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
+duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
+desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
+salen de los marcadores que escribe `sl graduate`.
 
 ## Trazabilidad git
 
@@ -93,13 +96,15 @@ inglés canónico.
 
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
 request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
-permite mover el `status` de un change arrastrando su card entre columnas del
-board (reusa el comando `status`: valida el enum y escribe `setStatus`+`appendLog`); la UI rinde board (kanban), table, graph
-(`depends_on`) y specs, con búsqueda full-text, filtros (tipo, estado, owner) y
-render de markdown + mermaid. Los changes con `archived: true` se ocultan por
-defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
-sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
-`node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
-el visor lee el registro y muestra todos los proyectos (selector + autoenfoque),
-y la búsqueda "Global" (`GET /api/search?q=`) hace match full-text en todos los
-repos vivos y agrupa los resultados por proyecto.
+permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
+card entre esas columnas del board (el único salto que le corresponde; el resto
+del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
+(`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
+owner) y render de markdown + mermaid. Los changes con `archived: true` se ocultan
+por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
+sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
+`mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
+`/vendor/*`; el resto del runtime es cero-deps. En modo global el visor lee el
+registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
+"Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
+agrupa los resultados por proyecto.
