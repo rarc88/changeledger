@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { appendLog, setArchived, setOwner, setStatus, setTask } from '../src/writer.mjs';
+import {
+  appendLog,
+  setArchived,
+  setOwner,
+  setReviewed,
+  setStatus,
+  setTask,
+} from '../src/writer.mjs';
 
 const DOC = `---
 id: "20260613-120000"
@@ -99,6 +106,19 @@ x
   const log = parseChange(out).stages.find((s) => s.key === 'log');
   assert.ok(log, 'a ## Log section is created');
   assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* — status: draft → approved\n$/);
+});
+
+test('setReviewed adds and removes the reviewed flag', () => {
+  const on = setReviewed(DOC, true);
+  assert.equal(parseChange(on).frontmatter.reviewed, true);
+  const off = setReviewed(on, false);
+  assert.equal('reviewed' in parseChange(off).frontmatter, false);
+});
+
+test('setReviewed is idempotent', () => {
+  const once = setReviewed(DOC, true);
+  const twice = setReviewed(once, true);
+  assert.equal(twice.match(/^reviewed: true$/gm).length, 1);
 });
 
 test('setArchived adds and removes the archived flag', () => {

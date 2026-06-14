@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { graduate } from '../src/commands/graduate.mjs';
+import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { parseSpec } from '../src/spec.mjs';
 
@@ -63,4 +63,59 @@ test('graduate refuses to overwrite an existing spec', () => {
 test('graduate throws on an unknown change id', () => {
   const { root } = repo();
   assert.throws(() => graduate('99999999-000000', 'x', root), /No change with id/);
+});
+
+// Write a bare change file with a given id and status.
+function writeChange(root, id, status, extra = '') {
+  const file = path.join(root, '.sl', 'changes', `${id}-y.md`);
+  fs.writeFileSync(
+    file,
+    `---\nid: "${id}"\ntitle: Y\ntype: feature\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Log\n`,
+  );
+  return file;
+}
+
+test('graduate marks the change reviewed (CR1)', () => {
+  const { root, file, id } = repo();
+  graduate(id, 'auth', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
+});
+
+test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', () => {
+  const { root, file, id } = repo();
+  const out = skipGraduation(id, 'bug fix, sin verdad persistente', root);
+  assert.equal(out, file);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.reviewed, true);
+  assert.match(
+    c.stages.find((s) => s.key === 'log').body,
+    /graduation skipped: bug fix, sin verdad persistente$/m,
+  );
+  const specsDir = path.join(root, '.sl', 'specs');
+  assert.equal(fs.existsSync(specsDir) && fs.readdirSync(specsDir).length > 0, false);
+});
+
+test('skipGraduation without a reason logs the bare marker (CR3)', () => {
+  const { root, file, id } = repo();
+  skipGraduation(id, '', root);
+  const log = parseChange(fs.readFileSync(file, 'utf8')).stages.find((s) => s.key === 'log').body;
+  assert.match(log, /graduation skipped$/m);
+});
+
+test('skipGraduation refuses a non-done change and writes nothing (CR6)', () => {
+  const { root } = repo();
+  const f = writeChange(root, '20260102-000000', 'in-progress');
+  const before = fs.readFileSync(f, 'utf8');
+  assert.throws(() => skipGraduation('20260102-000000', 'x', root), /only done changes/);
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+});
+
+test('pendingGraduation lists only unreviewed done changes (CR4)', () => {
+  const { root } = repo(); // base 20260613-120000 is done, unreviewed
+  writeChange(root, '20260101-000000', 'done', 'reviewed: true\n');
+  writeChange(root, '20260103-000000', 'draft');
+  const ids = pendingGraduation(root).map((c) => c.id);
+  assert.ok(ids.includes('20260613-120000'));
+  assert.ok(!ids.includes('20260101-000000'));
+  assert.ok(!ids.includes('20260103-000000'));
 });

@@ -181,6 +181,11 @@ test('CR3: a non-boolean archived flag is an error', () => {
   assert.ok(msgs(run([c]).errors).some((m) => /archived must be a boolean/.test(m)));
 });
 
+test('CR3: a non-boolean reviewed flag is an error', () => {
+  const c = change({ frontmatter: { reviewed: 1 } });
+  assert.ok(msgs(run([c]).errors).some((m) => /reviewed must be a boolean/.test(m)));
+});
+
 const spec = (over = {}) => ({
   name: over.name ?? 'arch.md',
   frontmatter: { title: 'T', updated: '2026-06-13T12:00:00Z', tags: [], ...over.frontmatter },
