@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T16:16:14Z
+updated: 2026-06-14T16:43:29Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -114,6 +114,20 @@ descubra sin tooling específico. `contract.mjs` concentra la lógica
 `sl check` falla (error, no warning) si falta el raíz, si un contrato presente no
 referencia, o si el link no resuelve — el discovery es condición para que la
 herramienta funcione en el repo.
+
+## Definition of Ready (tdd)
+
+El modelo de uso es **documentar con modelo fuerte, implementar con modelo menos
+potente**. El flag `tdd` en `config.yml` (default `true`) gobierna la política: con
+`true`, los changes se documentan *test-grade* (cada requisito un CR concreto;
+cada tarea del Plan nombra archivos+test y mapea a un CR) y se implementan con TDD.
+`change.mjs` expone los CR declarados en `## Specification` (`parseChange().criteria`);
+`check.mjs` (`checkCoverage`) cruza CR↔tarea y emite **warnings** (nunca errores)
+cuando, en un change `approved`/`in-progress` cuyo tipo activa `specification`, un
+CR no tiene tarea o una tarea no referencia CR. No juzga si un CR es realmente
+test-grade (no parseable) — eso queda como juicio del agente documentador. `draft`
+(autoría en curso) y `done` (histórico) no se evalúan. `tdd: false` desactiva el
+cruce (repos exploratorios).
 
 ## Política de idioma
 

@@ -59,6 +59,15 @@ see [`.sl/changes/`](.sl/changes/).
 
 The full contract for agents lives in [`AGENTS.md`](AGENTS.md).
 
+## Definition of Ready
+
+Spec Ledger assumes a **strong model documents, a less capable model implements**.
+The `tdd` flag in `config.yml` (default `true`) makes that explicit: changes are
+documented test-grade (every requirement a concrete `CR`; every Plan task names
+its files and test, mapped to a `CR`) and implemented via TDD. `sl check` warns
+when an `approved`/`in-progress` change has a `CR` without a task, or a task
+without a `CR`. Set `tdd: false` for exploratory repos. See [`AGENTS.md`](AGENTS.md) §11.
+
 ## Development
 
 Managed with **pnpm**. Lint/format via **Biome**; the source itself ships zero

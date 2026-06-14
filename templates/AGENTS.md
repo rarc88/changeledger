@@ -227,3 +227,31 @@ is the journey; a spec is the destination. `sl graduate <change-id> <spec-slug>`
 scaffolds a spec seeded from the change's Specification/Proposal and links it back
 in the change's Log — then refine the wording by hand. Prefer diagrams (§9 /
 mermaid) where they explain the system better than prose.
+
+## 11. Definition of Ready (implementation)
+
+Spec Ledger is built for a split: a **strong model documents**, a **less capable
+(but able) model implements**. So a change must carry enough that the implementer
+needs no extra reasoning. The `tdd` flag in `config.yml` governs this (default
+`true`); set it `false` only for exploratory repos.
+
+When `tdd: true`, a change is **ready to implement** when:
+
+1. **Specification is test-grade.** Every behavioral requirement is a `CRn` with
+   **concrete values** (the actual input, not "a valid input"), the expected
+   output/effect, and **literal** error messages. Each edge case is its own `CR`.
+   No requirement lives only in prose — if it must hold, it is a `CR`.
+2. **Plan is the implementation contract.** Every task references ≥1 `CR`, names
+   the **target file(s)** and the **test file** *in its description* (keep the
+   trailing `— <timestamp>` slot for resolution, see §4), and is sized to one
+   red-green cycle. Pure support tasks (docs, scaffolding) may carry no `CR` —
+   `sl check` will note them so the author confirms the omission is intentional.
+3. **TDD is explicit.** The implementer writes the failing test from the `CR`,
+   makes it pass, then refactors. The implementer never decides *what* to test —
+   the `CR` fixes that; only *how*.
+
+`sl check` enforces this lightly: for a change that is `approved` or
+`in-progress` whose type activates `## Specification`, it **warns** (never errors)
+when a `CR` has no covering task, or a task references no `CR`. It does not judge
+whether a `CR` is genuinely test-grade — that stays the documenting agent's
+responsibility.
