@@ -1,7 +1,9 @@
 #!/bin/sh
-# Spec Ledger quality gate. lint-staged autoformats staged files with Biome
-# (it stashes unstaged changes first, so partial commits stay intact), then the
-# full gate runs: lint + test + sl check. Blocks the commit on failure.
-# Enable in this repo with: git config core.hooksPath hooks
+# Spec Ledger commit gate. lint-staged formats + lints only the STAGED files
+# (stashing unstaged changes first, so partial commits stay intact). Then run
+# tests and `sl check`. The whole-tree lint lives in `pnpm verify` (CI/manual),
+# NOT here — re-linting the full tree would fail on unstaged, unformatted files
+# and defeat lint-staged. Enable with: git config core.hooksPath hooks
 npx lint-staged || exit 1
-exec pnpm verify
+pnpm test || exit 1
+exec node bin/sl.mjs check
