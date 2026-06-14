@@ -2,7 +2,7 @@
 id: "20260614-182514"
 title: Mostrar fechas en formato local en el viewer
 type: refactor
-status: draft
+status: approved
 created: 2026-06-14T18:25:14Z
 depends_on: []
 ---
@@ -39,3 +39,4 @@ Descartado:
 - [ ] Verificar en preview: pills muestran formato local; hover muestra el ISO; vacío no rompe
 
 ## Log
+- **2026-06-14T18:31:40Z** — status: draft → approved
