@@ -4,9 +4,12 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
-import { publicDir } from '../paths.mjs';
+import { gitRefs } from '../git.mjs';
+import { computeMetrics } from '../metrics.mjs';
+import { nowUtc, publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
 import { loadRepo } from '../repo.mjs';
+import { status as applyStatusCmd } from './agent.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -39,11 +42,14 @@ function serialize(repo) {
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
     types: Object.keys(repo.config.types ?? {}),
+    metrics: computeMetrics(repo.changes, { now: nowUtc() }),
     changes: repo.changes.map((c) => ({
       id: c.frontmatter.id,
       title: c.frontmatter.title,
       type: c.frontmatter.type,
       status: c.frontmatter.status,
+      owner: c.frontmatter.owner ?? null,
+      archived: c.frontmatter.archived === true,
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],
       stages: c.stages,
@@ -84,6 +90,70 @@ export function resolveProjects(cwd, localOnly) {
   return { projects, current };
 }
 
+// Full-text search across the given (alive) projects. `load` maps a project path
+// to a loaded repo (loadRepo by default). Returns groups with at least one match.
+export function searchProjects(projects, q, load = loadRepo) {
+  const needle = String(q ?? '')
+    .trim()
+    .toLowerCase();
+  if (!needle) return [];
+  const groups = [];
+  for (const p of projects) {
+    if (!p.alive) continue;
+    let repo;
+    try {
+      repo = load(p.path);
+    } catch {
+      continue;
+    }
+    const matches = repo.changes
+      .filter((c) => `${c.text ?? ''} ${c.frontmatter?.title ?? ''}`.toLowerCase().includes(needle))
+      .map((c) => ({
+        id: c.frontmatter.id,
+        title: c.frontmatter.title,
+        type: c.frontmatter.type,
+        status: c.frontmatter.status,
+      }));
+    if (matches.length) groups.push({ project: { id: p.id, name: p.name }, matches });
+  }
+  return groups;
+}
+
+// Applies a status move requested from the viewer. Returns { code, body } so the
+// HTTP handler stays thin and the logic is testable. Reuses the `status` command
+// (enum validation + setStatus + appendLog).
+export function changeStatus(projects, { project, id, status }) {
+  const proj = projects.find((p) => p.id === project) ?? projects[0];
+  if (!proj) return { code: 404, body: { error: 'no project' } };
+  if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
+  if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
+
+  // The viewer is the human's surface, and the only lifecycle move that belongs
+  // to the human is approval: draft → approved. The rest of the cycle is the
+  // agent's job (via `sl status`). Enforce it here — the UI is bypassable.
+  let current;
+  try {
+    const change = loadRepo(proj.path).changes.find((c) => String(c.frontmatter.id) === String(id));
+    if (!change) return { code: 404, body: { error: `no change with id "${id}"` } };
+    current = change.frontmatter.status;
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+  if (current !== 'draft' || status !== 'approved') {
+    return {
+      code: 403,
+      body: { error: 'the viewer only allows the draft → approved transition' },
+    };
+  }
+
+  try {
+    applyStatusCmd(id, status, proj.path);
+    return { code: 200, body: { ok: true, id, status } };
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+}
+
 function send(res, code, type, body) {
   res.writeHead(code, { 'Content-Type': type });
   res.end(body);
@@ -98,8 +168,43 @@ export async function view(args = [], cwd = process.cwd()) {
       const [route, query] = req.url.split('?');
       const params = new URLSearchParams(query);
 
+      if (req.method === 'POST' && route === '/api/status') {
+        let raw = '';
+        req.on('data', (chunk) => {
+          raw += chunk;
+        });
+        req.on('end', () => {
+          let payload;
+          try {
+            payload = JSON.parse(raw || '{}');
+          } catch {
+            send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid JSON body' }));
+            return;
+          }
+          const { projects } = resolveProjects(cwd, localOnly);
+          const { code, body } = changeStatus(projects, payload);
+          send(res, code, MIME['.json'], JSON.stringify(body));
+        });
+        return;
+      }
+
       if (route === '/api/projects') {
         send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));
+        return;
+      }
+      if (route === '/api/git') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
+        if (!proj || !proj.alive) {
+          send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
+          return;
+        }
+        send(res, 200, MIME['.json'], JSON.stringify(gitRefs(proj.path, params.get('id'))));
+        return;
+      }
+      if (route === '/api/search') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        send(res, 200, MIME['.json'], JSON.stringify(searchProjects(projects, params.get('q'))));
         return;
       }
       if (route === '/api/repo') {

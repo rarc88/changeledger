@@ -10,10 +10,39 @@ export function setStatus(text, status) {
   return fm + text.slice(m[1].length);
 }
 
+// Sets, updates or removes the optional `owner:` frontmatter line. A falsy owner
+// removes it. New lines are placed right after `depends_on`.
+export function setOwner(text, owner) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  let fm = m[1];
+  fm = fm.replace(/^owner:.*\n/m, '');
+  if (owner) {
+    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${owner}\n`);
+  }
+  return fm + text.slice(m[1].length);
+}
+
+// Sets or removes the optional `archived: true` frontmatter line.
+export function setArchived(text, archived) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  let fm = m[1].replace(/^archived:.*\n/m, '');
+  if (archived) {
+    fm = fm.replace(/^(depends_on:.*\n)/m, '$1archived: true\n');
+  }
+  return fm + text.slice(m[1].length);
+}
+
 export function appendLog(text, iso, message) {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));
-  if (start === -1) throw new Error('no ## Log section');
+  // The Log is the lifecycle transition ledger, present in every change once its
+  // status moves. Some types (e.g. chore) don't scaffold it, so create it.
+  if (start === -1) {
+    const body = `${text.replace(/\s*$/, '')}\n\n## Log\n\n- **${iso}** — ${message}\n`;
+    return body;
+  }
 
   let end = lines.length;
   for (let j = start + 1; j < lines.length; j++) {

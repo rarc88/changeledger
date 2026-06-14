@@ -80,3 +80,4 @@ spec. El código refleja los specs.
   desde 0001. Specs sin ciclo de vida; graduación manual por ahora.
 - **2026-06-13T21:15:04Z** — status: in-progress → done
 - **2026-06-13T21:15:04Z** — Implementado con TDD (54 tests verde). Visor con vista Specs y render mermaid verificado. Primer spec: arquitectura.
+- **2026-06-14T12:16:16Z** — graduado a spec `architecture.md`

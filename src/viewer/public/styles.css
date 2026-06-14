@@ -242,6 +242,103 @@ body {
   color: var(--blocked);
   font-weight: 600;
 }
+.owner {
+  font-weight: 600;
+}
+.card.archived {
+  opacity: 0.55;
+}
+.card[draggable="true"] {
+  cursor: grab;
+}
+.column.drop-target {
+  outline: 2px dashed var(--accent, #4a9eff);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+.global-view {
+  padding: 18px;
+  overflow: auto;
+}
+.search-group {
+  margin-bottom: 20px;
+}
+.search-group h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.search-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.search-hit:hover {
+  background: var(--panel);
+}
+.metrics-view {
+  padding: 18px;
+  overflow: auto;
+}
+.metrics-cards {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.metric-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 22px;
+  min-width: 120px;
+}
+.metric-val {
+  font-size: 26px;
+  font-weight: 700;
+}
+.metric-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.metrics-h {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.bar-date {
+  width: 92px;
+  color: var(--muted);
+}
+.bar {
+  display: inline-block;
+  height: 14px;
+  background: var(--accent, #4a9eff);
+  border-radius: 3px;
+  min-width: 2px;
+}
+.git-commits {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.git-commits li {
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line);
+}
 
 /* Overlay + detail */
 .overlay {

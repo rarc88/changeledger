@@ -46,8 +46,14 @@ type: feature                  # feature | bug | audit | refactor | chore
 status: draft                  # draft | approved | in-progress | blocked | done
 created: 2026-06-13T13:45:48Z  # full ISO 8601 UTC timestamp
 depends_on: []                 # ids of other changes, e.g. ["0000"]
+owner: ana                     # optional — who is working on it (see below)
 ---
 ```
+
+**`owner` (optional).** Who is responsible for the change. It is auto-assigned
+from the local git identity (`git config user.name`) the moment work starts —
+the `approved → in-progress` transition — unless already set. Override or clear
+it anytime with `sl owner <id> <name|->`. Absent means unassigned.
 
 ### Stages (body)
 
@@ -179,6 +185,8 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl register` — (re)link this repo's path in the global registry after a move/clone.
 - `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
 - `sl status <id> <status>` — move the lifecycle and log the transition.
+- `sl owner <id> <name|->` — set or clear the owner (`-` clears).
+- `sl archive <id>` / `sl unarchive <id>` — hide/show a change in the viewer.
 - `sl log <id> "<message>"` — append a timestamped Log entry.
 - `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
 - `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.

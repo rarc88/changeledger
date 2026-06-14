@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { appendLog, setStatus, setTask } from '../src/writer.mjs';
+import { appendLog, setArchived, setOwner, setStatus, setTask } from '../src/writer.mjs';
 
 const DOC = `---
 id: "20260613-120000"
@@ -58,4 +58,52 @@ test('setTask done replaces an existing blocked suffix', () => {
 
 test('setTask throws on a missing task index', () => {
   assert.throws(() => setTask(DOC, 9, 'done', { iso: 'x' }), /no task #9/);
+});
+
+test('setOwner adds the owner line after depends_on', () => {
+  const out = setOwner(DOC, 'ana');
+  assert.equal(parseChange(out).frontmatter.owner, 'ana');
+  assert.match(out, /depends_on: \[\]\nowner: ana\n/);
+});
+
+test('setOwner updates an existing owner', () => {
+  const out = setOwner(setOwner(DOC, 'ana'), 'leo');
+  assert.equal(parseChange(out).frontmatter.owner, 'leo');
+  assert.equal((out.match(/^owner:/gm) || []).length, 1);
+});
+
+test('setOwner with falsy value removes the owner line', () => {
+  const out = setOwner(setOwner(DOC, 'ana'), null);
+  assert.equal('owner' in parseChange(out).frontmatter, false);
+});
+
+test('appendLog creates the Log section when absent', () => {
+  const noLog = `---
+id: "20260613-120000"
+title: X
+type: chore
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+x
+
+## Plan
+
+- [ ] do it
+`;
+  const out = appendLog(noLog, '2026-06-13T13:00:00Z', 'status: draft → approved');
+  const log = parseChange(out).stages.find((s) => s.key === 'log');
+  assert.ok(log, 'a ## Log section is created');
+  assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* — status: draft → approved\n$/);
+});
+
+test('setArchived adds and removes the archived flag', () => {
+  const on = setArchived(DOC, true);
+  assert.equal(parseChange(on).frontmatter.archived, true);
+  const off = setArchived(on, false);
+  assert.equal('archived' in parseChange(off).frontmatter, false);
 });

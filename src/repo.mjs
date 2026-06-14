@@ -20,8 +20,8 @@ export function loadRepo(start = process.cwd()) {
     for (const name of fs.readdirSync(changesDir).sort()) {
       if (!name.endsWith('.md')) continue;
       const file = path.join(changesDir, name);
-      const parsed = parseChange(fs.readFileSync(file, 'utf8'));
-      changes.push({ file, name, ...parsed });
+      const text = fs.readFileSync(file, 'utf8');
+      changes.push({ file, name, text, ...parseChange(text) });
     }
   }
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));

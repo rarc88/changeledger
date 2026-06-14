@@ -1,10 +1,12 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-13T22:33:11Z
+updated: 2026-06-14T12:45:00Z
 tags: [architecture, cli, viewer]
 ---
 
 # Arquitectura de Spec Ledger
+
+> Graduado del change 20260613-205854.
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -36,24 +38,61 @@ flowchart TD
     VIEW[view] --> SRV
   end
   SRV[server node:http] --> REPO
-  SRV --> UI[visor: board / table / graph / specs]
+  SRV --> UI[visor: board / table / graph / specs / metrics]
 ```
 
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
-  `type`, `status`, `created`, `depends_on`) + etapas (`## Request`…`## Log`)
-  según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
-  con `blocked`). Tareas en `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
+  `type`, `status`, `created`, `depends_on`, `owner` opcional) + etapas
+  (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida
+  (`draft → approved → in-progress → done`, con `blocked`). Tareas en `## Plan`
+  como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
+
+El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
+contenido del tipo: registra cada transición de `status` con su timestamp y se
+crea automáticamente al primer cambio de estado aunque el tipo no lo declare
+(p.ej. `chore`). El `owner` se autoasigna desde la identidad git local al pasar a
+`in-progress` (cuando empieza el trabajo), salvo que ya esté fijado a mano
+(`sl owner`).
+
+Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
+dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
+repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
+nombre de proyecto y navega a ese change.
 
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
 sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
 segundo. Ordenable cronológicamente.
+
+## Métricas
+
+`metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
+(`done`) y el paso a cada estado se leen del `## Log`; de ahí salen: cycle time
+(`done − created`), lead time por etapa, WIP actual, aging de los `in-progress`,
+tiempo bloqueado, throughput por día y desgloses por tipo/owner. El server las
+precalcula y el visor las pinta en la pestaña **Metrics**.
+
+## Validación (`sl check`)
+
+`check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
+la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
+duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
+desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
+salen de los marcadores que escribe `sl graduate`.
+
+## Trazabilidad git
+
+`git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
+convención de commit `[#<id>]`: lista los commits que lo referencian y las
+branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
+endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
+**Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
 
 ## Política de idioma
 
@@ -64,8 +103,16 @@ inglés canónico.
 ## Presentación
 
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
-request (live) y expone JSON; la UI rinde board (kanban), table, graph
-(`depends_on`) y specs, con búsqueda full-text, filtros y render de markdown +
-mermaid. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
-`node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
-el visor lee el registro y muestra todos los proyectos (selector + autoenfoque).
+request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
+permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
+card entre esas columnas del board (el único salto que le corresponde; el resto
+del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
+(`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
+owner) y render de markdown + mermaid. Los changes con `archived: true` se ocultan
+por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
+sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
+`mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
+`/vendor/*`; el resto del runtime es cero-deps. En modo global el visor lee el
+registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
+"Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
+agrupa los resultados por proyecto.

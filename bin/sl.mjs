@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { list, log, show, status, task } from '../src/commands/agent.mjs';
+import { archive, list, log, owner, show, status, task } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { graduate } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -16,6 +16,8 @@ const USAGE = `Spec Ledger (sl)
   sl view [port]                   launch the local viewer (default port 4040)
   sl check [id] [--json]           validate the repo or one change
   sl status <id> <status>          move a change's lifecycle status
+  sl owner <id> <name|->           set or clear a change's owner
+  sl archive <id> / unarchive <id>   hide/show a change in the viewer
   sl log <id> <message>            append a timestamped Log entry
   sl task <id> done|block <n> [reason]   mark a Plan task
   sl list [--status S] [--type T] [--json]   list changes
@@ -42,10 +44,13 @@ try {
       break;
     }
     case 'new': {
-      const [type, slug, ...rest] = args;
+      const ownerVal = flagVal(args, '--owner');
+      const positional = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--owner');
+      const [type, slug, ...rest] = positional;
       const title = rest.join(' ').trim();
-      if (!type || !slug || !title) throw new Error('Usage: sl new <type> <slug> <title>');
-      const file = newChange({ type, slug, title, now: nowUtc() });
+      if (!type || !slug || !title)
+        throw new Error('Usage: sl new <type> <slug> <title> [--owner name]');
+      const file = newChange({ type, slug, title, owner: ownerVal, now: nowUtc() });
       console.log(`Created ${file}`);
       break;
     }
@@ -60,6 +65,21 @@ try {
       if (!id || !st) throw new Error('Usage: sl status <id> <status>');
       status(id, st);
       console.log(`#${id} → ${st}`);
+      break;
+    }
+    case 'owner': {
+      const [id, name] = args;
+      if (!id || !name) throw new Error('Usage: sl owner <id> <name|->');
+      owner(id, name);
+      console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
+      break;
+    }
+    case 'archive':
+    case 'unarchive': {
+      const [id] = args;
+      if (!id) throw new Error(`Usage: sl ${cmd} <id>`);
+      archive(id, cmd === 'archive');
+      console.log(`#${id} ${cmd}d`);
       break;
     }
     case 'log': {

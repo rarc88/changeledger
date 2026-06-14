@@ -2,11 +2,13 @@ const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 let repo = null;
 let lastJson = '';
-const filters = { text: '', type: 'all', statuses: new Set() };
+const filters = { text: '', type: 'all', owner: 'all', statuses: new Set(), showArchived: false };
 let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
 let currentProject = null;
+let projectsList = [];
+let globalMode = false;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -31,6 +33,7 @@ function renderMermaid(root) {
 
 async function loadProjects() {
   const { projects, current } = await fetch('/api/projects').then((r) => r.json());
+  projectsList = projects;
   const sel = $('#project');
   sel.innerHTML = projects
     .map(
@@ -71,6 +74,14 @@ function hydrateFilters() {
   $('#type-filter').value = filters.type;
   $('#lang').textContent = repo.language;
 
+  const owners = [...new Set(repo.changes.map((c) => c.owner).filter(Boolean))].sort();
+  $('#owner-filter').innerHTML =
+    '<option value="all">All owners</option>' +
+    owners.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  if (filters.owner !== 'all' && !owners.includes(filters.owner)) filters.owner = 'all';
+  $('#owner-filter').value = filters.owner;
+  $('#owner-filter').style.display = owners.length ? '' : 'none';
+
   const sf = $('#status-filter');
   sf.innerHTML = repo.statuses
     .map(
@@ -95,13 +106,15 @@ function haystack(c) {
   const tasks = c.tasks
     .map((t) => `${t.text} ${(t.criteria || []).join(' ')} ${t.reason || ''}`)
     .join(' ');
-  return `${c.id} ${c.title} ${c.type} ${c.status} ${stages} ${tasks}`.toLowerCase();
+  return `${c.id} ${c.title} ${c.type} ${c.status} ${c.owner || ''} ${stages} ${tasks}`.toLowerCase();
 }
 
 function visibleChanges() {
   const q = filters.text.toLowerCase();
   return repo.changes.filter((c) => {
+    if (c.archived && !filters.showArchived) return false;
     if (filters.type !== 'all' && c.type !== filters.type) return false;
+    if (filters.owner !== 'all' && c.owner !== filters.owner) return false;
     if (filters.statuses.size && !filters.statuses.has(c.status)) return false;
     if (!q) return true;
     return haystack(c).includes(q);
@@ -112,6 +125,7 @@ function render() {
   if (currentView === 'graph') renderGraph();
   else if (currentView === 'table') renderTable();
   else if (currentView === 'specs') renderSpecs();
+  else if (currentView === 'metrics') renderMetrics();
   else renderBoard();
 }
 
@@ -122,15 +136,61 @@ function renderBoard() {
     .map((status) => {
       const items = changes.filter((c) => c.status === status);
       return `
-        <div class="column">
+        <div class="column" data-status="${status}">
           <div class="column-head"><span>${status}</span><span class="count">${items.length}</span></div>
           <div class="column-body">${items.map(card).join('')}</div>
         </div>`;
     })
     .join('');
+  // The only human-driven lifecycle move is approval: draft → approved. So only
+  // draft cards are draggable, and only the approved column is a drop target.
   board.querySelectorAll('.card').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.id);
+    const c = repo.changes.find((x) => String(x.id) === String(el.dataset.id));
+    if (c && c.status === 'draft') {
+      el.setAttribute('draggable', 'true');
+      el.ondragstart = (e) => {
+        e.dataTransfer.setData('text/plain', el.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+      };
+    }
   });
+  const approvedCol = board.querySelector('.column[data-status="approved"]');
+  if (approvedCol) {
+    approvedCol.ondragover = (e) => {
+      e.preventDefault();
+      approvedCol.classList.add('drop-target');
+    };
+    approvedCol.ondragleave = () => approvedCol.classList.remove('drop-target');
+    approvedCol.ondrop = (e) => {
+      e.preventDefault();
+      approvedCol.classList.remove('drop-target');
+      const id = e.dataTransfer.getData('text/plain');
+      const c = repo.changes.find((x) => String(x.id) === String(id));
+      if (c && c.status === 'draft') moveStatus(id, 'approved');
+    };
+  }
+}
+
+// Persist the human approval move (draft → approved), then refresh the board.
+async function moveStatus(id, status) {
+  try {
+    const res = await fetch('/api/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: currentProject, id, status }),
+    });
+    const out = await res.json();
+    if (!res.ok) {
+      alert(out.error || 'status change failed');
+      return;
+    }
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  lastJson = '';
+  load();
 }
 
 function card(c) {
@@ -139,7 +199,7 @@ function card(c) {
     ? `<span class="flag-blocked">● ${c.progress.blocked} blocked</span>`
     : '';
   return `
-    <div class="card" data-id="${c.id}" style="--type-color: var(--${c.type})">
+    <div class="card ${c.archived ? 'archived' : ''}" data-id="${c.id}" style="--type-color: var(--${c.type})">
       <div class="card-top">
         <span class="card-id">#${c.id}</span>
         <span class="type-tag">${c.type}</span>
@@ -148,6 +208,7 @@ function card(c) {
       ${c.progress.total ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
       <div class="card-meta">
         ${c.progress.total ? `<span>${c.progress.done}/${c.progress.total} tasks</span>` : ''}
+        ${c.owner ? `<span class="owner">@${esc(c.owner)}</span>` : ''}
         ${blocked}
       </div>
     </div>`;
@@ -157,7 +218,12 @@ function openDetail(id) {
   const c = repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
   const deps = (c.depends_on || [])
-    .map((d) => `<span class="pill" data-dep="${d}" style="cursor:pointer">depends on #${d}</span>`)
+    .map((d) => {
+      const ext = String(d).includes(':');
+      const attr = ext ? `data-extdep="${esc(d)}"` : `data-dep="${esc(d)}"`;
+      const label = ext ? `depends on ${esc(d)}` : `depends on #${esc(d)}`;
+      return `<span class="pill ${ext ? 'ext' : ''}" ${attr} style="cursor:pointer">${label}</span>`;
+    })
     .join('');
   const pipeline = c.stages
     .map((s) => `<span class="stage-chip" data-go="stage-${s.key}">${s.heading}</span>`)
@@ -171,11 +237,13 @@ function openDetail(id) {
       <span class="pill">#${c.id}</span>
       <span class="pill" style="color:var(--${c.type})">${c.type}</span>
       <span class="pill">${c.status}</span>
+      ${c.owner ? `<span class="pill owner">@${esc(c.owner)}</span>` : ''}
       <span class="pill">${c.created || ''}</span>
       ${deps}
     </div>
     <div class="pipeline">${pipeline}</div>
-    ${stages}`;
+    ${stages}
+    <div id="git-section"></div>`;
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
@@ -194,7 +262,49 @@ function openDetail(id) {
     .forEach((el) => {
       el.onclick = () => openDetail(el.dataset.dep);
     });
+  $('#detail')
+    .querySelectorAll('[data-extdep]')
+    .forEach((el) => {
+      el.onclick = () => {
+        const [proj, changeId] = el.dataset.extdep.split(':');
+        gotoChange(proj, changeId);
+      };
+    });
   renderMermaid($('#detail'));
+  loadGitRefs(c.id);
+}
+
+// Fetch and render the git refs (commits/branches) that reference this change.
+async function loadGitRefs(id) {
+  let refs;
+  try {
+    refs = await fetch(
+      `/api/git?project=${encodeURIComponent(currentProject)}&id=${encodeURIComponent(id)}`,
+    ).then((r) => r.json());
+  } catch {
+    return;
+  }
+  const sec = $('#git-section');
+  if (!sec) return;
+  if (!refs.commits.length && !refs.branches.length) {
+    sec.innerHTML = '';
+    return;
+  }
+  const commits = refs.commits
+    .map(
+      (c) =>
+        `<li><span class="mono">${esc(c.sha.slice(0, 8))}</span> ${esc(c.subject)} <span class="when">${esc((c.date || '').slice(0, 10))}</span></li>`,
+    )
+    .join('');
+  const branches = refs.branches.map((b) => `<span class="pill">${esc(b)}</span>`).join('');
+  sec.innerHTML = `
+    <div class="stage">
+      <h2>Git</h2>
+      <div class="stage-content">
+        ${branches ? `<div class="detail-meta">${branches}</div>` : ''}
+        ${refs.commits.length ? `<ul class="git-commits">${commits}</ul>` : ''}
+      </div>
+    </div>`;
 }
 
 function stageBlock(c, s) {
@@ -230,9 +340,29 @@ function closeDetail() {
   $('#overlay').classList.add('hidden');
 }
 
+// Cross-project navigation: resolve `proj` (by id or name) in the loaded project
+// list, switch to it, then open the target change once its repo has loaded.
+async function gotoChange(proj, changeId) {
+  const match = projectsList.find((p) => p.id === proj || p.name === proj);
+  if (!match || !match.alive) {
+    alert(`Project "${proj}" is not registered or its path is gone.`);
+    return;
+  }
+  if (match.id !== currentProject) {
+    currentProject = match.id;
+    $('#project').value = match.id;
+    lastJson = '';
+    filters.type = 'all';
+    filters.owner = 'all';
+    filters.statuses.clear();
+    await load();
+  }
+  openDetail(changeId);
+}
+
 /* Dependency graph */
 function renderGraph() {
-  const changes = repo.changes;
+  const changes = repo.changes.filter((c) => filters.showArchived || !c.archived);
   const byId = new Map(changes.map((c) => [String(c.id), c]));
   const depthCache = new Map();
   const depth = (id, seen = new Set()) => {
@@ -425,13 +555,159 @@ function openSpec(s) {
   renderMermaid($('#detail'));
 }
 
+const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
+
+/* Metrics view */
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return '—';
+  const h = ms / 3600000;
+  if (h < 48) return `${h.toFixed(1)} h`;
+  return `${(h / 24).toFixed(1)} d`;
+}
+
+function barRows(items, label, value, fmt = (v) => v) {
+  const max = Math.max(1, ...items.map(value));
+  return items
+    .map(
+      (it) =>
+        `<div class="bar-row"><span class="bar-date">${label(it)}</span><span class="bar" style="width:${(value(it) / max) * 100}%"></span><span class="mono">${fmt(value(it))}</span></div>`,
+    )
+    .join('');
+}
+
+function renderMetrics() {
+  const m = repo.metrics || {};
+  const wip = m.wip || {};
+  const wipTotal = Object.values(wip).reduce((a, b) => a + b, 0);
+  const cards = [
+    ['Closed', m.count ?? 0],
+    ['Avg cycle', fmtDuration(m.avgCycleMs)],
+    ['Median cycle', fmtDuration(m.medianCycleMs)],
+    ['WIP', wipTotal],
+    ['Blocked time', fmtDuration(m.blockedMs)],
+  ]
+    .map(
+      ([label, val]) =>
+        `<div class="metric-card"><div class="metric-val">${val}</div><div class="metric-label">${esc(label)}</div></div>`,
+    )
+    .join('');
+
+  const wipChips = Object.entries(wip)
+    .map(([s, n]) => `<span class="pill">${esc(s)}: ${n}</span>`)
+    .join('');
+
+  const lead = (m.timeInStatus || []).filter((t) => t.avgMs > 0);
+  const leadBars = lead.length
+    ? barRows(
+        lead,
+        (t) => esc(t.state),
+        (t) => t.avgMs,
+        fmtDuration,
+      )
+    : '<p class="empty">No data yet.</p>';
+
+  const tp = m.throughput || [];
+  const tpBars = tp.length
+    ? barRows(
+        tp,
+        (t) => `<span class="mono">${t.date}</span>`,
+        (t) => t.count,
+      )
+    : '<p class="empty">No closed changes yet.</p>';
+
+  const aging = m.aging || [];
+  const agingRows = aging.length
+    ? `<ul class="git-commits">${aging
+        .map(
+          (a) =>
+            `<li><span class="mono">#${esc(a.id)}</span> <span class="when">${fmtDuration(a.ms)}</span></li>`,
+        )
+        .join('')}</ul>`
+    : '<p class="empty">Nothing in progress.</p>';
+
+  const byType = m.byType || [];
+  const typeRows = byType.length
+    ? `<table class="grid"><thead><tr><th>Type</th><th>Closed</th><th>Avg cycle</th></tr></thead><tbody>${byType
+        .map(
+          (t) =>
+            `<tr><td><span class="type-tag" style="--type-color: var(--${t.type})">${esc(t.type)}</span></td><td class="mono">${t.closed}</td><td class="mono">${fmtDuration(t.avgCycleMs)}</td></tr>`,
+        )
+        .join('')}</tbody></table>`
+    : '<p class="empty">No closed changes yet.</p>';
+
+  $('#metrics').innerHTML = `
+    <div class="metrics-cards">${cards}</div>
+    ${wipChips ? `<div class="detail-meta">${wipChips}</div>` : ''}
+    <h3 class="metrics-h">Avg time in status (lead time per stage)</h3>
+    <div>${leadBars}</div>
+    <h3 class="metrics-h">Throughput (closed per day)</h3>
+    <div>${tpBars}</div>
+    <h3 class="metrics-h">Aging — in progress</h3>
+    ${agingRows}
+    <h3 class="metrics-h">By type</h3>
+    ${typeRows}`;
+}
+
 function setView(v) {
   currentView = v;
-  for (const name of ['board', 'table', 'graph', 'specs']) {
+  if (globalMode) {
+    globalMode = false;
+    $('#toggle-global').classList.remove('active');
+  }
+  $('#global').classList.add('hidden');
+  for (const name of VIEWS) {
     $(`#view-${name}`).classList.toggle('active', v === name);
     $(`#${name}`).classList.toggle('hidden', v !== name);
   }
   render();
+}
+
+// Global search: query every project server-side, render grouped results.
+async function renderGlobal() {
+  const q = filters.text.trim();
+  const el = $('#global');
+  if (!q) {
+    el.innerHTML = '<p class="empty" style="padding:20px">Type to search across all projects.</p>';
+    return;
+  }
+  let groups;
+  try {
+    groups = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.json());
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!groups.length) {
+    el.innerHTML = `<p class="empty" style="padding:20px">No matches for “${esc(q)}”.</p>`;
+    return;
+  }
+  el.innerHTML = groups
+    .map(
+      (g) => `
+      <div class="search-group">
+        <h3>${esc(g.project.name)} <span class="count">${g.matches.length}</span></h3>
+        ${g.matches
+          .map(
+            (m) => `<div class="search-hit" data-proj="${esc(g.project.id)}" data-id="${esc(m.id)}">
+              <span class="card-id">#${esc(m.id)}</span>
+              <span class="type-tag" style="--type-color: var(--${m.type})">${esc(m.type)}</span>
+              <span>${esc(m.title)}</span>
+              <span class="pill">${esc(m.status)}</span>
+            </div>`,
+          )
+          .join('')}
+      </div>`,
+    )
+    .join('');
+  el.querySelectorAll('.search-hit').forEach((hit) => {
+    hit.onclick = () => gotoChange(hit.dataset.proj, hit.dataset.id);
+  });
+}
+
+function enterGlobal() {
+  for (const name of VIEWS) $(`#${name}`).classList.add('hidden');
+  $('#global').classList.remove('hidden');
+  renderGlobal();
 }
 
 const esc = (s) =>
@@ -443,20 +719,38 @@ const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 $('#search').oninput = (e) => {
   filters.text = e.target.value;
-  render();
+  if (globalMode) renderGlobal();
+  else render();
+};
+$('#toggle-global').onclick = (e) => {
+  globalMode = !globalMode;
+  e.target.classList.toggle('active', globalMode);
+  if (globalMode) enterGlobal();
+  else setView(currentView);
 };
 $('#type-filter').onchange = (e) => {
   filters.type = e.target.value;
+  render();
+};
+$('#owner-filter').onchange = (e) => {
+  filters.owner = e.target.value;
+  render();
+};
+$('#toggle-archived').onclick = (e) => {
+  filters.showArchived = !filters.showArchived;
+  e.target.classList.toggle('active', filters.showArchived);
   render();
 };
 $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
 $('#view-specs').onclick = () => setView('specs');
+$('#view-metrics').onclick = () => setView('metrics');
 $('#project').onchange = (e) => {
   currentProject = e.target.value;
   lastJson = '';
   filters.type = 'all';
+  filters.owner = 'all';
   filters.statuses.clear();
   load();
 };

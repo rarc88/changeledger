@@ -5,7 +5,7 @@ const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 
-export function checkRepo({ config, changes }, opts = {}) {
+export function checkRepo({ config, changes, specs = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
@@ -27,6 +27,8 @@ export function checkRepo({ config, changes }, opts = {}) {
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
 
+    checkConflictMarkers(c, err);
+
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
     if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
@@ -35,9 +37,16 @@ export function checkRepo({ config, changes }, opts = {}) {
     if (fm.type && !types[fm.type]) err(c, `unknown type "${fm.type}"`);
     if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
+    if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const k of present) if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
+
+    const seenStages = new Set();
+    for (const k of present) {
+      if (seenStages.has(k)) err(c, `duplicate stage "## ${k}"`);
+      else seenStages.add(k);
+    }
 
     const known = present.filter((k) => canonical.includes(k));
     const ordered = [...known].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b));
@@ -47,8 +56,10 @@ export function checkRepo({ config, changes }, opts = {}) {
     if (active) {
       for (const k of active)
         if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
+      // `log` is the lifecycle ledger — allowed on any type once status moves.
       for (const k of known)
-        if (!active.includes(k)) err(c, `stage "## ${k}" is not active for type ${fm.type}`);
+        if (k !== 'log' && !active.includes(k))
+          err(c, `stage "## ${k}" is not active for type ${fm.type}`);
     }
 
     const tasks = c.tasks ?? [];
@@ -72,25 +83,100 @@ export function checkRepo({ config, changes }, opts = {}) {
     else seen.set(id, c.name);
   }
 
+  // A dep containing ':' is a cross-project reference (`<project>:<changeId>`).
+  // It points at another repo, so the pure checker neither validates it nor
+  // includes it in the local cycle graph.
+  const isExternal = (d) => String(d).includes(':');
   const ids = new Set([...seen.keys()]);
   const graph = new Map();
   for (const c of changes) {
     const id = c.frontmatter?.id;
     const deps = c.frontmatter?.depends_on ?? [];
     for (const d of deps) {
-      if (!ids.has(d)) err(c, `depends_on references missing change "${d}"`);
+      if (!isExternal(d) && !ids.has(d)) err(c, `depends_on references missing change "${d}"`);
     }
     if (id)
       graph.set(
         id,
-        deps.filter((d) => ids.has(d)),
+        deps.filter((d) => !isExternal(d) && ids.has(d)),
       );
   }
 
   const cycle = findCycle(graph);
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
+  checkSpecs(changes, specs, ids, err, warn);
+
   return { errors, warnings };
+}
+
+// The latest timestamp found in a change: its `created` plus every `**<iso>**`
+// in its raw text (Log entries, task resolutions). Used to spot stale specs.
+function latestActivity(change) {
+  const stamps = [];
+  if (change.frontmatter?.created) stamps.push(change.frontmatter.created);
+  for (const m of String(change.text ?? '').matchAll(/\*\*(\d{4}-\d{2}-\d{2}T[^*]+)\*\*/g))
+    stamps.push(m[1].trim());
+  return stamps.sort().pop() ?? null;
+}
+
+// Validates the spec layer and its links to changes. `graduate` records two
+// markers: in the change Log `graduado a spec \`<file>\``, and in the spec body
+// `Graduado del change <id>`.
+function checkSpecs(changes, specs, changeIds, err, warn) {
+  const specNames = new Set(specs.map((s) => s.name));
+
+  // change → spec links (from each change's Log graduation marker).
+  const incoming = new Set(); // spec names a change graduated to
+  const activityBySpec = new Map(); // spec name → latest linked-change activity
+  for (const c of changes) {
+    for (const m of String(c.text ?? '').matchAll(/graduado a spec `([^`]+)`/gi)) {
+      const specName = m[1].trim();
+      if (!specNames.has(specName)) {
+        err(c, `graduated to a missing spec "${specName}"`);
+        continue;
+      }
+      incoming.add(specName);
+      const ts = latestActivity(c);
+      const prev = activityBySpec.get(specName);
+      if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
+    }
+  }
+
+  for (const s of specs) {
+    const fm = s.frontmatter ?? {};
+    if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
+
+    // spec → change backlinks.
+    let hasValidBacklink = false;
+    for (const m of String(s.body ?? '').matchAll(/Graduado del change\s+(\d{8}-\d{6})/gi)) {
+      if (changeIds.has(m[1])) hasValidBacklink = true;
+      else err(s, `references a missing change "${m[1]}"`);
+    }
+
+    if (!incoming.has(s.name) && !hasValidBacklink) {
+      warn(s, 'orphan spec (no change graduated it)');
+    }
+
+    const activity = activityBySpec.get(s.name);
+    if (fm.updated && ISO_UTC.test(fm.updated) && activity && activity > fm.updated) {
+      warn(s, `updated (${fm.updated}) is older than linked change activity (${activity})`);
+    }
+  }
+}
+
+// Git merge conflict markers: exactly 7 of <, = or > at the start of a line.
+// `<` and `>` never appear in normal markdown; `=` could be a setext H1
+// underline, but Spec Ledger uses ATX headings, so this is safe in practice.
+const CONFLICT = /^(<{7}|={7}|>{7})(\s|$)/;
+
+function checkConflictMarkers(c, err) {
+  if (typeof c.text !== 'string') return;
+  const lines = c.text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (CONFLICT.test(lines[i]))
+      err(c, `merge conflict marker "${lines[i].slice(0, 7)}" at line ${i + 1}`);
+  }
 }
 
 function checkConfig(config, err) {
