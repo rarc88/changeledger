@@ -59,6 +59,13 @@ test('init gitignores the per-machine contract link (CR4)', () => {
   assert.ok(gi.split('\n').some((l) => l.trim() === '.sl/AGENTS.md'));
 });
 
+test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
+  const root = tmp();
+  init(root);
+  const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
+  assert.match(cfg, /^tdd: true$/m);
+});
+
 test('reference and gitignore entries are idempotent (CR3)', () => {
   const root = tmp();
   init(root);

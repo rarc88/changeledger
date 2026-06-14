@@ -249,6 +249,102 @@ test('CR1: no duplicates does not false-positive', () => {
   );
 });
 
+// --- Definition of Ready coverage (tdd) ---
+
+const tddConfig = {
+  changes_dir: '.sl/changes',
+  statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  stages: ['request', 'specification', 'plan', 'log'],
+  types: {
+    feature: { stages: ['request', 'specification', 'plan', 'log'] },
+    chore: { stages: ['request', 'plan'] },
+  },
+  tdd: true,
+};
+
+function cov(over = {}) {
+  return {
+    name: '20260613-120000-x.md',
+    frontmatter: {
+      id: '20260613-120000',
+      title: 'X',
+      type: 'feature',
+      status: 'approved',
+      created: '2026-06-13T12:00:00Z',
+      depends_on: [],
+      ...over.frontmatter,
+    },
+    stages: over.stages ?? [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log' },
+    ],
+    criteria: over.criteria ?? [],
+    tasks: over.tasks ?? [],
+  };
+}
+
+const covWarn = (over, cfg = tddConfig) =>
+  msgs(checkRepo({ config: cfg, changes: [cov(over)] }).warnings);
+
+test('CR2: a criterion with no covering task warns', () => {
+  const w = covWarn({
+    criteria: ['CR1', 'CR2'],
+    tasks: [{ state: 'todo', text: 'do', criteria: ['CR1'] }],
+  });
+  assert.ok(w.some((m) => /CR2 is not covered by any Plan task/.test(m)));
+});
+
+test('CR3: a task with no criterion warns', () => {
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'orphan support task', criteria: [] },
+      { state: 'todo', text: 'real', criteria: ['CR1'] },
+    ],
+  });
+  assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
+});
+
+test('CR4: tdd:false disables coverage warnings', () => {
+  const w = covWarn(
+    { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] },
+    { ...tddConfig, tdd: false },
+  );
+  assert.deepEqual(
+    w.filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+});
+
+test('CR5: a type without specification is not coverage-checked', () => {
+  const w = covWarn({
+    frontmatter: { type: 'chore', status: 'approved' },
+    stages: [{ key: 'request' }, { key: 'plan' }],
+    criteria: [],
+    tasks: [{ state: 'todo', text: 'x', criteria: [] }],
+  });
+  assert.deepEqual(
+    w.filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+});
+
+test('coverage only applies to approved/in-progress (draft and done are skipped)', () => {
+  const gap = { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] };
+  for (const status of ['draft', 'done']) {
+    const w = covWarn({ ...gap, frontmatter: { status } });
+    assert.deepEqual(
+      w.filter((m) => /covered|criterion/.test(m)),
+      [],
+      status,
+    );
+  }
+  const w = covWarn({ ...gap, frontmatter: { status: 'in-progress' } });
+  assert.ok(w.some((m) => /covered|criterion/.test(m)));
+});
+
 test('CR2: a Log section is allowed on a type that does not scaffold it (chore)', () => {
   const cfg = { ...config, types: { ...config.types, chore: { stages: ['request', 'plan'] } } };
   const c = {
