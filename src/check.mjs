@@ -56,8 +56,10 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if (active) {
       for (const k of active)
         if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
+      // `log` is the lifecycle ledger — allowed on any type once status moves.
       for (const k of known)
-        if (!active.includes(k)) err(c, `stage "## ${k}" is not active for type ${fm.type}`);
+        if (k !== 'log' && !active.includes(k))
+          err(c, `stage "## ${k}" is not active for type ${fm.type}`);
     }
 
     const tasks = c.tasks ?? [];

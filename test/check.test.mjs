@@ -248,3 +248,25 @@ test('CR1: no duplicates does not false-positive', () => {
     [],
   );
 });
+
+test('CR2: a Log section is allowed on a type that does not scaffold it (chore)', () => {
+  const cfg = { ...config, types: { ...config.types, chore: { stages: ['request', 'plan'] } } };
+  const c = {
+    name: '20260613-120000-x.md',
+    frontmatter: {
+      id: '20260613-120000',
+      title: 'X',
+      type: 'chore',
+      status: 'approved',
+      created: '2026-06-13T12:00:00Z',
+      depends_on: [],
+    },
+    stages: [{ key: 'request' }, { key: 'plan' }, { key: 'log' }],
+    tasks: [],
+  };
+  const { errors } = checkRepo({ config: cfg, changes: [c] });
+  assert.deepEqual(
+    msgs(errors).filter((m) => /not active for type/.test(m)),
+    [],
+  );
+});

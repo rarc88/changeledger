@@ -77,6 +77,30 @@ test('setOwner with falsy value removes the owner line', () => {
   assert.equal('owner' in parseChange(out).frontmatter, false);
 });
 
+test('appendLog creates the Log section when absent', () => {
+  const noLog = `---
+id: "20260613-120000"
+title: X
+type: chore
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+x
+
+## Plan
+
+- [ ] do it
+`;
+  const out = appendLog(noLog, '2026-06-13T13:00:00Z', 'status: draft → approved');
+  const log = parseChange(out).stages.find((s) => s.key === 'log');
+  assert.ok(log, 'a ## Log section is created');
+  assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* — status: draft → approved\n$/);
+});
+
 test('setArchived adds and removes the archived flag', () => {
   const on = setArchived(DOC, true);
   assert.equal(parseChange(on).frontmatter.archived, true);
