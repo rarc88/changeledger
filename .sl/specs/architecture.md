@@ -1,12 +1,14 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T16:43:29Z
+updated: 2026-06-14T16:52:30Z
 tags: [architecture, cli, viewer]
 ---
 
 # Arquitectura de Spec Ledger
 
 > Graduado del change 20260613-205854.
+> Graduado del change 20260614-151759 (discovery del contrato).
+> Graduado del change 20260614-162547 (Definition of Ready / tdd).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
