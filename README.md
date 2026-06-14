@@ -84,8 +84,10 @@ pnpm verify                   # lint + test + sl check (the quality gate)
 git config core.hooksPath hooks   # enable the pre-commit gate
 ```
 
-The versioned `hooks/pre-commit` runs `pnpm verify`, so commits that fail lint,
-tests, or `sl check` are blocked — agents can't quietly accumulate debt.
+The versioned `hooks/pre-commit` first runs **lint-staged** (Biome autoformats
+the staged files — it stashes unstaged changes first, so partial commits stay
+intact), then `pnpm verify`, so commits that fail lint, tests, or `sl check` are
+blocked — agents can't quietly accumulate debt. Format anytime with `pnpm format`.
 
 ### Using `sl` outside this repo
 
