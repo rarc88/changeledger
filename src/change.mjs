@@ -16,13 +16,25 @@ export function parseChange(text) {
   const stages = splitStages(body);
   const plan = stages.find((s) => s.key === 'plan');
   const tasks = plan ? parseTasks(plan.body) : [];
+  const spec = stages.find((s) => s.key === 'specification');
+  const criteria = spec ? parseCriteria(spec.body) : [];
   const progress = {
     total: tasks.length,
     done: tasks.filter((t) => t.state === 'done').length,
     blocked: tasks.filter((t) => t.state === 'blocked').length,
   };
 
-  return { frontmatter, stages, tasks, progress };
+  return { frontmatter, stages, tasks, criteria, progress };
+}
+
+// Acceptance criteria declared in `## Specification` as `### CRn — name` blocks.
+function parseCriteria(specBody) {
+  const ids = [];
+  for (const line of specBody.split('\n')) {
+    const m = line.match(/^###\s+(CR\d+)\b/);
+    if (m) ids.push(m[1]);
+  }
+  return ids;
 }
 
 function splitStages(body) {

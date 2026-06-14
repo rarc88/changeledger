@@ -5,6 +5,11 @@
 # is always English. See AGENTS.md §8.
 language: es
 
+# Definition of Ready policy. When true (default), changes are documented
+# test-grade and implemented via TDD; `sl check` warns on criteria ↔ task
+# coverage gaps. Set false for exploratory repos. See AGENTS.md §11.
+tdd: true
+
 changes_dir: .sl/changes
 specs_dir: .sl/specs
 

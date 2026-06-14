@@ -70,6 +70,8 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if (fm.status === 'blocked' && tasks.length && !tasks.some((t) => t.state === 'blocked')) {
       warn(c, 'status is "blocked" but no task is marked [!]');
     }
+
+    checkCoverage(c, fm, active, config, warn);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -177,6 +179,29 @@ function checkConflictMarkers(c, err) {
     if (CONFLICT.test(lines[i]))
       err(c, `merge conflict marker "${lines[i].slice(0, 7)}" at line ${i + 1}`);
   }
+}
+
+// Definition-of-Ready coverage: when `tdd` is on (default), a change being built
+// (approved/in-progress) whose type activates `## Specification` must map
+// criteria ↔ Plan tasks both ways. Warnings only — it nudges, never blocks.
+// It checks coverage, not whether a criterion is "test-grade" (not parseable).
+function checkCoverage(c, fm, active, config, warn) {
+  if (config?.tdd === false) return;
+  if (!active?.includes('specification')) return;
+  if (fm.status !== 'approved' && fm.status !== 'in-progress') return;
+
+  const declared = c.criteria ?? [];
+  const tasks = c.tasks ?? [];
+  const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
+
+  for (const cr of declared)
+    if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
+
+  for (const t of tasks)
+    if (!t.criteria?.length) {
+      const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
+      warn(c, `Plan task "${label}" references no criterion`);
+    }
 }
 
 function checkConfig(config, err) {
