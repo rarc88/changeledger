@@ -10,6 +10,19 @@ export function setStatus(text, status) {
   return fm + text.slice(m[1].length);
 }
 
+// Sets, updates or removes the optional `owner:` frontmatter line. A falsy owner
+// removes it. New lines are placed right after `depends_on`.
+export function setOwner(text, owner) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  let fm = m[1];
+  fm = fm.replace(/^owner:.*\n/m, '');
+  if (owner) {
+    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${owner}\n`);
+  }
+  return fm + text.slice(m[1].length);
+}
+
 export function appendLog(text, iso, message) {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));

@@ -2,7 +2,7 @@ const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 let repo = null;
 let lastJson = '';
-const filters = { text: '', type: 'all', statuses: new Set() };
+const filters = { text: '', type: 'all', owner: 'all', statuses: new Set() };
 let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
@@ -71,6 +71,14 @@ function hydrateFilters() {
   $('#type-filter').value = filters.type;
   $('#lang').textContent = repo.language;
 
+  const owners = [...new Set(repo.changes.map((c) => c.owner).filter(Boolean))].sort();
+  $('#owner-filter').innerHTML =
+    '<option value="all">All owners</option>' +
+    owners.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  if (filters.owner !== 'all' && !owners.includes(filters.owner)) filters.owner = 'all';
+  $('#owner-filter').value = filters.owner;
+  $('#owner-filter').style.display = owners.length ? '' : 'none';
+
   const sf = $('#status-filter');
   sf.innerHTML = repo.statuses
     .map(
@@ -95,13 +103,14 @@ function haystack(c) {
   const tasks = c.tasks
     .map((t) => `${t.text} ${(t.criteria || []).join(' ')} ${t.reason || ''}`)
     .join(' ');
-  return `${c.id} ${c.title} ${c.type} ${c.status} ${stages} ${tasks}`.toLowerCase();
+  return `${c.id} ${c.title} ${c.type} ${c.status} ${c.owner || ''} ${stages} ${tasks}`.toLowerCase();
 }
 
 function visibleChanges() {
   const q = filters.text.toLowerCase();
   return repo.changes.filter((c) => {
     if (filters.type !== 'all' && c.type !== filters.type) return false;
+    if (filters.owner !== 'all' && c.owner !== filters.owner) return false;
     if (filters.statuses.size && !filters.statuses.has(c.status)) return false;
     if (!q) return true;
     return haystack(c).includes(q);
@@ -148,6 +157,7 @@ function card(c) {
       ${c.progress.total ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
       <div class="card-meta">
         ${c.progress.total ? `<span>${c.progress.done}/${c.progress.total} tasks</span>` : ''}
+        ${c.owner ? `<span class="owner">@${esc(c.owner)}</span>` : ''}
         ${blocked}
       </div>
     </div>`;
@@ -171,6 +181,7 @@ function openDetail(id) {
       <span class="pill">#${c.id}</span>
       <span class="pill" style="color:var(--${c.type})">${c.type}</span>
       <span class="pill">${c.status}</span>
+      ${c.owner ? `<span class="pill owner">@${esc(c.owner)}</span>` : ''}
       <span class="pill">${c.created || ''}</span>
       ${deps}
     </div>
@@ -449,6 +460,10 @@ $('#type-filter').onchange = (e) => {
   filters.type = e.target.value;
   render();
 };
+$('#owner-filter').onchange = (e) => {
+  filters.owner = e.target.value;
+  render();
+};
 $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
@@ -457,6 +472,7 @@ $('#project').onchange = (e) => {
   currentProject = e.target.value;
   lastJson = '';
   filters.type = 'all';
+  filters.owner = 'all';
   filters.statuses.clear();
   load();
 };

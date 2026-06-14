@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-13T22:33:11Z
+updated: 2026-06-14T11:30:00Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -42,8 +42,8 @@ flowchart TD
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
-  `type`, `status`, `created`, `depends_on`) + etapas (`## Request`…`## Log`)
-  según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
+  `type`, `status`, `created`, `depends_on`, `owner` opcional) + etapas
+  (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (`draft → approved → in-progress → done`,
   con `blocked`). Tareas en `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
@@ -65,7 +65,7 @@ inglés canónico.
 
 El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
 request (live) y expone JSON; la UI rinde board (kanban), table, graph
-(`depends_on`) y specs, con búsqueda full-text, filtros y render de markdown +
-mermaid. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
+(`depends_on`) y specs, con búsqueda full-text, filtros (tipo, estado, owner) y
+render de markdown + mermaid. `marked` y `mermaid` son dependencias instaladas (pnpm), servidas desde
 `node_modules` bajo `/vendor/*`; el resto del runtime es cero-deps. En modo global
 el visor lee el registro y muestra todos los proyectos (selector + autoenfoque).

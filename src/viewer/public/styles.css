@@ -242,6 +242,9 @@ body {
   color: var(--blocked);
   font-weight: 600;
 }
+.owner {
+  font-weight: 600;
+}
 
 /* Overlay + detail */
 .overlay {

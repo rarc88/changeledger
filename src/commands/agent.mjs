@@ -8,7 +8,7 @@ import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
-import { appendLog, setStatus, setTask } from '../writer.mjs';
+import { appendLog, setOwner, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
   const specDir = findSpecDir(cwd);
@@ -29,6 +29,16 @@ export function status(id, newStatus, cwd = process.cwd()) {
   const prev = parseChange(text).frontmatter.status;
   text = setStatus(text, newStatus);
   text = appendLog(text, nowUtc(), `status: ${prev} → ${newStatus}`);
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+// name '-' clears the owner.
+export function owner(id, name, cwd = process.cwd()) {
+  const { file } = locate(cwd, id);
+  const next = name === '-' ? null : name;
+  let text = setOwner(fs.readFileSync(file, 'utf8'), next);
+  text = appendLog(text, nowUtc(), next ? `owner → ${next}` : 'owner cleared');
   fs.writeFileSync(file, text);
   return file;
 }
@@ -56,6 +66,7 @@ export function list({ status: byStatus, type: byType } = {}, cwd = process.cwd(
       title: c.frontmatter.title,
       type: c.frontmatter.type,
       status: c.frontmatter.status,
+      owner: c.frontmatter.owner ?? null,
       progress: c.progress,
     }))
     .filter((c) => (!byStatus || c.status === byStatus) && (!byType || c.type === byType));

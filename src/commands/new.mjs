@@ -5,7 +5,7 @@ import { findSpecDir, loadConfig } from '../config.mjs';
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See AGENTS.md §7-§8.
-export function newChange({ type, slug, title, now }, cwd = process.cwd()) {
+export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()) {
   const specDir = findSpecDir(cwd);
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
 
@@ -30,7 +30,7 @@ export function newChange({ type, slug, title, now }, cwd = process.cwd()) {
   }
 
   const file = path.join(changesDir, `${id}-${slugify(slug)}.md`);
-  fs.writeFileSync(file, render({ id, title, type, stages: typeDef.stages, now: created }));
+  fs.writeFileSync(file, render({ id, title, type, owner, stages: typeDef.stages, now: created }));
   return file;
 }
 
@@ -64,7 +64,7 @@ function heading(stageKey) {
   return stageKey.charAt(0).toUpperCase() + stageKey.slice(1);
 }
 
-function render({ id, title, type, stages, now }) {
+function render({ id, title, type, owner, stages, now }) {
   const fm = [
     '---',
     `id: "${id}"`,
@@ -73,6 +73,7 @@ function render({ id, title, type, stages, now }) {
     'status: draft',
     `created: ${now}`,
     'depends_on: []',
+    ...(owner ? [`owner: ${owner}`] : []),
     '---',
     '',
   ].join('\n');

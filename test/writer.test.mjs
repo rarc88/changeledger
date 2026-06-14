@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { appendLog, setStatus, setTask } from '../src/writer.mjs';
+import { appendLog, setOwner, setStatus, setTask } from '../src/writer.mjs';
 
 const DOC = `---
 id: "20260613-120000"
@@ -58,4 +58,21 @@ test('setTask done replaces an existing blocked suffix', () => {
 
 test('setTask throws on a missing task index', () => {
   assert.throws(() => setTask(DOC, 9, 'done', { iso: 'x' }), /no task #9/);
+});
+
+test('setOwner adds the owner line after depends_on', () => {
+  const out = setOwner(DOC, 'ana');
+  assert.equal(parseChange(out).frontmatter.owner, 'ana');
+  assert.match(out, /depends_on: \[\]\nowner: ana\n/);
+});
+
+test('setOwner updates an existing owner', () => {
+  const out = setOwner(setOwner(DOC, 'ana'), 'leo');
+  assert.equal(parseChange(out).frontmatter.owner, 'leo');
+  assert.equal((out.match(/^owner:/gm) || []).length, 1);
+});
+
+test('setOwner with falsy value removes the owner line', () => {
+  const out = setOwner(setOwner(DOC, 'ana'), null);
+  assert.equal('owner' in parseChange(out).frontmatter, false);
 });

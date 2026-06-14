@@ -44,6 +44,7 @@ function serialize(repo) {
       title: c.frontmatter.title,
       type: c.frontmatter.type,
       status: c.frontmatter.status,
+      owner: c.frontmatter.owner ?? null,
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],
       stages: c.stages,

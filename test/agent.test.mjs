@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { list, log, show, status, task } from '../src/commands/agent.mjs';
+import { list, log, owner, show, status, task } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 
@@ -52,6 +52,24 @@ test('log appends a timestamped entry', () => {
   const { root, file, id } = repoWithChange();
   log(id, 'a note', root);
   assert.match(fs.readFileSync(file, 'utf8'), /— a note\n?$/);
+});
+
+test('new --owner writes the owner into the frontmatter', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-owner-'));
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', owner: 'ana', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'ana');
+});
+
+test('owner sets and clears the responsible', () => {
+  const { root, file, id } = repoWithChange();
+  owner(id, 'ana', root);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'ana');
+  owner(id, '-', root);
+  assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
 test('list filters by status and show returns the change', () => {
