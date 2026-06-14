@@ -19,8 +19,7 @@
   "files": [
     "bin",
     "src",
-    "templates",
-    "AGENTS.md"
+    "templates"
   ],
   "license": "MIT",
   "devDependencies": {
