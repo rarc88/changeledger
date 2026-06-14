@@ -36,6 +36,8 @@ sl task <id> done|block <n> [reason]     # mark a Plan task
 sl list [--status S] [--type T] [--json] # list changes
 sl show <id> [--json]                    # print a change
 sl graduate <change-id> <spec-slug>      # scaffold a spec seeded from a change
+sl graduate <change-id> --skip [reason]  # mark graduation reviewed, no spec
+sl graduate --pending                    # list done changes not yet reviewed
 ```
 
 `sl check` validates every change against the contract (frontmatter, enums,

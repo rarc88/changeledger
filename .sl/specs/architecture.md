@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T16:52:30Z
+updated: 2026-06-14T17:14:47Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -9,6 +9,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260613-205854.
 > Graduado del change 20260614-151759 (discovery del contrato).
 > Graduado del change 20260614-162547 (Definition of Ready / tdd).
+> Graduado del change 20260614-165720 (revisión de graduación / reviewed).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -46,13 +47,23 @@ flowchart TD
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
-  `type`, `status`, `created`, `depends_on`, `owner` opcional) + etapas
-  (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida
-  (`draft → approved → in-progress → done`, con `blocked`). Tareas en `## Plan`
-  como checklist (`[ ]`/`[x]`/`[!]`).
+  `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
+  `reviewed` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
+  de vida (`draft → approved → in-progress → done`, con `blocked`). Tareas en
+  `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
+
+**Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
+o se descarta (bug/chore sin verdad persistente). Ambos casos fijan `reviewed: true`
+(`writer.setReviewed`). `sl graduate --pending` (`pendingGraduation`) lista los
+`done` con `reviewed !== true`; `sl graduate <id> --skip [razón]` (`skipGraduation`,
+solo en `done`) descarta dejando `graduation skipped` en el Log; `graduate()` a spec
+también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
+`graduado a spec` del Log — `reviewed` solo registra que la pregunta quedó zanjada.
+`check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
+bajo demanda).
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se

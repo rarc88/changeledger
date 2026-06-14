@@ -203,6 +203,9 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
 - `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
 - `sl graduate <change-id> <spec-slug>` — scaffold a spec seeded from the change.
+- `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
+  reviewed without a spec (bug/chore with no persistent truth); logs the reason.
+- `sl graduate --pending` — list done changes whose graduation is not reviewed yet.
 - `sl check [id]` — validate before committing.
 
 ## 10. Specs (persistent truth)
@@ -227,6 +230,14 @@ is the journey; a spec is the destination. `sl graduate <change-id> <spec-slug>`
 scaffolds a spec seeded from the change's Specification/Proposal and links it back
 in the change's Log — then refine the wording by hand. Prefer diagrams (§9 /
 mermaid) where they explain the system better than prose.
+
+**Graduation review.** A done change either graduates to a spec or is reviewed as
+needing none (a bug/chore with no persistent truth). Both set the optional
+`reviewed: true` frontmatter flag. `sl graduate --pending` lists done changes
+still unreviewed; resolve each with `sl graduate <id> <spec>` or
+`sl graduate <id> --skip [reason]`. ("graduated to a spec" stays derivable from
+the `graduado a spec` Log marker; `reviewed` only tracks that the question is
+settled.)
 
 ## 11. Definition of Ready (implementation)
 
