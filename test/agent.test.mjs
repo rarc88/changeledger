@@ -13,6 +13,7 @@ process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-')
 
 function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
@@ -56,6 +57,7 @@ test('log appends a timestamped entry', () => {
 
 test('new --owner writes the owner into the frontmatter', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-owner-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', owner: 'ana', now: '2026-06-13T12:00:00Z' },

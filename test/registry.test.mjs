@@ -15,7 +15,9 @@ function isolatedHome() {
 }
 
 function newRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  return root;
 }
 
 test('init gives the repo identity and registers its path', () => {

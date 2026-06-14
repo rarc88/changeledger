@@ -14,6 +14,7 @@ function isolatedHome() {
 
 function newRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   return root;
 }

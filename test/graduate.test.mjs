@@ -13,6 +13,7 @@ process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-')
 
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-grad-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = path.join(root, '.sl', 'changes', '20260613-120000-x.md');
   fs.writeFileSync(
