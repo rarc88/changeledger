@@ -49,6 +49,11 @@ flowchart TD
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
 
+Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
+dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
+repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
+nombre de proyecto y navega a ese change.
+
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único

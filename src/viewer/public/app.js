@@ -7,6 +7,7 @@ let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
 let currentProject = null;
+let projectsList = [];
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -31,6 +32,7 @@ function renderMermaid(root) {
 
 async function loadProjects() {
   const { projects, current } = await fetch('/api/projects').then((r) => r.json());
+  projectsList = projects;
   const sel = $('#project');
   sel.innerHTML = projects
     .map(
@@ -167,7 +169,12 @@ function openDetail(id) {
   const c = repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
   const deps = (c.depends_on || [])
-    .map((d) => `<span class="pill" data-dep="${d}" style="cursor:pointer">depends on #${d}</span>`)
+    .map((d) => {
+      const ext = String(d).includes(':');
+      const attr = ext ? `data-extdep="${esc(d)}"` : `data-dep="${esc(d)}"`;
+      const label = ext ? `depends on ${esc(d)}` : `depends on #${esc(d)}`;
+      return `<span class="pill ${ext ? 'ext' : ''}" ${attr} style="cursor:pointer">${label}</span>`;
+    })
     .join('');
   const pipeline = c.stages
     .map((s) => `<span class="stage-chip" data-go="stage-${s.key}">${s.heading}</span>`)
@@ -205,6 +212,14 @@ function openDetail(id) {
     .forEach((el) => {
       el.onclick = () => openDetail(el.dataset.dep);
     });
+  $('#detail')
+    .querySelectorAll('[data-extdep]')
+    .forEach((el) => {
+      el.onclick = () => {
+        const [proj, changeId] = el.dataset.extdep.split(':');
+        gotoChange(proj, changeId);
+      };
+    });
   renderMermaid($('#detail'));
 }
 
@@ -239,6 +254,26 @@ function taskList(tasks) {
 
 function closeDetail() {
   $('#overlay').classList.add('hidden');
+}
+
+// Cross-project navigation: resolve `proj` (by id or name) in the loaded project
+// list, switch to it, then open the target change once its repo has loaded.
+async function gotoChange(proj, changeId) {
+  const match = projectsList.find((p) => p.id === proj || p.name === proj);
+  if (!match || !match.alive) {
+    alert(`Project "${proj}" is not registered or its path is gone.`);
+    return;
+  }
+  if (match.id !== currentProject) {
+    currentProject = match.id;
+    $('#project').value = match.id;
+    lastJson = '';
+    filters.type = 'all';
+    filters.owner = 'all';
+    filters.statuses.clear();
+    await load();
+  }
+  openDetail(changeId);
 }
 
 /* Dependency graph */

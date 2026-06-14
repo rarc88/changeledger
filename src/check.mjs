@@ -74,18 +74,22 @@ export function checkRepo({ config, changes }, opts = {}) {
     else seen.set(id, c.name);
   }
 
+  // A dep containing ':' is a cross-project reference (`<project>:<changeId>`).
+  // It points at another repo, so the pure checker neither validates it nor
+  // includes it in the local cycle graph.
+  const isExternal = (d) => String(d).includes(':');
   const ids = new Set([...seen.keys()]);
   const graph = new Map();
   for (const c of changes) {
     const id = c.frontmatter?.id;
     const deps = c.frontmatter?.depends_on ?? [];
     for (const d of deps) {
-      if (!ids.has(d)) err(c, `depends_on references missing change "${d}"`);
+      if (!isExternal(d) && !ids.has(d)) err(c, `depends_on references missing change "${d}"`);
     }
     if (id)
       graph.set(
         id,
-        deps.filter((d) => ids.has(d)),
+        deps.filter((d) => !isExternal(d) && ids.has(d)),
       );
   }
 

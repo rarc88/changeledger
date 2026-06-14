@@ -154,3 +154,24 @@ test('CR2: clean text does not false-positive', () => {
     [],
   );
 });
+
+test('CR1: an external cross-project dep is not a missing-change error', () => {
+  const c = change({ frontmatter: { depends_on: ['other:20260101-000000'] } });
+  assert.deepEqual(
+    msgs(run([c]).errors).filter((m) => /missing change/.test(m)),
+    [],
+  );
+});
+
+test('CR1: a local dangling dep is still an error alongside an external one', () => {
+  const c = change({ frontmatter: { depends_on: ['other:20260101-000000', '20990101-000000'] } });
+  assert.ok(msgs(run([c]).errors).some((m) => /missing change "20990101-000000"/.test(m)));
+});
+
+test('CR2: cycle graph ignores external deps', () => {
+  const a = change({ frontmatter: { id: '20260613-120000', depends_on: ['ext:20260101-000000'] } });
+  assert.deepEqual(
+    msgs(run([a]).errors).filter((m) => /cycle/.test(m)),
+    [],
+  );
+});
