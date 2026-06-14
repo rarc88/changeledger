@@ -27,6 +27,8 @@ export function checkRepo({ config, changes }, opts = {}) {
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
 
+    checkConflictMarkers(c, err);
+
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
     if (fm.id && !ID_FORM.test(String(fm.id))) err(c, `id not in YYYYMMDD-HHMMSS form: ${fm.id}`);
@@ -91,6 +93,20 @@ export function checkRepo({ config, changes }, opts = {}) {
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
   return { errors, warnings };
+}
+
+// Git merge conflict markers: exactly 7 of <, = or > at the start of a line.
+// `<` and `>` never appear in normal markdown; `=` could be a setext H1
+// underline, but Spec Ledger uses ATX headings, so this is safe in practice.
+const CONFLICT = /^(<{7}|={7}|>{7})(\s|$)/;
+
+function checkConflictMarkers(c, err) {
+  if (typeof c.text !== 'string') return;
+  const lines = c.text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (CONFLICT.test(lines[i]))
+      err(c, `merge conflict marker "${lines[i].slice(0, 7)}" at line ${i + 1}`);
+  }
 }
 
 function checkConfig(config, err) {

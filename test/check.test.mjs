@@ -25,6 +25,7 @@ function change(over = {}) {
   };
   return {
     name: over.name ?? `${fm.id}-x.md`,
+    text: over.text,
     frontmatter: fm,
     stages: over.stages ?? [{ key: 'request' }, { key: 'plan' }, { key: 'log' }],
     tasks: over.tasks ?? [],
@@ -136,4 +137,20 @@ test('scoped check validates only the requested change', () => {
 test('scoped check on a missing id is an error', () => {
   const { errors } = checkRepo({ config, changes: [change()] }, { id: 'nope' });
   assert.ok(msgs(errors).some((m) => /no change with id "nope"/.test(m)));
+});
+
+test('CR1: a merge conflict marker is an error with its line', () => {
+  const c = change({ text: '---\nid: x\n---\n<<<<<<< HEAD\nfoo\n=======\nbar\n>>>>>>> branch\n' });
+  const { errors } = run([c]);
+  assert.ok(msgs(errors).some((m) => /merge conflict marker .* at line 4/.test(m)));
+  assert.ok(msgs(errors).some((m) => /at line 6/.test(m)));
+  assert.ok(msgs(errors).some((m) => /at line 8/.test(m)));
+});
+
+test('CR2: clean text does not false-positive', () => {
+  const c = change({ text: '---\nid: x\n---\n## Request\n\na == b and a < b\n' });
+  assert.deepEqual(
+    msgs(run([c]).errors).filter((m) => /conflict marker/.test(m)),
+    [],
+  );
 });
