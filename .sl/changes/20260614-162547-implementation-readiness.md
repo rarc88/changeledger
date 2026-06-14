@@ -2,7 +2,7 @@
 id: "20260614-162547"
 title: "Definition of Ready: changes test-grade para implementacion por modelos menos potentes"
 type: feature
-status: draft
+status: approved
 created: 2026-06-14T16:25:47Z
 depends_on: ["20260614-151759"]
 ---
@@ -141,3 +141,4 @@ flowchart LR
 - [ ] README: mencionar `tdd` y el DoR
 
 ## Log
+- **2026-06-14T16:36:56Z** — status: draft → approved
