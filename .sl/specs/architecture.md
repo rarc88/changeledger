@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T17:14:47Z
+updated: 2026-06-14T18:39:36Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -10,6 +10,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260614-151759 (discovery del contrato).
 > Graduado del change 20260614-162547 (Definition of Ready / tdd).
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
+> Graduado del change 20260614-182513 (owner desde GitHub login).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -68,9 +69,10 @@ bajo demanda).
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
 crea automáticamente al primer cambio de estado aunque el tipo no lo declare
-(p.ej. `chore`). El `owner` se autoasigna desde la identidad git local al pasar a
-`in-progress` (cuando empieza el trabajo), salvo que ya esté fijado a mano
-(`sl owner`).
+(p.ej. `chore`). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
+el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
+fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
+(vacío si ninguno). No pisa un owner fijado a mano (`sl owner`).
 
 Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro

@@ -60,9 +60,10 @@ owner: ana                     # optional — who is working on it (see below)
 ---
 ```
 
-**`owner` (optional).** Who is responsible for the change. It is auto-assigned
-from the local git identity (`git config user.name`) the moment work starts —
-the `approved → in-progress` transition — unless already set. Override or clear
+**`owner` (optional).** Who is responsible for the change. It is auto-assigned the
+moment work starts — the `approved → in-progress` transition — unless already set.
+The handle is the **GitHub login** (`gh api user --jq .login`), falling back to
+`git config user.name` when `gh` is missing or unauthenticated. Override or clear
 it anytime with `sl owner <id> <name|->`. Absent means unassigned.
 
 ### Stages (body)
