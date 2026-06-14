@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gitRefs } from '../src/git.mjs';
+import { githubLogin, gitRefs, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -44,4 +44,43 @@ test('CR2: a missing id yields empty refs', () => {
     gitRefs('/x', '', () => 'whatever'),
     { commits: [], branches: [] },
   );
+});
+
+// --- owner handle (GitHub login, fallback git name) ---
+
+test('CR1: githubLogin returns the trimmed gh login', () => {
+  assert.equal(
+    githubLogin(() => 'raruiz-hiberuscom\n'),
+    'raruiz-hiberuscom',
+  );
+});
+
+test('CR4: githubLogin is empty when gh fails', () => {
+  assert.equal(
+    githubLogin(() => {
+      throw new Error('gh: command not found');
+    }),
+    '',
+  );
+});
+
+test('CR1: ownerHandle prefers the GitHub login', () => {
+  const gh = () => 'raruiz-hiberuscom';
+  const git = () => 'config\nuser.name'; // should be ignored
+  assert.equal(ownerHandle('/x', git, gh), 'raruiz-hiberuscom');
+});
+
+test('CR2: ownerHandle falls back to git user.name when gh is unavailable', () => {
+  const gh = () => {
+    throw new Error('no gh');
+  };
+  const git = (args) => (args[0] === 'config' ? 'Roberto Ruiz' : '');
+  assert.equal(ownerHandle('/x', git, gh), 'Roberto Ruiz');
+});
+
+test('CR4: ownerHandle is empty when neither is available', () => {
+  const boom = () => {
+    throw new Error('nope');
+  };
+  assert.equal(ownerHandle('/x', boom, boom), '');
 });

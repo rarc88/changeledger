@@ -74,24 +74,24 @@ test('owner sets and clears the responsible', () => {
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
-test('status to in-progress auto-assigns owner from git when empty', () => {
+test('status to in-progress auto-assigns owner handle when empty', () => {
   const { root, file, id } = repoWithChange();
-  status(id, 'in-progress', root, { gitUser: () => 'ana' });
+  status(id, 'in-progress', root, { ownerHandle: () => 'raruiz' });
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.owner, 'ana');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /owner → ana \(auto\)/);
+  assert.equal(c.frontmatter.owner, 'raruiz');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /owner → raruiz \(auto\)/);
 });
 
 test('status to in-progress does not overwrite an explicit owner', () => {
   const { root, file, id } = repoWithChange();
   owner(id, 'leo', root);
-  status(id, 'in-progress', root, { gitUser: () => 'ana' });
+  status(id, 'in-progress', root, { ownerHandle: () => 'raruiz' });
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'leo');
 });
 
-test('status to in-progress tolerates a missing git user', () => {
+test('status to in-progress tolerates a missing owner handle', () => {
   const { root, file, id } = repoWithChange();
-  status(id, 'in-progress', root, { gitUser: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 

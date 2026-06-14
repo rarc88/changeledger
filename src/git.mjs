@@ -10,14 +10,33 @@ function defaultRun(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
-// Local git identity (`git config user.name`), or '' if unavailable. Used to
-// auto-assign a change's owner when work starts. Tolerant by design.
+// Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {
     return run(['config', 'user.name'], cwd).trim();
   } catch {
     return '';
   }
+}
+
+function defaultGhRun(args) {
+  return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+}
+
+// GitHub username via `gh api user --jq .login`, or '' if gh is missing,
+// unauthenticated, or offline. Tolerant by design.
+export function githubLogin(run = defaultGhRun) {
+  try {
+    return run(['api', 'user', '--jq', '.login']).trim();
+  } catch {
+    return '';
+  }
+}
+
+// Preferred owner handle when work starts: the GitHub login, falling back to the
+// local git user.name. Empty if neither is available.
+export function ownerHandle(cwd, run = defaultRun, ghRun = defaultGhRun) {
+  return githubLogin(ghRun) || gitUser(cwd, run);
 }
 
 export function gitRefs(repoRoot, id, run = defaultRun) {
