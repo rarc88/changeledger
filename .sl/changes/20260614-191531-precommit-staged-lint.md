@@ -2,9 +2,11 @@
 id: "20260614-191531"
 title: pre-commit lintea todo el arbol y rompe commits parciales
 type: bug
-status: draft
+status: done
 created: 2026-06-14T19:15:31Z
 depends_on: ["20260614-182511"]
+reviewed: true
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -40,8 +42,13 @@ commit `feat(owner)` abortó y su código terminó mezclado en el commit de test
 
 ## Plan
 
-- [ ] `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (no el `biome check` de árbol completo); el lint de staged ya lo hace lint-staged (CR1) — `hooks/pre-commit`
-- [ ] Conservar `pnpm verify` intacto como gate completo para CI/manual (CR2) — `package.json`
-- [ ] Verificar el escenario de CR1 a mano (staged limpio + no-staged sucio → commit pasa)
+- [x] En `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (sin el `biome check` de árbol completo; el lint de staged lo hace lint-staged) (CR1) — 2026-06-14T19:17:11Z
+- [x] `pnpm verify` en `package.json` intacto como gate completo CI/manual (CR2) — 2026-06-14T19:17:11Z
+- [x] Verificado a mano: staged limpio + no-staged sucio → hook exit 0, archivo sucio intacto (CR1) — 2026-06-14T19:17:11Z
 
 ## Log
+- **2026-06-14T19:16:14Z** — status: draft → approved
+- **2026-06-14T19:16:14Z** — status: approved → in-progress
+- **2026-06-14T19:16:15Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-14T19:17:28Z** — status: in-progress → done
+- **2026-06-14T19:17:28Z** — graduation skipped: fix de tooling (hook); sin verdad persistente
