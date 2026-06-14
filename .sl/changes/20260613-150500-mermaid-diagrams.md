@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T15:05:00Z
 depends_on: ["20260613-134548"]
+reviewed: true
 ---
 
 ## Request

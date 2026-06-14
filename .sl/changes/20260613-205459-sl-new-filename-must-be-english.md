@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-13T20:54:59Z
 depends_on: ["20260613-150402"]
+reviewed: true
 ---
 
 ## Request

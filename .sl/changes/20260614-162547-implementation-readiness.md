@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T16:25:47Z
 depends_on: ["20260614-151759"]
+reviewed: true
 owner: Roberto Ruiz
 ---
 
