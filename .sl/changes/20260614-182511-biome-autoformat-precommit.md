@@ -2,7 +2,7 @@
 id: "20260614-182511"
 title: Autoformatear con Biome en pre-commit (lint-staged)
 type: chore
-status: draft
+status: approved
 created: 2026-06-14T18:25:11Z
 depends_on: []
 ---
@@ -34,3 +34,7 @@ formateo nunca alcanza lo que no estaba en stage. Cuesta una dev-dep.
 - **Script propio con `git stash --keep-index`** — replica lint-staged pero frágil
   ante conflictos al `stash pop`; no vale reinventarlo.
 - **Solo `biome check` (sin write)** — no autoformatea; el olvido persiste.
+
+## Log
+
+- **2026-06-14T18:30:52Z** — status: draft → approved
