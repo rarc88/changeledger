@@ -26,12 +26,42 @@ const USAGE = `Spec Ledger (sl)
   sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   sl graduate --pending                 list done changes not yet reviewed`;
 
+// Per-command usage, shown by `sl <cmd> --help` / `-h` and reused by the
+// `Usage:` errors below so there is a single source of truth.
+const HELP = {
+  init: 'sl init — set up .sl/ in the current repo (+ register it)',
+  register: "sl register — (re)link this repo's path in the global registry",
+  new: 'sl new <type> <slug> <title> [--owner name] — scaffold a change',
+  view: 'sl view [port] — launch the local viewer (default port 4040)',
+  check: 'sl check [id] [--json] — validate the repo or one change',
+  status: "sl status <id> <status> — move a change's lifecycle status",
+  owner: "sl owner <id> <name|-> — set or clear a change's owner",
+  archive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
+  unarchive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
+  log: 'sl log <id> <message> — append a timestamped Log entry',
+  task: 'sl task <id> done|block <n> [reason] — mark a Plan task',
+  list: 'sl list [--status S] [--type T] [--json] — list changes',
+  show: 'sl show <id> [--json] — print a change',
+  graduate:
+    'sl graduate <change-id> <spec-slug> — graduate a change to a spec\n' +
+    'sl graduate <change-id> --skip [reason] — mark graduation reviewed, no spec\n' +
+    'sl graduate --pending — list done changes not yet reviewed',
+};
+
+const usage = (cmd) => `Usage: ${HELP[cmd]}`;
+
 const flagVal = (args, flag) => {
   const i = args.indexOf(flag);
   return i >= 0 ? args[i + 1] : undefined;
 };
 
 const [cmd, ...args] = process.argv.slice(2);
+
+// `sl <cmd> --help|-h` prints that command's usage and exits cleanly.
+if ((args[0] === '--help' || args[0] === '-h') && HELP[cmd]) {
+  console.log(HELP[cmd]);
+  process.exit(0);
+}
 
 try {
   switch (cmd) {
@@ -96,7 +126,7 @@ try {
       const [id, action, nStr, ...rest] = args;
       const n = Number(nStr);
       const reason = rest.join(' ').trim();
-      if (!id || !action || !n) throw new Error('Usage: sl task <id> done|block <n> [reason]');
+      if (!id || !action || !n) throw new Error(usage('task'));
       task(id, action, n, reason);
       console.log(`task #${n} on #${id} → ${action}`);
       break;
@@ -128,7 +158,7 @@ try {
       const skipIdx = args.indexOf('--skip');
       if (skipIdx !== -1) {
         const id = args.find((a) => !a.startsWith('--'));
-        if (!id) throw new Error('Usage: sl graduate <change-id> --skip [reason]');
+        if (!id) throw new Error(usage('graduate'));
         const reason = args
           .slice(skipIdx + 1)
           .join(' ')
@@ -138,8 +168,7 @@ try {
         break;
       }
       const [id, slug] = args;
-      if (!id || !slug)
-        throw new Error('Usage: sl graduate <change-id> <spec-slug> | --skip [reason] | --pending');
+      if (!id || !slug) throw new Error(usage('graduate'));
       const file = graduate(id, slug);
       console.log(`Graduated #${id} → ${file}`);
       break;
