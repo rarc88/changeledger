@@ -565,31 +565,87 @@ function fmtDuration(ms) {
   return `${(h / 24).toFixed(1)} d`;
 }
 
+function barRows(items, label, value, fmt = (v) => v) {
+  const max = Math.max(1, ...items.map(value));
+  return items
+    .map(
+      (it) =>
+        `<div class="bar-row"><span class="bar-date">${label(it)}</span><span class="bar" style="width:${(value(it) / max) * 100}%"></span><span class="mono">${fmt(value(it))}</span></div>`,
+    )
+    .join('');
+}
+
 function renderMetrics() {
-  const m = repo.metrics || { count: 0, avgCycleMs: 0, medianCycleMs: 0, throughput: [] };
-  const max = Math.max(1, ...m.throughput.map((t) => t.count));
+  const m = repo.metrics || {};
+  const wip = m.wip || {};
+  const wipTotal = Object.values(wip).reduce((a, b) => a + b, 0);
   const cards = [
-    ['Closed', m.count],
+    ['Closed', m.count ?? 0],
     ['Avg cycle', fmtDuration(m.avgCycleMs)],
     ['Median cycle', fmtDuration(m.medianCycleMs)],
+    ['WIP', wipTotal],
+    ['Blocked time', fmtDuration(m.blockedMs)],
   ]
     .map(
       ([label, val]) =>
-        `<div class="metric-card"><div class="metric-val">${val}</div><div class="metric-label">${label}</div></div>`,
+        `<div class="metric-card"><div class="metric-val">${val}</div><div class="metric-label">${esc(label)}</div></div>`,
     )
     .join('');
-  const bars = m.throughput.length
-    ? m.throughput
+
+  const wipChips = Object.entries(wip)
+    .map(([s, n]) => `<span class="pill">${esc(s)}: ${n}</span>`)
+    .join('');
+
+  const lead = (m.timeInStatus || []).filter((t) => t.avgMs > 0);
+  const leadBars = lead.length
+    ? barRows(
+        lead,
+        (t) => esc(t.state),
+        (t) => t.avgMs,
+        fmtDuration,
+      )
+    : '<p class="empty">No data yet.</p>';
+
+  const tp = m.throughput || [];
+  const tpBars = tp.length
+    ? barRows(
+        tp,
+        (t) => `<span class="mono">${t.date}</span>`,
+        (t) => t.count,
+      )
+    : '<p class="empty">No closed changes yet.</p>';
+
+  const aging = m.aging || [];
+  const agingRows = aging.length
+    ? `<ul class="git-commits">${aging
+        .map(
+          (a) =>
+            `<li><span class="mono">#${esc(a.id)}</span> <span class="when">${fmtDuration(a.ms)}</span></li>`,
+        )
+        .join('')}</ul>`
+    : '<p class="empty">Nothing in progress.</p>';
+
+  const byType = m.byType || [];
+  const typeRows = byType.length
+    ? `<table class="grid"><thead><tr><th>Type</th><th>Closed</th><th>Avg cycle</th></tr></thead><tbody>${byType
         .map(
           (t) =>
-            `<div class="bar-row"><span class="bar-date mono">${t.date}</span><span class="bar" style="width:${(t.count / max) * 100}%"></span><span class="mono">${t.count}</span></div>`,
+            `<tr><td><span class="type-tag" style="--type-color: var(--${t.type})">${esc(t.type)}</span></td><td class="mono">${t.closed}</td><td class="mono">${fmtDuration(t.avgCycleMs)}</td></tr>`,
         )
-        .join('')
+        .join('')}</tbody></table>`
     : '<p class="empty">No closed changes yet.</p>';
+
   $('#metrics').innerHTML = `
     <div class="metrics-cards">${cards}</div>
+    ${wipChips ? `<div class="detail-meta">${wipChips}</div>` : ''}
+    <h3 class="metrics-h">Avg time in status (lead time per stage)</h3>
+    <div>${leadBars}</div>
     <h3 class="metrics-h">Throughput (closed per day)</h3>
-    <div class="throughput">${bars}</div>`;
+    <div>${tpBars}</div>
+    <h3 class="metrics-h">Aging — in progress</h3>
+    ${agingRows}
+    <h3 class="metrics-h">By type</h3>
+    ${typeRows}`;
 }
 
 function setView(v) {
