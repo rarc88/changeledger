@@ -125,6 +125,7 @@ function render() {
   if (currentView === 'graph') renderGraph();
   else if (currentView === 'table') renderTable();
   else if (currentView === 'specs') renderSpecs();
+  else if (currentView === 'metrics') renderMetrics();
   else renderBoard();
 }
 
@@ -473,6 +474,43 @@ function openSpec(s) {
   renderMermaid($('#detail'));
 }
 
+const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
+
+/* Metrics view */
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return '—';
+  const h = ms / 3600000;
+  if (h < 48) return `${h.toFixed(1)} h`;
+  return `${(h / 24).toFixed(1)} d`;
+}
+
+function renderMetrics() {
+  const m = repo.metrics || { count: 0, avgCycleMs: 0, medianCycleMs: 0, throughput: [] };
+  const max = Math.max(1, ...m.throughput.map((t) => t.count));
+  const cards = [
+    ['Closed', m.count],
+    ['Avg cycle', fmtDuration(m.avgCycleMs)],
+    ['Median cycle', fmtDuration(m.medianCycleMs)],
+  ]
+    .map(
+      ([label, val]) =>
+        `<div class="metric-card"><div class="metric-val">${val}</div><div class="metric-label">${label}</div></div>`,
+    )
+    .join('');
+  const bars = m.throughput.length
+    ? m.throughput
+        .map(
+          (t) =>
+            `<div class="bar-row"><span class="bar-date mono">${t.date}</span><span class="bar" style="width:${(t.count / max) * 100}%"></span><span class="mono">${t.count}</span></div>`,
+        )
+        .join('')
+    : '<p class="empty">No closed changes yet.</p>';
+  $('#metrics').innerHTML = `
+    <div class="metrics-cards">${cards}</div>
+    <h3 class="metrics-h">Throughput (closed per day)</h3>
+    <div class="throughput">${bars}</div>`;
+}
+
 function setView(v) {
   currentView = v;
   if (globalMode) {
@@ -480,7 +518,7 @@ function setView(v) {
     $('#toggle-global').classList.remove('active');
   }
   $('#global').classList.add('hidden');
-  for (const name of ['board', 'table', 'graph', 'specs']) {
+  for (const name of VIEWS) {
     $(`#view-${name}`).classList.toggle('active', v === name);
     $(`#${name}`).classList.toggle('hidden', v !== name);
   }
@@ -530,7 +568,7 @@ async function renderGlobal() {
 }
 
 function enterGlobal() {
-  for (const name of ['board', 'table', 'graph', 'specs']) $(`#${name}`).classList.add('hidden');
+  for (const name of VIEWS) $(`#${name}`).classList.add('hidden');
   $('#global').classList.remove('hidden');
   renderGlobal();
 }
@@ -570,6 +608,7 @@ $('#view-board').onclick = () => setView('board');
 $('#view-table').onclick = () => setView('table');
 $('#view-graph').onclick = () => setView('graph');
 $('#view-specs').onclick = () => setView('specs');
+$('#view-metrics').onclick = () => setView('metrics');
 $('#project').onchange = (e) => {
   currentProject = e.target.value;
   lastJson = '';

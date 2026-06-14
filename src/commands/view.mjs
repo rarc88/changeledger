@@ -4,6 +4,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
+import { computeMetrics } from '../metrics.mjs';
 import { publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
 import { loadRepo } from '../repo.mjs';
@@ -39,6 +40,7 @@ function serialize(repo) {
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
     types: Object.keys(repo.config.types ?? {}),
+    metrics: computeMetrics(repo.changes),
     changes: repo.changes.map((c) => ({
       id: c.frontmatter.id,
       title: c.frontmatter.title,

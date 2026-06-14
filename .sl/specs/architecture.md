@@ -60,6 +60,13 @@ nombre de proyecto y navega a ese change.
 sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
 segundo. Ordenable cronológicamente.
 
+## Métricas
+
+`metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps: el cierre
+(`done`) se lee del `## Log` (`→ done`), el cycle time es `doneAt − created`, y
+el throughput agrupa cierres por día. El server las precalcula y el visor las
+pinta en la pestaña **Metrics**.
+
 ## Política de idioma
 
 La estructura es inglés fijo (claves, enums, headings de etapa, nombres de

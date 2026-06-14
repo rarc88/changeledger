@@ -273,6 +273,54 @@ body {
 .search-hit:hover {
   background: var(--panel);
 }
+.metrics-view {
+  padding: 18px;
+  overflow: auto;
+}
+.metrics-cards {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.metric-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 22px;
+  min-width: 120px;
+}
+.metric-val {
+  font-size: 26px;
+  font-weight: 700;
+}
+.metric-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.metrics-h {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.bar-date {
+  width: 92px;
+  color: var(--muted);
+}
+.bar {
+  display: inline-block;
+  height: 14px;
+  background: var(--accent, #4a9eff);
+  border-radius: 3px;
+  min-width: 2px;
+}
 
 /* Overlay + detail */
 .overlay {
