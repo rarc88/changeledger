@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
+import { marked } from 'marked';
+
+// app.js reads `marked`/`DOMPurify` as globals (the browser loads them from
+// /vendor). Provide the real libraries so safeHtml behaves exactly as in the
+// browser, then import the module.
+const { window } = new JSDOM('<!DOCTYPE html><body></body>');
+globalThis.marked = marked;
+globalThis.DOMPurify = createDOMPurify(window);
+const { card, cssIdent, esc, stageBlock, tableRow, taskList } = await import(
+  '../src/viewer/public/app.js'
+);
+
+// 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
+// config) is untrusted in a cloned repo. The viewer interpolates it into
+// innerHTML; sanitizing only the Markdown body left these surfaces open. These
+// tests parse the produced HTML in a real DOM and assert no active content and
+// no attribute break-out.
+
+const { document } = window;
+const parse = (html) => {
+  const host = document.createElement('div');
+  host.innerHTML = html;
+  return host;
+};
+const XSS = '"><img src=x onerror=alert(1)>';
+
+const baseChange = () => ({
+  id: '20260613-120000',
+  type: 'feature',
+  status: 'draft',
+  title: 'ok',
+  owner: null,
+  archived: false,
+  created: '2026-06-13T12:00:00Z',
+  depends_on: [],
+  progress: { total: 0, done: 0, blocked: 0 },
+  stages: [],
+  tasks: [],
+});
+
+test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {
+  const host = parse(card({ ...baseChange(), id: XSS, type: XSS, status: XSS }));
+  assert.equal(host.querySelector('img'), null, 'no injected <img>');
+  assert.equal(host.querySelectorAll('[onerror]').length, 0, 'no event-handler attribute');
+});
+
+test('175732 CR1: a payload in a stage heading does not create active HTML', () => {
+  const host = parse(stageBlock(baseChange(), { key: 'request', heading: XSS, body: 'hi' }));
+  assert.equal(host.querySelector('img'), null);
+  assert.equal(host.querySelectorAll('[onerror]').length, 0);
+});
+
+test('175732 CR1: a payload in a task resolution timestamp does not create active HTML', () => {
+  const tasks = [{ text: 'do it', state: 'done', criteria: [], resolvedAt: XSS }];
+  const host = parse(`<ul>${taskList(tasks)}</ul>`);
+  assert.equal(host.querySelector('img'), null);
+  assert.equal(host.querySelectorAll('[onerror]').length, 0);
+});
+
+test('175732 CR2: a quote-bearing id stays inside the data-id attribute', () => {
+  const host = parse(card({ ...baseChange(), id: XSS }));
+  const el = host.querySelector('.card');
+  assert.equal(el.dataset.id, XSS, 'attribute value is the literal id, not broken out');
+});
+
+test('175732 CR2: a crafted type cannot inject into the CSS custom property', () => {
+  // `var(--TYPE)` must not accept arbitrary text; cssIdent whitelists identifiers.
+  assert.equal(cssIdent('feature'), 'feature');
+  assert.equal(cssIdent('a); } body { x:1'), 'muted');
+  assert.equal(cssIdent('"><img>'), 'muted');
+  const host = parse(tableRow({ ...baseChange(), type: 'x); }' }));
+  const styled = host.querySelector('[style*="--type-color"]');
+  assert.match(styled.getAttribute('style'), /var\(--muted\)/, 'falls back to a safe ident');
+  assert.ok(!/var\(--x/.test(styled.getAttribute('style')), 'crafted type not in the declaration');
+});
+
+test('175732 CR4: esc still neutralizes the core HTML metacharacters', () => {
+  assert.equal(esc('<b>&"\'</b>'), '&lt;b&gt;&amp;&quot;&#39;&lt;/b&gt;');
+});

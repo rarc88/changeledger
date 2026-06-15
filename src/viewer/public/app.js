@@ -49,7 +49,7 @@ async function loadProjects() {
   sel.innerHTML = projects
     .map(
       (p) =>
-        `<option value="${p.id}" ${p.alive ? '' : 'disabled'}>${esc(p.name)}${p.alive ? '' : ' (missing)'}</option>`,
+        `<option value="${esc(p.id)}" ${p.alive ? '' : 'disabled'}>${esc(p.name)}${p.alive ? '' : ' (missing)'}</option>`,
     )
     .join('');
   currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
@@ -73,7 +73,7 @@ async function load() {
     hydrateFilters();
     render();
   } catch (e) {
-    $('#board').innerHTML = `<p style="color:var(--bug);padding:20px">${e.message}</p>`;
+    $('#board').innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
   }
 }
 
@@ -81,7 +81,7 @@ async function load() {
 function hydrateFilters() {
   $('#type-filter').innerHTML =
     '<option value="all">All types</option>' +
-    repo.types.map((t) => `<option value="${t}">${t}</option>`).join('');
+    repo.types.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
   $('#type-filter').value = filters.type;
   $('#lang').textContent = repo.language;
 
@@ -97,7 +97,7 @@ function hydrateFilters() {
   sf.innerHTML = repo.statuses
     .map(
       (s) =>
-        `<button type="button" class="chip ${filters.statuses.has(s) ? 'active' : ''}" data-status="${s}">${s}</button>`,
+        `<button type="button" class="chip ${filters.statuses.has(s) ? 'active' : ''}" data-status="${esc(s)}">${esc(s)}</button>`,
     )
     .join('');
   for (const el of sf.querySelectorAll('.chip')) {
@@ -147,8 +147,8 @@ function renderBoard() {
     .map((status) => {
       const items = changes.filter((c) => c.status === status);
       return `
-        <div class="column" data-status="${status}">
-          <div class="column-head"><span>${status}</span><span class="count">${items.length}</span></div>
+        <div class="column" data-status="${esc(status)}">
+          <div class="column-head"><span>${esc(status)}</span><span class="count">${items.length}</span></div>
           <div class="column-body">${items.map(card).join('')}</div>
         </div>`;
     })
@@ -204,16 +204,16 @@ async function moveStatus(id, status) {
   load();
 }
 
-function card(c) {
+export function card(c) {
   const pct = c.progress.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0;
   const blocked = c.progress.blocked
     ? `<span class="flag-blocked">● ${c.progress.blocked} blocked</span>`
     : '';
   return `
-    <div class="card ${c.archived ? 'archived' : ''}" data-id="${c.id}" style="--type-color: var(--${c.type})">
+    <div class="card ${c.archived ? 'archived' : ''}" data-id="${esc(c.id)}" style="--type-color: var(--${cssIdent(c.type)})">
       <div class="card-top">
-        <span class="card-id">#${c.id}</span>
-        <span class="type-tag">${c.type}</span>
+        <span class="card-id">#${esc(c.id)}</span>
+        <span class="type-tag">${esc(c.type)}</span>
       </div>
       <div class="card-title">${esc(c.title)}</div>
       ${c.progress.total ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
@@ -237,7 +237,7 @@ function openDetail(id) {
     })
     .join('');
   const pipeline = c.stages
-    .map((s) => `<span class="stage-chip" data-go="stage-${s.key}">${s.heading}</span>`)
+    .map((s) => `<span class="stage-chip" data-go="stage-${esc(s.key)}">${esc(s.heading)}</span>`)
     .join('');
   const stages = c.stages.map((s) => stageBlock(c, s)).join('');
 
@@ -245,9 +245,9 @@ function openDetail(id) {
     <span class="close">×</span>
     <h1>${esc(c.title)}</h1>
     <div class="detail-meta">
-      <span class="pill">#${c.id}</span>
-      <span class="pill" style="color:var(--${c.type})">${c.type}</span>
-      <span class="pill">${c.status}</span>
+      <span class="pill">#${esc(c.id)}</span>
+      <span class="pill" style="color:var(--${cssIdent(c.type)})">${esc(c.type)}</span>
+      <span class="pill">${esc(c.status)}</span>
       ${c.owner ? `<span class="pill owner">@${esc(c.owner)}</span>` : ''}
       <span class="pill" title="${esc(c.created || '')}">${esc(fmtDateTime(c.created))}</span>
       ${deps}
@@ -318,22 +318,22 @@ async function loadGitRefs(id) {
     </div>`;
 }
 
-function stageBlock(c, s) {
+export function stageBlock(c, s) {
   const content = s.key === 'plan' && c.tasks.length ? taskList(c.tasks) : safeHtml(s.body);
   return `
-    <div class="stage" id="stage-${s.key}">
-      <h2>${s.heading}</h2>
+    <div class="stage" id="stage-${esc(s.key)}">
+      <h2>${esc(s.heading)}</h2>
       <div class="stage-content">${content}</div>
     </div>`;
 }
 
-function taskList(tasks) {
+export function taskList(tasks) {
   return (
     '<ul class="tasks">' +
     tasks
       .map((t) => {
-        const cr = (t.criteria || []).map((x) => `<span class="cr">${x}</span>`).join(' ');
-        const when = t.resolvedAt ? `<span class="when">${t.resolvedAt}</span>` : '';
+        const cr = (t.criteria || []).map((x) => `<span class="cr">${esc(x)}</span>`).join(' ');
+        const when = t.resolvedAt ? `<span class="when">${esc(t.resolvedAt)}</span>` : '';
         const reason = t.reason ? `<span class="reason">— ${esc(t.reason)}</span>` : '';
         return `<li class="task ${t.state}">
           <span class="mark">${MARK[t.state]}</span>
@@ -426,9 +426,9 @@ function renderGraph() {
   const nodes = changes
     .map((c) => {
       const p = pos.get(String(c.id));
-      return `<g class="node" data-id="${c.id}" transform="translate(${p.x},${p.y})">
-        <rect width="${W}" height="${H}" stroke="var(--${c.type})"></rect>
-        <text class="nid" x="10" y="18">#${c.id} · ${c.status}</text>
+      return `<g class="node" data-id="${esc(c.id)}" transform="translate(${p.x},${p.y})">
+        <rect width="${W}" height="${H}" stroke="var(--${cssIdent(c.type)})"></rect>
+        <text class="nid" x="10" y="18">#${esc(c.id)} · ${esc(c.status)}</text>
         <text x="10" y="36">${esc(clip(c.title, 24))}</text>
       </g>`;
     })
@@ -506,18 +506,18 @@ function sortVal(c, key) {
   return String(c[key] ?? '');
 }
 
-function tableRow(c) {
+export function tableRow(c) {
   const pct = c.progress.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0;
   const prog = c.progress.total
     ? `${c.progress.done}/${c.progress.total}${c.progress.blocked ? ` · ${c.progress.blocked}!` : ''} (${pct}%)`
     : '—';
-  return `<tr data-id="${c.id}">
-    <td class="mono">#${c.id}</td>
+  return `<tr data-id="${esc(c.id)}">
+    <td class="mono">#${esc(c.id)}</td>
     <td>${esc(c.title)}</td>
-    <td><span class="type-tag" style="--type-color: var(--${c.type})">${c.type}</span></td>
-    <td>${c.status}</td>
+    <td><span class="type-tag" style="--type-color: var(--${cssIdent(c.type)})">${esc(c.type)}</span></td>
+    <td>${esc(c.status)}</td>
     <td class="mono">${prog}</td>
-    <td class="mono">${(c.depends_on || []).join(', ') || '—'}</td>
+    <td class="mono">${(c.depends_on || []).map(esc).join(', ') || '—'}</td>
   </tr>`;
 }
 
@@ -622,7 +622,7 @@ function renderMetrics() {
   const tpBars = tp.length
     ? barRows(
         tp,
-        (t) => `<span class="mono">${t.date}</span>`,
+        (t) => `<span class="mono">${esc(t.date)}</span>`,
         (t) => t.count,
       )
     : '<p class="empty">No closed changes yet.</p>';
@@ -642,7 +642,7 @@ function renderMetrics() {
     ? `<table class="grid"><thead><tr><th>Type</th><th>Closed</th><th>Avg cycle</th></tr></thead><tbody>${byType
         .map(
           (t) =>
-            `<tr><td><span class="type-tag" style="--type-color: var(--${t.type})">${esc(t.type)}</span></td><td class="mono">${t.closed}</td><td class="mono">${fmtDuration(t.avgCycleMs)}</td></tr>`,
+            `<tr><td><span class="type-tag" style="--type-color: var(--${cssIdent(t.type)})">${esc(t.type)}</span></td><td class="mono">${t.closed}</td><td class="mono">${fmtDuration(t.avgCycleMs)}</td></tr>`,
         )
         .join('')}</tbody></table>`
     : '<p class="empty">No closed changes yet.</p>';
@@ -702,7 +702,7 @@ async function renderGlobal() {
           .map(
             (m) => `<div class="search-hit" data-proj="${esc(g.project.id)}" data-id="${esc(m.id)}">
               <span class="card-id">#${esc(m.id)}</span>
-              <span class="type-tag" style="--type-color: var(--${m.type})">${esc(m.type)}</span>
+              <span class="type-tag" style="--type-color: var(--${cssIdent(m.type)})">${esc(m.type)}</span>
               <span>${esc(m.title)}</span>
               <span class="pill">${esc(m.status)}</span>
             </div>`,
@@ -722,11 +722,19 @@ function enterGlobal() {
   renderGlobal();
 }
 
-const esc = (s) =>
+// Escapes a value for HTML text and double-quoted attribute contexts. Every
+// untrusted document/config field (id, type, status, stage heading, timestamps,
+// dependency ids…) passes through this before reaching innerHTML — sanitizing
+// the Markdown body is not enough on its own.
+export const esc = (s) =>
   String(s ?? '').replace(
-    /[&<>"]/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+    /['&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
+// A value interpolated into a CSS custom-property name (`var(--TYPE)`) must be a
+// bare identifier; anything else is dropped to a neutral, defined fallback so a
+// crafted `type` cannot break out of the declaration or inject extra rules.
+export const cssIdent = (s) => (/^[A-Za-z][\w-]*$/.test(String(s ?? '')) ? String(s) : 'muted');
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 // Render an ISO UTC timestamp in the viewer's local format. The stored value
@@ -743,46 +751,56 @@ const fmtDate = (iso) => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 };
 
-$('#search').oninput = (e) => {
-  filters.text = e.target.value;
-  if (globalMode) renderGlobal();
-  else render();
-};
-$('#toggle-global').onclick = (e) => {
-  globalMode = !globalMode;
-  e.target.classList.toggle('active', globalMode);
-  if (globalMode) enterGlobal();
-  else setView(currentView);
-};
-$('#type-filter').onchange = (e) => {
-  filters.type = e.target.value;
-  render();
-};
-$('#owner-filter').onchange = (e) => {
-  filters.owner = e.target.value;
-  render();
-};
-$('#toggle-archived').onclick = (e) => {
-  filters.showArchived = !filters.showArchived;
-  e.target.classList.toggle('active', filters.showArchived);
-  render();
-};
-$('#view-board').onclick = () => setView('board');
-$('#view-table').onclick = () => setView('table');
-$('#view-graph').onclick = () => setView('graph');
-$('#view-specs').onclick = () => setView('specs');
-$('#view-metrics').onclick = () => setView('metrics');
-$('#project').onchange = (e) => {
-  currentProject = e.target.value;
-  lastJson = '';
-  filters.type = 'all';
-  filters.owner = 'all';
-  filters.statuses.clear();
-  load();
-};
-document.onkeydown = (e) => {
-  if (e.key === 'Escape') closeDetail();
-};
+// Wire the DOM and start polling. Guarded below so importing this module (tests)
+// has no side effects; only a real browser page bootstraps.
+function bootstrap() {
+  $('#search').oninput = (e) => {
+    filters.text = e.target.value;
+    if (globalMode) renderGlobal();
+    else render();
+  };
+  $('#toggle-global').onclick = (e) => {
+    globalMode = !globalMode;
+    e.target.classList.toggle('active', globalMode);
+    if (globalMode) enterGlobal();
+    else setView(currentView);
+  };
+  $('#type-filter').onchange = (e) => {
+    filters.type = e.target.value;
+    render();
+  };
+  $('#owner-filter').onchange = (e) => {
+    filters.owner = e.target.value;
+    render();
+  };
+  $('#toggle-archived').onclick = (e) => {
+    filters.showArchived = !filters.showArchived;
+    e.target.classList.toggle('active', filters.showArchived);
+    render();
+  };
+  $('#view-board').onclick = () => setView('board');
+  $('#view-table').onclick = () => setView('table');
+  $('#view-graph').onclick = () => setView('graph');
+  $('#view-specs').onclick = () => setView('specs');
+  $('#view-metrics').onclick = () => setView('metrics');
+  $('#project').onchange = (e) => {
+    currentProject = e.target.value;
+    lastJson = '';
+    filters.type = 'all';
+    filters.owner = 'all';
+    filters.statuses.clear();
+    load();
+  };
+  document.onkeydown = (e) => {
+    if (e.key === 'Escape') closeDetail();
+  };
 
-loadProjects();
-setInterval(load, 5000);
+  loadProjects();
+  setInterval(load, 5000);
+}
+
+// Only a real browser page with the app shell bootstraps; importing the module
+// (for tests) must not touch the DOM or start polling.
+if (typeof document !== 'undefined' && document.getElementById('search')) {
+  bootstrap();
+}
