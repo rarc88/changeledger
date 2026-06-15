@@ -2,9 +2,10 @@
 id: "20260615-105354"
 title: Unificar el default de specs_dir entre graduate y loadRepo
 type: bug
-status: approved
+status: done
 created: 2026-06-15T10:53:54Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -43,9 +44,12 @@ invisible para el visor y reportado como error por `sl check`.
 
 ## Plan
 
-- [ ] Centralizar la resolución de `specs_dir` (incluido su default) en un único punto reutilizado por graduate y loadRepo — `src/config.mjs`/`src/repo.mjs`, `src/commands/graduate.mjs` (CR1)
-- [ ] Cubrir con test el caso de config sin `specs_dir`: graduar y luego cargar/checkear el repo — tests de graduate/repo (CR1, CR2)
-- [ ] Ejecutar `pnpm verify` (CR1, CR2)
+- [x] Centralizar la resolución de `specs_dir` (incluido su default) en un único punto reutilizado por graduate y loadRepo — 2026-06-15T11:44:28Z
+- [x] Cubrir con test el caso de config sin `specs_dir`: graduar y luego cargar/checkear el repo — 2026-06-15T11:44:29Z
+- [x] Ejecutar `pnpm verify` (CR1, CR2) — 2026-06-15T11:44:29Z
 
 ## Log
 - **2026-06-15T11:38:40Z** — status: draft → approved
+- **2026-06-15T11:43:36Z** — status: approved → in-progress
+- **2026-06-15T11:43:37Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T11:44:29Z** — status: in-progress → done

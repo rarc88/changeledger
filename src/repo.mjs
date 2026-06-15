@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
-import { findSpecDir, loadConfig, resolveRepoPath } from './config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
 import { parseSpec } from './spec.mjs';
 
 // Loads a Spec Ledger repo: locates .sl/, reads config and every change file.
@@ -27,10 +27,8 @@ export function loadRepo(start = process.cwd()) {
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
 
   const specs = [];
-  const specsDir = config.specs_dir
-    ? resolveRepoPath(repoRoot, config.specs_dir, 'specs_dir')
-    : null;
-  if (specsDir && fs.existsSync(specsDir)) {
+  const specsDir = resolveSpecsDir(repoRoot, config);
+  if (fs.existsSync(specsDir)) {
     for (const name of fs.readdirSync(specsDir).sort()) {
       if (!name.endsWith('.md')) continue;
       const file = path.join(specsDir, name);

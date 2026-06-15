@@ -52,3 +52,12 @@ export function resolveRepoPath(repoRoot, configured, field) {
 function isInside(root, target) {
   return target === root || target.startsWith(root + path.sep);
 }
+
+// Single source of the specs directory: the configured `specs_dir` or the
+// default, always resolved through the containment guard. Shared by `loadRepo`
+// and `graduate` so a graduated spec lands where the repo will later read it.
+export const DEFAULT_SPECS_DIR = '.sl/specs';
+
+export function resolveSpecsDir(repoRoot, config) {
+  return resolveRepoPath(repoRoot, config.specs_dir ?? DEFAULT_SPECS_DIR, 'specs_dir');
+}

@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
@@ -52,6 +53,23 @@ test('graduate creates a seeded spec and links it in the change Log', () => {
 
   const change = parseChange(fs.readFileSync(file, 'utf8'));
   assert.match(change.stages.find((s) => s.key === 'log').body, /graduado a spec `auth.md`/);
+});
+
+test('CR1/CR2: graduate with no specs_dir in config lands where loadRepo reads', () => {
+  const { root, id } = repo();
+  // Drop the specs_dir key so graduate and loadRepo must agree on the default.
+  const configFile = path.join(root, '.sl', 'config.yml');
+  const stripped = fs.readFileSync(configFile, 'utf8').replace(/^specs_dir:.*\n/m, '');
+  fs.writeFileSync(configFile, stripped);
+
+  const specFile = graduate(id, 'auth', root);
+  assert.ok(fs.existsSync(specFile), 'spec file written to disk');
+
+  const repoData = loadRepo(root);
+  assert.ok(
+    repoData.specs.some((s) => s.name === 'auth.md'),
+    'loadRepo sees the graduated spec',
+  );
 });
 
 test('graduate refuses to overwrite an existing spec', () => {

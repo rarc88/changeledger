@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { appendLog, setReviewed } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -35,7 +35,7 @@ export function graduate(id, slug, cwd = process.cwd()) {
   const { config, repoRoot, file: changeFile } = resolveChange(id, cwd);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
 
-  const specsDir = path.join(repoRoot, config.specs_dir ?? '.sl/specs');
+  const specsDir = resolveSpecsDir(repoRoot, config);
   const specName = `${slugify(slug)}.md`;
   const specFile = path.join(specsDir, specName);
   if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
