@@ -91,9 +91,18 @@ stateDiagram-v2
 auditoría de seguridad profunda, linters, SAST, cobertura. El revisor puede
 invocarlas y anotar el veredicto en el Log.
 
-**Roles:** el revisor **debe ser un agente distinto** al implementador (regla de
-contrato §6). Su handle queda en el Log al aprobar/rechazar — trazable como el
-`owner`, sin enforcement duro (la herramienta no controla quién la invoca).
+**Roles — revisión por subagente delegado.** El implementador **debe delegar** la
+revisión a un **subagente con contexto limpio** (sin el historial de
+implementación). El contexto fresco da la imparcialidad que busca el gate, y
+mantiene todo dentro del mismo flujo de la herramienta — no hace falta un humano
+ni un segundo operador.
+
+Límite técnico: Spec Ledger es un CLI sobre archivos, **no spawnea agentes**. La
+delegación es un patrón de orquestación que el contrato (§6) prescribe; el CLI
+solo **registra** que ocurrió. Como un subagente no tiene `gh login`, el Log marca
+`revisión delegada (subagente, contexto limpio)` en lugar de un handle humano. No
+hay enforcement duro de que el contexto fuera realmente limpio — queda por
+convención, igual que "una sola concern por change".
 
 **Mecánica CLI (a decidir en Specification):**
 - Mínimo: `sl status <id> in-review` y `sl status <id> done`, con invariantes que
@@ -102,17 +111,23 @@ contrato §6). Su handle queda en el Log al aprobar/rechazar — trazable como e
   "<motivo>"` (→ `in-progress`, escribe Log), que además estampa el handle del
   revisor.
 
-**Activación por tipo (`config.yml`):** `in-review` aplica a tipos con
-implementación verificable (`feature`, `bug`, `refactor`). `chore` y `audit`
-podrían saltarlo — se confirma en Specification.
+**Activación por tipo (`config.yml`):** obligatorio **solo donde aporta** —
+tipos con implementación verificable: `feature`, `bug`, `refactor`. `chore`
+(trivial, sin verdad persistente) y `audit` (solo investiga, no implementa) lo
+**saltan**: van `in-progress → done` directo. Se modela como flag por tipo en
+`config.yml` (p. ej. `review_required: true`), análogo a cómo `stages` se activa
+por tipo. Los invariantes leen ese flag para decidir qué transiciones exigir.
 
 **Alternativas descartadas:**
 - *Sub-estado de `done` (flag `reviewed_impl`)* en vez de status propio: lo
   rechazo — el gate debe ser visible en el lifecycle y bloquear `done`, no un flag
   post-hoc fácil de omitir.
 - *Enforcement duro de "agente distinto"* (la herramienta rechaza si revisor ==
-  implementador): rechazado por ahora — la herramienta no conoce identidad del
-  agente de forma fiable; convención + Log es proporcional (KISS).
+  implementador): rechazado — el CLI no spawnea agentes ni conoce su identidad. La
+  imparcialidad se obtiene por **delegación a subagente con contexto limpio**
+  (patrón de contrato §6); el CLI solo registra. Proporcional (KISS).
+- *Revisión por humano u operador externo*: rechazado — sacaría el gate del flujo
+  de la herramienta. El subagente delegado lo mantiene dentro y sin sesgo.
 - *Stage de sync de docs nuevo*: rechazado — la graduación (§10) ya lo cubre;
   duplicarlo es over-engineering.
 
