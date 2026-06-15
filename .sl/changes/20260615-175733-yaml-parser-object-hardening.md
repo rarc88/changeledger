@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-15T17:57:33Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -70,3 +71,4 @@ de datos explícitas y deterministas.
 - **2026-06-15T18:37:44Z** — fix: build() rechaza claves reservadas (__proto__/constructor/prototype) (CR1) y duplicados por nivel via Object.hasOwn (CR2); niveles anidados intactos (CR3)
 - **2026-06-15T18:37:54Z** — status: in-progress → in-review
 - **2026-06-15T18:39:07Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** — graduation skipped: bug de hardening del parser; sin verdad persistente nueva

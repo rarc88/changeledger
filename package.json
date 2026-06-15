@@ -6,12 +6,34 @@
   "bin": {
     "sl": "bin/sl.mjs"
   },
+  "homepage": "https://github.com/rarc88/spec-ledger#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rarc88/spec-ledger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rarc88/spec-ledger/issues"
+  },
+  "author": "Roberto Ruiz (https://github.com/rarc88)",
+  "keywords": [
+    "spec",
+    "specification",
+    "documentation",
+    "sdd",
+    "spec-driven-development",
+    "tdd",
+    "agents",
+    "ai-agents",
+    "cli",
+    "workflow"
+  ],
   "scripts": {
     "lint": "biome check",
     "format": "biome check --write",
     "test": "node --test",
     "check": "node bin/sl.mjs check",
-    "verify": "pnpm lint && pnpm test && pnpm check"
+    "verify": "pnpm lint && pnpm test && pnpm check",
+    "prepublishOnly": "pnpm verify"
   },
   "engines": {
     "node": ">=20"
@@ -20,7 +42,8 @@
   "files": [
     "bin",
     "src",
-    "templates"
+    "templates",
+    "AGENTS.md"
   ],
   "license": "MIT",
   "lint-staged": {

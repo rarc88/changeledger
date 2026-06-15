@@ -1,0 +1,35 @@
+name: Publish
+
+# Publishes to npm when a GitHub Release is published. Uses OIDC trusted
+# publishing + provenance — NO long-lived npm token is stored in CI.
+#
+# One-time setup (npmjs.com, repo owner): configure this package as a Trusted
+# Publisher pointing at this repository and the `publish` workflow. With that in
+# place and `id-token: write` below, the npm CLI authenticates via OIDC at run
+# time; no `NODE_AUTH_TOKEN` secret is needed. Enabling 2FA on the npm account
+# is recommended and compatible with trusted publishing.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for trusted publishing + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # prepublishOnly runs the full quality gate (lint + tests + sl check)
+      # before anything is uploaded. --provenance attaches a signed build
+      # attestation; --access public is required for an unscoped public package.
+      - run: npm publish --provenance --access public

@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-15T17:57:34Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -71,3 +72,4 @@ debe resolverse por igualdad exacta con el `frontmatter.id`.
 - **2026-06-15T18:42:28Z** — fix: resolvedor único en repo.mjs compara frontmatter.id por igualdad exacta; agent.locate y graduate migrados; sin búsquedas por prefijo (CR1-CR4)
 - **2026-06-15T18:42:38Z** — status: in-progress → in-review
 - **2026-06-15T18:43:49Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** — graduation skipped: bug de resolución de id; sin verdad persistente nueva

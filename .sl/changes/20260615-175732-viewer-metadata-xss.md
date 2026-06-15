@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-15T17:57:32Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -75,3 +76,4 @@ configuración, headings de etapa, tareas o referencias.
 - **2026-06-15T18:52:39Z** — status: in-progress → in-review
 - **2026-06-15T18:55:46Z** — polish: esc() en throughput date y mensaje de error del board para estrategia uniforme (CR3), por revisión independiente
 - **2026-06-15T18:55:59Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** — graduation skipped: bug de sanitización del visor; sin verdad persistente nueva
