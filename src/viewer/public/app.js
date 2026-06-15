@@ -73,7 +73,7 @@ async function load() {
     hydrateFilters();
     render();
   } catch (e) {
-    $('#board').innerHTML = `<p style="color:var(--bug);padding:20px">${e.message}</p>`;
+    $('#board').innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
   }
 }
 
@@ -622,7 +622,7 @@ function renderMetrics() {
   const tpBars = tp.length
     ? barRows(
         tp,
-        (t) => `<span class="mono">${t.date}</span>`,
+        (t) => `<span class="mono">${esc(t.date)}</span>`,
         (t) => t.count,
       )
     : '<p class="empty">No closed changes yet.</p>';
