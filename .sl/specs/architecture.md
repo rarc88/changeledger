@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T22:08:06Z
+updated: 2026-06-15T22:51:10Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -158,8 +158,11 @@ archivo. El visor añade una restricción humana extra: solo permite
 sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
 segundo. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
 y escritura exclusiva del archivo final), de modo que dos procesos concurrentes
-no pueden escribir el mismo id. El slug estructural se normaliza a kebab ASCII y
-se rechaza si queda vacío. Ordenable cronológicamente.
+no pueden escribir el mismo id. El lock incluye metadata del proceso propietario:
+si queda huérfano por una terminación abrupta, `sl new` lo puede recuperar; si el
+lock desaparece durante la comprobación, el comando reintenta sin fallar. El slug
+estructural se normaliza a kebab ASCII y se rechaza si queda vacío. Ordenable
+cronológicamente.
 
 ## Métricas
 
@@ -243,7 +246,8 @@ owner) y render de markdown + mermaid. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `view-parts.js` (snippets reutilizables)
 y `view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y
-wiring de eventos.
+wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan
+changes visibles, en vez de generar un SVG con dimensiones inválidas.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así

@@ -2,9 +2,11 @@
 id: "20260615-222619"
 title: Corregir el grafo cuando no hay cambios visibles
 type: bug
-status: draft
+status: done
 created: 2026-06-15T22:26:19Z
 depends_on: ["20260615-214819"]
+reviewed: true
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -39,9 +41,15 @@ graph está aislado en `src/viewer/public/view-renderers.js`.
 
 ## Plan
 
-- [ ] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN` (CR1)
-- [ ] Añadir o preservar test con cambios visibles para no romper nodos/edges (CR2)
-- [ ] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros (CR1, CR2)
-- [ ] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2)
+- [x] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN` (CR1) — 2026-06-15T22:45:09Z
+- [x] Añadir o preservar test con cambios visibles para no romper nodos/edges (CR2) — 2026-06-15T22:45:09Z
+- [x] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros (CR1, CR2) — 2026-06-15T22:45:09Z
+- [x] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2) — 2026-06-15T22:45:20Z
 
 ## Log
+- **2026-06-15T22:38:28Z** — status: draft → approved
+- **2026-06-15T22:44:43Z** — status: approved → in-progress
+- **2026-06-15T22:44:43Z** — owner → Roberto Ruiz (auto)
+- **2026-06-15T22:45:20Z** — status: in-progress → in-review
+- **2026-06-15T22:46:10Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T22:51:10Z** — graduado a spec `architecture.md`

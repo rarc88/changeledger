@@ -3,6 +3,10 @@ import { cssIdent, esc } from './security.js';
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 export function graphSvg(changes) {
+  if (!changes.length) {
+    return '<p class="empty">No changes match the current filters.</p>';
+  }
+
   const byId = new Map(changes.map((c) => [String(c.id), c]));
   const depthCache = new Map();
   const depth = (id, seen = new Set()) => {

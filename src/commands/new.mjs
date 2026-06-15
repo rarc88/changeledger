@@ -3,6 +3,8 @@ import path from 'node:path';
 import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
+const STALE_LOCK_MS = 30_000;
+
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See AGENTS.md §7-§8.
@@ -37,12 +39,8 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
       id = idFromTimestamp(created);
       continue;
     }
-    const lock = path.join(changesDir, `.${id}.lock`);
-    let lockFd;
-    try {
-      lockFd = fs.openSync(lock, 'wx');
-    } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
+    const lock = acquireIdLock(changesDir, id);
+    if (!lock) {
       created = bumpSecond(created);
       id = idFromTimestamp(created);
       continue;
@@ -63,9 +61,55 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
       created = bumpSecond(created);
       id = idFromTimestamp(created);
     } finally {
-      if (lockFd !== undefined) fs.closeSync(lockFd);
+      releaseIdLock(lock);
+    }
+  }
+}
+
+function acquireIdLock(changesDir, id) {
+  const lock = path.join(changesDir, `.${id}.lock`);
+  for (;;) {
+    try {
+      const fd = fs.openSync(lock, 'wx');
+      fs.writeFileSync(
+        fd,
+        JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }),
+      );
+      return { fd, path: lock };
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (!isStaleLock(lock)) return null;
       fs.rmSync(lock, { force: true });
     }
+  }
+}
+
+function releaseIdLock(lock) {
+  fs.closeSync(lock.fd);
+  fs.rmSync(lock.path, { force: true });
+}
+
+function isStaleLock(lock) {
+  try {
+    const raw = fs.readFileSync(lock, 'utf8');
+    const data = JSON.parse(raw);
+    return !Number.isInteger(data.pid) || !processIsAlive(data.pid);
+  } catch {
+    try {
+      return Date.now() - fs.statSync(lock).mtimeMs > STALE_LOCK_MS;
+    } catch (e) {
+      if (e.code === 'ENOENT') return true;
+      throw e;
+    }
+  }
+}
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
   }
 }
 

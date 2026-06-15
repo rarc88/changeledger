@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import { check } from '../src/commands/check.mjs';
@@ -249,23 +250,89 @@ test('new bumps the id to stay unique within the same second', () => {
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:01Z');
 });
 
+test('new recovers from an orphan id lock', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.writeFileSync(lock, 'not-json');
+  const stale = new Date(Date.now() - 60_000);
+  fs.utimesSync(lock, stale, stale);
+
+  const file = newChange(
+    { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+    root,
+  );
+
+  assert.equal(path.basename(file), '20260613-150000-one.md');
+  assert.deepEqual(
+    fs.readdirSync(changesDir).filter((n) => n.endsWith('.lock')),
+    [],
+    'normal creation leaves no lock artifacts',
+  );
+});
+
+test('new tolerates a lock removed while checking whether it is stale', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.writeFileSync(lock, 'not-json');
+
+  const originalStatSync = fs.statSync;
+  fs.statSync = (target, ...args) => {
+    if (target === lock) {
+      const err = new Error('gone');
+      err.code = 'ENOENT';
+      throw err;
+    }
+    return originalStatSync.call(fs, target, ...args);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    assert.equal(path.basename(file), '20260613-150000-one.md');
+  } finally {
+    fs.statSync = originalStatSync;
+  }
+});
+
 test('new reserves ids atomically across concurrent processes', async () => {
   const root = tmp();
   init(root);
+  const readyOne = path.join(root, 'ready-one');
+  const readyTwo = path.join(root, 'ready-two');
+  const go = path.join(root, 'go');
   const code = `
+    import fs from 'node:fs';
+    import { setTimeout as delay } from 'node:timers/promises';
     import { newChange } from ${JSON.stringify(path.resolve('src/commands/new.mjs'))};
+    fs.writeFileSync(process.argv[3], 'ready');
+    while (!fs.existsSync(process.argv[4])) {
+      await delay(5);
+    }
     const file = newChange(
       { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
       process.argv[2],
     );
     console.log(file);
   `;
-  const child = (slug) =>
-    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root]).then((r) =>
-      r.stdout.trim(),
-    );
+  const child = (slug, readyPath) =>
+    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root, readyPath, go]);
 
-  const files = (await Promise.all([child('one'), child('two')])).map((f) => path.basename(f));
+  const one = child('one', readyOne);
+  const two = child('two', readyTwo);
+  const deadline = Date.now() + 3000;
+  while ((!fs.existsSync(readyOne) || !fs.existsSync(readyTwo)) && Date.now() < deadline) {
+    await delay(5);
+  }
+  assert.ok(fs.existsSync(readyOne), 'first child reached the barrier');
+  assert.ok(fs.existsSync(readyTwo), 'second child reached the barrier');
+  fs.writeFileSync(go, 'go');
+
+  const files = (await Promise.all([one, two])).map((r) => path.basename(r.stdout.trim()));
   assert.deepEqual(files.map((f) => f.replace(/^20260613-15000[01]-/, '')).sort(), [
     'one.md',
     'two.md',

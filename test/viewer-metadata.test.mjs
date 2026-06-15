@@ -21,6 +21,7 @@ const {
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -116,4 +117,31 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     false,
     'graph hides archived',
   );
+});
+
+test('222619 CR1: graph empty state does not render invalid dimensions', () => {
+  const host = parse(graphSvg([]));
+  assert.equal(host.querySelector('.empty')?.textContent, 'No changes match the current filters.');
+  assert.equal(host.querySelector('svg'), null);
+  assert.doesNotMatch(host.innerHTML, /Infinity|NaN/);
+});
+
+test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () => {
+  const host = parse(
+    graphSvg([
+      baseChange(),
+      {
+        ...baseChange(),
+        id: '20260613-120001',
+        title: 'dependent',
+        depends_on: ['20260613-120000'],
+      },
+    ]),
+  );
+  const svg = host.querySelector('svg');
+  assert.ok(svg, 'graph renders an svg');
+  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
+  assert.doesNotMatch(svg.getAttribute('height'), /Infinity|NaN/);
+  assert.equal(host.querySelectorAll('.node').length, 2);
+  assert.equal(host.querySelectorAll('.edge').length, 1);
 });
