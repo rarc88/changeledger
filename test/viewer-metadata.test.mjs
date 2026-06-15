@@ -10,9 +10,17 @@ import { marked } from 'marked';
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
-const { card, cssIdent, esc, stageBlock, tableRow, taskList } = await import(
-  '../src/viewer/public/app.js'
-);
+const {
+  boardStatuses,
+  card,
+  cssIdent,
+  esc,
+  isVisible,
+  passesTombstones,
+  stageBlock,
+  tableRow,
+  taskList,
+} = await import('../src/viewer/public/app.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -80,4 +88,32 @@ test('175732 CR2: a crafted type cannot inject into the CSS custom property', ()
 
 test('175732 CR4: esc still neutralizes the core HTML metacharacters', () => {
   assert.equal(esc('<b>&"\'</b>'), '&lt;b&gt;&amp;&quot;&#39;&lt;/b&gt;');
+});
+
+test('210508 CR6: discarded changes are hidden by default and excluded from board columns', () => {
+  const f = {
+    text: '',
+    type: 'all',
+    owner: 'all',
+    statuses: new Set(),
+    showArchived: false,
+    showDiscarded: false,
+  };
+  const c = { ...baseChange(), status: 'discarded' };
+  assert.equal(isVisible(c, f), false, 'hidden by default');
+  assert.equal(isVisible(c, { ...f, showDiscarded: true }), true, 'shown with the toggle');
+  assert.deepEqual(boardStatuses(['draft', 'approved', 'done', 'discarded']), [
+    'draft',
+    'approved',
+    'done',
+  ]);
+  // The graph uses passesTombstones directly (shared with isVisible) so it can't
+  // diverge: discarded is hidden by default there too, shown only with the toggle.
+  assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
+  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'graph shows with toggle');
+  assert.equal(
+    passesTombstones({ ...baseChange(), archived: true }, f),
+    false,
+    'graph hides archived',
+  );
 });

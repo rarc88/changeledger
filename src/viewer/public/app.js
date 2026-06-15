@@ -2,7 +2,14 @@ const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 let repo = null;
 let lastJson = '';
-const filters = { text: '', type: 'all', owner: 'all', statuses: new Set(), showArchived: false };
+const filters = {
+  text: '',
+  type: 'all',
+  owner: 'all',
+  statuses: new Set(),
+  showArchived: false,
+  showDiscarded: false,
+};
 let currentView = 'board';
 let sortKey = 'id';
 let sortDir = 1;
@@ -94,7 +101,7 @@ function hydrateFilters() {
   $('#owner-filter').style.display = owners.length ? '' : 'none';
 
   const sf = $('#status-filter');
-  sf.innerHTML = repo.statuses
+  sf.innerHTML = boardStatuses(repo.statuses)
     .map(
       (s) =>
         `<button type="button" class="chip ${filters.statuses.has(s) ? 'active' : ''}" data-status="${esc(s)}">${esc(s)}</button>`,
@@ -120,16 +127,30 @@ function haystack(c) {
   return `${c.id} ${c.title} ${c.type} ${c.status} ${c.owner || ''} ${stages} ${tasks}`.toLowerCase();
 }
 
+// Tombstone visibility: archived and discarded changes are hidden by default and
+// each revealed by its own toggle. Shared by every view (board/table via
+// isVisible, and the graph) so no view can diverge on the rule.
+export const passesTombstones = (c, f) =>
+  (f.showArchived || !c.archived) && (f.showDiscarded || c.status !== 'discarded');
+
+// Whether a change is shown under the current filters. Exported as a pure
+// predicate so the rule is testable.
+export function isVisible(c, f) {
+  if (!passesTombstones(c, f)) return false;
+  if (f.type !== 'all' && c.type !== f.type) return false;
+  if (f.owner !== 'all' && c.owner !== f.owner) return false;
+  if (f.statuses.size && !f.statuses.has(c.status)) return false;
+  const q = f.text.toLowerCase();
+  if (!q) return true;
+  return haystack(c).includes(q);
+}
+
+// Statuses that get a board column. `discarded` is terminal and off-board — it
+// never shows as a lane even when its changes are revealed by the toggle.
+export const boardStatuses = (statuses) => statuses.filter((s) => s !== 'discarded');
+
 function visibleChanges() {
-  const q = filters.text.toLowerCase();
-  return repo.changes.filter((c) => {
-    if (c.archived && !filters.showArchived) return false;
-    if (filters.type !== 'all' && c.type !== filters.type) return false;
-    if (filters.owner !== 'all' && c.owner !== filters.owner) return false;
-    if (filters.statuses.size && !filters.statuses.has(c.status)) return false;
-    if (!q) return true;
-    return haystack(c).includes(q);
-  });
+  return repo.changes.filter((c) => isVisible(c, filters));
 }
 
 function render() {
@@ -143,7 +164,7 @@ function render() {
 function renderBoard() {
   const changes = visibleChanges();
   const board = $('#board');
-  board.innerHTML = repo.statuses
+  board.innerHTML = boardStatuses(repo.statuses)
     .map((status) => {
       const items = changes.filter((c) => c.status === status);
       return `
@@ -372,7 +393,7 @@ async function gotoChange(proj, changeId) {
 
 /* Dependency graph */
 function renderGraph() {
-  const changes = repo.changes.filter((c) => filters.showArchived || !c.archived);
+  const changes = repo.changes.filter((c) => passesTombstones(c, filters));
   const byId = new Map(changes.map((c) => [String(c.id), c]));
   const depthCache = new Map();
   const depth = (id, seen = new Set()) => {
@@ -776,6 +797,11 @@ function bootstrap() {
   $('#toggle-archived').onclick = (e) => {
     filters.showArchived = !filters.showArchived;
     e.target.classList.toggle('active', filters.showArchived);
+    render();
+  };
+  $('#toggle-discarded').onclick = (e) => {
+    filters.showDiscarded = !filters.showDiscarded;
+    e.target.classList.toggle('active', filters.showDiscarded);
     render();
   };
   $('#view-board').onclick = () => setView('board');

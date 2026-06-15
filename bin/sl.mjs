@@ -1,5 +1,15 @@
 #!/usr/bin/env node
-import { archive, list, log, owner, review, show, status, task } from '../src/commands/agent.mjs';
+import {
+  archive,
+  discard,
+  list,
+  log,
+  owner,
+  review,
+  show,
+  status,
+  task,
+} from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -16,6 +26,7 @@ const USAGE = `Spec Ledger (sl)
   sl view [port]                   launch the local viewer (default port 4040)
   sl check [id] [--json]           validate the repo or one change
   sl status <id> <status>          move a change's lifecycle status
+  sl discard <id> "<reason>"       discard a change (terminal; keeps the record)
   sl review <id> pass              independent review passed → done
   sl review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
   sl owner <id> <name|->           set or clear a change's owner
@@ -38,6 +49,7 @@ const HELP = {
   view: 'sl view [port] — launch the local viewer (default port 4040)',
   check: 'sl check [id] [--json] — validate the repo or one change',
   status: "sl status <id> <status> — move a change's lifecycle status",
+  discard: 'sl discard <id> "<reason>" — discard a change (terminal; keeps the record and reason)',
   review:
     'sl review <id> pass — independent review passed → done\n' +
     'sl review <id> fail --retry "<reason>" — defect inside the contract → in-progress\n' +
@@ -105,6 +117,14 @@ try {
       if (!id || !st) throw new Error('Usage: sl status <id> <status>');
       status(id, st);
       console.log(`#${id} → ${st}`);
+      break;
+    }
+    case 'discard': {
+      const [id, ...rest] = args;
+      const reason = rest.join(' ').trim();
+      if (!id) throw new Error(usage('discard'));
+      discard(id, reason);
+      console.log(`#${id} → discarded`);
       break;
     }
     case 'review': {

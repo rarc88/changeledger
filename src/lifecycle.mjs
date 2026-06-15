@@ -10,20 +10,24 @@ export const CANONICAL_STATUSES = [
   'in-review',
   'blocked',
   'done',
+  'discarded',
 ];
 
 // from → set of allowed next states. Forward progress plus the blocked round
 // trip and the review gate; regressions, skips and self-loops are absent and
 // therefore rejected. `in-review` sits between in-progress and done for types
 // that require review; the review verdict routes back to in-progress (retry) or
-// blocked (escalate). See the review gate below.
+// blocked (escalate). `discarded` is a terminal tombstone reachable from any
+// active, non-terminal state (not from `done` or `in-review`); it keeps the
+// change and its reasoning instead of deleting the file. See the review gate below.
 const TRANSITIONS = {
-  draft: ['approved'],
-  approved: ['in-progress'],
-  'in-progress': ['in-review', 'blocked', 'done'],
+  draft: ['approved', 'discarded'],
+  approved: ['in-progress', 'discarded'],
+  'in-progress': ['in-review', 'blocked', 'done', 'discarded'],
   'in-review': ['done', 'in-progress', 'blocked'],
-  blocked: ['in-progress'],
+  blocked: ['in-progress', 'discarded'],
   done: [],
+  discarded: [],
 };
 
 const canonical = new Set(CANONICAL_STATUSES);
