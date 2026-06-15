@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -11,6 +13,8 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { findSpecDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { agentsTemplate } from '../src/paths.mjs';
+
+const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -215,18 +219,86 @@ test('new normalizes the slug to kebab ascii', () => {
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
 });
 
+test('new rejects a slug that normalizes to empty', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(
+    () =>
+      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root),
+    /slug must contain at least one ASCII letter or number/,
+  );
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, '.sl', 'changes')).filter((n) => n.endsWith('.md')),
+    [],
+  );
+});
+
 test('new bumps the id to stay unique within the same second', () => {
   const root = tmp();
   init(root);
   const now = '2026-06-13T15:00:00Z';
   const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root);
+  const before = fs.readFileSync(a, 'utf8');
   const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root);
   assert.equal(path.basename(a), '20260613-150000-one.md');
   assert.equal(path.basename(b), '20260613-150001-two.md');
+  assert.equal(fs.readFileSync(a, 'utf8'), before, 'existing change file is not overwritten');
 
   const c = parseChange(fs.readFileSync(b, 'utf8'));
   assert.equal(c.frontmatter.id, '20260613-150001');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:01Z');
+});
+
+test('new reserves ids atomically across concurrent processes', async () => {
+  const root = tmp();
+  init(root);
+  const code = `
+    import { newChange } from ${JSON.stringify(path.resolve('src/commands/new.mjs'))};
+    const file = newChange(
+      { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
+      process.argv[2],
+    );
+    console.log(file);
+  `;
+  const child = (slug) =>
+    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root]).then((r) =>
+      r.stdout.trim(),
+    );
+
+  const files = (await Promise.all([child('one'), child('two')])).map((f) => path.basename(f));
+  assert.deepEqual(files.map((f) => f.replace(/^20260613-15000[01]-/, '')).sort(), [
+    'one.md',
+    'two.md',
+  ]);
+
+  const changes = fs
+    .readdirSync(path.join(root, '.sl', 'changes'))
+    .filter((n) => n.endsWith('.md'))
+    .map((n) => parseChange(fs.readFileSync(path.join(root, '.sl', 'changes', n), 'utf8')));
+  assert.deepEqual(changes.map((c) => c.frontmatter.id).sort(), [
+    '20260613-150000',
+    '20260613-150001',
+  ]);
+  assert.deepEqual(changes.map((c) => c.frontmatter.created).sort(), [
+    '2026-06-13T15:00:00Z',
+    '2026-06-13T15:00:01Z',
+  ]);
+  assert.deepEqual(
+    changes.map((c) => idFromTimestamp(c.frontmatter.created)),
+    changes.map((c) => c.frontmatter.id),
+    'created and id remain the same instant for each change',
+  );
+
+  const origErr = console.error;
+  const origLog = console.log;
+  console.error = () => {};
+  console.log = () => {};
+  try {
+    assert.equal(check([], root), 0);
+  } finally {
+    console.error = origErr;
+    console.log = origLog;
+  }
 });
 
 test('new rejects an unknown type', () => {

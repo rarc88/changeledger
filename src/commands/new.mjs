@@ -19,20 +19,54 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   const repoRoot = path.dirname(specDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   fs.mkdirSync(changesDir, { recursive: true });
+  const normalizedSlug = slugify(slug);
+  if (!normalizedSlug) {
+    throw new Error('slug must contain at least one ASCII letter or number');
+  }
 
   // Guarantee a unique id even for changes created within the same second
   // (an agent creating several in a loop). Bump by 1s until free; keep created
-  // coherent with the id.
+  // coherent with the id. The final reservation is atomic (`wx`), so two
+  // separate `sl new` processes racing in the same second cannot both win the
+  // same id.
   let created = now;
   let id = idFromTimestamp(created);
-  while (idTaken(changesDir, id)) {
-    created = bumpSecond(created);
-    id = idFromTimestamp(created);
-  }
+  for (;;) {
+    if (idTaken(changesDir, id)) {
+      created = bumpSecond(created);
+      id = idFromTimestamp(created);
+      continue;
+    }
+    const lock = path.join(changesDir, `.${id}.lock`);
+    let lockFd;
+    try {
+      lockFd = fs.openSync(lock, 'wx');
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      created = bumpSecond(created);
+      id = idFromTimestamp(created);
+      continue;
+    }
 
-  const file = path.join(changesDir, `${id}-${slugify(slug)}.md`);
-  fs.writeFileSync(file, render({ id, title, type, owner, stages: typeDef.stages, now: created }));
-  return file;
+    const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
+    try {
+      fs.writeFileSync(
+        file,
+        render({ id, title, type, owner, stages: typeDef.stages, now: created }),
+        {
+          flag: 'wx',
+        },
+      );
+      return file;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      created = bumpSecond(created);
+      id = idFromTimestamp(created);
+    } finally {
+      if (lockFd !== undefined) fs.closeSync(lockFd);
+      fs.rmSync(lock, { force: true });
+    }
+  }
 }
 
 function idTaken(changesDir, id) {
