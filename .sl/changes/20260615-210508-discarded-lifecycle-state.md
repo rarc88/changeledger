@@ -2,9 +2,10 @@
 id: "20260615-210508"
 title: Estado terminal para descartar changes conservando el porqué
 type: feature
-status: in-progress
+status: done
 created: 2026-06-15T21:05:08Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -117,3 +118,6 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 - **2026-06-15T21:27:54Z** — status: in-progress → in-review
 - **2026-06-15T21:29:48Z** — review → in-progress (retry): CR6: renderGraph ignora showDiscarded; el grafo siempre muestra descartados
 - **2026-06-15T21:30:55Z** — retry: grafo respeta showDiscarded vía predicado compartido passesTombstones (board/table/graph ya no divergen) (CR6)
+- **2026-06-15T21:31:02Z** — status: in-progress → in-review
+- **2026-06-15T21:33:59Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T21:34:35Z** — graduado a spec `architecture.md`

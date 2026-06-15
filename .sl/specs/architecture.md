@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T17:37:35Z
+updated: 2026-06-15T21:34:34Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -13,6 +13,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260614-182513 (owner desde GitHub login).
 > Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
 > Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
+> Graduado del change 20260615-210508 (estado terminal `discarded`).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -103,7 +104,22 @@ stateDiagram-v2
     in_review --> in_progress: fail --retry
     in_review --> blocked: fail --block
     blocked --> in_progress
+    draft --> discarded: sl discard "razón"
+    approved --> discarded
+    in_progress --> discarded
+    blocked --> discarded
+    done --> [*]
+    discarded --> [*]
 ```
+
+**Descartar.** `discarded` es un estado **terminal** alternativo a `done`: el
+change se decidió no hacer. Se alcanza desde cualquier estado activo no terminal
+(`draft`, `approved`, `in-progress`, `blocked`) con `sl discard <id> "<razón>"`
+—la razón es obligatoria y se registra en el Log—. Preferirlo a borrar el
+archivo: la decisión y su porqué siguen siendo verdad, y las referencias
+`depends_on` se mantienen resolubles. El visor lo oculta por defecto (toggle
+"Discarded") y nunca le da columna. `sl status` rechaza `discarded` para forzar
+el verbo con razón; tampoco es alcanzable desde el visor (solo hace `draft → approved`).
 
 El gate **`in-review`** cierra el lazo doc↔código: un change con implementación
 verificable no llega a `done` sin una **revisión independiente**. La revisión la
