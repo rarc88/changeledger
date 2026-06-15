@@ -262,8 +262,8 @@ markers fijos en inglés.
 - [x] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10) — 2026-06-15T16:05:40Z
 - [x] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11) — 2026-06-15T16:05:40Z
 - [x] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs` — 2026-06-15T16:05:40Z
-- [ ] Renderizar el estado `in-review` en el viewer (`src/viewer/public/styles.css`, `app.js`); el viewer sigue permitiendo solo `draft→approved`
-- [ ] Documentar el gate en `templates/AGENTS.md`: §5 (diagrama + estado), §6 (regla revisión por subagente: contexto limpio + modelo acorde a dificultad), §9 (`sl review`)
+- [x] Renderizar el estado `in-review` en el viewer (`src/viewer/public/styles.css`, `app.js`); el viewer sigue permitiendo solo `draft→approved` — 2026-06-15T16:07:26Z
+- [x] Documentar el gate en `templates/AGENTS.md`: §5 (diagrama + estado), §6 (regla revisión por subagente: contexto limpio + modelo acorde a dificultad), §9 (`sl review`) — 2026-06-15T16:07:26Z
 
 ## Log
 - **2026-06-15T15:52:31Z** — status: draft → approved
