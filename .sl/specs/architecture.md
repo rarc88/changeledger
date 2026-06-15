@@ -156,8 +156,13 @@ inglés canónico.
 
 ## Presentación
 
-El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
-request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
+El visor (`sl view`) levanta un server `node:http` enlazado **solo a loopback**
+(`127.0.0.1`) que relee `.sl/` en cada request (live) y expone JSON. Rechaza
+requests cuyo `Host`/`Origin` no sea local (defensa anti DNS-rebinding), añade
+headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
+body y exige una credencial efímera por proceso (inyectada en la página y
+enviada en `x-sl-token`) para escribir. Las escrituras exigen un `project`
+exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
 card entre esas columnas del board (el único salto que le corresponde; el resto
 del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph

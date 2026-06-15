@@ -2,9 +2,10 @@
 id: "20260614-192815"
 title: Confinar el visor a localhost y proteger su API de escritura
 type: bug
-status: approved
+status: done
 created: 2026-06-14T19:28:15Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -62,12 +63,15 @@ changes mediante su API HTTP.
 
 ## Plan
 
-- [ ] Enlazar el servidor explícitamente a loopback y cubrir selección/reintento de puerto — `src/commands/view.mjs`, tests del visor (CR1)
-- [ ] Generar una credencial efímera por proceso y exigirla junto con validación de origen en escrituras — `src/commands/view.mjs`, `src/viewer/public/app.js` (CR2)
-- [ ] Eliminar fallbacks ambiguos de proyecto en endpoints con efectos y devolver errores exactos — `src/commands/view.mjs` (CR3)
-- [ ] Limitar body, configurar timeouts y añadir headers de seguridad sin romper los assets locales — `src/commands/view.mjs` (CR4, CR5)
-- [ ] Añadir tests HTTP de acceso autorizado/no autorizado y ausencia de escrituras ante rechazo — `test/view.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Actualizar la arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR4, CR5)
+- [x] Enlazar el servidor explícitamente a loopback y cubrir selección/reintento de puerto — 2026-06-15T11:58:04Z
+- [x] Generar una credencial efímera por proceso y exigirla junto con validación de origen en escrituras — 2026-06-15T11:58:04Z
+- [x] Eliminar fallbacks ambiguos de proyecto en endpoints con efectos y devolver errores exactos — 2026-06-15T11:58:04Z
+- [x] Limitar body, configurar timeouts y añadir headers de seguridad sin romper los assets locales — 2026-06-15T11:58:05Z
+- [x] Añadir tests HTTP de acceso autorizado/no autorizado y ausencia de escrituras ante rechazo — 2026-06-15T11:58:05Z
+- [x] Actualizar la arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR4, CR5) — 2026-06-15T11:58:05Z
 
 ## Log
 - **2026-06-15T11:38:40Z** — status: draft → approved
+- **2026-06-15T11:51:53Z** — status: approved → in-progress
+- **2026-06-15T11:51:53Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T11:58:05Z** — status: in-progress → done

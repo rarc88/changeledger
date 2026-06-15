@@ -188,7 +188,7 @@ async function moveStatus(id, status) {
   try {
     const res = await fetch('/api/status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-sl-token': window.__SL_TOKEN__ },
       body: JSON.stringify({ project: currentProject, id, status }),
     });
     const out = await res.json();
