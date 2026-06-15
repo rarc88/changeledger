@@ -41,6 +41,13 @@ test('status rejects an invalid value without writing', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+test('status rejects an illegal lifecycle jump without writing', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('task done marks the task with a timestamp', () => {
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
@@ -76,6 +83,7 @@ test('owner sets and clears the responsible', () => {
 
 test('status to in-progress auto-assigns owner handle when empty', () => {
   const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => 'raruiz' });
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.owner, 'raruiz');
@@ -85,12 +93,14 @@ test('status to in-progress auto-assigns owner handle when empty', () => {
 test('status to in-progress does not overwrite an explicit owner', () => {
   const { root, file, id } = repoWithChange();
   owner(id, 'leo', root);
+  status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => 'raruiz' });
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.owner, 'leo');
 });
 
 test('status to in-progress tolerates a missing owner handle', () => {
   const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });

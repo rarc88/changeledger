@@ -2,9 +2,10 @@
 id: "20260614-192818"
 title: Hacer cumplir transiciones de lifecycle y graduacion
 type: bug
-status: approved
+status: done
 created: 2026-06-14T19:28:18Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -58,12 +59,15 @@ terminados.
 
 ## Plan
 
-- [ ] Modelar las transiciones permitidas en un helper puro de lifecycle — módulo de dominio y tests (CR1, CR2, CR3)
-- [ ] Aplicar el helper en `status()` antes de cualquier mutación y preservar atomicidad ante error — `src/commands/agent.mjs` (CR1, CR2, CR3)
-- [ ] Exigir `status: done` en `graduate()` antes de crear archivos — `src/commands/graduate.mjs` (CR4)
-- [ ] Reutilizar la validación de dominio desde el endpoint del visor manteniendo la política humana adicional — `src/commands/view.mjs` (CR5)
-- [ ] Añadir tests de happy path, blocked reversible, saltos, regresiones, no-op y graduación prematura — tests agent/graduate/view (CR1, CR2, CR3, CR4, CR5)
-- [ ] Actualizar contrato/spec de arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR3, CR4, CR5)
+- [x] Modelar las transiciones permitidas en un helper puro de lifecycle — 2026-06-15T11:47:15Z
+- [x] Aplicar el helper en `status()` antes de cualquier mutación y preservar atomicidad ante error — 2026-06-15T11:47:16Z
+- [x] Exigir `status: done` en `graduate()` antes de crear archivos — 2026-06-15T11:47:16Z
+- [x] Reutilizar la validación de dominio desde el endpoint del visor manteniendo la política humana adicional — 2026-06-15T11:47:16Z
+- [x] Añadir tests de happy path, blocked reversible, saltos, regresiones, no-op y graduación prematura — 2026-06-15T11:47:16Z
+- [x] Actualizar contrato/spec de arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR3, CR4, CR5) — 2026-06-15T11:47:16Z
 
 ## Log
 - **2026-06-15T11:38:40Z** — status: draft → approved
+- **2026-06-15T11:45:19Z** — status: approved → in-progress
+- **2026-06-15T11:45:19Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T11:47:16Z** — status: in-progress → done

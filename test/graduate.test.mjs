@@ -83,6 +83,15 @@ test('graduate throws on an unknown change id', () => {
   assert.throws(() => graduate('99999999-000000', 'x', root), /No change with id/);
 });
 
+test('CR4: graduate refuses a non-done change and creates no spec', () => {
+  const { root } = repo();
+  const f = writeChange(root, '20260104-000000', 'in-progress');
+  const before = fs.readFileSync(f, 'utf8');
+  assert.throws(() => graduate('20260104-000000', 'x', root), /only done changes/);
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+  assert.ok(!fs.existsSync(path.join(root, '.sl', 'specs', 'x.md')));
+});
+
 // Write a bare change file with a given id and status.
 function writeChange(root, id, status, extra = '') {
   const file = path.join(root, '.sl', 'changes', `${id}-y.md`);

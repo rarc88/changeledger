@@ -34,6 +34,9 @@ function slugify(s) {
 export function graduate(id, slug, cwd = process.cwd()) {
   const { config, repoRoot, file: changeFile } = resolveChange(id, cwd);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
+  if (change.frontmatter.status !== 'done') {
+    throw new Error('only done changes can be graduated/skipped');
+  }
 
   const specsDir = resolveSpecsDir(repoRoot, config);
   const specName = `${slugify(slug)}.md`;

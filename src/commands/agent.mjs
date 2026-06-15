@@ -7,6 +7,7 @@ import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
+import { assertTransition } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
 import { appendLog, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
@@ -33,6 +34,9 @@ export function status(
   }
   let text = fs.readFileSync(file, 'utf8');
   const fm = parseChange(text).frontmatter;
+  // Validate the move before any in-memory mutation, so an illegal transition
+  // leaves the file byte-for-byte unchanged.
+  assertTransition(fm.status, newStatus);
   text = setStatus(text, newStatus);
   text = appendLog(text, nowUtc(), `status: ${fm.status} → ${newStatus}`);
 

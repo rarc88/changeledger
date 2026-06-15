@@ -50,7 +50,11 @@ flowchart TD
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
   `reviewed` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
-  de vida (`draft → approved → in-progress → done`, con `blocked`). Tareas en
+  de vida (`draft → approved → in-progress → done`, con `blocked` como desvío
+  reversible desde `in-progress`). El grafo de transiciones vive en
+  `src/lifecycle.mjs` y es la única autoridad: tanto `sl status` como el visor lo
+  consultan, rechazando saltos (`draft → done`), regresiones y no-ops. El visor
+  añade una restricción humana extra: solo permite `draft → approved`. Tareas en
   `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
