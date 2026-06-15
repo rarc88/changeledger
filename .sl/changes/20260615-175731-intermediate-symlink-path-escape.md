@@ -2,7 +2,7 @@
 id: "20260615-175731"
 title: Symlink intermedio permite escapar del repositorio
 type: bug
-status: in-progress
+status: done
 created: 2026-06-15T17:57:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -68,3 +68,5 @@ contenido fuera de la raíz del repositorio descubierto.
 - **2026-06-15T18:30:40Z** — status: approved → in-progress
 - **2026-06-15T18:30:40Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T18:31:38Z** — fix: realpath del ancestro existente más cercano cierra el escape por symlink intermedio (CR1); symlink interno sigue permitido (CR2)
+- **2026-06-15T18:31:53Z** — status: in-progress → in-review
+- **2026-06-15T18:32:52Z** — review → done (delegated subagent, clean context)
