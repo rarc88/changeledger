@@ -2,7 +2,7 @@
 id: "20260615-150510"
 title: Gate de revisión independiente antes de done
 type: feature
-status: draft
+status: approved
 created: 2026-06-15T15:05:10Z
 depends_on: []
 ---
@@ -26,10 +26,11 @@ palabra del implementador.
 ## Investigation
 
 **Estado actual del lifecycle.** `config.yml` define
-`statuses: [draft, approved, in-progress, blocked, done]`. Las transiciones se
-mueven con `sl status <id> <status>` y se validan por invariantes (change
-`20260614-192818-lifecycle-transition-invariants`). El viewer permite arrastrar
-status (solo draft↔approved hoy, change `20260614-121840`).
+`statuses: [draft, approved, in-progress, blocked, done]`. `sl status <id>
+<status>` solo valida que el destino sea un enum válido — **no** invariantes de
+transición. El único guard de transición vive en el viewer (solo `draft→approved`,
+change `20260614-121840`). El CLI hoy acepta cualquier salto (p. ej. `draft →
+done`). Este change cierra ese hueco además de añadir el gate.
 
 **Quién certifica hoy.** El implementador mueve `in-progress → done` él mismo.
 `done` exige todas las tasks `[x]` y criterios cumplidos (§5), pero nadie externo
@@ -129,8 +130,9 @@ la documentación ni decidir nada nuevo?*
 - `sl review <id> fail --block "<motivo>"` → `blocked`.
 - El revisor elige la ruta explícitamente (el CLI no la adivina). Toda variante
   escribe el motivo al Log y marca la revisión como delegada.
-- Invariantes: `in-progress → done` directo prohibido; entrar a `in-review` solo
-  desde `in-progress`.
+- Invariantes: `sl status` valida el **grafo completo** del lifecycle (no solo el
+  gate). `in-progress → done` directo prohibido si `review_required`; `in-review`
+  solo desde `in-progress`; cualquier arista no listada se rechaza.
 
 **Activación por tipo (`config.yml`):** obligatorio **solo donde aporta** —
 tipos con implementación verificable: `feature`, `bug`, `refactor`. `chore`
@@ -185,7 +187,7 @@ que `status: X → Y` actual.
 ### CR5 — in-review solo es alcanzable desde in-progress
 - **Given** un change `type: feature`, `status: approved`
 - **When** `sl status <id> in-review`
-- **Then** lanza con el mensaje literal `in-review is only reachable from in-progress`
+- **Then** lanza con el mensaje literal `invalid transition: approved → in-review`
 - **And** el archivo no se modifica
 
 ### CR6 — review pass mueve a done y marca la delegación
@@ -223,17 +225,39 @@ que `status: X → Y` actual.
 - **When** se calcula `wip` en `metrics.mjs`
 - **Then** ese change cuenta como activo (in-review es estado WIP, junto a in-progress y blocked)
 
+### CR12 — el grafo rechaza cualquier transición no permitida
+- **Given** un change `type: feature`, `status: draft`
+- **When** `sl status <id> done`
+- **Then** lanza con el mensaje literal `invalid transition: draft → done`
+- **And** el archivo no se modifica
+- **And** mover fuera del grafo (p. ej. reabrir un `done`) no es función del CLI: se edita el archivo a mano
+
 ## Plan
 
-Invariantes en una función pura `assertTransition({ type, from, to, reviewRequired })`
-en `src/change.mjs`, llamada desde `status()` en `src/commands/agent.mjs` (que ya
-tiene el `config` vía `locate()`). El comando `sl review` es azúcar sobre
-`setStatus` + `appendLog` con precondición y markers fijos.
+Invariantes en una función pura `assertTransition({ from, to, reviewRequired })`
+en `src/change.mjs` que valida el **grafo completo** del lifecycle (no solo las
+aristas del gate), llamada desde `status()` en `src/commands/agent.mjs` (que ya
+tiene el `config` vía `locate()`). Aristas permitidas:
+
+```
+draft       → approved
+approved    → in-progress
+in-progress → in-review | blocked | done   (done solo si !reviewRequired)
+in-review   → done | in-progress | blocked
+blocked     → in-progress
+done        → ∅ (terminal)
+```
+
+Arista fuera del grafo → `invalid transition: <from> → <to>`. El gate
+(`in-progress → done` con `reviewRequired`) usa el mensaje específico de CR3.
+Mover fuera del grafo (reabrir, des-aprobar) no es del CLI: archivo a mano. El
+comando `sl review` es azúcar sobre `setStatus` + `appendLog` con precondición y
+markers fijos en inglés.
 
 - [ ] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1)
 - [ ] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2)
-- [ ] Añadir `assertTransition()` pura en `src/change.mjs` (grafo de transiciones + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5)
-- [ ] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5)
+- [ ] Añadir `assertTransition()` pura en `src/change.mjs` (grafo completo del lifecycle + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5, CR12)
+- [ ] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5, CR12)
 - [ ] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10)
 - [ ] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11)
 - [ ] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs`
@@ -241,3 +265,5 @@ tiene el `config` vía `locate()`). El comando `sl review` es azúcar sobre
 - [ ] Documentar el gate en `templates/AGENTS.md`: §5 (diagrama + estado), §6 (regla revisión por subagente: contexto limpio + modelo acorde a dificultad), §9 (`sl review`)
 
 ## Log
+- **2026-06-15T15:52:31Z** — status: draft → approved
+- **2026-06-15T15:57:00Z** — scope broadened: assertTransition validates the full lifecycle graph, not only the gate edges (CR12 added)
