@@ -73,11 +73,11 @@ stateDiagram-v2
     draft --> approved: humano aprueba el diseño
     approved --> in_progress: empieza implementación
     in_progress --> in_review: tasks [x], criterios cumplidos
-    in_review --> done: revisor independiente aprueba
-    in_review --> in_progress: revisor rechaza (vuelve a corregir)
+    in_review --> done: revisor aprueba (pass)
+    in_review --> in_progress: rechazo corregible (fail --retry)
+    in_review --> blocked: rechazo que escala (fail --block)
     in_progress --> blocked
-    blocked --> in_progress
-    in_review --> blocked
+    blocked --> in_progress: humano decide
 ```
 
 **Alcance del revisor (qué valida, en `in-review`):**
@@ -104,12 +104,28 @@ solo **registra** que ocurrió. Como un subagente no tiene `gh login`, el Log ma
 hay enforcement duro de que el contexto fuera realmente limpio — queda por
 convención, igual que "una sola concern por change".
 
-**Mecánica CLI (a decidir en Specification):**
-- Mínimo: `sl status <id> in-review` y `sl status <id> done`, con invariantes que
-  prohíben `in-progress → done` directo.
-- Azúcar propuesta: `sl review <id> pass` (→ `done`) / `sl review <id> fail
-  "<motivo>"` (→ `in-progress`, escribe Log), que además estampa el handle del
-  revisor.
+**Resultado del rechazo — dos rutas según el veredicto:**
+
+El subagente **clasifica** el fallo con un criterio fijo: *¿se arregla sin tocar
+la documentación ni decidir nada nuevo?*
+
+- **Sí → `in-progress`** (rechazo corregible): el defecto cae dentro del contrato
+  documentado — código no cumple un `CRn`, residuo §6.7, task no hecha. El
+  implementador corrige y reenvía a revisión.
+- **No → `blocked`** (rechazo que escala): el problema excede el contrato — spec
+  ambigua o contradictoria, hallazgo de seguridad fuera de alcance, falla de
+  diseño, o un `CRn` que no refleja la realidad. El humano lo analiza y decide
+  (enmendar doc, reabrir, descartar). Reúsa `blocked`, su semántica ya es
+  "impedimento que necesita algo fuera del loop autónomo" — sin estado nuevo.
+
+**Mecánica CLI (a refinar en Specification):**
+- `sl review <id> pass` → `done` (tras pass, el flujo de graduación §10 aplica).
+- `sl review <id> fail --retry "<motivo>"` → `in-progress`.
+- `sl review <id> fail --block "<motivo>"` → `blocked`.
+- El revisor elige la ruta explícitamente (el CLI no la adivina). Toda variante
+  escribe el motivo al Log y marca la revisión como delegada.
+- Invariantes: `in-progress → done` directo prohibido; entrar a `in-review` solo
+  desde `in-progress`.
 
 **Activación por tipo (`config.yml`):** obligatorio **solo donde aporta** —
 tipos con implementación verificable: `feature`, `bug`, `refactor`. `chore`
