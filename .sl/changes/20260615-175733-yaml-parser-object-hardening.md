@@ -2,9 +2,10 @@
 id: "20260615-175733"
 title: El parser YAML permite prototype pollution y claves duplicadas
 type: bug
-status: approved
+status: done
 created: 2026-06-15T17:57:33Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -57,10 +58,15 @@ de datos explícitas y deterministas.
 
 ## Plan
 
-- [ ] Añadir tests de regresión en `test/yaml.test.mjs` para prototype pollution, claves reservadas y duplicados por nivel (CR1, CR2, CR3)
-- [ ] Construir mapas del parser con una representación sin prototipo o rechazar explícitamente claves peligrosas (CR1)
-- [ ] Detectar claves duplicadas durante `build` y emitir errores accionables sin romper mapas anidados válidos (CR2, CR3)
-- [ ] Ejecutar `pnpm verify` y smoke de carga de config/change/spec existentes (CR4)
+- [x] Añadir tests de regresión en `test/yaml.test.mjs` para prototype pollution, claves reservadas y duplicados por nivel (CR1, CR2, CR3) — 2026-06-15T18:37:44Z
+- [x] Construir mapas del parser con una representación sin prototipo o rechazar explícitamente claves peligrosas (CR1) — 2026-06-15T18:37:44Z
+- [x] Detectar claves duplicadas durante `build` y emitir errores accionables sin romper mapas anidados válidos (CR2, CR3) — 2026-06-15T18:37:44Z
+- [x] Ejecutar `pnpm verify` y smoke de carga de config/change/spec existentes (CR4) — 2026-06-15T18:37:44Z
 
 ## Log
 - **2026-06-15T18:29:26Z** — status: draft → approved
+- **2026-06-15T18:35:32Z** — status: approved → in-progress
+- **2026-06-15T18:35:33Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T18:37:44Z** — fix: build() rechaza claves reservadas (__proto__/constructor/prototype) (CR1) y duplicados por nivel via Object.hasOwn (CR2); niveles anidados intactos (CR3)
+- **2026-06-15T18:37:54Z** — status: in-progress → in-review
+- **2026-06-15T18:39:07Z** — review → done (delegated subagent, clean context)

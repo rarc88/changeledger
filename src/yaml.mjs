@@ -22,12 +22,22 @@ export function parseYaml(text) {
   return obj;
 }
 
+// Keys that would mutate an object's prototype chain rather than set a normal
+// property. They never appear in a legitimate config or frontmatter, so an
+// untrusted document carrying one is rejected outright.
+const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function build(entries, start, indent) {
   const obj = {};
   let i = start;
   while (i < entries.length) {
     const e = entries[i];
     if (e.indent < indent) break;
+    if (RESERVED_KEYS.has(e.key)) throw new Error(`Unsafe key "${e.key}" in YAML`);
+    // A duplicate at the same level is ambiguous — fail loudly instead of letting
+    // the last value silently win. Keys in different nested maps are distinct
+    // objects, so this only fires within one level.
+    if (Object.hasOwn(obj, e.key)) throw new Error(`Duplicate key "${e.key}" in YAML`);
     if (e.value === NESTED) {
       const childIndent = entries[i + 1]?.indent ?? indent + 2;
       const [child, next] = build(entries, i + 1, childIndent);
