@@ -2,9 +2,10 @@
 id: "20260615-175734"
 title: La resolución parcial de IDs puede modificar el change equivocado
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-15T17:57:34Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -58,10 +59,13 @@ debe resolverse por igualdad exacta con el `frontmatter.id`.
 
 ## Plan
 
-- [ ] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial (CR1, CR2, CR3)
-- [ ] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta (CR1, CR3, CR4)
-- [ ] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes (CR1, CR2, CR4)
-- [ ] Ejecutar `pnpm verify` y smoke CLI desde el tarball (CR1, CR2)
+- [x] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial (CR1, CR2, CR3) — 2026-06-15T18:42:28Z
+- [x] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta (CR1, CR3, CR4) — 2026-06-15T18:42:28Z
+- [x] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes (CR1, CR2, CR4) — 2026-06-15T18:42:28Z
+- [x] Ejecutar `pnpm verify` y smoke CLI desde el tarball (CR1, CR2) — 2026-06-15T18:42:28Z
 
 ## Log
 - **2026-06-15T18:29:27Z** — status: draft → approved
+- **2026-06-15T18:40:01Z** — status: approved → in-progress
+- **2026-06-15T18:40:02Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T18:42:28Z** — fix: resolvedor único en repo.mjs compara frontmatter.id por igualdad exacta; agent.locate y graduate migrados; sin búsquedas por prefijo (CR1-CR4)

@@ -236,3 +236,54 @@ test('CR10: review fail requires a reason', () => {
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
+
+// 20260615-175734 — ids share a timestamp prefix, so a partial/ambiguous id must
+// never resolve to "the first file whose name starts with it". Resolution is by
+// exact frontmatter.id equality, and it must not write to the wrong change.
+function repoWithTwoSamePrefix() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const fileA = newChange(
+    { type: 'feature', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const fileB = newChange(
+    { type: 'feature', slug: 'b', title: 'B', now: '2026-06-13T12:00:01Z' },
+    root,
+  );
+  const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
+  const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
+  return { root, fileA, fileB, idA, idB };
+}
+
+test('175734 CR1: a full exact id resolves the right sibling and leaves the other untouched', () => {
+  const { root, fileA, fileB, idB } = repoWithTwoSamePrefix();
+  const beforeA = fs.readFileSync(fileA, 'utf8');
+  status(idB, 'approved', root);
+  assert.equal(parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.status, 'approved');
+  assert.equal(fs.readFileSync(fileA, 'utf8'), beforeA, 'sibling must be byte-for-byte unchanged');
+});
+
+test('175734 CR2: a partial id shared by siblings is rejected without writing', () => {
+  const { root, fileA, fileB } = repoWithTwoSamePrefix();
+  const beforeA = fs.readFileSync(fileA, 'utf8');
+  const beforeB = fs.readFileSync(fileB, 'utf8');
+  assert.throws(() => status('20260613', 'approved', root), /No change with id "20260613"/);
+  assert.equal(fs.readFileSync(fileA, 'utf8'), beforeA);
+  assert.equal(fs.readFileSync(fileB, 'utf8'), beforeB);
+});
+
+test('175734 CR3: a filename whose frontmatter id differs is not an exact match', () => {
+  const { root, fileA, idA } = repoWithTwoSamePrefix();
+  // Corrupt the frontmatter id so the filename prefix no longer reflects it.
+  fs.writeFileSync(
+    fileA,
+    fs.readFileSync(fileA, 'utf8').replace(`id: "${idA}"`, 'id: "20260613-999999"'),
+  );
+  // The filename still begins with idA, but no change has that exact frontmatter id.
+  assert.throws(() => status(idA, 'approved', root), new RegExp(`No change with id "${idA}"`));
+  // The real (corrupted) id resolves regardless of the filename.
+  status('20260613-999999', 'approved', root);
+  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.status, 'approved');
+});

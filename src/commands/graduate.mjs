@@ -7,22 +7,9 @@ import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
+import { resolveChange } from '../repo.mjs';
 import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
-
-// Resolves a change id to its file under changes_dir. Throws if absent.
-function resolveChange(id, cwd) {
-  const specDir = findSpecDir(cwd);
-  if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
-  const config = loadConfig(specDir);
-  const repoRoot = path.dirname(specDir);
-  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
-  const name = fs.existsSync(changesDir)
-    ? fs.readdirSync(changesDir).find((n) => n.startsWith(`${id}-`))
-    : null;
-  if (!name) throw new Error(`No change with id "${id}"`);
-  return { config, repoRoot, changesDir, file: path.join(changesDir, name) };
-}
 
 function slugify(s) {
   return s
@@ -36,7 +23,7 @@ function slugify(s) {
 // to refine). Without `into`, a new spec is scaffolded and an existing one is an
 // error. Both routes share the same change-side record (marker + reviewed).
 export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
-  const { config, repoRoot, file: changeFile } = resolveChange(id, cwd);
+  const { config, repoRoot, file: changeFile } = resolveChange(cwd, id);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
   if (change.frontmatter.status !== 'done') {
     throw new Error('only done changes can be graduated/skipped');
@@ -91,7 +78,7 @@ ${seed}
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
-  const { file: changeFile } = resolveChange(id, cwd);
+  const { file: changeFile } = resolveChange(cwd, id);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
   if (change.frontmatter.status !== 'done')
     throw new Error('only done changes can be graduated/skipped');
