@@ -2,9 +2,10 @@
 id: "20260614-192817"
 title: Confinar changes_dir y specs_dir dentro del repositorio
 type: bug
-status: approved
+status: done
 created: 2026-06-14T19:28:17Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -52,11 +53,14 @@ repo Spec Ledger que descubrieron.
 
 ## Plan
 
-- [ ] Crear un resolvedor compartido que valide rutas relativas y containment real dentro de `repoRoot` — módulo de paths/config (CR1, CR2, CR3)
-- [ ] Sustituir resoluciones directas en carga y comandos por el helper compartido — `src/repo.mjs`, `src/commands/*.mjs` afectados (CR1, CR2, CR3, CR4)
-- [ ] Añadir validación accionable en `sl check` para ambos campos de config (CR1, CR2, CR3)
-- [ ] Añadir tests de traversal, absoluta, symlink externo y rutas internas en las plataformas soportadas — tests de repo/CLI/graduate (CR1, CR2, CR3, CR4)
-- [ ] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4)
+- [x] Crear un resolvedor compartido que valide rutas relativas y containment real dentro de `repoRoot` — 2026-06-15T11:43:18Z
+- [x] Sustituir resoluciones directas en carga y comandos por el helper compartido — 2026-06-15T11:43:18Z
+- [x] Añadir validación accionable en `sl check` para ambos campos de config (CR1, CR2, CR3) — 2026-06-15T11:43:19Z
+- [x] Añadir tests de traversal, absoluta, symlink externo y rutas internas en las plataformas soportadas — 2026-06-15T11:43:19Z
+- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4) — 2026-06-15T11:43:19Z
 
 ## Log
 - **2026-06-15T11:38:40Z** — status: draft → approved
+- **2026-06-15T11:41:20Z** — status: approved → in-progress
+- **2026-06-15T11:41:20Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T11:43:19Z** — status: in-progress → done

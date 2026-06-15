@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findSpecDir, loadConfig } from '../config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { appendLog, setReviewed } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -16,7 +16,7 @@ function resolveChange(id, cwd) {
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
   const config = loadConfig(specDir);
   const repoRoot = path.dirname(specDir);
-  const changesDir = path.join(repoRoot, config.changes_dir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   const name = fs.existsSync(changesDir)
     ? fs.readdirSync(changesDir).find((n) => n.startsWith(`${id}-`))
     : null;
@@ -92,7 +92,7 @@ export function pendingGraduation(cwd = process.cwd()) {
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
   const config = loadConfig(specDir);
   const repoRoot = path.dirname(specDir);
-  const changesDir = path.join(repoRoot, config.changes_dir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   if (!fs.existsSync(changesDir)) return [];
 
   return fs

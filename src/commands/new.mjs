@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findSpecDir, loadConfig } from '../config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 // Scaffolds a new change file with the active stages for its type.
@@ -17,7 +17,7 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   }
 
   const repoRoot = path.dirname(specDir);
-  const changesDir = path.join(repoRoot, config.changes_dir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   fs.mkdirSync(changesDir, { recursive: true });
 
   // Guarantee a unique id even for changes created within the same second

@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findSpecDir, loadConfig } from '../config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
@@ -15,7 +15,7 @@ function locate(cwd, id) {
   const specDir = findSpecDir(cwd);
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
   const config = loadConfig(specDir);
-  const dir = path.join(path.dirname(specDir), config.changes_dir);
+  const dir = resolveRepoPath(path.dirname(specDir), config.changes_dir, 'changes_dir');
   const name = fs.existsSync(dir) ? fs.readdirSync(dir).find((n) => n.startsWith(`${id}-`)) : null;
   if (!name) throw new Error(`No change with id "${id}"`);
   return { config, file: path.join(dir, name) };

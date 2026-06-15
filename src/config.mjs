@@ -20,3 +20,35 @@ export function loadConfig(specDir) {
   if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
   return parseYaml(fs.readFileSync(file, 'utf8'));
 }
+
+// Resolves a configured directory (changes_dir/specs_dir) against the repo root,
+// refusing any value that escapes it. A cloned repo's config is untrusted input:
+// running a command must not let it read or write outside the repo it discovered.
+// Absolute paths and `..` traversal are rejected by shape; an existing target
+// that symlinks outside is rejected by comparing real paths. Returns the
+// absolute, contained path.
+export function resolveRepoPath(repoRoot, configured, field) {
+  if (typeof configured !== 'string' || configured === '') {
+    throw new Error(`config "${field}" must be a non-empty relative path`);
+  }
+  if (path.isAbsolute(configured)) {
+    throw new Error(`config "${field}" must be relative to the repo root: ${configured}`);
+  }
+  const root = path.resolve(repoRoot);
+  const resolved = path.resolve(root, configured);
+  if (!isInside(root, resolved)) {
+    throw new Error(`config "${field}" escapes the repo root: ${configured}`);
+  }
+  if (fs.existsSync(resolved)) {
+    const realRoot = fs.realpathSync(root);
+    const real = fs.realpathSync(resolved);
+    if (!isInside(realRoot, real)) {
+      throw new Error(`config "${field}" resolves outside the repo via a symlink: ${configured}`);
+    }
+  }
+  return resolved;
+}
+
+function isInside(root, target) {
+  return target === root || target.startsWith(root + path.sep);
+}
