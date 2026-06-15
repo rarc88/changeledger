@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:11:10Z
 depends_on: ["20260613-134548"]
+archived: true
 reviewed: true
 ---
 
@@ -73,3 +74,4 @@ vive cada uno. Repos movidos o clonados en otro equipo deben poder revincularse.
 - **2026-06-13T22:12:45Z** — status: approved → in-progress
 - **2026-06-13T22:15:38Z** — status: in-progress → done
 - **2026-06-13T22:15:38Z** — Implementado: registry.mjs, identidad en config (init inyecta id+name), sl register, tests (registro aislado por SPEC_LEDGER_HOME). Este repo registrado como 304c473ce5.
+- **2026-06-15T21:17:54Z** — archived

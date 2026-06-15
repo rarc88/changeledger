@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:29:14Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -67,3 +68,4 @@ pureza del validador y acopla el check al registro/FS global.
 ## Log
 - **2026-06-14T11:12:24Z** — status: draft → approved
 - **2026-06-14T11:45:24Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

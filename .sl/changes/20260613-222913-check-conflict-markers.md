@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:29:13Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -55,3 +56,4 @@ validador; el texto ya está disponible en la carga).
 ## Log
 - **2026-06-14T11:12:24Z** — status: draft → approved
 - **2026-06-14T11:43:27Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

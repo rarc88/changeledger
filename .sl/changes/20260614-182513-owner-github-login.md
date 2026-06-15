@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T18:25:13Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -82,3 +83,4 @@ Descartado:
 - **2026-06-14T18:37:16Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T18:39:36Z** — status: in-progress → done
 - **2026-06-14T18:39:36Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:17:57Z** — archived

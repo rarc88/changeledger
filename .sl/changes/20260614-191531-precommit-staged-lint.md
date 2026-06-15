@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-14T19:15:31Z
 depends_on: ["20260614-182511"]
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -52,3 +53,4 @@ commit `feat(owner)` abortó y su código terminó mezclado en el commit de test
 - **2026-06-14T19:16:15Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-14T19:17:28Z** — status: in-progress → done
 - **2026-06-14T19:17:28Z** — graduation skipped: fix de tooling (hook); sin verdad persistente
+- **2026-06-15T21:17:57Z** — archived

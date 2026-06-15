@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-15T17:57:31Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -72,3 +73,4 @@ contenido fuera de la raíz del repositorio descubierto.
 - **2026-06-15T18:31:53Z** — status: in-progress → in-review
 - **2026-06-15T18:32:52Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T20:47:34Z** — graduation skipped: bug de containment; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** — archived

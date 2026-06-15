@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:29:15Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -64,3 +65,4 @@ sin esos efectos.
 ## Log
 - **2026-06-14T11:12:24Z** — status: draft → approved
 - **2026-06-14T11:48:07Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

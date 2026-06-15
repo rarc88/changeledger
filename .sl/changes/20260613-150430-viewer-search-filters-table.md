@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T15:04:30Z
 depends_on: ["20260613-134548"]
+archived: true
 reviewed: true
 ---
 
@@ -73,3 +74,4 @@ Mejorar el consumo humano del visor:
   combinable con búsqueda y tipo); vista tabla ordenable (id, title, type,
   status, progreso, deps); layout responsive (columnas apiladas en móvil).
   `in-progress → done`.
+- **2026-06-15T21:17:53Z** — archived

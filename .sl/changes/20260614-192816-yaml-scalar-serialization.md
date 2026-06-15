@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-14T19:28:16Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -63,3 +65,5 @@ comentarios YAML ni producir documentos inválidos al volver a cargarlos.
 - **2026-06-15T11:39:08Z** — status: approved → in-progress
 - **2026-06-15T11:39:08Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:40:50Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: bug de serialización YAML; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** — archived

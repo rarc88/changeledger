@@ -5,6 +5,7 @@ type: chore
 status: done
 created: 2026-06-14T18:25:11Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -44,3 +45,4 @@ formateo nunca alcanza lo que no estaba en stage. Cuesta una dev-dep.
 - **2026-06-14T18:32:41Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T18:34:28Z** — status: in-progress → done
 - **2026-06-14T18:34:28Z** — graduation skipped: chore de tooling, sin verdad persistente
+- **2026-06-15T21:17:57Z** — archived

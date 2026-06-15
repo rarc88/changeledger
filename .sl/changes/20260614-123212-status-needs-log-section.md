@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-14T12:32:12Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -47,3 +48,4 @@ la transición.
 
 ## Log
 - **2026-06-14T12:33:37Z** — status: in-progress → done
+- **2026-06-15T21:17:56Z** — archived

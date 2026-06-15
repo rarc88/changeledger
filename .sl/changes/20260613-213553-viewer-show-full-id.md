@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-13T21:35:53Z
 depends_on: ["20260613-150430"]
+archived: true
 reviewed: true
 ---
 
@@ -38,3 +39,4 @@ parecen duplicados. Mostrar el **id completo**.
   segundos y los changes del mismo minuto parecían duplicados.
 - **2026-06-13T21:37:20Z** — status: in-progress → done
 - **2026-06-13T21:37:20Z** — Eliminado shortId; id completo en board/table/graph. Verificado en navegador.
+- **2026-06-15T21:17:54Z** — archived

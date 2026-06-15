@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T12:40:47Z
 depends_on: ["20260613-222912"]
+archived: true
 reviewed: true
 ---
 
@@ -66,3 +67,4 @@ Descartado: fijarlo en `created` (no se sabe aún quién lo hará) o en
 
 ## Log
 - **2026-06-14T12:42:38Z** — status: in-progress → done
+- **2026-06-15T21:17:56Z** — archived

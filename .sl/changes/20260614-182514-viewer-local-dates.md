@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-06-14T18:25:14Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -46,3 +47,4 @@ Descartado:
 - **2026-06-14T18:41:37Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-14T18:45:21Z** — status: in-progress → done
 - **2026-06-14T18:45:21Z** — graduation skipped: presentacion del viewer; sin verdad persistente nueva
+- **2026-06-15T21:17:57Z** — archived

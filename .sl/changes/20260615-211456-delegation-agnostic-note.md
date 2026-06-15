@@ -5,6 +5,7 @@ type: chore
 status: done
 created: 2026-06-15T21:14:56Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -31,3 +32,4 @@ sería especificar un *cómo* y se sale del propósito.
 - **2026-06-15T21:15:30Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T21:15:51Z** — status: in-progress → done
 - **2026-06-15T21:15:51Z** — graduation skipped: aclaración del contrato; sin verdad persistente nueva en specs/
+- **2026-06-15T21:17:59Z** — archived

@@ -5,6 +5,7 @@ type: chore
 status: done
 created: 2026-06-14T15:18:00Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -26,3 +27,4 @@ que cualquiera pueda usar `sl` fuera de este repo hoy.
 - **2026-06-14T15:33:43Z** — status: approved → in-progress
 - **2026-06-14T15:33:43Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T15:33:58Z** — status: in-progress → done
+- **2026-06-15T21:17:56Z** — archived

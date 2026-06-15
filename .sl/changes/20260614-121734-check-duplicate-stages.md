@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-14T12:17:34Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -38,3 +39,4 @@ duplicado. El validador debe detectarlo.
 
 ## Log
 - **2026-06-14T12:18:19Z** — status: in-progress → done
+- **2026-06-15T21:17:56Z** — archived

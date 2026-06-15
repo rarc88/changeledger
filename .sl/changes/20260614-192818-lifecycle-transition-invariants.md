@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-14T19:28:18Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -71,3 +73,5 @@ terminados.
 - **2026-06-15T11:45:19Z** — status: approved → in-progress
 - **2026-06-15T11:45:19Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:47:16Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: bug de invariantes de lifecycle; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** — archived

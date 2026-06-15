@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:29:12Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -71,3 +72,4 @@ basta y no añade fricción de mantenimiento.
 ## Log
 - **2026-06-14T11:12:23Z** — status: draft → approved
 - **2026-06-14T11:40:52Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

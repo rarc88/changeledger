@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-13T20:50:56Z
 depends_on: ["20260613-150402"]
+archived: true
 reviewed: true
 ---
 
@@ -52,3 +53,4 @@ Detectado por dogfooding: tres `sl new` seguidos produjeron el mismo id
 - **2026-06-13T20:58:00Z** — Aprobado e implementado. `sl new` ahora incrementa
   el id 1s hasta uno libre; `created` coherente. Verificado: 3 `sl new` seguidos
   → ids consecutivos. 36 tests verde. `in-progress → done`.
+- **2026-06-15T21:17:53Z** — archived

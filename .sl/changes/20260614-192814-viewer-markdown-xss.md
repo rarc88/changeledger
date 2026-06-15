@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-14T19:28:14Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -66,3 +68,5 @@ contenido no confiable, incluso cuando el repo sea local.
 - **2026-06-15T11:47:48Z** — status: approved → in-progress
 - **2026-06-15T11:47:49Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:50:55Z** — status: in-progress → done
+- **2026-06-15T21:16:51Z** — graduation skipped: bug del visor; modelo de seguridad documentado en SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:34Z** — archived

@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T15:17:59Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -147,3 +148,4 @@ Descartado:
 - **2026-06-14T15:33:35Z** — status: in-progress → done
 - **2026-06-14T16:15:54Z** — Refinamiento: split contrato a templates/AGENTS.md (sin recursion), cobertura CLAUDE.md + skip symlinks, referencia como alerta GitHub
 - **2026-06-14T16:52:30Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:17:56Z** — archived

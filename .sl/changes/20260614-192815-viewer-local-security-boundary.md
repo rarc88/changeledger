@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-14T19:28:15Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -75,3 +77,5 @@ changes mediante su API HTTP.
 - **2026-06-15T11:51:53Z** — status: approved → in-progress
 - **2026-06-15T11:51:53Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:58:05Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: bug de frontera HTTP; cubierto por SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:57Z** — archived

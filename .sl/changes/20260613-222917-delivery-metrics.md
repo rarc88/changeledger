@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:29:17Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -65,3 +66,4 @@ ya tiene (fuente única); y calcular en el cliente — no testeable y duplica l�
 ## Log
 - **2026-06-14T11:12:24Z** — status: draft → approved
 - **2026-06-14T11:54:55Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

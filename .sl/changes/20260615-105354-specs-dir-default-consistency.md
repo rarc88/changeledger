@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-15T10:53:54Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -53,3 +55,5 @@ invisible para el visor y reportado como error por `sl check`.
 - **2026-06-15T11:43:36Z** — status: approved → in-progress
 - **2026-06-15T11:43:37Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:44:29Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: bug de default specs_dir; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** — archived

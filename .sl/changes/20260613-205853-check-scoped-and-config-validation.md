@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T20:58:53Z
 depends_on: ["20260613-135500"]
+archived: true
 reviewed: true
 ---
 
@@ -66,3 +67,4 @@ Dos mejoras a `sl check`:
 - **2026-06-13T21:04:30Z** — Aprobado e implementado. `checkConfig` valida el
   `config.yml` (claves, tipos de stage); `sl check [id]` valida un change o todo
   el repo. 40 tests verde; README actualizado. `draft → done`.
+- **2026-06-15T21:17:53Z** — archived

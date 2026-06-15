@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T20:58:52Z
 depends_on: ["20260613-135500"]
+archived: true
 reviewed: true
 ---
 
@@ -85,3 +86,4 @@ Todas escriben de forma idempotente y dejan el archivo válido para `sl check`.
   siendo la fuente de verdad.
 - **2026-06-13T21:11:36Z** — status: in-progress → done
 - **2026-06-13T21:11:36Z** — Implementado con TDD (51 tests verde). Cerrado usando los propios comandos sl task/status/log.
+- **2026-06-15T21:17:53Z** — archived

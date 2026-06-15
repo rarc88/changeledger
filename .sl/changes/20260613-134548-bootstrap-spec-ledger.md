@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T13:45:48Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -142,3 +143,4 @@ _Alternativas descartadas:_
   `depends_on`). CR1–CR7 verificados (incl. visualmente en el visor). `marked`
   vendorizado (MIT). Change cerrado: `in-progress → done`. Próximo: graduar
   verdad a `specs/` e implementar 0002 (`sl check`).
+- **2026-06-15T21:17:53Z** — archived

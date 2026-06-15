@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T15:05:00Z
 depends_on: ["20260613-134548"]
+archived: true
 reviewed: true
 ---
 
@@ -68,3 +69,4 @@ mermaid es declarativo en texto, mejor para documentación versionada.
   vendorizado (UMD), `renderMermaid` reemplaza bloques ` ```mermaid ` por SVG tras
   `marked`; regla §8 en `AGENTS.md` (preferir visuales). El diagrama del Proposal
   de este change renderiza como flowchart (dogfood de la regla). `in-progress → done`.
+- **2026-06-15T21:17:53Z** — archived

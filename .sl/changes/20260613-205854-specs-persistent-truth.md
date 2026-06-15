@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T20:58:54Z
 depends_on: ["20260613-134548"]
+archived: true
 reviewed: true
 ---
 
@@ -82,3 +83,4 @@ spec. El código refleja los specs.
 - **2026-06-13T21:15:04Z** — status: in-progress → done
 - **2026-06-13T21:15:04Z** — Implementado con TDD (54 tests verde). Visor con vista Specs y render mermaid verificado. Primer spec: arquitectura.
 - **2026-06-14T12:16:16Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:17:54Z** — archived

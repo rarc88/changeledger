@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T11:11:53Z
 depends_on: []
+archived: true
 reviewed: true
 ---
 
@@ -62,3 +63,4 @@ frontmatter — superficie de riesgo innecesaria; solo se necesita mover `status
 ## Log
 - **2026-06-14T11:12:24Z** — status: draft → approved
 - **2026-06-14T12:04:49Z** — status: in-progress → done
+- **2026-06-15T21:17:55Z** — archived

@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-13T20:54:59Z
 depends_on: ["20260613-150402"]
+archived: true
 reviewed: true
 ---
 
@@ -50,3 +51,4 @@ Ejemplo: `20260613-205056-sl-new-colisiona-ids-creados-en-el-mismo-segundo.md`.
 - **2026-06-13T20:58:30Z** — Aprobado e implementado. Firma `sl new <type> <slug>
   <title>`: slug inglés normalizado para el archivo, `title` (contenido) al
   frontmatter. `AGENTS.md` §7 y README actualizados. Tests verde. `in-progress → done`.
+- **2026-06-15T21:17:53Z** — archived

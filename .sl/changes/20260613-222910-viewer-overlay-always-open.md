@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-13T22:29:10Z
 depends_on: ["20260613-150430"]
+archived: true
 reviewed: true
 ---
 
@@ -39,3 +40,4 @@ se puede cerrar (sin contenido no hay botón de cierre).
 - **2026-06-13T22:30:00Z** — Causa: `.hidden` sin `!important`, sobrescrito por
   `.overlay`. Fix aplicado y verificado en navegador (oculto al cargar; open/close
   OK). `draft → done`.
+- **2026-06-15T21:17:54Z** — archived

@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-15T17:08:03Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -140,3 +141,4 @@ solo difiere el manejo del archivo del spec.
 - **2026-06-15T17:37:35Z** — independent review (delegated subagent, clean context): VERDICT pass — 6/6 CRs implemented and tested, literal messages match, shared marker+reviewed write, no write on error paths, no residue, pnpm verify green.
 - **2026-06-15T17:37:35Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T17:37:35Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:17:58Z** — archived

@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T22:11:11Z
 depends_on: ["20260613-221110"]
+archived: true
 reviewed: true
 ---
 
@@ -74,3 +75,4 @@ dentro de uno. `sl view .` muestra solo el actual.
 - **2026-06-13T22:16:08Z** — status: approved → in-progress
 - **2026-06-13T22:19:39Z** — status: in-progress → done
 - **2026-06-13T22:19:39Z** — Implementado: server con /api/projects y /api/repo?project, selector en UI con autoenfoque del actual, sl view . para local, paths muertos deshabilitados. 4 tests de resolveProjects. Verificado en navegador.
+- **2026-06-15T21:17:54Z** — archived

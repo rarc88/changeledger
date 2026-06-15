@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T21:53:19Z
 depends_on: ["20260613-135500"]
+archived: true
 reviewed: true
 ---
 
@@ -63,3 +64,4 @@ pasen.
 - **2026-06-13T21:54:50Z** — status: approved → in-progress
 - **2026-06-13T21:58:08Z** — status: in-progress → done
 - **2026-06-13T21:58:08Z** — Biome + pnpm, scripts lint/test/check/verify, hook pre-commit vía core.hooksPath. Código formateado a verde. pnpm verify pasa.
+- **2026-06-15T21:17:54Z** — archived

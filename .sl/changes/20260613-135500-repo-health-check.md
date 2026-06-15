@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-13T13:55:00Z
 depends_on: ["20260613-134548"]
+archived: true
 reviewed: true
 ---
 
@@ -120,3 +121,4 @@ _Alternativas descartadas:_
   validador puro `checkRepo` + comando `sl check` (errores/warnings, `--json`,
   exit ≠ 0). CR1–CR8 cubiertos. `sl check` pasa limpio sobre este repo (5 changes).
   Uso en pre-commit/CI documentado en README. `in-progress → done`.
+- **2026-06-15T21:17:53Z** — archived

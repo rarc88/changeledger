@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T16:57:20Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -134,3 +135,4 @@ stateDiagram-v2
 - **2026-06-14T17:09:37Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T17:14:46Z** — status: in-progress → done
 - **2026-06-14T17:14:47Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:17:57Z** — archived

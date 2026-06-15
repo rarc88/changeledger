@@ -5,6 +5,8 @@ type: bug
 status: done
 created: 2026-06-14T19:28:17Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -64,3 +66,5 @@ repo Spec Ledger que descubrieron.
 - **2026-06-15T11:41:20Z** — status: approved → in-progress
 - **2026-06-15T11:41:20Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T11:43:19Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: bug de containment; cubierto por SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:58Z** — archived

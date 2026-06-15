@@ -5,6 +5,8 @@ type: chore
 status: done
 created: 2026-06-14T19:28:19Z
 depends_on: []
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -30,3 +32,5 @@ prometen públicamente. Actualmente `package.json` declara Node `>=18`, mientras
 - **2026-06-15T11:58:29Z** — status: approved → in-progress
 - **2026-06-15T11:58:30Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T12:00:26Z** — status: in-progress → done
+- **2026-06-15T21:16:52Z** — graduation skipped: chore de runtime/CI; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** — archived

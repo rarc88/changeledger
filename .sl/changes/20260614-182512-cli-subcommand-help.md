@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-06-14T18:25:12Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 ---
@@ -73,3 +74,4 @@ Descartado:
 - **2026-06-14T18:34:57Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T18:36:58Z** — status: in-progress → done
 - **2026-06-14T18:36:58Z** — graduation skipped: ayuda CLI; el spec no enumera flags por comando
+- **2026-06-15T21:17:57Z** — archived
