@@ -64,3 +64,27 @@ test('CR4: default and normalized internal paths keep working', () => {
   assert.equal(loadRepo(fixture()).changes.length, 1);
   assert.equal(loadRepo(fixture('./.sl/changes')).changes.length, 1);
 });
+
+// 20260615-175731 — an intermediate ancestor is a symlink and the final target
+// does not exist yet. The shape check passes and existsSync(resolved) is false,
+// so the realpath guard must inspect the nearest existing ancestor.
+test('175731 CR1: an external intermediate symlink with a non-existent target is rejected', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-'));
+  fs.mkdirSync(path.join(root, '.sl'), { recursive: true });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-ext-'));
+  fs.symlinkSync(outside, path.join(root, '.sl', 'escape'));
+  assert.throws(
+    () => resolveRepoPath(root, '.sl/escape/newdir', 'changes_dir'),
+    /changes_dir.*symlink/,
+  );
+  assert.ok(!fs.existsSync(path.join(outside, 'newdir')), 'must not create in the external target');
+});
+
+test('175731 CR2: an internal intermediate symlink is accepted for a non-existent target', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-'));
+  const real = path.join(root, '.sl', 'real');
+  fs.mkdirSync(real, { recursive: true });
+  fs.symlinkSync(real, path.join(root, '.sl', 'link'));
+  const resolved = resolveRepoPath(root, '.sl/link/newdir', 'changes_dir');
+  assert.equal(resolved, path.join(root, '.sl', 'link', 'newdir'));
+});
