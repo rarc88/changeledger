@@ -185,6 +185,13 @@ one move); the rest is the agent's job via the CLI.
 9. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
+10. **Delegation is the agent's call.** Spec Ledger is agnostic to *how* work
+    gets done: any stage may be delegated to subagents — sized to the difficulty
+    — at the host agent's discretion, and the contract never prescribes the
+    mechanism (that is the agent's and harness's responsibility). The one
+    exception is the review (§6.6), where delegation to a **clean-context**
+    subagent is a *contract requirement* — there, independence is correctness,
+    not an optimization.
 
 ## 7. IDs
 
