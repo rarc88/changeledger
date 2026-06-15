@@ -47,6 +47,7 @@ sl check [id]   # validate the repo (or one change) and its health (exit ≠ 0 o
 # Agent helpers — files stay the source of truth; these inject correct
 # timestamps/markers and validate transitions:
 sl status <id> <status>                  # move lifecycle + log the transition
+sl discard <id> "<reason>"               # terminal discard (keeps the record + reason)
 sl log <id> <message>                    # append a timestamped Log entry
 sl task <id> done|block <n> [reason]     # mark a Plan task
 sl list [--status S] [--type T] [--json] # list changes

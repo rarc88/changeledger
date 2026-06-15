@@ -78,6 +78,7 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'in-review',
     'blocked',
     'done',
+    'discarded',
   ]);
   assert.equal(cfg.types.feature.review_required, true);
   assert.equal(cfg.types.bug.review_required, true);

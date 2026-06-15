@@ -4,7 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { archive, list, log, owner, review, show, status, task } from '../src/commands/agent.mjs';
+import {
+  archive,
+  discard,
+  list,
+  log,
+  owner,
+  review,
+  show,
+  status,
+  task,
+} from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 
@@ -286,4 +296,49 @@ test('175734 CR3: a filename whose frontmatter id differs is not an exact match'
   // The real (corrupted) id resolves regardless of the filename.
   status('20260613-999999', 'approved', root);
   assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.status, 'approved');
+});
+
+// 20260615-210508 — discard requires a reason and writes a terminal status.
+test('210508 CR1: discard without a reason throws and writes nothing', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => discard(id, '', root),
+    /discard requires a reason — sl discard <id> "<reason>"/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('210508 CR2: discard sets the terminal status and logs the reason', () => {
+  const { root, file, id } = repoWithChange();
+  discard(id, 'superseded by 20260613-120001', root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'discarded');
+  assert.match(
+    c.stages.find((s) => s.key === 'log').body,
+    /draft → discarded: superseded by 20260613-120001/,
+  );
+});
+
+test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  // a non-review_required path: chore would go straight to done, but feature needs review.
+  // Drive it to done via the review gate to test "cannot discard done".
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => discard(id, 'too late', root),
+    /invalid lifecycle transition: done → discarded/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('210508 CR1: status refuses discarded and points to the discard verb', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => status(id, 'discarded', root), /use `sl discard <id> "<reason>"`/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });

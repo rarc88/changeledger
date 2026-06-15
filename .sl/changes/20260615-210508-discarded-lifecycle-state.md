@@ -2,9 +2,10 @@
 id: "20260615-210508"
 title: Estado terminal para descartar changes conservando el porqué
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-15T21:05:08Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -102,11 +103,14 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 
 ## Plan
 
-- [ ] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs` (CR3, CR4)
-- [ ] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs` (CR5, CR7)
-- [ ] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs` (CR1, CR2)
-- [ ] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs` (CR6)
-- [ ] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7)
+- [x] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs` (CR3, CR4) — 2026-06-15T21:26:49Z
+- [x] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs` (CR5, CR7) — 2026-06-15T21:26:49Z
+- [x] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs` (CR1, CR2) — 2026-06-15T21:26:49Z
+- [x] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs` (CR6) — 2026-06-15T21:26:50Z
+- [x] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7) — 2026-06-15T21:26:50Z
 
 ## Log
 - **2026-06-15T21:16:06Z** — status: draft → approved
+- **2026-06-15T21:21:20Z** — status: approved → in-progress
+- **2026-06-15T21:21:21Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T21:27:48Z** — Implementado: discarded en lifecycle (terminal, entrada desde draft/approved/in-progress/blocked), sl discard con razón obligatoria, status rechaza discarded, statuses en ambos config, visor oculta + toggle sin columna, docs §5/README. 218 tests, visor verificado en navegador.

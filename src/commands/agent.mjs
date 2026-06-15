@@ -23,6 +23,9 @@ export function status(
   { ownerHandle = defaultOwnerHandle } = {},
 ) {
   const { config, file } = locate(cwd, id);
+  if (newStatus === 'discarded') {
+    throw new Error('to discard a change use `sl discard <id> "<reason>"` (a reason is required)');
+  }
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
@@ -95,6 +98,27 @@ export function owner(id, name, cwd = process.cwd()) {
   const next = name === '-' ? null : name;
   let text = setOwner(fs.readFileSync(file, 'utf8'), next);
   text = appendLog(text, nowUtc(), next ? `owner → ${next}` : 'owner cleared');
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+// Discards a change: a terminal lifecycle move that keeps the file and its
+// reasoning instead of deleting it. The reason is mandatory and recorded in the
+// Log; the transition graph rejects discarding a done or in-review change.
+export function discard(id, reason, cwd = process.cwd()) {
+  if (!reason) {
+    throw new Error('discard requires a reason — sl discard <id> "<reason>"');
+  }
+  const { config, file } = locate(cwd, id);
+  let text = fs.readFileSync(file, 'utf8');
+  const fm = parseChange(text).frontmatter;
+  // Validate before any mutation so an illegal discard leaves the file untouched.
+  assertTransition(fm.status, 'discarded', {
+    type: fm.type,
+    reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+  });
+  text = setStatus(text, 'discarded');
+  text = appendLog(text, nowUtc(), `status: ${fm.status} → discarded: ${reason}`);
   fs.writeFileSync(file, text);
   return file;
 }

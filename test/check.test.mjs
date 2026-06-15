@@ -392,3 +392,24 @@ test('CR2: a Log section is allowed on a type that does not scaffold it (chore)'
     [],
   );
 });
+
+// 20260615-210508 — a discarded change is valid and stays dependency-resolvable.
+test('210508 CR5: a discarded change passes check', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const { errors } = checkRepo({
+    config: cfg,
+    changes: [change({ frontmatter: { status: 'discarded' } })],
+  });
+  assert.equal(errors.length, 0, msgs(errors).join('; '));
+});
+
+test('210508 CR7: a dependency on a discarded change is not flagged as missing', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const a = change({ frontmatter: { id: '20260613-120000', status: 'discarded' } });
+  const b = change({
+    name: '20260613-120001-b.md',
+    frontmatter: { id: '20260613-120001', depends_on: ['20260613-120000'] },
+  });
+  const { errors } = checkRepo({ config: cfg, changes: [a, b] });
+  assert.ok(!msgs(errors).some((m) => /dangling|missing|depend/i.test(m)), msgs(errors).join('; '));
+});

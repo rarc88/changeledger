@@ -137,6 +137,8 @@ suffix for the reason. Order on the line: `description (CRn) — timestamp|reaso
 draft → approved → in-progress → in-review → done
                        ↑↓            │
                     blocked ←─────────┘
+
+(draft | approved | in-progress | blocked) → discarded   [terminal]
 ```
 
 - **draft** — the agent created it from the conversation. Do not implement yet.
@@ -148,12 +150,21 @@ draft → approved → in-progress → in-review → done
 - **blocked** — blocked; at least one `[!]` task or external impediment, or a
   review that escalated to a human. Note it in Log.
 - **done** — all tasks `[x]`, acceptance criteria met, review passed.
+- **discarded** — a terminal tombstone: the change was decided against. Reachable
+  from any active, non-terminal state (not from `done` or `in-review`) via
+  `sl discard <id> "<reason>"` — the reason is **required** and logged. Prefer
+  this over deleting the file: the decision and its rationale stay part of the
+  truth, and `depends_on` references keep resolving. Hidden from the board by
+  default; revealed by the viewer's "Discarded" toggle. Resurrecting a discarded
+  change is a manual file edit (like reopening a `done`).
 
 **Transitions are enforced.** `sl status` validates the graph above; a move
 outside it (e.g. `in-progress → done` while `review_required`, or reopening a
-`done`) is rejected. Reopening or un-approving is not the CLI's job — edit the
-file directly. The viewer only ever performs `draft → approved` (the human's
-one move); the rest is the agent's job via the CLI.
+`done`) is rejected. `sl status` also refuses `discarded` — use the dedicated
+`sl discard <id> "<reason>"` so a reason is always captured. Reopening or
+un-approving is not the CLI's job — edit the file directly. The viewer only ever
+performs `draft → approved` (the human's one move); the rest is the agent's job
+via the CLI.
 
 ## 6. Agent rules
 

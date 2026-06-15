@@ -68,3 +68,17 @@ test('review rejection edges are allowed: in-review → in-progress | blocked | 
   assert.doesNotThrow(() => assertTransition('in-review', 'blocked'));
   assert.doesNotThrow(() => assertTransition('in-review', 'done'));
 });
+
+// 20260615-210508 — `discarded` terminal state.
+test('discarded: reachable from active states, not from done/in-review, terminal', () => {
+  for (const from of ['draft', 'approved', 'in-progress', 'blocked']) {
+    assert.ok(canTransition(from, 'discarded'), `${from} → discarded`);
+  }
+  assert.ok(!canTransition('done', 'discarded'), 'done is terminal, cannot discard');
+  assert.ok(!canTransition('in-review', 'discarded'), 'must leave in-review first');
+  assert.ok(!canTransition('discarded', 'in-progress'), 'discarded has no outgoing');
+  assert.throws(
+    () => assertTransition('discarded', 'in-progress'),
+    /invalid lifecycle transition: discarded → in-progress/,
+  );
+});
