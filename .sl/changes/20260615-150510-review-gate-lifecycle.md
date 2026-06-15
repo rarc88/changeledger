@@ -154,17 +154,90 @@ por tipo. Los invariantes leen ese flag para decidir qué transiciones exigir.
 
 ## Specification
 
-> Se completará test-grade tras aprobar el diseño (CRn con valores concretos y
-> mensajes literales, por §11). Esbozo de criterios a cubrir:
-> - Transición `in-progress → done` directa es rechazada con mensaje literal.
-> - `in-progress → in-review → done` permitida.
-> - `in-review → in-progress` permitida (rechazo del revisor).
-> - `sl review pass|fail` mueve status, escribe Log y estampa handle del revisor.
-> - `config.yml` activa `in-review` solo para los tipos configurados.
+Hallazgo de la investigación: hoy `sl status` solo valida que el status sea un
+enum válido — **no** invariantes de transición (esas viven solo en el viewer,
+`draft→approved`). El gate obliga a introducir invariantes en el CLI. Los markers
+que el CLI escribe en el Log son **siempre inglés** (§8: CLI es estructura), igual
+que `status: X → Y` actual.
+
+### CR1 — config activa in-review y review_required por tipo
+- **Given** `templates/config.yml` recién sembrado por `sl init`
+- **Then** `statuses` es `[draft, approved, in-progress, in-review, blocked, done]`
+- **And** `types.feature`, `types.bug`, `types.refactor` tienen `review_required: true`
+- **And** `types.chore` y `types.audit` **no** declaran `review_required`
+
+### CR2 — check valida review_required booleano
+- **Given** un change cuyo `config.yml` declara `review_required: "yes"` (string) en un tipo
+- **When** se ejecuta `sl check`
+- **Then** es error con el texto literal `review_required must be a boolean`
+
+### CR3 — el gate rechaza in-progress → done en tipo con review_required
+- **Given** un change `type: feature`, `status: in-progress`
+- **When** `sl status <id> done`
+- **Then** lanza con el mensaje literal `feature changes must be reviewed before done — move to in-review first`
+- **And** el archivo no se modifica (ni status ni Log)
+
+### CR4 — tipo sin review_required va de in-progress a done directo
+- **Given** un change `type: chore`, `status: in-progress`
+- **When** `sl status <id> done`
+- **Then** el status pasa a `done` y se registra `status: in-progress → done` en el Log
+
+### CR5 — in-review solo es alcanzable desde in-progress
+- **Given** un change `type: feature`, `status: approved`
+- **When** `sl status <id> in-review`
+- **Then** lanza con el mensaje literal `in-review is only reachable from in-progress`
+- **And** el archivo no se modifica
+
+### CR6 — review pass mueve a done y marca la delegación
+- **Given** un change `type: feature`, `status: in-review`
+- **When** `sl review <id> pass`
+- **Then** el status pasa a `done`
+- **And** el Log gana la entrada `review → done (delegated subagent, clean context)`
+
+### CR7 — review fail --retry vuelve a in-progress con el motivo
+- **Given** un change `type: feature`, `status: in-review`
+- **When** `sl review <id> fail --retry "CR3 not met"`
+- **Then** el status pasa a `in-progress`
+- **And** el Log gana la entrada `review → in-progress (retry): CR3 not met`
+
+### CR8 — review fail --block escala a blocked con el motivo
+- **Given** un change `type: feature`, `status: in-review`
+- **When** `sl review <id> fail --block "spec is ambiguous"`
+- **Then** el status pasa a `blocked`
+- **And** el Log gana la entrada `review → blocked: spec is ambiguous`
+
+### CR9 — review exige status in-review
+- **Given** un change `type: feature`, `status: in-progress`
+- **When** `sl review <id> pass`
+- **Then** lanza con el mensaje literal `review requires status in-review (current: in-progress)`
+- **And** el archivo no se modifica
+
+### CR10 — review fail exige un motivo
+- **Given** un change `type: feature`, `status: in-review`
+- **When** `sl review <id> fail --retry` (sin motivo)
+- **Then** lanza con el mensaje literal `fail requires a reason — sl review <id> fail --retry|--block "<reason>"`
+- **And** el archivo no se modifica
+
+### CR11 — métricas cuentan in-review como WIP
+- **Given** un repo con un change en `in-review`
+- **When** se calcula `wip` en `metrics.mjs`
+- **Then** ese change cuenta como activo (in-review es estado WIP, junto a in-progress y blocked)
 
 ## Plan
 
-> Se completará tras aprobar el diseño. Tocará: `config.yml`, invariantes de
-> transición, `sl status`/`sl review`, viewer, AGENTS.md §5/§6. Atómico por capa.
+Invariantes en una función pura `assertTransition({ type, from, to, reviewRequired })`
+en `src/change.mjs`, llamada desde `status()` en `src/commands/agent.mjs` (que ya
+tiene el `config` vía `locate()`). El comando `sl review` es azúcar sobre
+`setStatus` + `appendLog` con precondición y markers fijos.
+
+- [ ] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1)
+- [ ] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2)
+- [ ] Añadir `assertTransition()` pura en `src/change.mjs` (grafo de transiciones + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5)
+- [ ] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5)
+- [ ] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10)
+- [ ] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11)
+- [ ] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs`
+- [ ] Renderizar el estado `in-review` en el viewer (`src/viewer/public/styles.css`, `app.js`); el viewer sigue permitiendo solo `draft→approved`
+- [ ] Documentar el gate en `templates/AGENTS.md`: §5 (diagrama + estado), §6 (regla revisión por subagente: contexto limpio + modelo acorde a dificultad), §9 (`sl review`)
 
 ## Log
