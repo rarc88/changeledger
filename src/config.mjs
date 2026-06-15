@@ -24,9 +24,11 @@ export function loadConfig(specDir) {
 // Resolves a configured directory (changes_dir/specs_dir) against the repo root,
 // refusing any value that escapes it. A cloned repo's config is untrusted input:
 // running a command must not let it read or write outside the repo it discovered.
-// Absolute paths and `..` traversal are rejected by shape; an existing target
-// that symlinks outside is rejected by comparing real paths. Returns the
-// absolute, contained path.
+// Absolute paths and `..` traversal are rejected by shape; symlinks are rejected
+// by comparing real paths. The target may not exist yet (a command is about to
+// create it), so we realpath the nearest existing ancestor: an intermediate
+// symlink leading outside is caught before any mkdir lands in the external
+// target. Returns the absolute, contained path.
 export function resolveRepoPath(repoRoot, configured, field) {
   if (typeof configured !== 'string' || configured === '') {
     throw new Error(`config "${field}" must be a non-empty relative path`);
@@ -39,14 +41,25 @@ export function resolveRepoPath(repoRoot, configured, field) {
   if (!isInside(root, resolved)) {
     throw new Error(`config "${field}" escapes the repo root: ${configured}`);
   }
-  if (fs.existsSync(resolved)) {
-    const realRoot = fs.realpathSync(root);
-    const real = fs.realpathSync(resolved);
-    if (!isInside(realRoot, real)) {
-      throw new Error(`config "${field}" resolves outside the repo via a symlink: ${configured}`);
-    }
+  const realRoot = fs.realpathSync(root);
+  const realAncestor = fs.realpathSync(nearestExisting(resolved));
+  if (!isInside(realRoot, realAncestor)) {
+    throw new Error(`config "${field}" resolves outside the repo via a symlink: ${configured}`);
   }
   return resolved;
+}
+
+// Nearest path component of `p` that exists on disk. The gap between it and `p`
+// is non-existent (so it cannot hide a symlink); the ancestor is what we realpath
+// to detect an intermediate symlink escaping the repo.
+function nearestExisting(p) {
+  let cur = p;
+  while (!fs.existsSync(cur)) {
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return cur;
 }
 
 function isInside(root, target) {
