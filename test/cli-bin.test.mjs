@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +12,16 @@ const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bi
 function run(...args) {
   try {
     const out = execFileSync('node', [bin, ...args], { encoding: 'utf8' });
+    return { code: 0, out, err: '' };
+  } catch (e) {
+    return { code: e.status ?? 1, out: e.stdout ?? '', err: e.stderr ?? '' };
+  }
+}
+
+// Run the CLI inside a repo, with an isolated registry home.
+function runIn(cwd, env, ...args) {
+  try {
+    const out = execFileSync('node', [bin, ...args], { encoding: 'utf8', cwd, env });
     return { code: 0, out, err: '' };
   } catch (e) {
     return { code: e.status ?? 1, out: e.stdout ?? '', err: e.stderr ?? '' };
@@ -40,4 +52,38 @@ test('CR4: sl --help lists all commands', () => {
   assert.equal(code, 0);
   assert.match(out, /sl init/);
   assert.match(out, /sl graduate/);
+  assert.match(out, /sl review/);
+});
+
+test('sl review --help shows pass and fail routing, exit 0', () => {
+  const { code, out } = run('review', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /pass/);
+  assert.match(out, /--retry/);
+  assert.match(out, /--block/);
+});
+
+// End-to-end: the bin parses `review <id> fail --block "<reason>"` (mode + reason
+// extraction) and routes the change to blocked.
+test('review wiring: fail --block parses the reason and blocks the change', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+
+  for (const s of ['approved', 'in-progress', 'in-review']) {
+    assert.equal(runIn(root, env, 'status', id, s).code, 0);
+  }
+  assert.equal(runIn(root, env, 'review', id, 'fail', '--block', 'spec is ambiguous').code, 0);
+
+  const shown = JSON.parse(runIn(root, env, 'show', id, '--json').out);
+  assert.equal(shown.frontmatter.status, 'blocked');
+  assert.match(
+    shown.stages.find((s) => s.key === 'log').body,
+    /review → blocked: spec is ambiguous/,
+  );
 });
