@@ -7,7 +7,7 @@ import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
-import { appendLog, setReviewed } from '../writer.mjs';
+import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 // Resolves a change id to its file under changes_dir. Throws if absent.
@@ -31,7 +31,11 @@ function slugify(s) {
     .replace(/^-+|-+$/g, '');
 }
 
-export function graduate(id, slug, cwd = process.cwd()) {
+// `into: true` graduates into an EXISTING spec — it refreshes the spec's
+// `updated` and links it back, but leaves the body to the agent (who knows what
+// to refine). Without `into`, a new spec is scaffolded and an existing one is an
+// error. Both routes share the same change-side record (marker + reviewed).
+export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   const { config, repoRoot, file: changeFile } = resolveChange(id, cwd);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
   if (change.frontmatter.status !== 'done') {
@@ -41,15 +45,24 @@ export function graduate(id, slug, cwd = process.cwd()) {
   const specsDir = resolveSpecsDir(repoRoot, config);
   const specName = `${slugify(slug)}.md`;
   const specFile = path.join(specsDir, specName);
-  if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
+  const exists = fs.existsSync(specFile);
 
-  const seedStage =
-    change.stages.find((s) => s.key === 'specification') ??
-    change.stages.find((s) => s.key === 'proposal');
-  const seed = seedStage ? seedStage.body : '';
-  const title = change.frontmatter.title;
+  if (into) {
+    if (!exists) {
+      throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
+    }
+    // Refresh the spec's updated; the body stays the agent's to edit.
+    fs.writeFileSync(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
+  } else {
+    if (exists) throw new Error(`Spec "${specName}" already exists`);
 
-  const content = `---
+    const seedStage =
+      change.stages.find((s) => s.key === 'specification') ??
+      change.stages.find((s) => s.key === 'proposal');
+    const seed = seedStage ? seedStage.body : '';
+    const title = change.frontmatter.title;
+
+    const content = `---
 title: ${serializeScalar(title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
@@ -61,9 +74,10 @@ tags: [${change.frontmatter.type}]
 
 ${seed}
 `;
+    fs.mkdirSync(specsDir, { recursive: true });
+    fs.writeFileSync(specFile, content);
+  }
 
-  fs.mkdirSync(specsDir, { recursive: true });
-  fs.writeFileSync(specFile, content);
   let text = appendLog(
     fs.readFileSync(changeFile, 'utf8'),
     nowUtc(),

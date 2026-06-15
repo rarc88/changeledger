@@ -24,7 +24,8 @@ const USAGE = `Spec Ledger (sl)
   sl task <id> done|block <n> [reason]   mark a Plan task
   sl list [--status S] [--type T] [--json]   list changes
   sl show <id> [--json]            print a change
-  sl graduate <change-id> <spec-slug>   graduate a change to a spec
+  sl graduate <change-id> <spec-slug>   graduate a change to a new spec
+  sl graduate <change-id> <spec-slug> --into   graduate into an existing spec
   sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   sl graduate --pending                 list done changes not yet reviewed`;
 
@@ -49,7 +50,8 @@ const HELP = {
   list: 'sl list [--status S] [--type T] [--json] — list changes',
   show: 'sl show <id> [--json] — print a change',
   graduate:
-    'sl graduate <change-id> <spec-slug> — graduate a change to a spec\n' +
+    'sl graduate <change-id> <spec-slug> — graduate a change to a new spec\n' +
+    'sl graduate <change-id> <spec-slug> --into — graduate into an existing spec\n' +
     'sl graduate <change-id> --skip [reason] — mark graduation reviewed, no spec\n' +
     'sl graduate --pending — list done changes not yet reviewed',
 };
@@ -193,9 +195,9 @@ try {
         console.log(`#${id} graduation skipped`);
         break;
       }
-      const [id, slug] = args;
+      const [id, slug] = args.filter((a) => !a.startsWith('--'));
       if (!id || !slug) throw new Error(usage('graduate'));
-      const file = graduate(id, slug);
+      const file = graduate(id, slug, process.cwd(), { into: args.includes('--into') });
       console.log(`Graduated #${id} → ${file}`);
       break;
     }

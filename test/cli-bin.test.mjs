@@ -87,3 +87,33 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
     /review → blocked: spec is ambiguous/,
   );
 });
+
+// End-to-end: `sl graduate <id> <slug> --into` links an existing spec (flag in
+// any position) without touching its body, exit 0.
+test('CR6: graduate --into wires through and links an existing spec', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  // chore: no review gate, straight to done.
+  for (const s of ['approved', 'in-progress', 'done']) {
+    assert.equal(runIn(root, env, 'status', id, s).code, 0);
+  }
+
+  const specFile = path.join(root, '.sl', 'specs', 'architecture.md');
+  fs.mkdirSync(path.dirname(specFile), { recursive: true });
+  fs.writeFileSync(
+    specFile,
+    '---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n\n# Arch\n\nBody kept.\n',
+  );
+
+  const res = runIn(root, env, 'graduate', id, 'architecture', '--into');
+  assert.equal(res.code, 0);
+  const after = fs.readFileSync(specFile, 'utf8');
+  assert.match(after, /Body kept\./);
+  assert.doesNotMatch(after, /2020-01-01T00:00:00Z/);
+});

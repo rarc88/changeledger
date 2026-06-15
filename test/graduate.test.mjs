@@ -40,6 +40,51 @@ El sistema soporta login OAuth.
   return { root, file, id: '20260613-120000' };
 }
 
+// Writes an existing spec with a known body and a stale `updated`.
+function seedSpec(root, name, body) {
+  const specsDir = path.join(root, '.sl', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  const file = path.join(specsDir, name);
+  fs.writeFileSync(
+    file,
+    `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n${body}`,
+  );
+  return file;
+}
+
+test('CR1: graduate --into links an existing spec without touching its body', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+
+  graduate(id, 'architecture', root, { into: true });
+
+  const after = fs.readFileSync(specFile, 'utf8');
+  assert.match(after, /Cuerpo intacto\./); // body preserved
+  assert.doesNotMatch(after, /2020-01-01T00:00:00Z/); // updated refreshed
+  const change = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.match(
+    change.stages.find((s) => s.key === 'log').body,
+    /graduado a spec `architecture.md`/,
+  );
+  assert.equal(change.frontmatter.reviewed, true);
+});
+
+test('CR2: graduate --into on a missing spec errors without writing', () => {
+  const { root, file, id } = repo();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => graduate(id, 'ghost', root, { into: true }),
+    /^Error: Spec "ghost\.md" does not exist — drop --into to create it$/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('CR3: graduate without --into on an existing spec still errors', () => {
+  const { root, id } = repo();
+  graduate(id, 'auth', root); // creates auth.md
+  assert.throws(() => graduate(id, 'auth', root), /^Error: Spec "auth\.md" already exists$/);
+});
+
 test('graduate creates a seeded spec and links it in the change Log', () => {
   const { root, file, id } = repo();
   const specFile = graduate(id, 'auth', root);

@@ -6,6 +6,7 @@ import {
   setArchived,
   setOwner,
   setReviewed,
+  setSpecUpdated,
   setStatus,
   setTask,
 } from '../src/writer.mjs';
@@ -126,4 +127,14 @@ test('setArchived adds and removes the archived flag', () => {
   assert.equal(parseChange(on).frontmatter.archived, true);
   const off = setArchived(on, false);
   assert.equal('archived' in parseChange(off).frontmatter, false);
+});
+
+test('CR5: setSpecUpdated replaces only the updated line', () => {
+  const spec = `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n\n# Arch\n\nBody.\n`;
+  const out = setSpecUpdated(spec, '2026-06-15T17:30:00Z');
+  assert.match(out, /^updated: 2026-06-15T17:30:00Z$/m);
+  assert.doesNotMatch(out, /2020-01-01/);
+  assert.match(out, /^title: Arch$/m);
+  assert.match(out, /^tags: \[architecture\]$/m);
+  assert.match(out, /# Arch\n\nBody\./);
 });
