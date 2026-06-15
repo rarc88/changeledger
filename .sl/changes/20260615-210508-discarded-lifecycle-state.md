@@ -2,7 +2,7 @@
 id: "20260615-210508"
 title: Estado terminal para descartar changes conservando el porqué
 type: feature
-status: draft
+status: approved
 created: 2026-06-15T21:05:08Z
 depends_on: []
 ---
@@ -109,3 +109,4 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 - [ ] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7)
 
 ## Log
+- **2026-06-15T21:16:06Z** — status: draft → approved
