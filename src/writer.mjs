@@ -48,6 +48,15 @@ export function setReviewed(text, reviewed) {
   return fm + text.slice(m[1].length);
 }
 
+// Refreshes a spec's `updated:` frontmatter line, leaving title, tags and body
+// untouched. Used when graduating a change into an existing spec.
+export function setSpecUpdated(text, iso) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  const fm = m[1].replace(/^updated:.*$/m, `updated: ${iso}`);
+  return fm + text.slice(m[1].length);
+}
+
 export function appendLog(text, iso, message) {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s+Log\s*$/.test(l));

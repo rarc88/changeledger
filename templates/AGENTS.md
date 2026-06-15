@@ -229,7 +229,10 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl log <id> "<message>"` — append a timestamped Log entry.
 - `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
 - `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
-- `sl graduate <change-id> <spec-slug>` — scaffold a spec seeded from the change.
+- `sl graduate <change-id> <spec-slug>` — scaffold a **new** spec seeded from the change.
+- `sl graduate <change-id> <spec-slug> --into` — graduate into an **existing**
+  spec: refresh its `updated`, link it in the change Log and mark `reviewed`,
+  without overwriting the spec body (you edit the body).
 - `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
   reviewed without a spec (bug/chore with no persistent truth); logs the reason.
 - `sl graduate --pending` — list done changes whose graduation is not reviewed yet.
@@ -254,9 +257,12 @@ tags: []
 
 When a change reaches `done`, update or create the spec(s) it affects. A change
 is the journey; a spec is the destination. `sl graduate <change-id> <spec-slug>`
-scaffolds a spec seeded from the change's Specification/Proposal and links it back
-in the change's Log — then refine the wording by hand. Prefer diagrams (§9 /
-mermaid) where they explain the system better than prose.
+scaffolds a **new** spec seeded from the change's Specification/Proposal and links
+it back in the change's Log — then refine the wording by hand. To graduate into an
+**existing** spec (the common case — extending `architecture.md` etc.), use
+`--into`: it links and marks `reviewed` and refreshes the spec's `updated` without
+overwriting the body, which you edit. Prefer diagrams (§9 / mermaid) where they
+explain the system better than prose.
 
 **Graduation review.** A done change either graduates to a spec or is reviewed as
 needing none (a bug/chore with no persistent truth). Both set the optional

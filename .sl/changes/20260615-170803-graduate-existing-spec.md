@@ -2,9 +2,10 @@
 id: "20260615-170803"
 title: Graduar a un spec existente sin edición manual
 type: feature
-status: draft
+status: in-progress
 created: 2026-06-15T17:08:03Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -81,18 +82,56 @@ repo (ya es así hoy); el resto de markers CLI permanecen en inglés (§8).
 
 ## Specification
 
-> Se completará test-grade tras aprobar el diseño (CRn con valores y mensajes
-> literales). Criterios a cubrir:
-> - `--into` sobre spec existente: deja marker, fija `reviewed`, refresca `updated`,
->   no altera el cuerpo.
-> - `--into` sobre spec inexistente: error literal, sin escribir.
-> - `graduate` sin `--into` sobre spec existente: sigue siendo el error actual.
-> - `graduate` sin `--into` sobre spec nuevo: comportamiento actual intacto.
+`graduate(id, slug, cwd, { into })` gana la opción `into`. El registro en el change
+(marker `graduado a spec` + `setReviewed(true)`) es **compartido** por ambas rutas;
+solo difiere el manejo del archivo del spec.
+
+### CR1 — `--into` sobre spec existente: enlaza sin tocar el cuerpo
+- **Given** un change `done` y un spec `architecture.md` con cuerpo `B` y
+  `updated: 2020-01-01T00:00:00Z`
+- **When** `graduate(id, "architecture", cwd, { into: true })`
+- **Then** el cuerpo del spec (todo lo posterior al frontmatter) sigue siendo `B`
+- **And** el `updated` del spec cambia (ya no es `2020-01-01T00:00:00Z`)
+- **And** el Log del change gana `graduado a spec \`architecture.md\``
+- **And** el change queda `reviewed: true`
+
+### CR2 — `--into` sobre spec inexistente: error simétrico, sin escribir
+- **Given** un change `done` y que **no** existe `ghost.md`
+- **When** `graduate(id, "ghost", cwd, { into: true })`
+- **Then** lanza con el mensaje literal `Spec "ghost.md" does not exist — drop --into to create it`
+- **And** el change no se modifica (sin marker ni `reviewed`)
+
+### CR3 — sin `--into` sobre spec existente: sigue siendo el error actual
+- **Given** un change `done` y un spec `architecture.md` existente
+- **When** `graduate(id, "architecture", cwd)` (sin `into`)
+- **Then** lanza con el mensaje literal `Spec "architecture.md" already exists`
+- **And** el change no se modifica
+
+### CR4 — sin `--into` sobre spec nuevo: comportamiento actual intacto
+- **Given** un change `done` y que no existe `fresh.md`
+- **When** `graduate(id, "fresh", cwd)`
+- **Then** crea `fresh.md` con `> Graduado del change <id>.` y la semilla
+- **And** el change queda `reviewed: true` con el marker en el Log
+
+### CR5 — `setSpecUpdated` reemplaza solo la línea `updated`
+- **Given** un spec con `title`, `updated: 2020-01-01T00:00:00Z`, `tags` y cuerpo
+- **When** `setSpecUpdated(text, "2026-06-15T17:30:00Z")`
+- **Then** la línea es `updated: 2026-06-15T17:30:00Z`
+- **And** `title`, `tags` y el cuerpo quedan intactos
+
+### CR6 — bin: `sl graduate <id> <slug> --into` cablea (e2e, flag en cualquier orden)
+- **Given** un change `done` y un spec existente, vía el binario
+- **When** `sl graduate <id> <slug> --into`
+- **Then** exit 0 y el spec queda enlazado (marker + `reviewed`), sin tocar el cuerpo
 
 ## Plan
 
-> Se completará tras aprobar el diseño. Tocará: `src/commands/graduate.mjs`,
-> `src/writer.mjs` (setSpecUpdated), `bin/sl.mjs` (+HELP), `templates/AGENTS.md`
-> §9/§10; tests en `test/graduate.test.mjs` y `test/cli-bin.test.mjs`.
+- [x] Añadir `setSpecUpdated(text, iso)` puro en `src/writer.mjs` (reemplaza la línea `updated:` del frontmatter); test en `test/writer.test.mjs` (CR5) — 2026-06-15T17:36:16Z
+- [x] Extender `graduate(id, slug, cwd, { into })` en `src/commands/graduate.mjs`: rama `into` exige spec existente (error simétrico), refresca `updated` vía `setSpecUpdated`, no toca el cuerpo; marker + `setReviewed` compartidos; test en `test/graduate.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-15T17:36:16Z
+- [x] Parsear `--into` en el caso `graduate` de `bin/sl.mjs` (positionals robustos a flags) + entrada en `HELP`/`USAGE`; test e2e en `test/cli-bin.test.mjs` (CR6) — 2026-06-15T17:36:16Z
+- [x] Documentar `--into` en `templates/AGENTS.md` §9 (`sl graduate … --into`) y §10 (graduar a spec existente) — 2026-06-15T17:36:17Z
 
 ## Log
+- **2026-06-15T17:29:52Z** — status: draft → approved
+- **2026-06-15T17:31:48Z** — status: approved → in-progress
+- **2026-06-15T17:31:48Z** — owner → raruiz-hiberuscom (auto)
