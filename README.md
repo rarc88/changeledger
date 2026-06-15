@@ -70,10 +70,19 @@ its files and test, mapped to a `CR`) and implemented via TDD. `sl check` warns
 when an `approved`/`in-progress` change has a `CR` without a task, or a task
 without a `CR`. Set `tdd: false` for exploratory repos. See [`AGENTS.md`](AGENTS.md) §11.
 
+## Requirements
+
+- **Node ≥ 20** (aligned with the `marked` runtime dependency).
+- Tested on Linux, macOS and Windows via CI.
+- On **Windows**, `sl init` links the contract into `.sl/AGENTS.md` with a
+  symlink; without Developer Mode or admin it falls back to a copy (re-run
+  `sl register` to refresh it if the installed contract changes).
+
 ## Development
 
-Managed with **pnpm**. Lint/format via **Biome**; the source itself ships zero
-runtime dependencies.
+Managed with **pnpm** (pinned via `packageManager`). Lint/format via **Biome**.
+The CLI core is dependency-free; the viewer vendors `marked`, `dompurify` and
+`mermaid` for in-browser rendering.
 
 ```sh
 pnpm install                  # dev deps (Biome)

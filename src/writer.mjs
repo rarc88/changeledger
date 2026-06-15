@@ -1,6 +1,8 @@
 // Pure text transforms on a change file. They preserve the rest of the document
 // and are the basis for the `sl status`/`log`/`task` mutation commands.
 
+import { serializeScalar } from './yaml.mjs';
+
 const FM = /^(---\n[\s\S]*?\n---\n)/;
 
 export function setStatus(text, status) {
@@ -18,7 +20,7 @@ export function setOwner(text, owner) {
   let fm = m[1];
   fm = fm.replace(/^owner:.*\n/m, '');
   if (owner) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${owner}\n`);
+    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${serializeScalar(owner)}\n`);
   }
   return fm + text.slice(m[1].length);
 }

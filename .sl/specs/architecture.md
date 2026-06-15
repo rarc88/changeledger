@@ -50,7 +50,11 @@ flowchart TD
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
   `reviewed` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
-  de vida (`draft → approved → in-progress → done`, con `blocked`). Tareas en
+  de vida (`draft → approved → in-progress → done`, con `blocked` como desvío
+  reversible desde `in-progress`). El grafo de transiciones vive en
+  `src/lifecycle.mjs` y es la única autoridad: tanto `sl status` como el visor lo
+  consultan, rechazando saltos (`draft → done`), regresiones y no-ops. El visor
+  añade una restricción humana extra: solo permite `draft → approved`. Tareas en
   `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
@@ -152,8 +156,13 @@ inglés canónico.
 
 ## Presentación
 
-El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
-request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
+El visor (`sl view`) levanta un server `node:http` enlazado **solo a loopback**
+(`127.0.0.1`) que relee `.sl/` en cada request (live) y expone JSON. Rechaza
+requests cuyo `Host`/`Origin` no sea local (defensa anti DNS-rebinding), añade
+headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
+body y exige una credencial efímera por proceso (inyectada en la página y
+enviada en `x-sl-token`) para escribir. Las escrituras exigen un `project`
+exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
 card entre esas columnas del board (el único salto que le corresponde; el resto
 del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
@@ -162,7 +171,12 @@ owner) y render de markdown + mermaid. Los changes con `archived: true` se ocult
 por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
 sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
 `mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
-`/vendor/*`; el resto del runtime es cero-deps. En modo global el visor lee el
+`/vendor/*`; el resto del runtime es cero-deps. **Frontera de confianza:** los
+documentos del repo son contenido no confiable aunque el repo sea local. El
+cuerpo Markdown se rinde vía `safeHtml` (marked → DOMPurify, también servido bajo
+`/vendor/*`) antes de tocar el DOM, y Mermaid se inicializa con
+`securityLevel: 'strict'`, de modo que ningún change/spec pueda ejecutar
+JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.

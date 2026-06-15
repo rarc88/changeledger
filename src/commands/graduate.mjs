@@ -5,9 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findSpecDir, loadConfig } from '../config.mjs';
+import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { appendLog, setReviewed } from '../writer.mjs';
+import { serializeScalar } from '../yaml.mjs';
 
 // Resolves a change id to its file under changes_dir. Throws if absent.
 function resolveChange(id, cwd) {
@@ -15,7 +16,7 @@ function resolveChange(id, cwd) {
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
   const config = loadConfig(specDir);
   const repoRoot = path.dirname(specDir);
-  const changesDir = path.join(repoRoot, config.changes_dir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   const name = fs.existsSync(changesDir)
     ? fs.readdirSync(changesDir).find((n) => n.startsWith(`${id}-`))
     : null;
@@ -33,8 +34,11 @@ function slugify(s) {
 export function graduate(id, slug, cwd = process.cwd()) {
   const { config, repoRoot, file: changeFile } = resolveChange(id, cwd);
   const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
+  if (change.frontmatter.status !== 'done') {
+    throw new Error('only done changes can be graduated/skipped');
+  }
 
-  const specsDir = path.join(repoRoot, config.specs_dir ?? '.sl/specs');
+  const specsDir = resolveSpecsDir(repoRoot, config);
   const specName = `${slugify(slug)}.md`;
   const specFile = path.join(specsDir, specName);
   if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
@@ -46,7 +50,7 @@ export function graduate(id, slug, cwd = process.cwd()) {
   const title = change.frontmatter.title;
 
   const content = `---
-title: ${title}
+title: ${serializeScalar(title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
 ---
@@ -91,7 +95,7 @@ export function pendingGraduation(cwd = process.cwd()) {
   if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
   const config = loadConfig(specDir);
   const repoRoot = path.dirname(specDir);
-  const changesDir = path.join(repoRoot, config.changes_dir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   if (!fs.existsSync(changesDir)) return [];
 
   return fs

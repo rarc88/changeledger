@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -22,6 +23,9 @@ function vendorFile(route) {
     }
     if (route === '/vendor/mermaid.min.js') {
       return require.resolve('mermaid/dist/mermaid.min.js');
+    }
+    if (route === '/vendor/purify.min.js') {
+      return require.resolve('dompurify/dist/purify.min.js');
     }
   } catch {
     return null;
@@ -123,8 +127,10 @@ export function searchProjects(projects, q, load = loadRepo) {
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
 export function changeStatus(projects, { project, id, status }) {
-  const proj = projects.find((p) => p.id === project) ?? projects[0];
-  if (!proj) return { code: 404, body: { error: 'no project' } };
+  // A write must target an exact project; never silently fall back to the first
+  // registered one.
+  const proj = projects.find((p) => p.id === project);
+  if (!proj) return { code: 404, body: { error: `no project "${project}"` } };
   if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
   if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
 
@@ -154,26 +160,88 @@ export function changeStatus(projects, { project, id, status }) {
   }
 }
 
+// Defensive headers for a local-only UI: never sniff types, never cache, and
+// forbid embedding in a frame (clickjacking).
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Cache-Control': 'no-store',
+};
+
+const MAX_BODY = 64 * 1024; // a status payload is tiny; cap to stay defensive
+const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
+
 function send(res, code, type, body) {
-  res.writeHead(code, { 'Content-Type': type });
+  res.writeHead(code, { 'Content-Type': type, ...SECURITY_HEADERS });
   res.end(body);
 }
 
-export async function view(args = [], cwd = process.cwd()) {
-  const localOnly = args.includes('.');
-  resolveProjects(cwd, localOnly); // fail fast if local mode outside a repo
+// Bare hostname from a Host/Origin authority, dropping the port and IPv6
+// brackets. '' when absent.
+function hostnameOf(authority) {
+  if (!authority) return '';
+  const m = String(authority).match(/^(\[[^\]]+\]|[^:]+)(?::\d+)?$/);
+  const host = m ? m[1] : authority;
+  return host.replace(/^\[|\]$/g, '');
+}
 
-  const server = http.createServer((req, res) => {
+// The request must be addressed to the loopback host. This (with the loopback
+// bind) defends against DNS-rebinding: a rebinding attack reaches the socket but
+// carries the attacker's domain in Host.
+function isLocalHost(req) {
+  return LOOPBACK.has(hostnameOf(req.headers.host));
+}
+
+// A write must come from the viewer's own page: a same-origin Origin (when the
+// browser sends one) and the per-process token the page was given. A
+// cross-origin attacker cannot read the token, so it cannot forge the header.
+function isAuthorizedWrite(req, token) {
+  if (req.headers['x-sl-token'] !== token) return false;
+  const origin = req.headers.origin;
+  if (origin && !LOOPBACK.has(hostnameOf(new URL(origin).host))) return false;
+  return true;
+}
+
+// Injects the per-process write token into the served page so same-origin JS can
+// read it; cross-origin pages cannot, by the same-origin policy.
+function serveIndex(res, token) {
+  const html = fs
+    .readFileSync(path.join(publicDir, 'index.html'), 'utf8')
+    .replace('__SL_TOKEN_VALUE__', token);
+  send(res, 200, MIME['.html'], html);
+}
+
+// Builds the HTTP request listener. Exposed (with an injectable token) so the
+// security boundary is testable over real HTTP without opening a browser.
+export function createRequestListener(cwd, localOnly, token) {
+  return (req, res) => {
     try {
+      if (!isLocalHost(req)) {
+        send(res, 403, MIME['.json'], JSON.stringify({ error: 'non-local host rejected' }));
+        return;
+      }
       const [route, query] = req.url.split('?');
       const params = new URLSearchParams(query);
 
       if (req.method === 'POST' && route === '/api/status') {
+        if (!isAuthorizedWrite(req, token)) {
+          send(res, 403, MIME['.json'], JSON.stringify({ error: 'unauthorized write' }));
+          req.destroy();
+          return;
+        }
         let raw = '';
+        let aborted = false;
         req.on('data', (chunk) => {
+          if (aborted) return;
           raw += chunk;
+          if (raw.length > MAX_BODY) {
+            aborted = true;
+            send(res, 413, MIME['.json'], JSON.stringify({ error: 'body too large' }));
+            req.destroy();
+          }
         });
         req.on('end', () => {
+          if (aborted) return;
           let payload;
           try {
             payload = JSON.parse(raw || '{}');
@@ -194,7 +262,7 @@ export async function view(args = [], cwd = process.cwd()) {
       }
       if (route === '/api/git') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
+        const proj = projects.find((p) => p.id === params.get('project'));
         if (!proj?.alive) {
           send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
           return;
@@ -209,7 +277,7 @@ export async function view(args = [], cwd = process.cwd()) {
       }
       if (route === '/api/repo') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const proj = projects.find((p) => p.id === params.get('project')) ?? projects[0];
+        const proj = projects.find((p) => p.id === params.get('project'));
         if (!proj) {
           send(res, 404, MIME['.json'], JSON.stringify({ error: 'no project' }));
           return;
@@ -229,8 +297,11 @@ export async function view(args = [], cwd = process.cwd()) {
         return;
       }
 
-      const urlPath = route === '/' ? '/index.html' : route;
-      const file = path.join(publicDir, path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, ''));
+      if (route === '/' || route === '/index.html') {
+        serveIndex(res, token);
+        return;
+      }
+      const file = path.join(publicDir, path.normalize(route).replace(/^(\.\.(\/|\\|$))+/, ''));
       if (file.startsWith(publicDir) && fs.existsSync(file) && fs.statSync(file).isFile()) {
         send(res, 200, MIME[path.extname(file)] ?? 'text/plain', fs.readFileSync(file));
       } else {
@@ -239,22 +310,33 @@ export async function view(args = [], cwd = process.cwd()) {
     } catch (e) {
       send(res, 500, MIME['.json'], JSON.stringify({ error: e.message }));
     }
-  });
+  };
+}
 
-  const port = await listen(server, Number(args.find((a) => /^\d+$/.test(a))) || 4040);
-  const url = `http://localhost:${port}`;
+export async function view(args = [], cwd = process.cwd()) {
+  const localOnly = args.includes('.');
+  resolveProjects(cwd, localOnly); // fail fast if local mode outside a repo
+
+  const token = crypto.randomBytes(16).toString('hex');
+  const server = http.createServer(createRequestListener(cwd, localOnly, token));
+  server.requestTimeout = 30_000;
+  server.headersTimeout = 10_000;
+
+  const host = '127.0.0.1';
+  const port = await listen(server, host, Number(args.find((a) => /^\d+$/.test(a))) || 4040);
+  const url = `http://${host}:${port}`;
   console.log(`Spec Ledger viewer → ${url}  (Ctrl+C to stop)`);
   openBrowser(url);
 }
 
-function listen(server, port, attempts = 10) {
+function listen(server, host, port, attempts = 10) {
   return new Promise((resolve, reject) => {
     const tryPort = (p, left) => {
       server.once('error', (e) => {
         if (e.code === 'EADDRINUSE' && left > 0) tryPort(p + 1, left - 1);
         else reject(e);
       });
-      server.listen(p, () => resolve(p));
+      server.listen(p, host, () => resolve(p));
     };
     tryPort(port, attempts);
   });
