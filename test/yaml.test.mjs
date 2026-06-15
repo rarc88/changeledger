@@ -38,6 +38,11 @@ test('parses flat scalars with type coercion', () => {
   assert.deepEqual(r, { language: 'es', id_digits: 4, active: true });
 });
 
+test('rejects non-mapping YAML documents', () => {
+  assert.throws(() => parseYaml('hello'), /must be a mapping/);
+  assert.throws(() => parseYaml('- one\n- two'), /must be a mapping/);
+});
+
 test('keeps quoted strings as strings', () => {
   const r = parseYaml('id: "0001"');
   assert.equal(r.id, '0001');
@@ -45,6 +50,11 @@ test('keeps quoted strings as strings', () => {
 
 test('parses inline arrays with coercion', () => {
   const r = parseYaml('statuses: [draft, approved, done]');
+  assert.deepEqual(r.statuses, ['draft', 'approved', 'done']);
+});
+
+test('parses block sequences from standard YAML', () => {
+  const r = parseYaml('statuses:\n  - draft\n  - approved\n  - done');
   assert.deepEqual(r.statuses, ['draft', 'approved', 'done']);
 });
 

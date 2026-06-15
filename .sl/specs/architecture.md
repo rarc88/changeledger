@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T22:51:10Z
+updated: 2026-06-15T23:02:40Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -267,9 +267,9 @@ agrupa los resultados por proyecto.
 
 Spec Ledger no prohíbe dependencias runtime, pero las trata como coste de
 producto: cada una debe ser madura, mantenida y proporcional al problema que
-resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño
-cuando el formato está controlado por la herramienta (por ejemplo, el subset de
-YAML del frontmatter/config). En cambio, para dominios con superficie amplia o
-riesgo de seguridad —render Markdown, sanitización HTML, diagramas— el visor usa
-librerías especializadas y conocidas (`marked`, `dompurify`, `mermaid`) en vez de
-reinventarlas.
+resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño,
+pero usa `yaml` para parsear y serializar `.sl/config.yml` y frontmatter porque
+YAML tiene suficientes reglas y bordes como para no mantener un parser propio. En
+dominios con superficie amplia o riesgo de seguridad —render Markdown,
+sanitización HTML, diagramas— el visor usa librerías especializadas y conocidas
+(`marked`, `dompurify`, `mermaid`) en vez de reinventarlas.

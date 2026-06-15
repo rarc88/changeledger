@@ -17,6 +17,9 @@ importers:
       mermaid:
         specifier: ^11.15.0
         version: 11.15.0
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.0
@@ -1501,5 +1504,4 @@ snapshots:
 
   xmlchars@2.2.0: {}
 
-  yaml@2.9.0:
-    optional: true
+  yaml@2.9.0: {}
