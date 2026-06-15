@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T16:12:31Z
+updated: 2026-06-15T17:37:35Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -12,6 +12,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
 > Graduado del change 20260614-182513 (owner desde GitHub login).
 > Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
+> Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -66,6 +67,14 @@ también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
 `graduado a spec` del Log — `reviewed` solo registra que la pregunta quedó zanjada.
 `check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
 bajo demanda).
+
+`graduate()` tiene dos rutas. Por defecto **crea** un spec nuevo (semilla desde
+Specification/Proposal) y falla si ya existe. Con `--into` (`{ into: true }`)
+**gradúa a un spec existente**: exige que exista (error simétrico si no), refresca
+su `updated` (`writer.setSpecUpdated`) y deja el cuerpo al agente — no lo
+sobrescribe. Ambas rutas comparten el registro en el change (marker + `reviewed`).
+La sustitución es explícita (flag), nunca por auto-detección, para que un slug mal
+tecleado no enlace por error.
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se

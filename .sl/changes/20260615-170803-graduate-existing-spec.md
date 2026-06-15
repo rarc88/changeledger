@@ -2,9 +2,10 @@
 id: "20260615-170803"
 title: Graduar a un spec existente sin edición manual
 type: feature
-status: in-progress
+status: done
 created: 2026-06-15T17:08:03Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -135,3 +136,7 @@ solo difiere el manejo del archivo del spec.
 - **2026-06-15T17:29:52Z** — status: draft → approved
 - **2026-06-15T17:31:48Z** — status: approved → in-progress
 - **2026-06-15T17:31:48Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T17:36:31Z** — status: in-progress → in-review
+- **2026-06-15T17:37:35Z** — independent review (delegated subagent, clean context): VERDICT pass — 6/6 CRs implemented and tested, literal messages match, shared marker+reviewed write, no write on error paths, no residue, pnpm verify green.
+- **2026-06-15T17:37:35Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T17:37:35Z** — graduado a spec `architecture.md`
