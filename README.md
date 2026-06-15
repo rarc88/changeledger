@@ -99,8 +99,11 @@ without a `CR`. Set `tdd: false` for exploratory repos. See [`AGENTS.md`](AGENTS
 ## Development
 
 Managed with **pnpm** (pinned via `packageManager`). Lint/format via **Biome**.
-The CLI core is dependency-free; the viewer vendors `marked`, `dompurify` and
-`mermaid` for in-browser rendering.
+The CLI core stays intentionally lightweight and mostly standard-library based.
+Runtime dependencies are not forbidden, but they must earn their place: prefer
+small local code for controlled formats, and use mature, maintained libraries
+when they reduce real risk or cover complex domains. The viewer deliberately uses
+`marked`, `dompurify` and `mermaid` for Markdown, sanitization and diagrams.
 
 ```sh
 pnpm install                  # dev deps (Biome)

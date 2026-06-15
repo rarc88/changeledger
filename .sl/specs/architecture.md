@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T21:34:34Z
+updated: 2026-06-15T22:08:06Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -156,7 +156,10 @@ archivo. El visor añade una restricción humana extra: solo permite
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
 sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
-segundo. Ordenable cronológicamente.
+segundo. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
+y escritura exclusiva del archivo final), de modo que dos procesos concurrentes
+no pueden escribir el mismo id. El slug estructural se normaliza a kebab ASCII y
+se rechaza si queda vacío. Ordenable cronológicamente.
 
 ## Métricas
 
@@ -236,16 +239,33 @@ permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
 card entre esas columnas del board (el único salto que le corresponde; el resto
 del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
 (`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
-owner) y render de markdown + mermaid. Los changes con `archived: true` se ocultan
-por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
-sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
-`mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
-`/vendor/*`; el resto del runtime es cero-deps. **Frontera de confianza:** los
-documentos del repo son contenido no confiable aunque el repo sea local. El
-cuerpo Markdown se rinde vía `safeHtml` (marked → DOMPurify, también servido bajo
-`/vendor/*`) antes de tocar el DOM, y Mermaid se inicializa con
-`securityLevel: 'strict'`, de modo que ningún change/spec pueda ejecutar
-JavaScript en el origen del visor. En modo global el visor lee el
+owner) y render de markdown + mermaid. El cliente está dividido en módulos
+estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
+(filtros y tombstones), `api.js` (fetch), `view-parts.js` (snippets reutilizables)
+y `view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y
+wiring de eventos.
+
+Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
+mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
+`check` y las deps los siguen viendo. `marked`, `dompurify` y `mermaid` son
+dependencias instaladas (pnpm), servidas desde `node_modules` bajo `/vendor/*`.
+**Frontera de confianza:** los documentos del repo son contenido no confiable
+aunque el repo sea local. El cuerpo Markdown se rinde vía `safeHtml` (marked →
+DOMPurify) antes de tocar el DOM; si `marked` o `DOMPurify` no cargan, `safeHtml`
+falla cerrado y muestra un mensaje en vez de insertar HTML no sanitizado. Mermaid
+se inicializa con `securityLevel: 'strict'`, de modo que ningún change/spec pueda
+ejecutar JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.
+
+## Política de dependencias
+
+Spec Ledger no prohíbe dependencias runtime, pero las trata como coste de
+producto: cada una debe ser madura, mantenida y proporcional al problema que
+resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño
+cuando el formato está controlado por la herramienta (por ejemplo, el subset de
+YAML del frontmatter/config). En cambio, para dominios con superficie amplia o
+riesgo de seguridad —render Markdown, sanitización HTML, diagramas— el visor usa
+librerías especializadas y conocidas (`marked`, `dompurify`, `mermaid`) en vez de
+reinventarlas.
