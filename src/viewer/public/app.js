@@ -13,7 +13,18 @@ let globalMode = false;
 const $ = (sel) => document.querySelector(sel);
 
 if (typeof mermaid !== 'undefined') {
-  mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+  // securityLevel 'strict' is explicit: change/spec bodies are untrusted input,
+  // so diagram text must not run scripts or click handlers.
+  mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+}
+
+// Renders untrusted Markdown to sanitized HTML. Marked does not strip active
+// HTML (event handlers, javascript: URLs, <script>), so every body that reaches
+// innerHTML passes through DOMPurify first. Repo documents are untrusted even
+// locally — opening the viewer must not let a document run code in its origin.
+function safeHtml(markdown) {
+  const html = marked.parse(markdown || '');
+  return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html) : html;
 }
 
 // Replace ```mermaid code blocks (rendered by marked as <pre><code>) with live
@@ -308,8 +319,7 @@ async function loadGitRefs(id) {
 }
 
 function stageBlock(c, s) {
-  const content =
-    s.key === 'plan' && c.tasks.length ? taskList(c.tasks) : marked.parse(s.body || '');
+  const content = s.key === 'plan' && c.tasks.length ? taskList(c.tasks) : safeHtml(s.body);
   return `
     <div class="stage" id="stage-${s.key}">
       <h2>${s.heading}</h2>
@@ -547,7 +557,7 @@ function openSpec(s) {
       <span class="pill" title="${esc(s.updated || '')}">${esc(fmtDateTime(s.updated))}</span>
       ${(s.tags || []).map((t) => `<span class="pill">${esc(t)}</span>`).join('')}
     </div>
-    <div class="stage-content">${marked.parse(s.body || '')}</div>`;
+    <div class="stage-content">${safeHtml(s.body)}</div>`;
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
   $('.close').onclick = closeDetail;

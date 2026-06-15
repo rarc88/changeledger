@@ -166,7 +166,12 @@ owner) y render de markdown + mermaid. Los changes con `archived: true` se ocult
 por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
 sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
 `mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
-`/vendor/*`; el resto del runtime es cero-deps. En modo global el visor lee el
+`/vendor/*`; el resto del runtime es cero-deps. **Frontera de confianza:** los
+documentos del repo son contenido no confiable aunque el repo sea local. El
+cuerpo Markdown se rinde vía `safeHtml` (marked → DOMPurify, también servido bajo
+`/vendor/*`) antes de tocar el DOM, y Mermaid se inicializa con
+`securityLevel: 'strict'`, de modo que ningún change/spec pueda ejecutar
+JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.

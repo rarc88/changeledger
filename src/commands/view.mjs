@@ -23,6 +23,9 @@ function vendorFile(route) {
     if (route === '/vendor/mermaid.min.js') {
       return require.resolve('mermaid/dist/mermaid.min.js');
     }
+    if (route === '/vendor/purify.min.js') {
+      return require.resolve('dompurify/dist/purify.min.js');
+    }
   } catch {
     return null;
   }

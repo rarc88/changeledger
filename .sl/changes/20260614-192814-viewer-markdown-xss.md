@@ -2,9 +2,10 @@
 id: "20260614-192814"
 title: Sanitizar Markdown y Mermaid en el visor
 type: bug
-status: approved
+status: done
 created: 2026-06-14T19:28:14Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -55,10 +56,13 @@ contenido no confiable, incluso cuando el repo sea local.
 
 ## Plan
 
-- [ ] Añadir una estrategia de sanitización mantenida para el HTML producido por Marked y aplicarla antes de cada inserción en el DOM — `package.json`, `src/viewer/public/app.js` y lockfile (CR1, CR2, CR3)
-- [ ] Configurar Mermaid para contenido no confiable y documentar la frontera de confianza del visor — `src/viewer/public/app.js`, `.sl/specs/architecture.md` (CR4)
-- [ ] Añadir pruebas de navegador/DOM para payloads XSS, URLs peligrosas y Markdown permitido — tests del visor (CR1, CR2, CR3, CR4)
-- [ ] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid (CR3, CR4)
+- [x] Añadir una estrategia de sanitización mantenida para el HTML producido por Marked y aplicarla antes de cada inserción en el DOM — 2026-06-15T11:50:55Z
+- [x] Configurar Mermaid para contenido no confiable y documentar la frontera de confianza del visor — 2026-06-15T11:50:55Z
+- [x] Añadir pruebas de navegador/DOM para payloads XSS, URLs peligrosas y Markdown permitido — 2026-06-15T11:50:55Z
+- [x] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid (CR3, CR4) — 2026-06-15T11:50:55Z
 
 ## Log
 - **2026-06-15T11:38:40Z** — status: draft → approved
+- **2026-06-15T11:47:48Z** — status: approved → in-progress
+- **2026-06-15T11:47:49Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-15T11:50:55Z** — status: in-progress → done
