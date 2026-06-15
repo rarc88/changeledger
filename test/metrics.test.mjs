@@ -109,6 +109,17 @@ test('CR2: wip counts active states; aging measures in-progress age', () => {
   assert.equal(m.aging[0].ms, 10 * HOUR);
 });
 
+test('CR11: wip counts an in-review change as active', () => {
+  const c = change({
+    id: 'r',
+    created: '2026-06-13T10:00:00Z',
+    status: 'in-review',
+    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-review`,
+  });
+  const m = computeMetrics([c], { now: '2026-06-13T12:00:00Z' });
+  assert.equal(m.wip['in-review'], 1);
+});
+
 test('CR2: blockedMs sums time spent blocked', () => {
   const c = change({
     id: 'c',

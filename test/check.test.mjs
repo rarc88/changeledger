@@ -139,6 +139,12 @@ test('config type referencing an unknown stage is an error', () => {
   assert.ok(msgs(errors).some((m) => /references unknown stage "banana"/.test(m)));
 });
 
+test('CR2: a non-boolean review_required is an error', () => {
+  const bad = { ...config, types: { feature: { stages: ['request'], review_required: 'yes' } } };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  assert.ok(msgs(errors).some((m) => /review_required must be a boolean/.test(m)));
+});
+
 test('scoped check validates only the requested change', () => {
   const good = change();
   const bad = change({

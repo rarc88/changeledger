@@ -134,16 +134,26 @@ suffix for the reason. Order on the line: `description (CRn) — timestamp|reaso
 ## 5. Lifecycle (`status`)
 
 ```
-draft → approved → in-progress → done
-                       ↑↓
-                    blocked
+draft → approved → in-progress → in-review → done
+                       ↑↓            │
+                    blocked ←─────────┘
 ```
 
 - **draft** — the agent created it from the conversation. Do not implement yet.
 - **approved** — the human reviewed it in the viewer and approved. Ready to build.
 - **in-progress** — implementation underway; tick tasks as you go.
-- **blocked** — blocked; at least one `[!]` task or external impediment. Note it in Log.
-- **done** — all tasks `[x]`, acceptance criteria met.
+- **in-review** — implementation complete; awaiting an **independent review**
+  before `done` (see §6). Only for types with `review_required: true` in
+  `config.yml`; others go straight `in-progress → done`.
+- **blocked** — blocked; at least one `[!]` task or external impediment, or a
+  review that escalated to a human. Note it in Log.
+- **done** — all tasks `[x]`, acceptance criteria met, review passed.
+
+**Transitions are enforced.** `sl status` validates the graph above; a move
+outside it (e.g. `in-progress → done` while `review_required`, or reopening a
+`done`) is rejected. Reopening or un-approving is not the CLI's job — edit the
+file directly. The viewer only ever performs `draft → approved` (the human's
+one move); the rest is the agent's job via the CLI.
 
 ## 6. Agent rules
 
@@ -156,10 +166,23 @@ draft → approved → in-progress → done
    whole change into one blob.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
-6. **On completion**, graduate the truth: update or create the `specs/` doc(s)
-   that capture the new persistent state (see §10).
+6. **Independent review before `done`.** When the implementation is complete,
+   move to `in-review` and **delegate the review to a fresh subagent** — clean
+   context (no implementation history, so no bias) and a model **sized to the
+   difficulty** (don't spend a costly model on a trivial check). The reviewer
+   verifies: every `CRn` is met, no residue (rule 7), the Plan is truly done, and
+   the spec graduation is faithful (§10). Deep security/SAST/lint live in
+   dedicated tools — the reviewer may invoke them and record the verdict, but Spec
+   Ledger does not reimplement them. Record the verdict with `sl review` (§9):
+   `pass → done`; `fail --retry` (defect inside the contract → back to
+   `in-progress`); `fail --block` (exceeds the contract → `blocked` for a human).
+   *How* the subagent is spawned is the host agent's concern; the contract only
+   fixes that it must be a clean-context subagent. Skipped for types without
+   `review_required`.
 7. **No residue:** no TODO/FIXME or dead code without explicit agreement.
-8. **Prefer visuals.** When a diagram explains something better than prose
+8. **On completion**, graduate the truth: update or create the `specs/` doc(s)
+   that capture the new persistent state (see §10).
+9. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
 
@@ -198,6 +221,9 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl register` — (re)link this repo's path in the global registry after a move/clone.
 - `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
 - `sl status <id> <status>` — move the lifecycle and log the transition.
+- `sl review <id> pass` — record a passed independent review (`in-review → done`).
+- `sl review <id> fail --retry|--block "<reason>"` — record a failed review,
+  routing back to `in-progress` (fixable) or `blocked` (escalates to a human).
 - `sl owner <id> <name|->` — set or clear the owner (`-` clears).
 - `sl archive <id>` / `sl unarchive <id>` — hide/show a change in the viewer.
 - `sl log <id> "<message>"` — append a timestamped Log entry.

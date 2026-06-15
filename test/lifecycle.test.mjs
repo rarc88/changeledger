@@ -31,3 +31,40 @@ test('custom (non-canonical) statuses keep enum-only behavior', () => {
   assert.doesNotThrow(() => assertTransition('draft', 'archived-custom'));
   assert.doesNotThrow(() => assertTransition('custom', 'done'));
 });
+
+// Review gate (change 20260615-150510): in-review sits between in-progress and
+// done for review_required types.
+
+test('CR3: a review_required type cannot jump from in-progress to done', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'done', { type: 'feature', reviewRequired: true }),
+    /^Error: feature changes must be reviewed before done — move to in-review first$/,
+  );
+});
+
+test('CR4: a non-review_required type goes from in-progress to done', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'done', { type: 'chore', reviewRequired: false }),
+  );
+});
+
+test('CR5: in-review is only reachable from in-progress', () => {
+  assert.throws(
+    () => assertTransition('approved', 'in-review'),
+    /^Error: invalid lifecycle transition: approved → in-review$/,
+  );
+  assert.doesNotThrow(() => assertTransition('in-progress', 'in-review'));
+});
+
+test('CR12: an edge outside the graph is rejected', () => {
+  assert.throws(
+    () => assertTransition('draft', 'done'),
+    /^Error: invalid lifecycle transition: draft → done$/,
+  );
+});
+
+test('review rejection edges are allowed: in-review → in-progress | blocked | done', () => {
+  assert.doesNotThrow(() => assertTransition('in-review', 'in-progress'));
+  assert.doesNotThrow(() => assertTransition('in-review', 'blocked'));
+  assert.doesNotThrow(() => assertTransition('in-review', 'done'));
+});

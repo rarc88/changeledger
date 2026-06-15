@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-14T18:39:36Z
+updated: 2026-06-15T16:12:31Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -11,6 +11,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260614-162547 (Definition of Ready / tdd).
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
 > Graduado del change 20260614-182513 (owner desde GitHub login).
+> Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -50,12 +51,8 @@ flowchart TD
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
   `reviewed` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
-  de vida (`draft → approved → in-progress → done`, con `blocked` como desvío
-  reversible desde `in-progress`). El grafo de transiciones vive en
-  `src/lifecycle.mjs` y es la única autoridad: tanto `sl status` como el visor lo
-  consultan, rechazando saltos (`draft → done`), regresiones y no-ops. El visor
-  añade una restricción humana extra: solo permite `draft → approved`. Tareas en
-  `## Plan` como checklist (`[ ]`/`[x]`/`[!]`).
+  de vida (ver **Ciclo de vida y gate de revisión**). Tareas en `## Plan` como
+  checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
@@ -82,6 +79,53 @@ Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
 repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
 nombre de proyecto y navega a ese change.
+
+## Ciclo de vida y gate de revisión
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> approved: humano aprueba (viewer)
+    approved --> in_progress
+    in_progress --> in_review: review_required
+    in_progress --> done: si NO review_required
+    in_progress --> blocked
+    in_review --> done: review pass
+    in_review --> in_progress: fail --retry
+    in_review --> blocked: fail --block
+    blocked --> in_progress
+```
+
+El gate **`in-review`** cierra el lazo doc↔código: un change con implementación
+verificable no llega a `done` sin una **revisión independiente**. La revisión la
+ejecuta un **subagente con contexto limpio** (sin el historial de implementación,
+para no heredar sesgo) y un **modelo acorde a la dificultad**. *Qué* valida:
+cada `CRn` cumplido, sin residuo, Plan realmente hecho, graduación fiel. La
+auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
+revisor puede invocar; Spec Ledger no las reimplementa. El *cómo* se lanza el
+subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el qué.
+
+**Activación por tipo.** `config.yml` marca `review_required: true` por tipo
+(`feature`, `bug`, `refactor` por defecto). `chore` y `audit` lo saltan y van
+`in-progress → done` directo.
+
+**Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
+es la **única autoridad**, compartida por `sl status` y el visor.
+`lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
+completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así que
+el CLI rechaza cualquier salto inválido (`draft → done` →
+`invalid lifecycle transition: draft → done`), regresiones y no-ops
+(`change is already "X"`), y el gate (`in-progress → done` bajo `review_required`
+→ mensaje accionable). Entre statuses no canónicos degrada a validación por enum.
+Mover fuera del grafo (reabrir un `done`, des-aprobar) no es del CLI: se edita el
+archivo. El visor añade una restricción humana extra: solo permite
+`draft → approved`.
+
+**Veredicto (`sl review`, en `agent.review()`).** `pass` → `done`; `fail --retry`
+→ `in-progress` (defecto dentro del contrato, el implementador corrige);
+`fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
+`in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
+(`review → …`). `in-review` cuenta como WIP en métricas.
 
 ## Identidad
 

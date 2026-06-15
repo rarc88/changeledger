@@ -8,6 +8,7 @@ import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
+import { findSpecDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { agentsTemplate } from '../src/paths.mjs';
 
@@ -64,6 +65,25 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   init(root);
   const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
   assert.match(cfg, /^tdd: true$/m);
+});
+
+test('CR1: init seeds in-review and review_required per type (review-gate)', () => {
+  const root = tmp();
+  init(root);
+  const cfg = loadConfig(findSpecDir(root));
+  assert.deepEqual(cfg.statuses, [
+    'draft',
+    'approved',
+    'in-progress',
+    'in-review',
+    'blocked',
+    'done',
+  ]);
+  assert.equal(cfg.types.feature.review_required, true);
+  assert.equal(cfg.types.bug.review_required, true);
+  assert.equal(cfg.types.refactor.review_required, true);
+  assert.equal('review_required' in cfg.types.chore, false);
+  assert.equal('review_required' in cfg.types.audit, false);
 });
 
 test('reference and gitignore entries are idempotent (CR3)', () => {
