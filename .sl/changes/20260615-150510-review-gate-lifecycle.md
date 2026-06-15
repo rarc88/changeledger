@@ -92,17 +92,22 @@ auditoría de seguridad profunda, linters, SAST, cobertura. El revisor puede
 invocarlas y anotar el veredicto en el Log.
 
 **Roles — revisión por subagente delegado.** El implementador **debe delegar** la
-revisión a un **subagente con contexto limpio** (sin el historial de
-implementación). El contexto fresco da la imparcialidad que busca el gate, y
-mantiene todo dentro del mismo flujo de la herramienta — no hace falta un humano
-ni un segundo operador.
+revisión a un subagente. El contrato (§6) fija el **qué**, no el **cómo**:
 
-Límite técnico: Spec Ledger es un CLI sobre archivos, **no spawnea agentes**. La
-delegación es un patrón de orquestación que el contrato (§6) prescribe; el CLI
-solo **registra** que ocurrió. Como un subagente no tiene `gh login`, el Log marca
-`revisión delegada (subagente, contexto limpio)` en lugar de un handle humano. No
-hay enforcement duro de que el contexto fuera realmente limpio — queda por
-convención, igual que "una sola concern por change".
+- **contexto limpio** — sin el historial de implementación; de ahí la
+  imparcialidad que busca el gate.
+- **modelo acorde a la dificultad** — dimensionar la capacidad al fallo a revisar;
+  no gastar un modelo caro en algo trivial. El revisor de un residuo §6.7 no
+  necesita el mismo modelo que el de una falla de diseño.
+
+El **cómo** (qué harness, qué API, qué `subagent_type`, cómo se elige el modelo)
+es responsabilidad del agente/herramienta que consume Spec Ledger — fuera de
+alcance. Spec Ledger es un CLI sobre archivos, **no spawnea agentes**: el contrato
+prescribe la delegación y el CLI solo **registra** que ocurrió. Como un subagente
+no tiene `gh login`, el Log marca `revisión delegada (subagente, contexto limpio)`
+en lugar de un handle humano. Sin enforcement duro de que el contexto fuera
+limpio ni del modelo usado — queda por convención, igual que "una sola concern por
+change".
 
 **Resultado del rechazo — dos rutas según el veredicto:**
 
