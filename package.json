@@ -14,8 +14,9 @@
     "verify": "pnpm lint && pnpm test && pnpm check"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
+  "packageManager": "pnpm@10.31.0",
   "files": [
     "bin",
     "src",

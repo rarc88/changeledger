@@ -41,7 +41,14 @@ export function linkContract(specDir) {
   } catch {
     // no existing link — nothing to remove
   }
-  fs.symlinkSync(agentsTemplate, link);
+  try {
+    fs.symlinkSync(agentsTemplate, link);
+  } catch {
+    // Windows without Developer Mode/admin cannot create symlinks. Fall back to
+    // a copy so the contract is still present; `sl register` refreshes it if the
+    // installed contract changes.
+    fs.copyFileSync(agentsTemplate, link);
+  }
   return link;
 }
 
