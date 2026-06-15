@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-06-15T17:57:31Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -70,3 +71,4 @@ contenido fuera de la raíz del repositorio descubierto.
 - **2026-06-15T18:31:38Z** — fix: realpath del ancestro existente más cercano cierra el escape por symlink intermedio (CR1); symlink interno sigue permitido (CR2)
 - **2026-06-15T18:31:53Z** — status: in-progress → in-review
 - **2026-06-15T18:32:52Z** — review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** — graduation skipped: bug de containment; sin verdad persistente nueva

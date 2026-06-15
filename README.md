@@ -11,6 +11,22 @@ What sets it apart: a **human consumption layer**. You don't read raw markdown �
 a local viewer consolidates the documents into a navigable, filterable board
 ordered by the lifecycle.
 
+## Install
+
+Requires **Node ≥ 20**. Install the CLI globally:
+
+```sh
+npm install -g spec-ledger     # or: pnpm add -g spec-ledger
+sl --help
+```
+
+Then, in any repo:
+
+```sh
+sl init     # set up .sl/, give the repo an identity, register it
+sl view     # open the local viewer
+```
+
 ## How it works
 
 - **Global CLI** (`sl`). The viewer's code lives in the global install, not in your repo.
@@ -51,8 +67,9 @@ sl check || exit 1
 
 ## Status
 
-Under construction. This repo documents itself with its own format (dogfooding):
-see [`.sl/changes/`](.sl/changes/).
+Pre-1.0 (`0.x`): usable and self-hosting. This repo documents itself with its
+own format (dogfooding): see [`.sl/changes/`](.sl/changes/). The security model
+for running the viewer over untrusted repos is in [`SECURITY.md`](SECURITY.md).
 
 ## Model
 
@@ -98,16 +115,18 @@ the staged files — it stashes unstaged changes first, so partial commits stay
 intact), then `pnpm verify`, so commits that fail lint, tests, or `sl check` are
 blocked — agents can't quietly accumulate debt. Format anytime with `pnpm format`.
 
-### Using `sl` outside this repo
+### Running a local checkout as the global `sl`
 
-Not published to npm yet (that's tracked separately). Meanwhile, `pnpm link`
-exposes the `sl` bin globally, pointing at this checkout with live edits:
+To test local changes as the global binary, `pnpm link` points `sl` at this
+checkout with live edits:
 
 ```sh
 pnpm link --global    # expose `sl` globally from this checkout
 sl --help             # verify it resolves
 pnpm unlink --global  # revert
 ```
+
+Contributions follow the dogfooding flow — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Language policy
 
