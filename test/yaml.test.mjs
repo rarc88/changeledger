@@ -97,3 +97,22 @@ test('parses a full config sample', () => {
   assert.deepEqual(r.statuses, ['draft', 'approved', 'in-progress', 'blocked', 'done']);
   assert.deepEqual(r.types.feature.stages, ['request', 'investigation', 'plan']);
 });
+
+// 20260615-175733 — the parser ingests untrusted repo files; it must not let a
+// document mutate object prototypes or silently drop a duplicated key.
+test('175733 CR1: a prototype-mutating key is rejected and Object.prototype stays intact', () => {
+  for (const key of ['__proto__', 'constructor', 'prototype']) {
+    assert.throws(() => parseYaml(`${key}:\n  polluted: yes`), /Unsafe key/, `for ${key}`);
+  }
+  assert.equal({}.polluted, undefined, 'Object.prototype must stay intact');
+});
+
+test('175733 CR2: a duplicate key at the same level is rejected naming the key', () => {
+  assert.throws(() => parseYaml('status: draft\nstatus: done'), /[Dd]uplicate key.*status/);
+});
+
+test('175733 CR3: the same key in different nested maps is kept (different levels)', () => {
+  const o = parseYaml('types:\n  feature:\n    review: true\n  bug:\n    review: false');
+  assert.equal(o.types.feature.review, true);
+  assert.equal(o.types.bug.review, false);
+});
