@@ -7,6 +7,31 @@ const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 const TASK = /^- \[( |x|!)\]\s+(.*)$/;
 const STATE_BY_MARK = { ' ': 'todo', x: 'done', '!': 'blocked' };
 
+// The lifecycle graph. Each status lists the statuses it may move to via the
+// CLI. Moves outside this graph (reopening a done change, un-approving) are not
+// the CLI's job — edit the file directly. `in-progress → done` is allowed here
+// but gated below when the change's type requires review.
+const TRANSITIONS = {
+  draft: ['approved'],
+  approved: ['in-progress'],
+  'in-progress': ['in-review', 'blocked', 'done'],
+  'in-review': ['done', 'in-progress', 'blocked'],
+  blocked: ['in-progress'],
+  done: [],
+};
+
+// Enforces a lifecycle move. Throws on an edge outside the graph, and on the
+// review gate (a `review_required` type cannot jump from in-progress to done —
+// it must pass through in-review). See AGENTS.md §5.
+export function assertTransition({ type, from, to, reviewRequired = false }) {
+  if (!(TRANSITIONS[from] ?? []).includes(to)) {
+    throw new Error(`invalid transition: ${from} → ${to}`);
+  }
+  if (reviewRequired && from === 'in-progress' && to === 'done') {
+    throw new Error(`${type} changes must be reviewed before done — move to in-review first`);
+  }
+}
+
 export function parseChange(text) {
   const fm = text.match(FRONTMATTER);
   if (!fm) throw new Error('Change is missing its frontmatter block');

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { archive, list, log, owner, show, status, task } from '../src/commands/agent.mjs';
+import { archive, list, log, owner, review, show, status, task } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -16,6 +16,8 @@ const USAGE = `Spec Ledger (sl)
   sl view [port]                   launch the local viewer (default port 4040)
   sl check [id] [--json]           validate the repo or one change
   sl status <id> <status>          move a change's lifecycle status
+  sl review <id> pass              independent review passed → done
+  sl review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
   sl owner <id> <name|->           set or clear a change's owner
   sl archive <id> / unarchive <id>   hide/show a change in the viewer
   sl log <id> <message>            append a timestamped Log entry
@@ -35,6 +37,10 @@ const HELP = {
   view: 'sl view [port] — launch the local viewer (default port 4040)',
   check: 'sl check [id] [--json] — validate the repo or one change',
   status: "sl status <id> <status> — move a change's lifecycle status",
+  review:
+    'sl review <id> pass — independent review passed → done\n' +
+    'sl review <id> fail --retry "<reason>" — defect inside the contract → in-progress\n' +
+    'sl review <id> fail --block "<reason>" — escalates to a human → blocked',
   owner: "sl owner <id> <name|-> — set or clear a change's owner",
   archive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
   unarchive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
@@ -97,6 +103,26 @@ try {
       if (!id || !st) throw new Error('Usage: sl status <id> <status>');
       status(id, st);
       console.log(`#${id} → ${st}`);
+      break;
+    }
+    case 'review': {
+      const [id, verdict] = args;
+      if (!id || !verdict) throw new Error(usage('review'));
+      const mode = args.includes('--retry')
+        ? 'retry'
+        : args.includes('--block')
+          ? 'block'
+          : undefined;
+      const flagIdx = Math.max(args.indexOf('--retry'), args.indexOf('--block'));
+      const reason =
+        flagIdx >= 0
+          ? args
+              .slice(flagIdx + 1)
+              .join(' ')
+              .trim()
+          : undefined;
+      review(id, verdict, { mode, reason });
+      console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
       break;
     }
     case 'owner': {

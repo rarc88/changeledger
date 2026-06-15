@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseChange } from '../change.mjs';
+import { assertTransition, parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -33,6 +33,12 @@ export function status(
   }
   let text = fs.readFileSync(file, 'utf8');
   const fm = parseChange(text).frontmatter;
+  assertTransition({
+    type: fm.type,
+    from: fm.status,
+    to: newStatus,
+    reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+  });
   text = setStatus(text, newStatus);
   text = appendLog(text, nowUtc(), `status: ${fm.status} → ${newStatus}`);
 
@@ -44,6 +50,43 @@ export function status(
       text = setOwner(text, user);
       text = appendLog(text, nowUtc(), `owner → ${user} (auto)`);
     }
+  }
+
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+// Records the verdict of the independent review (run by a delegated subagent
+// with clean context — see AGENTS.md §6). `pass` graduates the change to done;
+// `fail` routes it back: `retry` for a defect inside the contract (the
+// implementer fixes), `block` for one that escalates to a human. Requires the
+// change to be in-review.
+export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
+  const { file } = locate(cwd, id);
+  let text = fs.readFileSync(file, 'utf8');
+  const { status: current } = parseChange(text).frontmatter;
+  if (current !== 'in-review') {
+    throw new Error(`review requires status in-review (current: ${current})`);
+  }
+
+  if (verdict === 'pass') {
+    text = setStatus(text, 'done');
+    text = appendLog(text, nowUtc(), 'review → done (delegated subagent, clean context)');
+  } else if (verdict === 'fail') {
+    if (!reason) {
+      throw new Error('fail requires a reason — sl review <id> fail --retry|--block "<reason>"');
+    }
+    if (mode === 'retry') {
+      text = setStatus(text, 'in-progress');
+      text = appendLog(text, nowUtc(), `review → in-progress (retry): ${reason}`);
+    } else if (mode === 'block') {
+      text = setStatus(text, 'blocked');
+      text = appendLog(text, nowUtc(), `review → blocked: ${reason}`);
+    } else {
+      throw new Error('fail requires --retry or --block');
+    }
+  } else {
+    throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
   }
 
   fs.writeFileSync(file, text);

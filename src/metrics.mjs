@@ -3,7 +3,7 @@
 // Everything is reconstructed from `created` plus the `## Log` status
 // transitions. The viewer renders the result.
 
-const ACTIVE = ['approved', 'in-progress', 'blocked'];
+const ACTIVE = ['approved', 'in-progress', 'in-review', 'blocked'];
 
 function logBody(change) {
   return (change.stages ?? []).find((s) => s.key === 'log')?.body ?? '';

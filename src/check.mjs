@@ -218,6 +218,8 @@ function checkConfig(config, err) {
       if (!canonical.includes(s))
         err(null, `config type "${type}" references unknown stage "${s}"`);
     }
+    if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
+      err(null, `config type "${type}": review_required must be a boolean`);
   }
 }
 

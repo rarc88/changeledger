@@ -2,9 +2,10 @@
 id: "20260615-150510"
 title: Gate de revisión independiente antes de done
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-15T15:05:10Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -254,16 +255,18 @@ Mover fuera del grafo (reabrir, des-aprobar) no es del CLI: archivo a mano. El
 comando `sl review` es azúcar sobre `setStatus` + `appendLog` con precondición y
 markers fijos en inglés.
 
-- [ ] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1)
-- [ ] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2)
-- [ ] Añadir `assertTransition()` pura en `src/change.mjs` (grafo completo del lifecycle + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5, CR12)
-- [ ] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5, CR12)
-- [ ] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10)
-- [ ] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11)
-- [ ] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs`
+- [x] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1) — 2026-06-15T16:05:39Z
+- [x] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2) — 2026-06-15T16:05:39Z
+- [x] Añadir `assertTransition()` pura en `src/change.mjs` (grafo completo del lifecycle + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5, CR12) — 2026-06-15T16:05:40Z
+- [x] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5, CR12) — 2026-06-15T16:05:40Z
+- [x] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10) — 2026-06-15T16:05:40Z
+- [x] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11) — 2026-06-15T16:05:40Z
+- [x] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs` — 2026-06-15T16:05:40Z
 - [ ] Renderizar el estado `in-review` en el viewer (`src/viewer/public/styles.css`, `app.js`); el viewer sigue permitiendo solo `draft→approved`
 - [ ] Documentar el gate en `templates/AGENTS.md`: §5 (diagrama + estado), §6 (regla revisión por subagente: contexto limpio + modelo acorde a dificultad), §9 (`sl review`)
 
 ## Log
 - **2026-06-15T15:52:31Z** — status: draft → approved
 - **2026-06-15T15:57:00Z** — scope broadened: assertTransition validates the full lifecycle graph, not only the gate edges (CR12 added)
+- **2026-06-15T15:58:41Z** — status: approved → in-progress
+- **2026-06-15T15:58:41Z** — owner → raruiz-hiberuscom (auto)
