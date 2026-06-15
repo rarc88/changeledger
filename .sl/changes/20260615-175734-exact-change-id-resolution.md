@@ -2,7 +2,7 @@
 id: "20260615-175734"
 title: La resolución parcial de IDs puede modificar el change equivocado
 type: bug
-status: in-progress
+status: done
 created: 2026-06-15T17:57:34Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -69,3 +69,5 @@ debe resolverse por igualdad exacta con el `frontmatter.id`.
 - **2026-06-15T18:40:01Z** — status: approved → in-progress
 - **2026-06-15T18:40:02Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T18:42:28Z** — fix: resolvedor único en repo.mjs compara frontmatter.id por igualdad exacta; agent.locate y graduate migrados; sin búsquedas por prefijo (CR1-CR4)
+- **2026-06-15T18:42:38Z** — status: in-progress → in-review
+- **2026-06-15T18:43:49Z** — review → done (delegated subagent, clean context)
