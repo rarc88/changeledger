@@ -1,0 +1,69 @@
+---
+id: "20260614-192818"
+title: Hacer cumplir transiciones de lifecycle y graduacion
+type: bug
+status: approved
+created: 2026-06-14T19:28:18Z
+depends_on: []
+---
+
+## Request
+
+Hacer cumplir el lifecycle documentado en todos los comandos de escritura:
+rechazar saltos o regresiones inválidas, y permitir graduar únicamente changes
+terminados.
+
+## Investigation
+
+- `status()` comprueba que el estado destino pertenece a `config.statuses`, pero
+  no valida la transición desde el estado actual.
+- Hoy son posibles saltos como `draft → done`, regresar desde `done` o marcar
+  `blocked` desde estados no activos.
+- El visor restringe `draft → approved`, pero el CLI —que es la autoridad de
+  escritura general— no aplica el grafo del contrato.
+- `skipGraduation` exige `done`; `graduate` no, por lo que dos caminos de la
+  misma operación tienen invariantes distintos.
+- Las reglas deben derivarse de un modelo explícito y testable, no de la posición
+  incidental en `statuses`.
+
+## Specification
+
+### CR1 — Happy path permitido
+- **Given** un change en `draft`
+- **When** transita `draft → approved → in-progress → done`
+- **Then** cada transición se escribe y registra en Log
+
+### CR2 — Bloqueo reversible
+- **Given** un change en `in-progress`
+- **When** transita a `blocked` y después vuelve a `in-progress`
+- **Then** ambas transiciones están permitidas
+
+### CR3 — Saltos y regresiones se rechazan
+- **Given** un change en `draft` o `done`
+- **When** se intenta `draft → done`, `done → in-progress` o repetir el mismo
+  estado
+- **Then** el comando falla con la transición concreta
+- **And** el archivo queda byte-for-byte igual
+
+### CR4 — Graduación solo desde done
+- **Given** un change cuyo status no es `done`
+- **When** se ejecuta `sl graduate <id> <slug>`
+- **Then** falla antes de crear el spec o modificar el change
+
+### CR5 — CLI y visor comparten autoridad
+- **Given** una transición solicitada por CLI o por visor
+- **When** se valida
+- **Then** usa la misma función de dominio para decidir si es válida
+- **And** el visor mantiene su restricción adicional de solo aprobación humana
+
+## Plan
+
+- [ ] Modelar las transiciones permitidas en un helper puro de lifecycle — módulo de dominio y tests (CR1, CR2, CR3)
+- [ ] Aplicar el helper en `status()` antes de cualquier mutación y preservar atomicidad ante error — `src/commands/agent.mjs` (CR1, CR2, CR3)
+- [ ] Exigir `status: done` en `graduate()` antes de crear archivos — `src/commands/graduate.mjs` (CR4)
+- [ ] Reutilizar la validación de dominio desde el endpoint del visor manteniendo la política humana adicional — `src/commands/view.mjs` (CR5)
+- [ ] Añadir tests de happy path, blocked reversible, saltos, regresiones, no-op y graduación prematura — tests agent/graduate/view (CR1, CR2, CR3, CR4, CR5)
+- [ ] Actualizar contrato/spec de arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR3, CR4, CR5)
+
+## Log
+- **2026-06-15T11:38:40Z** — status: draft → approved

@@ -8,6 +8,7 @@ import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { appendLog, setReviewed } from '../writer.mjs';
+import { serializeScalar } from '../yaml.mjs';
 
 // Resolves a change id to its file under changes_dir. Throws if absent.
 function resolveChange(id, cwd) {
@@ -46,7 +47,7 @@ export function graduate(id, slug, cwd = process.cwd()) {
   const title = change.frontmatter.title;
 
   const content = `---
-title: ${title}
+title: ${serializeScalar(title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
 ---

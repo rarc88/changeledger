@@ -4,6 +4,7 @@ import path from 'node:path';
 import { ensureGitignore, ensureReference, linkContract, rootContract } from '../contract.mjs';
 import { templatesDir } from '../paths.mjs';
 import { register } from '../registry.mjs';
+import { serializeScalar } from '../yaml.mjs';
 
 // Sets up `.sl/` in the repo, gives it a stable identity, links the installed
 // AGENTS.md contract into `.sl/`, references it from the project's root
@@ -28,7 +29,7 @@ export function init(cwd = process.cwd()) {
   const name = path.basename(repoRoot);
   fs.appendFileSync(
     configFile,
-    `\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${name}\n`,
+    `\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${serializeScalar(name)}\n`,
   );
 
   linkContract(specDir);

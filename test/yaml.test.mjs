@@ -1,6 +1,37 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseYaml } from '../src/yaml.mjs';
+import { parseYaml, serializeScalar } from '../src/yaml.mjs';
+
+// Round-trips a single key through serialize → parse and returns the value.
+const roundTrip = (value) => parseYaml(`k: ${serializeScalar(value)}`).k;
+
+test('serializeScalar keeps ambiguous strings as strings', () => {
+  for (const v of ['true', 'false', '123', '-7', '[draft]', 'hello # world', '#hash']) {
+    assert.equal(roundTrip(v), v, `failed for ${v}`);
+  }
+});
+
+test('serializeScalar preserves colons, quotes and edge whitespace', () => {
+  for (const v of ['a: b', 'foo:', 'he said "hi"', "it's fine", ' leading', 'trailing ', '']) {
+    assert.equal(roundTrip(v), v, `failed for ${JSON.stringify(v)}`);
+  }
+});
+
+test('serializeScalar preserves newlines and tabs', () => {
+  assert.equal(roundTrip('line1\nline2'), 'line1\nline2');
+  assert.equal(roundTrip('a\tb'), 'a\tb');
+});
+
+test('serializeScalar emits bare numbers and booleans', () => {
+  assert.equal(serializeScalar(123), '123');
+  assert.equal(serializeScalar(true), 'true');
+  assert.equal(parseYaml(`k: ${serializeScalar(42)}`).k, 42);
+});
+
+test('serializeScalar leaves safe strings unquoted', () => {
+  assert.equal(serializeScalar('in-progress'), 'in-progress');
+  assert.equal(serializeScalar('My Title'), 'My Title');
+});
 
 test('parses flat scalars with type coercion', () => {
   const r = parseYaml('language: es\nid_digits: 4\nactive: true');

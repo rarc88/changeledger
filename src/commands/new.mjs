@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { findSpecDir, loadConfig } from '../config.mjs';
+import { serializeScalar } from '../yaml.mjs';
 
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
@@ -68,12 +69,12 @@ function render({ id, title, type, owner, stages, now }) {
   const fm = [
     '---',
     `id: "${id}"`,
-    `title: ${title}`,
+    `title: ${serializeScalar(title)}`,
     `type: ${type}`,
     'status: draft',
     `created: ${now}`,
     'depends_on: []',
-    ...(owner ? [`owner: ${owner}`] : []),
+    ...(owner ? [`owner: ${serializeScalar(owner)}`] : []),
     '---',
     '',
   ].join('\n');
