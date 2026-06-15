@@ -2,7 +2,7 @@
 id: "20260615-175732"
 title: Metadatos no confiables permiten XSS en el visor
 type: bug
-status: in-review
+status: done
 created: 2026-06-15T17:57:32Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -74,3 +74,4 @@ configuración, headings de etapa, tareas o referencias.
 - **2026-06-15T18:52:27Z** — fix: app.js es módulo ESM con builders exportables; esc() (incl comillas) en todo metadato no confiable y cssIdent() en var(--type) de board/detail/table/graph/metrics/global/filtros; tests DOM reales (CR1-CR4); smoke visual del visor OK
 - **2026-06-15T18:52:39Z** — status: in-progress → in-review
 - **2026-06-15T18:55:46Z** — polish: esc() en throughput date y mensaje de error del board para estrategia uniforme (CR3), por revisión independiente
+- **2026-06-15T18:55:59Z** — review → done (delegated subagent, clean context)
