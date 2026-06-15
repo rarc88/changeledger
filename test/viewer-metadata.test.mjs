@@ -10,8 +10,17 @@ import { marked } from 'marked';
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
-const { boardStatuses, card, cssIdent, esc, isVisible, stageBlock, tableRow, taskList } =
-  await import('../src/viewer/public/app.js');
+const {
+  boardStatuses,
+  card,
+  cssIdent,
+  esc,
+  isVisible,
+  passesTombstones,
+  stageBlock,
+  tableRow,
+  taskList,
+} = await import('../src/viewer/public/app.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -98,4 +107,13 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     'approved',
     'done',
   ]);
+  // The graph uses passesTombstones directly (shared with isVisible) so it can't
+  // diverge: discarded is hidden by default there too, shown only with the toggle.
+  assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
+  assert.equal(passesTombstones(c, { ...f, showDiscarded: true }), true, 'graph shows with toggle');
+  assert.equal(
+    passesTombstones({ ...baseChange(), archived: true }, f),
+    false,
+    'graph hides archived',
+  );
 });

@@ -127,12 +127,16 @@ function haystack(c) {
   return `${c.id} ${c.title} ${c.type} ${c.status} ${c.owner || ''} ${stages} ${tasks}`.toLowerCase();
 }
 
-// Whether a change is shown under the current filters. Discarded changes are a
-// terminal tombstone, hidden by default like archived ones — revealed by their
-// own toggle. Exported as a pure predicate so the rule is testable.
+// Tombstone visibility: archived and discarded changes are hidden by default and
+// each revealed by its own toggle. Shared by every view (board/table via
+// isVisible, and the graph) so no view can diverge on the rule.
+export const passesTombstones = (c, f) =>
+  (f.showArchived || !c.archived) && (f.showDiscarded || c.status !== 'discarded');
+
+// Whether a change is shown under the current filters. Exported as a pure
+// predicate so the rule is testable.
 export function isVisible(c, f) {
-  if (c.status === 'discarded' && !f.showDiscarded) return false;
-  if (c.archived && !f.showArchived) return false;
+  if (!passesTombstones(c, f)) return false;
   if (f.type !== 'all' && c.type !== f.type) return false;
   if (f.owner !== 'all' && c.owner !== f.owner) return false;
   if (f.statuses.size && !f.statuses.has(c.status)) return false;
@@ -389,7 +393,7 @@ async function gotoChange(proj, changeId) {
 
 /* Dependency graph */
 function renderGraph() {
-  const changes = repo.changes.filter((c) => filters.showArchived || !c.archived);
+  const changes = repo.changes.filter((c) => passesTombstones(c, filters));
   const byId = new Map(changes.map((c) => [String(c.id), c]));
   const depthCache = new Map();
   const depth = (id, seen = new Set()) => {

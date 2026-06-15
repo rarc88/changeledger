@@ -114,3 +114,6 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 - **2026-06-15T21:21:20Z** — status: approved → in-progress
 - **2026-06-15T21:21:21Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-15T21:27:48Z** — Implementado: discarded en lifecycle (terminal, entrada desde draft/approved/in-progress/blocked), sl discard con razón obligatoria, status rechaza discarded, statuses en ambos config, visor oculta + toggle sin columna, docs §5/README. 218 tests, visor verificado en navegador.
+- **2026-06-15T21:27:54Z** — status: in-progress → in-review
+- **2026-06-15T21:29:48Z** — review → in-progress (retry): CR6: renderGraph ignora showDiscarded; el grafo siempre muestra descartados
+- **2026-06-15T21:30:55Z** — retry: grafo respeta showDiscarded vía predicado compartido passesTombstones (board/table/graph ya no divergen) (CR6)
