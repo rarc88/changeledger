@@ -1,12 +1,173 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
-import { changeStatus, resolveProjects, searchProjects } from '../src/commands/view.mjs';
+import {
+  changeStatus,
+  createRequestListener,
+  resolveProjects,
+  searchProjects,
+} from '../src/commands/view.mjs';
+
+const TOKEN = 'test-token';
+
+// Boots the real request listener on an ephemeral loopback port.
+async function startServer(cwd, localOnly = true) {
+  const server = http.createServer(createRequestListener(cwd, localOnly, TOKEN));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return { server, port: server.address().port, address: server.address().address };
+}
+
+// http.request gives full header control (Host/Origin are forbidden via fetch).
+function request(port, { method = 'GET', path: p = '/', headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port, path: p, method, headers }, (res) => {
+      let data = '';
+      res.on('data', (c) => {
+        data += c;
+      });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject);
+    if (body !== undefined) req.write(body);
+    req.end();
+  });
+}
+
+function draftChange(root) {
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const { current } = resolveProjects(root, true);
+  return { file, id, project: current };
+}
+
+test('CR1: the server binds to loopback only', async () => {
+  isolatedHome();
+  const { server, address } = await startServer(newRepo());
+  assert.equal(address, '127.0.0.1');
+  server.close();
+});
+
+test('CR2: a write without the session token is rejected and writes nothing', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id, project } = draftChange(root);
+  const before = fs.readFileSync(file, 'utf8');
+  const { server, port } = await startServer(root);
+
+  const res = await request(port, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project, id, status: 'approved' }),
+  });
+  assert.equal(res.status, 403);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  server.close();
+});
+
+test('CR2: a write from a non-local Origin is rejected even with the token', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id, project } = draftChange(root);
+  const before = fs.readFileSync(file, 'utf8');
+  const { server, port } = await startServer(root);
+
+  const res = await request(port, {
+    method: 'POST',
+    path: '/api/status',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-sl-token': TOKEN,
+      Origin: 'http://evil.example.com',
+    },
+    body: JSON.stringify({ project, id, status: 'approved' }),
+  });
+  assert.equal(res.status, 403);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  server.close();
+});
+
+test('CR2: an authorized write succeeds', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id, project } = draftChange(root);
+  const { server, port } = await startServer(root);
+
+  const res = await request(port, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    body: JSON.stringify({ project, id, status: 'approved' }),
+  });
+  assert.equal(res.status, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+  server.close();
+});
+
+test('CR3: a write to an unknown project is a 404, not a fallback', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { id } = draftChange(root);
+  const { server, port } = await startServer(root);
+
+  const res = await request(port, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    body: JSON.stringify({ project: 'does-not-exist', id, status: 'approved' }),
+  });
+  assert.equal(res.status, 404);
+  server.close();
+});
+
+test('CR4: an oversized body is rejected with 413', async () => {
+  isolatedHome();
+  const { server, port } = await startServer(newRepo());
+  const huge = `{"x":"${'a'.repeat(70 * 1024)}"}`;
+  const res = await request(port, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    body: huge,
+  });
+  assert.equal(res.status, 413);
+  server.close();
+});
+
+test('CR5: a non-local Host header is rejected and responses carry defensive headers', async () => {
+  isolatedHome();
+  const { server, port } = await startServer(newRepo());
+
+  const evil = await request(port, {
+    path: '/api/projects',
+    headers: { Host: 'evil.example.com' },
+  });
+  assert.equal(evil.status, 403);
+
+  const ok = await request(port, { path: '/api/projects' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers['x-content-type-options'], 'nosniff');
+  assert.equal(ok.headers['x-frame-options'], 'DENY');
+  server.close();
+});
+
+test('CR2: the served page carries the session token', async () => {
+  isolatedHome();
+  const { server, port } = await startServer(newRepo());
+  const res = await request(port, { path: '/' });
+  assert.match(res.body, new RegExp(`window.__SL_TOKEN__ = '${TOKEN}'`));
+  assert.ok(!res.body.includes('__SL_TOKEN_VALUE__'), 'placeholder fully substituted');
+  server.close();
+});
 
 function isolatedHome() {
   process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));

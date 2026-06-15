@@ -109,13 +109,17 @@ subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el 
 (`feature`, `bug`, `refactor` por defecto). `chore` y `audit` lo saltan y van
 `in-progress → done` directo.
 
-**Invariantes de transición.** `change.assertTransition({ type, from, to,
-reviewRequired })` valida el **grafo completo** del ciclo (no solo el gate);
-`agent.status()` lo invoca antes de escribir, así que el CLI rechaza cualquier
-salto inválido (p. ej. `draft → done` → `invalid transition: draft → done`, o
-`in-progress → done` bajo `review_required` → mensaje accionable del gate). Mover
-fuera del grafo (reabrir un `done`, des-aprobar) no es del CLI: se edita el
-archivo. El viewer sigue ejecutando solo `draft → approved`.
+**Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
+es la **única autoridad**, compartida por `sl status` y el visor.
+`lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
+completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así que
+el CLI rechaza cualquier salto inválido (`draft → done` →
+`invalid lifecycle transition: draft → done`), regresiones y no-ops
+(`change is already "X"`), y el gate (`in-progress → done` bajo `review_required`
+→ mensaje accionable). Entre statuses no canónicos degrada a validación por enum.
+Mover fuera del grafo (reabrir un `done`, des-aprobar) no es del CLI: se edita el
+archivo. El visor añade una restricción humana extra: solo permite
+`draft → approved`.
 
 **Veredicto (`sl review`, en `agent.review()`).** `pass` → `done`; `fail --retry`
 → `in-progress` (defecto dentro del contrato, el implementador corrige);
@@ -196,8 +200,13 @@ inglés canónico.
 
 ## Presentación
 
-El visor (`sl view`) levanta un server `node:http` que relee `.sl/` en cada
-request (live) y expone JSON. Es de solo lectura salvo `POST /api/status`, que
+El visor (`sl view`) levanta un server `node:http` enlazado **solo a loopback**
+(`127.0.0.1`) que relee `.sl/` en cada request (live) y expone JSON. Rechaza
+requests cuyo `Host`/`Origin` no sea local (defensa anti DNS-rebinding), añade
+headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
+body y exige una credencial efímera por proceso (inyectada en la página y
+enviada en `x-sl-token`) para escribir. Las escrituras exigen un `project`
+exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
 card entre esas columnas del board (el único salto que le corresponde; el resto
 del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
@@ -206,7 +215,12 @@ owner) y render de markdown + mermaid. Los changes con `archived: true` se ocult
 por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
 sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
 `mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
-`/vendor/*`; el resto del runtime es cero-deps. En modo global el visor lee el
+`/vendor/*`; el resto del runtime es cero-deps. **Frontera de confianza:** los
+documentos del repo son contenido no confiable aunque el repo sea local. El
+cuerpo Markdown se rinde vía `safeHtml` (marked → DOMPurify, también servido bajo
+`/vendor/*`) antes de tocar el DOM, y Mermaid se inicializa con
+`securityLevel: 'strict'`, de modo que ningún change/spec pueda ejecutar
+JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.

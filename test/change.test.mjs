@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assertTransition, parseChange } from '../src/change.mjs';
+import { parseChange } from '../src/change.mjs';
 
 const SAMPLE = `---
 id: "0001"
@@ -68,43 +68,4 @@ test('computes progress', () => {
 
 test('throws when frontmatter is missing', () => {
   assert.throws(() => parseChange('## Request\n\nno frontmatter'), /frontmatter/i);
-});
-
-// assertTransition — the lifecycle graph + review gate (change 20260615-150510).
-
-test('CR3: a review_required type cannot jump from in-progress to done', () => {
-  assert.throws(
-    () =>
-      assertTransition({ type: 'feature', from: 'in-progress', to: 'done', reviewRequired: true }),
-    /^Error: feature changes must be reviewed before done — move to in-review first$/,
-  );
-});
-
-test('CR4: a non-review_required type goes from in-progress to done', () => {
-  assert.doesNotThrow(() =>
-    assertTransition({ type: 'chore', from: 'in-progress', to: 'done', reviewRequired: false }),
-  );
-});
-
-test('CR5: in-review is only reachable from in-progress', () => {
-  assert.throws(
-    () => assertTransition({ type: 'feature', from: 'approved', to: 'in-review' }),
-    /^Error: invalid transition: approved → in-review$/,
-  );
-  assert.doesNotThrow(() =>
-    assertTransition({ type: 'feature', from: 'in-progress', to: 'in-review' }),
-  );
-});
-
-test('CR12: any edge outside the graph is rejected', () => {
-  assert.throws(
-    () => assertTransition({ type: 'feature', from: 'draft', to: 'done' }),
-    /^Error: invalid transition: draft → done$/,
-  );
-});
-
-test('review rejection edges are allowed: in-review → in-progress | blocked', () => {
-  assert.doesNotThrow(() => assertTransition({ from: 'in-review', to: 'in-progress' }));
-  assert.doesNotThrow(() => assertTransition({ from: 'in-review', to: 'blocked' }));
-  assert.doesNotThrow(() => assertTransition({ from: 'in-review', to: 'done' }));
 });

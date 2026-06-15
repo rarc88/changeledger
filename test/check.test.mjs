@@ -35,6 +35,21 @@ function change(over = {}) {
 const run = (changes) => checkRepo({ config, changes });
 const msgs = (list) => list.map((e) => e.message);
 
+test('config changes_dir escaping the repo is an error', () => {
+  for (const dir of ['../outside', '/abs/path', 'a/../../b']) {
+    const { errors } = checkRepo({ config: { ...config, changes_dir: dir }, changes: [] });
+    assert.ok(
+      msgs(errors).some((m) => /changes_dir.*(escapes|relative)/.test(m)),
+      `expected escape error for ${dir}`,
+    );
+  }
+});
+
+test('config specs_dir escaping the repo is an error', () => {
+  const { errors } = checkRepo({ config: { ...config, specs_dir: '../x' }, changes: [] });
+  assert.ok(msgs(errors).some((m) => /specs_dir.*escapes/.test(m)));
+});
+
 test('a valid repo has no errors', () => {
   const { errors } = run([change()]);
   assert.deepEqual(errors, []);

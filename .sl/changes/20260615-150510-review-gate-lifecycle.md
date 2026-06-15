@@ -189,7 +189,7 @@ que `status: X → Y` actual.
 ### CR5 — in-review solo es alcanzable desde in-progress
 - **Given** un change `type: feature`, `status: approved`
 - **When** `sl status <id> in-review`
-- **Then** lanza con el mensaje literal `invalid transition: approved → in-review`
+- **Then** lanza con el mensaje literal `invalid lifecycle transition: approved → in-review`
 - **And** el archivo no se modifica
 
 ### CR6 — review pass mueve a done y marca la delegación
@@ -230,7 +230,7 @@ que `status: X → Y` actual.
 ### CR12 — el grafo rechaza cualquier transición no permitida
 - **Given** un change `type: feature`, `status: draft`
 - **When** `sl status <id> done`
-- **Then** lanza con el mensaje literal `invalid transition: draft → done`
+- **Then** lanza con el mensaje literal `invalid lifecycle transition: draft → done`
 - **And** el archivo no se modifica
 - **And** mover fuera del grafo (p. ej. reabrir un `done`) no es función del CLI: se edita el archivo a mano
 
@@ -250,7 +250,7 @@ blocked     → in-progress
 done        → ∅ (terminal)
 ```
 
-Arista fuera del grafo → `invalid transition: <from> → <to>`. El gate
+Arista fuera del grafo → `invalid lifecycle transition: <from> → <to>`. El gate
 (`in-progress → done` con `reviewRequired`) usa el mensaje específico de CR3.
 Mover fuera del grafo (reabrir, des-aprobar) no es del CLI: archivo a mano. El
 comando `sl review` es azúcar sobre `setStatus` + `appendLog` con precondición y
@@ -258,7 +258,7 @@ markers fijos en inglés.
 
 - [x] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1) — 2026-06-15T16:05:39Z
 - [x] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2) — 2026-06-15T16:05:39Z
-- [x] Añadir `assertTransition()` pura en `src/change.mjs` (grafo completo del lifecycle + regla review_required); test unitario en `test/change.test.mjs` (CR3, CR4, CR5, CR12) — 2026-06-15T16:05:40Z
+- [x] Extender `assertTransition()` en `src/lifecycle.mjs` (módulo de main, reconciliado en el merge; grafo completo + in-review + regla review_required); test en `test/lifecycle.test.mjs` (CR3, CR4, CR5, CR12) — 2026-06-15T16:05:40Z
 - [x] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5, CR12) — 2026-06-15T16:05:40Z
 - [x] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10) — 2026-06-15T16:05:40Z
 - [x] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11) — 2026-06-15T16:05:40Z

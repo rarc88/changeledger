@@ -210,6 +210,15 @@ function checkConfig(config, err) {
   for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
   }
+  // changes_dir/specs_dir must stay inside the repo. The pure checker catches
+  // shape escapes (absolute paths, `..` traversal); the symlink case is enforced
+  // at command time by resolveRepoPath, which needs IO.
+  for (const k of ['changes_dir', 'specs_dir']) {
+    const v = c[k];
+    if (v === undefined) continue;
+    if (typeof v !== 'string' || v === '') err(null, `config "${k}" must be a relative path`);
+    else if (isPathEscape(v)) err(null, `config "${k}" escapes the repo root: ${v}`);
+  }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   const canonical = Array.isArray(c.stages) ? c.stages : [];
@@ -221,6 +230,13 @@ function checkConfig(config, err) {
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
   }
+}
+
+// IO-free escape detection for configured paths: absolute (POSIX or Windows) or
+// containing a `..` segment. Symlink escapes need IO and are caught at runtime.
+function isPathEscape(p) {
+  if (/^([a-zA-Z]:[\\/]|[\\/])/.test(p)) return true;
+  return p.split(/[\\/]/).some((seg) => seg === '..');
 }
 
 function findCycle(graph) {

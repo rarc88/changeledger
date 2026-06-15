@@ -52,13 +52,53 @@ function parseValue(str) {
 }
 
 function coerce(str) {
-  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
-    return str.slice(1, -1);
+  if (str.length >= 2 && str.startsWith('"') && str.endsWith('"')) {
+    return unescapeDouble(str.slice(1, -1));
+  }
+  if (str.length >= 2 && str.startsWith("'") && str.endsWith("'")) {
+    return str.slice(1, -1).replace(/''/g, "'");
   }
   if (/^-?\d+$/.test(str)) return Number(str);
   if (str === 'true') return true;
   if (str === 'false') return false;
   return str;
+}
+
+const DQ_ESCAPES = { '"': '"', '\\': '\\', n: '\n', t: '\t' };
+
+function unescapeDouble(s) {
+  return s.replace(/\\(["\\nt])/g, (_, c) => DQ_ESCAPES[c]);
+}
+
+// Serializes a scalar back to YAML for the supported subset, quoting only when a
+// bare value would round-trip to a different type (number/bool), be truncated by
+// a comment, parse as a mapping/sequence, or carry control/edge whitespace.
+// Booleans and numbers serialize bare; everything else is treated as a string.
+export function serializeScalar(value) {
+  if (typeof value === 'boolean' || typeof value === 'number') return String(value);
+  const s = String(value ?? '');
+  return needsQuoting(s) ? quoteDouble(s) : s;
+}
+
+function needsQuoting(s) {
+  if (s === '') return true;
+  if (s !== s.trim()) return true; // leading/trailing whitespace
+  if (/^-?\d+$/.test(s)) return true; // would coerce to a number
+  if (s === 'true' || s === 'false') return true; // would coerce to a boolean
+  if (/[\n\t]/.test(s)) return true; // control characters
+  if (/(^#)|(\s#)/.test(s)) return true; // comment sequence
+  if (/:(\s|$)/.test(s)) return true; // mapping indicator
+  if (/^[[\]{}&*!|>'"%@`,?]/.test(s)) return true; // leading flow/indicator char
+  return false;
+}
+
+function quoteDouble(s) {
+  const esc = s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+  return `"${esc}"`;
 }
 
 // Remove a trailing `# comment` that is not inside quotes (YAML requires a space
@@ -68,6 +108,10 @@ function stripComment(line) {
   let inDouble = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
+    if (c === '\\' && inDouble) {
+      i++; // skip the escaped character so `\"` does not close the string
+      continue;
+    }
     if (c === '"' && !inSingle) inDouble = !inDouble;
     else if (c === "'" && !inDouble) inSingle = !inSingle;
     else if (c === '#' && !inSingle && !inDouble && (i === 0 || /\s/.test(line[i - 1]))) {

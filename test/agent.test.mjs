@@ -41,6 +41,13 @@ test('status rejects an invalid value without writing', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+test('status rejects an illegal lifecycle jump without writing', () => {
+  const { root, file, id } = repoWithChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('task done marks the task with a timestamp', () => {
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
@@ -160,14 +167,17 @@ test('CR5: status rejects approved → in-review without writing', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'in-review', root), /invalid transition: approved → in-review/);
+  assert.throws(
+    () => status(id, 'in-review', root),
+    /invalid lifecycle transition: approved → in-review/,
+  );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('CR12: status rejects draft → done without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /invalid transition: draft → done/);
+  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
