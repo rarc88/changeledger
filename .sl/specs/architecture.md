@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T15:43:49Z
+updated: 2026-06-16T16:45:08Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -19,6 +19,12 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
 > Graduado del change 20260616-151234 (resolución segura de assets estáticos).
 > Graduado del change 20260616-151226 (parser CLI con commander).
+> Graduado del change 20260616-162014 (validación de criterios referenciados por tareas).
+> Graduado del change 20260616-162020 (normalización compartida de slugs).
+> Graduado del change 20260616-162027 (registry corrupto falla sin sobrescribir).
+> Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
+> Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
+> Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -92,6 +98,11 @@ Las mutaciones de frontmatter en `writer.mjs` preservan el formato textual del
 documento, pero fallan explícitamente si no encuentran la línea ancla que deben
 editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
 del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
+Las escrituras que reemplazan documentos o estado local pasan por
+`writeFileAtomic`: escriben a un temporal en el mismo directorio, sincronizan el
+descriptor, hacen `rename` sobre el destino y limpian el temporal si algo falla.
+Las creaciones que dependen de exclusividad, como `sl new`, conservan `flag:
+'wx'` para no perder la reserva atomica del id.
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
@@ -180,6 +191,11 @@ lock desaparece durante la comprobación, el comando reintenta sin fallar. El sl
 estructural se normaliza a kebab ASCII y se rechaza si queda vacío. Ordenable
 cronológicamente.
 
+La normalización de slugs vive en un helper compartido por `sl new` y
+`sl graduate`: minúsculas, diacríticos fuera, separadores no alfanuméricos a
+guiones y rechazo cuando no queda ninguna letra o número ASCII. Así los nombres
+estructurales mantienen la misma política en changes y specs.
+
 ## Métricas
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
@@ -201,11 +217,15 @@ headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
 tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
 interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
 preservar descripciones que contienen la misma raya.
+El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
+los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
 
 Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
 cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
 un criterio debe nombrar tanto archivo objetivo (`src/...`) como test
-(`test/...`). En `draft`, esos mismos huecos son warnings para no bloquear la
+(`test/...`). Además, cada `CRn` referenciado por una tarea debe existir en
+`## Specification`; un `(CR999)` huérfano es un error en cambios listos para
+implementar. En `draft`, esos mismos huecos son warnings para no bloquear la
 autoría temprana; con `tdd:false` no se evalúan.
 
 ## Trazabilidad git
@@ -276,7 +296,10 @@ estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 único de Markdown sanitizado), `view-parts.js` (templates reutilizables) y
 `view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y wiring
 de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
-visibles, en vez de generar un SVG con dimensiones inválidas.
+visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad del
+grafo usa un set de visitados por rama para detectar ciclos solo en el camino
+actual: dependencias compartidas entre ramas no colapsan la capa del nodo
+dependiente, y los ciclos reales siguen terminando en un SVG finito.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
@@ -299,6 +322,9 @@ ejecutar JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.
+El registry local distingue archivo ausente de archivo corrupto: si no existe,
+empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un error
+claro y `register` no lo sobrescribe silenciosamente.
 
 ## Política de dependencias
 

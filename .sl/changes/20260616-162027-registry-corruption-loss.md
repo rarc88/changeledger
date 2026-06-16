@@ -2,9 +2,10 @@
 id: "20260616-162027"
 title: Evitar perdida silenciosa del registry corrupto
 type: bug
-status: in-review
+status: done
 created: 2026-06-16T16:20:27Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 ---
 
@@ -53,3 +54,5 @@ informacion silenciosamente.
 - **2026-06-16T16:31:01Z** — status: approved → in-progress
 - **2026-06-16T16:31:01Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:31:43Z** — status: in-progress → in-review
+- **2026-06-16T16:43:22Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:49Z** — graduado a spec `architecture.md`

@@ -2,9 +2,10 @@
 id: "20260616-162104"
 title: Corregir profundidad del grafo con dependencias compartidas
 type: bug
-status: in-review
+status: done
 created: 2026-06-16T16:21:04Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 ---
 
@@ -54,3 +55,5 @@ todo lo visitado por ramas hermanas.
 - **2026-06-16T16:33:37Z** — status: approved → in-progress
 - **2026-06-16T16:33:37Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:34:26Z** — status: in-progress → in-review
+- **2026-06-16T16:43:36Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T16:45:02Z** — graduado a spec `architecture.md`

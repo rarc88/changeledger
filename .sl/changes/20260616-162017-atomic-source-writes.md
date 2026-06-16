@@ -2,9 +2,10 @@
 id: "20260616-162017"
 title: Hacer atomicas las escrituras de documentos
 type: refactor
-status: in-review
+status: done
 created: 2026-06-16T16:20:17Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 ---
 
@@ -47,3 +48,5 @@ de ningun documento.
 - **2026-06-16T16:36:39Z** — status: approved → in-progress
 - **2026-06-16T16:36:39Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:39:03Z** — status: in-progress → in-review
+- **2026-06-16T16:43:43Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T16:45:08Z** — graduado a spec `architecture.md`

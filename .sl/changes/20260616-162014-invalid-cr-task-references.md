@@ -2,9 +2,10 @@
 id: "20260616-162014"
 title: Validar referencias CR inexistentes en tareas
 type: bug
-status: in-review
+status: done
 created: 2026-06-16T16:20:14Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 ---
 
@@ -60,3 +61,5 @@ Esto debilita la trazabilidad criterio -> tarea que el contrato promete.
 - **2026-06-16T16:27:49Z** — status: approved → in-progress
 - **2026-06-16T16:27:50Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:28:32Z** — status: in-progress → in-review
+- **2026-06-16T16:42:46Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:37Z** — graduado a spec `architecture.md`
