@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { readRegistry } from '../src/registry.mjs';
+import { readRegistry, register, registryPath } from '../src/registry.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -54,4 +54,29 @@ test('init refuses an existing .sl and points to register', () => {
   const repo = newRepo();
   init(repo);
   assert.throws(() => init(repo), /sl register/);
+});
+
+test('162027 CR1: corrupt registry JSON fails loudly', () => {
+  isolatedHome();
+  fs.mkdirSync(path.dirname(registryPath()), { recursive: true });
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  assert.throws(() => readRegistry(), /^Error: registry\.json is not valid JSON$/);
+});
+
+test('162027 CR2: register does not overwrite a corrupt registry', () => {
+  isolatedHome();
+  fs.mkdirSync(path.dirname(registryPath()), { recursive: true });
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  assert.throws(
+    () => register({ id: 'abc', name: 'repo', path: '/tmp/repo' }),
+    /^Error: registry\.json is not valid JSON$/,
+  );
+  assert.equal(fs.readFileSync(registryPath(), 'utf8'), 'not-json');
+});
+
+test('162027 CR3: missing registry still starts empty', () => {
+  isolatedHome();
+  assert.deepEqual(readRegistry(), {});
 });

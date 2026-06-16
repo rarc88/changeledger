@@ -21,7 +21,7 @@ export function readRegistry() {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
-    return {};
+    throw new Error('registry.json is not valid JSON');
   }
 }
 
