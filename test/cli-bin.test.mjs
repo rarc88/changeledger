@@ -18,6 +18,15 @@ function run(...args) {
   }
 }
 
+function runDirect(...args) {
+  try {
+    const out = execFileSync(bin, args, { encoding: 'utf8' });
+    return { code: 0, out, err: '' };
+  } catch (e) {
+    return { code: e.status ?? 1, out: e.stdout ?? '', err: e.stderr ?? '' };
+  }
+}
+
 // Run the CLI inside a repo, with an isolated registry home.
 function runIn(cwd, env, ...args) {
   try {
@@ -53,6 +62,18 @@ test('CR4: sl --help lists all commands', () => {
   assert.match(out, /sl init/);
   assert.match(out, /sl graduate/);
   assert.match(out, /sl review/);
+});
+
+test('151226: bin remains directly executable', () => {
+  const { code, out } = runDirect('--help');
+  assert.equal(code, 0);
+  assert.match(out, /sl init/);
+});
+
+test('151226: unknown options fail instead of being ignored', () => {
+  const { code, err } = run('list', '--bogus');
+  assert.notEqual(code, 0);
+  assert.match(err, /unknown option '--bogus'/);
 });
 
 test('sl review --help shows pass and fail routing, exit 0', () => {

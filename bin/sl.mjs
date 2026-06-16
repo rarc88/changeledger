@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Command } from 'commander';
 import {
   archive,
   discard,
@@ -40,197 +41,252 @@ const USAGE = `Spec Ledger (sl)
   sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   sl graduate --pending                 list done changes not yet reviewed`;
 
-// Per-command usage, shown by `sl <cmd> --help` / `-h` and reused by the
-// `Usage:` errors below so there is a single source of truth.
-const HELP = {
-  init: 'sl init — set up .sl/ in the current repo (+ register it)',
-  register: "sl register — (re)link this repo's path in the global registry",
-  new: 'sl new <type> <slug> <title> [--owner name] — scaffold a change',
-  view: 'sl view [port] — launch the local viewer (default port 4040)',
-  check: 'sl check [id] [--json] — validate the repo or one change',
-  status: "sl status <id> <status> — move a change's lifecycle status",
-  discard: 'sl discard <id> "<reason>" — discard a change (terminal; keeps the record and reason)',
-  review:
-    'sl review <id> pass — independent review passed → done\n' +
-    'sl review <id> fail --retry "<reason>" — defect inside the contract → in-progress\n' +
-    'sl review <id> fail --block "<reason>" — escalates to a human → blocked',
-  owner: "sl owner <id> <name|-> — set or clear a change's owner",
-  archive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
-  unarchive: 'sl archive <id> | sl unarchive <id> — hide/show a change in the viewer',
-  log: 'sl log <id> <message> — append a timestamped Log entry',
-  task: 'sl task <id> done|block <n> [reason] — mark a Plan task',
-  list: 'sl list [--status S] [--type T] [--json] — list changes',
-  show: 'sl show <id> [--json] — print a change',
-  graduate:
-    'sl graduate <change-id> <spec-slug> — graduate a change to a new spec\n' +
-    'sl graduate <change-id> <spec-slug> --into — graduate into an existing spec\n' +
-    'sl graduate <change-id> --skip [reason] — mark graduation reviewed, no spec\n' +
-    'sl graduate --pending — list done changes not yet reviewed',
-};
+const program = new Command();
 
-const usage = (cmd) => `Usage: ${HELP[cmd]}`;
-
-const flagVal = (args, flag) => {
-  const i = args.indexOf(flag);
-  return i >= 0 ? args[i + 1] : undefined;
-};
-
-const [cmd, ...args] = process.argv.slice(2);
-
-// `sl <cmd> --help|-h` prints that command's usage and exits cleanly.
-if ((args[0] === '--help' || args[0] === '-h') && HELP[cmd]) {
-  console.log(HELP[cmd]);
-  process.exit(0);
+function action(fn) {
+  return async (...args) => {
+    try {
+      await fn(...args);
+    } catch (e) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+  };
 }
 
-try {
-  switch (cmd) {
-    case 'init': {
+program
+  .name('sl')
+  .description('Spec Ledger (sl)')
+  .helpOption('-h, --help', 'display help for command')
+  .addHelpText('after', `\n${USAGE}`);
+
+program
+  .command('init')
+  .description('set up .sl/ in the current repo (+ register it)')
+  .action(
+    action(() => {
       const dir = init();
       console.log(`Initialized Spec Ledger at ${dir}`);
-      break;
-    }
-    case 'register': {
+    }),
+  );
+
+program
+  .command('register')
+  .description("(re)link this repo's path in the global registry")
+  .action(
+    action(() => {
       const { id, path: p } = registerRepo();
       console.log(`Registered ${id} → ${p}`);
-      break;
-    }
-    case 'new': {
-      const ownerVal = flagVal(args, '--owner');
-      const positional = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--owner');
-      const [type, slug, ...rest] = positional;
-      const title = rest.join(' ').trim();
-      if (!type || !slug || !title)
-        throw new Error('Usage: sl new <type> <slug> <title> [--owner name]');
-      const file = newChange({ type, slug, title, owner: ownerVal, now: nowUtc() });
+    }),
+  );
+
+program
+  .command('new')
+  .description('scaffold a new change')
+  .argument('<type>')
+  .argument('<slug>')
+  .argument('<title...>')
+  .option('--owner <name>', 'set the initial owner')
+  .action(
+    action((type, slug, titleParts, options) => {
+      const title = titleParts.join(' ').trim();
+      const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
       console.log(`Created ${file}`);
-      break;
-    }
-    case 'view':
-      await view(args);
-      break;
-    case 'check':
-      process.exit(check(args));
-      break;
-    case 'status': {
-      const [id, st] = args;
-      if (!id || !st) throw new Error('Usage: sl status <id> <status>');
+    }),
+  );
+
+program
+  .command('view')
+  .description('launch the local viewer')
+  .argument('[args...]')
+  .action(action((args) => view(args)));
+
+program
+  .command('check')
+  .description('validate the repo or one change')
+  .argument('[id]')
+  .option('--json', 'print JSON')
+  .action((id, options) => {
+    const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
+    process.exit(check(args));
+  });
+
+program
+  .command('status')
+  .description("move a change's lifecycle status")
+  .argument('<id>')
+  .argument('<status>')
+  .action(
+    action((id, st) => {
       status(id, st);
       console.log(`#${id} → ${st}`);
-      break;
-    }
-    case 'discard': {
-      const [id, ...rest] = args;
-      const reason = rest.join(' ').trim();
-      if (!id) throw new Error(usage('discard'));
-      discard(id, reason);
+    }),
+  );
+
+program
+  .command('discard')
+  .description('discard a change (terminal; keeps the record and reason)')
+  .argument('<id>')
+  .argument('<reason...>')
+  .action(
+    action((id, reasonParts) => {
+      discard(id, reasonParts.join(' ').trim());
       console.log(`#${id} → discarded`);
-      break;
-    }
-    case 'review': {
-      const [id, verdict] = args;
-      if (!id || !verdict) throw new Error(usage('review'));
-      const mode = args.includes('--retry')
-        ? 'retry'
-        : args.includes('--block')
-          ? 'block'
-          : undefined;
-      const flagIdx = Math.max(args.indexOf('--retry'), args.indexOf('--block'));
-      const reason =
-        flagIdx >= 0
-          ? args
-              .slice(flagIdx + 1)
-              .join(' ')
-              .trim()
-          : undefined;
+    }),
+  );
+
+program
+  .command('review')
+  .description('record an independent review verdict')
+  .argument('<id>')
+  .argument('<verdict>', 'pass|fail')
+  .argument('[reason...]')
+  .option('--retry', 'route a failed review back to in-progress')
+  .option('--block', 'route a failed review to blocked')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  sl review <id> pass',
+      '  sl review <id> fail --retry "<reason>"',
+      '  sl review <id> fail --block "<reason>"',
+    ].join('\n'),
+  )
+  .action(
+    action((id, verdict, reasonParts, options) => {
+      const mode = options.retry ? 'retry' : options.block ? 'block' : undefined;
+      const reason = reasonParts.join(' ').trim() || undefined;
       review(id, verdict, { mode, reason });
       console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
-      break;
-    }
-    case 'owner': {
-      const [id, name] = args;
-      if (!id || !name) throw new Error('Usage: sl owner <id> <name|->');
+    }),
+  );
+
+program
+  .command('owner')
+  .description("set or clear a change's owner")
+  .argument('<id>')
+  .argument('<name>')
+  .action(
+    action((id, name) => {
       owner(id, name);
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
-      break;
-    }
-    case 'archive':
-    case 'unarchive': {
-      const [id] = args;
-      if (!id) throw new Error(`Usage: sl ${cmd} <id>`);
-      archive(id, cmd === 'archive');
-      console.log(`#${id} ${cmd}d`);
-      break;
-    }
-    case 'log': {
-      const [id, ...rest] = args;
-      const message = rest.join(' ').trim();
-      if (!id || !message) throw new Error('Usage: sl log <id> <message>');
-      log(id, message);
+    }),
+  );
+
+for (const cmd of ['archive', 'unarchive']) {
+  program
+    .command(cmd)
+    .description('hide/show a change in the viewer')
+    .argument('<id>')
+    .action(
+      action((id) => {
+        archive(id, cmd === 'archive');
+        console.log(`#${id} ${cmd}d`);
+      }),
+    );
+}
+
+program
+  .command('log')
+  .description('append a timestamped Log entry')
+  .argument('<id>')
+  .argument('<message...>')
+  .action(
+    action((id, messageParts) => {
+      log(id, messageParts.join(' ').trim());
       console.log(`logged on #${id}`);
-      break;
-    }
-    case 'task': {
-      const [id, action, nStr, ...rest] = args;
+    }),
+  );
+
+program
+  .command('task')
+  .description('mark a Plan task')
+  .argument('<id>')
+  .argument('<action>', 'done|block')
+  .argument('<n>')
+  .argument('[reason...]')
+  .action(
+    action((id, taskAction, nStr, reasonParts) => {
       const n = Number(nStr);
-      const reason = rest.join(' ').trim();
-      if (!id || !action || !n) throw new Error(usage('task'));
-      task(id, action, n, reason);
-      console.log(`task #${n} on #${id} → ${action}`);
-      break;
-    }
-    case 'list': {
-      const items = list({ status: flagVal(args, '--status'), type: flagVal(args, '--type') });
-      if (args.includes('--json')) {
+      task(id, taskAction, n, reasonParts.join(' ').trim());
+      console.log(`task #${n} on #${id} → ${taskAction}`);
+    }),
+  );
+
+program
+  .command('list')
+  .description('list changes')
+  .option('--status <status>', 'filter by status')
+  .option('--type <type>', 'filter by type')
+  .option('--json', 'print JSON')
+  .action(
+    action((options) => {
+      const items = list({ status: options.status, type: options.type });
+      if (options.json) {
         console.log(JSON.stringify(items, null, 2));
       } else {
         for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
       }
-      break;
-    }
-    case 'show': {
-      const id = args.find((a) => !a.startsWith('--'));
-      if (!id) throw new Error('Usage: sl show <id> [--json]');
+    }),
+  );
+
+program
+  .command('show')
+  .description('print a change')
+  .argument('<id>')
+  .option('--json', 'print JSON')
+  .action(
+    action((id, options) => {
       const c = show(id);
-      if (args.includes('--json')) console.log(JSON.stringify(c, null, 2));
+      if (options.json) console.log(JSON.stringify(c, null, 2));
       else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
-      break;
-    }
-    case 'graduate': {
-      if (args.includes('--pending')) {
+    }),
+  );
+
+program
+  .command('graduate')
+  .description('graduate a done change to persistent truth')
+  .argument('[change-id]')
+  .argument('[spec-slug]')
+  .argument('[reason...]')
+  .option('--into', 'graduate into an existing spec')
+  .option('--skip', 'mark graduation reviewed without a spec')
+  .option('--pending', 'list done changes not yet reviewed')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  sl graduate <change-id> <spec-slug>',
+      '  sl graduate <change-id> <spec-slug> --into',
+      '  sl graduate <change-id> --skip [reason]',
+      '  sl graduate --pending',
+    ].join('\n'),
+  )
+  .action(
+    action((id, slug, reasonParts, options) => {
+      if (options.pending) {
         const items = pendingGraduation();
         if (!items.length) console.log('No changes pending graduation.');
         for (const c of items) console.log(`#${c.id}  ${c.title}`);
-        break;
+        return;
       }
-      const skipIdx = args.indexOf('--skip');
-      if (skipIdx !== -1) {
-        const id = args.find((a) => !a.startsWith('--'));
-        if (!id) throw new Error(usage('graduate'));
-        const reason = args
-          .slice(skipIdx + 1)
-          .join(' ')
-          .trim();
+      if (options.skip) {
+        if (!id) throw new Error('Usage: sl graduate <change-id> --skip [reason]');
+        const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
         skipGraduation(id, reason);
         console.log(`#${id} graduation skipped`);
-        break;
+        return;
       }
-      const [id, slug] = args.filter((a) => !a.startsWith('--'));
-      if (!id || !slug) throw new Error(usage('graduate'));
-      const file = graduate(id, slug, process.cwd(), { into: args.includes('--into') });
+      if (!id || !slug) throw new Error('Usage: sl graduate <change-id> <spec-slug>');
+      const file = graduate(id, slug, process.cwd(), { into: options.into });
       console.log(`Graduated #${id} → ${file}`);
-      break;
-    }
-    case undefined:
-    case '-h':
-    case '--help':
-      console.log(USAGE);
-      break;
-    default:
-      console.error(`Unknown command: ${cmd}\n\n${USAGE}`);
-      process.exit(1);
-  }
-} catch (e) {
-  console.error(`Error: ${e.message}`);
-  process.exit(1);
+    }),
+  );
+
+if (process.argv.length <= 2) {
+  console.log(USAGE);
+} else {
+  program.parse();
 }

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T15:34:36Z
+updated: 2026-06-16T15:43:49Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -18,6 +18,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260616-151216 (Definition of Ready verificable).
 > Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
 > Graduado del change 20260616-151234 (resolución segura de assets estáticos).
+> Graduado del change 20260616-151226 (parser CLI con commander).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -51,6 +52,12 @@ flowchart TD
   SRV[server node:http] --> REPO
   SRV --> UI[visor: board / table / graph / specs / metrics]
 ```
+
+`bin/sl.mjs` define la interfaz de comandos con `commander`, manteniendo
+`src/commands/*` como capa de aplicación. La dependencia está fijada en una
+línea compatible con Node 20 y el binario conserva el shebang + modo ejecutable,
+porque se publica como comando global `sl`. El parser rechaza opciones
+desconocidas en lugar de ignorarlas silenciosamente.
 
 ## Modelo de datos
 
