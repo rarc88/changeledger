@@ -48,8 +48,17 @@ function parseCriteria(specBody) {
 function splitStages(body) {
   const stages = [];
   let current = null;
+  let fence = null;
   for (const line of body.split('\n')) {
-    const m = line.match(/^##\s+(.+?)\s*$/);
+    const fenceMark = line.match(/^(`{3,}|~{3,})/);
+    if (fenceMark) {
+      if (!fence) fence = { char: fenceMark[1][0], length: fenceMark[1].length };
+      else if (fenceMark[1][0] === fence.char && fenceMark[1].length >= fence.length) fence = null;
+      if (current) current.body += `${line}\n`;
+      continue;
+    }
+
+    const m = fence ? null : line.match(/^##\s+(.+?)\s*$/);
     if (m) {
       current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), body: '' };
       stages.push(current);

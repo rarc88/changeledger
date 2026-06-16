@@ -110,3 +110,82 @@ test('computes progress', () => {
 test('throws when frontmatter is missing', () => {
   assert.throws(() => parseChange('## Request\n\nno frontmatter'), /frontmatter/i);
 });
+
+test('162050 CR1: headings inside fenced code blocks do not create stages', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: bug
+status: approved
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Request
+
+Real request.
+
+## Investigation
+
+\`\`\`md
+## Request
+\`\`\`
+
+Still investigation.
+`);
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'investigation'],
+  );
+  assert.match(c.stages[1].body, /## Request/);
+  assert.match(c.stages[1].body, /Still investigation/);
+});
+
+test('162050 CR2: headings after a closed fence still create stages', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: bug
+status: approved
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Request
+
+\`\`\`md
+## Not a stage
+\`\`\`
+
+## Investigation
+
+Real investigation.
+`);
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'investigation'],
+  );
+  assert.match(c.stages[1].body, /Real investigation/);
+});
+
+test('162050 CR3: an unclosed fence keeps later headings in the current body', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: bug
+status: approved
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Request
+
+\`\`\`md
+## Investigation
+`);
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request'],
+  );
+  assert.match(c.stages[0].body, /## Investigation/);
+});
