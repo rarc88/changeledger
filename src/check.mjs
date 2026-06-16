@@ -41,7 +41,13 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
 
     const present = (c.stages ?? []).map((s) => s.key);
-    for (const k of present) if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
+    for (const s of c.stages ?? []) {
+      const k = s.key;
+      if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
+      else if (s.heading && s.heading !== canonicalHeading(k)) {
+        err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
+      }
+    }
 
     const seenStages = new Set();
     for (const k of present) {
@@ -64,6 +70,9 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     }
 
     const tasks = c.tasks ?? [];
+    checkTasks(c, tasks, err);
+    checkCriteria(c, c.criteria ?? [], err);
+
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
       warn(c, `status is "done" but ${pending} task(s) are not done`);
@@ -111,6 +120,29 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
   checkSpecs(changes, specs, ids, err, warn);
 
   return { errors, warnings };
+}
+
+function canonicalHeading(key) {
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function checkTasks(c, tasks, err) {
+  for (const t of tasks) {
+    if (t.state === 'done' && !ISO_UTC.test(t.resolvedAt ?? '')) {
+      err(c, 'done task is missing an ISO 8601 UTC resolution timestamp');
+    }
+    if (t.state === 'blocked' && !String(t.reason ?? '').trim()) {
+      err(c, 'blocked task is missing a reason');
+    }
+  }
+}
+
+function checkCriteria(c, criteria, err) {
+  const seen = new Set();
+  for (const cr of criteria) {
+    if (seen.has(cr)) err(c, `duplicate criterion "${cr}"`);
+    else seen.add(cr);
+  }
 }
 
 // The latest timestamp found in a change: its `created` plus every `**<iso>**`

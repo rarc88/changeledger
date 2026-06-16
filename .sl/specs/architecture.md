@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T09:34:23Z
+updated: 2026-06-16T15:21:36Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -14,6 +14,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
 > Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
 > Graduado del change 20260615-210508 (estado terminal `discarded`).
+> Graduado del change 20260616-151221 (parsing estricto de changes).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -179,6 +180,12 @@ la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
 salen de los marcadores que escribe `sl graduate`.
+
+La validación también fija invariantes del formato Markdown que el parser expone:
+headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
+tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
+interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
+preservar descripciones que contienen la misma raya.
 
 ## Trazabilidad git
 

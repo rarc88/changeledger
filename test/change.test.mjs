@@ -61,6 +61,25 @@ test('parses task criteria, resolution timestamp and block reason', () => {
   assert.equal(c.tasks[2].reason, 'blocked by upstream');
 });
 
+test('parses task suffix from the last em dash separator', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [x] Preserve wording — with an internal dash (CR1) — 2026-06-13T13:30:00Z
+`);
+  assert.equal(c.tasks[0].text, 'Preserve wording — with an internal dash');
+  assert.deepEqual(c.tasks[0].criteria, ['CR1']);
+  assert.equal(c.tasks[0].resolvedAt, '2026-06-13T13:30:00Z');
+});
+
 test('computes progress', () => {
   const c = parseChange(SAMPLE);
   assert.deepEqual(c.progress, { total: 3, done: 1, blocked: 1 });

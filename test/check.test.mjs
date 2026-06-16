@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 
 const config = {
@@ -29,6 +30,7 @@ function change(over = {}) {
     frontmatter: fm,
     stages: over.stages ?? [{ key: 'request' }, { key: 'plan' }, { key: 'log' }],
     tasks: over.tasks ?? [],
+    criteria: over.criteria ?? [],
   };
 }
 
@@ -91,6 +93,21 @@ test('CR4: stages out of canonical order is an error', () => {
   assert.ok(msgs(errors).some((m) => /out of canonical order/.test(m)));
 });
 
+test('151221 CR1: stage headings must use canonical casing', () => {
+  const { errors } = run([
+    change({
+      stages: [
+        { key: 'request', heading: 'request' },
+        { key: 'plan', heading: 'Plan' },
+        { key: 'log', heading: 'Log' },
+      ],
+    }),
+  ]);
+  assert.ok(
+    msgs(errors).some((m) => /stage heading must be canonical: expected "## Request"/.test(m)),
+  );
+});
+
 test('CR5: dangling dependency is an error', () => {
   const { errors } = run([change({ frontmatter: { depends_on: ['99999999-000000'] } })]);
   assert.ok(msgs(errors).some((m) => /references missing change/.test(m)));
@@ -114,7 +131,7 @@ test('CR6: duplicate ids are an error', () => {
 test('CR7: done with unfinished tasks is a warning, not an error', () => {
   const c = change({
     frontmatter: { status: 'done' },
-    tasks: [{ state: 'done' }, { state: 'todo' }],
+    tasks: [{ state: 'done', resolvedAt: '2026-06-13T12:01:00Z' }, { state: 'todo' }],
   });
   const { errors, warnings } = run([c]);
   assert.deepEqual(errors, []);
@@ -273,6 +290,59 @@ test('CR1: no duplicates does not false-positive', () => {
     msgs(run([change()]).errors).filter((m) => /duplicate stage/.test(m)),
     [],
   );
+});
+
+test('151221 CR2: done tasks require an ISO resolution timestamp', () => {
+  const { errors } = run([
+    change({
+      tasks: [{ state: 'done', text: 'Finish it', criteria: ['CR1'] }],
+    }),
+  ]);
+  assert.ok(
+    msgs(errors).some((m) => /done task is missing an ISO 8601 UTC resolution timestamp/.test(m)),
+  );
+});
+
+test('151221 CR2: done task descriptions may contain an em dash before the timestamp', () => {
+  const text = `---
+id: "20260613-120000"
+title: X
+type: feature
+status: done
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Plan
+
+- [x] Keep the phrase — do not truncate it (CR1) — 2026-06-13T12:01:00Z
+
+## Log
+`;
+  const parsed = parseChange(text);
+  const { errors } = run([change({ text, ...parsed })]);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /done task is missing/.test(m)),
+    [],
+  );
+});
+
+test('151221 CR3: blocked tasks require a reason', () => {
+  const { errors } = run([
+    change({
+      tasks: [{ state: 'blocked', text: 'Wait', criteria: ['CR1'] }],
+    }),
+  ]);
+  assert.ok(msgs(errors).some((m) => /blocked task is missing a reason/.test(m)));
+});
+
+test('151221 CR4: duplicate criteria are an error', () => {
+  const { errors } = run([change({ criteria: ['CR1', 'CR1'] })]);
+  assert.ok(msgs(errors).some((m) => /duplicate criterion "CR1"/.test(m)));
 });
 
 // --- Definition of Ready coverage (tdd) ---

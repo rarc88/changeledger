@@ -63,7 +63,7 @@ function parseTasks(planBody) {
     let resolvedAt;
     let reason;
 
-    const dash = rest.indexOf(' — ');
+    const dash = rest.lastIndexOf(' — ');
     if (dash !== -1) {
       const suffix = rest.slice(dash + 3).trim();
       rest = rest.slice(0, dash).trim();
