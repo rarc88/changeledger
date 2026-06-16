@@ -6,6 +6,7 @@ status: done
 created: 2026-06-16T17:44:31Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -29,3 +30,4 @@ By default, `DOMPurify.sanitize()` strips scripts but retains CSS. If an attacke
 - **2026-06-16T20:48:11Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T20:48:32Z** — status: in-progress → in-review
 - **2026-06-16T20:58:51Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T21:03:53Z** — graduation skipped: no persistent spec change; viewer sanitizer hardening covered by tests
