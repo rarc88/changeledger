@@ -157,11 +157,36 @@ test('CR5: setSpecUpdated replaces only the updated line', () => {
   assert.match(out, /^updated: 2026-06-15T17:30:00Z$/m);
   assert.doesNotMatch(out, /2020-01-01/);
   assert.match(out, /^title: Arch$/m);
-  assert.match(out, /^tags: \[architecture\]$/m);
+  assert.match(out, /^tags: \[\s*architecture\s*\]$/m);
   assert.match(out, /# Arch\n\nBody\./);
 });
 
 test('setSpecUpdated throws when updated is missing', () => {
   const spec = `---\ntitle: Arch\ntags: [architecture]\n---\n\n# Arch\n`;
   assert.throws(() => setSpecUpdated(spec, '2026-06-15T17:30:00Z'), /missing updated/);
+});
+
+test('174430: frontmatter mutations preserve multiline and nested YAML values', () => {
+  const doc = `---
+id: "20260613-120000"
+title: |
+  First line
+  status: not-frontmatter
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+metadata:
+  status: nested
+---
+
+## Request
+
+Body.
+`;
+  const out = setStatus(doc, 'approved');
+  assert.equal(parseChange(out).frontmatter.status, 'approved');
+  assert.match(out, /status: not-frontmatter/);
+  assert.match(out, /metadata:\n {2}status: nested/);
+  assert.match(out, /## Request\n\nBody\./);
 });
