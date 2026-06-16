@@ -225,6 +225,7 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   const report = fm.status === 'draft' ? warn : err;
 
   const declared = c.criteria ?? [];
+  const declaredSet = new Set(declared);
   const tasks = c.tasks ?? [];
   const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
 
@@ -237,6 +238,9 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
 
   for (const t of tasks) {
     if (!t.criteria?.length) continue;
+    for (const cr of t.criteria) {
+      if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
+    }
     if (!namesTargetAndTestFiles(t.text)) {
       for (const cr of t.criteria) report(c, `Plan task for ${cr} must name target and test files`);
     }

@@ -411,6 +411,101 @@ test('CR3: a task with no criterion warns', () => {
   assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
 });
 
+test('162014 CR1: a task referencing an undeclared criterion is an error', () => {
+  const { errors, warnings } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR999)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR999"/.test(m)));
+  assert.ok(msgs(warnings).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+});
+
+test('162014 CR2: a task referencing a declared criterion is valid', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+
+## Log
+`);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /unknown criterion/.test(m)),
+    [],
+  );
+});
+
+test('162014 CR3: multiple undeclared criteria are each reported', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1, CR2, CR404)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR2"/.test(m)));
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR404"/.test(m)));
+});
+
 test('CR4: tdd:false disables coverage warnings', () => {
   const w = covWarn(
     { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] },
