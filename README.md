@@ -103,8 +103,9 @@ The CLI core stays intentionally lightweight and mostly standard-library based.
 Runtime dependencies are not forbidden, but they must earn their place: prefer
 small local code for controlled formats, and use mature, maintained libraries
 when they reduce real risk or cover complex domains. The CLI uses `yaml` for
-config/frontmatter parsing, and the viewer deliberately uses `marked`,
-`dompurify` and `mermaid` for Markdown, sanitization and diagrams.
+config/frontmatter parsing, and the viewer deliberately uses `lit-html`,
+`marked`, `dompurify` and `mermaid` for templating, Markdown, sanitization and
+diagrams.
 
 ```sh
 pnpm install                  # dev deps (Biome)

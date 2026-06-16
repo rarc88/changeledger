@@ -1,6 +1,7 @@
 import { getGitRefs, getProjects, getRepo, postStatus, searchAllProjects } from './api.js';
-import { cssIdent, esc, initMermaid, renderMermaid, safeHtml } from './security.js';
+import { cssIdent, initMermaid, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
+import { html, render as litRender, markdownHtml, nothing } from './templates.js';
 import { card, stageBlock, tableRow } from './view-parts.js';
 import { graphSvg, metricsHtml, specsListHtml } from './view-renderers.js';
 
@@ -33,12 +34,13 @@ async function loadProjects() {
   const { projects, current } = await getProjects();
   projectsList = projects;
   const sel = $('#project');
-  sel.innerHTML = projects
-    .map(
+  litRender(
+    projects.map(
       (p) =>
-        `<option value="${esc(p.id)}" ${p.alive ? '' : 'disabled'}>${esc(p.name)}${p.alive ? '' : ' (missing)'}</option>`,
-    )
-    .join('');
+        html`<option value=${p.id} ?disabled=${!p.alive}>${p.name}${p.alive ? '' : ' (missing)'}</option>`,
+    ),
+    sel,
+  );
   currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
   if (currentProject) sel.value = currentProject;
   sel.style.display = projects.length > 1 ? '' : 'none';
@@ -47,8 +49,10 @@ async function loadProjects() {
 
 async function load() {
   if (!currentProject) {
-    $('#board').innerHTML =
-      '<p class="empty" style="padding:20px">No projects registered. Run `sl init` in a repo.</p>';
+    litRender(
+      html`<p class="empty" style="padding:20px">No projects registered. Run <code>sl init</code> in a repo.</p>`,
+      $('#board'),
+    );
     return;
   }
   try {
@@ -59,33 +63,40 @@ async function load() {
     hydrateFilters();
     render();
   } catch (e) {
-    $('#board').innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
+    litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
   }
 }
 
 // Rebuilt on each project load (types/statuses can differ per project).
 function hydrateFilters() {
-  $('#type-filter').innerHTML =
-    '<option value="all">All types</option>' +
-    repo.types.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  litRender(
+    html`<option value="all">All types</option>
+      ${repo.types.map((t) => html`<option value=${t}>${t}</option>`)}`,
+    $('#type-filter'),
+  );
   $('#type-filter').value = filters.type;
   $('#lang').textContent = repo.language;
 
   const owners = [...new Set(repo.changes.map((c) => c.owner).filter(Boolean))].sort();
-  $('#owner-filter').innerHTML =
-    '<option value="all">All owners</option>' +
-    owners.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  litRender(
+    html`<option value="all">All owners</option>
+      ${owners.map((o) => html`<option value=${o}>${o}</option>`)}`,
+    $('#owner-filter'),
+  );
   if (filters.owner !== 'all' && !owners.includes(filters.owner)) filters.owner = 'all';
   $('#owner-filter').value = filters.owner;
   $('#owner-filter').style.display = owners.length ? '' : 'none';
 
   const sf = $('#status-filter');
-  sf.innerHTML = boardStatuses(repo.statuses)
-    .map(
+  litRender(
+    boardStatuses(repo.statuses).map(
       (s) =>
-        `<button type="button" class="chip ${filters.statuses.has(s) ? 'active' : ''}" data-status="${esc(s)}">${esc(s)}</button>`,
-    )
-    .join('');
+        html`<button type="button" class=${`chip ${filters.statuses.has(s) ? 'active' : ''}`} data-status=${s}>
+          ${s}
+        </button>`,
+    ),
+    sf,
+  );
   for (const el of sf.querySelectorAll('.chip')) {
     el.onclick = () => {
       const s = el.dataset.status;
@@ -112,16 +123,17 @@ function render() {
 function renderBoard() {
   const changes = visibleChanges();
   const board = $('#board');
-  board.innerHTML = boardStatuses(repo.statuses)
-    .map((status) => {
+  litRender(
+    boardStatuses(repo.statuses).map((status) => {
       const items = changes.filter((c) => c.status === status);
-      return `
-        <div class="column" data-status="${esc(status)}">
-          <div class="column-head"><span>${esc(status)}</span><span class="count">${items.length}</span></div>
-          <div class="column-body">${items.map(card).join('')}</div>
+      return html`
+        <div class="column" data-status=${status}>
+          <div class="column-head"><span>${status}</span><span class="count">${items.length}</span></div>
+          <div class="column-body">${items.map(card)}</div>
         </div>`;
-    })
-    .join('');
+    }),
+    board,
+  );
   // The only human-driven lifecycle move is approval: draft → approved. So only
   // draft cards are draggable, and only the approved column is a drop target.
   board.querySelectorAll('.card').forEach((el) => {
@@ -172,33 +184,34 @@ async function moveStatus(id, status) {
 function openDetail(id) {
   const c = repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
-  const deps = (c.depends_on || [])
-    .map((d) => {
-      const ext = String(d).includes(':');
-      const attr = ext ? `data-extdep="${esc(d)}"` : `data-dep="${esc(d)}"`;
-      const label = ext ? `depends on ${esc(d)}` : `depends on #${esc(d)}`;
-      return `<span class="pill ${ext ? 'ext' : ''}" ${attr} style="cursor:pointer">${label}</span>`;
-    })
-    .join('');
-  const pipeline = c.stages
-    .map((s) => `<span class="stage-chip" data-go="stage-${esc(s.key)}">${esc(s.heading)}</span>`)
-    .join('');
-  const stages = c.stages.map((s) => stageBlock(c, s)).join('');
+  const deps = (c.depends_on || []).map((d) => {
+    const ext = String(d).includes(':');
+    return ext
+      ? html`<span class="pill ext" data-extdep=${d} style="cursor:pointer">depends on ${d}</span>`
+      : html`<span class="pill" data-dep=${d} style="cursor:pointer">depends on #${d}</span>`;
+  });
+  const pipeline = c.stages.map(
+    (s) => html`<span class="stage-chip" data-go=${`stage-${s.key}`}>${s.heading}</span>`,
+  );
+  const stages = c.stages.map((s) => stageBlock(c, s));
 
-  $('#detail').innerHTML = `
-    <span class="close">×</span>
-    <h1>${esc(c.title)}</h1>
+  litRender(
+    html`
+    <button type="button" class="close">×</button>
+    <h1>${c.title}</h1>
     <div class="detail-meta">
-      <span class="pill">#${esc(c.id)}</span>
-      <span class="pill" style="color:var(--${cssIdent(c.type)})">${esc(c.type)}</span>
-      <span class="pill">${esc(c.status)}</span>
-      ${c.owner ? `<span class="pill owner">@${esc(c.owner)}</span>` : ''}
-      <span class="pill" title="${esc(c.created || '')}">${esc(fmtDateTime(c.created))}</span>
+      <span class="pill">#${c.id}</span>
+      <span class="pill" style=${`color:var(--${cssIdent(c.type)})`}>${c.type}</span>
+      <span class="pill">${c.status}</span>
+      ${c.owner ? html`<span class="pill owner">@${c.owner}</span>` : nothing}
+      <span class="pill" title=${c.created || ''}>${fmtDateTime(c.created)}</span>
       ${deps}
     </div>
     <div class="pipeline">${pipeline}</div>
     ${stages}
-    <div id="git-section"></div>`;
+    <div id="git-section"></div>`,
+    $('#detail'),
+  );
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
@@ -240,24 +253,28 @@ async function loadGitRefs(id) {
   const sec = $('#git-section');
   if (!sec) return;
   if (!refs.commits.length && !refs.branches.length) {
-    sec.innerHTML = '';
+    litRender(nothing, sec);
     return;
   }
-  const commits = refs.commits
-    .map(
-      (c) =>
-        `<li><span class="mono">${esc(c.sha.slice(0, 8))}</span> ${esc(c.subject)} <span class="when" title="${esc(c.date || '')}">${esc(fmtDate(c.date))}</span></li>`,
-    )
-    .join('');
-  const branches = refs.branches.map((b) => `<span class="pill">${esc(b)}</span>`).join('');
-  sec.innerHTML = `
+  const commits = refs.commits.map(
+    (c) =>
+      html`<li>
+        <span class="mono">${c.sha.slice(0, 8)}</span> ${c.subject}
+        <span class="when" title=${c.date || ''}>${fmtDate(c.date)}</span>
+      </li>`,
+  );
+  const branches = refs.branches.map((b) => html`<span class="pill">${b}</span>`);
+  litRender(
+    html`
     <div class="stage">
       <h2>Git</h2>
       <div class="stage-content">
-        ${branches ? `<div class="detail-meta">${branches}</div>` : ''}
-        ${refs.commits.length ? `<ul class="git-commits">${commits}</ul>` : ''}
+        ${branches.length ? html`<div class="detail-meta">${branches}</div>` : nothing}
+        ${refs.commits.length ? html`<ul class="git-commits">${commits}</ul>` : nothing}
       </div>
-    </div>`;
+    </div>`,
+    sec,
+  );
 }
 
 function closeDetail() {
@@ -287,7 +304,7 @@ async function gotoChange(proj, changeId) {
 /* Dependency graph */
 function renderGraph() {
   const changes = repo.changes.filter((c) => passesTombstones(c, filters));
-  $('#graph').innerHTML = graphSvg(changes);
+  litRender(graphSvg(changes), $('#graph'));
   $('#graph')
     .querySelectorAll('.node')
     .forEach((el) => {
@@ -313,16 +330,21 @@ function renderTable() {
       return va < vb ? -sortDir : va > vb ? sortDir : 0;
     });
 
-  $('#table').innerHTML = `
+  litRender(
+    html`
     <table class="grid">
-      <thead><tr>${cols
-        .map(
-          (c) =>
-            `<th data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
-        )
-        .join('')}</tr></thead>
-      <tbody>${rows.map(tableRow).join('')}</tbody>
-    </table>`;
+      <thead>
+        <tr>
+          ${cols.map(
+            (c) =>
+              html`<th data-sort=${c.key}>${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
+          )}
+        </tr>
+      </thead>
+      <tbody>${rows.map(tableRow)}</tbody>
+    </table>`,
+    $('#table'),
+  );
 
   $('#table')
     .querySelectorAll('th[data-sort]')
@@ -357,7 +379,7 @@ function renderSpecs() {
   const specs = (repo.specs || []).filter(
     (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
   );
-  $('#specs').innerHTML = specsListHtml(specs, fmtDateTime);
+  litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
   $('#specs')
     .querySelectorAll('.spec-card')
     .forEach((el) => {
@@ -366,15 +388,18 @@ function renderSpecs() {
 }
 
 function openSpec(s) {
-  $('#detail').innerHTML = `
-    <span class="close">×</span>
-    <h1>${esc(s.title)}</h1>
+  litRender(
+    html`
+    <button type="button" class="close">×</button>
+    <h1>${s.title}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
-      <span class="pill" title="${esc(s.updated || '')}">${esc(fmtDateTime(s.updated))}</span>
-      ${(s.tags || []).map((t) => `<span class="pill">${esc(t)}</span>`).join('')}
+      <span class="pill" title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
+      ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
     </div>
-    <div class="stage-content">${safeHtml(s.body)}</div>`;
+    <div class="stage-content">${markdownHtml(s.body)}</div>`,
+    $('#detail'),
+  );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
   $('.close').onclick = closeDetail;
@@ -387,7 +412,7 @@ function openSpec(s) {
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
 
 function renderMetrics() {
-  $('#metrics').innerHTML = metricsHtml(repo.metrics || {});
+  litRender(metricsHtml(repo.metrics || {}), $('#metrics'));
 }
 
 function setView(v) {
@@ -409,38 +434,40 @@ async function renderGlobal() {
   const q = filters.text.trim();
   const el = $('#global');
   if (!q) {
-    el.innerHTML = '<p class="empty" style="padding:20px">Type to search across all projects.</p>';
+    litRender(
+      html`<p class="empty" style="padding:20px">Type to search across all projects.</p>`,
+      el,
+    );
     return;
   }
   let groups;
   try {
     groups = await searchAllProjects(q);
   } catch (e) {
-    el.innerHTML = `<p style="color:var(--bug);padding:20px">${esc(e.message)}</p>`;
+    litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, el);
     return;
   }
   if (!groups.length) {
-    el.innerHTML = `<p class="empty" style="padding:20px">No matches for “${esc(q)}”.</p>`;
+    litRender(html`<p class="empty" style="padding:20px">No matches for “${q}”.</p>`, el);
     return;
   }
-  el.innerHTML = groups
-    .map(
-      (g) => `
+  litRender(
+    groups.map(
+      (g) => html`
       <div class="search-group">
-        <h3>${esc(g.project.name)} <span class="count">${g.matches.length}</span></h3>
-        ${g.matches
-          .map(
-            (m) => `<div class="search-hit" data-proj="${esc(g.project.id)}" data-id="${esc(m.id)}">
-              <span class="card-id">#${esc(m.id)}</span>
-              <span class="type-tag" style="--type-color: var(--${cssIdent(m.type)})">${esc(m.type)}</span>
-              <span>${esc(m.title)}</span>
-              <span class="pill">${esc(m.status)}</span>
+        <h3>${g.project.name} <span class="count">${g.matches.length}</span></h3>
+        ${g.matches.map(
+          (m) => html`<div class="search-hit" data-proj=${g.project.id} data-id=${m.id}>
+              <span class="card-id">#${m.id}</span>
+              <span class="type-tag" style=${`--type-color: var(--${cssIdent(m.type)})`}>${m.type}</span>
+              <span>${m.title}</span>
+              <span class="pill">${m.status}</span>
             </div>`,
-          )
-          .join('')}
+        )}
       </div>`,
-    )
-    .join('');
+    ),
+    el,
+  );
   el.querySelectorAll('.search-hit').forEach((hit) => {
     hit.onclick = () => gotoChange(hit.dataset.proj, hit.dataset.id);
   });

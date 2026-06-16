@@ -16,8 +16,8 @@ into each repo as `.sl/AGENTS.md`. Edit the convention there, not here.
 
 - Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
   allowed only when they are mature and justified: the CLI uses `yaml` for
-  config/frontmatter parsing, and the viewer uses `marked`, `dompurify` and
-  `mermaid` for Markdown, sanitization and diagrams.
+  config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,
+  `dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
 - `pnpm verify` (lint + test + `sl check`) is the quality gate; the versioned
   `hooks/pre-commit` runs it.
 - The contract you edit for the convention is `templates/AGENTS.md` — it is the

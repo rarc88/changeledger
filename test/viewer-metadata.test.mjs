@@ -8,8 +8,10 @@ import { marked } from 'marked';
 // /vendor). Provide the real libraries so safeHtml behaves exactly as in the
 // browser, then import the module.
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
+globalThis.document = window.document;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
+const { render } = await import('lit-html');
 const {
   boardStatuses,
   card,
@@ -32,7 +34,8 @@ const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
 const { document } = window;
 const parse = (html) => {
   const host = document.createElement('div');
-  host.innerHTML = html;
+  if (typeof html === 'string') host.innerHTML = html;
+  else render(html, host);
   return host;
 };
 const XSS = '"><img src=x onerror=alert(1)>';

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T23:02:40Z
+updated: 2026-06-16T09:34:23Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -244,15 +244,17 @@ del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
 (`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
-(filtros y tombstones), `api.js` (fetch), `view-parts.js` (snippets reutilizables)
-y `view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y
-wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan
-changes visibles, en vez de generar un SVG con dimensiones inválidas.
+(filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
+único de Markdown sanitizado), `view-parts.js` (templates reutilizables) y
+`view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y wiring
+de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
+visibles, en vez de generar un SVG con dimensiones inválidas.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
-`check` y las deps los siguen viendo. `marked`, `dompurify` y `mermaid` son
-dependencias instaladas (pnpm), servidas desde `node_modules` bajo `/vendor/*`.
+`check` y las deps los siguen viendo. `lit-html`, `marked`, `dompurify` y
+`mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
+`/vendor/*`.
 **Frontera de confianza:** los documentos del repo son contenido no confiable
 aunque el repo sea local. El cuerpo Markdown se rinde vía `safeHtml` (marked →
 DOMPurify) antes de tocar el DOM; si `marked` o `DOMPurify` no cargan, `safeHtml`
@@ -270,6 +272,6 @@ producto: cada una debe ser madura, mantenida y proporcional al problema que
 resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño,
 pero usa `yaml` para parsear y serializar `.sl/config.yml` y frontmatter porque
 YAML tiene suficientes reglas y bordes como para no mantener un parser propio. En
-dominios con superficie amplia o riesgo de seguridad —render Markdown,
-sanitización HTML, diagramas— el visor usa librerías especializadas y conocidas
-(`marked`, `dompurify`, `mermaid`) en vez de reinventarlas.
+dominios con superficie amplia o riesgo de seguridad —templates DOM, render
+Markdown, sanitización HTML, diagramas— el visor usa librerías especializadas y
+conocidas (`lit-html`, `marked`, `dompurify`, `mermaid`) en vez de reinventarlas.

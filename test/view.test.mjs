@@ -166,6 +166,21 @@ test('CR2: the served page carries the session token', async () => {
   const res = await request(port, { path: '/' });
   assert.match(res.body, new RegExp(`window.__SL_TOKEN__ = '${TOKEN}'`));
   assert.ok(!res.body.includes('__SL_TOKEN_VALUE__'), 'placeholder fully substituted');
+  assert.match(res.body, /"lit-html": "\/vendor\/lit-html\/lit-html\.js"/);
+  server.close();
+});
+
+test('222618: lit-html vendor modules are served for browser import maps', async () => {
+  isolatedHome();
+  const { server, port } = await startServer(newRepo());
+
+  const lit = await request(port, { path: '/vendor/lit-html/lit-html.js' });
+  assert.equal(lit.status, 200);
+  assert.match(lit.body, /export\{/);
+
+  const unsafe = await request(port, { path: '/vendor/lit-html/directives/unsafe-html.js' });
+  assert.equal(unsafe.status, 200);
+  assert.match(unsafe.body, /unsafeHTML/);
   server.close();
 });
 

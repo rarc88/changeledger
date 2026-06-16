@@ -2,9 +2,11 @@
 id: "20260615-222618"
 title: Reemplazar HTML manual del visor por templates seguros
 type: refactor
-status: draft
+status: done
 created: 2026-06-15T22:26:18Z
 depends_on: ["20260615-214817", "20260615-214819"]
+reviewed: true
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -42,11 +44,19 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Añadir `lit-html` como dependencia runtime documentada del viewer
-- [ ] Crear un módulo de render base que exporte helpers de templates y el wrapper único para HTML Markdown sanitizado
-- [ ] Migrar primero `view-parts.js` y `view-renderers.js`, manteniendo selectores/IDs usados por tests y eventos
-- [ ] Migrar `app.js` para usar `render()` en contenedores principales en vez de asignar grandes strings a `innerHTML`
-- [ ] Mantener DOMPurify como dependencia obligatoria para Markdown y añadir tests que fallen si HTML no sanitizado llega al wrapper
-- [ ] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs test/view.test.mjs` y `pnpm check`
+- [x] Añadir `lit-html` como dependencia runtime documentada del viewer — 2026-06-15T23:11:46Z
+- [x] Crear un módulo de render base que exporte helpers de templates y el wrapper único para HTML Markdown sanitizado — 2026-06-15T23:11:46Z
+- [x] Migrar primero `view-parts.js` y `view-renderers.js`, manteniendo selectores/IDs usados por tests y eventos — 2026-06-16T09:32:48Z
+- [x] Migrar `app.js` para usar `render()` en contenedores principales en vez de asignar grandes strings a `innerHTML` — 2026-06-15T23:11:46Z
+- [x] Mantener DOMPurify como dependencia obligatoria para Markdown y añadir tests que fallen si HTML no sanitizado llega al wrapper — 2026-06-15T23:11:46Z
+- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs test/view.test.mjs` y `pnpm check` — 2026-06-15T23:11:46Z
 
 ## Log
+- **2026-06-15T22:38:27Z** — status: draft → approved
+- **2026-06-15T23:03:31Z** — status: approved → in-progress
+- **2026-06-15T23:03:31Z** — owner → Roberto Ruiz (auto)
+- **2026-06-15T23:11:52Z** — status: in-progress → in-review
+- **2026-06-16T09:32:40Z** — review → in-progress (retry): Plan pendiente detectado por revisión independiente
+- **2026-06-16T09:32:54Z** — status: in-progress → in-review
+- **2026-06-16T09:34:23Z** — review → done (delegated subagent, clean context)
+- **2026-06-16T09:34:23Z** — graduado a spec `architecture.md`

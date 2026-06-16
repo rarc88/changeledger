@@ -1,54 +1,55 @@
-import { cssIdent, esc, safeHtml } from './security.js';
+import { cssIdent } from './security.js';
+import { html, markdownHtml, nothing } from './templates.js';
 
 const MARK = { done: '✓', todo: '○', blocked: '✕' };
 
 export function card(c) {
   const pct = c.progress.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0;
   const blocked = c.progress.blocked
-    ? `<span class="flag-blocked">● ${c.progress.blocked} blocked</span>`
-    : '';
-  return `
-    <div class="card ${c.archived ? 'archived' : ''}" data-id="${esc(c.id)}" style="--type-color: var(--${cssIdent(c.type)})">
+    ? html`<span class="flag-blocked">● ${c.progress.blocked} blocked</span>`
+    : nothing;
+  return html`
+    <div
+      class=${`card ${c.archived ? 'archived' : ''}`}
+      data-id=${c.id}
+      style=${`--type-color: var(--${cssIdent(c.type)})`}
+    >
       <div class="card-top">
-        <span class="card-id">#${esc(c.id)}</span>
-        <span class="type-tag">${esc(c.type)}</span>
+        <span class="card-id">#${c.id}</span>
+        <span class="type-tag">${c.type}</span>
       </div>
-      <div class="card-title">${esc(c.title)}</div>
-      ${c.progress.total ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
+      <div class="card-title">${c.title}</div>
+      ${c.progress.total ? html`<div class="progress"><i style=${`width:${pct}%`}></i></div>` : nothing}
       <div class="card-meta">
-        ${c.progress.total ? `<span>${c.progress.done}/${c.progress.total} tasks</span>` : ''}
-        ${c.owner ? `<span class="owner">@${esc(c.owner)}</span>` : ''}
+        ${c.progress.total ? html`<span>${c.progress.done}/${c.progress.total} tasks</span>` : nothing}
+        ${c.owner ? html`<span class="owner">@${c.owner}</span>` : nothing}
         ${blocked}
       </div>
     </div>`;
 }
 
 export function stageBlock(c, s) {
-  const content = s.key === 'plan' && c.tasks.length ? taskList(c.tasks) : safeHtml(s.body);
-  return `
-    <div class="stage" id="stage-${esc(s.key)}">
-      <h2>${esc(s.heading)}</h2>
+  const content = s.key === 'plan' && c.tasks.length ? taskList(c.tasks) : markdownHtml(s.body);
+  return html`
+    <div class="stage" id=${`stage-${s.key}`}>
+      <h2>${s.heading}</h2>
       <div class="stage-content">${content}</div>
     </div>`;
 }
 
 export function taskList(tasks) {
-  return (
-    '<ul class="tasks">' +
-    tasks
-      .map((t) => {
-        const cr = (t.criteria || []).map((x) => `<span class="cr">${esc(x)}</span>`).join(' ');
-        const when = t.resolvedAt ? `<span class="when">${esc(t.resolvedAt)}</span>` : '';
-        const reason = t.reason ? `<span class="reason">— ${esc(t.reason)}</span>` : '';
-        return `<li class="task ${t.state}">
-          <span class="mark">${MARK[t.state]}</span>
-          <span class="text">${esc(t.text)} ${cr} ${reason}</span>
-          ${when}
-        </li>`;
-      })
-      .join('') +
-    '</ul>'
-  );
+  return html`<ul class="tasks">
+    ${tasks.map((t) => {
+      const cr = (t.criteria || []).map((x) => html`<span class="cr">${x}</span>`);
+      const when = t.resolvedAt ? html`<span class="when">${t.resolvedAt}</span>` : nothing;
+      const reason = t.reason ? html`<span class="reason">— ${t.reason}</span>` : nothing;
+      return html`<li class=${`task ${t.state}`}>
+        <span class="mark">${MARK[t.state]}</span>
+        <span class="text">${t.text} ${cr} ${reason}</span>
+        ${when}
+      </li>`;
+    })}
+  </ul>`;
 }
 
 export function tableRow(c) {
@@ -56,12 +57,14 @@ export function tableRow(c) {
   const prog = c.progress.total
     ? `${c.progress.done}/${c.progress.total}${c.progress.blocked ? ` · ${c.progress.blocked}!` : ''} (${pct}%)`
     : '—';
-  return `<tr data-id="${esc(c.id)}">
-    <td class="mono">#${esc(c.id)}</td>
-    <td>${esc(c.title)}</td>
-    <td><span class="type-tag" style="--type-color: var(--${cssIdent(c.type)})">${esc(c.type)}</span></td>
-    <td>${esc(c.status)}</td>
+  return html`<tr data-id=${c.id}>
+    <td class="mono">#${c.id}</td>
+    <td>${c.title}</td>
+    <td>
+      <span class="type-tag" style=${`--type-color: var(--${cssIdent(c.type)})`}>${c.type}</span>
+    </td>
+    <td>${c.status}</td>
     <td class="mono">${prog}</td>
-    <td class="mono">${(c.depends_on || []).map(esc).join(', ') || '—'}</td>
+    <td class="mono">${(c.depends_on || []).join(', ') || '—'}</td>
   </tr>`;
 }

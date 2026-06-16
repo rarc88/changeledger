@@ -27,6 +27,11 @@ function vendorFile(route) {
     if (route === '/vendor/purify.min.js') {
       return require.resolve('dompurify/dist/purify.min.js');
     }
+    if (route.startsWith('/vendor/lit-html/')) {
+      const subpath = route.slice('/vendor/lit-html/'.length);
+      if (subpath === 'lit-html.js') return require.resolve('lit-html');
+      return require.resolve(`lit-html/${subpath}`);
+    }
   } catch {
     return null;
   }
