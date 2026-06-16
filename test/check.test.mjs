@@ -384,6 +384,14 @@ function cov(over = {}) {
 const covWarn = (over, cfg = tddConfig) =>
   msgs(checkRepo({ config: cfg, changes: [cov(over)] }).warnings);
 
+const covResult = (text, cfg = tddConfig) => {
+  const parsed = parseChange(text);
+  return checkRepo({
+    config: cfg,
+    changes: [{ name: '20260613-120000-x.md', text, ...parsed }],
+  });
+};
+
 test('CR2: a criterion with no covering task warns', () => {
   const w = covWarn({
     criteria: ['CR1', 'CR2'],
@@ -414,6 +422,133 @@ test('CR4: tdd:false disables coverage warnings', () => {
   );
 });
 
+test('151216 CR1: approved criteria must be test-grade', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /CR1 is not test-grade: missing Given\/When\/Then/.test(m)));
+});
+
+test('151216 CR2: approved implementation tasks must name target and test files', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /Plan task for CR1 must name target and test files/.test(m)));
+});
+
+test('151216 CR3: draft readiness gaps are warnings', () => {
+  const { errors, warnings } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /test-grade|target and test files/.test(m)),
+    [],
+  );
+  assert.ok(msgs(warnings).some((m) => /CR1 is not test-grade/.test(m)));
+  assert.ok(
+    msgs(warnings).some((m) => /Plan task for CR1 must name target and test files/.test(m)),
+  );
+});
+
+test('151216 CR4: tdd:false disables readiness checks', () => {
+  const { errors, warnings } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`,
+    { ...tddConfig, tdd: false },
+  );
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /test-grade|target and test files/.test(m)),
+    [],
+  );
+});
+
 test('CR5: a type without specification is not coverage-checked', () => {
   const w = covWarn({
     frontmatter: { type: 'chore', status: 'approved' },
@@ -427,16 +562,17 @@ test('CR5: a type without specification is not coverage-checked', () => {
   );
 });
 
-test('coverage only applies to approved/in-progress (draft and done are skipped)', () => {
+test('coverage warns in draft and applies to approved/in-progress; done is skipped', () => {
   const gap = { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] };
-  for (const status of ['draft', 'done']) {
-    const w = covWarn({ ...gap, frontmatter: { status } });
-    assert.deepEqual(
-      w.filter((m) => /covered|criterion/.test(m)),
-      [],
-      status,
-    );
-  }
+  const draft = covWarn({ ...gap, frontmatter: { status: 'draft' } });
+  assert.ok(draft.some((m) => /covered|criterion/.test(m)));
+
+  const done = covWarn({ ...gap, frontmatter: { status: 'done' } });
+  assert.deepEqual(
+    done.filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+
   const w = covWarn({ ...gap, frontmatter: { status: 'in-progress' } });
   assert.ok(w.some((m) => /covered|criterion/.test(m)));
 });

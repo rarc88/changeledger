@@ -81,7 +81,7 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
       warn(c, 'status is "blocked" but no task is marked [!]');
     }
 
-    checkCoverage(c, fm, active, config, warn);
+    checkCoverage(c, fm, active, config, warn, err);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -218,14 +218,29 @@ function checkConflictMarkers(c, err) {
 // (approved/in-progress) whose type activates `## Specification` must map
 // criteria ↔ Plan tasks both ways. Warnings only — it nudges, never blocks.
 // It checks coverage, not whether a criterion is "test-grade" (not parseable).
-function checkCoverage(c, fm, active, config, warn) {
+function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   if (config?.tdd === false) return;
   if (!active?.includes('specification')) return;
-  if (fm.status !== 'approved' && fm.status !== 'in-progress') return;
+  if (!['draft', 'approved', 'in-progress'].includes(fm.status)) return;
+  const report = fm.status === 'draft' ? warn : err;
 
   const declared = c.criteria ?? [];
   const tasks = c.tasks ?? [];
   const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
+
+  for (const cr of c.criterionBlocks ?? []) {
+    const steps = new Set(cr.steps ?? []);
+    if (!steps.has('Given') || !steps.has('When') || !steps.has('Then')) {
+      report(c, `${cr.id} is not test-grade: missing Given/When/Then`);
+    }
+  }
+
+  for (const t of tasks) {
+    if (!t.criteria?.length) continue;
+    if (!namesTargetAndTestFiles(t.text)) {
+      for (const cr of t.criteria) report(c, `Plan task for ${cr} must name target and test files`);
+    }
+  }
 
   for (const cr of declared)
     if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
@@ -235,6 +250,10 @@ function checkCoverage(c, fm, active, config, warn) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
       warn(c, `Plan task "${label}" references no criterion`);
     }
+}
+
+function namesTargetAndTestFiles(text) {
+  return /\bsrc\/[^\s)]+/.test(text) && /\btest\/[^\s)]+/.test(text);
 }
 
 function checkConfig(config, err) {

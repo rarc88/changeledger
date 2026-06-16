@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T15:21:36Z
+updated: 2026-06-16T15:26:22Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -15,6 +15,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
 > Graduado del change 20260615-210508 (estado terminal `discarded`).
 > Graduado del change 20260616-151221 (parsing estricto de changes).
+> Graduado del change 20260616-151216 (Definition of Ready verificable).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -186,6 +187,12 @@ headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
 tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
 interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
 preservar descripciones que contienen la misma raya.
+
+Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
+cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
+un criterio debe nombrar tanto archivo objetivo (`src/...`) como test
+(`test/...`). En `draft`, esos mismos huecos son warnings para no bloquear la
+autoría temprana; con `tdd:false` no se evalúan.
 
 ## Trazabilidad git
 

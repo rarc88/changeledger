@@ -17,24 +17,32 @@ export function parseChange(text) {
   const plan = stages.find((s) => s.key === 'plan');
   const tasks = plan ? parseTasks(plan.body) : [];
   const spec = stages.find((s) => s.key === 'specification');
-  const criteria = spec ? parseCriteria(spec.body) : [];
+  const criterionBlocks = spec ? parseCriteria(spec.body) : [];
+  const criteria = criterionBlocks.map((c) => c.id);
   const progress = {
     total: tasks.length,
     done: tasks.filter((t) => t.state === 'done').length,
     blocked: tasks.filter((t) => t.state === 'blocked').length,
   };
 
-  return { frontmatter, stages, tasks, criteria, progress };
+  return { frontmatter, stages, tasks, criteria, criterionBlocks, progress };
 }
 
 // Acceptance criteria declared in `## Specification` as `### CRn — name` blocks.
 function parseCriteria(specBody) {
-  const ids = [];
+  const blocks = [];
+  let current = null;
   for (const line of specBody.split('\n')) {
     const m = line.match(/^###\s+(CR\d+)\b/);
-    if (m) ids.push(m[1]);
+    if (m) {
+      current = { id: m[1], steps: [] };
+      blocks.push(current);
+      continue;
+    }
+    const step = line.match(/^-\s+\*\*(Given|When|Then|And)\*\*/);
+    if (current && step) current.steps.push(step[1]);
   }
-  return ids;
+  return blocks;
 }
 
 function splitStages(body) {

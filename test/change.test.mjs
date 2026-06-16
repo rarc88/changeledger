@@ -80,6 +80,28 @@ depends_on: []
   assert.equal(c.tasks[0].resolvedAt, '2026-06-13T13:30:00Z');
 });
 
+test('parses acceptance criterion steps', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Specification
+
+### CR1 — Works
+- **Given** input
+- **When** action
+- **Then** output
+- **And** extra
+`);
+  assert.deepEqual(c.criteria, ['CR1']);
+  assert.deepEqual(c.criterionBlocks, [{ id: 'CR1', steps: ['Given', 'When', 'Then', 'And'] }]);
+});
+
 test('computes progress', () => {
   const c = parseChange(SAMPLE);
   assert.deepEqual(c.progress, { total: 3, done: 1, blocked: 1 });
