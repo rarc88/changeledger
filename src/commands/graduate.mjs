@@ -8,15 +8,9 @@ import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
+import { slugify } from '../slug.mjs';
 import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
-
-function slugify(s) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 
 // `into: true` graduates into an EXISTING spec — it refreshes the spec's
 // `updated` and links it back, but leaves the body to the agent (who knows what

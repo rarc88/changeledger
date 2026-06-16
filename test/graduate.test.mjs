@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
+import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 
@@ -98,6 +99,44 @@ test('graduate creates a seeded spec and links it in the change Log', () => {
 
   const change = parseChange(fs.readFileSync(file, 'utf8'));
   assert.match(change.stages.find((s) => s.key === 'log').body, /graduado a spec `auth.md`/);
+});
+
+test('162020 CR1: graduate rejects a slug that normalizes to empty without writing', () => {
+  const { root, file, id } = repo();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => graduate(id, '!!!', root),
+    /slug must contain at least one ASCII letter or number/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.equal(fs.existsSync(path.join(root, '.sl', 'specs', '.md')), false);
+});
+
+test('162020 CR2: graduate keeps valid slug behavior', () => {
+  const { root, file, id } = repo();
+  const specFile = graduate(id, 'architecture-note', root);
+  assert.equal(path.basename(specFile), 'architecture-note.md');
+  const change = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.match(
+    change.stages.find((s) => s.key === 'log').body,
+    /graduado a spec `architecture-note.md`/,
+  );
+});
+
+test('162020 CR3: new and graduate share slug normalization behavior', () => {
+  const { root, id } = repo();
+  const changeFile = newChange(
+    {
+      type: 'chore',
+      slug: 'Árbol Técnico',
+      title: 'x',
+      now: '2026-06-13T12:00:01Z',
+    },
+    root,
+  );
+  const specFile = graduate(id, 'Árbol Técnico', root);
+  assert.equal(path.basename(changeFile), '20260613-120001-arbol-tecnico.md');
+  assert.equal(path.basename(specFile), 'arbol-tecnico.md');
 });
 
 test('CR1/CR2: graduate with no specs_dir in config lands where loadRepo reads', () => {

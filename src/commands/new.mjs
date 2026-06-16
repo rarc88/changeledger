@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 const STALE_LOCK_MS = 30_000;
@@ -22,9 +23,6 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   fs.mkdirSync(changesDir, { recursive: true });
   const normalizedSlug = slugify(slug);
-  if (!normalizedSlug) {
-    throw new Error('slug must contain at least one ASCII letter or number');
-  }
 
   // Guarantee a unique id even for changes created within the same second
   // (an agent creating several in a loop). Bump by 1s until free; keep created
@@ -128,15 +126,6 @@ export function idFromTimestamp(iso) {
   if (!m) throw new Error(`Invalid ISO timestamp: ${iso}`);
   const [, y, mo, d, h, mi, s] = m;
   return `${y}${mo}${d}-${h}${mi}${s}`;
-}
-
-function slugify(title) {
-  return title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // strip combining diacritics
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }
 
 function heading(stageKey) {
