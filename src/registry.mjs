@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { writeFileAtomic } from './atomic-write.mjs';
 
 export function registryDir() {
   return path.join(process.env.SPEC_LEDGER_HOME || os.homedir(), '.spec-ledger');
@@ -27,7 +28,7 @@ export function readRegistry() {
 
 export function writeRegistry(reg) {
   fs.mkdirSync(registryDir(), { recursive: true });
-  fs.writeFileSync(registryPath(), `${JSON.stringify(reg, null, 2)}\n`);
+  writeFileAtomic(registryPath(), `${JSON.stringify(reg, null, 2)}\n`);
 }
 
 export function register({ id, name, path: repoPath }) {

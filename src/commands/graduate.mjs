@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -33,7 +34,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
       throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
     }
     // Refresh the spec's updated; the body stays the agent's to edit.
-    fs.writeFileSync(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
+    writeFileAtomic(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
   } else {
     if (exists) throw new Error(`Spec "${specName}" already exists`);
 
@@ -56,7 +57,7 @@ tags: [${change.frontmatter.type}]
 ${seed}
 `;
     fs.mkdirSync(specsDir, { recursive: true });
-    fs.writeFileSync(specFile, content);
+    writeFileAtomic(specFile, content);
   }
 
   let text = appendLog(
@@ -65,7 +66,7 @@ ${seed}
     `graduado a spec \`${specName}\``,
   );
   text = setReviewed(text, true);
-  fs.writeFileSync(changeFile, text);
+  writeFileAtomic(changeFile, text);
   return specFile;
 }
 
@@ -80,7 +81,7 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
   const message = reason ? `graduation skipped: ${reason}` : 'graduation skipped';
   let text = appendLog(fs.readFileSync(changeFile, 'utf8'), nowUtc(), message);
   text = setReviewed(text, true);
-  fs.writeFileSync(changeFile, text);
+  writeFileAtomic(changeFile, text);
   return changeFile;
 }
 

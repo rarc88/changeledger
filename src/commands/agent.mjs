@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { assertTransition } from '../lifecycle.mjs';
@@ -51,7 +52,7 @@ export function status(
     }
   }
 
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 
@@ -88,7 +89,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
     throw new Error(`Unknown review verdict "${verdict}" (use pass|fail)`);
   }
 
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 
@@ -98,7 +99,7 @@ export function owner(id, name, cwd = process.cwd()) {
   const next = name === '-' ? null : name;
   let text = setOwner(fs.readFileSync(file, 'utf8'), next);
   text = appendLog(text, nowUtc(), next ? `owner → ${next}` : 'owner cleared');
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 
@@ -119,7 +120,7 @@ export function discard(id, reason, cwd = process.cwd()) {
   });
   text = setStatus(text, 'discarded');
   text = appendLog(text, nowUtc(), `status: ${fm.status} → discarded: ${reason}`);
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 
@@ -127,13 +128,13 @@ export function archive(id, on, cwd = process.cwd()) {
   const { file } = locate(cwd, id);
   let text = setArchived(fs.readFileSync(file, 'utf8'), on);
   text = appendLog(text, nowUtc(), on ? 'archived' : 'unarchived');
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 
 export function log(id, message, cwd = process.cwd()) {
   const { file } = locate(cwd, id);
-  fs.writeFileSync(file, appendLog(fs.readFileSync(file, 'utf8'), nowUtc(), message));
+  writeFileAtomic(file, appendLog(fs.readFileSync(file, 'utf8'), nowUtc(), message));
   return file;
 }
 
@@ -143,7 +144,7 @@ export function task(id, action, n, reason, cwd = process.cwd()) {
   if (action === 'done') text = setTask(text, n, 'done', { iso: nowUtc() });
   else if (action === 'block') text = setTask(text, n, 'blocked', { reason });
   else throw new Error(`Unknown task action "${action}" (use done|block)`);
-  fs.writeFileSync(file, text);
+  writeFileAtomic(file, text);
   return file;
 }
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from './atomic-write.mjs';
 import { agentsTemplate } from './paths.mjs';
 
 // The tool's contract (templates/AGENTS.md) is a tool artifact, not a project
@@ -47,7 +48,7 @@ export function linkContract(specDir) {
     // Windows without Developer Mode/admin cannot create symlinks. Fall back to
     // a copy so the contract is still present; `sl register` refreshes it if the
     // installed contract changes.
-    fs.copyFileSync(agentsTemplate, link);
+    writeFileAtomic(link, fs.readFileSync(agentsTemplate, 'utf8'));
   }
   return link;
 }
@@ -61,7 +62,7 @@ export function ensureReference(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     if (text.includes(MARKER)) continue;
-    fs.appendFileSync(file, `${text.endsWith('\n') ? '' : '\n'}\n${REFERENCE}`);
+    writeFileAtomic(file, `${text}${text.endsWith('\n') ? '' : '\n'}\n${REFERENCE}`);
     touched.push(name);
   }
   return touched;
@@ -73,7 +74,7 @@ export function ensureGitignore(repoRoot) {
   const entry = '.sl/AGENTS.md';
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   if (text.split('\n').some((l) => l.trim() === entry)) return false;
-  fs.appendFileSync(file, `${text && !text.endsWith('\n') ? '\n' : ''}${entry}\n`);
+  writeFileAtomic(file, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${entry}\n`);
   return true;
 }
 
