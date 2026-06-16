@@ -164,19 +164,7 @@ test('check surfaces discovery errors repo-wide (CR6)', () => {
   const root = tmp();
   init(root);
   fs.unlinkSync(path.join(root, '.sl', 'AGENTS.md'));
-  // check() prints findings (console.error) and a summary (console.log);
-  // silence both so this deliberate failure doesn't look like a real error in
-  // the test/verify output.
-  const origErr = console.error;
-  const origLog = console.log;
-  console.error = () => {};
-  console.log = () => {};
-  try {
-    assert.equal(check([], root), 1);
-  } finally {
-    console.error = origErr;
-    console.log = origLog;
-  }
+  assert.equal(check([], root, silentOutput()), 1);
 });
 
 test('init refuses to overwrite an existing .sl/', () => {
@@ -356,16 +344,7 @@ test('new reserves ids atomically across concurrent processes', async () => {
     'created and id remain the same instant for each change',
   );
 
-  const origErr = console.error;
-  const origLog = console.log;
-  console.error = () => {};
-  console.log = () => {};
-  try {
-    assert.equal(check([], root), 0);
-  } finally {
-    console.error = origErr;
-    console.log = origLog;
-  }
+  assert.equal(check([], root, silentOutput()), 0);
 });
 
 test('new rejects an unknown type', () => {
@@ -373,3 +352,7 @@ test('new rejects an unknown type', () => {
   init(root);
   assert.throws(() => newChange({ type: 'nope', title: 't', now: 'x' }, root), /Unknown type/);
 });
+
+function silentOutput() {
+  return { log() {}, error() {}, warn() {} };
+}
