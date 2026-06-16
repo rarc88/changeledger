@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T15:26:22Z
+updated: 2026-06-16T15:29:31Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -16,6 +16,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260615-210508 (estado terminal `discarded`).
 > Graduado del change 20260616-151221 (parsing estricto de changes).
 > Graduado del change 20260616-151216 (Definition of Ready verificable).
+> Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -78,6 +79,11 @@ su `updated` (`writer.setSpecUpdated`) y deja el cuerpo al agente — no lo
 sobrescribe. Ambas rutas comparten el registro en el change (marker + `reviewed`).
 La sustitución es explícita (flag), nunca por auto-detección, para que un slug mal
 tecleado no enlace por error.
+
+Las mutaciones de frontmatter en `writer.mjs` preservan el formato textual del
+documento, pero fallan explícitamente si no encuentran la línea ancla que deben
+editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
+del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se

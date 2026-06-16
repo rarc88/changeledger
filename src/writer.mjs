@@ -8,7 +8,7 @@ const FM = /^(---\n[\s\S]*?\n---\n)/;
 export function setStatus(text, status) {
   const m = text.match(FM);
   if (!m) throw new Error('missing frontmatter');
-  const fm = m[1].replace(/^status:.*$/m, `status: ${status}`);
+  const fm = replaceRequired(m[1], /^status:.*$/m, `status: ${status}`, 'status');
   return fm + text.slice(m[1].length);
 }
 
@@ -20,7 +20,12 @@ export function setOwner(text, owner) {
   let fm = m[1];
   fm = fm.replace(/^owner:.*\n/m, '');
   if (owner) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${serializeScalar(owner)}\n`);
+    fm = replaceRequired(
+      fm,
+      /^(depends_on:.*\n)/m,
+      `$1owner: ${serializeScalar(owner)}\n`,
+      'depends_on',
+    );
   }
   return fm + text.slice(m[1].length);
 }
@@ -31,7 +36,7 @@ export function setArchived(text, archived) {
   if (!m) throw new Error('missing frontmatter');
   let fm = m[1].replace(/^archived:.*\n/m, '');
   if (archived) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, '$1archived: true\n');
+    fm = replaceRequired(fm, /^(depends_on:.*\n)/m, '$1archived: true\n', 'depends_on');
   }
   return fm + text.slice(m[1].length);
 }
@@ -43,7 +48,7 @@ export function setReviewed(text, reviewed) {
   if (!m) throw new Error('missing frontmatter');
   let fm = m[1].replace(/^reviewed:.*\n/m, '');
   if (reviewed) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, '$1reviewed: true\n');
+    fm = replaceRequired(fm, /^(depends_on:.*\n)/m, '$1reviewed: true\n', 'depends_on');
   }
   return fm + text.slice(m[1].length);
 }
@@ -53,8 +58,13 @@ export function setReviewed(text, reviewed) {
 export function setSpecUpdated(text, iso) {
   const m = text.match(FM);
   if (!m) throw new Error('missing frontmatter');
-  const fm = m[1].replace(/^updated:.*$/m, `updated: ${iso}`);
+  const fm = replaceRequired(m[1], /^updated:.*$/m, `updated: ${iso}`, 'updated');
   return fm + text.slice(m[1].length);
+}
+
+function replaceRequired(text, pattern, replacement, field) {
+  if (!pattern.test(text)) throw new Error(`missing ${field} in frontmatter`);
+  return text.replace(pattern, replacement);
 }
 
 export function appendLog(text, iso, message) {

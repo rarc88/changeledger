@@ -36,6 +36,10 @@ test('setStatus changes only the frontmatter status', () => {
   assert.equal(parseChange(out).frontmatter.status, 'approved');
 });
 
+test('setStatus throws when status is missing', () => {
+  assert.throws(() => setStatus(DOC.replace(/^status:.*\n/m, ''), 'approved'), /missing status/);
+});
+
 test('appendLog adds a timestamped entry at the end of Log', () => {
   const out = appendLog(DOC, '2026-06-13T13:00:00Z', 'moved to approved');
   assert.match(out, /- \*\*2026-06-13T13:00:00Z\*\* — moved to approved\n?$/);
@@ -72,6 +76,10 @@ test('setOwner adds the owner line after depends_on', () => {
   const out = setOwner(DOC, 'ana');
   assert.equal(parseChange(out).frontmatter.owner, 'ana');
   assert.match(out, /depends_on: \[\]\nowner: ana\n/);
+});
+
+test('setOwner throws when adding without depends_on anchor', () => {
+  assert.throws(() => setOwner(DOC.replace(/^depends_on:.*\n/m, ''), 'ana'), /missing depends_on/);
 });
 
 test('setOwner updates an existing owner', () => {
@@ -116,6 +124,13 @@ test('setReviewed adds and removes the reviewed flag', () => {
   assert.equal('reviewed' in parseChange(off).frontmatter, false);
 });
 
+test('setReviewed throws when adding without depends_on anchor', () => {
+  assert.throws(
+    () => setReviewed(DOC.replace(/^depends_on:.*\n/m, ''), true),
+    /missing depends_on/,
+  );
+});
+
 test('setReviewed is idempotent', () => {
   const once = setReviewed(DOC, true);
   const twice = setReviewed(once, true);
@@ -129,6 +144,13 @@ test('setArchived adds and removes the archived flag', () => {
   assert.equal('archived' in parseChange(off).frontmatter, false);
 });
 
+test('setArchived throws when adding without depends_on anchor', () => {
+  assert.throws(
+    () => setArchived(DOC.replace(/^depends_on:.*\n/m, ''), true),
+    /missing depends_on/,
+  );
+});
+
 test('CR5: setSpecUpdated replaces only the updated line', () => {
   const spec = `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n\n# Arch\n\nBody.\n`;
   const out = setSpecUpdated(spec, '2026-06-15T17:30:00Z');
@@ -137,4 +159,9 @@ test('CR5: setSpecUpdated replaces only the updated line', () => {
   assert.match(out, /^title: Arch$/m);
   assert.match(out, /^tags: \[architecture\]$/m);
   assert.match(out, /# Arch\n\nBody\./);
+});
+
+test('setSpecUpdated throws when updated is missing', () => {
+  const spec = `---\ntitle: Arch\ntags: [architecture]\n---\n\n# Arch\n`;
+  assert.throws(() => setSpecUpdated(spec, '2026-06-15T17:30:00Z'), /missing updated/);
 });
