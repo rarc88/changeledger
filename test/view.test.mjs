@@ -225,6 +225,45 @@ test('151234 CR3: valid static assets are still served with MIME', async () => {
   server.close();
 });
 
+test('174429: /api/repo returns serialized data through the async loader path', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const specsDir = path.join(root, '.sl', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(specsDir, 'viewer.md'),
+    `---
+title: Viewer
+updated: 2026-06-13T12:00:00Z
+tags: [viewer]
+---
+
+# Viewer
+
+The viewer serializes specs.
+`,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const { current } = resolveProjects(root, true);
+  const { server, port } = await startServer(root);
+
+  const res = await request(port, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(res.body);
+  assert.equal(res.status, 200);
+  assert.equal(body.changes.length, 1);
+  assert.equal(body.changes[0].id, id);
+  assert.equal(body.changes[0].title, 'Async API');
+  assert.equal(body.specs.length, 1);
+  assert.equal(body.specs[0].name, 'viewer.md');
+  assert.equal(body.specs[0].title, 'Viewer');
+  assert.match(body.specs[0].body, /serializes specs/);
+  server.close();
+});
+
 function isolatedHome() {
   process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
 }

@@ -9,7 +9,7 @@ import { gitRefs } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, publicDir } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
-import { loadRepo } from '../repo.mjs';
+import { loadRepo, loadRepoAsync } from '../repo.mjs';
 import { status as applyStatusCmd } from './agent.mjs';
 
 const require = createRequire(import.meta.url);
@@ -219,7 +219,7 @@ function serveIndex(res, token) {
 // Builds the HTTP request listener. Exposed (with an injectable token) so the
 // security boundary is testable over real HTTP without opening a browser.
 export function createRequestListener(cwd, localOnly, token) {
-  return (req, res) => {
+  return async (req, res) => {
     try {
       if (!isLocalHost(req)) {
         send(res, 403, MIME['.json'], JSON.stringify({ error: 'non-local host rejected' }));
@@ -292,7 +292,7 @@ export function createRequestListener(cwd, localOnly, token) {
           send(res, 410, MIME['.json'], JSON.stringify({ error: 'project path is gone' }));
           return;
         }
-        send(res, 200, MIME['.json'], JSON.stringify(serialize(loadRepo(proj.path))));
+        send(res, 200, MIME['.json'], JSON.stringify(serialize(await loadRepoAsync(proj.path))));
         return;
       }
 
