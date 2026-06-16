@@ -13,10 +13,11 @@ export function graphSvg(changes) {
   const depth = (id, seen = new Set()) => {
     if (depthCache.has(id)) return depthCache.get(id);
     if (seen.has(id)) return 0;
-    seen.add(id);
+    const nextSeen = new Set(seen);
+    nextSeen.add(id);
     const c = byId.get(String(id));
     const deps = (c?.depends_on || []).filter((d) => byId.has(String(d)));
-    const d = deps.length ? 1 + Math.max(...deps.map((x) => depth(String(x), seen))) : 0;
+    const d = deps.length ? 1 + Math.max(...deps.map((x) => depth(String(x), nextSeen))) : 0;
     depthCache.set(id, d);
     return d;
   };

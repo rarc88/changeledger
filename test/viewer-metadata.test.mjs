@@ -148,3 +148,45 @@ test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () 
   assert.equal(host.querySelectorAll('.node').length, 2);
   assert.equal(host.querySelectorAll('.edge').length, 1);
 });
+
+const nodeX = (host, id) => {
+  const transform = host.querySelector(`.node[data-id="${id}"]`)?.getAttribute('transform') ?? '';
+  const match = transform.match(/translate\((\d+),/);
+  return match ? Number(match[1]) : Number.NaN;
+};
+
+test('162104 CR1: graph shared dependencies do not collapse depth', () => {
+  const changes = [
+    { ...baseChange(), id: 'A', title: 'A' },
+    { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    { ...baseChange(), id: 'C', title: 'C', depends_on: ['A'] },
+    { ...baseChange(), id: 'D', title: 'D', depends_on: ['B', 'C'] },
+  ];
+  const host = parse(graphSvg(changes));
+  assert.ok(nodeX(host, 'D') > nodeX(host, 'B'));
+  assert.ok(nodeX(host, 'D') > nodeX(host, 'C'));
+  assert.equal(host.querySelectorAll('.edge').length, 4);
+});
+
+test('162104 CR2: graph with a real cycle stays finite', () => {
+  const host = parse(
+    graphSvg([
+      { ...baseChange(), id: 'A', title: 'A', depends_on: ['B'] },
+      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    ]),
+  );
+  const svg = host.querySelector('svg');
+  assert.ok(svg, 'graph renders an svg');
+  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
+  assert.equal(host.querySelectorAll('.node').length, 2);
+});
+
+test('162104 CR3: simple graph still places dependents after dependencies', () => {
+  const host = parse(
+    graphSvg([
+      { ...baseChange(), id: 'A', title: 'A' },
+      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    ]),
+  );
+  assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
+});
