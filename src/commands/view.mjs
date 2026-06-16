@@ -225,8 +225,9 @@ export function createRequestListener(cwd, localOnly, token) {
         send(res, 403, MIME['.json'], JSON.stringify({ error: 'non-local host rejected' }));
         return;
       }
-      const [route, query] = req.url.split('?');
-      const params = new URLSearchParams(query);
+      const url = new URL(req.url, 'http://127.0.0.1');
+      const route = url.pathname;
+      const params = url.searchParams;
 
       if (req.method === 'POST' && route === '/api/status') {
         if (!isAuthorizedWrite(req, token)) {
@@ -306,8 +307,8 @@ export function createRequestListener(cwd, localOnly, token) {
         serveIndex(res, token);
         return;
       }
-      const file = path.join(publicDir, path.normalize(route).replace(/^(\.\.(\/|\\|$))+/, ''));
-      if (file.startsWith(publicDir) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+      const file = staticFile(route);
+      if (file) {
         send(res, 200, MIME[path.extname(file)] ?? 'text/plain', fs.readFileSync(file));
       } else {
         send(res, 404, 'text/plain', 'Not found');
@@ -316,6 +317,31 @@ export function createRequestListener(cwd, localOnly, token) {
       send(res, 500, MIME['.json'], JSON.stringify({ error: e.message }));
     }
   };
+}
+
+function staticFile(route) {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(route);
+  } catch {
+    return null;
+  }
+  if (decoded.includes('\0')) return null;
+
+  const rel = decoded.replace(/^\/+/, '');
+  const file = path.resolve(publicDir, rel);
+  if (!isInsidePath(publicDir, file)) return null;
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return null;
+
+  const realPublic = fs.realpathSync(publicDir);
+  const realFile = fs.realpathSync(file);
+  if (!isInsidePath(realPublic, realFile)) return null;
+  return file;
+}
+
+function isInsidePath(root, target) {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel === '' || (rel && !rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
 export async function view(args = [], cwd = process.cwd()) {

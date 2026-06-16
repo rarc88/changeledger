@@ -13,6 +13,7 @@ import {
   resolveProjects,
   searchProjects,
 } from '../src/commands/view.mjs';
+import { publicDir } from '../src/paths.mjs';
 
 const TOKEN = 'test-token';
 
@@ -181,6 +182,46 @@ test('222618: lit-html vendor modules are served for browser import maps', async
   const unsafe = await request(port, { path: '/vendor/lit-html/directives/unsafe-html.js' });
   assert.equal(unsafe.status, 200);
   assert.match(unsafe.body, /unsafeHTML/);
+  server.close();
+});
+
+test('151234 CR1: encoded traversal does not read outside public assets', async () => {
+  isolatedHome();
+  const secret = path.join(publicDir, '..', 'public-sibling-secret.txt');
+  fs.writeFileSync(secret, 'outside-public');
+  const { server, port } = await startServer(newRepo());
+  try {
+    const res = await request(port, { path: '/..%2Fpublic-sibling-secret.txt' });
+    assert.equal(res.status, 404);
+    assert.ok(!res.body.includes('outside-public'));
+  } finally {
+    server.close();
+    fs.rmSync(secret, { force: true });
+  }
+});
+
+test('151234 CR2: sibling paths with a shared prefix are not served', async () => {
+  isolatedHome();
+  const sibling = path.join(publicDir, '..', 'public-sibling-secret.txt');
+  fs.writeFileSync(sibling, 'prefix escape');
+  const { server, port } = await startServer(newRepo());
+  try {
+    const res = await request(port, { path: '/../public-sibling-secret.txt' });
+    assert.equal(res.status, 404);
+    assert.ok(!res.body.includes('prefix escape'));
+  } finally {
+    server.close();
+    fs.rmSync(sibling, { force: true });
+  }
+});
+
+test('151234 CR3: valid static assets are still served with MIME', async () => {
+  isolatedHome();
+  const { server, port } = await startServer(newRepo());
+  const res = await request(port, { path: '/app.js' });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['content-type'], 'text/javascript; charset=utf-8');
+  assert.match(res.body, /render/);
   server.close();
 });
 

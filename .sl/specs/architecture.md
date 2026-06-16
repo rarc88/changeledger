@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T15:29:31Z
+updated: 2026-06-16T15:34:36Z
 tags: [architecture, cli, viewer]
 ---
 
@@ -17,6 +17,7 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260616-151221 (parsing estricto de changes).
 > Graduado del change 20260616-151216 (Definition of Ready verificable).
 > Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
+> Graduado del change 20260616-151234 (resolución segura de assets estáticos).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -275,6 +276,13 @@ mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
 `check` y las deps los siguen viendo. `lit-html`, `marked`, `dompurify` y
 `mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
 `/vendor/*`.
+
+Los assets estáticos propios del viewer se resuelven con contención explícita:
+la ruta se decodifica, se resuelve contra `publicDir`, se valida con
+`path.relative` y, cuando el fichero existe, se vuelve a validar contra
+`realpath`. Esto evita traversal codificado y escapes por directorios hermanos
+con prefijo común; las rutas `/api/*` y `/vendor/*` se resuelven antes de esa
+rama estática.
 **Frontera de confianza:** los documentos del repo son contenido no confiable
 aunque el repo sea local. El cuerpo Markdown se rinde vía `safeHtml` (marked →
 DOMPurify) antes de tocar el DOM; si `marked` o `DOMPurify` no cargan, `safeHtml`
