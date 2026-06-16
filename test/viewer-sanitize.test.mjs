@@ -53,3 +53,9 @@ test('214817 CR1: missing DOMPurify fails closed', () => {
     globalThis.DOMPurify = original;
   }
 });
+
+test('174431 CR1: style tags are removed from rendered markdown', () => {
+  const out = safeHtml('<style>body{display:none}</style><p>visible</p>');
+  assert.ok(!/<style/i.test(out), `style tag survived: ${out}`);
+  assert.match(out, /visible/);
+});
