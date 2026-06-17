@@ -1,12 +1,12 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-16T16:45:08Z
-tags: [architecture, cli, viewer]
+updated: 2026-06-17T15:22:39Z
+tags: [ architecture, cli, viewer ]
 ---
 
 # Arquitectura de Spec Ledger
 
-> Graduado del change 20260613-205854.
+> Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
 > Graduado del change 20260614-151759 (discovery del contrato).
 > Graduado del change 20260614-162547 (Definition of Ready / tdd).
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
@@ -25,6 +25,14 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
 > Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
 > Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
+> Graduado del change 20260616-210825 (métricas cuentan cierres por revisión).
+> Graduado del change 20260617-020229 (Definition of Ready con patrones configurables).
+> Graduado del change 20260616-212836 (ejemplos de graduación no crean enlaces reales).
+> Graduado del change 20260616-212840 (captura automática de fricciones).
+> Graduado del change 20260616-212319 (archivar no vuelve stale el spec).
+> Graduado del change 20260616-212322 (archivado masivo de graduados).
+> Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
+> Graduado del change 20260616-212309 (tests del viewer sin socket local).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -86,6 +94,14 @@ también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
 `check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
 bajo demanda).
 
+`sl archive --graduated [--dry-run]` limpia el board de forma explícita y
+conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
+con resolución de graduación en `## Log` (`graduado a spec` o `graduation
+skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
+masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
+`archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
+sin reviewed ni cambios ya archivados.
+
 `graduate()` tiene dos rutas. Por defecto **crea** un spec nuevo (semilla desde
 Specification/Proposal) y falla si ya existe. Con `--into` (`{ into: true }`)
 **gradúa a un spec existente**: exige que exista (error simétrico si no), refresca
@@ -103,6 +119,15 @@ Las escrituras que reemplazan documentos o estado local pasan por
 descriptor, hacen `rename` sobre el destino y limpian el temporal si algo falla.
 Las creaciones que dependen de exclusividad, como `sl new`, conservan `flag:
 'wx'` para no perder la reserva atomica del id.
+
+Las mutaciones read-modify-write de un documento usan `mutateFileAtomic`: toman
+un lock por archivo (`.<basename>.lock`), releen la versión actual bajo esa
+sección crítica, aplican la transformación y escriben con `writeFileAtomic`.
+Así dos comandos sobre el mismo change se serializan sin perder tareas ni Log,
+mientras cambios distintos usan locks distintos y no comparten un bloqueo global.
+El lock se borra en `finally`; si otro proceso encuentra un lock existente, espera
+hasta un timeout y falla sin borrarlo, porque expirar un lock solo por edad puede
+romper la exclusión si una mutación legítima tarda más de lo esperado.
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
@@ -179,6 +204,14 @@ archivo. El visor añade una restricción humana extra: solo permite
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` cuenta como WIP en métricas.
 
+**Captura de fricción.** El contrato canónico exige que el agente revise, antes
+de cerrar un turno o change, las fricciones descubiertas al usar Spec Ledger. Si
+son accionables y quedan fuera del alcance actual, se registran como changes
+`draft` separados, uno por concern. Si pertenecen al change en curso, se agregan
+al `## Log` o ajustan su Specification/Plan. Si no ameritan backlog, se mencionan
+en la respuesta final. Esta captura no debe mezclar concerns ni bloquear el
+cierre de trabajo ya completo.
+
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
@@ -199,10 +232,11 @@ estructurales mantienen la misma política en changes y specs.
 ## Métricas
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
-(`done`) y el paso a cada estado se leen del `## Log`; de ahí salen: cycle time
-(`done − created`), lead time por etapa, WIP actual, aging de los `in-progress`,
-tiempo bloqueado, throughput por día y desgloses por tipo/owner. El server las
-precalcula y el visor las pinta en la pestaña **Metrics**.
+(`done`) y el paso a cada estado se leen del `## Log`, tanto desde transiciones
+`status: ... → estado` como desde veredictos `review → estado`; de ahí salen:
+cycle time (`done − created`), lead time por etapa, WIP actual, aging de los
+`in-progress`, tiempo bloqueado, throughput por día y desgloses por tipo/owner.
+El server las precalcula y el visor las pinta en la pestaña **Metrics**.
 
 ## Validación (`sl check`)
 
@@ -210,7 +244,11 @@ precalcula y el visor las pinta en la pestaña **Metrics**.
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
-salen de los marcadores que escribe `sl graduate`.
+change→spec salen solo de los marcadores reales que `sl graduate` escribe en
+`## Log`; ejemplos o placeholders del mismo texto en otras etapas no crean
+enlaces reales. Para detectar specs stale, `updated` se compara contra la
+actividad de graduación enlazada, no contra entradas posteriores del Log como
+`archived`, porque esas no cambian la verdad persistente.
 
 La validación también fija invariantes del formato Markdown que el parser expone:
 headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
@@ -222,8 +260,11 @@ los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
 
 Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
 cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
-un criterio debe nombrar tanto archivo objetivo (`src/...`) como test
-(`test/...`). Además, cada `CRn` referenciado por una tarea debe existir en
+un criterio debe nombrar tanto objetivo como verificación según los patrones
+configurados en `readiness.target_patterns` y `readiness.verification_patterns`.
+Los patrones pueden cubrir layouts distintos por repo: tests en `test/`, specs
+colocados junto al archivo (`**/*.spec.*`, `**/*.test.*`) o comandos concretos de
+verificación. Además, cada `CRn` referenciado por una tarea debe existir en
 `## Specification`; un `(CR999)` huérfano es un error en cambios listos para
 implementar. En `draft`, esos mismos huecos son warnings para no bloquear la
 autoría temprana; con `tdd:false` no se evalúan.
@@ -300,6 +341,12 @@ visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad de
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
+
+Los tests del visor ejercitan el `createRequestListener` en memoria para validar
+status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
+locales. La cobertura del transporte real queda acotada a un smoke test del bind
+a `127.0.0.1`; si el sandbox niega ese bind con `EPERM`/`EACCES`, la suite no
+falla por una restricción del entorno que no afecta al router.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
