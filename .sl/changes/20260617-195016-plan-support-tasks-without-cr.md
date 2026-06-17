@@ -2,9 +2,11 @@
 id: "20260617-195016"
 title: Plan debe permitir tareas operativas sin CRn explícito
 type: bug
-status: approved
+status: done
 created: 2026-06-17T19:50:16Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -80,13 +82,18 @@ debe seguir referenciando los criterios que satisface.
 
 ## Plan
 
-- [ ] Documentar el marcador final `(support)` para tareas operativas sin CR en `templates/AGENTS.md` y `.sl/specs/architecture.md`, verificado por `test/cli.test.mjs` o `test/check.test.mjs` (CR1, CR3)
-- [ ] Ajustar `src/check.mjs` para no advertir tareas sin CR cuando usen la convención operativa documentada, cubierto por `test/check.test.mjs` (CR1, CR2, CR4)
-- [ ] Agregar tests en `test/check.test.mjs` sobre `src/check.mjs`: tarea operativa sin CR no advierte; tarea normal sin CR sigue advirtiendo; CR sin cobertura sigue advirtiendo (CR1, CR2)
-- [ ] Agregar tests o asserts en `test/cli.test.mjs` o `test/check.test.mjs` para que `templates/AGENTS.md` documente la convención y su límite (CR3)
-- [ ] Correr `pnpm test -- test/check.test.mjs test/cli.test.mjs` y `pnpm exec sl check --json` sobre `src/check.mjs`, `templates/AGENTS.md` y `.sl/specs/architecture.md` como verificación final (CR1, CR2, CR3, CR4)
+- [x] Documentar el marcador final `(support)` para tareas operativas sin CR en `templates/AGENTS.md` y `.sl/specs/architecture.md`, verificado por `test/cli.test.mjs` o `test/check.test.mjs` (CR1, CR3) — 2026-06-17T22:46:28Z
+- [x] Ajustar `src/check.mjs` para no advertir tareas sin CR cuando usen la convención operativa documentada, cubierto por `test/check.test.mjs` (CR1, CR2, CR4) — 2026-06-17T22:46:28Z
+- [x] Agregar tests en `test/check.test.mjs` sobre `src/check.mjs`: tarea operativa sin CR no advierte; tarea normal sin CR sigue advirtiendo; CR sin cobertura sigue advirtiendo (CR1, CR2) — 2026-06-17T22:46:28Z
+- [x] Agregar tests o asserts en `test/cli.test.mjs` o `test/check.test.mjs` para que `templates/AGENTS.md` documente la convención y su límite (CR3) — 2026-06-17T22:46:29Z
+- [x] Correr `pnpm test -- test/check.test.mjs test/cli.test.mjs` y `pnpm exec sl check --json` sobre `src/check.mjs`, `templates/AGENTS.md` y `.sl/specs/architecture.md` como verificación final (CR1, CR2, CR3, CR4) — 2026-06-17T22:46:29Z
 
 ## Log
 
 - **2026-06-17T19:50:16Z** — Creado a partir de la revisión de drafts: las tareas de verificación y soporte no deberían necesitar CRs artificiales, pero el checker actual las advierte.
 - **2026-06-17T20:04:30Z** — status: draft → approved
+- **2026-06-17T22:44:54Z** — status: approved → in-progress
+- **2026-06-17T22:44:54Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T22:46:29Z** — status: in-progress → in-review
+- **2026-06-17T22:47:22Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T22:47:23Z** — graduado a spec `architecture.md`

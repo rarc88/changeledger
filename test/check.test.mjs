@@ -483,6 +483,49 @@ test('CR3: a task with no criterion warns', () => {
   assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
 });
 
+test('195016 CR1: task with (support) does not warn about missing criterion', () => {
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'run pnpm test (support)', criteria: [] },
+      { state: 'todo', text: 'real impl (CR1)', criteria: ['CR1'] },
+    ],
+  });
+  assert.ok(!w.some((m) => /pnpm test/.test(m)), '(support) task must not warn');
+});
+
+test('195016 CR2: task without (support) still warns when no criterion', () => {
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'plain task with no cr', criteria: [] },
+      { state: 'todo', text: 'real (CR1)', criteria: ['CR1'] },
+    ],
+  });
+  assert.ok(
+    w.some((m) => /plain task with no cr/.test(m)),
+    'non-support task must warn',
+  );
+});
+
+test('195016 CR1: (support) task does not trigger readiness check', () => {
+  // readiness check only fires on tasks with criteria — so support tasks are
+  // already exempt from readiness even without the (support) exemption.
+  // Verify this holds: a (support) task with no src/test references causes no warning.
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'read docs (support)', criteria: [] },
+      {
+        state: 'todo',
+        text: 'impl in src/x.mjs verified with test/x.test.mjs (CR1)',
+        criteria: ['CR1'],
+      },
+    ],
+  });
+  assert.ok(!w.some((m) => /read docs/.test(m)), '(support) task must not trigger readiness');
+});
+
 test('162014 CR1: a task referencing an undeclared criterion is an error', () => {
   const { errors, warnings } = covResult(`---
 id: "20260613-120000"

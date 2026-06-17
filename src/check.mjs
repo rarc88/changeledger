@@ -254,10 +254,18 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
     if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
 
   for (const t of tasks)
-    if (!t.criteria?.length) {
+    if (!t.criteria?.length && !isSupportTask(t.text)) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
       warn(c, `Plan task "${label}" references no criterion`);
     }
+}
+
+// A task ending with `(support)` is intentionally operational (running tests,
+// reading docs, scaffolding) and is exempt from the "references no criterion"
+// warning. Readiness checks (target + verification patterns) already skip
+// tasks with no criteria, so no additional exclusion is needed there.
+function isSupportTask(text) {
+  return /\(support\)\s*$/.test(text);
 }
 
 function namesTargetAndVerification(text, config) {

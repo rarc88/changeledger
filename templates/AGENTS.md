@@ -118,6 +118,7 @@ Markdown checklist. State convention by marker:
 - [ ] Pending task (CR1)
 - [x] Completed task (CR1) — 2026-06-13T14:20:00Z
 - [!] Blocked task (CR1) — reason for the block
+- [ ] Operational task (support)
 ```
 
 The viewer derives progress and the "blocked" state from these markers.
@@ -125,6 +126,14 @@ The viewer derives progress and the "blocked" state from these markers.
 **Traceability.** Each task references the criteria it satisfies, in trailing
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
 criterion → task, so coverage is auditable.
+
+**Operational tasks.** Tasks that do not directly satisfy a criterion — running
+a test suite, reading a wrapper before refactoring, evaluating blast radius,
+scaffolding — may carry `(support)` instead of a `CRn`. `sl check` will not warn
+about missing criteria for these tasks, and readiness checks (target + verification
+patterns) do not apply to them either. `(support)` is not a substitute for a
+missing criterion on an implementation task — if a task writes or changes
+observable behaviour, it must cite the `CRn` it satisfies.
 
 **Resolution timestamp.** A completed task (`[x]`) carries a trailing
 `— <ISO 8601 UTC>` with the exact moment it was resolved (full timestamp, so
