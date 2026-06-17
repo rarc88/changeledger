@@ -203,6 +203,15 @@ via the CLI.
     exception is the review (§6.6), where delegation to a **clean-context**
     subagent is a *contract requirement* — there, independence is correctness,
     not an optimization.
+11. **Capture friction as future work.** Before closing a turn or a change,
+    actively review any friction, ambiguity, bug, or improvement discovered while
+    using Spec Ledger. If it is actionable and outside the current change, create
+    a separate `draft` change (one concern per file) with brief investigation and
+    criteria. If it belongs to the current change, record it in that change's
+    `## Log` or adjust its Specification/Plan. If it is not actionable enough for
+    backlog, mention it in the final response instead of silently dropping it.
+    Friction capture must not mix concerns into the implementation at hand or
+    block closing work that is otherwise complete.
 
 ## 7. IDs
 
@@ -295,7 +304,10 @@ settled.)
 Spec Ledger is built for a split: a **strong model documents**, a **less capable
 (but able) model implements**. So a change must carry enough that the implementer
 needs no extra reasoning. The `tdd` flag in `config.yml` governs this (default
-`true`); set it `false` only for exploratory repos.
+`true`); set it `false` only for exploratory repos. Repos may tune the concrete
+shape with `readiness.target_patterns` and `readiness.verification_patterns`
+(for example `src/**` + `test/**`, colocated `**/*.spec.ts`, or verification
+commands such as `pnpm test`).
 
 When `tdd: true`, a change is **ready to implement** when:
 
@@ -304,16 +316,20 @@ When `tdd: true`, a change is **ready to implement** when:
    output/effect, and **literal** error messages. Each edge case is its own `CR`.
    No requirement lives only in prose — if it must hold, it is a `CR`.
 2. **Plan is the implementation contract.** Every task references ≥1 `CR`, names
-   the **target file(s)** and the **test file** *in its description* (keep the
-   trailing `— <timestamp>` slot for resolution, see §4), and is sized to one
-   red-green cycle. Pure support tasks (docs, scaffolding) may carry no `CR` —
-   `sl check` will note them so the author confirms the omission is intentional.
+   the **target file(s)/area(s)** and the **verification** *in its description*
+   according to the repo's readiness patterns (keep the trailing
+   `— <timestamp>` slot for resolution, see §4), and is sized to one red-green
+   cycle. The verification can be a test file next to the target, a conventional
+   test directory, or a concrete command when that is how the repo proves the
+   behavior. Pure support tasks (docs, scaffolding) may carry no `CR` — `sl check`
+   will note them so the author confirms the omission is intentional.
 3. **TDD is explicit.** The implementer writes the failing test from the `CR`,
    makes it pass, then refactors. The implementer never decides *what* to test —
    the `CR` fixes that; only *how*.
 
-`sl check` enforces this lightly: for a change that is `approved` or
-`in-progress` whose type activates `## Specification`, it **warns** (never errors)
-when a `CR` has no covering task, or a task references no `CR`. It does not judge
-whether a `CR` is genuinely test-grade — that stays the documenting agent's
-responsibility.
+`sl check` enforces this lightly: for a change whose type activates
+`## Specification`, it reports readiness gaps (`draft` as warnings,
+`approved`/`in-progress` as errors) when a `CR` has no covering task, a task
+references no `CR`, a task references an unknown `CR`, a criterion is missing
+Given/When/Then, or a CR-bearing task does not name both target and verification
+according to the repo's readiness patterns.

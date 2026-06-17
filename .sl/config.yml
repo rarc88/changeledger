@@ -10,6 +10,23 @@ language: es
 # coverage gaps. Set false for exploratory repos. See AGENTS.md §11.
 tdd: true
 
+# Repo-specific Definition of Ready hints. A Plan task that references CRs should
+# name at least one target and one verification matching these patterns.
+readiness:
+  target_patterns:
+    - "src/**"
+    - "bin/**"
+    - "templates/**"
+    - ".sl/config.yml"
+    - ".sl/specs/**"
+  verification_patterns:
+    - "test/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "pnpm test"
+    - "node --test"
+    - "node bin/sl.mjs check"
+
 changes_dir: .sl/changes
 specs_dir: .sl/specs
 

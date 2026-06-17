@@ -232,7 +232,45 @@ const spec = (over = {}) => ({
 const runS = (changes, specs) => checkRepo({ config, changes, specs });
 
 test('CR1: a change graduating to a missing spec is an error', () => {
-  const c = change({ text: '## Log\n- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n' });
+  const c = change({
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n',
+      },
+    ],
+  });
+  assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
+});
+
+test('212836 CR1/CR2: graduation marker examples outside Log do not create links', () => {
+  const c = change({
+    text: '## Request\n\nExample: graduado a spec `...`\n',
+    stages: [
+      { key: 'request', body: 'Example: graduado a spec `...`' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '' },
+    ],
+  });
+  assert.deepEqual(
+    msgs(runS([c], []).errors).filter((m) => /graduated to a missing spec/.test(m)),
+    [],
+  );
+});
+
+test('212836 CR3: real graduation markers in Log are still validated', () => {
+  const c = change({
+    stages: [
+      { key: 'request', body: 'Example: graduado a spec `...`' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`' },
+    ],
+  });
   assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
 });
 
@@ -262,9 +300,43 @@ test('CR3: a stale updated is a warning', () => {
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
     text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: '- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+      },
+    ],
   });
   const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
   assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
+});
+
+test('212319 CR1: archiving after graduation does not make the spec stale', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
+    text: `---\n---\n## Log
+- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+- **2026-06-20T10:00:00Z** — archived
+`,
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: `- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+- **2026-06-20T10:00:00Z** — archived`,
+      },
+    ],
+  });
+  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  assert.deepEqual(
+    msgs(runS([c], [s]).warnings).filter((m) => /older than linked change activity/.test(m)),
+    [],
+  );
 });
 
 test('CR3: a non-ISO updated is an error', () => {
@@ -545,7 +617,7 @@ X
   assert.ok(msgs(errors).some((m) => /CR1 is not test-grade: missing Given\/When\/Then/.test(m)));
 });
 
-test('151216 CR2: approved implementation tasks must name target and test files', () => {
+test('151216 CR2: approved implementation tasks must name target and verification', () => {
   const { errors } = covResult(`---
 id: "20260613-120000"
 title: X
@@ -572,7 +644,93 @@ X
 
 ## Log
 `);
-  assert.ok(msgs(errors).some((m) => /Plan task for CR1 must name target and test files/.test(m)));
+  assert.ok(
+    msgs(errors).some((m) => /Plan task for CR1 must name target and verification/.test(m)),
+  );
+});
+
+test('020229 CR1: readiness patterns are configurable per repo', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update app/profile.ts and app/profile.spec.ts (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['app/**'],
+        verification_patterns: ['**/*.spec.ts'],
+      },
+    },
+  );
+  assert.deepEqual(
+    msgs(errors).filter((m) => /target and verification/.test(m)),
+    [],
+  );
+});
+
+test('020229 CR1: verification can be a command instead of a test path', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update packages/auth/index.ts and run pnpm test --filter auth (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['packages/**'],
+        verification_patterns: ['pnpm test'],
+      },
+    },
+  );
+  assert.deepEqual(
+    msgs(errors).filter((m) => /target and verification/.test(m)),
+    [],
+  );
 });
 
 test('151216 CR3: draft readiness gaps are warnings', () => {
@@ -601,12 +759,12 @@ X
 ## Log
 `);
   assert.deepEqual(
-    msgs(errors).filter((m) => /test-grade|target and test files/.test(m)),
+    msgs(errors).filter((m) => /test-grade|target and verification/.test(m)),
     [],
   );
   assert.ok(msgs(warnings).some((m) => /CR1 is not test-grade/.test(m)));
   assert.ok(
-    msgs(warnings).some((m) => /Plan task for CR1 must name target and test files/.test(m)),
+    msgs(warnings).some((m) => /Plan task for CR1 must name target and verification/.test(m)),
   );
 });
 
@@ -639,9 +797,23 @@ X
     { ...tddConfig, tdd: false },
   );
   assert.deepEqual(
-    [...msgs(errors), ...msgs(warnings)].filter((m) => /test-grade|target and test files/.test(m)),
+    [...msgs(errors), ...msgs(warnings)].filter((m) =>
+      /test-grade|target and verification/.test(m),
+    ),
     [],
   );
+});
+
+test('020229 CR5: invalid readiness config fails clearly', () => {
+  const { errors } = checkRepo({
+    config: {
+      ...tddConfig,
+      readiness: { target_patterns: 'src/**', verification_patterns: ['test/**', ''] },
+    },
+    changes: [cov()],
+  });
+  assert.ok(msgs(errors).some((m) => /readiness\.target_patterns" must be a list/.test(m)));
+  assert.ok(msgs(errors).some((m) => /readiness\.verification_patterns" entries/.test(m)));
 });
 
 test('CR5: a type without specification is not coverage-checked', () => {

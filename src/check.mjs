@@ -145,16 +145,6 @@ function checkCriteria(c, criteria, err) {
   }
 }
 
-// The latest timestamp found in a change: its `created` plus every `**<iso>**`
-// in its raw text (Log entries, task resolutions). Used to spot stale specs.
-function latestActivity(change) {
-  const stamps = [];
-  if (change.frontmatter?.created) stamps.push(change.frontmatter.created);
-  for (const m of String(change.text ?? '').matchAll(/\*\*(\d{4}-\d{2}-\d{2}T[^*]+)\*\*/g))
-    stamps.push(m[1].trim());
-  return stamps.sort().pop() ?? null;
-}
-
 // Validates the spec layer and its links to changes. `graduate` records two
 // markers: in the change Log `graduado a spec \`<file>\``, and in the spec body
 // `Graduado del change <id>`.
@@ -165,14 +155,14 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
   const incoming = new Set(); // spec names a change graduated to
   const activityBySpec = new Map(); // spec name → latest linked-change activity
   for (const c of changes) {
-    for (const m of String(c.text ?? '').matchAll(/graduado a spec `([^`]+)`/gi)) {
-      const specName = m[1].trim();
+    for (const m of graduationMarkers(c)) {
+      const ts = m[1].trim();
+      const specName = m[2].trim();
       if (!specNames.has(specName)) {
         err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
       incoming.add(specName);
-      const ts = latestActivity(c);
       const prev = activityBySpec.get(specName);
       if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
     }
@@ -197,6 +187,19 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
     if (fm.updated && ISO_UTC.test(fm.updated) && activity && activity > fm.updated) {
       warn(s, `updated (${fm.updated}) is older than linked change activity (${activity})`);
     }
+  }
+}
+
+function logBody(change) {
+  return String((change.stages ?? []).find((s) => s.key === 'log')?.body ?? '');
+}
+
+function* graduationMarkers(change) {
+  for (const line of logBody(change).split('\n')) {
+    const m = line.match(
+      /\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*\s*—\s*graduado a spec `([^`]+)`/i,
+    );
+    if (m) yield m;
   }
 }
 
@@ -241,8 +244,9 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
     for (const cr of t.criteria) {
       if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
     }
-    if (!namesTargetAndTestFiles(t.text)) {
-      for (const cr of t.criteria) report(c, `Plan task for ${cr} must name target and test files`);
+    if (!namesTargetAndVerification(t.text, config)) {
+      for (const cr of t.criteria)
+        report(c, `Plan task for ${cr} must name target and verification`);
     }
   }
 
@@ -256,8 +260,52 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
     }
 }
 
-function namesTargetAndTestFiles(text) {
-  return /\bsrc\/[^\s)]+/.test(text) && /\btest\/[^\s)]+/.test(text);
+function namesTargetAndVerification(text, config) {
+  const readiness = readinessConfig(config);
+  return (
+    matchesAnyReadinessPattern(text, readiness.target_patterns) &&
+    matchesAnyReadinessPattern(text, readiness.verification_patterns)
+  );
+}
+
+function readinessConfig(config) {
+  return {
+    target_patterns: config?.readiness?.target_patterns ?? ['src/**'],
+    verification_patterns: config?.readiness?.verification_patterns ?? ['test/**'],
+  };
+}
+
+function matchesAnyReadinessPattern(text, patterns) {
+  return patterns.some((pattern) => readinessPatternMatches(text, pattern));
+}
+
+function readinessPatternMatches(text, pattern) {
+  if (/[*?]/.test(pattern)) return readinessGlob(pattern).test(text);
+  return text.includes(pattern);
+}
+
+function readinessGlob(pattern) {
+  let out = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '*') {
+      if (pattern[i + 1] === '*') {
+        out += '.*';
+        i++;
+      } else {
+        out += '[^\\s`)]+';
+      }
+    } else if (ch === '?') {
+      out += '[^\\s`)]';
+    } else {
+      out += escapeRegExp(ch);
+    }
+  }
+  return new RegExp(out);
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
 function checkConfig(config, err) {
@@ -276,6 +324,7 @@ function checkConfig(config, err) {
   }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
+  if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
   for (const [type, def] of Object.entries(c.types ?? {})) {
     for (const s of def?.stages ?? []) {
@@ -284,6 +333,25 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+  }
+}
+
+function checkReadinessConfig(readiness, err) {
+  if (!readiness || typeof readiness !== 'object' || Array.isArray(readiness)) {
+    err(null, 'config "readiness" must be a mapping');
+    return;
+  }
+  for (const key of ['target_patterns', 'verification_patterns']) {
+    if (!(key in readiness)) continue;
+    if (!Array.isArray(readiness[key])) {
+      err(null, `config "readiness.${key}" must be a list`);
+      continue;
+    }
+    for (const pattern of readiness[key]) {
+      if (typeof pattern !== 'string' || pattern.trim() === '') {
+        err(null, `config "readiness.${key}" entries must be non-empty strings`);
+      }
+    }
   }
 }
 
