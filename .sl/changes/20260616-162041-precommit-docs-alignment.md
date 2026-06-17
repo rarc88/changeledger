@@ -7,6 +7,7 @@ created: 2026-06-16T16:20:41Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -28,3 +29,4 @@ versionado `hooks/pre-commit`.
 - **2026-06-16T16:34:58Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:35:44Z** — status: in-progress → done
 - **2026-06-16T16:35:49Z** — graduation skipped: docs-only alignment; no persistent spec change
+- **2026-06-17T15:23:05Z** — archived

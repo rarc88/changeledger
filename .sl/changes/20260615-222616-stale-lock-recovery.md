@@ -4,9 +4,10 @@ title: Recuperar locks huérfanos de sl new
 type: bug
 status: done
 created: 2026-06-15T22:26:16Z
-depends_on: ["20260615-214828"]
+depends_on: [ "20260615-214828" ]
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -65,3 +66,4 @@ temporal adicional y reduce la superficie de fallo.
 - **2026-06-15T22:50:13Z** — status: in-progress → in-review
 - **2026-06-15T22:51:04Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T22:51:10Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

@@ -4,9 +4,10 @@ title: Reemplazar HTML manual del visor por templates seguros
 type: refactor
 status: done
 created: 2026-06-15T22:26:18Z
-depends_on: ["20260615-214817", "20260615-214819"]
+depends_on: [ "20260615-214817", "20260615-214819" ]
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -60,3 +61,4 @@ Alternativas descartadas:
 - **2026-06-16T09:32:54Z** — status: in-progress → in-review
 - **2026-06-16T09:34:23Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T09:34:23Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

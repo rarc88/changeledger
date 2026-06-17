@@ -4,9 +4,10 @@ title: Modularizar el visor para reducir acoplamiento
 type: refactor
 status: done
 created: 2026-06-15T21:48:19Z
-depends_on: ["20260615-214817"]
+depends_on: [ "20260615-214817" ]
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -54,3 +55,4 @@ Alternativas descartadas:
 - **2026-06-15T22:00:10Z** — status: in-progress → in-review
 - **2026-06-15T22:07:19Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T22:08:03Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

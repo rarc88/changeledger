@@ -7,6 +7,7 @@ created: 2026-06-16T17:44:32Z
 depends_on: [ "20260616-174429" ]
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -37,3 +38,4 @@ containment, vendor serving, and API response shapes.
 - **2026-06-16T21:01:22Z** — status: in-progress → in-review
 - **2026-06-16T21:02:41Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T21:03:56Z** — graduation skipped: no persistent spec change; internal viewer module split
+- **2026-06-17T15:23:05Z** — archived

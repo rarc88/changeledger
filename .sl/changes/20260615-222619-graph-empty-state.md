@@ -4,9 +4,10 @@ title: Corregir el grafo cuando no hay cambios visibles
 type: bug
 status: done
 created: 2026-06-15T22:26:19Z
-depends_on: ["20260615-214819"]
+depends_on: [ "20260615-214819" ]
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -53,3 +54,4 @@ graph está aislado en `src/viewer/public/view-renderers.js`.
 - **2026-06-15T22:45:20Z** — status: in-progress → in-review
 - **2026-06-15T22:46:10Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T22:51:10Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

@@ -7,6 +7,7 @@ created: 2026-06-15T21:48:17Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -64,3 +65,4 @@ DOMPurify no está presente.
 - **2026-06-15T22:03:03Z** — status: in-progress → in-review
 - **2026-06-15T22:07:19Z** — review → done (delegated subagent, clean context)
 - **2026-06-15T22:08:03Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

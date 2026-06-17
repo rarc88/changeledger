@@ -7,6 +7,7 @@ created: 2026-06-16T16:20:14Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -63,3 +64,4 @@ Esto debilita la trazabilidad criterio -> tarea que el contrato promete.
 - **2026-06-16T16:28:32Z** — status: in-progress → in-review
 - **2026-06-16T16:42:46Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T16:44:37Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:25Z** — archived

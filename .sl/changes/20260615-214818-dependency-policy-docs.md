@@ -7,6 +7,7 @@ created: 2026-06-15T21:48:18Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -30,3 +31,4 @@ mantenidas y proporcionales al riesgo que reducen.
 - **2026-06-15T21:53:14Z** — owner → Roberto Ruiz (auto)
 - **2026-06-15T22:00:05Z** — status: in-progress → done
 - **2026-06-15T22:08:03Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:24Z** — archived

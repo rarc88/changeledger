@@ -7,6 +7,7 @@ created: 2026-06-16T17:44:30Z
 depends_on: []
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -27,3 +28,4 @@ Use a proper AST to manipulate the YAML frontmatter. The project already depends
 - **2026-06-16T20:50:00Z** — status: in-progress → in-review
 - **2026-06-16T20:59:32Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T21:03:48Z** — graduation skipped: no persistent spec change; internal writer implementation hardening
+- **2026-06-17T15:23:05Z** — archived

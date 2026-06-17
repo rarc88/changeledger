@@ -7,6 +7,7 @@ created: 2026-06-16T15:12:30Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -49,3 +50,4 @@ mutaciones, pero produciría churn de formato y más riesgo en cambios históric
 - **2026-06-16T15:28:19Z** — status: in-progress → in-review
 - **2026-06-16T15:29:31Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T15:29:31Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:25Z** — archived

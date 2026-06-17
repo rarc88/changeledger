@@ -7,6 +7,7 @@ created: 2026-06-16T16:20:50Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -57,3 +58,4 @@ orden incorrecto o perdida de contenido renderizado.
 - **2026-06-16T16:33:01Z** — status: in-progress → in-review
 - **2026-06-16T16:43:29Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T16:44:55Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:25Z** — archived

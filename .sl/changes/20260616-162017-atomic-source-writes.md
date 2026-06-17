@@ -7,6 +7,7 @@ created: 2026-06-16T16:20:17Z
 depends_on: []
 reviewed: true
 owner: Roberto Ruiz
+archived: true
 ---
 
 ## Request
@@ -50,3 +51,4 @@ de ningun documento.
 - **2026-06-16T16:39:03Z** — status: in-progress → in-review
 - **2026-06-16T16:43:43Z** — review → done (delegated subagent, clean context)
 - **2026-06-16T16:45:08Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:19:25Z** — archived
