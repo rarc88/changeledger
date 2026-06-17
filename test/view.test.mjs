@@ -15,6 +15,7 @@ import {
   searchProjects,
 } from '../src/commands/view.mjs';
 import { publicDir } from '../src/paths.mjs';
+import { loadRepoAsync } from '../src/repo.mjs';
 
 const TOKEN = 'test-token';
 
@@ -282,6 +283,16 @@ The viewer serializes specs.
   assert.equal(body.specs[0].name, 'viewer.md');
   assert.equal(body.specs[0].title, 'Viewer');
   assert.match(body.specs[0].body, /serializes specs/);
+});
+
+test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empty arrays', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  // no changes created — changesDir does not exist yet
+  const result = await loadRepoAsync(root);
+  assert.deepEqual(result.changes, []);
+  assert.deepEqual(result.specs, []);
 });
 
 function isolatedHome() {

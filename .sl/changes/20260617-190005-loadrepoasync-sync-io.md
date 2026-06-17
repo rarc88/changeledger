@@ -2,9 +2,11 @@
 id: "20260617-190005"
 title: loadRepoAsync bloquea event loop con fs.existsSync síncrono
 type: bug
-status: approved
+status: done
 created: 2026-06-17T19:00:05Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -65,11 +67,16 @@ try {
 
 ## Plan
 
-- [ ] Reemplazar los dos `fs.existsSync` en `src/repo.mjs` (`loadRepoAsync`) con `try/catch ENOENT` sobre `fs.promises.readdir`, verificar con `test/view.test.mjs` (CR1)
-- [ ] Agregar test en `test/view.test.mjs` que llama `loadRepoAsync` sobre repo con `changesDir` inexistente en `src/repo.mjs`, verifica retorno `{ changes: [], specs: [] }` (CR2)
-- [ ] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/repo.mjs` sin regresiones (CR3)
+- [x] Reemplazar los dos `fs.existsSync` en `src/repo.mjs` (`loadRepoAsync`) con `try/catch ENOENT` sobre `fs.promises.readdir`, verificar con `test/view.test.mjs` (CR1) — 2026-06-17T20:07:41Z
+- [x] Agregar test en `test/view.test.mjs` que llama `loadRepoAsync` sobre repo con `changesDir` inexistente en `src/repo.mjs`, verifica retorno `{ changes: [], specs: [] }` (CR2) — 2026-06-17T20:07:41Z
+- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/repo.mjs` sin regresiones (CR3) — 2026-06-17T20:07:41Z
 
 ## Log
 
 - **2026-06-17T19:00:05Z** — Detectado en auditoría. `f632813` introdujo `loadRepoAsync` sin migrar los dos `existsSync`.
 - **2026-06-17T20:04:25Z** — status: draft → approved
+- **2026-06-17T20:06:54Z** — status: approved → in-progress
+- **2026-06-17T20:06:54Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T20:07:44Z** — status: in-progress → in-review
+- **2026-06-17T20:08:37Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T20:08:41Z** — graduado a spec `architecture.md`

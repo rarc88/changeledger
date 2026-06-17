@@ -83,7 +83,7 @@ export async function loadRepoAsync(start = process.cwd()) {
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
   const changes = [];
-  if (fs.existsSync(changesDir)) {
+  try {
     const names = (await fs.promises.readdir(changesDir)).sort();
     for (const name of names) {
       if (!name.endsWith('.md')) continue;
@@ -91,18 +91,22 @@ export async function loadRepoAsync(start = process.cwd()) {
       const text = await fs.promises.readFile(file, 'utf8');
       changes.push({ file, name, text, ...parseChange(text) });
     }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
   }
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
 
   const specs = [];
   const specsDir = resolveSpecsDir(repoRoot, config);
-  if (fs.existsSync(specsDir)) {
+  try {
     const names = (await fs.promises.readdir(specsDir)).sort();
     for (const name of names) {
       if (!name.endsWith('.md')) continue;
       const file = path.join(specsDir, name);
       specs.push({ file, name, ...parseSpec(await fs.promises.readFile(file, 'utf8')) });
     }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
   }
 
   return { specDir, repoRoot, config, changes, specs };
