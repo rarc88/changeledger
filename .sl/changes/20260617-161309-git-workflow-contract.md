@@ -2,7 +2,7 @@
 id: "20260617-161309"
 title: Exigir rama y commits atómicos por change
 type: feature
-status: draft
+status: approved
 created: 2026-06-17T16:13:09Z
 depends_on: []
 ---
@@ -87,3 +87,4 @@ obligatorio:
 ## Log
 - **2026-06-17T16:13:09Z** — Creado tras fricción: Codex acumuló varios changes
   sin commits intermedios; la regla actual de atomic commits fue insuficiente.
+- **2026-06-17T16:21:37Z** — status: draft → approved
