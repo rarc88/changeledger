@@ -89,6 +89,20 @@ test('212840 CR1/CR2/CR3/CR4: installed contract captures friction as future wor
   assert.match(contract, /must not mix concerns/);
 });
 
+test('161309 CR1-CR5: installed contract requires branch-safe atomic commits', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /Never implement approved changes on\s+`main`, `master`, or `dev`/);
+  assert.match(contract, /inspect the worktree/);
+  assert.match(contract, /unrelated\s+changes exist/);
+  assert.match(
+    contract,
+    /commit the approved change\s+documentation before touching implementation code/,
+  );
+  assert.match(contract, /Implement one change at a\s+time/);
+  assert.match(contract, /commit\s+that change and its related truth before starting another/);
+  assert.match(contract, /If shared files\s+make a combined commit unavoidable/);
+});
+
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
   const root = tmp();
   init(root);

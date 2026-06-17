@@ -172,9 +172,17 @@ via the CLI.
    into separate changes (e.g. a bug fix and a new feature are two changes).
 2. **Do not implement in `draft`.** Create the change, wait for human approval.
 3. **Single source of truth.** Do not duplicate info across stages; link instead.
-4. **Atomic commits** that reference the id: `feat(scope): description [#0001]`.
-   Work on a branch; commit each coherent step as you go — never accumulate the
-   whole change into one blob.
+4. **Git workflow protects traceability.** Never implement approved changes on
+   `main`, `master`, or `dev`; create/switch to a work branch or ask the human
+   before continuing. Before implementation, inspect the worktree. If unrelated
+   changes exist, do not include them silently: ask whether to stash, commit,
+   ignore, or include them. After human approval, commit the approved change
+   documentation before touching implementation code. Implement one change at a
+   time; when a change is complete (tests, review, and graduation/skip), commit
+   that change and its related truth before starting another. Commit messages
+   reference the id, e.g. `feat(scope): description [#0001]`. If shared files
+   make a combined commit unavoidable, call it out explicitly in the Log or
+   final response and name the changes that share the surface.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
 6. **Independent review before `done`.** When the implementation is complete,

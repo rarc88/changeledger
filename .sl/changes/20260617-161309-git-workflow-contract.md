@@ -2,9 +2,12 @@
 id: "20260617-161309"
 title: Exigir rama y commits atómicos por change
 type: feature
-status: approved
+status: done
 created: 2026-06-17T16:13:09Z
 depends_on: []
+owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -80,11 +83,17 @@ obligatorio:
 - **Then** lo declara como excepción y explica qué changes comparten la superficie
 
 ## Plan
-- [ ] Actualizar `templates/AGENTS.md` §6 y verificar con `test/cli.test.mjs` que atomic commits sean un workflow git obligatorio (CR1, CR2, CR3, CR4, CR5)
-- [ ] Añadir assertions en `test/cli.test.mjs` sobre `templates/AGENTS.md` y verificar con `pnpm test -- test/cli.test.mjs` las frases clave del workflow instalado (CR1, CR2, CR3, CR4, CR5)
-- [ ] Ejecutar `pnpm test -- test/cli.test.mjs` y `node bin/sl.mjs check` para validar `templates/AGENTS.md` y el ledger (CR1, CR2, CR3, CR4, CR5)
+- [x] Actualizar `templates/AGENTS.md` §6 y verificar con `test/cli.test.mjs` que atomic commits sean un workflow git obligatorio (CR1, CR2, CR3, CR4, CR5) — 2026-06-17T16:25:29Z
+- [x] Añadir assertions en `test/cli.test.mjs` sobre `templates/AGENTS.md` y verificar con `pnpm test -- test/cli.test.mjs` las frases clave del workflow instalado (CR1, CR2, CR3, CR4, CR5) — 2026-06-17T16:25:29Z
+- [x] Ejecutar `pnpm test -- test/cli.test.mjs` y `node bin/sl.mjs check` para validar `templates/AGENTS.md` y el ledger (CR1, CR2, CR3, CR4, CR5) — 2026-06-17T16:25:29Z
 
 ## Log
 - **2026-06-17T16:13:09Z** — Creado tras fricción: Codex acumuló varios changes
   sin commits intermedios; la regla actual de atomic commits fue insuficiente.
 - **2026-06-17T16:21:37Z** — status: draft → approved
+- **2026-06-17T16:24:47Z** — status: approved → in-progress
+- **2026-06-17T16:24:47Z** — owner → Roberto Ruiz (auto)
+- **2026-06-17T16:25:47Z** — status: in-progress → in-review
+- **2026-06-17T16:26:30Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T16:26:53Z** — graduado a spec `architecture.md`
+- **2026-06-17T16:27:34Z** — archived

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-17T15:22:39Z
+updated: 2026-06-17T16:26:53Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -33,6 +33,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260616-212322 (archivado masivo de graduados).
 > Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
 > Graduado del change 20260616-212309 (tests del viewer sin socket local).
+> Graduado del change 20260617-161309 (workflow git para trazabilidad).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -276,6 +277,15 @@ convención de commit `[#<id>]`: lista los commits que lo referencian y las
 branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
 endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 **Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
+
+El contrato canónico protege esa trazabilidad con un workflow git explícito:
+los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
+revisan el worktree antes de empezar; commitean la documentación aprobada antes
+de tocar código; implementan un change a la vez; y, al completar tests, review
+y graduación/skip, commitean ese change y su verdad relacionada antes de empezar
+otro. Los cambios no relacionados no se incluyen silenciosamente. Si archivos
+compartidos vuelven inevitable un commit combinado, se declara como excepción y
+se nombran los changes que comparten la superficie.
 
 ## Discovery del contrato
 
