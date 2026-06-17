@@ -9,14 +9,21 @@ function logBody(change) {
   return (change.stages ?? []).find((s) => s.key === 'log')?.body ?? '';
 }
 
-// The moment a change reached `done`: the last `→ done` Log entry, or null.
+function logTransition(line) {
+  const m = line.match(/\*\*([^*]+)\*\*\s*—\s*(?:status:.*|review)\s*→\s*([a-z-]+)\b/);
+  if (!m) return null;
+  return { at: m[1].trim(), state: m[2].trim() };
+}
+
+// The moment a change reached `done`: the last lifecycle transition to done, or
+// null. Done can be written either by `sl status` or by `sl review pass`.
 export function doneAt(change) {
-  let iso = null;
+  let at = null;
   for (const line of logBody(change).split('\n')) {
-    const m = line.match(/\*\*([^*]+)\*\*\s*—\s*status:.*→\s*done\b/);
-    if (m) iso = m[1].trim();
+    const event = logTransition(line);
+    if (event?.state === 'done') at = event.at;
   }
-  return iso;
+  return at;
 }
 
 // Ordered status transitions parsed from the Log: [{ at, state }]. Assumes the
@@ -26,8 +33,8 @@ function transitions(change) {
   if (!created) return [];
   const events = [{ at: created, state: 'draft' }];
   for (const line of logBody(change).split('\n')) {
-    const m = line.match(/\*\*([^*]+)\*\*\s*—\s*status:.*→\s*([a-z-]+)\b/);
-    if (m) events.push({ at: m[1].trim(), state: m[2].trim() });
+    const event = logTransition(line);
+    if (event) events.push(event);
   }
   return events;
 }

@@ -23,6 +23,16 @@ test('doneAt extracts the iso of the last → done log entry', () => {
   assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
 });
 
+test('doneAt extracts the iso of a review pass transition', () => {
+  const c = change({
+    id: 'a',
+    created: '2026-06-13T08:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-review
+- **2026-06-13T12:00:00Z** — review → done (delegated subagent, clean context)`,
+  });
+  assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
+});
+
 test('doneAt returns null when there is no done transition', () => {
   const c = change({
     id: 'a',
@@ -59,6 +69,21 @@ test('CR2: aggregates and throughput group by close date', () => {
   ]);
 });
 
+test('CR1: aggregates and throughput include review pass closures', () => {
+  const c = change({
+    id: 'a',
+    created: '2026-06-16T10:00:00Z',
+    logBody: `- **2026-06-16T11:00:00Z** — status: draft → approved
+- **2026-06-16T12:00:00Z** — status: approved → in-progress
+- **2026-06-16T13:00:00Z** — status: in-progress → in-review
+- **2026-06-16T14:00:00Z** — review → done (delegated subagent, clean context)`,
+  });
+  const m = computeMetrics([c]);
+  assert.equal(m.count, 1);
+  assert.equal(m.perChange[0].cycleMs, 4 * HOUR);
+  assert.deepEqual(m.throughput, [{ date: '2026-06-16', count: 1 }]);
+});
+
 test('CR2: non-done changes are ignored', () => {
   const changes = [
     change({
@@ -84,6 +109,24 @@ test('CR1: statusTimeline splits time across states', () => {
     { state: 'draft', ms: 1 * HOUR },
     { state: 'approved', ms: 1 * HOUR },
     { state: 'in-progress', ms: 3 * HOUR },
+  ]);
+});
+
+test('CR1: statusTimeline treats review verdicts as lifecycle transitions', () => {
+  const c = change({
+    id: 'a',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** — status: draft → approved
+- **2026-06-13T12:00:00Z** — status: approved → in-progress
+- **2026-06-13T13:00:00Z** — status: in-progress → in-review
+- **2026-06-13T15:00:00Z** — review → done (delegated subagent, clean context)`,
+  });
+  const segs = statusTimeline(c, '2026-06-13T15:00:00Z');
+  assert.deepEqual(segs, [
+    { state: 'draft', ms: 1 * HOUR },
+    { state: 'approved', ms: 1 * HOUR },
+    { state: 'in-progress', ms: 1 * HOUR },
+    { state: 'in-review', ms: 2 * HOUR },
   ]);
 });
 
