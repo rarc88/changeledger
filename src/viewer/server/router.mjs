@@ -58,9 +58,10 @@ function send(res, code, type, body) {
 // Injects the per-process write token into the served page so same-origin JS can
 // read it; cross-origin pages cannot, by the same-origin policy.
 function serveIndex(res, token) {
+  const safeToken = JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
   const html = fs
     .readFileSync(path.join(publicDir, 'index.html'), 'utf8')
-    .replace('__SL_TOKEN_VALUE__', token);
+    .replace("'__SL_TOKEN_VALUE__'", safeToken);
   send(res, 200, MIME['.html'], html);
 }
 

@@ -2,9 +2,11 @@
 id: "20260617-190007"
 title: token inyectado en HTML via .replace() raw — escape de contexto posible
 type: bug
-status: approved
+status: done
 created: 2026-06-17T19:00:07Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -77,11 +79,16 @@ en inyección (defensa en profundidad).
 
 ## Plan
 
-- [ ] Actualizar `serveIndex` en `src/viewer/server/router.mjs` para usar escape Unicode: `JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')`, verificar con `test/view.test.mjs` (CR1, CR2)
-- [ ] Agregar test en `test/view.test.mjs`: token `x</script>x` → extraer body del `<script>` (todo antes del último `</script>`) y verificar que no contiene `</script>` literal en `src/viewer/server/router.mjs` (CR3)
-- [ ] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3)
+- [x] Actualizar `serveIndex` en `src/viewer/server/router.mjs` para usar escape Unicode: `JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')`, verificar con `test/view.test.mjs` (CR1, CR2) — 2026-06-17T20:27:08Z
+- [x] Agregar test en `test/view.test.mjs`: token `x</script>x` → extraer body del `<script>` (todo antes del último `</script>`) y verificar que no contiene `</script>` literal en `src/viewer/server/router.mjs` (CR3) — 2026-06-17T20:27:08Z
+- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3) — 2026-06-17T20:27:08Z
 
 ## Log
 
 - **2026-06-17T19:00:07Z** — Detectado en auditoría. Token actual (hex) es seguro, pero el contrato es frágil. Fix preventivo antes de que el formato cambie.
 - **2026-06-17T20:04:27Z** — status: draft → approved
+- **2026-06-17T20:24:15Z** — status: approved → in-progress
+- **2026-06-17T20:24:15Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T20:27:09Z** — status: in-progress → in-review
+- **2026-06-17T20:27:33Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T20:27:34Z** — graduado a spec `architecture.md`

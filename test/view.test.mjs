@@ -194,7 +194,7 @@ test('CR5: a non-local Host header is rejected and responses carry defensive hea
 test('CR2: the served page carries the session token', async () => {
   isolatedHome();
   const res = await memoryRequest(newRepo(), { path: '/' });
-  assert.match(res.body, new RegExp(`window.__SL_TOKEN__ = '${TOKEN}'`));
+  assert.match(res.body, new RegExp(`window.__SL_TOKEN__ = "${TOKEN}"`));
   assert.ok(!res.body.includes('__SL_TOKEN_VALUE__'), 'placeholder fully substituted');
   assert.match(res.body, /"lit-html": "\/vendor\/lit-html\/lit-html\.js"/);
 });
@@ -283,6 +283,35 @@ The viewer serializes specs.
   assert.equal(body.specs[0].name, 'viewer.md');
   assert.equal(body.specs[0].title, 'Viewer');
   assert.match(body.specs[0].body, /serializes specs/);
+});
+
+test('190007 CR3: token with </script> is escaped in the token assignment line', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const listener = createRequestListener(root, true, 'x</script>x');
+  const req = new EventEmitter();
+  req.method = 'GET';
+  req.url = '/';
+  req.headers = { host: '127.0.0.1' };
+  req.destroy = () => {};
+  const html = await new Promise((resolve) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      writeHead(code, h) {
+        this.statusCode = code;
+        this.headers = h;
+      },
+      end(data = '') {
+        resolve(String(data));
+      },
+    };
+    listener(req, res);
+  });
+  // Find the line that assigns __SL_TOKEN__ — it must not contain </script> literally
+  const tokenLine = html.split('\n').find((l) => l.includes('__SL_TOKEN__'));
+  assert.ok(tokenLine, 'token assignment line must be present in HTML');
+  assert.ok(!tokenLine.includes('</script>'), 'token value must not contain unescaped </script>');
 });
 
 test('190008 CR2: /api/git rejects invalid id with 400', async () => {
