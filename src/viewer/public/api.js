@@ -2,6 +2,7 @@ export const getProjects = () => fetch('/api/projects').then((r) => r.json());
 
 export const getRepo = async (project) => {
   const res = await fetch(`/api/repo?project=${encodeURIComponent(project)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 };
 

@@ -285,6 +285,28 @@ The viewer serializes specs.
   assert.match(body.specs[0].body, /serializes specs/);
 });
 
+test('190009 CR3: getRepo rejects when server returns 404', async () => {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 404 });
+  try {
+    const { getRepo } = await import('../src/viewer/public/api.js');
+    await assert.rejects(() => getRepo('proj'), /HTTP 404/);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test('190009 CR3: getRepo rejects when server returns 410', async () => {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 410 });
+  try {
+    const { getRepo } = await import('../src/viewer/public/api.js');
+    await assert.rejects(() => getRepo('proj'), /HTTP 410/);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
 test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empty arrays', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
