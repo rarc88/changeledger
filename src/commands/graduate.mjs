@@ -24,22 +24,23 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   const specName = `${slugify(slug)}.md`;
   const specFile = path.join(specsDir, specName);
 
+  // Validate preconditions before acquiring the change file lock — ensures no
+  // write happens at all when the existence check fails (CR1).
+  const exists = fs.existsSync(specFile);
+  if (into && !exists)
+    throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
+  if (!into && exists) throw new Error(`Spec "${specName}" already exists`);
+
   mutateFileAtomic(changeFile, (changeText) => {
     const change = parseChange(changeText);
     if (change.frontmatter.status !== 'done') {
       throw new Error('only done changes can be graduated/skipped');
     }
 
-    const exists = fs.existsSync(specFile);
     if (into) {
-      if (!exists) {
-        throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
-      }
       // Refresh the spec's updated; the body stays the agent's to edit.
       writeFileAtomic(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
     } else {
-      if (exists) throw new Error(`Spec "${specName}" already exists`);
-
       const seedStage =
         change.stages.find((s) => s.key === 'specification') ??
         change.stages.find((s) => s.key === 'proposal');

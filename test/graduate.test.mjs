@@ -221,6 +221,53 @@ test('skipGraduation refuses a non-done change and writes nothing (CR6)', () => 
   assert.equal(fs.readFileSync(f, 'utf8'), before);
 });
 
+test('185958 CR1: validation failure before mutateFileAtomic leaves changeFile untouched', () => {
+  const { root, file, id } = repo();
+  const before = fs.readFileSync(file, 'utf8');
+  // spec doesn't exist; --into requires it to exist → should throw before any write
+  assert.throws(() => graduate(id, 'missing-spec', root, { into: true }), /does not exist/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'changeFile must not be modified');
+});
+
+test('185958 CR3: spec write failure leaves changeFile unmodified', () => {
+  const { root, file, id } = repo();
+  const before = fs.readFileSync(file, 'utf8');
+  const specsDir = path.join(root, '.sl', 'specs');
+  const specName = path.join(specsDir, 'auth.md');
+  // Make specName a directory — writeFileAtomic will fail trying to write a file at a dir path
+  fs.mkdirSync(specName, { recursive: true });
+  assert.throws(() => graduate(id, 'auth', root));
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'changeFile must not be modified');
+  fs.rmdirSync(specName); // cleanup
+});
+
+test('185958 CR4: orphaned spec (write OK, log failed) is detectable and recoverable', () => {
+  const { root, file, id } = repo();
+  // Simulate orphaned spec: spec exists, but changeFile has no reviewed flag
+  const specsDir = path.join(root, '.sl', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(specsDir, 'auth.md'),
+    '---\ntitle: Auth\nupdated: 2026-06-13T12:00:00Z\ntags: []\n---\n\n# Auth\n',
+  );
+  // Retry without --into → "already exists" (CR4 detectable state)
+  assert.throws(() => graduate(id, 'auth', root), /already exists/);
+  // Retry with --into → succeeds (CR4 recoverable)
+  assert.doesNotThrow(() => graduate(id, 'auth', root, { into: true }));
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
+});
+
+test('185958 CR5: happy path --into and new spec unchanged', () => {
+  const { root, id } = repo();
+  // New spec case
+  const specFile = graduate(id, 'auth', root);
+  assert.ok(fs.existsSync(specFile));
+  // --into case on a second done change
+  const f2 = writeChange(root, '20260615-120000', 'done');
+  const { id: id2 } = parseChange(fs.readFileSync(f2, 'utf8')).frontmatter;
+  assert.doesNotThrow(() => graduate(id2, 'auth', root, { into: true }));
+});
+
 test('pendingGraduation lists only unreviewed done changes (CR4)', () => {
   const { root } = repo(); // base 20260613-120000 is done, unreviewed
   writeChange(root, '20260101-000000', 'done', 'reviewed: true\n');

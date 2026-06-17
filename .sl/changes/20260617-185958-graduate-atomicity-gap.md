@@ -2,9 +2,11 @@
 id: "20260617-185958"
 title: "graduate: spec write puede quedar huérfana si el proceso muere entre writes"
 type: bug
-status: approved
+status: done
 created: 2026-06-17T18:59:58Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -83,14 +85,19 @@ haber iniciado el write.
 
 ## Plan
 
-- [ ] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs` (CR1)
-- [ ] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs` (CR2, CR3)
-- [ ] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs` (CR3)
-- [ ] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs` (CR4)
-- [ ] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs` (CR5)
-- [ ] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones (CR5)
+- [x] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs` (CR1) — 2026-06-17T20:33:03Z
+- [x] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs` (CR2, CR3) — 2026-06-17T20:33:03Z
+- [x] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs` (CR3) — 2026-06-17T20:33:03Z
+- [x] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs` (CR4) — 2026-06-17T20:33:03Z
+- [x] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs` (CR5) — 2026-06-17T20:33:03Z
+- [x] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones (CR5) — 2026-06-17T20:33:03Z
 
 ## Log
 
 - **2026-06-17T18:59:58Z** — Detectado en auditoría de commits desde 407dcdd. El change `e6dcc4d` (atomic-source-writes) no cubre la coordinación entre los dos writes de graduate.
 - **2026-06-17T20:04:24Z** — status: draft → approved
+- **2026-06-17T20:31:36Z** — status: approved → in-progress
+- **2026-06-17T20:31:36Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T20:33:04Z** — status: in-progress → in-review
+- **2026-06-17T20:33:23Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T20:33:23Z** — graduado a spec `architecture.md`
