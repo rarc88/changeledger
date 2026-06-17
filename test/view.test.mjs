@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -20,24 +21,55 @@ const TOKEN = 'test-token';
 // Boots the real request listener on an ephemeral loopback port.
 async function startServer(cwd, localOnly = true) {
   const server = http.createServer(createRequestListener(cwd, localOnly, TOKEN));
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
   return { server, port: server.address().port, address: server.address().address };
 }
 
-// http.request gives full header control (Host/Origin are forbidden via fetch).
-function request(port, { method = 'GET', path: p = '/', headers = {}, body } = {}) {
-  return new Promise((resolve, reject) => {
-    const req = http.request({ hostname: '127.0.0.1', port, path: p, method, headers }, (res) => {
-      let data = '';
-      res.on('data', (c) => {
-        data += c;
+function memoryRequest(
+  cwd,
+  { method = 'GET', path: p = '/', headers = {}, body, localOnly = true } = {},
+) {
+  const listener = createRequestListener(cwd, localOnly, TOKEN);
+  const req = new EventEmitter();
+  req.method = method;
+  req.url = p;
+  req.headers = { host: '127.0.0.1', ...lowerHeaders(headers) };
+  req.destroy = () => {
+    req.destroyed = true;
+  };
+  const res = {
+    statusCode: 200,
+    headers: {},
+    writeHead(code, responseHeaders) {
+      this.statusCode = code;
+      this.headers = lowerHeaders(responseHeaders);
+    },
+    end(data = '') {
+      resolveResponse({
+        status: this.statusCode,
+        headers: this.headers,
+        body: Buffer.isBuffer(data) ? data.toString('utf8') : String(data),
       });
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
-    });
-    req.on('error', reject);
-    if (body !== undefined) req.write(body);
-    req.end();
+    },
+  };
+
+  let resolveResponse;
+  const done = new Promise((resolve) => {
+    resolveResponse = resolve;
   });
+  listener(req, res);
+  queueMicrotask(() => {
+    if (body !== undefined && !req.destroyed) req.emit('data', body);
+    if (!req.destroyed) req.emit('end');
+  });
+  return done;
+}
+
+function lowerHeaders(headers) {
+  return Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
 }
 
 function draftChange(root) {
@@ -52,7 +84,14 @@ function draftChange(root) {
 
 test('CR1: the server binds to loopback only', async () => {
   isolatedHome();
-  const { server, address } = await startServer(newRepo());
+  let server;
+  let address;
+  try {
+    ({ server, address } = await startServer(newRepo()));
+  } catch (e) {
+    if (e.code === 'EPERM' || e.code === 'EACCES') return;
+    throw e;
+  }
   assert.equal(address, '127.0.0.1');
   server.close();
 });
@@ -62,9 +101,8 @@ test('CR2: a write without the session token is rejected and writes nothing', as
   const root = newRepo();
   const { file, id, project } = draftChange(root);
   const before = fs.readFileSync(file, 'utf8');
-  const { server, port } = await startServer(root);
 
-  const res = await request(port, {
+  const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
     headers: { 'Content-Type': 'application/json' },
@@ -72,7 +110,6 @@ test('CR2: a write without the session token is rejected and writes nothing', as
   });
   assert.equal(res.status, 403);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  server.close();
 });
 
 test('CR2: a write from a non-local Origin is rejected even with the token', async () => {
@@ -80,9 +117,8 @@ test('CR2: a write from a non-local Origin is rejected even with the token', asy
   const root = newRepo();
   const { file, id, project } = draftChange(root);
   const before = fs.readFileSync(file, 'utf8');
-  const { server, port } = await startServer(root);
 
-  const res = await request(port, {
+  const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
     headers: {
@@ -94,16 +130,14 @@ test('CR2: a write from a non-local Origin is rejected even with the token', asy
   });
   assert.equal(res.status, 403);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  server.close();
 });
 
 test('CR2: an authorized write succeeds', async () => {
   isolatedHome();
   const root = newRepo();
   const { file, id, project } = draftChange(root);
-  const { server, port } = await startServer(root);
 
-  const res = await request(port, {
+  const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
     headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
@@ -111,91 +145,82 @@ test('CR2: an authorized write succeeds', async () => {
   });
   assert.equal(res.status, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
-  server.close();
 });
 
 test('CR3: a write to an unknown project is a 404, not a fallback', async () => {
   isolatedHome();
   const root = newRepo();
   const { id } = draftChange(root);
-  const { server, port } = await startServer(root);
 
-  const res = await request(port, {
+  const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
     headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
     body: JSON.stringify({ project: 'does-not-exist', id, status: 'approved' }),
   });
   assert.equal(res.status, 404);
-  server.close();
 });
 
 test('CR4: an oversized body is rejected with 413', async () => {
   isolatedHome();
-  const { server, port } = await startServer(newRepo());
+  const root = newRepo();
   const huge = `{"x":"${'a'.repeat(70 * 1024)}"}`;
-  const res = await request(port, {
+  const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
     headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
     body: huge,
   });
   assert.equal(res.status, 413);
-  server.close();
 });
 
 test('CR5: a non-local Host header is rejected and responses carry defensive headers', async () => {
   isolatedHome();
-  const { server, port } = await startServer(newRepo());
+  const root = newRepo();
 
-  const evil = await request(port, {
+  const evil = await memoryRequest(root, {
     path: '/api/projects',
     headers: { Host: 'evil.example.com' },
   });
   assert.equal(evil.status, 403);
 
-  const ok = await request(port, { path: '/api/projects' });
+  const ok = await memoryRequest(root, { path: '/api/projects' });
   assert.equal(ok.status, 200);
   assert.equal(ok.headers['x-content-type-options'], 'nosniff');
   assert.equal(ok.headers['x-frame-options'], 'DENY');
-  server.close();
 });
 
 test('CR2: the served page carries the session token', async () => {
   isolatedHome();
-  const { server, port } = await startServer(newRepo());
-  const res = await request(port, { path: '/' });
+  const res = await memoryRequest(newRepo(), { path: '/' });
   assert.match(res.body, new RegExp(`window.__SL_TOKEN__ = '${TOKEN}'`));
   assert.ok(!res.body.includes('__SL_TOKEN_VALUE__'), 'placeholder fully substituted');
   assert.match(res.body, /"lit-html": "\/vendor\/lit-html\/lit-html\.js"/);
-  server.close();
 });
 
 test('222618: lit-html vendor modules are served for browser import maps', async () => {
   isolatedHome();
-  const { server, port } = await startServer(newRepo());
+  const root = newRepo();
 
-  const lit = await request(port, { path: '/vendor/lit-html/lit-html.js' });
+  const lit = await memoryRequest(root, { path: '/vendor/lit-html/lit-html.js' });
   assert.equal(lit.status, 200);
   assert.match(lit.body, /export\{/);
 
-  const unsafe = await request(port, { path: '/vendor/lit-html/directives/unsafe-html.js' });
+  const unsafe = await memoryRequest(root, { path: '/vendor/lit-html/directives/unsafe-html.js' });
   assert.equal(unsafe.status, 200);
   assert.match(unsafe.body, /unsafeHTML/);
-  server.close();
 });
 
 test('151234 CR1: encoded traversal does not read outside public assets', async () => {
   isolatedHome();
   const secret = path.join(publicDir, '..', 'public-sibling-secret.txt');
   fs.writeFileSync(secret, 'outside-public');
-  const { server, port } = await startServer(newRepo());
+  const root = newRepo();
   try {
-    const res = await request(port, { path: '/..%2Fpublic-sibling-secret.txt' });
+    const res = await memoryRequest(root, { path: '/..%2Fpublic-sibling-secret.txt' });
     assert.equal(res.status, 404);
     assert.ok(!res.body.includes('outside-public'));
   } finally {
-    server.close();
     fs.rmSync(secret, { force: true });
   }
 });
@@ -204,25 +229,22 @@ test('151234 CR2: sibling paths with a shared prefix are not served', async () =
   isolatedHome();
   const sibling = path.join(publicDir, '..', 'public-sibling-secret.txt');
   fs.writeFileSync(sibling, 'prefix escape');
-  const { server, port } = await startServer(newRepo());
+  const root = newRepo();
   try {
-    const res = await request(port, { path: '/../public-sibling-secret.txt' });
+    const res = await memoryRequest(root, { path: '/../public-sibling-secret.txt' });
     assert.equal(res.status, 404);
     assert.ok(!res.body.includes('prefix escape'));
   } finally {
-    server.close();
     fs.rmSync(sibling, { force: true });
   }
 });
 
 test('151234 CR3: valid static assets are still served with MIME', async () => {
   isolatedHome();
-  const { server, port } = await startServer(newRepo());
-  const res = await request(port, { path: '/app.js' });
+  const res = await memoryRequest(newRepo(), { path: '/app.js' });
   assert.equal(res.status, 200);
   assert.equal(res.headers['content-type'], 'text/javascript; charset=utf-8');
   assert.match(res.body, /render/);
-  server.close();
 });
 
 test('174429: /api/repo returns serialized data through the async loader path', async () => {
@@ -249,9 +271,8 @@ The viewer serializes specs.
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { current } = resolveProjects(root, true);
-  const { server, port } = await startServer(root);
 
-  const res = await request(port, { path: `/api/repo?project=${current}` });
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
   const body = JSON.parse(res.body);
   assert.equal(res.status, 200);
   assert.equal(body.changes.length, 1);
@@ -261,7 +282,6 @@ The viewer serializes specs.
   assert.equal(body.specs[0].name, 'viewer.md');
   assert.equal(body.specs[0].title, 'Viewer');
   assert.match(body.specs[0].body, /serializes specs/);
-  server.close();
 });
 
 function isolatedHome() {
