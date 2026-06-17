@@ -2,9 +2,11 @@
 id: "20260617-190006"
 title: "acquireIdLock: spin infinito posible + branches de lock sin tests"
 type: bug
-status: approved
+status: done
 created: 2026-06-17T19:00:06Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -87,15 +89,20 @@ es el timeout primario del lock, lo que es engañoso.
 
 ## Plan
 
-- [ ] Agregar cota de iteraciones y renombrar `STALE_LOCK_MS` → `LOCK_MTIME_STALE_MS` en `src/commands/new.mjs`, verificar con `test/change.test.mjs` (CR1, CR6)
-- [ ] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` con JSON inválido, verifica mtime fallback (CR2)
-- [ ] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` cuando `statSync` lanza ENOENT (CR3)
-- [ ] Agregar test en `test/change.test.mjs` para `processIsAlive` en `src/commands/new.mjs` con EPERM retorna `true` (CR4)
-- [ ] Agregar comentario inline en `src/commands/new.mjs` y `src/atomic-write.mjs` explicando POR QUÉ cada uno usa su estrategia de staleness, verificar con `test/change.test.mjs` (CR6)
-- [ ] Correr `pnpm test -- test/change.test.mjs` sobre `src/commands/new.mjs` sin regresiones (CR5)
+- [x] Agregar cota de iteraciones y renombrar `STALE_LOCK_MS` → `LOCK_MTIME_STALE_MS` en `src/commands/new.mjs`, verificar con `test/change.test.mjs` (CR1, CR6) — 2026-06-17T20:30:41Z
+- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` con JSON inválido, verifica mtime fallback (CR2) — 2026-06-17T20:30:41Z
+- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` cuando `statSync` lanza ENOENT (CR3) — 2026-06-17T20:30:41Z
+- [x] Agregar test en `test/change.test.mjs` para `processIsAlive` en `src/commands/new.mjs` con EPERM retorna `true` (CR4) — 2026-06-17T20:30:41Z
+- [x] Agregar comentario inline en `src/commands/new.mjs` y `src/atomic-write.mjs` explicando POR QUÉ cada uno usa su estrategia de staleness, verificar con `test/change.test.mjs` (CR6) — 2026-06-17T20:30:41Z
+- [x] Correr `pnpm test -- test/change.test.mjs` sobre `src/commands/new.mjs` sin regresiones (CR5) — 2026-06-17T20:30:41Z
 
 ## Log
 
 - **2026-06-17T19:00:06Z** — Detectado en auditoría. `fb8f6ce` introdujo el lock pero sin tests de branches de error. `STALE_LOCK_MS` nombre engañoso también reportado.
 - **2026-06-17T19:39:19Z** — Absorbe decisión de documentación de estrategia de lock de `20260617-190011` (descartado por fusión).
 - **2026-06-17T20:04:26Z** — status: draft → approved
+- **2026-06-17T20:28:02Z** — status: approved → in-progress
+- **2026-06-17T20:28:02Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T20:30:42Z** — status: in-progress → in-review
+- **2026-06-17T20:31:03Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T20:31:03Z** — graduation skipped: implementation detail; no persistent spec truth

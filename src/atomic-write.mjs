@@ -2,6 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 let counter = 0;
+// Timeout-based staleness: a lock is stale if it's held for longer than
+// DEFAULT_LOCK_WAIT_MS. Simpler and portable, appropriate for file-mutation
+// exclusion where contention is short-lived. Contrast with acquireIdLock in
+// new.mjs, which uses PID liveness — better for id-collision prevention across
+// processes where a lock might outlive a slow but still-running agent.
 const DEFAULT_LOCK_WAIT_MS = 5_000;
 const DEFAULT_LOCK_RETRY_MS = 10;
 

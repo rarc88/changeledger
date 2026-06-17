@@ -376,6 +376,66 @@ test('new tolerates a lock removed while checking whether it is stale', () => {
   }
 });
 
+test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(lock, 'not-json');
+  const stale = new Date(Date.now() - 60_000);
+  fs.utimesSync(lock, stale, stale);
+
+  // Prevent lock removal so the loop retries until the cap triggers
+  const origRmSync = fs.rmSync;
+  fs.rmSync = (target, ...args) => {
+    if (String(target).endsWith('.lock')) return;
+    return origRmSync.call(fs, target, ...args);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    // After hitting the cap, acquireIdLock returned null → outer loop bumped the second
+    assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped after spin cap');
+  } finally {
+    fs.rmSync = origRmSync;
+    origRmSync.call(fs, lock, { force: true });
+  }
+});
+
+test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+
+  // Mock process.kill(pid, 0) to throw EPERM — simulates a live process we can't signal
+  const origKill = process.kill.bind(process);
+  process.kill = (pid, sig) => {
+    if (sig === 0) {
+      const e = new Error('EPERM');
+      e.code = 'EPERM';
+      throw e;
+    }
+    return origKill(pid, sig);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    // isStaleLock returned false (EPERM → alive) → acquireIdLock returned null → second bumped
+    assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped because lock was live');
+  } finally {
+    process.kill = origKill;
+    fs.rmSync(lock, { force: true });
+  }
+});
+
 test('new reserves ids atomically across concurrent processes', async () => {
   const root = tmp();
   init(root);

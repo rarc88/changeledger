@@ -4,7 +4,10 @@ import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
-const STALE_LOCK_MS = 30_000;
+// Applied only when JSON parse fails — governs mtime-based staleness fallback.
+// Not the primary timeout: the main strategy is PID liveness (process.kill 0),
+// which is more robust for id-collision prevention than a wall-clock timeout.
+const LOCK_MTIME_STALE_MS = 30_000;
 
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
@@ -66,6 +69,7 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
 
 function acquireIdLock(changesDir, id) {
   const lock = path.join(changesDir, `.${id}.lock`);
+  let attempts = 0;
   for (;;) {
     try {
       const fd = fs.openSync(lock, 'wx');
@@ -77,6 +81,7 @@ function acquireIdLock(changesDir, id) {
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
       if (!isStaleLock(lock)) return null;
+      if (++attempts > 5) return null;
       fs.rmSync(lock, { force: true });
     }
   }
@@ -94,7 +99,7 @@ function isStaleLock(lock) {
     return !Number.isInteger(data.pid) || !processIsAlive(data.pid);
   } catch {
     try {
-      return Date.now() - fs.statSync(lock).mtimeMs > STALE_LOCK_MS;
+      return Date.now() - fs.statSync(lock).mtimeMs > LOCK_MTIME_STALE_MS;
     } catch (e) {
       if (e.code === 'ENOENT') return true;
       throw e;
