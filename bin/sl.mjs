@@ -109,8 +109,13 @@ program
   .argument('[id]')
   .option('--json', 'print JSON')
   .action((id, options) => {
-    const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
-    process.exit(check(args));
+    try {
+      const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
+      process.exit(check(args));
+    } catch (e) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
   });
 
 program
