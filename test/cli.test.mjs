@@ -72,6 +72,81 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   assert.match(cfg, /^tdd: true$/m);
 });
 
+test('020229 CR4: installed contract documents configurable readiness patterns', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /readiness\.target_patterns/);
+  assert.match(contract, /readiness\.verification_patterns/);
+  assert.match(contract, /target file\(s\)\/area\(s\)/);
+});
+
+test('212840 CR1/CR2/CR3/CR4: installed contract captures friction as future work', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /Capture friction as future work/);
+  assert.match(contract, /separate `draft` change/);
+  assert.match(contract, /current change/);
+  assert.match(contract, /`## Log`/);
+  assert.match(contract, /not actionable enough for\s+backlog/);
+  assert.match(contract, /must not mix concerns/);
+});
+
+test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
+  const root = tmp();
+  init(root);
+  const file = path.join(root, '.sl', 'changes', '20260613-120001-done.md');
+  fs.writeFileSync(
+    file,
+    `---
+id: "20260613-120001"
+title: Done
+type: feature
+status: done
+created: 2026-06-13T12:00:00Z
+reviewed: true
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — C
+- **Given** x
+- **When** y
+- **Then** z
+
+## Plan
+
+- [x] do it (CR1) — 2026-06-13T12:00:00Z
+
+## Log
+
+- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const bin = path.resolve('bin/sl.mjs');
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [bin, 'archive', '--graduated', '--dry-run'],
+    {
+      cwd: root,
+    },
+  );
+  assert.match(stdout, /#20260613-120001 Done/);
+  assert.match(stdout, /Would archive 1 change\(s\)/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('CR1: init seeds in-review and review_required per type (review-gate)', () => {
   const root = tmp();
   init(root);

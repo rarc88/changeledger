@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { writeFileAtomic } from '../atomic-write.mjs';
+import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -19,32 +19,34 @@ import { serializeScalar } from '../yaml.mjs';
 // error. Both routes share the same change-side record (marker + reviewed).
 export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   const { config, repoRoot, file: changeFile } = resolveChange(cwd, id);
-  const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
-  if (change.frontmatter.status !== 'done') {
-    throw new Error('only done changes can be graduated/skipped');
-  }
 
   const specsDir = resolveSpecsDir(repoRoot, config);
   const specName = `${slugify(slug)}.md`;
   const specFile = path.join(specsDir, specName);
-  const exists = fs.existsSync(specFile);
 
-  if (into) {
-    if (!exists) {
-      throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
+  mutateFileAtomic(changeFile, (changeText) => {
+    const change = parseChange(changeText);
+    if (change.frontmatter.status !== 'done') {
+      throw new Error('only done changes can be graduated/skipped');
     }
-    // Refresh the spec's updated; the body stays the agent's to edit.
-    writeFileAtomic(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
-  } else {
-    if (exists) throw new Error(`Spec "${specName}" already exists`);
 
-    const seedStage =
-      change.stages.find((s) => s.key === 'specification') ??
-      change.stages.find((s) => s.key === 'proposal');
-    const seed = seedStage ? seedStage.body : '';
-    const title = change.frontmatter.title;
+    const exists = fs.existsSync(specFile);
+    if (into) {
+      if (!exists) {
+        throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
+      }
+      // Refresh the spec's updated; the body stays the agent's to edit.
+      writeFileAtomic(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
+    } else {
+      if (exists) throw new Error(`Spec "${specName}" already exists`);
 
-    const content = `---
+      const seedStage =
+        change.stages.find((s) => s.key === 'specification') ??
+        change.stages.find((s) => s.key === 'proposal');
+      const seed = seedStage ? seedStage.body : '';
+      const title = change.frontmatter.title;
+
+      const content = `---
 title: ${serializeScalar(title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
@@ -56,17 +58,14 @@ tags: [${change.frontmatter.type}]
 
 ${seed}
 `;
-    fs.mkdirSync(specsDir, { recursive: true });
-    writeFileAtomic(specFile, content);
-  }
+      fs.mkdirSync(specsDir, { recursive: true });
+      writeFileAtomic(specFile, content);
+    }
 
-  let text = appendLog(
-    fs.readFileSync(changeFile, 'utf8'),
-    nowUtc(),
-    `graduado a spec \`${specName}\``,
-  );
-  text = setReviewed(text, true);
-  writeFileAtomic(changeFile, text);
+    let text = appendLog(changeText, nowUtc(), `graduado a spec \`${specName}\``);
+    text = setReviewed(text, true);
+    return text;
+  });
   return specFile;
 }
 
@@ -74,14 +73,15 @@ ${seed}
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
   const { file: changeFile } = resolveChange(cwd, id);
-  const change = parseChange(fs.readFileSync(changeFile, 'utf8'));
-  if (change.frontmatter.status !== 'done')
-    throw new Error('only done changes can be graduated/skipped');
-
   const message = reason ? `graduation skipped: ${reason}` : 'graduation skipped';
-  let text = appendLog(fs.readFileSync(changeFile, 'utf8'), nowUtc(), message);
-  text = setReviewed(text, true);
-  writeFileAtomic(changeFile, text);
+  mutateFileAtomic(changeFile, (text) => {
+    const change = parseChange(text);
+    if (change.frontmatter.status !== 'done')
+      throw new Error('only done changes can be graduated/skipped');
+
+    text = appendLog(text, nowUtc(), message);
+    return setReviewed(text, true);
+  });
   return changeFile;
 }
 

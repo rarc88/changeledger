@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 let counter = 0;
+const DEFAULT_LOCK_WAIT_MS = 5_000;
+const DEFAULT_LOCK_RETRY_MS = 10;
 
 export function writeFileAtomic(file, data, options = {}) {
   const { encoding = 'utf8', fsImpl = fs } =
@@ -36,6 +38,76 @@ export function writeFileAtomic(file, data, options = {}) {
     }
     throw e;
   }
+}
+
+export function mutateFileAtomic(file, mutate, options = {}) {
+  const { encoding = 'utf8', fsImpl = fs } = options;
+  return withFileLock(
+    file,
+    () => {
+      const before = fsImpl.readFileSync(file, encoding);
+      const after = mutate(before);
+      if (after === undefined) return undefined;
+      writeFileAtomic(file, after, { encoding, fsImpl });
+      return after;
+    },
+    options,
+  );
+}
+
+export function withFileLock(file, fn, options = {}) {
+  const { fsImpl = fs, waitMs = DEFAULT_LOCK_WAIT_MS, retryMs = DEFAULT_LOCK_RETRY_MS } = options;
+  const lock = lockPath(file);
+  const start = Date.now();
+  let fd = null;
+
+  while (fd === null) {
+    try {
+      fd = fsImpl.openSync(lock, 'wx');
+      try {
+        fsImpl.writeFileSync(
+          fd,
+          JSON.stringify({ pid: process.pid, created: new Date().toISOString() }),
+        );
+      } catch (e) {
+        cleanupLock(lock, fd, fsImpl);
+        fd = null;
+        throw e;
+      }
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (Date.now() - start > waitMs) {
+        throw new Error(`timed out waiting for lock ${lock}`);
+      }
+      sleepSync(retryMs);
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    cleanupLock(lock, fd, fsImpl);
+  }
+}
+
+function lockPath(file) {
+  return path.join(path.dirname(file), `.${path.basename(file)}.lock`);
+}
+
+function cleanupLock(lock, fd, fsImpl) {
+  try {
+    fsImpl.closeSync(fd);
+  } finally {
+    try {
+      fsImpl.rmSync(lock, { force: true });
+    } catch {
+      // preserve the original result/error
+    }
+  }
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function fsyncDir(dir, fsImpl) {

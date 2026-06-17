@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import {
   archive,
+  archiveGraduated,
   discard,
   list,
   log,
@@ -32,6 +33,7 @@ const USAGE = `Spec Ledger (sl)
   sl review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
   sl owner <id> <name|->           set or clear a change's owner
   sl archive <id> / unarchive <id>   hide/show a change in the viewer
+  sl archive --graduated [--dry-run] archive done changes already graduated/skipped
   sl log <id> <message>            append a timestamped Log entry
   sl task <id> done|block <n> [reason]   mark a Plan task
   sl list [--status S] [--type T] [--json]   list changes
@@ -174,18 +176,40 @@ program
     }),
   );
 
-for (const cmd of ['archive', 'unarchive']) {
-  program
-    .command(cmd)
-    .description('hide/show a change in the viewer')
-    .argument('<id>')
-    .action(
-      action((id) => {
-        archive(id, cmd === 'archive');
-        console.log(`#${id} ${cmd}d`);
-      }),
-    );
-}
+program
+  .command('archive')
+  .description('hide a change in the viewer, or archive all graduated done changes')
+  .argument('[id]')
+  .option('--graduated', 'archive done changes already graduated or skipped')
+  .option('--dry-run', 'show what would be archived without writing')
+  .action(
+    action((id, options) => {
+      if (options.graduated) {
+        if (id) throw new Error('archive --graduated does not take an id');
+        const archived = archiveGraduated({ dryRun: options.dryRun });
+        for (const c of archived) console.log(`#${c.id} ${c.title}`);
+        console.log(
+          `${options.dryRun ? 'Would archive' : 'Archived'} ${archived.length} change(s)`,
+        );
+        return;
+      }
+      if (options.dryRun) throw new Error('--dry-run requires --graduated');
+      if (!id) throw new Error('archive requires <id> or --graduated');
+      archive(id, true);
+      console.log(`#${id} archived`);
+    }),
+  );
+
+program
+  .command('unarchive')
+  .description('show a change in the viewer')
+  .argument('<id>')
+  .action(
+    action((id) => {
+      archive(id, false);
+      console.log(`#${id} unarchived`);
+    }),
+  );
 
 program
   .command('log')
