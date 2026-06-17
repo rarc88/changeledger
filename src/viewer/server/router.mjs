@@ -115,13 +115,18 @@ export function createRequestListener(cwd, localOnly, token) {
         return;
       }
       if (route === '/api/git') {
+        const rawId = params.get('id');
+        if (rawId && !/^[0-9]{8}-[0-9]{6}$/.test(rawId)) {
+          send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid id' }));
+          return;
+        }
         const { projects } = resolveProjects(cwd, localOnly);
         const proj = projects.find((p) => p.id === params.get('project'));
         if (!proj?.alive) {
           send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
           return;
         }
-        send(res, 200, MIME['.json'], JSON.stringify(gitRefs(proj.path, params.get('id'))));
+        send(res, 200, MIME['.json'], JSON.stringify(gitRefs(proj.path, rawId)));
         return;
       }
       if (route === '/api/search') {
@@ -162,7 +167,8 @@ export function createRequestListener(cwd, localOnly, token) {
         send(res, 404, 'text/plain', 'Not found');
       }
     } catch (e) {
-      send(res, 500, MIME['.json'], JSON.stringify({ error: e.message }));
+      process.stderr.write(`[sl-viewer] ${e.message}\n`);
+      send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
     }
   };
 }

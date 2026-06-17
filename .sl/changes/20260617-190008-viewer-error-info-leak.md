@@ -2,9 +2,11 @@
 id: "20260617-190008"
 title: router catch expone e.message con paths internos al cliente
 type: bug
-status: approved
+status: done
 created: 2026-06-17T19:00:08Z
 depends_on: []
+owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -72,12 +74,17 @@ El formato de id de Spec Ledger es `YYYYMMDD-HHMMSS` — solo dígitos y un gui�
 
 ## Plan
 
-- [ ] Cambiar `catch` final en `src/viewer/server/router.mjs` para retornar `{ error: 'Internal server error' }` y emitir `e.message` a `process.stderr`, verificar con `test/view.test.mjs` (CR1)
-- [ ] Agregar validación de `params.get('id')` con regex `/^[0-9]{8}-[0-9]{6}$/` en `src/viewer/server/router.mjs` handler `/api/git`, verificar con `test/view.test.mjs` (CR2)
-- [ ] Agregar tests en `test/view.test.mjs`: id inválido → 400; error simulado → 500 genérico en `src/viewer/server/router.mjs` (CR3)
-- [ ] Correr `pnpm test -- test/view.test.mjs` sobre `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3)
+- [x] Cambiar `catch` final en `src/viewer/server/router.mjs` para retornar `{ error: 'Internal server error' }` y emitir `e.message` a `process.stderr`, verificar con `test/view.test.mjs` (CR1) — 2026-06-17T20:21:56Z
+- [x] Agregar validación de `params.get('id')` con regex `/^[0-9]{8}-[0-9]{6}$/` en `src/viewer/server/router.mjs` handler `/api/git`, verificar con `test/view.test.mjs` (CR2) — 2026-06-17T20:21:56Z
+- [x] Agregar tests en `test/view.test.mjs`: id inválido → 400; error simulado → 500 genérico en `src/viewer/server/router.mjs` (CR3) — 2026-06-17T20:21:56Z
+- [x] Correr `pnpm test -- test/view.test.mjs` sobre `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3) — 2026-06-17T20:21:56Z
 
 ## Log
 
 - **2026-06-17T19:00:08Z** — Detectado en auditoría. Bajo urgencia dado binding localhost, pero debe corregirse antes de cualquier exposición multi-usuario o en red.
 - **2026-06-17T20:04:28Z** — status: draft → approved
+- **2026-06-17T20:21:10Z** — status: approved → in-progress
+- **2026-06-17T20:21:10Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-17T20:21:56Z** — status: in-progress → in-review
+- **2026-06-17T20:22:13Z** — review → done (delegated subagent, clean context)
+- **2026-06-17T20:22:14Z** — graduado a spec `architecture.md`
