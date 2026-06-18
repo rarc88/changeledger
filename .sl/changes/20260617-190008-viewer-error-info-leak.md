@@ -7,6 +7,7 @@ created: 2026-06-17T19:00:08Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -88,3 +89,4 @@ El formato de id de Spec Ledger es `YYYYMMDD-HHMMSS` — solo dígitos y un gui�
 - **2026-06-17T20:21:56Z** — status: in-progress → in-review
 - **2026-06-17T20:22:13Z** — review → done (delegated subagent, clean context)
 - **2026-06-17T20:22:14Z** — graduado a spec `architecture.md`
+- **2026-06-18T10:09:09Z** — archived

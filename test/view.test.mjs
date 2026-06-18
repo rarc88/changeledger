@@ -477,6 +477,34 @@ test('CR1: changeStatus rejects a non draft→approved move without writing', ()
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
+test('231424 CR1: all critical vendor routes respond 200 with text/javascript', async () => {
+  isolatedHome();
+  const root = newRepo();
+
+  const routes = [
+    '/vendor/marked.min.js',
+    '/vendor/mermaid.min.js',
+    '/vendor/purify.min.js',
+    '/vendor/lit-html/lit-html.js',
+  ];
+  for (const route of routes) {
+    const res = await memoryRequest(root, { path: route });
+    assert.equal(res.status, 200, `${route} must respond 200`);
+    assert.match(
+      res.headers['content-type'] ?? '',
+      /text\/javascript/,
+      `${route} must be text/javascript`,
+    );
+  }
+});
+
+test('231424 CR2: unknown vendor route returns 404 and does not escape the allowlist', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const res = await memoryRequest(root, { path: '/vendor/unknown.js' });
+  assert.equal(res.status, 404);
+});
+
 test('local mode returns only the current repo', () => {
   isolatedHome();
   newRepo();

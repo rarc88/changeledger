@@ -7,6 +7,7 @@ created: 2026-06-17T19:50:16Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -97,3 +98,4 @@ debe seguir referenciando los criterios que satisface.
 - **2026-06-17T22:46:29Z** — status: in-progress → in-review
 - **2026-06-17T22:47:22Z** — review → done (delegated subagent, clean context)
 - **2026-06-17T22:47:23Z** — graduado a spec `architecture.md`
+- **2026-06-18T10:09:09Z** — archived

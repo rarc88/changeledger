@@ -7,6 +7,7 @@ created: 2026-06-17T19:00:07Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -92,3 +93,4 @@ en inyección (defensa en profundidad).
 - **2026-06-17T20:27:09Z** — status: in-progress → in-review
 - **2026-06-17T20:27:33Z** — review → done (delegated subagent, clean context)
 - **2026-06-17T20:27:34Z** — graduado a spec `architecture.md`
+- **2026-06-18T10:09:09Z** — archived

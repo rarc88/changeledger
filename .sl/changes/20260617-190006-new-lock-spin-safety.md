@@ -7,6 +7,7 @@ created: 2026-06-17T19:00:06Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -106,3 +107,4 @@ es el timeout primario del lock, lo que es engañoso.
 - **2026-06-17T20:30:42Z** — status: in-progress → in-review
 - **2026-06-17T20:31:03Z** — review → done (delegated subagent, clean context)
 - **2026-06-17T20:31:03Z** — graduation skipped: implementation detail; no persistent spec truth
+- **2026-06-18T10:09:09Z** — archived

@@ -1,4 +1,19 @@
 import { getGitRefs, getProjects, getRepo, postStatus, searchAllProjects } from './api.js';
+import {
+  invalidateCache,
+  selectProject,
+  setOwnerFilter,
+  setRepo,
+  setSortKey,
+  setTextFilter,
+  setTypeFilter,
+  setView,
+  state,
+  toggleGlobalMode,
+  toggleShowArchived,
+  toggleShowDiscarded,
+  toggleStatusFilter,
+} from './app-state.js';
 import { cssIdent, initMermaid, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, markdownHtml, nothing } from './templates.js';
@@ -9,30 +24,13 @@ export { cssIdent, esc, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
 export { card, stageBlock, tableRow, taskList } from './view-parts.js';
 
-let repo = null;
-let lastJson = '';
-const filters = {
-  text: '',
-  type: 'all',
-  owner: 'all',
-  statuses: new Set(),
-  showArchived: false,
-  showDiscarded: false,
-};
-let currentView = 'board';
-let sortKey = 'id';
-let sortDir = 1;
-let currentProject = null;
-let projectsList = [];
-let globalMode = false;
-
 const $ = (sel) => document.querySelector(sel);
 
 initMermaid();
 
 async function loadProjects() {
   const { projects, current } = await getProjects();
-  projectsList = projects;
+  state.projectsList = projects;
   const sel = $('#project');
   litRender(
     projects.map(
@@ -41,14 +39,14 @@ async function loadProjects() {
     ),
     sel,
   );
-  currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
-  if (currentProject) sel.value = currentProject;
+  state.currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
+  if (state.currentProject) sel.value = state.currentProject;
   sel.style.display = projects.length > 1 ? '' : 'none';
   await load();
 }
 
 async function load() {
-  if (!currentProject) {
+  if (!state.currentProject) {
     litRender(
       html`<p class="empty" style="padding:20px">No projects registered. Run <code>sl init</code> in a repo.</p>`,
       $('#board'),
@@ -56,10 +54,9 @@ async function load() {
     return;
   }
   try {
-    const text = await getRepo(currentProject);
-    if (text === lastJson) return;
-    lastJson = text;
-    repo = JSON.parse(text);
+    const text = await getRepo(state.currentProject);
+    if (text === state.lastJson) return;
+    setRepo(text);
     hydrateFilters();
     render();
   } catch (e) {
@@ -71,27 +68,27 @@ async function load() {
 function hydrateFilters() {
   litRender(
     html`<option value="all">All types</option>
-      ${repo.types.map((t) => html`<option value=${t}>${t}</option>`)}`,
+      ${state.repo.types.map((t) => html`<option value=${t}>${t}</option>`)}`,
     $('#type-filter'),
   );
-  $('#type-filter').value = filters.type;
-  $('#lang').textContent = repo.language;
+  $('#type-filter').value = state.filters.type;
+  $('#lang').textContent = state.repo.language;
 
-  const owners = [...new Set(repo.changes.map((c) => c.owner).filter(Boolean))].sort();
+  const owners = [...new Set(state.repo.changes.map((c) => c.owner).filter(Boolean))].sort();
   litRender(
     html`<option value="all">All owners</option>
       ${owners.map((o) => html`<option value=${o}>${o}</option>`)}`,
     $('#owner-filter'),
   );
-  if (filters.owner !== 'all' && !owners.includes(filters.owner)) filters.owner = 'all';
-  $('#owner-filter').value = filters.owner;
+  if (state.filters.owner !== 'all' && !owners.includes(state.filters.owner)) setOwnerFilter('all');
+  $('#owner-filter').value = state.filters.owner;
   $('#owner-filter').style.display = owners.length ? '' : 'none';
 
   const sf = $('#status-filter');
   litRender(
-    boardStatuses(repo.statuses).map(
+    boardStatuses(state.repo.statuses).map(
       (s) =>
-        html`<button type="button" class=${`chip ${filters.statuses.has(s) ? 'active' : ''}`} data-status=${s}>
+        html`<button type="button" class=${`chip ${state.filters.statuses.has(s) ? 'active' : ''}`} data-status=${s}>
           ${s}
         </button>`,
     ),
@@ -99,24 +96,22 @@ function hydrateFilters() {
   );
   for (const el of sf.querySelectorAll('.chip')) {
     el.onclick = () => {
-      const s = el.dataset.status;
-      if (filters.statuses.has(s)) filters.statuses.delete(s);
-      else filters.statuses.add(s);
-      el.classList.toggle('active', filters.statuses.has(s));
+      const active = toggleStatusFilter(el.dataset.status);
+      el.classList.toggle('active', active);
       render();
     };
   }
 }
 
 function visibleChanges() {
-  return repo.changes.filter((c) => isVisible(c, filters));
+  return state.repo.changes.filter((c) => isVisible(c, state.filters));
 }
 
 function render() {
-  if (currentView === 'graph') renderGraph();
-  else if (currentView === 'table') renderTable();
-  else if (currentView === 'specs') renderSpecs();
-  else if (currentView === 'metrics') renderMetrics();
+  if (state.currentView === 'graph') renderGraph();
+  else if (state.currentView === 'table') renderTable();
+  else if (state.currentView === 'specs') renderSpecs();
+  else if (state.currentView === 'metrics') renderMetrics();
   else renderBoard();
 }
 
@@ -124,7 +119,7 @@ function renderBoard() {
   const changes = visibleChanges();
   const board = $('#board');
   litRender(
-    boardStatuses(repo.statuses).map((status) => {
+    boardStatuses(state.repo.statuses).map((status) => {
       const items = changes.filter((c) => c.status === status);
       return html`
         <div class="column" data-status=${status}>
@@ -138,7 +133,7 @@ function renderBoard() {
   // draft cards are draggable, and only the approved column is a drop target.
   board.querySelectorAll('.card').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.id);
-    const c = repo.changes.find((x) => String(x.id) === String(el.dataset.id));
+    const c = state.repo.changes.find((x) => String(x.id) === String(el.dataset.id));
     if (c && c.status === 'draft') {
       el.setAttribute('draggable', 'true');
       el.ondragstart = (e) => {
@@ -158,7 +153,7 @@ function renderBoard() {
       e.preventDefault();
       approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
-      const c = repo.changes.find((x) => String(x.id) === String(id));
+      const c = state.repo.changes.find((x) => String(x.id) === String(id));
       if (c && c.status === 'draft') moveStatus(id, 'approved');
     };
   }
@@ -167,7 +162,7 @@ function renderBoard() {
 // Persist the human approval move (draft → approved), then refresh the board.
 async function moveStatus(id, status) {
   try {
-    const res = await postStatus(currentProject, id, status);
+    const res = await postStatus(state.currentProject, id, status);
     const out = await res.json();
     if (!res.ok) {
       alert(out.error || 'status change failed');
@@ -177,12 +172,12 @@ async function moveStatus(id, status) {
     alert(e.message);
     return;
   }
-  lastJson = '';
+  invalidateCache();
   load();
 }
 
 function openDetail(id) {
-  const c = repo.changes.find((x) => String(x.id) === String(id));
+  const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
   const deps = (c.depends_on || []).map((d) => {
     const ext = String(d).includes(':');
@@ -246,7 +241,7 @@ function openDetail(id) {
 async function loadGitRefs(id) {
   let refs;
   try {
-    refs = await getGitRefs(currentProject, id);
+    refs = await getGitRefs(state.currentProject, id);
   } catch {
     return;
   }
@@ -284,18 +279,14 @@ function closeDetail() {
 // Cross-project navigation: resolve `proj` (by id or name) in the loaded project
 // list, switch to it, then open the target change once its repo has loaded.
 async function gotoChange(proj, changeId) {
-  const match = projectsList.find((p) => p.id === proj || p.name === proj);
+  const match = state.projectsList.find((p) => p.id === proj || p.name === proj);
   if (!match?.alive) {
     alert(`Project "${proj}" is not registered or its path is gone.`);
     return;
   }
-  if (match.id !== currentProject) {
-    currentProject = match.id;
+  if (match.id !== state.currentProject) {
+    selectProject(match.id);
     $('#project').value = match.id;
-    lastJson = '';
-    filters.type = 'all';
-    filters.owner = 'all';
-    filters.statuses.clear();
     await load();
   }
   openDetail(changeId);
@@ -303,7 +294,7 @@ async function gotoChange(proj, changeId) {
 
 /* Dependency graph */
 function renderGraph() {
-  const changes = repo.changes.filter((c) => passesTombstones(c, filters));
+  const changes = state.repo.changes.filter((c) => passesTombstones(c, state.filters));
   litRender(graphSvg(changes), $('#graph'));
   $('#graph')
     .querySelectorAll('.node')
@@ -325,9 +316,9 @@ function renderTable() {
   const rows = visibleChanges()
     .slice()
     .sort((a, b) => {
-      const va = sortVal(a, sortKey),
-        vb = sortVal(b, sortKey);
-      return va < vb ? -sortDir : va > vb ? sortDir : 0;
+      const va = sortVal(a, state.sortKey),
+        vb = sortVal(b, state.sortKey);
+      return va < vb ? -state.sortDir : va > vb ? state.sortDir : 0;
     });
 
   litRender(
@@ -337,7 +328,7 @@ function renderTable() {
         <tr>
           ${cols.map(
             (c) =>
-              html`<th data-sort=${c.key}>${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
+              html`<th data-sort=${c.key}>${c.label}${state.sortKey === c.key ? (state.sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
           )}
         </tr>
       </thead>
@@ -350,12 +341,7 @@ function renderTable() {
     .querySelectorAll('th[data-sort]')
     .forEach((el) => {
       el.onclick = () => {
-        const k = el.dataset.sort;
-        if (sortKey === k) sortDir = -sortDir;
-        else {
-          sortKey = k;
-          sortDir = 1;
-        }
+        setSortKey(el.dataset.sort);
         renderTable();
       };
     });
@@ -375,8 +361,8 @@ function sortVal(c, key) {
 
 /* Specs view */
 function renderSpecs() {
-  const q = filters.text.toLowerCase();
-  const specs = (repo.specs || []).filter(
+  const q = state.filters.text.toLowerCase();
+  const specs = (state.repo.specs || []).filter(
     (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
   );
   litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
@@ -412,15 +398,12 @@ function openSpec(s) {
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
 
 function renderMetrics() {
-  litRender(metricsHtml(repo.metrics || {}), $('#metrics'));
+  litRender(metricsHtml(state.repo.metrics || {}), $('#metrics'));
 }
 
-function setView(v) {
-  currentView = v;
-  if (globalMode) {
-    globalMode = false;
-    $('#toggle-global').classList.remove('active');
-  }
+function activateView(v) {
+  setView(v);
+  $('#toggle-global').classList.remove('active');
   $('#global').classList.add('hidden');
   for (const name of VIEWS) {
     $(`#view-${name}`).classList.toggle('active', v === name);
@@ -431,7 +414,7 @@ function setView(v) {
 
 // Global search: query every project server-side, render grouped results.
 async function renderGlobal() {
-  const q = filters.text.trim();
+  const q = state.filters.text.trim();
   const el = $('#global');
   if (!q) {
     litRender(
@@ -497,45 +480,39 @@ const fmtDate = (iso) => {
 // has no side effects; only a real browser page bootstraps.
 function bootstrap() {
   $('#search').oninput = (e) => {
-    filters.text = e.target.value;
-    if (globalMode) renderGlobal();
+    setTextFilter(e.target.value);
+    if (state.globalMode) renderGlobal();
     else render();
   };
   $('#toggle-global').onclick = (e) => {
-    globalMode = !globalMode;
-    e.target.classList.toggle('active', globalMode);
-    if (globalMode) enterGlobal();
-    else setView(currentView);
+    const active = toggleGlobalMode();
+    e.target.classList.toggle('active', active);
+    if (active) enterGlobal();
+    else activateView(state.currentView);
   };
   $('#type-filter').onchange = (e) => {
-    filters.type = e.target.value;
+    setTypeFilter(e.target.value);
     render();
   };
   $('#owner-filter').onchange = (e) => {
-    filters.owner = e.target.value;
+    setOwnerFilter(e.target.value);
     render();
   };
   $('#toggle-archived').onclick = (e) => {
-    filters.showArchived = !filters.showArchived;
-    e.target.classList.toggle('active', filters.showArchived);
+    e.target.classList.toggle('active', toggleShowArchived());
     render();
   };
   $('#toggle-discarded').onclick = (e) => {
-    filters.showDiscarded = !filters.showDiscarded;
-    e.target.classList.toggle('active', filters.showDiscarded);
+    e.target.classList.toggle('active', toggleShowDiscarded());
     render();
   };
-  $('#view-board').onclick = () => setView('board');
-  $('#view-table').onclick = () => setView('table');
-  $('#view-graph').onclick = () => setView('graph');
-  $('#view-specs').onclick = () => setView('specs');
-  $('#view-metrics').onclick = () => setView('metrics');
+  $('#view-board').onclick = () => activateView('board');
+  $('#view-table').onclick = () => activateView('table');
+  $('#view-graph').onclick = () => activateView('graph');
+  $('#view-specs').onclick = () => activateView('specs');
+  $('#view-metrics').onclick = () => activateView('metrics');
   $('#project').onchange = (e) => {
-    currentProject = e.target.value;
-    lastJson = '';
-    filters.type = 'all';
-    filters.owner = 'all';
-    filters.statuses.clear();
+    selectProject(e.target.value);
     load();
   };
   document.onkeydown = (e) => {

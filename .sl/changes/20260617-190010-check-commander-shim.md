@@ -7,6 +7,7 @@ created: 2026-06-17T19:00:10Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -51,3 +52,4 @@ Recomendación: Opción B. Blast radius mínimo, resuelve la inconsistencia estr
 - **2026-06-17T20:16:05Z** — status: in-progress → in-review
 - **2026-06-17T20:16:19Z** — review → done (delegated subagent, clean context)
 - **2026-06-17T20:16:19Z** — graduation skipped: bin-layer shim; no persistent spec truth
+- **2026-06-18T10:09:09Z** — archived

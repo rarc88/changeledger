@@ -31,6 +31,8 @@
     "lint": "biome check",
     "format": "biome check --write",
     "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "audit:deps": "pnpm audit --audit-level moderate",
     "check": "node bin/sl.mjs check",
     "verify": "pnpm lint && pnpm test && pnpm check",
     "prepublishOnly": "pnpm verify"
@@ -39,6 +41,9 @@
     "node": ">=20"
   },
   "packageManager": "pnpm@10.31.0",
+  "exports": {
+    "./package.json": "./package.json"
+  },
   "files": [
     "bin",
     "src",

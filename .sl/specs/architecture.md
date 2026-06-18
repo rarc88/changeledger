@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-17T22:47:23Z
+updated: 2026-06-18T10:06:47Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -344,9 +344,10 @@ del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
 owner) y render de markdown + mermaid. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
-único de Markdown sanitizado), `view-parts.js` (templates reutilizables) y
-`view-renderers.js` (graph/specs/metrics); `app.js` queda como bootstrap y wiring
-de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
+único de Markdown sanitizado), `view-parts.js` (templates reutilizables),
+`view-renderers.js` (graph/specs/metrics) y `app-state.js` (estado global y
+helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
+DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
 visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad del
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
@@ -381,7 +382,11 @@ registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 agrupa los resultados por proyecto.
 El registry local distingue archivo ausente de archivo corrupto: si no existe,
 empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un error
-claro y `register` no lo sobrescribe silenciosamente.
+claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
+read-modify-write del registry (`register`, `remove`) se envuelven en
+`withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
+`sl register`/`sl remove` sobre el mismo archivo. El directorio se garantiza
+antes de tomar el lock porque el lock file requiere que el directorio exista.
 
 ## Política de dependencias
 

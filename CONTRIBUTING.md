@@ -34,6 +34,16 @@ pnpm verify                       # lint (Biome) + tests (node --test) + sl chec
 - Commit messages in English, Conventional Commits, subject ≤ 50 chars.
 - No `TODO`/`FIXME` or dead code in delivered work.
 
+## Coverage and dependency audits
+
+`pnpm test` is the fast cycle. For a coverage snapshot run `pnpm test:coverage`
+(uses `--experimental-test-coverage`) — diagnostic only, not a gate.
+
+Dependency advisories are checked with `pnpm audit:deps` (wraps `pnpm audit
+--audit-level moderate`). Note: this sends lockfile metadata to the npm registry.
+Run it before publishing a release or on a scheduled CI job; do not add it to
+`pnpm verify` unless that trade-off is explicitly accepted.
+
 ## Reporting security issues
 
 See [`SECURITY.md`](SECURITY.md) — report vulnerabilities privately, not as a
