@@ -79,6 +79,13 @@ test('020229 CR4: installed contract documents configurable readiness patterns',
   assert.match(contract, /target file\(s\)\/area\(s\)/);
 });
 
+test('122611 CR3: installed contract recommends structural verify clauses', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /verification_patterns: \["verify:"\]/);
+  assert.match(contract, /manual Android device check/);
+  assert.match(contract, /instead of listing every possible manual phrase/);
+});
+
 test('212840 CR1/CR2/CR3/CR4: installed contract captures friction as future work', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(contract, /Capture friction as future work/);

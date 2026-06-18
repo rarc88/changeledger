@@ -324,7 +324,10 @@ needs no extra reasoning. The `tdd` flag in `config.yml` governs this (default
 `true`); set it `false` only for exploratory repos. Repos may tune the concrete
 shape with `readiness.target_patterns` and `readiness.verification_patterns`
 (for example `src/**` + `test/**`, colocated `**/*.spec.ts`, or verification
-commands such as `pnpm test`).
+commands such as `pnpm test`). For repos with manual/device verification,
+prefer a structural convention such as `verification_patterns: ["verify:"]` and
+write the concrete evidence in the task (`verify: manual Android device check`)
+instead of listing every possible manual phrase in config.
 
 When `tdd: true`, a change is **ready to implement** when:
 

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-18T10:06:47Z
+updated: 2026-06-18T13:02:23Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -265,10 +265,16 @@ un criterio debe nombrar tanto objetivo como verificación según los patrones
 configurados en `readiness.target_patterns` y `readiness.verification_patterns`.
 Los patrones pueden cubrir layouts distintos por repo: tests en `test/`, specs
 colocados junto al archivo (`**/*.spec.*`, `**/*.test.*`) o comandos concretos de
-verificación. Además, cada `CRn` referenciado por una tarea debe existir en
-`## Specification`; un `(CR999)` huérfano es un error en cambios listos para
-implementar. En `draft`, esos mismos huecos son warnings para no bloquear la
-autoría temprana; con `tdd:false` no se evalúan.
+verificación. Para repos con validaciones manuales o de dispositivo, una
+convención portable es configurar `verification_patterns: ["verify:"]` y exigir
+que cada tarea describa su evidencia con una cláusula `verify: ...`, sin inflar
+la configuración con frases específicas de consola, UI o dispositivo. Cuando una
+tarea no cumple la política, el diagnóstico muestra si se usó `readiness`
+configurado o por defecto, junto con los `target_patterns` y
+`verification_patterns` efectivos. Además, cada `CRn` referenciado por una tarea
+debe existir en `## Specification`; un `(CR999)` huérfano es un error en cambios
+listos para implementar. En `draft`, esos mismos huecos son warnings para no
+bloquear la autoría temprana; con `tdd:false` no se evalúan.
 
 ## Trazabilidad git
 

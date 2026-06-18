@@ -245,8 +245,9 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
       if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
     }
     if (!namesTargetAndVerification(t.text, config)) {
+      const hint = readinessHint(config);
       for (const cr of t.criteria)
-        report(c, `Plan task for ${cr} must name target and verification`);
+        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
     }
   }
 
@@ -281,6 +282,16 @@ function readinessConfig(config) {
     target_patterns: config?.readiness?.target_patterns ?? ['src/**'],
     verification_patterns: config?.readiness?.verification_patterns ?? ['test/**'],
   };
+}
+
+function readinessHint(config) {
+  const readiness = readinessConfig(config);
+  const source = config?.readiness ? 'configured readiness' : 'default readiness';
+  return `${source}: target_patterns=${formatPatterns(readiness.target_patterns)}, verification_patterns=${formatPatterns(readiness.verification_patterns)}`;
+}
+
+function formatPatterns(patterns) {
+  return `[${patterns.map((p) => JSON.stringify(p)).join(', ')}]`;
 }
 
 function matchesAnyReadinessPattern(text, patterns) {
