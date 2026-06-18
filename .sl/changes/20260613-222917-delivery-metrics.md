@@ -1,6 +1,6 @@
 ---
 id: "20260613-222917"
-title: Métricas: cycle time y throughput
+title: "Métricas: cycle time y throughput"
 type: feature
 status: done
 created: 2026-06-13T22:29:17Z

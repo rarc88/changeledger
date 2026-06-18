@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
 
 export function registryDir() {
   return path.join(process.env.SPEC_LEDGER_HOME || os.homedir(), '.spec-ledger');
@@ -21,20 +22,23 @@ export function readRegistry() {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
-    return {};
+    throw new Error('registry.json is not valid JSON');
   }
 }
 
 export function writeRegistry(reg) {
   fs.mkdirSync(registryDir(), { recursive: true });
-  fs.writeFileSync(registryPath(), `${JSON.stringify(reg, null, 2)}\n`);
+  writeFileAtomic(registryPath(), `${JSON.stringify(reg, null, 2)}\n`);
 }
 
 export function register({ id, name, path: repoPath }) {
-  const reg = readRegistry();
-  reg[id] = { name, path: repoPath };
-  writeRegistry(reg);
-  return reg;
+  fs.mkdirSync(registryDir(), { recursive: true });
+  return withFileLock(registryPath(), () => {
+    const reg = readRegistry();
+    reg[id] = { name, path: repoPath };
+    writeRegistry(reg);
+    return reg;
+  });
 }
 
 export function listProjects() {
@@ -42,7 +46,10 @@ export function listProjects() {
 }
 
 export function remove(id) {
-  const reg = readRegistry();
-  delete reg[id];
-  writeRegistry(reg);
+  fs.mkdirSync(registryDir(), { recursive: true });
+  withFileLock(registryPath(), () => {
+    const reg = readRegistry();
+    delete reg[id];
+    writeRegistry(reg);
+  });
 }

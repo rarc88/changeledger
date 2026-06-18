@@ -1,6 +1,6 @@
 ---
 id: "20260613-205852"
-title: CLI para agentes: status, log, task, list, show
+title: "CLI para agentes: status, log, task, list, show"
 type: feature
 status: done
 created: 2026-06-13T20:58:52Z

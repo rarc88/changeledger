@@ -99,8 +99,13 @@ without a `CR`. Set `tdd: false` for exploratory repos. See [`AGENTS.md`](AGENTS
 ## Development
 
 Managed with **pnpm** (pinned via `packageManager`). Lint/format via **Biome**.
-The CLI core is dependency-free; the viewer vendors `marked`, `dompurify` and
-`mermaid` for in-browser rendering.
+The CLI core stays intentionally lightweight and mostly standard-library based.
+Runtime dependencies are not forbidden, but they must earn their place: prefer
+small local code for controlled formats, and use mature, maintained libraries
+when they reduce real risk or cover complex domains. The CLI uses `yaml` for
+config/frontmatter parsing, and the viewer deliberately uses `lit-html`,
+`marked`, `dompurify` and `mermaid` for templating, Markdown, sanitization and
+diagrams.
 
 ```sh
 pnpm install                  # dev deps (Biome)
@@ -113,8 +118,9 @@ git config core.hooksPath hooks   # enable the pre-commit gate
 
 The versioned `hooks/pre-commit` first runs **lint-staged** (Biome autoformats
 the staged files — it stashes unstaged changes first, so partial commits stay
-intact), then `pnpm verify`, so commits that fail lint, tests, or `sl check` are
-blocked — agents can't quietly accumulate debt. Format anytime with `pnpm format`.
+intact), then `pnpm test` and `sl check`, so commits with failing tests or
+contract errors are blocked without re-linting unrelated unstaged files. The
+full manual/CI gate remains `pnpm verify`. Format anytime with `pnpm format`.
 
 ### Running a local checkout as the global `sl`
 

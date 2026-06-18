@@ -118,6 +118,7 @@ Markdown checklist. State convention by marker:
 - [ ] Pending task (CR1)
 - [x] Completed task (CR1) — 2026-06-13T14:20:00Z
 - [!] Blocked task (CR1) — reason for the block
+- [ ] Operational task (support)
 ```
 
 The viewer derives progress and the "blocked" state from these markers.
@@ -125,6 +126,14 @@ The viewer derives progress and the "blocked" state from these markers.
 **Traceability.** Each task references the criteria it satisfies, in trailing
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
 criterion → task, so coverage is auditable.
+
+**Operational tasks.** Tasks that do not directly satisfy a criterion — running
+a test suite, reading a wrapper before refactoring, evaluating blast radius,
+scaffolding — may carry `(support)` instead of a `CRn`. `sl check` will not warn
+about missing criteria for these tasks, and readiness checks (target + verification
+patterns) do not apply to them either. `(support)` is not a substitute for a
+missing criterion on an implementation task — if a task writes or changes
+observable behaviour, it must cite the `CRn` it satisfies.
 
 **Resolution timestamp.** A completed task (`[x]`) carries a trailing
 `— <ISO 8601 UTC>` with the exact moment it was resolved (full timestamp, so
@@ -172,9 +181,17 @@ via the CLI.
    into separate changes (e.g. a bug fix and a new feature are two changes).
 2. **Do not implement in `draft`.** Create the change, wait for human approval.
 3. **Single source of truth.** Do not duplicate info across stages; link instead.
-4. **Atomic commits** that reference the id: `feat(scope): description [#0001]`.
-   Work on a branch; commit each coherent step as you go — never accumulate the
-   whole change into one blob.
+4. **Git workflow protects traceability.** Never implement approved changes on
+   `main`, `master`, or `dev`; create/switch to a work branch or ask the human
+   before continuing. Before implementation, inspect the worktree. If unrelated
+   changes exist, do not include them silently: ask whether to stash, commit,
+   ignore, or include them. After human approval, commit the approved change
+   documentation before touching implementation code. Implement one change at a
+   time; when a change is complete (tests, review, and graduation/skip), commit
+   that change and its related truth before starting another. Commit messages
+   reference the id, e.g. `feat(scope): description [#0001]`. If shared files
+   make a combined commit unavoidable, call it out explicitly in the Log or
+   final response and name the changes that share the surface.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
 6. **Independent review before `done`.** When the implementation is complete,
@@ -203,6 +220,15 @@ via the CLI.
     exception is the review (§6.6), where delegation to a **clean-context**
     subagent is a *contract requirement* — there, independence is correctness,
     not an optimization.
+11. **Capture friction as future work.** Before closing a turn or a change,
+    actively review any friction, ambiguity, bug, or improvement discovered while
+    using Spec Ledger. If it is actionable and outside the current change, create
+    a separate `draft` change (one concern per file) with brief investigation and
+    criteria. If it belongs to the current change, record it in that change's
+    `## Log` or adjust its Specification/Plan. If it is not actionable enough for
+    backlog, mention it in the final response instead of silently dropping it.
+    Friction capture must not mix concerns into the implementation at hand or
+    block closing work that is otherwise complete.
 
 ## 7. IDs
 
@@ -295,7 +321,10 @@ settled.)
 Spec Ledger is built for a split: a **strong model documents**, a **less capable
 (but able) model implements**. So a change must carry enough that the implementer
 needs no extra reasoning. The `tdd` flag in `config.yml` governs this (default
-`true`); set it `false` only for exploratory repos.
+`true`); set it `false` only for exploratory repos. Repos may tune the concrete
+shape with `readiness.target_patterns` and `readiness.verification_patterns`
+(for example `src/**` + `test/**`, colocated `**/*.spec.ts`, or verification
+commands such as `pnpm test`).
 
 When `tdd: true`, a change is **ready to implement** when:
 
@@ -304,16 +333,20 @@ When `tdd: true`, a change is **ready to implement** when:
    output/effect, and **literal** error messages. Each edge case is its own `CR`.
    No requirement lives only in prose — if it must hold, it is a `CR`.
 2. **Plan is the implementation contract.** Every task references ≥1 `CR`, names
-   the **target file(s)** and the **test file** *in its description* (keep the
-   trailing `— <timestamp>` slot for resolution, see §4), and is sized to one
-   red-green cycle. Pure support tasks (docs, scaffolding) may carry no `CR` —
-   `sl check` will note them so the author confirms the omission is intentional.
+   the **target file(s)/area(s)** and the **verification** *in its description*
+   according to the repo's readiness patterns (keep the trailing
+   `— <timestamp>` slot for resolution, see §4), and is sized to one red-green
+   cycle. The verification can be a test file next to the target, a conventional
+   test directory, or a concrete command when that is how the repo proves the
+   behavior. Pure support tasks (docs, scaffolding) may carry no `CR` — `sl check`
+   will note them so the author confirms the omission is intentional.
 3. **TDD is explicit.** The implementer writes the failing test from the `CR`,
    makes it pass, then refactors. The implementer never decides *what* to test —
    the `CR` fixes that; only *how*.
 
-`sl check` enforces this lightly: for a change that is `approved` or
-`in-progress` whose type activates `## Specification`, it **warns** (never errors)
-when a `CR` has no covering task, or a task references no `CR`. It does not judge
-whether a `CR` is genuinely test-grade — that stays the documenting agent's
-responsibility.
+`sl check` enforces this lightly: for a change whose type activates
+`## Specification`, it reports readiness gaps (`draft` as warnings,
+`approved`/`in-progress` as errors) when a `CR` has no covering task, a task
+references no `CR`, a task references an unknown `CR`, a criterion is missing
+Given/When/Then, or a CR-bearing task does not name both target and verification
+according to the repo's readiness patterns.

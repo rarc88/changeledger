@@ -8,8 +8,10 @@ import { marked } from 'marked';
 // /vendor). Provide the real libraries so safeHtml behaves exactly as in the
 // browser, then import the module.
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
+globalThis.document = window.document;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
+const { render } = await import('lit-html');
 const {
   boardStatuses,
   card,
@@ -21,6 +23,7 @@ const {
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -31,7 +34,8 @@ const {
 const { document } = window;
 const parse = (html) => {
   const host = document.createElement('div');
-  host.innerHTML = html;
+  if (typeof html === 'string') host.innerHTML = html;
+  else render(html, host);
   return host;
 };
 const XSS = '"><img src=x onerror=alert(1)>';
@@ -116,4 +120,73 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     false,
     'graph hides archived',
   );
+});
+
+test('222619 CR1: graph empty state does not render invalid dimensions', () => {
+  const host = parse(graphSvg([]));
+  assert.equal(host.querySelector('.empty')?.textContent, 'No changes match the current filters.');
+  assert.equal(host.querySelector('svg'), null);
+  assert.doesNotMatch(host.innerHTML, /Infinity|NaN/);
+});
+
+test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () => {
+  const host = parse(
+    graphSvg([
+      baseChange(),
+      {
+        ...baseChange(),
+        id: '20260613-120001',
+        title: 'dependent',
+        depends_on: ['20260613-120000'],
+      },
+    ]),
+  );
+  const svg = host.querySelector('svg');
+  assert.ok(svg, 'graph renders an svg');
+  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
+  assert.doesNotMatch(svg.getAttribute('height'), /Infinity|NaN/);
+  assert.equal(host.querySelectorAll('.node').length, 2);
+  assert.equal(host.querySelectorAll('.edge').length, 1);
+});
+
+const nodeX = (host, id) => {
+  const transform = host.querySelector(`.node[data-id="${id}"]`)?.getAttribute('transform') ?? '';
+  const match = transform.match(/translate\((\d+),/);
+  return match ? Number(match[1]) : Number.NaN;
+};
+
+test('162104 CR1: graph shared dependencies do not collapse depth', () => {
+  const changes = [
+    { ...baseChange(), id: 'A', title: 'A' },
+    { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    { ...baseChange(), id: 'C', title: 'C', depends_on: ['A'] },
+    { ...baseChange(), id: 'D', title: 'D', depends_on: ['B', 'C'] },
+  ];
+  const host = parse(graphSvg(changes));
+  assert.ok(nodeX(host, 'D') > nodeX(host, 'B'));
+  assert.ok(nodeX(host, 'D') > nodeX(host, 'C'));
+  assert.equal(host.querySelectorAll('.edge').length, 4);
+});
+
+test('162104 CR2: graph with a real cycle stays finite', () => {
+  const host = parse(
+    graphSvg([
+      { ...baseChange(), id: 'A', title: 'A', depends_on: ['B'] },
+      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    ]),
+  );
+  const svg = host.querySelector('svg');
+  assert.ok(svg, 'graph renders an svg');
+  assert.doesNotMatch(svg.getAttribute('viewBox'), /Infinity|NaN/);
+  assert.equal(host.querySelectorAll('.node').length, 2);
+});
+
+test('162104 CR3: simple graph still places dependents after dependencies', () => {
+  const host = parse(
+    graphSvg([
+      { ...baseChange(), id: 'A', title: 'A' },
+      { ...baseChange(), id: 'B', title: 'B', depends_on: ['A'] },
+    ]),
+  );
+  assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
 });

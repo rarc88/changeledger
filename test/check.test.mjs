@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 
 const config = {
@@ -29,6 +30,7 @@ function change(over = {}) {
     frontmatter: fm,
     stages: over.stages ?? [{ key: 'request' }, { key: 'plan' }, { key: 'log' }],
     tasks: over.tasks ?? [],
+    criteria: over.criteria ?? [],
   };
 }
 
@@ -91,6 +93,21 @@ test('CR4: stages out of canonical order is an error', () => {
   assert.ok(msgs(errors).some((m) => /out of canonical order/.test(m)));
 });
 
+test('151221 CR1: stage headings must use canonical casing', () => {
+  const { errors } = run([
+    change({
+      stages: [
+        { key: 'request', heading: 'request' },
+        { key: 'plan', heading: 'Plan' },
+        { key: 'log', heading: 'Log' },
+      ],
+    }),
+  ]);
+  assert.ok(
+    msgs(errors).some((m) => /stage heading must be canonical: expected "## Request"/.test(m)),
+  );
+});
+
 test('CR5: dangling dependency is an error', () => {
   const { errors } = run([change({ frontmatter: { depends_on: ['99999999-000000'] } })]);
   assert.ok(msgs(errors).some((m) => /references missing change/.test(m)));
@@ -114,7 +131,7 @@ test('CR6: duplicate ids are an error', () => {
 test('CR7: done with unfinished tasks is a warning, not an error', () => {
   const c = change({
     frontmatter: { status: 'done' },
-    tasks: [{ state: 'done' }, { state: 'todo' }],
+    tasks: [{ state: 'done', resolvedAt: '2026-06-13T12:01:00Z' }, { state: 'todo' }],
   });
   const { errors, warnings } = run([c]);
   assert.deepEqual(errors, []);
@@ -215,7 +232,45 @@ const spec = (over = {}) => ({
 const runS = (changes, specs) => checkRepo({ config, changes, specs });
 
 test('CR1: a change graduating to a missing spec is an error', () => {
-  const c = change({ text: '## Log\n- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n' });
+  const c = change({
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n',
+      },
+    ],
+  });
+  assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
+});
+
+test('212836 CR1/CR2: graduation marker examples outside Log do not create links', () => {
+  const c = change({
+    text: '## Request\n\nExample: graduado a spec `...`\n',
+    stages: [
+      { key: 'request', body: 'Example: graduado a spec `...`' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '' },
+    ],
+  });
+  assert.deepEqual(
+    msgs(runS([c], []).errors).filter((m) => /graduated to a missing spec/.test(m)),
+    [],
+  );
+});
+
+test('212836 CR3: real graduation markers in Log are still validated', () => {
+  const c = change({
+    stages: [
+      { key: 'request', body: 'Example: graduado a spec `...`' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`' },
+    ],
+  });
   assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
 });
 
@@ -245,9 +300,43 @@ test('CR3: a stale updated is a warning', () => {
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
     text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: '- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+      },
+    ],
   });
   const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
   assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
+});
+
+test('212319 CR1: archiving after graduation does not make the spec stale', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
+    text: `---\n---\n## Log
+- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+- **2026-06-20T10:00:00Z** — archived
+`,
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: `- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+- **2026-06-20T10:00:00Z** — archived`,
+      },
+    ],
+  });
+  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  assert.deepEqual(
+    msgs(runS([c], [s]).warnings).filter((m) => /older than linked change activity/.test(m)),
+    [],
+  );
 });
 
 test('CR3: a non-ISO updated is an error', () => {
@@ -273,6 +362,59 @@ test('CR1: no duplicates does not false-positive', () => {
     msgs(run([change()]).errors).filter((m) => /duplicate stage/.test(m)),
     [],
   );
+});
+
+test('151221 CR2: done tasks require an ISO resolution timestamp', () => {
+  const { errors } = run([
+    change({
+      tasks: [{ state: 'done', text: 'Finish it', criteria: ['CR1'] }],
+    }),
+  ]);
+  assert.ok(
+    msgs(errors).some((m) => /done task is missing an ISO 8601 UTC resolution timestamp/.test(m)),
+  );
+});
+
+test('151221 CR2: done task descriptions may contain an em dash before the timestamp', () => {
+  const text = `---
+id: "20260613-120000"
+title: X
+type: feature
+status: done
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Plan
+
+- [x] Keep the phrase — do not truncate it (CR1) — 2026-06-13T12:01:00Z
+
+## Log
+`;
+  const parsed = parseChange(text);
+  const { errors } = run([change({ text, ...parsed })]);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /done task is missing/.test(m)),
+    [],
+  );
+});
+
+test('151221 CR3: blocked tasks require a reason', () => {
+  const { errors } = run([
+    change({
+      tasks: [{ state: 'blocked', text: 'Wait', criteria: ['CR1'] }],
+    }),
+  ]);
+  assert.ok(msgs(errors).some((m) => /blocked task is missing a reason/.test(m)));
+});
+
+test('151221 CR4: duplicate criteria are an error', () => {
+  const { errors } = run([change({ criteria: ['CR1', 'CR1'] })]);
+  assert.ok(msgs(errors).some((m) => /duplicate criterion "CR1"/.test(m)));
 });
 
 // --- Definition of Ready coverage (tdd) ---
@@ -314,6 +456,14 @@ function cov(over = {}) {
 const covWarn = (over, cfg = tddConfig) =>
   msgs(checkRepo({ config: cfg, changes: [cov(over)] }).warnings);
 
+const covResult = (text, cfg = tddConfig) => {
+  const parsed = parseChange(text);
+  return checkRepo({
+    config: cfg,
+    changes: [{ name: '20260613-120000-x.md', text, ...parsed }],
+  });
+};
+
 test('CR2: a criterion with no covering task warns', () => {
   const w = covWarn({
     criteria: ['CR1', 'CR2'],
@@ -333,6 +483,144 @@ test('CR3: a task with no criterion warns', () => {
   assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
 });
 
+test('195016 CR1: task with (support) does not warn about missing criterion', () => {
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'run pnpm test (support)', criteria: [] },
+      { state: 'todo', text: 'real impl (CR1)', criteria: ['CR1'] },
+    ],
+  });
+  assert.ok(!w.some((m) => /pnpm test/.test(m)), '(support) task must not warn');
+});
+
+test('195016 CR2: task without (support) still warns when no criterion', () => {
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'plain task with no cr', criteria: [] },
+      { state: 'todo', text: 'real (CR1)', criteria: ['CR1'] },
+    ],
+  });
+  assert.ok(
+    w.some((m) => /plain task with no cr/.test(m)),
+    'non-support task must warn',
+  );
+});
+
+test('195016 CR1: (support) task does not trigger readiness check', () => {
+  // readiness check only fires on tasks with criteria — so support tasks are
+  // already exempt from readiness even without the (support) exemption.
+  // Verify this holds: a (support) task with no src/test references causes no warning.
+  const w = covWarn({
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'read docs (support)', criteria: [] },
+      {
+        state: 'todo',
+        text: 'impl in src/x.mjs verified with test/x.test.mjs (CR1)',
+        criteria: ['CR1'],
+      },
+    ],
+  });
+  assert.ok(!w.some((m) => /read docs/.test(m)), '(support) task must not trigger readiness');
+});
+
+test('162014 CR1: a task referencing an undeclared criterion is an error', () => {
+  const { errors, warnings } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR999)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR999"/.test(m)));
+  assert.ok(msgs(warnings).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+});
+
+test('162014 CR2: a task referencing a declared criterion is valid', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+
+## Log
+`);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /unknown criterion/.test(m)),
+    [],
+  );
+});
+
+test('162014 CR3: multiple undeclared criteria are each reported', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Real
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1, CR2, CR404)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR2"/.test(m)));
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR404"/.test(m)));
+});
+
 test('CR4: tdd:false disables coverage warnings', () => {
   const w = covWarn(
     { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] },
@@ -342,6 +630,233 @@ test('CR4: tdd:false disables coverage warnings', () => {
     w.filter((m) => /covered|criterion/.test(m)),
     [],
   );
+});
+
+test('151216 CR1: approved criteria must be test-grade', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+
+## Log
+`);
+  assert.ok(msgs(errors).some((m) => /CR1 is not test-grade: missing Given\/When\/Then/.test(m)));
+});
+
+test('151216 CR2: approved implementation tasks must name target and verification', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`);
+  assert.ok(
+    msgs(errors).some((m) => /Plan task for CR1 must name target and verification/.test(m)),
+  );
+});
+
+test('020229 CR1: readiness patterns are configurable per repo', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update app/profile.ts and app/profile.spec.ts (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['app/**'],
+        verification_patterns: ['**/*.spec.ts'],
+      },
+    },
+  );
+  assert.deepEqual(
+    msgs(errors).filter((m) => /target and verification/.test(m)),
+    [],
+  );
+});
+
+test('020229 CR1: verification can be a command instead of a test path', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update packages/auth/index.ts and run pnpm test --filter auth (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['packages/**'],
+        verification_patterns: ['pnpm test'],
+      },
+    },
+  );
+  assert.deepEqual(
+    msgs(errors).filter((m) => /target and verification/.test(m)),
+    [],
+  );
+});
+
+test('151216 CR3: draft readiness gaps are warnings', () => {
+  const { errors, warnings } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`);
+  assert.deepEqual(
+    msgs(errors).filter((m) => /test-grade|target and verification/.test(m)),
+    [],
+  );
+  assert.ok(msgs(warnings).some((m) => /CR1 is not test-grade/.test(m)));
+  assert.ok(
+    msgs(warnings).some((m) => /Plan task for CR1 must name target and verification/.test(m)),
+  );
+});
+
+test('151216 CR4: tdd:false disables readiness checks', () => {
+  const { errors, warnings } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Missing structure
+- **Given** input
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`,
+    { ...tddConfig, tdd: false },
+  );
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) =>
+      /test-grade|target and verification/.test(m),
+    ),
+    [],
+  );
+});
+
+test('020229 CR5: invalid readiness config fails clearly', () => {
+  const { errors } = checkRepo({
+    config: {
+      ...tddConfig,
+      readiness: { target_patterns: 'src/**', verification_patterns: ['test/**', ''] },
+    },
+    changes: [cov()],
+  });
+  assert.ok(msgs(errors).some((m) => /readiness\.target_patterns" must be a list/.test(m)));
+  assert.ok(msgs(errors).some((m) => /readiness\.verification_patterns" entries/.test(m)));
 });
 
 test('CR5: a type without specification is not coverage-checked', () => {
@@ -357,16 +872,17 @@ test('CR5: a type without specification is not coverage-checked', () => {
   );
 });
 
-test('coverage only applies to approved/in-progress (draft and done are skipped)', () => {
+test('coverage warns in draft and applies to approved/in-progress; done is skipped', () => {
   const gap = { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] };
-  for (const status of ['draft', 'done']) {
-    const w = covWarn({ ...gap, frontmatter: { status } });
-    assert.deepEqual(
-      w.filter((m) => /covered|criterion/.test(m)),
-      [],
-      status,
-    );
-  }
+  const draft = covWarn({ ...gap, frontmatter: { status: 'draft' } });
+  assert.ok(draft.some((m) => /covered|criterion/.test(m)));
+
+  const done = covWarn({ ...gap, frontmatter: { status: 'done' } });
+  assert.deepEqual(
+    done.filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+
   const w = covWarn({ ...gap, frontmatter: { status: 'in-progress' } });
   assert.ok(w.some((m) => /covered|criterion/.test(m)));
 });

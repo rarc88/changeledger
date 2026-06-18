@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -11,6 +14,8 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { findSpecDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { agentsTemplate } from '../src/paths.mjs';
+
+const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -65,6 +70,95 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   init(root);
   const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
   assert.match(cfg, /^tdd: true$/m);
+});
+
+test('020229 CR4: installed contract documents configurable readiness patterns', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /readiness\.target_patterns/);
+  assert.match(contract, /readiness\.verification_patterns/);
+  assert.match(contract, /target file\(s\)\/area\(s\)/);
+});
+
+test('212840 CR1/CR2/CR3/CR4: installed contract captures friction as future work', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /Capture friction as future work/);
+  assert.match(contract, /separate `draft` change/);
+  assert.match(contract, /current change/);
+  assert.match(contract, /`## Log`/);
+  assert.match(contract, /not actionable enough for\s+backlog/);
+  assert.match(contract, /must not mix concerns/);
+});
+
+test('161309 CR1-CR5: installed contract requires branch-safe atomic commits', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /Never implement approved changes on\s+`main`, `master`, or `dev`/);
+  assert.match(contract, /inspect the worktree/);
+  assert.match(contract, /unrelated\s+changes exist/);
+  assert.match(
+    contract,
+    /commit the approved change\s+documentation before touching implementation code/,
+  );
+  assert.match(contract, /Implement one change at a\s+time/);
+  assert.match(contract, /commit\s+that change and its related truth before starting another/);
+  assert.match(contract, /If shared files\s+make a combined commit unavoidable/);
+});
+
+test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
+  const root = tmp();
+  init(root);
+  const file = path.join(root, '.sl', 'changes', '20260613-120001-done.md');
+  fs.writeFileSync(
+    file,
+    `---
+id: "20260613-120001"
+title: Done
+type: feature
+status: done
+created: 2026-06-13T12:00:00Z
+reviewed: true
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — C
+- **Given** x
+- **When** y
+- **Then** z
+
+## Plan
+
+- [x] do it (CR1) — 2026-06-13T12:00:00Z
+
+## Log
+
+- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const bin = path.resolve('bin/sl.mjs');
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [bin, 'archive', '--graduated', '--dry-run'],
+    {
+      cwd: root,
+    },
+  );
+  assert.match(stdout, /#20260613-120001 Done/);
+  assert.match(stdout, /Would archive 1 change\(s\)/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('CR1: init seeds in-review and review_required per type (review-gate)', () => {
@@ -159,19 +253,7 @@ test('check surfaces discovery errors repo-wide (CR6)', () => {
   const root = tmp();
   init(root);
   fs.unlinkSync(path.join(root, '.sl', 'AGENTS.md'));
-  // check() prints findings (console.error) and a summary (console.log);
-  // silence both so this deliberate failure doesn't look like a real error in
-  // the test/verify output.
-  const origErr = console.error;
-  const origLog = console.log;
-  console.error = () => {};
-  console.log = () => {};
-  try {
-    assert.equal(check([], root), 1);
-  } finally {
-    console.error = origErr;
-    console.log = origLog;
-  }
+  assert.equal(check([], root, silentOutput()), 1);
 });
 
 test('init refuses to overwrite an existing .sl/', () => {
@@ -215,18 +297,203 @@ test('new normalizes the slug to kebab ascii', () => {
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
 });
 
+test('new rejects a slug that normalizes to empty', () => {
+  const root = tmp();
+  init(root);
+  assert.throws(
+    () =>
+      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root),
+    /slug must contain at least one ASCII letter or number/,
+  );
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, '.sl', 'changes')).filter((n) => n.endsWith('.md')),
+    [],
+  );
+});
+
 test('new bumps the id to stay unique within the same second', () => {
   const root = tmp();
   init(root);
   const now = '2026-06-13T15:00:00Z';
   const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root);
+  const before = fs.readFileSync(a, 'utf8');
   const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root);
   assert.equal(path.basename(a), '20260613-150000-one.md');
   assert.equal(path.basename(b), '20260613-150001-two.md');
+  assert.equal(fs.readFileSync(a, 'utf8'), before, 'existing change file is not overwritten');
 
   const c = parseChange(fs.readFileSync(b, 'utf8'));
   assert.equal(c.frontmatter.id, '20260613-150001');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:01Z');
+});
+
+test('new recovers from an orphan id lock', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.writeFileSync(lock, 'not-json');
+  const stale = new Date(Date.now() - 60_000);
+  fs.utimesSync(lock, stale, stale);
+
+  const file = newChange(
+    { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+    root,
+  );
+
+  assert.equal(path.basename(file), '20260613-150000-one.md');
+  assert.deepEqual(
+    fs.readdirSync(changesDir).filter((n) => n.endsWith('.lock')),
+    [],
+    'normal creation leaves no lock artifacts',
+  );
+});
+
+test('new tolerates a lock removed while checking whether it is stale', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.writeFileSync(lock, 'not-json');
+
+  const originalStatSync = fs.statSync;
+  fs.statSync = (target, ...args) => {
+    if (target === lock) {
+      const err = new Error('gone');
+      err.code = 'ENOENT';
+      throw err;
+    }
+    return originalStatSync.call(fs, target, ...args);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    assert.equal(path.basename(file), '20260613-150000-one.md');
+  } finally {
+    fs.statSync = originalStatSync;
+  }
+});
+
+test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(lock, 'not-json');
+  const stale = new Date(Date.now() - 60_000);
+  fs.utimesSync(lock, stale, stale);
+
+  // Prevent lock removal so the loop retries until the cap triggers
+  const origRmSync = fs.rmSync;
+  fs.rmSync = (target, ...args) => {
+    if (String(target).endsWith('.lock')) return;
+    return origRmSync.call(fs, target, ...args);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    // After hitting the cap, acquireIdLock returned null → outer loop bumped the second
+    assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped after spin cap');
+  } finally {
+    fs.rmSync = origRmSync;
+    origRmSync.call(fs, lock, { force: true });
+  }
+});
+
+test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live', () => {
+  const root = tmp();
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const lock = path.join(changesDir, '.20260613-150000.lock');
+  fs.mkdirSync(changesDir, { recursive: true });
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+
+  // Mock process.kill(pid, 0) to throw EPERM — simulates a live process we can't signal
+  const origKill = process.kill.bind(process);
+  process.kill = (pid, sig) => {
+    if (sig === 0) {
+      const e = new Error('EPERM');
+      e.code = 'EPERM';
+      throw e;
+    }
+    return origKill(pid, sig);
+  };
+  try {
+    const file = newChange(
+      { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
+      root,
+    );
+    // isStaleLock returned false (EPERM → alive) → acquireIdLock returned null → second bumped
+    assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped because lock was live');
+  } finally {
+    process.kill = origKill;
+    fs.rmSync(lock, { force: true });
+  }
+});
+
+test('new reserves ids atomically across concurrent processes', async () => {
+  const root = tmp();
+  init(root);
+  const readyOne = path.join(root, 'ready-one');
+  const readyTwo = path.join(root, 'ready-two');
+  const go = path.join(root, 'go');
+  const code = `
+    import fs from 'node:fs';
+    import { setTimeout as delay } from 'node:timers/promises';
+    import { newChange } from ${JSON.stringify(path.resolve('src/commands/new.mjs'))};
+    fs.writeFileSync(process.argv[3], 'ready');
+    while (!fs.existsSync(process.argv[4])) {
+      await delay(5);
+    }
+    const file = newChange(
+      { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
+      process.argv[2],
+    );
+    console.log(file);
+  `;
+  const child = (slug, readyPath) =>
+    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root, readyPath, go]);
+
+  const one = child('one', readyOne);
+  const two = child('two', readyTwo);
+  const deadline = Date.now() + 3000;
+  while ((!fs.existsSync(readyOne) || !fs.existsSync(readyTwo)) && Date.now() < deadline) {
+    await delay(5);
+  }
+  assert.ok(fs.existsSync(readyOne), 'first child reached the barrier');
+  assert.ok(fs.existsSync(readyTwo), 'second child reached the barrier');
+  fs.writeFileSync(go, 'go');
+
+  const files = (await Promise.all([one, two])).map((r) => path.basename(r.stdout.trim()));
+  assert.deepEqual(files.map((f) => f.replace(/^20260613-15000[01]-/, '')).sort(), [
+    'one.md',
+    'two.md',
+  ]);
+
+  const changes = fs
+    .readdirSync(path.join(root, '.sl', 'changes'))
+    .filter((n) => n.endsWith('.md'))
+    .map((n) => parseChange(fs.readFileSync(path.join(root, '.sl', 'changes', n), 'utf8')));
+  assert.deepEqual(changes.map((c) => c.frontmatter.id).sort(), [
+    '20260613-150000',
+    '20260613-150001',
+  ]);
+  assert.deepEqual(changes.map((c) => c.frontmatter.created).sort(), [
+    '2026-06-13T15:00:00Z',
+    '2026-06-13T15:00:01Z',
+  ]);
+  assert.deepEqual(
+    changes.map((c) => idFromTimestamp(c.frontmatter.created)),
+    changes.map((c) => c.frontmatter.id),
+    'created and id remain the same instant for each change',
+  );
+
+  assert.equal(check([], root, silentOutput()), 0);
 });
 
 test('new rejects an unknown type', () => {
@@ -234,3 +501,7 @@ test('new rejects an unknown type', () => {
   init(root);
   assert.throws(() => newChange({ type: 'nope', title: 't', now: 'x' }, root), /Unknown type/);
 });
+
+function silentOutput() {
+  return { log() {}, error() {}, warn() {} };
+}

@@ -1,89 +1,54 @@
-// Minimal YAML parser for the controlled subset Spec Ledger uses:
-// scalars, inline arrays, nested maps by 2-space indentation, comments.
-// Block sequences (- item) are intentionally NOT supported — the format never
-// uses them. `sl check` and tests guard the inputs.
+import { parseDocument, stringify } from 'yaml';
 
-const NESTED = Symbol('nested');
+// YAML is a broad format; Spec Ledger keeps this wrapper narrow so callers get
+// stable domain behavior while syntax handling is delegated to a mature parser.
 
-export function parseYaml(text) {
-  const entries = [];
-  for (const raw of text.split('\n')) {
-    const line = stripComment(raw);
-    if (line.trim() === '') continue;
-    const indent = line.length - line.trimStart().length;
-    const body = line.trim();
-    const colon = body.indexOf(':');
-    if (colon === -1) throw new Error(`Invalid YAML line: ${raw}`);
-    const key = body.slice(0, colon).trim();
-    const valuePart = body.slice(colon + 1).trim();
-    entries.push({ indent, key, value: parseValue(valuePart) });
-  }
-  const [obj] = build(entries, 0, entries.length ? entries[0].indent : 0);
-  return obj;
-}
-
-// Keys that would mutate an object's prototype chain rather than set a normal
-// property. They never appear in a legitimate config or frontmatter, so an
-// untrusted document carrying one is rejected outright.
 const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function build(entries, start, indent) {
-  const obj = {};
-  let i = start;
-  while (i < entries.length) {
-    const e = entries[i];
-    if (e.indent < indent) break;
-    if (RESERVED_KEYS.has(e.key)) throw new Error(`Unsafe key "${e.key}" in YAML`);
-    // A duplicate at the same level is ambiguous — fail loudly instead of letting
-    // the last value silently win. Keys in different nested maps are distinct
-    // objects, so this only fires within one level.
-    if (Object.hasOwn(obj, e.key)) throw new Error(`Duplicate key "${e.key}" in YAML`);
-    if (e.value === NESTED) {
-      const childIndent = entries[i + 1]?.indent ?? indent + 2;
-      const [child, next] = build(entries, i + 1, childIndent);
-      obj[e.key] = child;
-      i = next;
-    } else {
-      obj[e.key] = e.value;
-      i++;
-    }
+export function parseYaml(text) {
+  const doc = parseDocument(text, {
+    merge: false,
+    uniqueKeys: true,
+  });
+  if (doc.errors.length) throw yamlError(doc.errors[0]);
+  const value = doc.toJS() ?? {};
+  if (Array.isArray(value) || !value || typeof value !== 'object') {
+    throw new Error('YAML document must be a mapping');
   }
-  return [obj, i];
+  assertSafeKeys(value);
+  return value;
 }
 
-function parseValue(str) {
-  if (str === '') return NESTED;
-  if (str.startsWith('[') && str.endsWith(']')) {
-    const inner = str.slice(1, -1).trim();
-    if (inner === '') return [];
-    return inner.split(',').map((s) => coerce(s.trim()));
+function yamlError(error) {
+  if (/keys must be unique/i.test(error.message)) {
+    return new Error(`Duplicate key "${duplicateKey(error.message) ?? 'unknown'}" in YAML`);
   }
-  return coerce(str);
+  return error;
 }
 
-function coerce(str) {
-  if (str.length >= 2 && str.startsWith('"') && str.endsWith('"')) {
-    return unescapeDouble(str.slice(1, -1));
+function duplicateKey(message) {
+  const seen = new Set();
+  for (const line of message.split('\n')) {
+    const match = line.match(/^(\S[^:]*):/);
+    if (!match) continue;
+    if (seen.has(match[1])) return match[1];
+    seen.add(match[1]);
   }
-  if (str.length >= 2 && str.startsWith("'") && str.endsWith("'")) {
-    return str.slice(1, -1).replace(/''/g, "'");
-  }
-  if (/^-?\d+$/.test(str)) return Number(str);
-  if (str === 'true') return true;
-  if (str === 'false') return false;
-  return str;
+  return null;
 }
 
-const DQ_ESCAPES = { '"': '"', '\\': '\\', n: '\n', t: '\t' };
-
-function unescapeDouble(s) {
-  return s.replace(/\\(["\\nt])/g, (_, c) => DQ_ESCAPES[c]);
+function assertSafeKeys(value) {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach(assertSafeKeys);
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (RESERVED_KEYS.has(key)) throw new Error(`Unsafe key "${key}" in YAML`);
+    assertSafeKeys(child);
+  }
 }
 
-// Serializes a scalar back to YAML for the supported subset, quoting only when a
-// bare value would round-trip to a different type (number/bool), be truncated by
-// a comment, parse as a mapping/sequence, or carry control/edge whitespace.
-// Booleans and numbers serialize bare; everything else is treated as a string.
 export function serializeScalar(value) {
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
   const s = String(value ?? '');
@@ -92,41 +57,15 @@ export function serializeScalar(value) {
 
 function needsQuoting(s) {
   if (s === '') return true;
-  if (s !== s.trim()) return true; // leading/trailing whitespace
-  if (/^-?\d+$/.test(s)) return true; // would coerce to a number
-  if (s === 'true' || s === 'false') return true; // would coerce to a boolean
-  if (/[\n\t]/.test(s)) return true; // control characters
-  if (/(^#)|(\s#)/.test(s)) return true; // comment sequence
-  if (/:(\s|$)/.test(s)) return true; // mapping indicator
-  if (/^[[\]{}&*!|>'"%@`,?]/.test(s)) return true; // leading flow/indicator char
-  return false;
+  if (s !== s.trim()) return true;
+  try {
+    if (parseYaml(`k: ${s}`).k !== s) return true;
+  } catch {
+    return true;
+  }
+  return stringify({ k: s }).trimEnd() !== `k: ${s}`;
 }
 
 function quoteDouble(s) {
-  const esc = s
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\t/g, '\\t');
-  return `"${esc}"`;
-}
-
-// Remove a trailing `# comment` that is not inside quotes (YAML requires a space
-// before the #, or the # to start the line).
-function stripComment(line) {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '\\' && inDouble) {
-      i++; // skip the escaped character so `\"` does not close the string
-      continue;
-    }
-    if (c === '"' && !inSingle) inDouble = !inDouble;
-    else if (c === "'" && !inDouble) inSingle = !inSingle;
-    else if (c === '#' && !inSingle && !inDouble && (i === 0 || /\s/.test(line[i - 1]))) {
-      return line.slice(0, i);
-    }
-  }
-  return line;
+  return stringify(s, { defaultStringType: 'QUOTE_DOUBLE', lineWidth: 0 }).trimEnd();
 }

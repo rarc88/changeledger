@@ -1,60 +1,93 @@
 // Pure text transforms on a change file. They preserve the rest of the document
 // and are the basis for the `sl status`/`log`/`task` mutation commands.
 
-import { serializeScalar } from './yaml.mjs';
+import { parseDocument } from 'yaml';
 
-const FM = /^(---\n[\s\S]*?\n---\n)/;
+const FM = /^---\n([\s\S]*?)\n---\n?/;
 
 export function setStatus(text, status) {
-  const m = text.match(FM);
-  if (!m) throw new Error('missing frontmatter');
-  const fm = m[1].replace(/^status:.*$/m, `status: ${status}`);
-  return fm + text.slice(m[1].length);
+  return mutateFrontmatter(text, (doc) => {
+    setRequired(doc, 'status', status);
+  });
 }
 
 // Sets, updates or removes the optional `owner:` frontmatter line. A falsy owner
 // removes it. New lines are placed right after `depends_on`.
 export function setOwner(text, owner) {
-  const m = text.match(FM);
-  if (!m) throw new Error('missing frontmatter');
-  let fm = m[1];
-  fm = fm.replace(/^owner:.*\n/m, '');
-  if (owner) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, `$1owner: ${serializeScalar(owner)}\n`);
-  }
-  return fm + text.slice(m[1].length);
+  return mutateFrontmatter(text, (doc) => {
+    doc.delete('owner');
+    if (owner) {
+      requireKey(doc, 'depends_on');
+      doc.set('owner', owner);
+      moveKeyAfter(doc, 'owner', 'depends_on');
+    }
+  });
 }
 
 // Sets or removes the optional `archived: true` frontmatter line.
 export function setArchived(text, archived) {
-  const m = text.match(FM);
-  if (!m) throw new Error('missing frontmatter');
-  let fm = m[1].replace(/^archived:.*\n/m, '');
-  if (archived) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, '$1archived: true\n');
-  }
-  return fm + text.slice(m[1].length);
+  return mutateFrontmatter(text, (doc) => {
+    doc.delete('archived');
+    if (archived) {
+      requireKey(doc, 'depends_on');
+      doc.set('archived', true);
+      moveKeyAfter(doc, 'archived', 'depends_on');
+    }
+  });
 }
 
 // Sets or removes the optional `reviewed: true` frontmatter line. It marks the
 // graduation question as resolved (graduated to a spec, or deliberately skipped).
 export function setReviewed(text, reviewed) {
-  const m = text.match(FM);
-  if (!m) throw new Error('missing frontmatter');
-  let fm = m[1].replace(/^reviewed:.*\n/m, '');
-  if (reviewed) {
-    fm = fm.replace(/^(depends_on:.*\n)/m, '$1reviewed: true\n');
-  }
-  return fm + text.slice(m[1].length);
+  return mutateFrontmatter(text, (doc) => {
+    doc.delete('reviewed');
+    if (reviewed) {
+      requireKey(doc, 'depends_on');
+      doc.set('reviewed', true);
+      moveKeyAfter(doc, 'reviewed', 'depends_on');
+    }
+  });
 }
 
 // Refreshes a spec's `updated:` frontmatter line, leaving title, tags and body
 // untouched. Used when graduating a change into an existing spec.
 export function setSpecUpdated(text, iso) {
+  return mutateFrontmatter(text, (doc) => {
+    setRequired(doc, 'updated', iso);
+  });
+}
+
+function mutateFrontmatter(text, mutate) {
   const m = text.match(FM);
   if (!m) throw new Error('missing frontmatter');
-  const fm = m[1].replace(/^updated:.*$/m, `updated: ${iso}`);
-  return fm + text.slice(m[1].length);
+  const doc = parseDocument(m[1], { merge: false, uniqueKeys: true });
+  if (doc.errors.length) throw doc.errors[0];
+  if (!doc.contents || !Array.isArray(doc.contents.items)) {
+    throw new Error('frontmatter must be a YAML mapping');
+  }
+  mutate(doc);
+  const fm = doc.toString({ lineWidth: 0 });
+  return `---\n${fm.endsWith('\n') ? fm : `${fm}\n`}---\n${text.slice(m[0].length)}`;
+}
+
+function setRequired(doc, key, value) {
+  requireKey(doc, key);
+  doc.set(key, value);
+}
+
+function requireKey(doc, key) {
+  if (!doc.has(key)) throw new Error(`missing ${key} in frontmatter`);
+}
+
+function moveKeyAfter(doc, key, after) {
+  const items = doc.contents?.items;
+  if (!Array.isArray(items)) return;
+  const from = items.findIndex((item) => item.key?.value === key);
+  const to = items.findIndex((item) => item.key?.value === after);
+  if (from === -1 || to === -1 || from === to + 1) return;
+  const [item] = items.splice(from, 1);
+  const nextTo = items.findIndex((candidate) => candidate.key?.value === after);
+  items.splice(nextTo + 1, 0, item);
 }
 
 export function appendLog(text, iso, message) {

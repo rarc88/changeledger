@@ -10,6 +10,13 @@ language: en
 # coverage gaps. Set false for exploratory repos. See AGENTS.md §11.
 tdd: true
 
+# Optional Definition of Ready path/command hints. When present, tasks that
+# reference CRs should name at least one target and one verification matching
+# these patterns. Patterns can be path globs or literal command snippets.
+# readiness:
+#   target_patterns: ["src/**"]
+#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]
+
 changes_dir: .sl/changes
 specs_dir: .sl/specs
 

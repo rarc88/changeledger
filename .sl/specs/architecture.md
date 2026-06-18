@@ -1,12 +1,12 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-15T21:34:34Z
-tags: [architecture, cli, viewer]
+updated: 2026-06-18T10:06:47Z
+tags: [ architecture, cli, viewer ]
 ---
 
 # Arquitectura de Spec Ledger
 
-> Graduado del change 20260613-205854.
+> Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
 > Graduado del change 20260614-151759 (discovery del contrato).
 > Graduado del change 20260614-162547 (Definition of Ready / tdd).
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
@@ -14,6 +14,26 @@ tags: [architecture, cli, viewer]
 > Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
 > Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
 > Graduado del change 20260615-210508 (estado terminal `discarded`).
+> Graduado del change 20260616-151221 (parsing estricto de changes).
+> Graduado del change 20260616-151216 (Definition of Ready verificable).
+> Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
+> Graduado del change 20260616-151234 (resolución segura de assets estáticos).
+> Graduado del change 20260616-151226 (parser CLI con commander).
+> Graduado del change 20260616-162014 (validación de criterios referenciados por tareas).
+> Graduado del change 20260616-162020 (normalización compartida de slugs).
+> Graduado del change 20260616-162027 (registry corrupto falla sin sobrescribir).
+> Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
+> Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
+> Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
+> Graduado del change 20260616-210825 (métricas cuentan cierres por revisión).
+> Graduado del change 20260617-020229 (Definition of Ready con patrones configurables).
+> Graduado del change 20260616-212836 (ejemplos de graduación no crean enlaces reales).
+> Graduado del change 20260616-212840 (captura automática de fricciones).
+> Graduado del change 20260616-212319 (archivar no vuelve stale el spec).
+> Graduado del change 20260616-212322 (archivado masivo de graduados).
+> Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
+> Graduado del change 20260616-212309 (tests del viewer sin socket local).
+> Graduado del change 20260617-161309 (workflow git para trazabilidad).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -48,6 +68,12 @@ flowchart TD
   SRV --> UI[visor: board / table / graph / specs / metrics]
 ```
 
+`bin/sl.mjs` define la interfaz de comandos con `commander`, manteniendo
+`src/commands/*` como capa de aplicación. La dependencia está fijada en una
+línea compatible con Node 20 y el binario conserva el shebang + modo ejecutable,
+porque se publica como comando global `sl`. El parser rechaza opciones
+desconocidas en lugar de ignorarlas silenciosamente.
+
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
@@ -69,6 +95,14 @@ también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
 `check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
 bajo demanda).
 
+`sl archive --graduated [--dry-run]` limpia el board de forma explícita y
+conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
+con resolución de graduación en `## Log` (`graduado a spec` o `graduation
+skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
+masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
+`archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
+sin reviewed ni cambios ya archivados.
+
 `graduate()` tiene dos rutas. Por defecto **crea** un spec nuevo (semilla desde
 Specification/Proposal) y falla si ya existe. Con `--into` (`{ into: true }`)
 **gradúa a un spec existente**: exige que exista (error simétrico si no), refresca
@@ -76,6 +110,25 @@ su `updated` (`writer.setSpecUpdated`) y deja el cuerpo al agente — no lo
 sobrescribe. Ambas rutas comparten el registro en el change (marker + `reviewed`).
 La sustitución es explícita (flag), nunca por auto-detección, para que un slug mal
 tecleado no enlace por error.
+
+Las mutaciones de frontmatter en `writer.mjs` preservan el formato textual del
+documento, pero fallan explícitamente si no encuentran la línea ancla que deben
+editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
+del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
+Las escrituras que reemplazan documentos o estado local pasan por
+`writeFileAtomic`: escriben a un temporal en el mismo directorio, sincronizan el
+descriptor, hacen `rename` sobre el destino y limpian el temporal si algo falla.
+Las creaciones que dependen de exclusividad, como `sl new`, conservan `flag:
+'wx'` para no perder la reserva atomica del id.
+
+Las mutaciones read-modify-write de un documento usan `mutateFileAtomic`: toman
+un lock por archivo (`.<basename>.lock`), releen la versión actual bajo esa
+sección crítica, aplican la transformación y escriben con `writeFileAtomic`.
+Así dos comandos sobre el mismo change se serializan sin perder tareas ni Log,
+mientras cambios distintos usan locks distintos y no comparten un bloqueo global.
+El lock se borra en `finally`; si otro proceso encuentra un lock existente, espera
+hasta un timeout y falla sin borrarlo, porque expirar un lock solo por edad puede
+romper la exclusión si una mutación legítima tarda más de lo esperado.
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
@@ -152,19 +205,39 @@ archivo. El visor añade una restricción humana extra: solo permite
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` cuenta como WIP en métricas.
 
+**Captura de fricción.** El contrato canónico exige que el agente revise, antes
+de cerrar un turno o change, las fricciones descubiertas al usar Spec Ledger. Si
+son accionables y quedan fuera del alcance actual, se registran como changes
+`draft` separados, uno por concern. Si pertenecen al change en curso, se agregan
+al `## Log` o ajustan su Specification/Plan. Si no ameritan backlog, se mencionan
+en la respuesta final. Esta captura no debe mezclar concerns ni bloquear el
+cierre de trabajo ya completo.
+
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
 sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
-segundo. Ordenable cronológicamente.
+segundo. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
+y escritura exclusiva del archivo final), de modo que dos procesos concurrentes
+no pueden escribir el mismo id. El lock incluye metadata del proceso propietario:
+si queda huérfano por una terminación abrupta, `sl new` lo puede recuperar; si el
+lock desaparece durante la comprobación, el comando reintenta sin fallar. El slug
+estructural se normaliza a kebab ASCII y se rechaza si queda vacío. Ordenable
+cronológicamente.
+
+La normalización de slugs vive en un helper compartido por `sl new` y
+`sl graduate`: minúsculas, diacríticos fuera, separadores no alfanuméricos a
+guiones y rechazo cuando no queda ninguna letra o número ASCII. Así los nombres
+estructurales mantienen la misma política en changes y specs.
 
 ## Métricas
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
-(`done`) y el paso a cada estado se leen del `## Log`; de ahí salen: cycle time
-(`done − created`), lead time por etapa, WIP actual, aging de los `in-progress`,
-tiempo bloqueado, throughput por día y desgloses por tipo/owner. El server las
-precalcula y el visor las pinta en la pestaña **Metrics**.
+(`done`) y el paso a cada estado se leen del `## Log`, tanto desde transiciones
+`status: ... → estado` como desde veredictos `review → estado`; de ahí salen:
+cycle time (`done − created`), lead time por etapa, WIP actual, aging de los
+`in-progress`, tiempo bloqueado, throughput por día y desgloses por tipo/owner.
+El server las precalcula y el visor las pinta en la pestaña **Metrics**.
 
 ## Validación (`sl check`)
 
@@ -172,7 +245,30 @@ precalcula y el visor las pinta en la pestaña **Metrics**.
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
-salen de los marcadores que escribe `sl graduate`.
+change→spec salen solo de los marcadores reales que `sl graduate` escribe en
+`## Log`; ejemplos o placeholders del mismo texto en otras etapas no crean
+enlaces reales. Para detectar specs stale, `updated` se compara contra la
+actividad de graduación enlazada, no contra entradas posteriores del Log como
+`archived`, porque esas no cambian la verdad persistente.
+
+La validación también fija invariantes del formato Markdown que el parser expone:
+headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
+tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
+interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
+preservar descripciones que contienen la misma raya.
+El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
+los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
+
+Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
+cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia
+un criterio debe nombrar tanto objetivo como verificación según los patrones
+configurados en `readiness.target_patterns` y `readiness.verification_patterns`.
+Los patrones pueden cubrir layouts distintos por repo: tests en `test/`, specs
+colocados junto al archivo (`**/*.spec.*`, `**/*.test.*`) o comandos concretos de
+verificación. Además, cada `CRn` referenciado por una tarea debe existir en
+`## Specification`; un `(CR999)` huérfano es un error en cambios listos para
+implementar. En `draft`, esos mismos huecos son warnings para no bloquear la
+autoría temprana; con `tdd:false` no se evalúan.
 
 ## Trazabilidad git
 
@@ -181,6 +277,15 @@ convención de commit `[#<id>]`: lista los commits que lo referencian y las
 branches cuyo nombre lo contiene; tolera repos no-git devolviendo vacío. El
 endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 **Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
+
+El contrato canónico protege esa trazabilidad con un workflow git explícito:
+los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
+revisan el worktree antes de empezar; commitean la documentación aprobada antes
+de tocar código; implementan un change a la vez; y, al completar tests, review
+y graduación/skip, commitean ese change y su verdad relacionada antes de empezar
+otro. Los cambios no relacionados no se incluyen silenciosamente. Si archivos
+compartidos vuelven inevitable un commit combinado, se declara como excepción y
+se nombran los changes que comparten la superficie.
 
 ## Discovery del contrato
 
@@ -236,16 +341,60 @@ permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
 card entre esas columnas del board (el único salto que le corresponde; el resto
 del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
 (`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
-owner) y render de markdown + mermaid. Los changes con `archived: true` se ocultan
-por defecto (toggle "Archived" para mostrarlos); el flag los saca del board sin
-sacarlos de `changes_dir`, así `check` y las deps los siguen viendo. `marked` y
+owner) y render de markdown + mermaid. El cliente está dividido en módulos
+estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
+(filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
+único de Markdown sanitizado), `view-parts.js` (templates reutilizables),
+`view-renderers.js` (graph/specs/metrics) y `app-state.js` (estado global y
+helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
+DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
+visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad del
+grafo usa un set de visitados por rama para detectar ciclos solo en el camino
+actual: dependencias compartidas entre ramas no colapsan la capa del nodo
+dependiente, y los ciclos reales siguen terminando en un SVG finito.
+
+Los tests del visor ejercitan el `createRequestListener` en memoria para validar
+status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
+locales. La cobertura del transporte real queda acotada a un smoke test del bind
+a `127.0.0.1`; si el sandbox niega ese bind con `EPERM`/`EACCES`, la suite no
+falla por una restricción del entorno que no afecta al router.
+
+Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
+mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
+`check` y las deps los siguen viendo. `lit-html`, `marked`, `dompurify` y
 `mermaid` son dependencias instaladas (pnpm), servidas desde `node_modules` bajo
-`/vendor/*`; el resto del runtime es cero-deps. **Frontera de confianza:** los
-documentos del repo son contenido no confiable aunque el repo sea local. El
-cuerpo Markdown se rinde vía `safeHtml` (marked → DOMPurify, también servido bajo
-`/vendor/*`) antes de tocar el DOM, y Mermaid se inicializa con
-`securityLevel: 'strict'`, de modo que ningún change/spec pueda ejecutar
-JavaScript en el origen del visor. En modo global el visor lee el
+`/vendor/*`.
+
+Los assets estáticos propios del viewer se resuelven con contención explícita:
+la ruta se decodifica, se resuelve contra `publicDir`, se valida con
+`path.relative` y, cuando el fichero existe, se vuelve a validar contra
+`realpath`. Esto evita traversal codificado y escapes por directorios hermanos
+con prefijo común; las rutas `/api/*` y `/vendor/*` se resuelven antes de esa
+rama estática.
+**Frontera de confianza:** los documentos del repo son contenido no confiable
+aunque el repo sea local. El cuerpo Markdown se rinde vía `safeHtml` (marked →
+DOMPurify) antes de tocar el DOM; si `marked` o `DOMPurify` no cargan, `safeHtml`
+falla cerrado y muestra un mensaje en vez de insertar HTML no sanitizado. Mermaid
+se inicializa con `securityLevel: 'strict'`, de modo que ningún change/spec pueda
+ejecutar JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y
 agrupa los resultados por proyecto.
+El registry local distingue archivo ausente de archivo corrupto: si no existe,
+empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un error
+claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
+read-modify-write del registry (`register`, `remove`) se envuelven en
+`withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
+`sl register`/`sl remove` sobre el mismo archivo. El directorio se garantiza
+antes de tomar el lock porque el lock file requiere que el directorio exista.
+
+## Política de dependencias
+
+Spec Ledger no prohíbe dependencias runtime, pero las trata como coste de
+producto: cada una debe ser madura, mantenida y proporcional al problema que
+resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño,
+pero usa `yaml` para parsear y serializar `.sl/config.yml` y frontmatter porque
+YAML tiene suficientes reglas y bordes como para no mantener un parser propio. En
+dominios con superficie amplia o riesgo de seguridad —templates DOM, render
+Markdown, sanitización HTML, diagramas— el visor usa librerías especializadas y
+conocidas (`lit-html`, `marked`, `dompurify`, `mermaid`) en vez de reinventarlas.

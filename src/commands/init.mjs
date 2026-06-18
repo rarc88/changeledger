@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from '../atomic-write.mjs';
 import { ensureGitignore, ensureReference, linkContract, rootContract } from '../contract.mjs';
 import { templatesDir } from '../paths.mjs';
 import { register } from '../registry.mjs';
@@ -23,13 +24,12 @@ export function init(cwd = process.cwd()) {
 
   fs.mkdirSync(path.join(specDir, 'changes'), { recursive: true });
   const configFile = path.join(specDir, 'config.yml');
-  fs.copyFileSync(path.join(templatesDir, 'config.yml'), configFile);
 
   const id = crypto.randomBytes(5).toString('hex');
   const name = path.basename(repoRoot);
-  fs.appendFileSync(
+  writeFileAtomic(
     configFile,
-    `\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${serializeScalar(name)}\n`,
+    `${fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8')}\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${serializeScalar(name)}\n`,
   );
 
   linkContract(specDir);

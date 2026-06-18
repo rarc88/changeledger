@@ -4,11 +4,10 @@ import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { marked } from 'marked';
 
-// Mirrors the viewer's safeHtml pipeline (src/viewer/public/app.js): the same
-// marked → DOMPurify chain and library versions the browser loads from /vendor.
 const { window } = new JSDOM('');
-const DOMPurify = createDOMPurify(window);
-const safeHtml = (md) => DOMPurify.sanitize(marked.parse(md || ''));
+globalThis.marked = marked;
+globalThis.DOMPurify = createDOMPurify(window);
+const { safeHtml } = await import('../src/viewer/public/app.js');
 
 test('CR1: active HTML in a document does not survive into the DOM', () => {
   const out = safeHtml('<img src=x onerror="window.__sl_xss=1">');
@@ -40,4 +39,23 @@ test('CR3: allowed markdown formatting is preserved', () => {
 test('CR4: mermaid code blocks keep their language class for live rendering', () => {
   const out = safeHtml('```mermaid\ngraph TD; A-->B;\n```');
   assert.match(out, /class="language-mermaid"/);
+});
+
+test('214817 CR1: missing DOMPurify fails closed', () => {
+  const original = globalThis.DOMPurify;
+  try {
+    delete globalThis.DOMPurify;
+    const out = safeHtml('<img src=x onerror="window.__sl_xss=1">');
+    assert.ok(!/<img/i.test(out), 'untrusted HTML was not returned');
+    assert.ok(!/onerror/i.test(out), 'event handler not present');
+    assert.match(out, /required viewer dependency failed to load/);
+  } finally {
+    globalThis.DOMPurify = original;
+  }
+});
+
+test('174431 CR1: style tags are removed from rendered markdown', () => {
+  const out = safeHtml('<style>body{display:none}</style><p>visible</p>');
+  assert.ok(!/<style/i.test(out), `style tag survived: ${out}`);
+  assert.match(out, /visible/);
 });

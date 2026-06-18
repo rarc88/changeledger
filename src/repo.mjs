@@ -69,3 +69,45 @@ export function loadRepo(start = process.cwd()) {
 
   return { specDir, repoRoot, config, changes, specs };
 }
+
+// Async equivalent for HTTP paths that should not monopolize the Node event
+// loop while reading large change/spec histories. The synchronous loader remains
+// the command API for CLI code.
+export async function loadRepoAsync(start = process.cwd()) {
+  const specDir = findSpecDir(start);
+  if (!specDir) {
+    throw new Error('Not a Spec Ledger repo (no .sl/ found). Run `sl init` first.');
+  }
+  const repoRoot = path.dirname(specDir);
+  const config = loadConfig(specDir);
+  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
+
+  const changes = [];
+  try {
+    const names = (await fs.promises.readdir(changesDir)).sort();
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue;
+      const file = path.join(changesDir, name);
+      const text = await fs.promises.readFile(file, 'utf8');
+      changes.push({ file, name, text, ...parseChange(text) });
+    }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
+
+  const specs = [];
+  const specsDir = resolveSpecsDir(repoRoot, config);
+  try {
+    const names = (await fs.promises.readdir(specsDir)).sort();
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue;
+      const file = path.join(specsDir, name);
+      specs.push({ file, name, ...parseSpec(await fs.promises.readFile(file, 'utf8')) });
+    }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+
+  return { specDir, repoRoot, config, changes, specs };
+}

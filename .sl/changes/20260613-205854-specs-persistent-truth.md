@@ -1,6 +1,6 @@
 ---
 id: "20260613-205854"
-title: Capa specs: verdad persistente y graduación
+title: "Capa specs: verdad persistente y graduación"
 type: feature
 status: done
 created: 2026-06-13T20:58:54Z

@@ -14,9 +14,12 @@ into each repo as `.sl/AGENTS.md`. Edit the convention there, not here.
 
 ## Project-specific notes
 
-- Managed with **pnpm**; lint/format via **Biome**. The runtime ships zero deps
-  (`marked`/`mermaid` are vendored for the viewer only).
-- `pnpm verify` (lint + test + `sl check`) is the quality gate; the versioned
-  `hooks/pre-commit` runs it.
+- Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
+  allowed only when they are mature and justified: the CLI uses `yaml` for
+  config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,
+  `dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
+- `pnpm verify` (lint + test + `sl check`) is the full quality gate. The
+  versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `sl check`
+  so staged formatting stays compatible with partial commits.
 - The contract you edit for the convention is `templates/AGENTS.md` — it is the
   artifact that `sl init`/`register` symlink into other repos.

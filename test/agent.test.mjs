@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import {
   archive,
+  archiveGraduated,
   discard,
   list,
   log,
@@ -17,6 +21,8 @@ import {
 } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+
+const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
@@ -121,6 +127,93 @@ test('archive sets and clears the archived flag', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.archived, true);
   archive(id, false, root);
   assert.equal('archived' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+function repoWithArchiveCandidates() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-archive-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const changesDir = path.join(root, '.sl', 'changes');
+  const write = ({ id, status = 'done', reviewed = true, archived = false, log = '' }) => {
+    const fm = [
+      '---',
+      `id: "${id}"`,
+      'title: Candidate',
+      'type: feature',
+      `status: ${status}`,
+      'created: 2026-06-13T12:00:00Z',
+      ...(reviewed ? ['reviewed: true'] : []),
+      ...(archived ? ['archived: true'] : []),
+      'depends_on: []',
+      '---',
+    ].join('\n');
+    const text = `${fm}\n\n## Request\n\nR\n\n## Investigation\n\nI\n\n## Proposal\n\nP\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
+    const file = path.join(changesDir, `${id}-candidate.md`);
+    fs.writeFileSync(file, text);
+    return file;
+  };
+  return { root, write };
+}
+
+test('212322 CR1/CR2: archiveGraduated dry-run lists candidates without writing', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  const graduated = write({
+    id: '20260613-120001',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+  });
+  const before = fs.readFileSync(graduated, 'utf8');
+  const listed = archiveGraduated({ dryRun: true }, root);
+  assert.deepEqual(
+    listed.map((c) => c.id),
+    ['20260613-120001'],
+  );
+  assert.equal(fs.readFileSync(graduated, 'utf8'), before);
+});
+
+test('212322 CR2: archiveGraduated archives graduated and skipped done changes', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  const graduated = write({
+    id: '20260613-120001',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+  });
+  const skipped = write({
+    id: '20260613-120002',
+    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+  });
+  const archived = archiveGraduated({}, root);
+  assert.deepEqual(
+    archived.map((c) => c.id),
+    ['20260613-120001', '20260613-120002'],
+  );
+  for (const file of [graduated, skipped]) {
+    const c = parseChange(fs.readFileSync(file, 'utf8'));
+    assert.equal(c.frontmatter.archived, true);
+    assert.match(c.stages.find((s) => s.key === 'log').body, /— archived/);
+  }
+});
+
+test('212322 CR3/CR4: archiveGraduated skips active, unreviewed and already archived changes', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  const active = write({
+    id: '20260613-120001',
+    status: 'in-progress',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+  });
+  const unreviewed = write({
+    id: '20260613-120002',
+    reviewed: false,
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+  });
+  const alreadyArchived = write({
+    id: '20260613-120003',
+    archived: true,
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`\n- **2026-06-13T12:01:00Z** — archived',
+  });
+  const before = new Map(
+    [active, unreviewed, alreadyArchived].map((file) => [file, fs.readFileSync(file, 'utf8')]),
+  );
+  assert.deepEqual(archiveGraduated({}, root), []);
+  for (const [file, text] of before) assert.equal(fs.readFileSync(file, 'utf8'), text);
 });
 
 test('list filters by status and show returns the change', () => {
@@ -341,4 +434,84 @@ test('210508 CR1: status refuses discarded and points to the discard verb', () =
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(() => status(id, 'discarded', root), /use `sl discard <id> "<reason>"`/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+function repoWithTwoTasks() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'race', title: 'Race', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Plan\n', '## Plan\n\n- [ ] first\n- [ ] second\n');
+  fs.writeFileSync(file, text);
+  return { root, file, id: parseChange(text).frontmatter.id };
+}
+
+test('212314 CR1: concurrent task mutations on the same change preserve both writes', async () => {
+  const { root, file, id } = repoWithTwoTasks();
+  const readyOne = path.join(root, 'ready-one');
+  const readyTwo = path.join(root, 'ready-two');
+  const go = path.join(root, 'go');
+  const code = `
+    import fs from 'node:fs';
+    import { setTimeout as delay } from 'node:timers/promises';
+    import { task } from ${JSON.stringify(path.resolve('src/commands/agent.mjs'))};
+    fs.writeFileSync(process.argv[4], 'ready');
+    while (!fs.existsSync(process.argv[5])) await delay(5);
+    task(process.argv[1], 'done', Number(process.argv[2]), '', process.argv[3]);
+  `;
+  const child = (taskNumber, readyPath) =>
+    execFileAsync(process.execPath, [
+      '--input-type=module',
+      '-e',
+      code,
+      id,
+      String(taskNumber),
+      root,
+      readyPath,
+      go,
+    ]);
+
+  const one = child(1, readyOne);
+  const two = child(2, readyTwo);
+  const deadline = Date.now() + 3000;
+  while ((!fs.existsSync(readyOne) || !fs.existsSync(readyTwo)) && Date.now() < deadline) {
+    await delay(5);
+  }
+  assert.ok(fs.existsSync(readyOne), 'first child reached the barrier');
+  assert.ok(fs.existsSync(readyTwo), 'second child reached the barrier');
+  fs.writeFileSync(go, 'go');
+  await Promise.all([one, two]);
+
+  assert.deepEqual(
+    parseChange(fs.readFileSync(file, 'utf8')).tasks.map((t) => t.state),
+    ['done', 'done'],
+  );
+});
+
+test('212314 CR2: a lock on one change does not block mutating another change', () => {
+  const first = repoWithTwoTasks();
+  const secondFile = newChange(
+    { type: 'feature', slug: 'other', title: 'Other', now: '2026-06-13T12:00:01Z' },
+    first.root,
+  );
+  const secondText = fs
+    .readFileSync(secondFile, 'utf8')
+    .replace('## Plan\n', '## Plan\n\n- [ ] only\n');
+  fs.writeFileSync(secondFile, secondText);
+  const secondId = parseChange(secondText).frontmatter.id;
+
+  const heldLock = path.join(path.dirname(first.file), `.${path.basename(first.file)}.lock`);
+  fs.writeFileSync(heldLock, 'held');
+  try {
+    task(secondId, 'done', 1, '', first.root);
+    assert.equal(parseChange(fs.readFileSync(secondFile, 'utf8')).tasks[0].state, 'done');
+    assert.equal(parseChange(fs.readFileSync(first.file, 'utf8')).tasks[0].state, 'todo');
+  } finally {
+    fs.rmSync(heldLock, { force: true });
+  }
 });

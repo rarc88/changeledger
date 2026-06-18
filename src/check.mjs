@@ -41,7 +41,13 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
 
     const present = (c.stages ?? []).map((s) => s.key);
-    for (const k of present) if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
+    for (const s of c.stages ?? []) {
+      const k = s.key;
+      if (!canonical.includes(k)) err(c, `unknown stage "## ${k}"`);
+      else if (s.heading && s.heading !== canonicalHeading(k)) {
+        err(c, `stage heading must be canonical: expected "## ${canonicalHeading(k)}"`);
+      }
+    }
 
     const seenStages = new Set();
     for (const k of present) {
@@ -64,6 +70,9 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     }
 
     const tasks = c.tasks ?? [];
+    checkTasks(c, tasks, err);
+    checkCriteria(c, c.criteria ?? [], err);
+
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
       warn(c, `status is "done" but ${pending} task(s) are not done`);
@@ -72,7 +81,7 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
       warn(c, 'status is "blocked" but no task is marked [!]');
     }
 
-    checkCoverage(c, fm, active, config, warn);
+    checkCoverage(c, fm, active, config, warn, err);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -113,14 +122,27 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
   return { errors, warnings };
 }
 
-// The latest timestamp found in a change: its `created` plus every `**<iso>**`
-// in its raw text (Log entries, task resolutions). Used to spot stale specs.
-function latestActivity(change) {
-  const stamps = [];
-  if (change.frontmatter?.created) stamps.push(change.frontmatter.created);
-  for (const m of String(change.text ?? '').matchAll(/\*\*(\d{4}-\d{2}-\d{2}T[^*]+)\*\*/g))
-    stamps.push(m[1].trim());
-  return stamps.sort().pop() ?? null;
+function canonicalHeading(key) {
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function checkTasks(c, tasks, err) {
+  for (const t of tasks) {
+    if (t.state === 'done' && !ISO_UTC.test(t.resolvedAt ?? '')) {
+      err(c, 'done task is missing an ISO 8601 UTC resolution timestamp');
+    }
+    if (t.state === 'blocked' && !String(t.reason ?? '').trim()) {
+      err(c, 'blocked task is missing a reason');
+    }
+  }
+}
+
+function checkCriteria(c, criteria, err) {
+  const seen = new Set();
+  for (const cr of criteria) {
+    if (seen.has(cr)) err(c, `duplicate criterion "${cr}"`);
+    else seen.add(cr);
+  }
 }
 
 // Validates the spec layer and its links to changes. `graduate` records two
@@ -133,14 +155,14 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
   const incoming = new Set(); // spec names a change graduated to
   const activityBySpec = new Map(); // spec name → latest linked-change activity
   for (const c of changes) {
-    for (const m of String(c.text ?? '').matchAll(/graduado a spec `([^`]+)`/gi)) {
-      const specName = m[1].trim();
+    for (const m of graduationMarkers(c)) {
+      const ts = m[1].trim();
+      const specName = m[2].trim();
       if (!specNames.has(specName)) {
         err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
       incoming.add(specName);
-      const ts = latestActivity(c);
       const prev = activityBySpec.get(specName);
       if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
     }
@@ -168,6 +190,19 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
   }
 }
 
+function logBody(change) {
+  return String((change.stages ?? []).find((s) => s.key === 'log')?.body ?? '');
+}
+
+function* graduationMarkers(change) {
+  for (const line of logBody(change).split('\n')) {
+    const m = line.match(
+      /\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*\s*—\s*graduado a spec `([^`]+)`/i,
+    );
+    if (m) yield m;
+  }
+}
+
 // Git merge conflict markers: exactly 7 of <, = or > at the start of a line.
 // `<` and `>` never appear in normal markdown; `=` could be a setext H1
 // underline, but Spec Ledger uses ATX headings, so this is safe in practice.
@@ -186,23 +221,99 @@ function checkConflictMarkers(c, err) {
 // (approved/in-progress) whose type activates `## Specification` must map
 // criteria ↔ Plan tasks both ways. Warnings only — it nudges, never blocks.
 // It checks coverage, not whether a criterion is "test-grade" (not parseable).
-function checkCoverage(c, fm, active, config, warn) {
+function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   if (config?.tdd === false) return;
   if (!active?.includes('specification')) return;
-  if (fm.status !== 'approved' && fm.status !== 'in-progress') return;
+  if (!['draft', 'approved', 'in-progress'].includes(fm.status)) return;
+  const report = fm.status === 'draft' ? warn : err;
 
   const declared = c.criteria ?? [];
+  const declaredSet = new Set(declared);
   const tasks = c.tasks ?? [];
   const referenced = new Set(tasks.flatMap((t) => t.criteria ?? []));
+
+  for (const cr of c.criterionBlocks ?? []) {
+    const steps = new Set(cr.steps ?? []);
+    if (!steps.has('Given') || !steps.has('When') || !steps.has('Then')) {
+      report(c, `${cr.id} is not test-grade: missing Given/When/Then`);
+    }
+  }
+
+  for (const t of tasks) {
+    if (!t.criteria?.length) continue;
+    for (const cr of t.criteria) {
+      if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
+    }
+    if (!namesTargetAndVerification(t.text, config)) {
+      for (const cr of t.criteria)
+        report(c, `Plan task for ${cr} must name target and verification`);
+    }
+  }
 
   for (const cr of declared)
     if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
 
   for (const t of tasks)
-    if (!t.criteria?.length) {
+    if (!t.criteria?.length && !isSupportTask(t.text)) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
       warn(c, `Plan task "${label}" references no criterion`);
     }
+}
+
+// A task ending with `(support)` is intentionally operational (running tests,
+// reading docs, scaffolding) and is exempt from the "references no criterion"
+// warning. Readiness checks (target + verification patterns) already skip
+// tasks with no criteria, so no additional exclusion is needed there.
+function isSupportTask(text) {
+  return /\(support\)\s*$/.test(text);
+}
+
+function namesTargetAndVerification(text, config) {
+  const readiness = readinessConfig(config);
+  return (
+    matchesAnyReadinessPattern(text, readiness.target_patterns) &&
+    matchesAnyReadinessPattern(text, readiness.verification_patterns)
+  );
+}
+
+function readinessConfig(config) {
+  return {
+    target_patterns: config?.readiness?.target_patterns ?? ['src/**'],
+    verification_patterns: config?.readiness?.verification_patterns ?? ['test/**'],
+  };
+}
+
+function matchesAnyReadinessPattern(text, patterns) {
+  return patterns.some((pattern) => readinessPatternMatches(text, pattern));
+}
+
+function readinessPatternMatches(text, pattern) {
+  if (/[*?]/.test(pattern)) return readinessGlob(pattern).test(text);
+  return text.includes(pattern);
+}
+
+function readinessGlob(pattern) {
+  let out = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '*') {
+      if (pattern[i + 1] === '*') {
+        out += '.*';
+        i++;
+      } else {
+        out += '[^\\s`)]+';
+      }
+    } else if (ch === '?') {
+      out += '[^\\s`)]';
+    } else {
+      out += escapeRegExp(ch);
+    }
+  }
+  return new RegExp(out);
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
 function checkConfig(config, err) {
@@ -221,6 +332,7 @@ function checkConfig(config, err) {
   }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
+  if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
   for (const [type, def] of Object.entries(c.types ?? {})) {
     for (const s of def?.stages ?? []) {
@@ -229,6 +341,25 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+  }
+}
+
+function checkReadinessConfig(readiness, err) {
+  if (!readiness || typeof readiness !== 'object' || Array.isArray(readiness)) {
+    err(null, 'config "readiness" must be a mapping');
+    return;
+  }
+  for (const key of ['target_patterns', 'verification_patterns']) {
+    if (!(key in readiness)) continue;
+    if (!Array.isArray(readiness[key])) {
+      err(null, `config "readiness.${key}" must be a list`);
+      continue;
+    }
+    for (const pattern of readiness[key]) {
+      if (typeof pattern !== 'string' || pattern.trim() === '') {
+        err(null, `config "readiness.${key}" entries must be non-empty strings`);
+      }
+    }
   }
 }
 

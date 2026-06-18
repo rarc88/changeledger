@@ -17,31 +17,48 @@ export function parseChange(text) {
   const plan = stages.find((s) => s.key === 'plan');
   const tasks = plan ? parseTasks(plan.body) : [];
   const spec = stages.find((s) => s.key === 'specification');
-  const criteria = spec ? parseCriteria(spec.body) : [];
+  const criterionBlocks = spec ? parseCriteria(spec.body) : [];
+  const criteria = criterionBlocks.map((c) => c.id);
   const progress = {
     total: tasks.length,
     done: tasks.filter((t) => t.state === 'done').length,
     blocked: tasks.filter((t) => t.state === 'blocked').length,
   };
 
-  return { frontmatter, stages, tasks, criteria, progress };
+  return { frontmatter, stages, tasks, criteria, criterionBlocks, progress };
 }
 
 // Acceptance criteria declared in `## Specification` as `### CRn — name` blocks.
 function parseCriteria(specBody) {
-  const ids = [];
+  const blocks = [];
+  let current = null;
   for (const line of specBody.split('\n')) {
     const m = line.match(/^###\s+(CR\d+)\b/);
-    if (m) ids.push(m[1]);
+    if (m) {
+      current = { id: m[1], steps: [] };
+      blocks.push(current);
+      continue;
+    }
+    const step = line.match(/^-\s+\*\*(Given|When|Then|And)\*\*/);
+    if (current && step) current.steps.push(step[1]);
   }
-  return ids;
+  return blocks;
 }
 
 function splitStages(body) {
   const stages = [];
   let current = null;
+  let fence = null;
   for (const line of body.split('\n')) {
-    const m = line.match(/^##\s+(.+?)\s*$/);
+    const fenceMark = line.match(/^(`{3,}|~{3,})/);
+    if (fenceMark) {
+      if (!fence) fence = { char: fenceMark[1][0], length: fenceMark[1].length };
+      else if (fenceMark[1][0] === fence.char && fenceMark[1].length >= fence.length) fence = null;
+      if (current) current.body += `${line}\n`;
+      continue;
+    }
+
+    const m = fence ? null : line.match(/^##\s+(.+?)\s*$/);
     if (m) {
       current = { key: m[1].trim().toLowerCase(), heading: m[1].trim(), body: '' };
       stages.push(current);
@@ -63,7 +80,7 @@ function parseTasks(planBody) {
     let resolvedAt;
     let reason;
 
-    const dash = rest.indexOf(' — ');
+    const dash = rest.lastIndexOf(' — ');
     if (dash !== -1) {
       const suffix = rest.slice(dash + 3).trim();
       rest = rest.slice(0, dash).trim();
