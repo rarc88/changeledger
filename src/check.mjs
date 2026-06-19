@@ -332,6 +332,21 @@ function checkConfig(config, err) {
   for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
   }
+  if (
+    Array.isArray(c.statuses) &&
+    c.statuses.includes('in-review') &&
+    !c.statuses.includes('in-validation')
+  ) {
+    err(null, 'config statuses must include "in-validation" before "done"');
+  }
+  if (
+    Array.isArray(c.statuses) &&
+    c.statuses.includes('in-validation') &&
+    c.statuses.includes('done') &&
+    c.statuses.indexOf('in-validation') > c.statuses.indexOf('done')
+  ) {
+    err(null, 'config status "in-validation" must appear before "done"');
+  }
   // changes_dir/specs_dir must stay inside the repo. The pure checker catches
   // shape escapes (absolute paths, `..` traversal); the symlink case is enforced
   // at command time by resolveRepoPath, which needs IO.

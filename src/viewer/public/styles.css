@@ -243,6 +243,19 @@ body {
   color: var(--blocked);
   font-weight: 600;
 }
+.validation-actions {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.validation-actions p {
+  margin: 0 0 10px;
+}
+.validation-actions button + button {
+  margin-left: 8px;
+}
 .owner {
   font-weight: 600;
 }

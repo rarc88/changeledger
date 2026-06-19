@@ -163,6 +163,28 @@ test('CR11: wip counts an in-review change as active', () => {
   assert.equal(m.wip['in-review'], 1);
 });
 
+test('171002 CR1: validation is active WIP and contributes time in status', () => {
+  const c = change({
+    id: 'v',
+    created: '2026-06-13T10:00:00Z',
+    status: 'in-validation',
+    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-validation`,
+  });
+  const m = computeMetrics([c], { now: '2026-06-13T13:00:00Z' });
+  assert.equal(m.wip['in-validation'], 1);
+  assert.equal(m.timeInStatus.find((t) => t.state === 'in-validation').totalMs, 2 * HOUR);
+});
+
+test('171002 CR2: human validation is the canonical done transition', () => {
+  const c = change({
+    id: 'v',
+    created: '2026-06-13T10:00:00Z',
+    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-validation
+- **2026-06-13T12:00:00Z** — validation → done (human accepted)`,
+  });
+  assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
+});
+
 test('CR2: blockedMs sums time spent blocked', () => {
   const c = change({
     id: 'c',

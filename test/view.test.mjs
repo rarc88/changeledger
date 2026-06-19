@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
+import { review, status } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -454,7 +455,50 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
-test('CR1: changeStatus rejects a non draft→approved move without writing', () => {
+test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
+  isolatedHome();
+  const root = newRepo();
+  const acceptedFile = newChange(
+    { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const rejectedFile = newChange(
+    { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:01Z' },
+    root,
+  );
+  const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
+  const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
+  for (const id of [acceptedId, rejectedId]) {
+    status(id, 'approved', root);
+    status(id, 'in-progress', root);
+    status(id, 'in-review', root);
+    review(id, 'pass', {}, root);
+  }
+  const { projects, current } = resolveProjects(root, false);
+
+  const accepted = changeStatus(projects, { project: current, id: acceptedId, status: 'done' });
+  assert.equal(accepted.code, 200);
+  assert.equal(parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.status, 'done');
+
+  const missingReason = changeStatus(projects, {
+    project: current,
+    id: rejectedId,
+    status: 'in-progress',
+  });
+  assert.equal(missingReason.code, 400);
+  const rejected = changeStatus(projects, {
+    project: current,
+    id: rejectedId,
+    status: 'in-progress',
+    reason: 'manual scenario failed',
+  });
+  assert.equal(rejected.code, 200);
+  const parsed = parseChange(fs.readFileSync(rejectedFile, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(parsed.stages.find((s) => s.key === 'log').body, /manual scenario failed/);
+});
+
+test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {
   isolatedHome();
   const root = newRepo();
   const file = newChange(
@@ -464,7 +508,7 @@ test('CR1: changeStatus rejects a non draft→approved move without writing', ()
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
 
-  // draft → done is the agent's job, not the human's: rejected, no write.
+  // A draft cannot be accepted as complete: rejected, no write.
   const before = fs.readFileSync(file, 'utf8');
   const res = changeStatus(projects, { project: current, id, status: 'done' });
   assert.equal(res.code, 403);

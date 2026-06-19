@@ -14,9 +14,9 @@ export const getGitRefs = (project, id) =>
 export const searchAllProjects = (query) =>
   fetch(`/api/search?q=${encodeURIComponent(query)}`).then((r) => r.json());
 
-export const postStatus = (project, id, status) =>
+export const postStatus = (project, id, status, reason) =>
   fetch('/api/status', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-sl-token': window.__SL_TOKEN__ },
-    body: JSON.stringify({ project, id, status }),
+    body: JSON.stringify({ project, id, status, ...(reason ? { reason } : {}) }),
   });

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { status as applyStatusCmd } from '../commands/agent.mjs';
+import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
 import { findSpecDir, loadConfig } from '../config.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -93,7 +93,7 @@ export function searchProjects(projects, q, load = loadRepo) {
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-export function changeStatus(projects, { project, id, status }) {
+export function changeStatus(projects, { project, id, status, reason }) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
@@ -101,9 +101,8 @@ export function changeStatus(projects, { project, id, status }) {
   if (!proj.alive) return { code: 410, body: { error: 'project path is gone' } };
   if (!id || !status) return { code: 400, body: { error: 'id and status are required' } };
 
-  // The viewer is the human's surface, and the only lifecycle move that belongs
-  // to the human is approval: draft → approved. The rest of the cycle is the
-  // agent's job (via `sl status`). Enforce it here — the UI is bypassable.
+  // The viewer is the human's surface. Enforce the human/agent boundary here —
+  // the UI is bypassable.
   let current;
   try {
     const change = loadRepo(proj.path).changes.find((c) => String(c.frontmatter.id) === String(id));
@@ -112,15 +111,21 @@ export function changeStatus(projects, { project, id, status }) {
   } catch (e) {
     return { code: 400, body: { error: e.message } };
   }
-  if (current !== 'draft' || status !== 'approved') {
-    return {
-      code: 403,
-      body: { error: 'the viewer only allows the draft → approved transition' },
-    };
-  }
-
   try {
-    applyStatusCmd(id, status, proj.path);
+    if (current === 'draft' && status === 'approved') {
+      applyStatusCmd(id, status, proj.path);
+    } else if (current === 'in-validation' && status === 'done') {
+      applyValidation(id, 'pass', {}, proj.path);
+    } else if (current === 'in-validation' && status === 'in-progress') {
+      applyValidation(id, 'fail', { reason }, proj.path);
+    } else {
+      return {
+        code: 403,
+        body: {
+          error: 'the viewer only allows draft → approved and in-validation → done|in-progress',
+        },
+      };
+    }
     return { code: 200, body: { ok: true, id, status } };
   } catch (e) {
     return { code: 400, body: { error: e.message } };

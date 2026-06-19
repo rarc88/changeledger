@@ -2,9 +2,10 @@
 id: "20260619-171002"
 title: Validación humana antes de cerrar un change
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-19T17:10:02Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -180,10 +181,10 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Extender `src/lifecycle.mjs`, `src/commands/agent.mjs` y el CLI para `in-validation`, aceptación y rechazo con motivo; verificar en `test/lifecycle.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Actualizar `src/viewer/domain.mjs`, `src/viewer/public/app.js` y las rutas del viewer para presentar aceptación/rechazo humano de `in-validation`; verificar en `test/view.test.mjs` y `test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
-- [ ] Incorporar `in-validation` en `src/metrics.mjs`, `src/check.mjs` y `.sl/config.yml`; verificar en `test/metrics.test.mjs`, `test/check.test.mjs` y `test/cli.test.mjs` (CR1, CR4, CR5)
-- [ ] Actualizar `templates/AGENTS.md` con el gate humano, el triage y autorización de backlog y la política Git contextual; verificar con `test/cli.test.mjs` (CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Extender `src/lifecycle.mjs`, `src/commands/agent.mjs` y el CLI para `in-validation`, aceptación y rechazo con motivo; verificar en `test/lifecycle.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-19T17:37:37Z
+- [x] Actualizar `src/viewer/domain.mjs`, `src/viewer/public/app.js` y las rutas del viewer para presentar aceptación/rechazo humano de `in-validation`; verificar en `test/view.test.mjs` y `test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-06-19T17:37:37Z
+- [x] Incorporar `in-validation` en `src/metrics.mjs`, `src/check.mjs` y `.sl/config.yml`; verificar en `test/metrics.test.mjs`, `test/check.test.mjs` y `test/cli.test.mjs` (CR1, CR4, CR5) — 2026-06-19T17:37:37Z
+- [x] Actualizar `templates/AGENTS.md` con el gate humano, el triage y autorización de backlog y la política Git contextual; verificar con `test/cli.test.mjs` (CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-19T17:37:51Z
 - [ ] Graduar el ciclo y las reglas de trazabilidad a `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9)
 - [ ] Ejecutar `pnpm verify` y validar manualmente en el viewer aprobación, rechazo con motivo y segundo intento de un change de prueba (support)
 
@@ -193,3 +194,7 @@ Alternativas descartadas:
 - **2026-06-19T17:10:02Z** — Alcance simplificado durante la conversación: sin `extends`, sin estados nuevos de tarea y sin `validation_required`; `depends_on` y las tareas actuales son suficientes, `review_required` conserva exclusivamente su significado de revisión técnica opcional y la validación humana es universal.
 - **2026-06-19T17:10:02Z** — Ampliado antes de aprobación: el agente propone backlog independiente y espera autorización; los pasos operativos permanecen dentro del flujo actual y no generan chores artificiales.
 - **2026-06-19T17:28:29Z** — status: draft → approved
+- **2026-06-19T17:29:46Z** — status: approved → in-progress
+- **2026-06-19T17:29:46Z** — owner → Roberto Ruiz (auto)
+- **2026-06-19T17:37:38Z** — Implementado ciclo universal de validación humana, acciones de aceptación/rechazo en viewer y métricas/check; suite focalizada verde.
+- **2026-06-19T17:37:51Z** — Commit combinado de tareas 1–4: la migración de config y las reglas del contrato comparten test/cli.test.mjs; se mantiene la graduación de architecture.md como unidad separada.

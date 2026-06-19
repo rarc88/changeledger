@@ -129,8 +129,8 @@ function renderBoard() {
     }),
     board,
   );
-  // The only human-driven lifecycle move is approval: draft → approved. So only
-  // draft cards are draggable, and only the approved column is a drop target.
+  // Dragging is reserved for initial approval. Final validation uses explicit
+  // detail actions because rejection requires a reason.
   board.querySelectorAll('.card').forEach((el) => {
     el.onclick = () => openDetail(el.dataset.id);
     const c = state.repo.changes.find((x) => String(x.id) === String(el.dataset.id));
@@ -159,10 +159,10 @@ function renderBoard() {
   }
 }
 
-// Persist the human approval move (draft → approved), then refresh the board.
-async function moveStatus(id, status) {
+// Persist a human-owned lifecycle move, then refresh the board.
+async function moveStatus(id, status, reason) {
   try {
-    const res = await postStatus(state.currentProject, id, status);
+    const res = await postStatus(state.currentProject, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
       alert(out.error || 'status change failed');
@@ -202,6 +202,15 @@ function openDetail(id) {
       <span class="pill" title=${c.created || ''}>${fmtDateTime(c.created)}</span>
       ${deps}
     </div>
+    ${
+      c.status === 'in-validation'
+        ? html`<div class="validation-actions">
+          <p>Human validation: test the complete change before accepting it.</p>
+          <button type="button" data-validation="pass">Accept change</button>
+          <button type="button" data-validation="fail">Reject with reason</button>
+        </div>`
+        : nothing
+    }
     <div class="pipeline">${pipeline}</div>
     ${stages}
     <div id="git-section"></div>`,
@@ -211,6 +220,15 @@ function openDetail(id) {
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
   $('.close').onclick = closeDetail;
+  const accept = $('#detail').querySelector('[data-validation="pass"]');
+  if (accept) accept.onclick = () => moveStatus(c.id, 'done');
+  const reject = $('#detail').querySelector('[data-validation="fail"]');
+  if (reject) {
+    reject.onclick = () => {
+      const reason = prompt('Why did the complete change fail validation?')?.trim();
+      if (reason) moveStatus(c.id, 'in-progress', reason);
+    };
+  }
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };

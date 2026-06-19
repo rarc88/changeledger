@@ -26,6 +26,9 @@ export function status(
   if (newStatus === 'discarded') {
     throw new Error('to discard a change use `sl discard <id> "<reason>"` (a reason is required)');
   }
+  if (newStatus === 'done') {
+    throw new Error('to complete a change use human validation in the viewer');
+  }
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
@@ -54,7 +57,7 @@ export function status(
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
-// with clean context — see AGENTS.md §6). `pass` graduates the change to done;
+// with clean context — see AGENTS.md §6). `pass` advances to human validation;
 // `fail` routes it back: `retry` for a defect inside the contract (the
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
@@ -67,8 +70,12 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
     }
 
     if (verdict === 'pass') {
-      text = setStatus(text, 'done');
-      text = appendLog(text, nowUtc(), 'review → done (delegated subagent, clean context)');
+      text = setStatus(text, 'in-validation');
+      text = appendLog(
+        text,
+        nowUtc(),
+        'review → in-validation (delegated subagent, clean context)',
+      );
     } else if (verdict === 'fail') {
       if (!reason) {
         throw new Error('fail requires a reason — sl review <id> fail --retry|--block "<reason>"');
@@ -87,6 +94,29 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
     }
 
     return text;
+  });
+  return file;
+}
+
+// Records the human verdict for the complete change. This is intentionally
+// separate from `status`: only the human-facing viewer may close a change.
+export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
+  const { file } = locate(cwd, id);
+  mutateFileAtomic(file, (text) => {
+    const { status: current } = parseChange(text).frontmatter;
+    if (current !== 'in-validation') {
+      throw new Error(`validation requires status in-validation (current: ${current})`);
+    }
+    if (verdict === 'pass') {
+      text = setStatus(text, 'done');
+      return appendLog(text, nowUtc(), 'validation → done (human accepted)');
+    }
+    if (verdict === 'fail') {
+      if (!reason) throw new Error('validation fail requires a reason');
+      text = setStatus(text, 'in-progress');
+      return appendLog(text, nowUtc(), `validation → in-progress (human rejected): ${reason}`);
+    }
+    throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
   });
   return file;
 }

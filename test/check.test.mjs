@@ -150,6 +150,27 @@ test('config missing a required key is an error', () => {
   assert.ok(msgs(errors).some((m) => /config missing "statuses"/.test(m)));
 });
 
+test('171002 CR1: legacy review configs require in-validation before done', () => {
+  const missing = {
+    ...config,
+    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'blocked', 'done'],
+  };
+  assert.ok(
+    msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
+      /must include "in-validation" before "done"/.test(m),
+    ),
+  );
+  const misplaced = {
+    ...config,
+    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'in-validation'],
+  };
+  assert.ok(
+    msgs(checkRepo({ config: misplaced, changes: [] }).errors).some((m) =>
+      /"in-validation" must appear before "done"/.test(m),
+    ),
+  );
+});
+
 test('config type referencing an unknown stage is an error', () => {
   const bad = { ...config, types: { feature: { stages: ['request', 'banana'] } } };
   const { errors } = checkRepo({ config: bad, changes: [] });

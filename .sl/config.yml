@@ -31,14 +31,14 @@ changes_dir: .sl/changes
 specs_dir: .sl/specs
 
 # Valid lifecycle statuses (order = progress)
-statuses: [draft, approved, in-progress, in-review, blocked, done, discarded]
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
 
 # Canonical stages (## headings in the change body)
 stages: [request, investigation, proposal, specification, plan, log]
 
 # Active stages per type. The viewer shows only these.
 # `review_required: true` makes the change pass through `in-review` (an
-# independent subagent review) before `done`. See AGENTS.md §5/§6.
+# independent subagent review) before universal human validation. See AGENTS.md §5/§6.
 types:
   feature:
     stages: [request, investigation, proposal, specification, plan, log]

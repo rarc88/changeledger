@@ -3,20 +3,20 @@
 // Everything is reconstructed from `created` plus the `## Log` status
 // transitions. The viewer renders the result.
 
-const ACTIVE = ['approved', 'in-progress', 'in-review', 'blocked'];
+const ACTIVE = ['approved', 'in-progress', 'in-review', 'in-validation', 'blocked'];
 
 function logBody(change) {
   return (change.stages ?? []).find((s) => s.key === 'log')?.body ?? '';
 }
 
 function logTransition(line) {
-  const m = line.match(/\*\*([^*]+)\*\*\s*—\s*(?:status:.*|review)\s*→\s*([a-z-]+)\b/);
+  const m = line.match(/\*\*([^*]+)\*\*\s*—\s*(?:status:.*|review|validation)\s*→\s*([a-z-]+)\b/);
   if (!m) return null;
   return { at: m[1].trim(), state: m[2].trim() };
 }
 
 // The moment a change reached `done`: the last lifecycle transition to done, or
-// null. Done can be written either by `sl status` or by `sl review pass`.
+// null. Canonical done is written by a passed human validation.
 export function doneAt(change) {
   let at = null;
   for (const line of logBody(change).split('\n')) {

@@ -13,8 +13,8 @@ Any agent working in this repo **must** follow this convention.
 
 ## 1. Principles
 
-1. Every change starts from a conversation and is captured as a **change**
-   document before touching code.
+1. Every authorized change starts from a conversation and is captured as a
+   **change** document before touching code.
 2. The document wins. If code and document diverge, the document is the truth:
    update the code, never quietly drift the document.
 3. Humans consume these documents in the **viewer** (`sl view`), not as raw
@@ -53,7 +53,7 @@ viewer) plus a body of **stages** (the lifecycle).
 id: "0001"
 title: Short, clear title
 type: feature                  # feature | bug | audit | refactor | chore
-status: draft                  # draft | approved | in-progress | blocked | done
+status: draft                  # draft | approved | in-progress | in-review | in-validation | blocked | done | discarded
 created: 2026-06-13T13:45:48Z  # full ISO 8601 UTC timestamp
 depends_on: []                 # ids of other changes, e.g. ["0000"]
 owner: ana                     # optional — who is working on it (see below)
@@ -143,42 +143,50 @@ suffix for the reason. Order on the line: `description (CRn) — timestamp|reaso
 ## 5. Lifecycle (`status`)
 
 ```
-draft → approved → in-progress → in-review → done
-                       ↑↓            │
-                    blocked ←─────────┘
+draft → approved → in-progress
+in-progress → in-review → in-validation → done   [review required]
+in-progress → in-validation → done               [no review required]
+in-review → in-progress                           [review retry]
+in-review → blocked → in-progress                 [review escalation]
+in-validation → in-progress                       [human rejection]
 
 (draft | approved | in-progress | blocked) → discarded   [terminal]
 ```
 
-- **draft** — the agent created it from the conversation. Do not implement yet.
+- **draft** — created after a human request or authorization. Do not implement yet.
 - **approved** — the human reviewed it in the viewer and approved. Ready to build.
 - **in-progress** — implementation underway; tick tasks as you go.
 - **in-review** — implementation complete; awaiting an **independent review**
-  before `done` (see §6). Only for types with `review_required: true` in
-  `config.yml`; others go straight `in-progress → done`.
+  (see §6). Only for types with `review_required: true` in `config.yml`; others
+  go straight `in-progress → in-validation`.
+- **in-validation** — implementation and any required independent review are
+  complete; the **human** tests and accepts or rejects the change as a whole.
+  Acceptance reaches `done`; rejection with a reason returns to `in-progress`.
 - **blocked** — blocked; at least one `[!]` task or external impediment, or a
   review that escalated to a human. Note it in Log.
-- **done** — all tasks `[x]`, acceptance criteria met, review passed.
+- **done** — terminal: all tasks `[x]`, criteria met, required review passed, and
+  the human accepted the complete result.
 - **discarded** — a terminal tombstone: the change was decided against. Reachable
-  from any active, non-terminal state (not from `done` or `in-review`) via
+  from an active state before the closing gates (not from `done`, `in-review` or
+  `in-validation`) via
   `sl discard <id> "<reason>"` — the reason is **required** and logged. Prefer
   this over deleting the file: the decision and its rationale stay part of the
   truth, and `depends_on` references keep resolving. Hidden from the board by
-  default; revealed by the viewer's "Discarded" toggle. Resurrecting a discarded
-  change is a manual file edit (like reopening a `done`).
+  default; revealed by the viewer's "Discarded" toggle. Terminal changes are
+  never resurrected; later work gets a new authorized change.
 
 **Transitions are enforced.** `sl status` validates the graph above; a move
-outside it (e.g. `in-progress → done` while `review_required`, or reopening a
-`done`) is rejected. `sl status` also refuses `discarded` — use the dedicated
-`sl discard <id> "<reason>"` so a reason is always captured. Reopening or
-un-approving is not the CLI's job — edit the file directly. The viewer only ever
-performs `draft → approved` (the human's one move); the rest is the agent's job
-via the CLI.
+outside it (e.g. skipping `in-validation`, or reopening a `done`) is rejected.
+`sl status` refuses both `done` (human acceptance belongs to the viewer) and
+`discarded` — use the dedicated
+`sl discard <id> "<reason>"` so a reason is always captured. The viewer only
+performs the human-owned moves: `draft → approved` and
+`in-validation → done|in-progress`. The agent performs the rest via the CLI.
 
 ## 6. Agent rules
 
-1. **One concern per change.** If a request mixes unrelated concerns, split it
-   into separate changes (e.g. a bug fix and a new feature are two changes).
+1. **One concern per change.** If a request mixes unrelated concerns, propose
+   separate changes for human authorization (e.g. a bug fix and a new feature).
 2. **Do not implement in `draft`.** Create the change, wait for human approval.
 3. **Single source of truth.** Do not duplicate info across stages; link instead.
 4. **Git workflow protects traceability.** Never implement approved changes on
@@ -187,48 +195,71 @@ via the CLI.
    changes exist, do not include them silently: ask whether to stash, commit,
    ignore, or include them. After human approval, commit the approved change
    documentation before touching implementation code. Implement one change at a
-   time; when a change is complete (tests, review, and graduation/skip), commit
-   that change and its related truth before starting another. Commit messages
-   reference the id, e.g. `feat(scope): description [#0001]`. If shared files
-   make a combined commit unavoidable, call it out explicitly in the Log or
-   final response and name the changes that share the surface.
+   time. Commit a completed unit before continuing when another task, change, or
+   modification of the same surface could make attribution ambiguous; do not
+   wait until the end to reconstruct mixed diffs. Commit messages reference the
+   id, e.g. `feat(scope): description [#0001]`. If shared files make a combined
+   commit unavoidable, call it out explicitly in the Log or final response and
+   name the changes that share the surface.
+
+   **Human-rejected correction.** After `in-validation → in-progress`, keep the
+   candidate correction uncommitted until the human confirms it fixes the
+   reported failure. Iterate on the same diff if it fails again; do not start
+   another task or change while it waits, because the worktree is the isolation
+   boundary. After human acceptance, graduate/skip and commit the validated
+   correction with its related ledger truth. This exception prevents false fix
+   attempts from becoming permanent history; it does not relax intermediate
+   commits for already verified units.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
-6. **Independent review before `done`.** When the implementation is complete,
+6. **Independent review when configured.** When the implementation is complete,
    move to `in-review` and **delegate the review to a fresh subagent** — clean
    context (no implementation history, so no bias) and a model **sized to the
    difficulty** (don't spend a costly model on a trivial check). The reviewer
-   verifies: every `CRn` is met, no residue (rule 7), the Plan is truly done, and
-   the spec graduation is faithful (§10). Deep security/SAST/lint live in
+   verifies: every `CRn` is met, no residue (rule 8), and the Plan is truly done.
+   Deep security/SAST/lint live in
    dedicated tools — the reviewer may invoke them and record the verdict, but Spec
    Ledger does not reimplement them. Record the verdict with `sl review` (§9):
-   `pass → done`; `fail --retry` (defect inside the contract → back to
+   `pass → in-validation`; `fail --retry` (defect inside the contract → back to
    `in-progress`); `fail --block` (exceeds the contract → `blocked` for a human).
    *How* the subagent is spawned is the host agent's concern; the contract only
-   fixes that it must be a clean-context subagent. Skipped for types without
-   `review_required`.
-7. **No residue:** no TODO/FIXME or dead code without explicit agreement.
-8. **On completion**, graduate the truth: update or create the `specs/` doc(s)
+   fixes that it must be a clean-context subagent. Types without
+   `review_required` move directly from `in-progress` to `in-validation`.
+7. **Human validation before `done`.** The agent stops at `in-validation` and
+   asks the human to test the complete result in the viewer. The agent never
+   accepts on the human's behalf. A rejection requires a reason and returns the
+   same change to `in-progress`; update its Specification/Plan and add ordinary
+   tasks as needed, then repeat review (when configured) and validation. `done`
+   and `discarded` never reopen.
+8. **No residue:** no TODO/FIXME or dead code without explicit agreement.
+9. **On completion**, graduate the truth: update or create the `specs/` doc(s)
    that capture the new persistent state (see §10).
-9. **Prefer visuals.** When a diagram explains something better than prose
+10. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
-10. **Delegation is the agent's call.** Spec Ledger is agnostic to *how* work
+11. **Delegation is the agent's call.** Spec Ledger is agnostic to *how* work
     gets done: any stage may be delegated to subagents — sized to the difficulty
     — at the host agent's discretion, and the contract never prescribes the
     mechanism (that is the agent's and harness's responsibility). The one
     exception is the review (§6.6), where delegation to a **clean-context**
     subagent is a *contract requirement* — there, independence is correctness,
     not an optimization.
-11. **Capture friction as future work.** Before closing a turn or a change,
-    actively review any friction, ambiguity, bug, or improvement discovered while
-    using Spec Ledger. If it is actionable and outside the current change, create
-    a separate `draft` change (one concern per file) with brief investigation and
-    criteria. If it belongs to the current change, record it in that change's
-    `## Log` or adjust its Specification/Plan. If it is not actionable enough for
-    backlog, mention it in the final response instead of silently dropping it.
-    Friction capture must not mix concerns into the implementation at hand or
-    block closing work that is otherwise complete.
+12. **Triage friction before creating backlog.** Before closing a turn or
+    change, review any friction, ambiguity, bug, or improvement discovered while
+    using Spec Ledger, then classify it:
+    - If it is necessary to fulfill the purpose of an active change, update that
+      change's Specification/Plan/Log; do not create another.
+    - If it is an operational step of the current flow (verify, commit, graduate,
+      archive, close), execute or record it in the current change; it is not a
+      new change.
+    - If it is independent, too large, or materially expands impact, propose its
+      type, title, and reason to the human. Create the draft only after explicit
+      authorization; a direct request such as “create the change” is already
+      authorization. Batch proposals at the end of the turn when practical.
+    - If it is too vague for backlog, mention it without creating a file.
+
+    This triage must not mix independent concerns into active work or block work
+    that is otherwise ready for validation.
 
 ## 7. IDs
 
@@ -265,7 +296,8 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl register` — (re)link this repo's path in the global registry after a move/clone.
 - `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
 - `sl status <id> <status>` — move the lifecycle and log the transition.
-- `sl review <id> pass` — record a passed independent review (`in-review → done`).
+- `sl review <id> pass` — record a passed independent review
+  (`in-review → in-validation`).
 - `sl review <id> fail --retry|--block "<reason>"` — record a failed review,
   routing back to `in-progress` (fixable) or `blocked` (escalates to a human).
 - `sl owner <id> <name|->` — set or clear the owner (`-` clears).

@@ -18,6 +18,7 @@ import {
   show,
   status,
   task,
+  validation,
 } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
@@ -60,7 +61,7 @@ test('status rejects an invalid value without writing', () => {
 test('status rejects an illegal lifecycle jump without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
+  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
@@ -245,25 +246,25 @@ const reach = (id, root, target) => {
   }
 };
 
-test('CR3: status blocks in-progress → done for a review_required type', () => {
+test('171002 CR1: status blocks review-required in-progress → in-validation', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-progress');
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => status(id, 'done', root),
-    /feature changes must be reviewed before done — move to in-review first/,
+    () => status(id, 'in-validation', root),
+    /feature changes must be reviewed before validation — move to in-review first/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR4: a chore goes in-progress → done directly', () => {
+test('171002 CR5: a chore goes directly to in-validation, not done', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
   status(id, 'in-progress', root);
-  status(id, 'done', root);
+  status(id, 'in-validation', root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'done');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → done/);
+  assert.equal(c.frontmatter.status, 'in-validation');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → in-validation/);
 });
 
 test('CR5: status rejects approved → in-review without writing', () => {
@@ -280,20 +281,53 @@ test('CR5: status rejects approved → in-review without writing', () => {
 test('CR12: status rejects draft → done without writing', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'done', root), /invalid lifecycle transition: draft → done/);
+  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR6: review pass moves to done and marks the delegation', () => {
+test('171002 CR1: review pass moves to validation and marks the delegation', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');
   review(id, 'pass', {}, root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.equal(c.frontmatter.status, 'done');
+  assert.equal(c.frontmatter.status, 'in-validation');
   assert.match(
     c.stages.find((s) => s.key === 'log').body,
-    /review → done \(delegated subagent, clean context\)/,
+    /review → in-validation \(delegated subagent, clean context\)/,
   );
+});
+
+test('171002 CR2: human validation pass closes the complete change', () => {
+  const { root, file, id } = repoWithChange();
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'done');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
+});
+
+test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
+  const { root, file, id } = repoWithChange();
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => validation(id, 'fail', {}, root), /requires a reason/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  validation(id, 'fail', { reason: 'fails on device' }, root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'in-progress');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /human rejected\): fails on device/);
+});
+
+test('171002 CR2: generic status cannot close a change on behalf of the human', () => {
+  const { root, file, id } = repoWithChore();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-validation', root);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('CR7: review fail --retry returns to in-progress with the reason', () => {
@@ -417,10 +451,10 @@ test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', 
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
   status(id, 'in-progress', root);
-  // a non-review_required path: chore would go straight to done, but feature needs review.
-  // Drive it to done via the review gate to test "cannot discard done".
+  // Drive the feature through review and human validation to test terminal done.
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => discard(id, 'too late', root),

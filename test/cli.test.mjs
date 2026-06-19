@@ -86,17 +86,17 @@ test('122611 CR3: installed contract recommends structural verify clauses', () =
   assert.match(contract, /instead of listing every possible manual phrase/);
 });
 
-test('212840 CR1/CR2/CR3/CR4: installed contract captures friction as future work', () => {
+test('171002 CR6/CR9: installed contract triages friction before authorized backlog', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /Capture friction as future work/);
-  assert.match(contract, /separate `draft` change/);
-  assert.match(contract, /current change/);
-  assert.match(contract, /`## Log`/);
-  assert.match(contract, /not actionable enough for\s+backlog/);
-  assert.match(contract, /must not mix concerns/);
+  assert.match(contract, /Triage friction before creating backlog/);
+  assert.match(contract, /necessary to fulfill the purpose of an active change/);
+  assert.match(contract, /operational step.*verify, commit, graduate/);
+  assert.match(contract, /propose its\s+type, title, and reason to the human/);
+  assert.match(contract, /Create the draft only after explicit\s+authorization/);
+  assert.match(contract, /too vague for backlog/);
 });
 
-test('161309 CR1-CR5: installed contract requires branch-safe atomic commits', () => {
+test('171002 CR7/CR8: installed contract preserves traceability without false-fix commits', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(contract, /Never implement approved changes on\s+`main`, `master`, or `dev`/);
   assert.match(contract, /inspect the worktree/);
@@ -106,8 +106,19 @@ test('161309 CR1-CR5: installed contract requires branch-safe atomic commits', (
     /commit the approved change\s+documentation before touching implementation code/,
   );
   assert.match(contract, /Implement one change at a\s+time/);
-  assert.match(contract, /commit\s+that change and its related truth before starting another/);
-  assert.match(contract, /If shared files\s+make a combined commit unavoidable/);
+  assert.match(contract, /Commit a completed unit before continuing/);
+  assert.match(contract, /candidate correction uncommitted until the human confirms/);
+  assert.match(contract, /do not start\s+another task or change while it waits/);
+  assert.match(contract, /If shared files\s+make a combined\s+commit unavoidable/);
+});
+
+test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /in-progress → in-review → in-validation → done/);
+  assert.match(contract, /in-progress → in-validation → done/);
+  assert.match(contract, /human accepted the complete result/);
+  assert.match(contract, /agent never\s+accepts on the human's behalf/);
+  assert.match(contract, /`done`\s+and `discarded` never reopen/);
 });
 
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
@@ -177,6 +188,7 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
     'approved',
     'in-progress',
     'in-review',
+    'in-validation',
     'blocked',
     'done',
     'discarded',

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { validation } from '../src/commands/agent.mjs';
 
 const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'sl.mjs');
 
@@ -120,10 +121,11 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
-  // chore: no review gate, straight to done.
-  for (const s of ['approved', 'in-progress', 'done']) {
+  // chore: no review gate, but human validation is still required.
+  for (const s of ['approved', 'in-progress', 'in-validation']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
   }
+  validation(id, 'pass', {}, root);
 
   const specFile = path.join(root, '.sl', 'specs', 'architecture.md');
   fs.mkdirSync(path.dirname(specFile), { recursive: true });
