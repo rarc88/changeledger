@@ -188,6 +188,7 @@ Alternativas descartadas:
 - [x] Graduar el ciclo y las reglas de trazabilidad a `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-19T17:38:52Z
 - [x] Ejecutar `pnpm verify` y validar manualmente en el viewer aprobación, rechazo con motivo y segundo intento de un change de prueba (support) — 2026-06-19T17:44:32Z
 - [x] Reemplazar el `prompt()` de rechazo por motivo visible en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar manualmente en el viewer y con `test/view.test.mjs` (CR3) — 2026-06-19T17:44:19Z
+- [x] Ajustar topbar y board en `src/viewer/public/styles.css` para que siete estados no partan `Done` ni expongan un scrollbar nativo claro; verificar manualmente a 1920 px y con `pnpm test -- test/view.test.mjs` (CR1) — 2026-06-19T17:53:30Z
 
 ## Log
 
@@ -202,3 +203,7 @@ Alternativas descartadas:
 - **2026-06-19T17:38:52Z** — Graduada la semántica persistente de lifecycle, autorización de backlog y trazabilidad Git en architecture.md, eliminando reglas anteriores contradictorias.
 - **2026-06-19T17:40:27Z** — La verificación manual detectó que `prompt()` no ofrece un flujo de rechazo fiable; se amplía el mismo change con un campo de motivo visible, sin crear backlog separado.
 - **2026-06-19T17:44:33Z** — pnpm verify verde (334 tests). Smoke manual en fixture: rechazo con motivo → in-progress, segundo intento → in-validation, aceptación → done.
+- **2026-06-19T17:45:10Z** — status: in-progress → in-review
+- **2026-06-19T17:50:56Z** — status: in-review → in-progress
+- **2026-06-19T17:50:56Z** — Feedback humano durante in-review: la séptima columna hace que Done salte de línea en la topbar y expone un scrollbar horizontal nativo blanco; vuelve a in-progress para corregir el mismo change.
+- **2026-06-19T17:53:30Z** — Layout validado a 1920×960: siete chips en una sola línea, topbar de 54px y board sin overflow (clientWidth=scrollWidth=1920); scrollbar oscuro queda como fallback intermedio.
