@@ -151,11 +151,13 @@ stateDiagram-v2
     draft --> approved: humano aprueba (viewer)
     approved --> in_progress
     in_progress --> in_review: review_required
-    in_progress --> done: si NO review_required
+    in_progress --> in_validation: si NO review_required
     in_progress --> blocked
-    in_review --> done: review pass
+    in_review --> in_validation: review pass
     in_review --> in_progress: fail --retry
     in_review --> blocked: fail --block
+    in_validation --> done: humano acepta (viewer)
+    in_validation --> in_progress: humano rechaza con motivo
     blocked --> in_progress
     draft --> discarded: sl discard "razón"
     approved --> discarded
@@ -172,46 +174,49 @@ change se decidió no hacer. Se alcanza desde cualquier estado activo no termina
 archivo: la decisión y su porqué siguen siendo verdad, y las referencias
 `depends_on` se mantienen resolubles. El visor lo oculta por defecto (toggle
 "Discarded") y nunca le da columna. `sl status` rechaza `discarded` para forzar
-el verbo con razón; tampoco es alcanzable desde el visor (solo hace `draft → approved`).
+el verbo con razón; tampoco es alcanzable desde el visor.
 
-El gate **`in-review`** cierra el lazo doc↔código: un change con implementación
-verificable no llega a `done` sin una **revisión independiente**. La revisión la
+El gate opcional **`in-review`** cierra el lazo doc↔código para los tipos que
+requieren una **revisión independiente**. La revisión la
 ejecuta un **subagente con contexto limpio** (sin el historial de implementación,
 para no heredar sesgo) y un **modelo acorde a la dificultad**. *Qué* valida:
-cada `CRn` cumplido, sin residuo, Plan realmente hecho, graduación fiel. La
+cada `CRn` cumplido, sin residuo y Plan realmente hecho. La
 auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
 revisor puede invocar; Spec Ledger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el qué.
 
 **Activación por tipo.** `config.yml` marca `review_required: true` por tipo
-(`feature`, `bug`, `refactor` por defecto). `chore` y `audit` lo saltan y van
-`in-progress → done` directo.
+(`feature`, `bug`, `refactor` por defecto). `chore` y `audit` saltan únicamente
+la revisión: van `in-progress → in-validation`. Todo tipo pasa por validación
+humana antes de `done`; así `done` siempre significa resultado aceptado.
 
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
 es la **única autoridad**, compartida por `sl status` y el visor.
 `lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
 completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así que
-el CLI rechaza cualquier salto inválido (`draft → done` →
-`invalid lifecycle transition: draft → done`), regresiones y no-ops
-(`change is already "X"`), y el gate (`in-progress → done` bajo `review_required`
-→ mensaje accionable). Entre statuses no canónicos degrada a validación por enum.
-Mover fuera del grafo (reabrir un `done`, des-aprobar) no es del CLI: se edita el
-archivo. El visor añade una restricción humana extra: solo permite
-`draft → approved`.
+el CLI rechaza saltos, regresiones y no-ops
+(`change is already "X"`), y el gate (`in-progress → in-validation` bajo
+`review_required` → mensaje accionable). Entre statuses no canónicos degrada a
+validación por enum. `sl status done` se rechaza por separado porque solo el
+veredicto humano puede cerrar. `done` y `discarded` son terminales y nunca se reabren. El
+visor añade la política de actor: permite únicamente las transiciones humanas
+`draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
 
-**Veredicto (`sl review`, en `agent.review()`).** `pass` → `done`; `fail --retry`
+**Veredicto (`sl review`, en `agent.review()`).** `pass` → `in-validation`;
+`fail --retry`
 → `in-progress` (defecto dentro del contrato, el implementador corrige);
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
-(`review → …`). `in-review` cuenta como WIP en métricas.
+(`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
 
-**Captura de fricción.** El contrato canónico exige que el agente revise, antes
-de cerrar un turno o change, las fricciones descubiertas al usar Spec Ledger. Si
-son accionables y quedan fuera del alcance actual, se registran como changes
-`draft` separados, uno por concern. Si pertenecen al change en curso, se agregan
-al `## Log` o ajustan su Specification/Plan. Si no ameritan backlog, se mencionan
-en la respuesta final. Esta captura no debe mezclar concerns ni bloquear el
-cierre de trabajo ya completo.
+**Triage de fricción y autorización.** Antes de crear backlog, el agente clasifica
+la fricción. Si es necesaria para cumplir el propósito de un change activo, la
+incorpora a su Specification/Plan/Log. Si es un paso operativo (verificar,
+commitear, graduar, archivar o cerrar), lo ejecuta o registra allí: no crea un
+chore. Si es independiente, demasiado extensa o amplía materialmente el impacto,
+propone al humano tipo, título y motivo y espera autorización antes de crear el
+`draft`; una petición explícita de creación ya autoriza. Las propuestas pueden
+agruparse al final del turno. Lo demasiado vago se menciona sin crear archivos.
 
 ## Identidad
 
@@ -287,11 +292,18 @@ endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
 revisan el worktree antes de empezar; commitean la documentación aprobada antes
-de tocar código; implementan un change a la vez; y, al completar tests, review
-y graduación/skip, commitean ese change y su verdad relacionada antes de empezar
-otro. Los cambios no relacionados no se incluyen silenciosamente. Si archivos
-compartidos vuelven inevitable un commit combinado, se declara como excepción y
-se nombran los changes que comparten la superficie.
+de tocar código; e implementan un change a la vez. Una unidad completada se
+commitea antes de continuar cuando otra tarea, change o modificación de la misma
+superficie podría volver ambigua la atribución. Los cambios no relacionados no
+se incluyen silenciosamente. Si archivos compartidos vuelven inevitable un
+commit combinado, se declara como excepción y se nombran los changes que
+comparten la superficie.
+
+Una corrección candidata nacida de un rechazo humano es la excepción: queda sin
+commit y aislada en el worktree hasta que el humano confirme que resuelve el
+fallo. Los intentos fallidos iteran sobre el mismo diff y no se empieza otra
+tarea/change durante la espera. Tras aceptación, se gradúa o salta graduación y
+se commitean juntos la corrección validada y su verdad relacionada.
 
 ## Discovery del contrato
 
