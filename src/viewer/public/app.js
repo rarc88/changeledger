@@ -207,6 +207,7 @@ function openDetail(id) {
         ? html`<div class="validation-actions">
           <p>Human validation: test the complete change before accepting it.</p>
           <button type="button" data-validation="pass">Accept change</button>
+          <input data-validation-reason type="text" placeholder="Reason for rejection" />
           <button type="button" data-validation="fail">Reject with reason</button>
         </div>`
         : nothing
@@ -225,8 +226,13 @@ function openDetail(id) {
   const reject = $('#detail').querySelector('[data-validation="fail"]');
   if (reject) {
     reject.onclick = () => {
-      const reason = prompt('Why did the complete change fail validation?')?.trim();
-      if (reason) moveStatus(c.id, 'in-progress', reason);
+      const input = $('#detail').querySelector('[data-validation-reason]');
+      const reason = input?.value.trim();
+      if (!reason) {
+        input?.focus();
+        return;
+      }
+      moveStatus(c.id, 'in-progress', reason);
     };
   }
   overlay.onclick = (e) => {

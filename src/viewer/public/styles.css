@@ -253,7 +253,11 @@ body {
 .validation-actions p {
   margin: 0 0 10px;
 }
-.validation-actions button + button {
+.validation-actions input {
+  min-width: 240px;
+  margin-left: 8px;
+}
+.validation-actions input + button {
   margin-left: 8px;
 }
 .owner {
