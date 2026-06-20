@@ -2,10 +2,12 @@
 id: "20260620-221849"
 title: Claridad autocontenida de la referencia CLI
 type: chore
-status: in-validation
+status: done
 created: 2026-06-20T22:18:49Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -31,3 +33,6 @@ Eliminar dos fricciones menores de la referencia rápida en §9 de
 - **2026-06-20T22:22:03Z** — owner → Roberto Ruiz (auto)
 - **2026-06-20T22:22:56Z** — Implementación completada; pnpm verify pasó con 335 tests y 113 changes válidos.
 - **2026-06-20T22:22:57Z** — status: in-progress → in-validation
+- **2026-06-20T22:24:43Z** — validation → done (human accepted)
+- **2026-06-20T22:25:13Z** — graduation skipped: Ajuste editorial de la referencia CLI; no introduce verdad arquitectónica persistente adicional.
+- **2026-06-20T22:25:13Z** — archived
