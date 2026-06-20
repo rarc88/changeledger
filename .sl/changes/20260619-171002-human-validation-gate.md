@@ -2,10 +2,12 @@
 id: "20260619-171002"
 title: Validación humana antes de cerrar un change
 type: feature
-status: in-progress
+status: done
 created: 2026-06-19T17:10:02Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -211,3 +213,8 @@ Alternativas descartadas:
 - **2026-06-19T17:58:14Z** — review → in-progress (retry): Graduación prematura; config sin review puede omitir in-validation; spec de métricas/autoridad incompleta
 - **2026-06-20T19:12:12Z** — status: in-progress → in-review
 - **2026-06-20T19:14:35Z** — review → in-progress (retry): architecture.updated anterior al commit correctivo 29c7279
+- **2026-06-20T19:15:18Z** — status: in-progress → in-review
+- **2026-06-20T19:17:20Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-20T20:08:58Z** — validation → done (human accepted)
+- **2026-06-20T20:10:31Z** — graduado a spec `architecture.md`
+- **2026-06-20T20:10:35Z** — archived

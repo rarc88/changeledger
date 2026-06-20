@@ -7,6 +7,7 @@ created: 2026-06-18T12:26:11Z
 depends_on: []
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -83,3 +84,4 @@ la tarea, en vez de obligar a listar cada frase manual posible en la config.
 - **2026-06-18T13:01:07Z** — status: in-progress → in-review
 - **2026-06-18T13:02:06Z** — review → done (delegated subagent, clean context)
 - **2026-06-18T13:02:23Z** — graduado a spec `architecture.md`
+- **2026-06-20T20:10:35Z** — archived
