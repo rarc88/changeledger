@@ -209,3 +209,5 @@ Alternativas descartadas:
 - **2026-06-19T17:53:30Z** — Layout validado a 1920×960: siete chips en una sola línea, topbar de 54px y board sin overflow (clientWidth=scrollWidth=1920); scrollbar oscuro queda como fallback intermedio.
 - **2026-06-19T17:54:17Z** — status: in-progress → in-review
 - **2026-06-19T17:58:14Z** — review → in-progress (retry): Graduación prematura; config sin review puede omitir in-validation; spec de métricas/autoridad incompleta
+- **2026-06-20T19:12:12Z** — status: in-progress → in-review
+- **2026-06-20T19:14:35Z** — review → in-progress (retry): architecture.updated anterior al commit correctivo 29c7279
