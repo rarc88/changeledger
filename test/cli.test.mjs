@@ -86,17 +86,32 @@ test('122611 CR3: installed contract recommends structural verify clauses', () =
   assert.match(contract, /instead of listing every possible manual phrase/);
 });
 
-test('171002 CR6/CR9: installed contract triages friction before authorized backlog', () => {
+test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /Triage friction before creating backlog/);
+  assert.match(contract, /`sl status <id> <status>`.*It does\s+not accept `done`/);
+  assert.match(contract, /or `discarded` \(use\s+`sl discard <id> "<reason>"`\)/);
+  assert.match(contract, /without overwriting the spec body \(the agent edits the body manually\)/);
+});
+
+test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /enough clarity to document faithfully \*\*and\*\* the human/);
+  assert.match(contract, /direct request such as “create the\s+change” is authorization/);
+  assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
+  assert.match(
+    contract,
+    /materially expands observable\s+scope, obtain explicit human authorization/,
+  );
+  assert.match(contract, /Triage friction at handoff; retrospect after completion/);
   assert.match(contract, /necessary to fulfill the purpose of an active change/);
   assert.match(contract, /operational step.*verify, commit, graduate/);
   assert.match(contract, /propose its\s+type, title, and reason to the human/);
   assert.match(contract, /Create the draft only after explicit\s+authorization/);
   assert.match(contract, /too vague for backlog/);
+  assert.match(contract, /When a change reaches `done`, also\s+share a brief retrospective/);
 });
 
-test('171002 CR7/CR8: installed contract preserves traceability without false-fix commits', () => {
+test('214902 CR5/CR6: installed contract preserves traceability without false-fix commits', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(contract, /Never implement approved changes on\s+`main`, `master`, or `dev`/);
   assert.match(contract, /inspect the worktree/);
@@ -107,8 +122,16 @@ test('171002 CR7/CR8: installed contract preserves traceability without false-fi
   );
   assert.match(contract, /Implement one change at a\s+time/);
   assert.match(contract, /Commit a completed unit before continuing/);
-  assert.match(contract, /candidate correction uncommitted until the human confirms/);
-  assert.match(contract, /do not start\s+another task or change while it waits/);
+  assert.match(
+    contract,
+    /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
+  );
+  assert.match(
+    contract,
+    /After `pass`, commit the\s+confirmed correction.*before asking for human\s+validation/,
+  );
+  assert.match(contract, /keep the candidate correction\s+uncommitted until the human confirms/);
+  assert.match(contract, /do not start another task or\s+change while a correction waits/);
   assert.match(contract, /If shared files\s+make a combined\s+commit unavoidable/);
 });
 

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-20T20:10:31Z
+updated: 2026-06-20T22:18:04Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -143,6 +143,13 @@ dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
 repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
 nombre de proyecto y navega a ese change.
 
+El contrato separa intención y ejecución. Antes de crear un change permite
+conversación e investigación de solo lectura, pero exige conjuntamente claridad
+suficiente y autorización humana explícita; una petición directa de creación ya
+autoriza, sin permitir que el agente invente requisitos faltantes. El humano
+autoriza alcance, aprueba drafts y acepta resultados; el agente divide y ejecuta
+el trabajo dentro de ese alcance.
+
 ## Ciclo de vida y gate de revisión
 
 ```mermaid
@@ -209,14 +216,16 @@ visor añade la política de actor: permite únicamente las transiciones humanas
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
 
-**Triage de fricción y autorización.** Antes de crear backlog, el agente clasifica
-la fricción. Si es necesaria para cumplir el propósito de un change activo, la
-incorpora a su Specification/Plan/Log. Si es un paso operativo (verificar,
-commitear, graduar, archivar o cerrar), lo ejecuta o registra allí: no crea un
-chore. Si es independiente, demasiado extensa o amplía materialmente el impacto,
-propone al humano tipo, título y motivo y espera autorización antes de crear el
-`draft`; una petición explícita de creación ya autoriza. Las propuestas pueden
-agruparse al final del turno. Lo demasiado vago se menciona sin crear archivos.
+**Triage de fricción y autorización.** Antes de entregar al humano un resultado
+completado o bloqueado, el agente clasifica la fricción ya descubierta. Si es
+necesaria para cumplir el objetivo autorizado de un change activo, la incorpora
+a su Specification/Plan/Log. Si amplía materialmente el comportamiento observable,
+aunque esté relacionada, pide autorización antes de incorporarla. Si es un paso
+operativo (verificar, commitear, graduar, archivar o cerrar), lo ejecuta o registra
+allí: no crea un chore. Si es independiente, propone al humano tipo, título y
+motivo y espera autorización antes de crear el `draft`. Lo demasiado vago se
+menciona sin crear archivos. Al alcanzar `done`, comparte además una retrospectiva
+breve del ciclo; `discarded` no implica un ciclo de implementación completado.
 
 ## Identidad
 
@@ -299,10 +308,12 @@ se incluyen silenciosamente. Si archivos compartidos vuelven inevitable un
 commit combinado, se declara como excepción y se nombran los changes que
 comparten la superficie.
 
-Una corrección candidata nacida de un rechazo humano es la excepción: queda sin
-commit y aislada en el worktree hasta que el humano confirme que resuelve el
-fallo. Los intentos fallidos iteran sobre el mismo diff y no se empieza otra
-tarea/change durante la espera. Tras aceptación, se gradúa o salta graduación y
+Una corrección candidata nacida de un `review fail --retry` queda sin commit y
+aislada hasta que otro revisor de contexto limpio la confirme. Tras el `pass`, se
+commitea con la verdad relacionada antes de solicitar validación humana. Una
+corrección nacida de un rechazo humano permanece sin commit hasta la aceptación
+final. Los intentos fallidos iteran sobre el mismo diff y no se empieza otra
+tarea/change durante la espera; tras aceptación, se gradúa o salta graduación y
 se commitean juntos la corrección validada y su verdad relacionada.
 
 ## Discovery del contrato
