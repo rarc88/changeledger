@@ -2,7 +2,7 @@
 id: "20260620-214902"
 title: Alineación precisa del contrato con la intención
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-20T21:49:02Z
 depends_on: []
 owner: Roberto Ruiz
@@ -151,7 +151,7 @@ alcance ya aprobado.
 - [x] Definir crecimiento autorizado del change en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR3, CR4) — 2026-06-20T22:03:55Z
 - [x] Completar el protocolo de correcciones de review y validación en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR5, CR6) — 2026-06-20T22:03:56Z
 - [x] Separar triage y retrospectiva en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR7) — 2026-06-20T22:03:56Z
-- [x] Alinear `INTENT.md` con las precisiones autorizadas y conservar su versión original en el commit base (support) — 2026-06-20T22:03:56Z
+- [x] Alinear `INTENT.md`, reflejar sus precisiones en `templates/AGENTS.md` y verificar con `node --test test/cli.test.mjs`, conservando la versión original en el commit base (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8) — 2026-06-20T22:03:56Z
 - [x] Ejecutar `pnpm verify` y confirmar que el contrato y el repositorio no presentan regresiones (support) — 2026-06-20T22:04:27Z
 
 ## Log
@@ -162,3 +162,7 @@ alcance ya aprobado.
 - **2026-06-20T22:01:28Z** — owner → Roberto Ruiz (auto)
 - **2026-06-20T22:04:27Z** — Implementación completada; pnpm verify pasó con 334 tests y 112 changes válidos.
 - **2026-06-20T22:04:27Z** — status: in-progress → in-review
+- **2026-06-20T22:10:35Z** — review → in-progress (retry): La autorización humana para ajustar INTENT.md existió en la conversación, pero no quedó registrada en el Log y la tarea se clasificó incorrectamente como support.
+- **2026-06-20T22:10:49Z** — Trazabilidad de alcance: después de aprobar el change, el humano autorizó explícitamente ajustar INTENT.md preservando primero su versión original en git; la tarea correspondiente se reclasificó con CR1–CR8 tras el hallazgo del review.
+- **2026-06-20T22:10:58Z** — status: in-progress → in-review
+- **2026-06-20T22:12:20Z** — review → in-validation (delegated subagent, clean context)
