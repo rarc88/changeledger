@@ -2,10 +2,12 @@
 id: "20260620-214902"
 title: Alineación precisa del contrato con la intención
 type: feature
-status: in-validation
+status: done
 created: 2026-06-20T21:49:02Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -166,3 +168,6 @@ alcance ya aprobado.
 - **2026-06-20T22:10:49Z** — Trazabilidad de alcance: después de aprobar el change, el humano autorizó explícitamente ajustar INTENT.md preservando primero su versión original en git; la tarea correspondiente se reclasificó con CR1–CR8 tras el hallazgo del review.
 - **2026-06-20T22:10:58Z** — status: in-progress → in-review
 - **2026-06-20T22:12:20Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-20T22:15:27Z** — validation → done (human accepted)
+- **2026-06-20T22:18:04Z** — graduado a spec `architecture.md`
+- **2026-06-20T22:18:04Z** — archived
