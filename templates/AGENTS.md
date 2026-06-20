@@ -320,7 +320,9 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 
 - `sl register` — (re)link this repo's path in the global registry after a move/clone.
 - `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
-- `sl status <id> <status>` — move the lifecycle and log the transition.
+- `sl status <id> <status>` — move the lifecycle and log the transition. It does
+  not accept `done` (the human accepts in the viewer) or `discarded` (use
+  `sl discard <id> "<reason>"`); see §5.
 - `sl review <id> pass` — record a passed independent review
   (`in-review → in-validation`).
 - `sl review <id> fail --retry|--block "<reason>"` — record a failed review,
@@ -333,7 +335,7 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl graduate <change-id> <spec-slug>` — scaffold a **new** spec seeded from the change.
 - `sl graduate <change-id> <spec-slug> --into` — graduate into an **existing**
   spec: refresh its `updated`, link it in the change Log and mark `reviewed`,
-  without overwriting the spec body (you edit the body).
+  without overwriting the spec body (the agent edits the body manually).
 - `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
   reviewed without a spec (bug/chore with no persistent truth); logs the reason.
 - `sl graduate --pending` — list done changes whose graduation is not reviewed yet.

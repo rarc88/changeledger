@@ -86,6 +86,13 @@ test('122611 CR3: installed contract recommends structural verify clauses', () =
   assert.match(contract, /instead of listing every possible manual phrase/);
 });
 
+test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(contract, /`sl status <id> <status>`.*It does\s+not accept `done`/);
+  assert.match(contract, /or `discarded` \(use\s+`sl discard <id> "<reason>"`\)/);
+  assert.match(contract, /without overwriting the spec body \(the agent edits the body manually\)/);
+});
+
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(contract, /enough clarity to document faithfully \*\*and\*\* the human/);

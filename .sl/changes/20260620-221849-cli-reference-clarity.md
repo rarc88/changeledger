@@ -2,9 +2,10 @@
 id: "20260620-221849"
 title: Claridad autocontenida de la referencia CLI
 type: chore
-status: approved
+status: in-validation
 created: 2026-06-20T22:18:49Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -20,9 +21,13 @@ Eliminar dos fricciones menores de la referencia rápida en §9 de
 
 ## Plan
 
-- [ ] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs` (support)
-- [ ] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones (support)
+- [x] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs` (support) — 2026-06-20T22:22:37Z
+- [x] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones (support) — 2026-06-20T22:22:56Z
 
 ## Log
 
 - **2026-06-20T22:21:04Z** — status: draft → approved
+- **2026-06-20T22:22:03Z** — status: approved → in-progress
+- **2026-06-20T22:22:03Z** — owner → Roberto Ruiz (auto)
+- **2026-06-20T22:22:56Z** — Implementación completada; pnpm verify pasó con 335 tests y 113 changes válidos.
+- **2026-06-20T22:22:57Z** — status: in-progress → in-validation
