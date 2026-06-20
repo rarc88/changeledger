@@ -2,9 +2,10 @@
 id: "20260620-214902"
 title: Alineación precisa del contrato con la intención
 type: feature
-status: approved
+status: in-review
 created: 2026-06-20T21:49:02Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -146,13 +147,18 @@ alcance ya aprobado.
 
 ## Plan
 
-- [ ] Ajustar principios y gate conversacional en `templates/AGENTS.md`; verificar: `node bin/sl.mjs check 20260620-214902` (CR1, CR2, CR8)
-- [ ] Definir crecimiento autorizado del change en `templates/AGENTS.md`; verificar: `node bin/sl.mjs check 20260620-214902` (CR3, CR4)
-- [ ] Completar el protocolo de correcciones de review y validación en `templates/AGENTS.md`; verificar: `node bin/sl.mjs check 20260620-214902` (CR5, CR6)
-- [ ] Separar triage y retrospectiva en `templates/AGENTS.md`; verificar: `node bin/sl.mjs check 20260620-214902` (CR7)
-- [ ] Ejecutar `pnpm verify` y confirmar que el contrato y el repositorio no presentan regresiones (support)
+- [x] Ajustar principios y gate conversacional en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR1, CR2, CR8) — 2026-06-20T22:03:55Z
+- [x] Definir crecimiento autorizado del change en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR3, CR4) — 2026-06-20T22:03:55Z
+- [x] Completar el protocolo de correcciones de review y validación en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR5, CR6) — 2026-06-20T22:03:56Z
+- [x] Separar triage y retrospectiva en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR7) — 2026-06-20T22:03:56Z
+- [x] Alinear `INTENT.md` con las precisiones autorizadas y conservar su versión original en el commit base (support) — 2026-06-20T22:03:56Z
+- [x] Ejecutar `pnpm verify` y confirmar que el contrato y el repositorio no presentan regresiones (support) — 2026-06-20T22:04:27Z
 
 ## Log
 
 - 2026-06-20T21:49:02Z — Change creado como comparación independiente; no modifica `INTENT.md` ni el change `20260620-214051`.
 - **2026-06-20T21:59:19Z** — status: draft → approved
+- **2026-06-20T22:01:28Z** — status: approved → in-progress
+- **2026-06-20T22:01:28Z** — owner → Roberto Ruiz (auto)
+- **2026-06-20T22:04:27Z** — Implementación completada; pnpm verify pasó con 334 tests y 112 changes válidos.
+- **2026-06-20T22:04:27Z** — status: in-progress → in-review

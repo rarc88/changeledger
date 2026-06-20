@@ -10,9 +10,9 @@ Spec Ledger es una herramienta que ayuda a coordinar el trabajo entre un humano 
 
 ### 1. Conversación primero
 
-Todo parte de una conversación. El humano describe lo que quiere hacer, corregir o explorar. El agente escucha, pregunta, investiga si hace falta. Nadie crea nada todavía.
+Todo parte de una conversación. El humano describe lo que quiere hacer, corregir o explorar. El agente escucha, pregunta y puede investigar en modo de solo lectura. Todavía no crea changes, modifica archivos ni produce artefactos de implementación.
 
-Cuando la conversación llega a un punto donde hay claridad suficiente, el **humano solicita explícitamente** que se documenten los cambios. Esa solicitud es la única señal para comenzar.
+La creación comienza únicamente cuando coinciden dos condiciones: hay claridad suficiente para escribir un borrador fiel y el **humano solicita explícitamente** que se documenten los cambios. Una petición directa como «crea el change» ya es autorización; si todavía falta información esencial, el agente aclara primero en lugar de inventar requisitos.
 
 ### 2. Creación del borrador
 
@@ -55,21 +55,25 @@ Cuando se detecta un error — ya sea por el subagente revisor o por el humano e
 - Si el error lo encontró el **subagente**, la confirmación viene de una nueva revisión limpia que lo dé por cerrado.
 - Si el error lo reportó el **humano**, la confirmación viene de su validación final.
 
-En ambos casos el objetivo es el mismo: no ensuciar el historial con intentos fallidos que parecen avances reales.
+Después de que la nueva revisión limpia aprueba una corrección, el agente commitea esa corrección y la actualización del ledger antes de solicitar validación humana. Tras un rechazo humano, la corrección permanece sin commit hasta la aceptación final, momento en que se commitea junto con su verdad relacionada.
+
+En ambos casos el objetivo es el mismo: no ensuciar el historial con intentos fallidos que parecen avances reales ni mantener trabajo ya confirmado aislado innecesariamente en el worktree.
 
 ### 8. Cierre y graduación
 
-Un change cerrado nunca se reabre. Si el trabajo que representaba modificó algo permanente en cómo funciona el sistema, el agente actualiza los documentos de verdad persistente del repositorio. Si no cambió nada estructural, se registra esa decisión y se cierra igualmente.
+Un change que llega a `done` nunca se reabre. Después de la aceptación humana, si el trabajo modificó algo permanente en cómo funciona el sistema, el agente actualiza los documentos de verdad persistente del repositorio. Si no cambió nada estructural, registra esa decisión. Un change `discarded` también es terminal, pero representa trabajo decidido en contra, no un ciclo completado.
 
 ### 9. Trazabilidad como hábito
 
-- Cada tarea resuelta debería vivir en su propio commit, junto a los archivos que modificó.
+- Cada unidad de trabajo resuelta debería quedar en un commit trazable junto a los archivos que modificó. Una tarea suele ser esa unidad, pero varias pueden compartir commit cuando separarlas rompería una modificación atómica.
 - No es obligatorio ser rígido, pero sí es obligatorio no mezclar cambios de distintos temas en el mismo commit.
 - Lo importante es que cualquier persona pueda seguir el hilo de cómo se resolvió un change leyendo el historial de git.
 
 ### 10. Retrospectiva al final de cada ciclo
 
-Cuando un change se cierra, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas.
+Cuando un change llega a `done`, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas.
+
+Además, cuando entrega al humano un resultado completado o bloqueado, clasifica cualquier fricción ya descubierta para decidir si pertenece al trabajo actual, es un paso operacional, merece proponerse como trabajo independiente o todavía es demasiado vaga. Este triage no exige esperar al cierre del change.
 
 Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano lo autoriza.
 
@@ -77,7 +81,7 @@ Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano
 
 ## Reglas generales
 
-- **Un change activo puede crecer**, siempre que lo nuevo esté relacionado con su objetivo original.
+- **Un change activo puede crecer** con trabajo necesario para cumplir su objetivo autorizado. Si lo nuevo amplía materialmente el comportamiento observable, aunque esté relacionado, el humano debe autorizar la ampliación antes de incorporarla. Si es independiente, se propone otro change.
 - **Un change cerrado es terminal.** Lo que se quiera hacer después es un change nuevo.
-- **El humano decide en los momentos clave**: qué se hace, si está bien hecho, y si el resultado final es aceptable.
-- **El agente decide en la ejecución**: cómo dividir el trabajo, cuándo commitear, qué tamaño de subagente usar para la revisión.
+- **El humano decide en los momentos clave**: qué alcance se autoriza, si un borrador se aprueba, si una ampliación material se incorpora y si el resultado final es aceptable.
+- **El agente decide en la ejecución dentro del alcance autorizado**: cómo dividir el trabajo, cuándo commitear y qué tamaño de subagente usar para la revisión.

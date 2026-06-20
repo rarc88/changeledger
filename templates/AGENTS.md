@@ -13,11 +13,19 @@ Any agent working in this repo **must** follow this convention.
 
 ## 1. Principles
 
-1. Every authorized change starts from a conversation and is captured as a
-   **change** document before touching code.
-2. The document wins. If code and document diverge, the document is the truth:
+1. Work starts with conversation. Questions and read-only investigation may
+   develop the request, but no change file or implementation artifact is created
+   until there is enough clarity to document faithfully **and** the human
+   explicitly authorizes documentation. A direct request such as “create the
+   change” is authorization; if essential information is still missing, clarify
+   it instead of inventing requirements.
+2. The human authorizes scope, approves drafts and accepts the final result. The
+   agent decides how to divide and execute work within that authorized scope.
+3. Every authorized change is captured as a **change** document before touching
+   code.
+4. The document wins. If code and document diverge, the document is the truth:
    update the code, never quietly drift the document.
-3. Humans consume these documents in the **viewer** (`sl view`), not as raw
+5. Humans consume these documents in the **viewer** (`sl view`), not as raw
    markdown. Write with the rendered view in mind.
 
 ## 2. Repo layout
@@ -182,11 +190,18 @@ outside it (e.g. skipping `in-validation`, or reopening a `done`) is rejected.
 `sl discard <id> "<reason>"` so a reason is always captured. The viewer only
 performs the human-owned moves: `draft → approved` and
 `in-validation → done|in-progress`. The agent performs the rest via the CLI.
+After a human-owned move, continue with the existing execution rule: approval
+uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
 
 ## 6. Agent rules
 
-1. **One concern per change.** If a request mixes unrelated concerns, propose
-   separate changes for human authorization (e.g. a bug fix and a new feature).
+1. **One concern per change; related work may grow deliberately.** If a request
+   mixes unrelated concerns, propose separate changes for human authorization
+   (e.g. a bug fix and a new feature). Work necessary to fulfill an active
+   change's already authorized objective belongs in that change: update its
+   Specification, Plan and Log. If related work materially expands observable
+   scope, obtain explicit human authorization before adding it. Independent work
+   is proposed as a separate change.
 2. **Do not implement in `draft`.** Create the change, wait for human approval.
 3. **Single source of truth.** Do not duplicate info across stages; link instead.
 4. **Git workflow protects traceability.** Never implement approved changes on
@@ -202,13 +217,19 @@ performs the human-owned moves: `draft → approved` and
    commit unavoidable, call it out explicitly in the Log or final response and
    name the changes that share the surface.
 
-   **Human-rejected correction.** After `in-validation → in-progress`, keep the
-   candidate correction uncommitted until the human confirms it fixes the
-   reported failure. Iterate on the same diff if it fails again; do not start
-   another task or change while it waits, because the worktree is the isolation
+   **Rejected-correction isolation.** After review `fail --retry`, keep the
+   candidate correction uncommitted while a fresh clean-context reviewer checks
+   it. If review fails again, iterate on the same diff. After `pass`, commit the
+   confirmed correction with its related ledger truth before asking for human
+   validation.
+
+   After `in-validation → in-progress`, keep the candidate correction
+   uncommitted until the human confirms it fixes the reported failure. Iterate on
+   the same diff if it fails again. In either path, do not start another task or
+   change while a correction waits, because the worktree is the isolation
    boundary. After human acceptance, graduate/skip and commit the validated
-   correction with its related ledger truth. This exception prevents false fix
-   attempts from becoming permanent history; it does not relax intermediate
+   correction with its related ledger truth. These exceptions prevent false fix
+   attempts from becoming permanent history; they do not relax intermediate
    commits for already verified units.
 5. **Keep the change updated as you go:** tick tasks, move `status`, write to Log.
    The document reflects reality at all times.
@@ -244,9 +265,10 @@ performs the human-owned moves: `draft → approved` and
     exception is the review (§6.6), where delegation to a **clean-context**
     subagent is a *contract requirement* — there, independence is correctness,
     not an optimization.
-12. **Triage friction before creating backlog.** Before closing a turn or
-    change, review any friction, ambiguity, bug, or improvement discovered while
-    using Spec Ledger, then classify it:
+12. **Triage friction at handoff; retrospect after completion.** Before handing
+    the human a completed or blocked work result, review any friction, ambiguity,
+    bug, or improvement already discovered while using Spec Ledger, then
+    classify it:
     - If it is necessary to fulfill the purpose of an active change, update that
       change's Specification/Plan/Log; do not create another.
     - If it is an operational step of the current flow (verify, commit, graduate,
@@ -259,7 +281,10 @@ performs the human-owned moves: `draft → approved` and
     - If it is too vague for backlog, mention it without creating a file.
 
     This triage must not mix independent concerns into active work or block work
-    that is otherwise ready for validation.
+    that is otherwise ready for validation. When a change reaches `done`, also
+    share a brief retrospective of the completed cycle with the human. A
+    `discarded` change records why it was decided against but does not imply a
+    completed implementation cycle.
 
 ## 7. IDs
 
