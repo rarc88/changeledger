@@ -334,7 +334,7 @@ function checkConfig(config, err) {
   }
   if (
     Array.isArray(c.statuses) &&
-    c.statuses.includes('in-review') &&
+    c.statuses.includes('done') &&
     !c.statuses.includes('in-validation')
   ) {
     err(null, 'config statuses must include "in-validation" before "done"');

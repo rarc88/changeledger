@@ -101,22 +101,34 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 // Records the human verdict for the complete change. This is intentionally
 // separate from `status`: only the human-facing viewer may close a change.
 export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
+  const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
-    const { status: current } = parseChange(text).frontmatter;
+    const fm = parseChange(text).frontmatter;
+    const current = fm.status;
+    let target;
+    if (verdict === 'pass') {
+      target = 'done';
+    } else if (verdict === 'fail') {
+      if (!reason) throw new Error('validation fail requires a reason');
+      target = 'in-progress';
+    } else {
+      throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
+    }
     if (current !== 'in-validation') {
       throw new Error(`validation requires status in-validation (current: ${current})`);
     }
-    if (verdict === 'pass') {
-      text = setStatus(text, 'done');
-      return appendLog(text, nowUtc(), 'validation → done (human accepted)');
-    }
-    if (verdict === 'fail') {
-      if (!reason) throw new Error('validation fail requires a reason');
-      text = setStatus(text, 'in-progress');
-      return appendLog(text, nowUtc(), `validation → in-progress (human rejected): ${reason}`);
-    }
-    throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
+    assertTransition(current, target, {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    });
+    text = setStatus(text, target);
+    return appendLog(
+      text,
+      nowUtc(),
+      verdict === 'pass'
+        ? 'validation → done (human accepted)'
+        : `validation → in-progress (human rejected): ${reason}`,
+    );
   });
   return file;
 }

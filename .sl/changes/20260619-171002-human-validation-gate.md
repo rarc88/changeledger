@@ -185,7 +185,7 @@ Alternativas descartadas:
 - [x] Actualizar `src/viewer/domain.mjs`, `src/viewer/public/app.js` y las rutas del viewer para presentar aceptación/rechazo humano de `in-validation`; verificar en `test/view.test.mjs` y `test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-06-19T17:37:37Z
 - [x] Incorporar `in-validation` en `src/metrics.mjs`, `src/check.mjs` y `.sl/config.yml`; verificar en `test/metrics.test.mjs`, `test/check.test.mjs` y `test/cli.test.mjs` (CR1, CR4, CR5) — 2026-06-19T17:37:37Z
 - [x] Actualizar `templates/AGENTS.md` con el gate humano, el triage y autorización de backlog y la política Git contextual; verificar con `test/cli.test.mjs` (CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-19T17:37:51Z
-- [x] Graduar el ciclo y las reglas de trazabilidad a `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-19T17:38:52Z
+- [x] Actualizar el ciclo y las reglas de trazabilidad en `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-19T17:38:52Z
 - [x] Ejecutar `pnpm verify` y validar manualmente en el viewer aprobación, rechazo con motivo y segundo intento de un change de prueba (support) — 2026-06-19T17:44:32Z
 - [x] Reemplazar el `prompt()` de rechazo por motivo visible en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar manualmente en el viewer y con `test/view.test.mjs` (CR3) — 2026-06-19T17:44:19Z
 - [x] Ajustar topbar y board en `src/viewer/public/styles.css` para que siete estados no partan `Done` ni expongan un scrollbar nativo claro; verificar manualmente a 1920 px y con `pnpm test -- test/view.test.mjs` (CR1) — 2026-06-19T17:53:30Z
@@ -200,10 +200,12 @@ Alternativas descartadas:
 - **2026-06-19T17:29:46Z** — owner → Roberto Ruiz (auto)
 - **2026-06-19T17:37:38Z** — Implementado ciclo universal de validación humana, acciones de aceptación/rechazo en viewer y métricas/check; suite focalizada verde.
 - **2026-06-19T17:37:51Z** — Commit combinado de tareas 1–4: la migración de config y las reglas del contrato comparten test/cli.test.mjs; se mantiene la graduación de architecture.md como unidad separada.
-- **2026-06-19T17:38:52Z** — Graduada la semántica persistente de lifecycle, autorización de backlog y trazabilidad Git en architecture.md, eliminando reglas anteriores contradictorias.
+- **2026-06-19T17:38:52Z** — Actualizada la semántica persistente de lifecycle, autorización de backlog y trazabilidad Git en architecture.md, eliminando reglas anteriores contradictorias; la graduación canónica queda pendiente hasta `done`.
 - **2026-06-19T17:40:27Z** — La verificación manual detectó que `prompt()` no ofrece un flujo de rechazo fiable; se amplía el mismo change con un campo de motivo visible, sin crear backlog separado.
 - **2026-06-19T17:44:33Z** — pnpm verify verde (334 tests). Smoke manual en fixture: rechazo con motivo → in-progress, segundo intento → in-validation, aceptación → done.
 - **2026-06-19T17:45:10Z** — status: in-progress → in-review
 - **2026-06-19T17:50:56Z** — status: in-review → in-progress
 - **2026-06-19T17:50:56Z** — Feedback humano durante in-review: la séptima columna hace que Done salte de línea en la topbar y expone un scrollbar horizontal nativo blanco; vuelve a in-progress para corregir el mismo change.
 - **2026-06-19T17:53:30Z** — Layout validado a 1920×960: siete chips en una sola línea, topbar de 54px y board sin overflow (clientWidth=scrollWidth=1920); scrollbar oscuro queda como fallback intermedio.
+- **2026-06-19T17:54:17Z** — status: in-progress → in-review
+- **2026-06-19T17:58:14Z** — review → in-progress (retry): Graduación prematura; config sin review puede omitir in-validation; spec de métricas/autoridad incompleta

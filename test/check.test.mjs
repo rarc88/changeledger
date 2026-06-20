@@ -5,7 +5,7 @@ import { checkRepo } from '../src/check.mjs';
 
 const config = {
   changes_dir: '.sl/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'plan', 'log'] },
@@ -150,10 +150,10 @@ test('config missing a required key is an error', () => {
   assert.ok(msgs(errors).some((m) => /config missing "statuses"/.test(m)));
 });
 
-test('171002 CR1: legacy review configs require in-validation before done', () => {
+test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
   const missing = {
     ...config,
-    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'blocked', 'done'],
+    statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
   };
   assert.ok(
     msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
@@ -442,7 +442,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 
 const tddConfig = {
   changes_dir: '.sl/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'specification', 'plan', 'log'] },

@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-18T13:02:23Z
+updated: 2026-06-19T17:58:26Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -239,7 +239,7 @@ estructurales mantienen la misma política en changes y specs.
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
 (`done`) y el paso a cada estado se leen del `## Log`, tanto desde transiciones
-`status: ... → estado` como desde veredictos `review → estado`; de ahí salen:
+`status: ... → estado`, `review → estado` y `validation → estado`; de ahí salen:
 cycle time (`done − created`), lead time por etapa, WIP actual, aging de los
 `in-progress`, tiempo bloqueado, throughput por día y desgloses por tipo/owner.
 El server las precalcula y el visor las pinta en la pestaña **Metrics**.
