@@ -29,7 +29,7 @@ const USAGE = `Spec Ledger (sl)
   sl check [id] [--json]           validate the repo or one change
   sl status <id> <status>          move a change's lifecycle status
   sl discard <id> "<reason>"       discard a change (terminal; keeps the record)
-  sl review <id> pass              independent review passed → done
+  sl review <id> pass              independent review passed → in-validation
   sl review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
   sl owner <id> <name|->           set or clear a change's owner
   sl archive <id> / unarchive <id>   hide/show a change in the viewer

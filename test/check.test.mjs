@@ -5,7 +5,7 @@ import { checkRepo } from '../src/check.mjs';
 
 const config = {
   changes_dir: '.sl/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'plan', 'log'] },
@@ -148,6 +148,27 @@ test('config missing a required key is an error', () => {
   delete bad.statuses;
   const { errors } = checkRepo({ config: bad, changes: [change()] });
   assert.ok(msgs(errors).some((m) => /config missing "statuses"/.test(m)));
+});
+
+test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
+  const missing = {
+    ...config,
+    statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  };
+  assert.ok(
+    msgs(checkRepo({ config: missing, changes: [] }).errors).some((m) =>
+      /must include "in-validation" before "done"/.test(m),
+    ),
+  );
+  const misplaced = {
+    ...config,
+    statuses: ['draft', 'approved', 'in-progress', 'in-review', 'done', 'in-validation'],
+  };
+  assert.ok(
+    msgs(checkRepo({ config: misplaced, changes: [] }).errors).some((m) =>
+      /"in-validation" must appear before "done"/.test(m),
+    ),
+  );
 });
 
 test('config type referencing an unknown stage is an error', () => {
@@ -421,7 +442,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 
 const tddConfig = {
   changes_dir: '.sl/changes',
-  statuses: ['draft', 'approved', 'in-progress', 'blocked', 'done'],
+  statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {
     feature: { stages: ['request', 'specification', 'plan', 'log'] },
@@ -692,6 +713,39 @@ X
   );
 });
 
+test('122611 CR1: default readiness gaps show the effective default patterns', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior (CR1)
+
+## Log
+`);
+  const message = msgs(errors).find((m) => /Plan task for CR1/.test(m));
+  assert.match(message, /default readiness/);
+  assert.match(message, /target_patterns=\["src\/\*\*"\]/);
+  assert.match(message, /verification_patterns=\["test\/\*\*"\]/);
+});
+
 test('020229 CR1: readiness patterns are configurable per repo', () => {
   const { errors } = covResult(
     `---
@@ -767,6 +821,90 @@ X
       readiness: {
         target_patterns: ['packages/**'],
         verification_patterns: ['pnpm test'],
+      },
+    },
+  );
+  assert.deepEqual(
+    msgs(errors).filter((m) => /target and verification/.test(m)),
+    [],
+  );
+});
+
+test('122611 CR2: configured readiness gaps show configured patterns', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior somewhere else (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['app/**'],
+        verification_patterns: ['pnpm test'],
+      },
+    },
+  );
+  const message = msgs(errors).find((m) => /Plan task for CR1/.test(m));
+  assert.match(message, /configured readiness/);
+  assert.match(message, /target_patterns=\["app\/\*\*"\]/);
+  assert.match(message, /verification_patterns=\["pnpm test"\]/);
+});
+
+test('122611 CR3: verify clause can be the configured verification convention', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update app/profile.ts; verify: manual device check (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['app/**'],
+        verification_patterns: ['verify:'],
       },
     },
   );

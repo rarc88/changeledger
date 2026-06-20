@@ -36,8 +36,8 @@ body {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -61,13 +61,14 @@ body {
   font-size: 13px;
 }
 .search {
-  width: 260px;
+  width: clamp(180px, 14vw, 260px);
+  min-width: 0;
 }
 .tab {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--muted);
-  padding: 7px 12px;
+  padding: 7px 10px;
   border-radius: 8px;
   cursor: pointer;
 }
@@ -77,7 +78,7 @@ body {
 }
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .chips {
@@ -99,6 +100,14 @@ body {
   color: var(--text);
   border-color: var(--accent);
   background: rgba(91, 157, 255, 0.12);
+}
+#status-filter {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+#status-filter .chip {
+  padding-inline: 8px;
+  font-size: 11px;
 }
 
 /* Table view */
@@ -154,13 +163,26 @@ body {
   padding: 16px;
   overflow-x: auto;
   align-items: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: #3a414e transparent;
+}
+.board::-webkit-scrollbar {
+  height: 8px;
+}
+.board::-webkit-scrollbar-track {
+  background: transparent;
+}
+.board::-webkit-scrollbar-thumb {
+  background: #3a414e;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
 }
 .column {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  min-width: 270px;
-  max-width: 300px;
+  min-width: 238px;
+  max-width: none;
   flex: 1;
 }
 .column-head {
@@ -242,6 +264,23 @@ body {
 .flag-blocked {
   color: var(--blocked);
   font-weight: 600;
+}
+.validation-actions {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.validation-actions p {
+  margin: 0 0 10px;
+}
+.validation-actions input {
+  min-width: 240px;
+  margin-left: 8px;
+}
+.validation-actions input + button {
+  margin-left: 8px;
 }
 .owner {
   font-weight: 600;
@@ -544,6 +583,18 @@ body {
 .empty {
   color: var(--muted);
   padding: 8px;
+}
+
+@media (max-width: 1280px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .spacer {
+    display: none;
+  }
+  .tabs {
+    margin-left: auto;
+  }
 }
 
 /* Responsive: stack on narrow viewports (mobile) */
