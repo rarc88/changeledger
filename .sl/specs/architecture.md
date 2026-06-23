@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-20T22:18:04Z
+updated: 2026-06-23T14:34:36Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -34,6 +34,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
 > Graduado del change 20260616-212309 (tests del viewer sin socket local).
 > Graduado del change 20260617-161309 (workflow git para trazabilidad).
+> Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -366,9 +367,9 @@ headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
 body y exige una credencial efímera por proceso (inyectada en la página y
 enviada en `x-sl-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
-permite que **el humano** mueva un change de `draft` a `approved` arrastrando su
-card entre esas columnas del board (el único salto que le corresponde; el resto
-del ciclo lo conduce el agente). La UI rinde board (kanban), table, graph
+permite que **el humano** apruebe un change `draft` arrastrando su card y acepte o
+rechace con motivo un change `in-validation` desde su detalle; el resto del ciclo
+lo conduce el agente. La UI rinde board (kanban), table, graph
 (`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
@@ -381,6 +382,18 @@ visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad de
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
+
+Los estados se filtran desde un menú compacto de selección múltiple. `Clear`
+restablece tanto los statuses como la visibilidad `Archived`/`Discarded`;
+`Discarded` añade su lane al final del Board sin comprimir las siete columnas
+normales. Table conserva ID, título, type, status y progreso en una línea, centra
+verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
+badge delineado distinto del type sólido. Los details presentan la validación
+humana como una única acción pendiente (controles deshabilitados durante el
+request y cierre al éxito), usan controles de cierre consistentes y convierten
+cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
+el bloque inicial de procedencia `Graduado del change …` se agrupa en un historial
+colapsable sin reinterpretar otros blockquotes ni relajar la sanitización.
 
 Los tests del visor ejercitan el `createRequestListener` en memoria para validar
 status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets

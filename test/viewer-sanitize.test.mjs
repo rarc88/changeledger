@@ -7,7 +7,7 @@ import { marked } from 'marked';
 const { window } = new JSDOM('');
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
-const { safeHtml } = await import('../src/viewer/public/app.js');
+const { makeMermaidExpandable, safeHtml } = await import('../src/viewer/public/app.js');
 
 test('CR1: active HTML in a document does not survive into the DOM', () => {
   const out = safeHtml('<img src=x onerror="window.__sl_xss=1">');
@@ -58,4 +58,19 @@ test('174431 CR1: style tags are removed from rendered markdown', () => {
   const out = safeHtml('<style>body{display:none}</style><p>visible</p>');
   assert.ok(!/<style/i.test(out), `style tag survived: ${out}`);
   assert.match(out, /visible/);
+});
+
+test('125850 CR5: a rendered Mermaid becomes keyboard-expandable', () => {
+  const host = window.document.createElement('div');
+  host.innerHTML = '<div class="mermaid"><svg><text>large diagram</text></svg></div>';
+  let opened = null;
+  makeMermaidExpandable(host, (node) => {
+    opened = node;
+  });
+  const diagram = host.querySelector('.mermaid');
+  assert.equal(diagram.tabIndex, 0);
+  assert.equal(diagram.getAttribute('role'), 'button');
+  assert.equal(diagram.getAttribute('aria-label'), 'Expand diagram');
+  diagram.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
+  assert.equal(opened, diagram);
 });

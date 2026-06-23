@@ -1,5 +1,6 @@
 import { getGitRefs, getProjects, getRepo, postStatus, searchAllProjects } from './api.js';
 import {
+  clearStatusFilters,
   invalidateCache,
   selectProject,
   setOwnerFilter,
@@ -14,15 +15,32 @@ import {
   toggleShowDiscarded,
   toggleStatusFilter,
 } from './app-state.js';
-import { cssIdent, initMermaid, renderMermaid } from './security.js';
+import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
-import { html, render as litRender, markdownHtml, nothing } from './templates.js';
-import { card, stageBlock, tableRow } from './view-parts.js';
+import { html, render as litRender, nothing } from './templates.js';
+import {
+  card,
+  closeButton,
+  sortIndicator,
+  specBody,
+  stageBlock,
+  statusSummary,
+  tableRow,
+  validationPanel,
+} from './view-parts.js';
 import { graphSvg, metricsHtml, specsListHtml } from './view-renderers.js';
 
-export { cssIdent, esc, safeHtml } from './security.js';
+export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
-export { card, stageBlock, tableRow, taskList } from './view-parts.js';
+export {
+  card,
+  sortIndicator,
+  stageBlock,
+  statusSummary,
+  statusTag,
+  tableRow,
+  taskList,
+} from './view-parts.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -84,23 +102,69 @@ function hydrateFilters() {
   $('#owner-filter').value = state.filters.owner;
   $('#owner-filter').style.display = owners.length ? '' : 'none';
 
+  renderStatusFilter();
+}
+
+function renderStatusFilter() {
   const sf = $('#status-filter');
   litRender(
-    boardStatuses(state.repo.statuses).map(
-      (s) =>
-        html`<button type="button" class=${`chip ${state.filters.statuses.has(s) ? 'active' : ''}`} data-status=${s}>
-          ${s}
-        </button>`,
-    ),
+    html`<details class="filter-menu">
+      <summary class="filter-trigger">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
+        <span data-status-summary>${statusSummary(state.filters.statuses)}</span>
+        <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path>
+        </svg>
+      </summary>
+      <div class="filter-popover">
+        <div class="filter-heading"><span>Status</span><button type="button" data-clear-status>Clear</button></div>
+        <div class="filter-options">
+          ${boardStatuses(state.repo.statuses).map(
+            (status) => html`<label class="check-option">
+              <input type="checkbox" data-status=${status} .checked=${state.filters.statuses.has(status)} />
+              <span class="check-box" aria-hidden="true"></span>
+              <span>${status.replaceAll('-', ' ')}</span>
+            </label>`,
+          )}
+        </div>
+        <div class="filter-heading visibility-heading"><span>Visibility</span></div>
+        <div class="filter-options">
+          <label class="check-option">
+            <input type="checkbox" data-visibility="archived" .checked=${state.filters.showArchived} />
+            <span class="check-box" aria-hidden="true"></span><span>Archived</span>
+          </label>
+          <label class="check-option">
+            <input type="checkbox" data-visibility="discarded" .checked=${state.filters.showDiscarded} />
+            <span class="check-box" aria-hidden="true"></span><span>Discarded</span>
+          </label>
+        </div>
+      </div>
+    </details>`,
     sf,
   );
-  for (const el of sf.querySelectorAll('.chip')) {
-    el.onclick = () => {
-      const active = toggleStatusFilter(el.dataset.status);
-      el.classList.toggle('active', active);
+  sf.querySelectorAll('[data-status]').forEach((input) => {
+    input.onchange = () => {
+      toggleStatusFilter(input.dataset.status);
+      sf.querySelector('[data-status-summary]').textContent = statusSummary(state.filters.statuses);
       render();
     };
-  }
+  });
+  sf.querySelector('[data-clear-status]').onclick = () => {
+    clearStatusFilters();
+    sf.querySelectorAll('[data-status], [data-visibility]').forEach((input) => {
+      input.checked = false;
+    });
+    sf.querySelector('[data-status-summary]').textContent = statusSummary(state.filters.statuses);
+    render();
+  };
+  sf.querySelector('[data-visibility="archived"]').onchange = () => {
+    toggleShowArchived();
+    render();
+  };
+  sf.querySelector('[data-visibility="discarded"]').onchange = () => {
+    toggleShowDiscarded();
+    render();
+  };
 }
 
 function visibleChanges() {
@@ -119,7 +183,7 @@ function renderBoard() {
   const changes = visibleChanges();
   const board = $('#board');
   litRender(
-    boardStatuses(state.repo.statuses).map((status) => {
+    boardStatuses(state.repo.statuses, state.filters.showDiscarded).map((status) => {
       const items = changes.filter((c) => c.status === status);
       return html`
         <div class="column" data-status=${status}>
@@ -173,7 +237,57 @@ async function moveStatus(id, status, reason) {
     return;
   }
   invalidateCache();
-  load();
+  await load();
+  return true;
+}
+
+export function setValidationPending(root, pending) {
+  const panel = root.querySelector('.validation-actions');
+  if (!panel) return;
+  panel.classList.toggle('is-pending', pending);
+  panel.querySelectorAll('button, input').forEach((control) => {
+    control.disabled = pending;
+  });
+}
+
+export function showValidationError(root, message) {
+  const error = root.querySelector('.validation-error');
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+export async function runValidationSubmission({ root, request, onSuccess }) {
+  setValidationPending(root, true);
+  showValidationError(root, '');
+  try {
+    const res = await request();
+    const out = await res.json();
+    if (!res.ok) {
+      showValidationError(root, out.error || 'Status change failed.');
+      setValidationPending(root, false);
+      return false;
+    }
+  } catch (error) {
+    showValidationError(root, error.message);
+    setValidationPending(root, false);
+    return false;
+  }
+  await onSuccess();
+  return true;
+}
+
+async function submitValidation(id, status, reason) {
+  const root = $('#detail');
+  await runValidationSubmission({
+    root,
+    request: () => postStatus(state.currentProject, id, status, reason),
+    onSuccess: async () => {
+      closeDetail();
+      invalidateCache();
+      await load();
+    },
+  });
 }
 
 function openDetail(id) {
@@ -192,7 +306,7 @@ function openDetail(id) {
 
   litRender(
     html`
-    <button type="button" class="close">×</button>
+    ${closeButton()}
     <h1>${c.title}</h1>
     <div class="detail-meta">
       <span class="pill">#${c.id}</span>
@@ -202,16 +316,7 @@ function openDetail(id) {
       <span class="pill" title=${c.created || ''}>${fmtDateTime(c.created)}</span>
       ${deps}
     </div>
-    ${
-      c.status === 'in-validation'
-        ? html`<div class="validation-actions">
-          <p>Human validation: test the complete change before accepting it.</p>
-          <button type="button" data-validation="pass">Accept change</button>
-          <input data-validation-reason type="text" placeholder="Reason for rejection" />
-          <button type="button" data-validation="fail">Reject with reason</button>
-        </div>`
-        : nothing
-    }
+    ${c.status === 'in-validation' ? validationPanel() : nothing}
     <div class="pipeline">${pipeline}</div>
     ${stages}
     <div id="git-section"></div>`,
@@ -220,19 +325,20 @@ function openDetail(id) {
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
-  $('.close').onclick = closeDetail;
+  $('#detail').querySelector('.close').onclick = closeDetail;
   const accept = $('#detail').querySelector('[data-validation="pass"]');
-  if (accept) accept.onclick = () => moveStatus(c.id, 'done');
+  if (accept) accept.onclick = () => submitValidation(c.id, 'done');
   const reject = $('#detail').querySelector('[data-validation="fail"]');
   if (reject) {
     reject.onclick = () => {
       const input = $('#detail').querySelector('[data-validation-reason]');
       const reason = input?.value.trim();
       if (!reason) {
+        showValidationError($('#detail'), 'A rejection reason is required.');
         input?.focus();
         return;
       }
-      moveStatus(c.id, 'in-progress', reason);
+      submitValidation(c.id, 'in-progress', reason);
     };
   }
   overlay.onclick = (e) => {
@@ -257,7 +363,7 @@ function openDetail(id) {
         gotoChange(proj, changeId);
       };
     });
-  renderMermaid($('#detail'));
+  renderExpandableMermaid($('#detail'));
   loadGitRefs(c.id);
 }
 
@@ -298,6 +404,46 @@ async function loadGitRefs(id) {
 
 function closeDetail() {
   $('#overlay').classList.add('hidden');
+}
+
+let diagramLightbox = null;
+
+async function renderExpandableMermaid(root) {
+  await renderMermaid(root);
+  makeMermaidExpandable(root, (node) => diagramLightbox?.open(node));
+}
+
+export function createDiagramLightbox({ overlay, canvas, closeButton }) {
+  let origin = null;
+  const close = () => {
+    if (overlay.classList.contains('hidden')) return false;
+    overlay.classList.add('hidden');
+    canvas.replaceChildren();
+    origin?.focus();
+    origin = null;
+    return true;
+  };
+  const controller = {
+    open(node) {
+      const source = node.querySelector('svg');
+      if (!source) return false;
+      origin = node;
+      canvas.replaceChildren(source.cloneNode(true));
+      overlay.classList.remove('hidden');
+      closeButton.focus();
+      return true;
+    },
+    close,
+    handleBackdrop(event) {
+      return event.target === overlay ? close() : false;
+    },
+    handleKeydown(event) {
+      return event.key === 'Escape' ? close() : false;
+    },
+  };
+  closeButton.onclick = close;
+  overlay.onclick = controller.handleBackdrop;
+  return controller;
 }
 
 // Cross-project navigation: resolve `proj` (by id or name) in the loaded project
@@ -352,7 +498,10 @@ function renderTable() {
         <tr>
           ${cols.map(
             (c) =>
-              html`<th data-sort=${c.key}>${c.label}${state.sortKey === c.key ? (state.sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
+              html`<th data-sort=${c.key}>
+                <span class="column-label">${c.label}</span>
+                ${state.sortKey === c.key ? sortIndicator(state.sortDir) : nothing}
+              </th>`,
           )}
         </tr>
       </thead>
@@ -400,23 +549,23 @@ function renderSpecs() {
 function openSpec(s) {
   litRender(
     html`
-    <button type="button" class="close">×</button>
+    ${closeButton()}
     <h1>${s.title}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
       <span class="pill" title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
       ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
     </div>
-    <div class="stage-content">${markdownHtml(s.body)}</div>`,
+    ${specBody(s.body)}`,
     $('#detail'),
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
-  $('.close').onclick = closeDetail;
+  $('#detail').querySelector('.close').onclick = closeDetail;
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };
-  renderMermaid($('#detail'));
+  renderExpandableMermaid($('#detail'));
 }
 
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
@@ -503,6 +652,11 @@ const fmtDate = (iso) => {
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
 function bootstrap() {
+  diagramLightbox = createDiagramLightbox({
+    overlay: $('#diagram-overlay'),
+    canvas: $('#diagram-canvas'),
+    closeButton: $('#close-diagram'),
+  });
   $('#search').oninput = (e) => {
     setTextFilter(e.target.value);
     if (state.globalMode) renderGlobal();
@@ -522,14 +676,9 @@ function bootstrap() {
     setOwnerFilter(e.target.value);
     render();
   };
-  $('#toggle-archived').onclick = (e) => {
-    e.target.classList.toggle('active', toggleShowArchived());
-    render();
-  };
-  $('#toggle-discarded').onclick = (e) => {
-    e.target.classList.toggle('active', toggleShowDiscarded());
-    render();
-  };
+  document.addEventListener('pointerdown', (event) => {
+    closeStatusMenuOnOutsideClick($('#status-filter .filter-menu'), event.target);
+  });
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
   $('#view-graph').onclick = () => activateView('graph');
@@ -540,11 +689,17 @@ function bootstrap() {
     load();
   };
   document.onkeydown = (e) => {
-    if (e.key === 'Escape') closeDetail();
+    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) closeDetail();
   };
 
   loadProjects();
   setInterval(load, 5000);
+}
+
+export function closeStatusMenuOnOutsideClick(menu, target) {
+  if (!menu?.open || menu.contains(target)) return false;
+  menu.open = false;
+  return true;
 }
 
 // Only a real browser page with the app shell bootstraps; importing the module

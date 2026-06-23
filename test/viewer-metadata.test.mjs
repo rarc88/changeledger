@@ -15,14 +15,23 @@ const { render } = await import('lit-html');
 const {
   boardStatuses,
   card,
+  closeStatusMenuOnOutsideClick,
+  createDiagramLightbox,
   cssIdent,
   esc,
   isVisible,
   passesTombstones,
+  runValidationSubmission,
   stageBlock,
+  sortIndicator,
+  statusTag,
+  statusSummary,
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
+  '../src/viewer/public/view-parts.js'
+);
 const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
@@ -94,7 +103,7 @@ test('175732 CR4: esc still neutralizes the core HTML metacharacters', () => {
   assert.equal(esc('<b>&"\'</b>'), '&lt;b&gt;&amp;&quot;&#39;&lt;/b&gt;');
 });
 
-test('210508 CR6: discarded changes are hidden by default and excluded from board columns', () => {
+test('210508 CR6 / 125850 CR2: discarded is hidden by default and gets an opt-in board column', () => {
   const f = {
     text: '',
     type: 'all',
@@ -111,6 +120,11 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     'approved',
     'done',
   ]);
+  assert.deepEqual(boardStatuses(['draft', 'done', 'discarded'], true), [
+    'draft',
+    'done',
+    'discarded',
+  ]);
   // The graph uses passesTombstones directly (shared with isVisible) so it can't
   // diverge: discarded is hidden by default there too, shown only with the toggle.
   assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
@@ -120,6 +134,177 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     false,
     'graph hides archived',
   );
+});
+
+test('125850 CR1: compact status summary reports all, one, or a count', () => {
+  assert.equal(statusSummary(new Set()), 'All statuses');
+  assert.equal(statusSummary(new Set(['in-validation'])), 'In validation');
+  assert.equal(statusSummary(new Set(['draft', 'done'])), '2 statuses');
+});
+
+test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {
+  const body = `# Architecture
+
+> Graduado del change 20260613-120000 (first).
+> Graduado del change 20260613-120001 (second).
+
+Normal truth.
+
+> A regular quote.`;
+  const split = splitGraduationHistory(body);
+  assert.equal(split.entries.length, 2);
+  assert.match(split.before, /# Architecture/);
+  assert.match(split.after, /Normal truth/);
+  assert.match(split.after, /> A regular quote/);
+});
+
+test('125850 CR6: non-provenance blockquotes remain untouched', () => {
+  const body = '# Architecture\n\n> A regular quote.\n\nTruth.';
+  assert.deepEqual(splitGraduationHistory(body), { before: '', entries: [], after: body });
+});
+
+test('125850 CR7/CR8: table cells have explicit wrapping roles and a safe status badge', () => {
+  const host = parse(
+    tableRow({
+      ...baseChange(),
+      status: 'in-validation',
+      depends_on: ['20260613-120000', '20260613-120001'],
+    }),
+  );
+  assert.ok(host.querySelector('.cell-id.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-title.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-progress.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-deps:not(.cell-nowrap)'));
+  const tag = host.querySelector('.status-tag');
+  assert.equal(tag.textContent.trim(), 'In validation');
+  assert.match(tag.getAttribute('style'), /--status-in-validation/);
+
+  const unsafe = parse(statusTag('x); } body { color: red'));
+  assert.match(unsafe.querySelector('.status-tag').getAttribute('style'), /--status-muted/);
+});
+
+test('125850 CR3/CR4: validation card and detail close control expose accessible hooks', () => {
+  const closeHost = parse(closeButton());
+  const close = closeHost.querySelector('button.close');
+  assert.equal(close.getAttribute('aria-label'), 'Close detail');
+  assert.ok(close.querySelector('svg'));
+  const host = parse(validationPanel());
+  assert.equal(
+    host.querySelector('label[for="validation-reason"]')?.textContent,
+    'Reason for rejection',
+  );
+  assert.ok(host.querySelector('[data-validation="pass"].button-primary'));
+  assert.ok(host.querySelector('[data-validation="fail"].button-danger'));
+  assert.equal(host.querySelector('.validation-error').getAttribute('role'), 'alert');
+});
+
+test('125850 CR3: validation submission disables controls pending and removes stale UI on success', async () => {
+  const host = parse(validationPanel());
+  let resolveRequest;
+  const request = new Promise((resolve) => {
+    resolveRequest = resolve;
+  });
+  const submission = runValidationSubmission({
+    root: host,
+    request: () => request,
+    onSuccess: async () => host.replaceChildren(),
+  });
+  assert.ok(host.querySelector('.validation-actions').classList.contains('is-pending'));
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => control.disabled));
+
+  resolveRequest({ ok: true, json: async () => ({ ok: true }) });
+  assert.equal(await submission, true);
+  assert.equal(host.querySelector('.validation-actions'), null);
+});
+
+test('125850 CR3: validation error re-enables controls and preserves the rejection reason', async () => {
+  const host = parse(validationPanel());
+  const input = host.querySelector('[data-validation-reason]');
+  input.value = 'Still fails on device';
+  const result = await runValidationSubmission({
+    root: host,
+    request: async () => ({ ok: false, json: async () => ({ error: 'Transition rejected' }) }),
+    onSuccess: async () => assert.fail('error response must not call onSuccess'),
+  });
+  assert.equal(result, false);
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
+  assert.equal(input.value, 'Still fails on device');
+  const error = host.querySelector('.validation-error');
+  assert.equal(error.hidden, false);
+  assert.equal(error.textContent, 'Transition rejected');
+});
+
+test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = `<div class="hidden" id="lightbox"><button type="button">Close</button><div class="canvas"></div></div>
+    <div class="origin" tabindex="0"><svg viewBox="0 0 20 10"><text>diagram</text></svg></div>`;
+  document.body.append(fixture);
+  const overlay = fixture.querySelector('#lightbox');
+  const canvas = fixture.querySelector('.canvas');
+  const close = fixture.querySelector('button');
+  const origin = fixture.querySelector('.origin');
+  const source = origin.querySelector('svg');
+  const lightbox = createDiagramLightbox({ overlay, canvas, closeButton: close });
+
+  assert.equal(lightbox.open(origin), true);
+  assert.equal(overlay.classList.contains('hidden'), false);
+  assert.ok(canvas.querySelector('svg'));
+  assert.notEqual(canvas.querySelector('svg'), source);
+  assert.equal(document.activeElement, close);
+  close.click();
+  assert.equal(overlay.classList.contains('hidden'), true);
+  assert.equal(canvas.children.length, 0);
+  assert.equal(document.activeElement, origin);
+
+  lightbox.open(origin);
+  assert.equal(
+    lightbox.handleKeydown(new window.KeyboardEvent('keydown', { key: 'Escape' })),
+    true,
+  );
+  assert.equal(document.activeElement, origin);
+
+  lightbox.open(origin);
+  overlay.click();
+  assert.equal(overlay.classList.contains('hidden'), true);
+  assert.equal(document.activeElement, origin);
+  fixture.remove();
+});
+
+test('125850 CR9: status menu closes only for an outside pointer target', () => {
+  const menu = document.createElement('details');
+  const inside = document.createElement('button');
+  const outside = document.createElement('button');
+  menu.append(inside);
+  menu.open = true;
+  assert.equal(closeStatusMenuOnOutsideClick(menu, inside), false);
+  assert.equal(menu.open, true);
+  assert.equal(closeStatusMenuOnOutsideClick(menu, outside), true);
+  assert.equal(menu.open, false);
+});
+
+test('125850 CR9: sort indicator is a bounded SVG icon', () => {
+  const host = parse(sortIndicator(1));
+  const icon = host.querySelector('svg.sort-indicator');
+  assert.equal(icon.getAttribute('width'), '10');
+  assert.equal(icon.getAttribute('height'), '10');
+  assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
+});
+
+test('125850 CR6: spec body renders graduation entries inside a collapsed details list', () => {
+  const host = parse(
+    specBody(`# Architecture
+
+> Graduado del change 20260613-120000 (first).
+> Graduado del change 20260613-120001 (second).
+
+Persistent truth.`),
+  );
+  const details = host.querySelector('details.graduation-history');
+  assert.ok(details);
+  assert.equal(details.open, false);
+  assert.equal(details.querySelector('.history-count').textContent, '2');
+  assert.equal(details.querySelectorAll('li').length, 2);
+  assert.match(host.textContent, /Persistent truth/);
 });
 
 test('222619 CR1: graph empty state does not render invalid dimensions', () => {
