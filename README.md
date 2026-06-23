@@ -16,7 +16,7 @@ ordered by the lifecycle.
 Requires **Node ≥ 20**. Install the CLI globally:
 
 ```sh
-npm install -g spec-ledger     # or: pnpm add -g spec-ledger
+npm install -g @rarc88/spec-ledger     # or: pnpm add -g @rarc88/spec-ledger
 sl --help
 ```
 
