@@ -2,7 +2,7 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: in-progress
+status: in-review
 created: 2026-06-23T12:58:50Z
 depends_on: []
 owner: Roberto Ruiz
@@ -163,3 +163,4 @@ actual.
 - **2026-06-23T13:43:31Z** — status: approved → in-progress
 - **2026-06-23T13:43:31Z** — owner → Roberto Ruiz (auto)
 - **2026-06-23T13:54:00Z** — Implementación completa: selector compacto, columna Discarded condicional, validación con estado pending, cierre coherente, lightbox Mermaid, historial de graduaciones colapsable y tabla sin wrapping accidental. pnpm verify pasa con 343 tests; verificación visual completada a 1920 px y 680 px.
+- **2026-06-23T13:54:57Z** — status: in-progress → in-review
