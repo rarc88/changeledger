@@ -1,5 +1,5 @@
 {
-  "name": "spec-ledger",
+  "name": "@rarc88/spec-ledger",
   "version": "0.1.0",
   "description": "Plan before coding. Documents are the source of truth; code is their reflection.",
   "type": "module",
