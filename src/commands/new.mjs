@@ -47,6 +47,15 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
       continue;
     }
 
+    // Re-check after acquiring the lock: another process may have written a
+    // file with this id between our idTaken() check and acquireIdLock().
+    if (idTaken(changesDir, id)) {
+      releaseIdLock(lock);
+      created = bumpSecond(created);
+      id = idFromTimestamp(created);
+      continue;
+    }
+
     const file = path.join(changesDir, `${id}-${normalizedSlug}.md`);
     try {
       fs.writeFileSync(
