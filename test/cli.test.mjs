@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import { check } from '../src/commands/check.mjs';
@@ -487,7 +488,7 @@ test('new reserves ids atomically across concurrent processes', async () => {
   const code = `
     import fs from 'node:fs';
     import { setTimeout as delay } from 'node:timers/promises';
-    import { newChange } from ${JSON.stringify(path.resolve('src/commands/new.mjs'))};
+    import { newChange } from ${JSON.stringify(pathToFileURL(path.resolve('src/commands/new.mjs')).href)};
     fs.writeFileSync(process.argv[3], 'ready');
     while (!fs.existsSync(process.argv[4])) {
       await delay(5);
