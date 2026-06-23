@@ -2,7 +2,7 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: in-progress
+status: in-review
 created: 2026-06-23T12:58:50Z
 depends_on: []
 owner: Roberto Ruiz
@@ -176,3 +176,4 @@ actual.
 - **2026-06-23T13:57:46Z** — Ajustes solicitados por validación visual: coherencia de chevron, cierre exterior del selector, escala de ordenamiento, centrado vertical y scroll sin compresión al mostrar Discarded.
 - **2026-06-23T14:03:54Z** — status: in-review → in-progress
 - **2026-06-23T14:08:33Z** — Ajustes visuales verificados: chevron SVG coherente, cierre exterior del selector, sort icon 10×10, celdas centradas y ocho columnas de Board mantienen 257.7 px a 1920 px con scrollWidth 2192 px. pnpm verify pasa con 345 tests.
+- **2026-06-23T14:09:03Z** — status: in-progress → in-review
