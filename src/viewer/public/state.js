@@ -6,7 +6,8 @@ export const passesTombstones = (c, f) =>
 
 // Statuses that get a board column. `discarded` is terminal and off-board — it
 // never shows as a lane even when its changes are revealed by the toggle.
-export const boardStatuses = (statuses) => statuses.filter((s) => s !== 'discarded');
+export const boardStatuses = (statuses, showDiscarded = false) =>
+  statuses.filter((s) => s !== 'discarded' || showDiscarded);
 
 // Full-text haystack: id, title, type, stage headings/bodies and task text.
 function haystack(c) {

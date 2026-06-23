@@ -29,7 +29,24 @@ export function renderMermaid(root) {
     code.parentElement.replaceWith(div);
   });
   const nodes = root.querySelectorAll('.mermaid');
-  if (nodes.length) mermaid.run({ nodes });
+  if (nodes.length) return mermaid.run({ nodes });
+}
+
+export function makeMermaidExpandable(root, onOpen) {
+  root.querySelectorAll('.mermaid').forEach((node) => {
+    node.classList.add('mermaid-expandable');
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', 'Expand diagram');
+    const open = () => node.querySelector('svg') && onOpen(node);
+    node.onclick = open;
+    node.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    };
+  });
 }
 
 // Escapes a value for HTML text and double-quoted attribute contexts. Every

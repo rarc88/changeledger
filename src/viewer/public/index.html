@@ -28,9 +28,7 @@
       <button type="button" id="toggle-global" class="chip" title="Search across all projects">Global</button>
       <select id="type-filter" class="filter"></select>
       <select id="owner-filter" class="filter"></select>
-      <div id="status-filter" class="chips"></div>
-      <button type="button" id="toggle-archived" class="chip" title="Show archived">Archived</button>
-      <button type="button" id="toggle-discarded" class="chip" title="Show discarded">Discarded</button>
+      <div id="status-filter"></div>
       <div class="spacer"></div>
       <div class="tabs">
         <button type="button" id="view-board" class="tab active">Board</button>
@@ -50,6 +48,15 @@
 
     <div id="overlay" class="overlay hidden">
       <div id="detail" class="detail"></div>
+    </div>
+
+    <div id="diagram-overlay" class="diagram-overlay hidden" role="dialog" aria-modal="true" aria-label="Expanded diagram">
+      <div class="diagram-shell">
+        <button type="button" id="close-diagram" class="icon-button diagram-close" aria-label="Close diagram" title="Close diagram">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.75 3.75 12.25 12.25M12.25 3.75 3.75 12.25"></path></svg>
+        </button>
+        <div id="diagram-canvas" class="diagram-canvas"></div>
+      </div>
     </div>
 
     <script type="module" src="/app.js"></script>

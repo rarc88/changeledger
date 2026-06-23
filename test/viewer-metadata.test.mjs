@@ -20,9 +20,14 @@ const {
   isVisible,
   passesTombstones,
   stageBlock,
+  statusTag,
+  statusSummary,
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
+  '../src/viewer/public/view-parts.js'
+);
 const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
@@ -94,7 +99,7 @@ test('175732 CR4: esc still neutralizes the core HTML metacharacters', () => {
   assert.equal(esc('<b>&"\'</b>'), '&lt;b&gt;&amp;&quot;&#39;&lt;/b&gt;');
 });
 
-test('210508 CR6: discarded changes are hidden by default and excluded from board columns', () => {
+test('210508 CR6 / 125850 CR2: discarded is hidden by default and gets an opt-in board column', () => {
   const f = {
     text: '',
     type: 'all',
@@ -111,6 +116,11 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     'approved',
     'done',
   ]);
+  assert.deepEqual(boardStatuses(['draft', 'done', 'discarded'], true), [
+    'draft',
+    'done',
+    'discarded',
+  ]);
   // The graph uses passesTombstones directly (shared with isVisible) so it can't
   // diverge: discarded is hidden by default there too, shown only with the toggle.
   assert.equal(passesTombstones(c, f), false, 'graph hides discarded by default');
@@ -120,6 +130,85 @@ test('210508 CR6: discarded changes are hidden by default and excluded from boar
     false,
     'graph hides archived',
   );
+});
+
+test('125850 CR1: compact status summary reports all, one, or a count', () => {
+  assert.equal(statusSummary(new Set()), 'All statuses');
+  assert.equal(statusSummary(new Set(['in-validation'])), 'In validation');
+  assert.equal(statusSummary(new Set(['draft', 'done'])), '2 statuses');
+});
+
+test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {
+  const body = `# Architecture
+
+> Graduado del change 20260613-120000 (first).
+> Graduado del change 20260613-120001 (second).
+
+Normal truth.
+
+> A regular quote.`;
+  const split = splitGraduationHistory(body);
+  assert.equal(split.entries.length, 2);
+  assert.match(split.before, /# Architecture/);
+  assert.match(split.after, /Normal truth/);
+  assert.match(split.after, /> A regular quote/);
+});
+
+test('125850 CR6: non-provenance blockquotes remain untouched', () => {
+  const body = '# Architecture\n\n> A regular quote.\n\nTruth.';
+  assert.deepEqual(splitGraduationHistory(body), { before: '', entries: [], after: body });
+});
+
+test('125850 CR7/CR8: table cells have explicit wrapping roles and a safe status badge', () => {
+  const host = parse(
+    tableRow({
+      ...baseChange(),
+      status: 'in-validation',
+      depends_on: ['20260613-120000', '20260613-120001'],
+    }),
+  );
+  assert.ok(host.querySelector('.cell-id.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-title.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-progress.cell-nowrap'));
+  assert.ok(host.querySelector('.cell-deps:not(.cell-nowrap)'));
+  const tag = host.querySelector('.status-tag');
+  assert.equal(tag.textContent.trim(), 'In validation');
+  assert.match(tag.getAttribute('style'), /--status-in-validation/);
+
+  const unsafe = parse(statusTag('x); } body { color: red'));
+  assert.match(unsafe.querySelector('.status-tag').getAttribute('style'), /--status-muted/);
+});
+
+test('125850 CR3/CR4: validation card and detail close control expose accessible hooks', () => {
+  const closeHost = parse(closeButton());
+  const close = closeHost.querySelector('button.close');
+  assert.equal(close.getAttribute('aria-label'), 'Close detail');
+  assert.ok(close.querySelector('svg'));
+  const host = parse(validationPanel());
+  assert.equal(
+    host.querySelector('label[for="validation-reason"]')?.textContent,
+    'Reason for rejection',
+  );
+  assert.ok(host.querySelector('[data-validation="pass"].button-primary'));
+  assert.ok(host.querySelector('[data-validation="fail"].button-danger'));
+  assert.equal(host.querySelector('.validation-error').getAttribute('role'), 'alert');
+});
+
+test('125850 CR6: spec body renders graduation entries inside a collapsed details list', () => {
+  const host = parse(
+    specBody(`# Architecture
+
+> Graduado del change 20260613-120000 (first).
+> Graduado del change 20260613-120001 (second).
+
+Persistent truth.`),
+  );
+  const details = host.querySelector('details.graduation-history');
+  assert.ok(details);
+  assert.equal(details.open, false);
+  assert.equal(details.querySelector('.history-count').textContent, '2');
+  assert.equal(details.querySelectorAll('li').length, 2);
+  assert.match(host.textContent, /Persistent truth/);
 });
 
 test('222619 CR1: graph empty state does not render invalid dimensions', () => {

@@ -2,9 +2,10 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-23T12:58:50Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -147,15 +148,18 @@ actual.
 
 ## Plan
 
-- [ ] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1)
-- [ ] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2)
-- [ ] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4)
-- [ ] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5)
-- [ ] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6)
-- [ ] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8)
-- [ ] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support)
+- [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1) — 2026-06-23T13:53:58Z
+- [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2) — 2026-06-23T13:53:59Z
+- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4) — 2026-06-23T13:53:59Z
+- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5) — 2026-06-23T13:53:59Z
+- [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6) — 2026-06-23T13:53:59Z
+- [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8) — 2026-06-23T13:53:59Z
+- [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support) — 2026-06-23T13:54:00Z
 
 ## Log
 
 - **2026-06-23T12:58:50Z** — Draft creado a partir de los siete defectos visuales reportados y de la inspección de sus rutas actuales en el viewer.
 - **2026-06-23T13:42:13Z** — status: draft → approved
+- **2026-06-23T13:43:31Z** — status: approved → in-progress
+- **2026-06-23T13:43:31Z** — owner → Roberto Ruiz (auto)
+- **2026-06-23T13:54:00Z** — Implementación completa: selector compacto, columna Discarded condicional, validación con estado pending, cierre coherente, lightbox Mermaid, historial de graduaciones colapsable y tabla sin wrapping accidental. pnpm verify pasa con 343 tests; verificación visual completada a 1920 px y 680 px.
