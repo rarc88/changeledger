@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/smoke && cd /tmp/smoke
           npm init -y >/dev/null
-          npm install /tmp/spec-ledger-*.tgz
+          npm install /tmp/rarc88-spec-ledger-*.tgz
           printf '# Rules\n' > AGENTS.md
           ./node_modules/.bin/sl --help
           ./node_modules/.bin/sl init

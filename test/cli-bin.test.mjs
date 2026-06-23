@@ -65,7 +65,7 @@ test('CR4: sl --help lists all commands', () => {
   assert.match(out, /sl review/);
 });
 
-test('151226: bin remains directly executable', () => {
+test('151226: bin remains directly executable', { skip: process.platform === 'win32' }, () => {
   const { code, out } = runDirect('--help');
   assert.equal(code, 0);
   assert.match(out, /sl init/);

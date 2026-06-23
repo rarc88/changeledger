@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import {
@@ -493,7 +494,7 @@ test('212314 CR1: concurrent task mutations on the same change preserve both wri
   const code = `
     import fs from 'node:fs';
     import { setTimeout as delay } from 'node:timers/promises';
-    import { task } from ${JSON.stringify(path.resolve('src/commands/agent.mjs'))};
+    import { task } from ${JSON.stringify(pathToFileURL(path.resolve('src/commands/agent.mjs')).href)};
     fs.writeFileSync(process.argv[4], 'ready');
     while (!fs.existsSync(process.argv[5])) await delay(5);
     task(process.argv[1], 'done', Number(process.argv[2]), '', process.argv[3]);
