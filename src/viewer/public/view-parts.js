@@ -21,6 +21,13 @@ export function statusTag(status) {
   ><i aria-hidden="true"></i>${humanizeStatus(status)}</span>`;
 }
 
+export function sortIndicator(direction) {
+  const path = direction > 0 ? 'M2.5 6.5 5 4l2.5 2.5' : 'M2.5 3.5 5 6l2.5-2.5';
+  return html`<svg class="sort-indicator" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+    <path d=${path}></path>
+  </svg>`;
+}
+
 export function closeButton(label = 'Close detail', extraClass = '') {
   return html`<button type="button" class=${`icon-button close ${extraClass}`.trim()} aria-label=${label} title=${label}>
     <svg viewBox="0 0 16 16" aria-hidden="true">

@@ -2,7 +2,7 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: in-review
+status: in-progress
 created: 2026-06-23T12:58:50Z
 depends_on: []
 owner: Roberto Ruiz
@@ -146,6 +146,14 @@ actual.
 - **And** Status usa un badge delineado con punto de color, texto en formato `In validation`, `Done` o `Discarded` y contraste legible
 - **And** valores no configurados usan el color neutral sin producir CSS inseguro
 
+### CR9 — Ajustes finos de controles, tabla y Board
+- **Given** el selector de estados abierto, una Table ordenada y un Board con la visibilidad `Discarded` activa
+- **When** hago click fuera del selector y observo los controles y filas resultantes
+- **Then** el selector se cierra y su chevron derecho usa el mismo lenguaje SVG que el resto de iconos
+- **And** el indicador de orden ocupa como máximo 10 por 10 px
+- **And** el contenido de todas las celdas queda centrado verticalmente
+- **And** añadir la columna `Discarded` conserva el ancho de las siete columnas normales y añade scroll horizontal en vez de comprimirlas
+
 ## Plan
 
 - [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1) — 2026-06-23T13:53:58Z
@@ -155,6 +163,7 @@ actual.
 - [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6) — 2026-06-23T13:53:59Z
 - [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8) — 2026-06-23T13:53:59Z
 - [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support) — 2026-06-23T13:54:00Z
+- [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px (CR9) — 2026-06-23T14:08:33Z
 
 ## Log
 
@@ -164,3 +173,6 @@ actual.
 - **2026-06-23T13:43:31Z** — owner → Roberto Ruiz (auto)
 - **2026-06-23T13:54:00Z** — Implementación completa: selector compacto, columna Discarded condicional, validación con estado pending, cierre coherente, lightbox Mermaid, historial de graduaciones colapsable y tabla sin wrapping accidental. pnpm verify pasa con 343 tests; verificación visual completada a 1920 px y 680 px.
 - **2026-06-23T13:54:57Z** — status: in-progress → in-review
+- **2026-06-23T13:57:46Z** — Ajustes solicitados por validación visual: coherencia de chevron, cierre exterior del selector, escala de ordenamiento, centrado vertical y scroll sin compresión al mostrar Discarded.
+- **2026-06-23T14:03:54Z** — status: in-review → in-progress
+- **2026-06-23T14:08:33Z** — Ajustes visuales verificados: chevron SVG coherente, cierre exterior del selector, sort icon 10×10, celdas centradas y ocho columnas de Board mantienen 257.7 px a 1920 px con scrollWidth 2192 px. pnpm verify pasa con 345 tests.

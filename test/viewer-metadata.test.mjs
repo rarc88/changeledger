@@ -15,11 +15,13 @@ const { render } = await import('lit-html');
 const {
   boardStatuses,
   card,
+  closeStatusMenuOnOutsideClick,
   cssIdent,
   esc,
   isVisible,
   passesTombstones,
   stageBlock,
+  sortIndicator,
   statusTag,
   statusSummary,
   tableRow,
@@ -192,6 +194,26 @@ test('125850 CR3/CR4: validation card and detail close control expose accessible
   assert.ok(host.querySelector('[data-validation="pass"].button-primary'));
   assert.ok(host.querySelector('[data-validation="fail"].button-danger'));
   assert.equal(host.querySelector('.validation-error').getAttribute('role'), 'alert');
+});
+
+test('125850 CR9: status menu closes only for an outside pointer target', () => {
+  const menu = document.createElement('details');
+  const inside = document.createElement('button');
+  const outside = document.createElement('button');
+  menu.append(inside);
+  menu.open = true;
+  assert.equal(closeStatusMenuOnOutsideClick(menu, inside), false);
+  assert.equal(menu.open, true);
+  assert.equal(closeStatusMenuOnOutsideClick(menu, outside), true);
+  assert.equal(menu.open, false);
+});
+
+test('125850 CR9: sort indicator is a bounded SVG icon', () => {
+  const host = parse(sortIndicator(1));
+  const icon = host.querySelector('svg.sort-indicator');
+  assert.equal(icon.getAttribute('width'), '10');
+  assert.equal(icon.getAttribute('height'), '10');
+  assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
 });
 
 test('125850 CR6: spec body renders graduation entries inside a collapsed details list', () => {

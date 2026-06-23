@@ -21,6 +21,7 @@ import { html, render as litRender, nothing } from './templates.js';
 import {
   card,
   closeButton,
+  sortIndicator,
   specBody,
   stageBlock,
   statusSummary,
@@ -31,7 +32,15 @@ import { graphSvg, metricsHtml, specsListHtml } from './view-renderers.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
-export { card, stageBlock, statusSummary, statusTag, tableRow, taskList } from './view-parts.js';
+export {
+  card,
+  sortIndicator,
+  stageBlock,
+  statusSummary,
+  statusTag,
+  tableRow,
+  taskList,
+} from './view-parts.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -103,7 +112,9 @@ function renderStatusFilter() {
       <summary class="filter-trigger">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
         <span data-status-summary>${statusSummary(state.filters.statuses)}</span>
-        <span class="filter-chevron" aria-hidden="true">⌄</span>
+        <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path>
+        </svg>
       </summary>
       <div class="filter-popover">
         <div class="filter-heading"><span>Status</span><button type="button" data-clear-status>Clear</button></div>
@@ -462,7 +473,10 @@ function renderTable() {
         <tr>
           ${cols.map(
             (c) =>
-              html`<th data-sort=${c.key}>${c.label}${state.sortKey === c.key ? (state.sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`,
+              html`<th data-sort=${c.key}>
+                <span class="column-label">${c.label}</span>
+                ${state.sortKey === c.key ? sortIndicator(state.sortDir) : nothing}
+              </th>`,
           )}
         </tr>
       </thead>
@@ -632,6 +646,9 @@ function bootstrap() {
     setOwnerFilter(e.target.value);
     render();
   };
+  document.addEventListener('pointerdown', (event) => {
+    closeStatusMenuOnOutsideClick($('#status-filter .filter-menu'), event.target);
+  });
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
   $('#view-graph').onclick = () => activateView('graph');
@@ -651,6 +668,12 @@ function bootstrap() {
 
   loadProjects();
   setInterval(load, 5000);
+}
+
+export function closeStatusMenuOnOutsideClick(menu, target) {
+  if (!menu?.open || menu.contains(target)) return false;
+  menu.open = false;
+  return true;
 }
 
 // Only a real browser page with the app shell bootstraps; importing the module

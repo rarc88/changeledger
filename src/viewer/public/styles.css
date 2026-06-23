@@ -145,6 +145,8 @@ body {
   box-shadow: 0 0 0 3px rgba(91, 157, 255, 0.13);
 }
 .filter-chevron {
+  width: 14px;
+  height: 14px;
   margin-left: auto;
   color: var(--muted);
   transition: transform 0.16s ease;
@@ -253,6 +255,7 @@ body {
 .grid th,
 .grid td {
   text-align: left;
+  vertical-align: middle;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
 }
@@ -264,6 +267,20 @@ body {
   position: sticky;
   top: 0;
   background: var(--bg);
+}
+.grid th .column-label {
+  vertical-align: middle;
+}
+.sort-indicator {
+  width: 10px;
+  height: 10px;
+  margin-left: 3px;
+  vertical-align: -1px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .grid tbody tr {
   cursor: pointer;
@@ -326,9 +343,10 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
+  width: clamp(238px, calc((100vw - 116px) / 7), 320px);
   min-width: 238px;
-  max-width: none;
-  flex: 1;
+  max-width: 320px;
+  flex: 0 0 clamp(238px, calc((100vw - 116px) / 7), 320px);
 }
 .column-head {
   display: flex;
@@ -1013,6 +1031,7 @@ body {
     max-width: none;
     min-width: 0;
     width: 100%;
+    flex: 0 0 auto;
   }
   .validation-controls {
     grid-template-columns: 1fr;
