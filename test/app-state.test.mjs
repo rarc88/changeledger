@@ -93,12 +93,16 @@ test('231428: toggleStatusFilter adds and removes a status', async () => {
   assert.ok(!state.filters.statuses.has('draft'));
 });
 
-test('125850 CR1: clearStatusFilters empties every selected status', async () => {
+test('125850 CR1/CR10: clearStatusFilters empties statuses and visibility toggles', async () => {
   const { state, clearStatusFilters } = await freshState();
   state.filters.statuses.add('draft');
   state.filters.statuses.add('in-validation');
+  state.filters.showArchived = true;
+  state.filters.showDiscarded = true;
   clearStatusFilters();
   assert.equal(state.filters.statuses.size, 0);
+  assert.equal(state.filters.showArchived, false);
+  assert.equal(state.filters.showDiscarded, false);
 });
 
 test('231428: toggleShowArchived flips and returns new value', async () => {

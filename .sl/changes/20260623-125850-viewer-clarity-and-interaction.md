@@ -2,10 +2,11 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: in-validation
+status: done
 created: 2026-06-23T12:58:50Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -154,6 +155,12 @@ actual.
 - **And** el contenido de todas las celdas queda centrado verticalmente
 - **And** añadir la columna `Discarded` conserva el ancho de las siete columnas normales y añade scroll horizontal en vez de comprimirlas
 
+### CR10 — Clear limpia todo el menú
+- **Given** que no hay statuses seleccionados pero `Archived` y `Discarded` están activos en la sección `Visibility`
+- **When** presiono `Clear` en el selector
+- **Then** ambos toggles se desactivan, el trigger muestra `All statuses` y desaparecen los changes archivados y la columna `Discarded`
+- **And** la misma acción también limpia cualquier status seleccionado
+
 ## Plan
 
 - [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1) — 2026-06-23T13:53:58Z
@@ -164,6 +171,7 @@ actual.
 - [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8) — 2026-06-23T13:53:59Z
 - [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support) — 2026-06-23T13:54:00Z
 - [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px (CR9) — 2026-06-23T14:08:33Z
+- [x] Añadir regresión para Clear con Visibility activa en `test/app-state.test.mjs` y corregir `src/viewer/public/app-state.js` y `src/viewer/public/app.js`; verificar con `node --test test/app-state.test.mjs` y el viewer local (CR10) — 2026-06-23T14:31:32Z
 
 ## Log
 
@@ -184,3 +192,9 @@ actual.
 - **2026-06-23T14:21:51Z** — Corrección del segundo review: actualizado el comentario de boardStatuses para describir la columna Discarded condicional y eliminar residuo del comportamiento anterior.
 - **2026-06-23T14:21:51Z** — status: in-progress → in-review
 - **2026-06-23T14:23:06Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-23T14:28:45Z** — validation → in-progress (human rejected): El botón Clear del selector de estados no limpia la visibilidad Archived/Discarded y parece no hacer nada cuando solo esos filtros están activos.
+- **2026-06-23T14:31:32Z** — Corrección de validación humana: Clear ahora limpia statuses y Visibility; verificado en navegador con Discarded activo (checkboxes false, 0 statuses y columna descartada removida) y pnpm verify con 348 tests.
+- **2026-06-23T14:31:33Z** — status: in-progress → in-review
+- **2026-06-23T14:32:43Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-23T14:33:36Z** — validation → done (human accepted)
+- **2026-06-23T14:34:36Z** — graduado a spec `architecture.md`

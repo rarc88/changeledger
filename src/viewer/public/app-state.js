@@ -46,6 +46,8 @@ export function toggleStatusFilter(status) {
 
 export function clearStatusFilters() {
   state.filters.statuses.clear();
+  state.filters.showArchived = false;
+  state.filters.showDiscarded = false;
 }
 
 export function toggleShowArchived() {

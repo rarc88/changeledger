@@ -151,7 +151,7 @@ function renderStatusFilter() {
   });
   sf.querySelector('[data-clear-status]').onclick = () => {
     clearStatusFilters();
-    sf.querySelectorAll('[data-status]').forEach((input) => {
+    sf.querySelectorAll('[data-status], [data-visibility]').forEach((input) => {
       input.checked = false;
     });
     sf.querySelector('[data-status-summary]').textContent = statusSummary(state.filters.statuses);
