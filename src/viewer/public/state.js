@@ -4,8 +4,8 @@
 export const passesTombstones = (c, f) =>
   (f.showArchived || !c.archived) && (f.showDiscarded || c.status !== 'discarded');
 
-// Statuses that get a board column. `discarded` is terminal and off-board — it
-// never shows as a lane even when its changes are revealed by the toggle.
+// Statuses that get a board column. `discarded` stays off-board by default and
+// becomes the final lane only while its explicit visibility toggle is active.
 export const boardStatuses = (statuses, showDiscarded = false) =>
   statuses.filter((s) => s !== 'discarded' || showDiscarded);
 

@@ -241,8 +241,8 @@ async function moveStatus(id, status, reason) {
   return true;
 }
 
-function setValidationPending(pending) {
-  const panel = $('#detail').querySelector('.validation-actions');
+export function setValidationPending(root, pending) {
+  const panel = root.querySelector('.validation-actions');
   if (!panel) return;
   panel.classList.toggle('is-pending', pending);
   panel.querySelectorAll('button, input').forEach((control) => {
@@ -250,32 +250,44 @@ function setValidationPending(pending) {
   });
 }
 
-function showValidationError(message) {
-  const error = $('#detail').querySelector('.validation-error');
+export function showValidationError(root, message) {
+  const error = root.querySelector('.validation-error');
   if (!error) return;
   error.textContent = message;
   error.hidden = !message;
 }
 
-async function submitValidation(id, status, reason) {
-  setValidationPending(true);
-  showValidationError('');
+export async function runValidationSubmission({ root, request, onSuccess }) {
+  setValidationPending(root, true);
+  showValidationError(root, '');
   try {
-    const res = await postStatus(state.currentProject, id, status, reason);
+    const res = await request();
     const out = await res.json();
     if (!res.ok) {
-      showValidationError(out.error || 'Status change failed.');
-      setValidationPending(false);
-      return;
+      showValidationError(root, out.error || 'Status change failed.');
+      setValidationPending(root, false);
+      return false;
     }
   } catch (error) {
-    showValidationError(error.message);
-    setValidationPending(false);
-    return;
+    showValidationError(root, error.message);
+    setValidationPending(root, false);
+    return false;
   }
-  closeDetail();
-  invalidateCache();
-  await load();
+  await onSuccess();
+  return true;
+}
+
+async function submitValidation(id, status, reason) {
+  const root = $('#detail');
+  await runValidationSubmission({
+    root,
+    request: () => postStatus(state.currentProject, id, status, reason),
+    onSuccess: async () => {
+      closeDetail();
+      invalidateCache();
+      await load();
+    },
+  });
 }
 
 function openDetail(id) {
@@ -322,7 +334,7 @@ function openDetail(id) {
       const input = $('#detail').querySelector('[data-validation-reason]');
       const reason = input?.value.trim();
       if (!reason) {
-        showValidationError('A rejection reason is required.');
+        showValidationError($('#detail'), 'A rejection reason is required.');
         input?.focus();
         return;
       }
@@ -394,31 +406,44 @@ function closeDetail() {
   $('#overlay').classList.add('hidden');
 }
 
-let diagramOrigin = null;
+let diagramLightbox = null;
 
 async function renderExpandableMermaid(root) {
   await renderMermaid(root);
-  makeMermaidExpandable(root, openDiagram);
+  makeMermaidExpandable(root, (node) => diagramLightbox?.open(node));
 }
 
-function openDiagram(node) {
-  const source = node.querySelector('svg');
-  if (!source) return;
-  diagramOrigin = node;
-  const canvas = $('#diagram-canvas');
-  canvas.replaceChildren(source.cloneNode(true));
-  $('#diagram-overlay').classList.remove('hidden');
-  $('#close-diagram').focus();
-}
-
-function closeDiagram() {
-  const overlay = $('#diagram-overlay');
-  if (overlay.classList.contains('hidden')) return false;
-  overlay.classList.add('hidden');
-  $('#diagram-canvas').replaceChildren();
-  diagramOrigin?.focus();
-  diagramOrigin = null;
-  return true;
+export function createDiagramLightbox({ overlay, canvas, closeButton }) {
+  let origin = null;
+  const close = () => {
+    if (overlay.classList.contains('hidden')) return false;
+    overlay.classList.add('hidden');
+    canvas.replaceChildren();
+    origin?.focus();
+    origin = null;
+    return true;
+  };
+  const controller = {
+    open(node) {
+      const source = node.querySelector('svg');
+      if (!source) return false;
+      origin = node;
+      canvas.replaceChildren(source.cloneNode(true));
+      overlay.classList.remove('hidden');
+      closeButton.focus();
+      return true;
+    },
+    close,
+    handleBackdrop(event) {
+      return event.target === overlay ? close() : false;
+    },
+    handleKeydown(event) {
+      return event.key === 'Escape' ? close() : false;
+    },
+  };
+  closeButton.onclick = close;
+  overlay.onclick = controller.handleBackdrop;
+  return controller;
 }
 
 // Cross-project navigation: resolve `proj` (by id or name) in the loaded project
@@ -627,6 +652,11 @@ const fmtDate = (iso) => {
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
 function bootstrap() {
+  diagramLightbox = createDiagramLightbox({
+    overlay: $('#diagram-overlay'),
+    canvas: $('#diagram-canvas'),
+    closeButton: $('#close-diagram'),
+  });
   $('#search').oninput = (e) => {
     setTextFilter(e.target.value);
     if (state.globalMode) renderGlobal();
@@ -658,12 +688,8 @@ function bootstrap() {
     selectProject(e.target.value);
     load();
   };
-  $('#close-diagram').onclick = closeDiagram;
-  $('#diagram-overlay').onclick = (event) => {
-    if (event.target === $('#diagram-overlay')) closeDiagram();
-  };
   document.onkeydown = (e) => {
-    if (e.key === 'Escape' && !closeDiagram()) closeDetail();
+    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) closeDetail();
   };
 
   loadProjects();

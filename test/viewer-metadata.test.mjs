@@ -16,10 +16,12 @@ const {
   boardStatuses,
   card,
   closeStatusMenuOnOutsideClick,
+  createDiagramLightbox,
   cssIdent,
   esc,
   isVisible,
   passesTombstones,
+  runValidationSubmission,
   stageBlock,
   sortIndicator,
   statusTag,
@@ -194,6 +196,78 @@ test('125850 CR3/CR4: validation card and detail close control expose accessible
   assert.ok(host.querySelector('[data-validation="pass"].button-primary'));
   assert.ok(host.querySelector('[data-validation="fail"].button-danger'));
   assert.equal(host.querySelector('.validation-error').getAttribute('role'), 'alert');
+});
+
+test('125850 CR3: validation submission disables controls pending and removes stale UI on success', async () => {
+  const host = parse(validationPanel());
+  let resolveRequest;
+  const request = new Promise((resolve) => {
+    resolveRequest = resolve;
+  });
+  const submission = runValidationSubmission({
+    root: host,
+    request: () => request,
+    onSuccess: async () => host.replaceChildren(),
+  });
+  assert.ok(host.querySelector('.validation-actions').classList.contains('is-pending'));
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => control.disabled));
+
+  resolveRequest({ ok: true, json: async () => ({ ok: true }) });
+  assert.equal(await submission, true);
+  assert.equal(host.querySelector('.validation-actions'), null);
+});
+
+test('125850 CR3: validation error re-enables controls and preserves the rejection reason', async () => {
+  const host = parse(validationPanel());
+  const input = host.querySelector('[data-validation-reason]');
+  input.value = 'Still fails on device';
+  const result = await runValidationSubmission({
+    root: host,
+    request: async () => ({ ok: false, json: async () => ({ error: 'Transition rejected' }) }),
+    onSuccess: async () => assert.fail('error response must not call onSuccess'),
+  });
+  assert.equal(result, false);
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
+  assert.equal(input.value, 'Still fails on device');
+  const error = host.querySelector('.validation-error');
+  assert.equal(error.hidden, false);
+  assert.equal(error.textContent, 'Transition rejected');
+});
+
+test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = `<div class="hidden" id="lightbox"><button type="button">Close</button><div class="canvas"></div></div>
+    <div class="origin" tabindex="0"><svg viewBox="0 0 20 10"><text>diagram</text></svg></div>`;
+  document.body.append(fixture);
+  const overlay = fixture.querySelector('#lightbox');
+  const canvas = fixture.querySelector('.canvas');
+  const close = fixture.querySelector('button');
+  const origin = fixture.querySelector('.origin');
+  const source = origin.querySelector('svg');
+  const lightbox = createDiagramLightbox({ overlay, canvas, closeButton: close });
+
+  assert.equal(lightbox.open(origin), true);
+  assert.equal(overlay.classList.contains('hidden'), false);
+  assert.ok(canvas.querySelector('svg'));
+  assert.notEqual(canvas.querySelector('svg'), source);
+  assert.equal(document.activeElement, close);
+  close.click();
+  assert.equal(overlay.classList.contains('hidden'), true);
+  assert.equal(canvas.children.length, 0);
+  assert.equal(document.activeElement, origin);
+
+  lightbox.open(origin);
+  assert.equal(
+    lightbox.handleKeydown(new window.KeyboardEvent('keydown', { key: 'Escape' })),
+    true,
+  );
+  assert.equal(document.activeElement, origin);
+
+  lightbox.open(origin);
+  overlay.click();
+  assert.equal(overlay.classList.contains('hidden'), true);
+  assert.equal(document.activeElement, origin);
+  fixture.remove();
 });
 
 test('125850 CR9: status menu closes only for an outside pointer target', () => {

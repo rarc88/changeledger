@@ -2,7 +2,7 @@
 id: "20260623-125850"
 title: Mejorar legibilidad e interacción del viewer
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-23T12:58:50Z
 depends_on: []
 owner: Roberto Ruiz
@@ -158,8 +158,8 @@ actual.
 
 - [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1) — 2026-06-23T13:53:58Z
 - [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2) — 2026-06-23T13:53:59Z
-- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4) — 2026-06-23T13:53:59Z
-- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5) — 2026-06-23T13:53:59Z
+- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4) — 2026-06-23T14:20:03Z
+- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5) — 2026-06-23T14:20:03Z
 - [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6) — 2026-06-23T13:53:59Z
 - [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8) — 2026-06-23T13:53:59Z
 - [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support) — 2026-06-23T13:54:00Z
@@ -177,3 +177,10 @@ actual.
 - **2026-06-23T14:03:54Z** — status: in-review → in-progress
 - **2026-06-23T14:08:33Z** — Ajustes visuales verificados: chevron SVG coherente, cierre exterior del selector, sort icon 10×10, celdas centradas y ocho columnas de Board mantienen 257.7 px a 1920 px con scrollWidth 2192 px. pnpm verify pasa con 345 tests.
 - **2026-06-23T14:09:03Z** — status: in-progress → in-review
+- **2026-06-23T14:17:57Z** — review → in-progress (retry): Faltan tests DOM de regresión para pending/success/error de validación y para el ciclo real del lightbox Mermaid (SVG, Escape/backdrop y retorno de foco); el Plan no está verdaderamente terminado.
+- **2026-06-23T14:20:03Z** — Corrección del review: añadidos tests DOM del ciclo async de validación y del lightbox real; pnpm verify pasa con 348 tests.
+- **2026-06-23T14:20:03Z** — status: in-progress → in-review
+- **2026-06-23T14:21:32Z** — review → in-progress (retry): Comentario obsoleto en src/viewer/public/state.js afirma que discarded nunca aparece como lane, contradiciendo CR2 y la implementación condicional.
+- **2026-06-23T14:21:51Z** — Corrección del segundo review: actualizado el comentario de boardStatuses para describir la columna Discarded condicional y eliminar residuo del comportamiento anterior.
+- **2026-06-23T14:21:51Z** — status: in-progress → in-review
+- **2026-06-23T14:23:06Z** — review → in-validation (delegated subagent, clean context)
