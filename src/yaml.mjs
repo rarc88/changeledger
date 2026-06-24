@@ -19,6 +19,10 @@ export function parseYaml(text) {
   return value;
 }
 
+export function stringifyYaml(value) {
+  return stringify(value, { lineWidth: 0 });
+}
+
 function yamlError(error) {
   if (/keys must be unique/i.test(error.message)) {
     return new Error(`Duplicate key "${duplicateKey(error.message) ?? 'unknown'}" in YAML`);

@@ -1,11 +1,13 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
 // { errors, warnings }. No IO — the `sl check` command does the IO and printing.
 
+import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
+
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 
-export function checkRepo({ config, changes, specs = [] }, opts = {}) {
+export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
   const errors = [];
   const warnings = [];
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
@@ -39,6 +41,9 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
+    if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
+      err(c, `release_impact must be one of: ${RELEASE_IMPACTS.join(', ')}`);
+    }
 
     const present = (c.stages ?? []).map((s) => s.key);
     for (const s of c.stages ?? []) {
@@ -118,8 +123,73 @@ export function checkRepo({ config, changes, specs = [] }, opts = {}) {
   if (cycle) err(null, `dependency cycle: ${cycle.join(' → ')}`);
 
   checkSpecs(changes, specs, ids, err, warn);
+  checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
   return { errors, warnings };
+}
+
+function checkReleases(releases, changesById, err) {
+  const seenVersions = new Set();
+  const releasedChanges = new Map();
+  const baselines = [];
+
+  for (const release of releases) {
+    const version = release.version;
+    try {
+      parseVersion(version);
+    } catch (error) {
+      err(release, error.message);
+    }
+    if (version && release.name !== `${version}.yml`) {
+      err(release, `filename must match version "${version}.yml"`);
+    }
+    if (seenVersions.has(version)) err(release, `duplicate release version "${version}"`);
+    else seenVersions.add(version);
+    if (!ISO_UTC.test(release.created ?? '')) {
+      err(release, `created not ISO 8601 UTC: ${release.created}`);
+    }
+    if (!Array.isArray(release.changes)) {
+      err(release, 'changes must be a list');
+      continue;
+    }
+    if ('baseline' in release && typeof release.baseline !== 'boolean') {
+      err(release, 'baseline must be a boolean');
+    }
+    if (release.baseline === true) baselines.push(release);
+    const local = new Set();
+    for (const rawId of release.changes) {
+      const id = String(rawId);
+      const change = changesById.get(id);
+      if (!change) err(release, `references missing change "${id}"`);
+      else if (change.frontmatter?.status !== 'done') {
+        err(release, `references change "${id}" whose status is not done`);
+      }
+      if (local.has(id)) err(release, `contains duplicate change "${id}"`);
+      else local.add(id);
+      if (releasedChanges.has(id)) {
+        err(release, `change "${id}" already appears in ${releasedChanges.get(id)}`);
+      } else {
+        releasedChanges.set(id, release.name);
+      }
+    }
+  }
+  if (baselines.length > 1) {
+    for (const release of baselines.slice(1))
+      err(release, 'release history has multiple baselines');
+  }
+  if (baselines.length === 1) {
+    const baseline = baselines[0];
+    for (const release of releases) {
+      try {
+        if (compareVersions(release.version, baseline.version) < 0) {
+          err(baseline, `baseline ${baseline.version} is not the earliest release`);
+          break;
+        }
+      } catch {
+        // Invalid versions are already reported above.
+      }
+    }
+  }
 }
 
 function canonicalHeading(key) {
@@ -359,6 +429,7 @@ function checkConfig(config, err) {
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
+  if ('release' in c) checkReleaseConfig(c.release, c.types ?? {}, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
   for (const [type, def] of Object.entries(c.types ?? {})) {
     for (const s of def?.stages ?? []) {
@@ -367,6 +438,26 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+  }
+}
+
+function checkReleaseConfig(release, types, err) {
+  if (!release || typeof release !== 'object' || Array.isArray(release)) {
+    err(null, 'config "release" must be a mapping');
+    return;
+  }
+  if (!release.impacts || typeof release.impacts !== 'object' || Array.isArray(release.impacts)) {
+    err(null, 'config "release.impacts" must be a mapping');
+    return;
+  }
+  for (const [type, impact] of Object.entries(release.impacts)) {
+    if (!(type in types)) err(null, `config release impact references unknown type "${type}"`);
+    if (!RELEASE_IMPACTS.includes(impact)) {
+      err(
+        null,
+        `config release impact for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
+      );
+    }
   }
 }
 

@@ -65,6 +65,7 @@ status: draft                  # draft | approved | in-progress | in-review | in
 created: 2026-06-13T13:45:48Z  # full ISO 8601 UTC timestamp
 depends_on: []                 # ids of other changes, e.g. ["0000"]
 owner: ana                     # optional — who is working on it (see below)
+release_impact: minor          # optional — none | patch | minor | major
 ---
 ```
 
@@ -339,7 +340,24 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
   reviewed without a spec (bug/chore with no persistent truth); logs the reason.
 - `sl graduate --pending` — list done changes whose graduation is not reviewed yet.
+- `sl release init <version>` — adopt release tracking at an existing stable
+  SemVer version; the baseline includes all changes already `done`.
+- `sl release plan [--json]` — calculate the next version and included changes
+  without writing. JSON is the handoff contract for the operating agent.
+- `sl release record <version>` — record the exactly calculated release in
+  `.sl/releases/<version>.yml`; it does not edit stack manifests or perform Git,
+  hosting or publishing operations.
 - `sl check [id]` — validate before committing.
+
+### Release boundary
+
+Release impact defaults live under `release.impacts` in `.sl/config.yml` and a
+change may override its type with `release_impact`. Spec Ledger owns the
+portable decision: which completed changes ship and what stable SemVer follows.
+The operating agent owns technology-specific application and delivery: update
+`package.json`, `pubspec.yaml`, `Cargo.toml`, Gradle, Xcode or monorepo surfaces;
+run the project gates; then commit, tag and publish according to the local
+contract. Never infer that every Spec Ledger repository uses npm or GitHub.
 
 ## 10. Specs (persistent truth)
 

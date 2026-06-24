@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
 import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
+import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 
 // Single authority for resolving a change id to its file. Matches by EXACT
@@ -67,7 +68,9 @@ export function loadRepo(start = process.cwd()) {
     }
   }
 
-  return { specDir, repoRoot, config, changes, specs };
+  const releases = loadReleases(repoRoot);
+
+  return { specDir, repoRoot, config, changes, specs, releases };
 }
 
 // Async equivalent for HTTP paths that should not monopolize the Node event
@@ -109,5 +112,7 @@ export async function loadRepoAsync(start = process.cwd()) {
     if (e.code !== 'ENOENT') throw e;
   }
 
-  return { specDir, repoRoot, config, changes, specs };
+  const releases = await loadReleasesAsync(repoRoot);
+
+  return { specDir, repoRoot, config, changes, specs, releases };
 }

@@ -17,6 +17,7 @@ import { graduate, pendingGraduation, skipGraduation } from '../src/commands/gra
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
+import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { view } from '../src/commands/view.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
@@ -41,7 +42,10 @@ const USAGE = `Spec Ledger (sl)
   sl graduate <change-id> <spec-slug>   graduate a change to a new spec
   sl graduate <change-id> <spec-slug> --into   graduate into an existing spec
   sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
-  sl graduate --pending                 list done changes not yet reviewed`;
+  sl graduate --pending                 list done changes not yet reviewed
+  sl release init <version>             initialize release history at X.Y.Z
+  sl release plan [--json]              calculate the next portable SemVer release
+  sl release record <version>           record the calculated release manifest`;
 
 const program = new Command();
 
@@ -311,6 +315,56 @@ program
       if (!id || !slug) throw new Error('Usage: sl graduate <change-id> <spec-slug>');
       const file = graduate(id, slug, process.cwd(), { into: options.into });
       console.log(`Graduated #${id} → ${file}`);
+    }),
+  );
+
+const releaseCommand = program
+  .command('release')
+  .description('plan and record portable SemVer releases');
+
+releaseCommand
+  .command('init')
+  .description('initialize release history from the current published version')
+  .argument('<version>')
+  .action(
+    action((version) => {
+      const { file, manifest } = initReleaseHistory(version);
+      console.log(`Initialized release ${manifest.version} baseline → ${file}`);
+    }),
+  );
+
+releaseCommand
+  .command('plan')
+  .description('calculate the next release without writing files')
+  .option('--json', 'print a stable JSON plan')
+  .action(
+    action((options) => {
+      const plan = releasePlan();
+      if (options.json) {
+        console.log(JSON.stringify(plan, null, 2));
+        return;
+      }
+      if (!plan.releasable) {
+        console.log(
+          `No release required from ${plan.currentVersion}: ${plan.changes.length} pending change(s), highest impact none.`,
+        );
+        return;
+      }
+      console.log(`${plan.currentVersion} → ${plan.nextVersion} (${plan.impact})`);
+      for (const change of plan.changes) {
+        console.log(`  #${change.id} [${change.releaseImpact}] ${change.title}`);
+      }
+    }),
+  );
+
+releaseCommand
+  .command('record')
+  .description('record the currently calculated release')
+  .argument('<version>')
+  .action(
+    action((version) => {
+      const { file, manifest } = recordRelease(version);
+      console.log(`Recorded release ${manifest.version} → ${file}`);
     }),
   );
 
