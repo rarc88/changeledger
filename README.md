@@ -86,7 +86,9 @@ sl show <id> [--json]
 sl status <id> <status>
 sl task <id> done|block <n> [reason]
 sl log <id> <message>
-sl review <id> pass|fail        # record the independent review verdict
+sl review <id> pass
+sl review <id> fail --retry "<reason>"
+sl review <id> fail --block "<reason>"
 sl discard <id> <reason>
 ```
 
