@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-24T00:50:39Z
+updated: 2026-06-24T09:58:32Z
 tags: [ architecture, cli, viewer ]
 ---
 
