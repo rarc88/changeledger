@@ -21,6 +21,7 @@ const {
   esc,
   isVisible,
   passesTombstones,
+  resetValidationState,
   runValidationSubmission,
   stageBlock,
   sortIndicator,
@@ -232,6 +233,36 @@ test('125850 CR3: validation error re-enables controls and preserves the rejecti
   const error = host.querySelector('.validation-error');
   assert.equal(error.hidden, false);
   assert.equal(error.textContent, 'Transition rejected');
+});
+
+test('005437 CR1/CR2/CR3: a reused validation panel is enabled after a successful verdict', async () => {
+  const host = parse(validationPanel());
+  const result = await runValidationSubmission({
+    root: host,
+    request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+    // Lit reuses this subtree when the next in-validation change opens.
+    onSuccess: async () => render(validationPanel(), host),
+  });
+
+  assert.equal(result, true);
+  assert.equal(host.querySelector('.validation-actions').classList.contains('is-pending'), false);
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
+});
+
+test('005437 CR2: opening another validation panel clears the previous form error', async () => {
+  const host = parse(validationPanel());
+  await runValidationSubmission({
+    root: host,
+    request: async () => ({ ok: false, json: async () => ({ error: 'First change failed' }) }),
+    onSuccess: async () => assert.fail('error response must not call onSuccess'),
+  });
+  assert.equal(host.querySelector('.validation-error').hidden, false);
+
+  render(validationPanel(), host);
+  resetValidationState(host);
+  assert.equal(host.querySelector('.validation-error').hidden, true);
+  assert.equal(host.querySelector('.validation-error').textContent, '');
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {

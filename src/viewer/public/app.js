@@ -257,6 +257,11 @@ export function showValidationError(root, message) {
   error.hidden = !message;
 }
 
+export function resetValidationState(root) {
+  setValidationPending(root, false);
+  showValidationError(root, '');
+}
+
 export async function runValidationSubmission({ root, request, onSuccess }) {
   setValidationPending(root, true);
   showValidationError(root, '');
@@ -273,6 +278,7 @@ export async function runValidationSubmission({ root, request, onSuccess }) {
     setValidationPending(root, false);
     return false;
   }
+  resetValidationState(root);
   await onSuccess();
   return true;
 }
@@ -322,6 +328,8 @@ function openDetail(id) {
     <div id="git-section"></div>`,
     $('#detail'),
   );
+
+  resetValidationState($('#detail'));
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
