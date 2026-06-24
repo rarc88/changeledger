@@ -38,7 +38,7 @@
     "prepublishOnly": "pnpm verify"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "packageManager": "pnpm@10.31.0",
   "exports": {
