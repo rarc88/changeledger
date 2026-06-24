@@ -13,7 +13,7 @@ ordered by the lifecycle.
 
 ## Install
 
-Requires **Node ≥ 20**. Install the CLI globally:
+Requires **Node ≥ 24**. Install the CLI globally:
 
 ```sh
 npm install -g @rarc88/spec-ledger     # or: pnpm add -g @rarc88/spec-ledger
@@ -90,7 +90,7 @@ without a `CR`. Set `tdd: false` for exploratory repos. See [`AGENTS.md`](AGENTS
 
 ## Requirements
 
-- **Node ≥ 20** (aligned with the `marked` runtime dependency).
+- **Node ≥ 24** (aligned with the `marked` runtime dependency).
 - Tested on Linux, macOS and Windows via CI.
 - On **Windows**, `sl init` links the contract into `.sl/AGENTS.md` with a
   symlink; without Developer Mode or admin it falls back to a copy (re-run
