@@ -2,7 +2,7 @@
 id: "20260624-005437"
 title: Validation controls stay disabled after accepting another change
 type: bug
-status: in-review
+status: in-validation
 created: 2026-06-24T00:54:37Z
 depends_on: []
 owner: Roberto Ruiz
@@ -76,3 +76,4 @@ formulario anterior.
 - **2026-06-24T01:00:27Z** — Causa confirmada: Lit reutilizaba controles con disabled=true y errores DOM del formulario anterior. Se añadió reset explícito al éxito y al abrir cada detalle, con regresiones de reutilización.
 - **2026-06-24T01:02:30Z** — Validación manual en viewer temporal: primer change aceptado; segundo abierto sin recarga con accept/reject/input habilitados; rechazo posterior actualizó el board correctamente.
 - **2026-06-24T01:02:31Z** — status: in-progress → in-review
+- **2026-06-24T09:56:06Z** — review → in-validation (delegated subagent, clean context)
