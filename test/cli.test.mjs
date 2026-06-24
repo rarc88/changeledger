@@ -73,6 +73,18 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   assert.match(cfg, /^tdd: true$/m);
 });
 
+test('235628 CR3/CR8: init seeds portable release impacts and contract boundary', () => {
+  const root = tmp();
+  init(root);
+  const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
+  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  assert.match(cfg, /^release:$/m);
+  assert.match(cfg, /^ {4}feature: minor$/m);
+  assert.match(cfg, /^ {4}bug: patch$/m);
+  assert.match(contract, /sl release plan \[--json\]/);
+  assert.match(contract, /Never infer that every Spec Ledger repository uses npm or GitHub/);
+});
+
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(contract, /readiness\.target_patterns/);

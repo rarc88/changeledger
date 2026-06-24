@@ -21,6 +21,25 @@ as documents under `.sl/` before code is written. Please follow the same flow.
 
 The full contract for agents is [`AGENTS.md`](AGENTS.md).
 
+## Development setup
+
+The repository uses **pnpm**, pinned through `packageManager`, and **Biome** for
+linting and formatting:
+
+```sh
+pnpm install
+pnpm lint
+pnpm format
+pnpm test
+pnpm verify
+```
+
+The CLI core stays intentionally lightweight and mostly standard-library based.
+Runtime dependencies are welcome only when they are mature and reduce real
+maintenance or security risk. The CLI uses `yaml` for configuration and
+frontmatter; the viewer uses `lit-html`, `marked`, `dompurify` and `mermaid` for
+templating, Markdown, sanitization and diagrams.
+
 ## Quality gate
 
 Every commit must pass the gate. Enable the hook and run it locally:
@@ -33,6 +52,21 @@ pnpm verify                       # lint (Biome) + tests (node --test) + sl chec
 - **Atomic commits** referencing the change id: `feat(scope): description [#<id>]`.
 - Commit messages in English, Conventional Commits, subject ≤ 50 chars.
 - No `TODO`/`FIXME` or dead code in delivered work.
+
+The versioned pre-commit hook runs `lint-staged`, `pnpm test` and `sl check`.
+`lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
+partial commits; `pnpm verify` remains the complete manual and CI gate.
+
+## Use a checkout as the global CLI
+
+To exercise local edits through the same `sl` command used by installed
+consumers:
+
+```sh
+pnpm link --global
+sl --help
+pnpm unlink --global
+```
 
 ## Coverage and dependency audits
 

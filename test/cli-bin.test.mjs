@@ -63,6 +63,35 @@ test('CR4: sl --help lists all commands', () => {
   assert.match(out, /sl init/);
   assert.match(out, /sl graduate/);
   assert.match(out, /sl review/);
+  assert.match(out, /sl release/);
+});
+
+test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const file = fs
+    .readdirSync(path.join(root, '.sl', 'changes'))
+    .map((name) => path.join(root, '.sl', 'changes', name))
+    .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${item.id}"`));
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('status: draft', 'status: done'));
+
+  const planned = runIn(root, env, 'release', 'plan', '--json');
+  assert.equal(planned.code, 0);
+  const plan = JSON.parse(planned.out);
+  assert.equal(plan.nextVersion, '0.2.0');
+  assert.deepEqual(
+    plan.changes.map((change) => change.id),
+    [item.id],
+  );
+  assert.equal(runIn(root, env, 'release', 'record', '0.2.0').code, 0);
+  assert.equal(fs.existsSync(path.join(root, '.sl', 'releases', '0.2.0.yml')), true);
 });
 
 test('151226: bin remains directly executable', { skip: process.platform === 'win32' }, () => {

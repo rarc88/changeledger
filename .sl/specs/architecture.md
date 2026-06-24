@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-23T14:34:36Z
+updated: 2026-06-24T00:50:39Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -79,12 +79,31 @@ desconocidas en lugar de ignorarlas silenciosamente.
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
-  `reviewed` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
+  `reviewed` opcional, `release_impact` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
   de vida (ver **Ciclo de vida y gate de revisión**). Tareas en `## Plan` como
   checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
+- **release**: manifiesto YAML inmutable en `.sl/releases/<version>.yml` con
+  versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva
+  solo de estos manifiestos y no se duplica en cada change.
+
+## Releases portables
+
+`sl release init <version>` crea el baseline de adopción con todos los changes
+que ya están `done`. A partir de ahí, `sl release plan [--json]` selecciona los
+`done` ausentes del historial, resuelve el impacto desde
+`release_impact` o `release.impacts.<type>` y calcula el siguiente SemVer por el
+impacto máximo. Los changes con impacto `none` acompañan una entrega cuando otro
+change exige bump; si todos son `none`, el plan es un no-op exitoso.
+
+`sl release record <version>` recalcula bajo un lock global del historial y crea
+atómicamente el manifiesto solo si la versión coincide. El CLI no conoce ni
+modifica manifests de Node, Flutter, Rust u otras tecnologías, y tampoco crea
+commits, tags, releases remotas, pushes o publicaciones. La salida JSON es el
+contrato para que el agente aplique la versión y ejecute el delivery propio del
+repositorio.
 
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o se descarta (bug/chore sin verdad persistente). Ambos casos fijan `reviewed: true`
