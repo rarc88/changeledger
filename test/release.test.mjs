@@ -145,15 +145,28 @@ test('CR9: check validates release impact and manifest consistency', () => {
       changes: ['missing', 'missing'],
     },
   ];
-  const messages = checkRepo(repo).errors.map((error) => error.message);
+  const errors = checkRepo(repo).errors;
+  const messages = errors.map((error) => error.message);
   assert.ok(
-    messages.some((message) => /release_impact must be/.test(message)),
-    file,
+    errors.some(
+      (error) =>
+        error.file === path.basename(file) && /release_impact "banana" must be/.test(error.message),
+    ),
   );
   assert.ok(messages.some((message) => /filename must match version/.test(message)));
   assert.ok(messages.some((message) => /created not ISO/.test(message)));
   assert.ok(messages.some((message) => /references missing change/.test(message)));
   assert.ok(messages.some((message) => /contains duplicate change/.test(message)));
+});
+
+test('CR9: invalid configured impacts identify config file and exact value', () => {
+  const root = fixture();
+  const repo = loadRepo(root);
+  repo.config.release.impacts.feature = 'banana';
+  const error = checkRepo(repo).errors.find((item) => /release impact/.test(item.message));
+  assert.equal(error.file, '.sl/config.yml');
+  assert.match(error.message, /"banana"/);
+  assert.match(error.message, /"feature"/);
 });
 
 test('CR9: check rejects repeated baselines and non-done released changes', () => {

@@ -13,7 +13,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
   const warn = (c, message) => warnings.push({ file: c?.name ?? '(repo)', message });
 
-  checkConfig(config, err);
+  checkConfig(config, (c, message) => err(c ?? { name: '.sl/config.yml' }, message));
 
   const statuses = config.statuses ?? [];
   const types = config.types ?? {};
@@ -42,7 +42,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
-      err(c, `release_impact must be one of: ${RELEASE_IMPACTS.join(', ')}`);
+      err(c, `release_impact "${fm.release_impact}" must be one of: ${RELEASE_IMPACTS.join(', ')}`);
     }
 
     const present = (c.stages ?? []).map((s) => s.key);
@@ -455,7 +455,7 @@ function checkReleaseConfig(release, types, err) {
     if (!RELEASE_IMPACTS.includes(impact)) {
       err(
         null,
-        `config release impact for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
+        `config release impact "${impact}" for "${type}" must be one of: ${RELEASE_IMPACTS.join(', ')}`,
       );
     }
   }
