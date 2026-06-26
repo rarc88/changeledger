@@ -2,7 +2,7 @@
 id: "20260624-153236"
 title: Migrate Spec Ledger to ChangeLedger
 type: feature
-status: in-progress
+status: in-review
 created: 2026-06-24T15:32:36Z
 depends_on: []
 release_impact: minor
@@ -169,19 +169,19 @@ que dirija a `changeledger`.
 
 ### CR9 — Corte limpio verificable
 - **Given** la migración implementada
-- **When** se buscan nombres, rutas, variables y binarios antiguos en archivos versionados
+- **When** se buscan nombres, rutas, variables y binarios antiguos en archivos versionados, excluyendo el contenido histórico preservado de changes, specs y releases
 - **Then** no quedan referencias operativas a Spec Ledger, `.sl`, `SPEC_LEDGER_HOME` o `sl`
-- **And** cualquier referencia histórica permitida identifica explícitamente la migración
+- **And** las referencias anteriores solo permanecen como evidencia histórica o como explicación explícita de esta migración
 
 ## Plan
 
-- [ ] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test` (CR1, CR2)
-- [ ] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check` (CR3, CR4)
-- [ ] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test` (CR5, CR6)
-- [ ] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test` (CR3, CR6, CR7)
-- [ ] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test` (CR1, CR9)
-- [ ] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run` (CR7, CR8)
-- [ ] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run` (CR2, CR8)
+- [x] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test` (CR1, CR2) — 2026-06-26T23:32:26Z
+- [x] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check` (CR3, CR4) — 2026-06-26T23:32:26Z
+- [x] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test` (CR5, CR6) — 2026-06-26T23:32:26Z
+- [x] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test` (CR3, CR6, CR7) — 2026-06-26T23:32:26Z
+- [x] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test` (CR1, CR9) — 2026-06-26T23:32:26Z
+- [x] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run` (CR7, CR8) — 2026-06-26T23:32:27Z
+- [x] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run` (CR2, CR8) — 2026-06-26T23:32:27Z
 
 ## Log
 
@@ -189,3 +189,6 @@ que dirija a `changeledger`.
 - **2026-06-26T23:24:53Z** — status: draft → approved
 - **2026-06-26T23:26:46Z** — status: approved → in-progress
 - **2026-06-26T23:26:46Z** — owner → Roberto Ruiz (auto)
+- **2026-06-26T23:34:00Z** — Se aclaró CR9 para preservar sin reescritura la evidencia histórica exigida por CR4; el corte limpio aplica a superficies operativas y vigentes.
+- **2026-06-26T23:32:27Z** — Migración integral implementada; pnpm verify pasó con 365 pruebas y 121 changes válidos. El tarball changeledger-0.2.0 se instaló en aislamiento y completó help, init y check sin exponer sl.
+- **2026-06-26T23:32:27Z** — status: in-progress → in-review

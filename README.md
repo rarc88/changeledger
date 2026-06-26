@@ -1,8 +1,8 @@
-# Spec Ledger (`sl`)
+# ChangeLedger (`changeledger`)
 
-> Documents are the source of truth. Code is their reflection.
+> Turn conversations into buildable changes.
 
-Spec Ledger is a local-first workflow for planning software changes with coding
+ChangeLedger is a local-first workflow for planning software changes with coding
 agents before implementation begins. Features, bugs, audits and refactors become
 reviewable documents with an enforced lifecycle, acceptance criteria, tasks and
 persistent product truth.
@@ -13,21 +13,21 @@ specifications and dependency diagrams.
 
 ## Quick start
 
-Spec Ledger requires **Node.js 24 or newer**. Install the CLI globally:
+ChangeLedger requires **Node.js 24 or newer**. Install the CLI globally:
 
 ```sh
-npm install --global @rarc88/spec-ledger
-# or: pnpm add --global @rarc88/spec-ledger
+npm install --global changeledger
+# or: pnpm add --global changeledger
 ```
 
 In a repository that already has an `AGENTS.md`:
 
 ```sh
-sl init
-sl view
+changeledger init
+changeledger view
 ```
 
-`sl init` creates `.sl/`, gives the project a stable identity and links the
+`changeledger init` creates `.changeledger/`, gives the project a stable identity and links the
 installed agent contract. The repository keeps only its configuration and
 documents; the CLI and viewer remain in the global package.
 
@@ -41,14 +41,14 @@ conversation → draft → human approval → implementation → review
 A typical change starts like this:
 
 ```sh
-sl new feature oauth-login "Add OAuth login"
-sl view
+changeledger new feature oauth-login "Add OAuth login"
+changeledger view
 ```
 
-The agent completes the generated stages under `.sl/changes/`. You approve the
-draft in the viewer before implementation. From there, Spec Ledger validates
+The agent completes the generated stages under `.changeledger/changes/`. You approve the
+draft in the viewer before implementation. From there, ChangeLedger validates
 lifecycle transitions, task traceability and the final human acceptance gate.
-When the work is done, its lasting truth graduates into `.sl/specs/`.
+When the work is done, its lasting truth graduates into `.changeledger/specs/`.
 
 The contract is agent-agnostic: Codex, Claude Code, opencode, Copilot, Cursor and
 other tools discover it through the repository's `AGENTS.md` reference.
@@ -60,7 +60,7 @@ other tools discover it through the repository's `AGENTS.md` reference.
 - **Specs** describe the current system after completed changes graduate. They
   have no work lifecycle and remain concise, durable product truth.
 
-With the default Definition of Ready policy, `sl check` verifies that acceptance
+With the default Definition of Ready policy, `changeledger check` verifies that acceptance
 criteria are test-grade and mapped to actionable tasks. Repositories doing
 exploratory work can set `tdd: false`; the complete rules live in
 [`AGENTS.md`](AGENTS.md).
@@ -70,48 +70,48 @@ exploratory work can set `tdd: false`; the complete rules live in
 ### Set up and inspect
 
 ```sh
-sl init                         # initialize and register the current repository
-sl register                     # relink a moved or freshly cloned repository
-sl view                         # view every registered project
-sl view .                       # view only the current project
-sl check [id]                   # validate the repository or one change
+changeledger init                         # initialize and register the current repository
+changeledger register                     # relink a moved or freshly cloned repository
+changeledger view                         # view every registered project
+changeledger view .                       # view only the current project
+changeledger check [id]                   # validate the repository or one change
 ```
 
 ### Work with changes
 
 ```sh
-sl new <type> <slug> <title>    # create a draft change
-sl list [--status S] [--type T]
-sl show <id> [--json]
-sl status <id> <status>
-sl task <id> done|block <n> [reason]
-sl log <id> <message>
-sl review <id> pass
-sl review <id> fail --retry "<reason>"
-sl review <id> fail --block "<reason>"
-sl discard <id> <reason>
+changeledger new <type> <slug> <title>    # create a draft change
+changeledger list [--status S] [--type T]
+changeledger show <id> [--json]
+changeledger status <id> <status>
+changeledger task <id> done|block <n> [reason]
+changeledger log <id> <message>
+changeledger review <id> pass
+changeledger review <id> fail --retry "<reason>"
+changeledger review <id> fail --block "<reason>"
+changeledger discard <id> <reason>
 ```
 
 ### Preserve completed truth
 
 ```sh
-sl graduate <id> <spec-slug>           # create a persistent spec
-sl graduate <id> <spec-slug> --into    # update an existing spec's provenance
-sl graduate <id> --skip [reason]       # record that no spec is needed
-sl archive --graduated [--dry-run]     # hide resolved changes from the board
+changeledger graduate <id> <spec-slug>           # create a persistent spec
+changeledger graduate <id> <spec-slug> --into    # update an existing spec's provenance
+changeledger graduate <id> --skip [reason]       # record that no spec is needed
+changeledger archive --graduated [--dry-run]     # hide resolved changes from the board
 ```
 
-Run `sl --help` or `sl <command> --help` for the complete command reference.
+Run `changeledger --help` or `changeledger <command> --help` for the complete command reference.
 
 ## Release planning
 
-Spec Ledger can calculate a portable SemVer release from completed changes
+ChangeLedger can calculate a portable SemVer release from completed changes
 without assuming a package ecosystem:
 
 ```sh
-sl release init 0.1.0       # adopt an existing published version once
-sl release plan --json      # calculate the next version without writing
-sl release record 0.2.0     # record the calculated release manifest
+changeledger release init 0.1.0       # adopt an existing published version once
+changeledger release plan --json      # calculate the next version without writing
+changeledger release record 0.2.0     # record the calculated release manifest
 ```
 
 The CLI decides which changes belong to the release and calculates their
@@ -121,16 +121,16 @@ Xcode or a monorepo—then runs the local quality gates and release workflow.
 
 ## Repository integration
 
-`sl check` exits non-zero on contract errors, so it can be used in Git hooks and
+`changeledger check` exits non-zero on contract errors, so it can be used in Git hooks and
 CI:
 
 ```sh
-sl check || exit 1
+changeledger check || exit 1
 ```
 
-The contract itself ships with the CLI and is linked as `.sl/AGENTS.md`. It is
+The contract itself ships with the CLI and is linked as `.changeledger/AGENTS.md`. It is
 per-machine and gitignored, so upgrades do not leave committed copies behind.
-Run `sl register` after cloning, moving a repository or updating the global
+Run `changeledger register` after cloning, moving a repository or updating the global
 installation.
 
 ## Compatibility and security
@@ -145,7 +145,7 @@ installation.
 
 ## Project status
 
-Spec Ledger is usable and self-hosting, but remains **pre-1.0**. Expect the
+ChangeLedger is usable and self-hosting, but remains **pre-1.0**. Expect the
 contract and CLI to evolve while the core workflow settles. Upgrade to the
 latest `0.x` release to receive fixes.
 

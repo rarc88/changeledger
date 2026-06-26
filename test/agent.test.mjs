@@ -27,10 +27,10 @@ import { newChange } from '../src/commands/new.mjs';
 const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
-process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 function repoWithChange() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
@@ -81,7 +81,7 @@ test('log appends a timestamped entry', () => {
 });
 
 test('new --owner writes the owner into the frontmatter', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-owner-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-owner-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
@@ -132,10 +132,10 @@ test('archive sets and clears the archived flag', () => {
 });
 
 function repoWithArchiveCandidates() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-archive-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-archive-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const changesDir = path.join(root, '.sl', 'changes');
+  const changesDir = path.join(root, '.changeledger', 'changes');
   const write = ({ id, status = 'done', reviewed = true, archived = false, log = '' }) => {
     const fm = [
       '---',
@@ -229,7 +229,7 @@ test('list filters by status and show returns the change', () => {
 // the seeded config marks review_required.
 
 function repoWithChore() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(
@@ -370,7 +370,7 @@ test('CR10: review fail requires a reason', () => {
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => review(id, 'fail', { mode: 'retry' }, root),
-    /fail requires a reason — sl review <id> fail --retry\|--block "<reason>"/,
+    /fail requires a reason — changeledger review <id> fail --retry\|--block "<reason>"/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -379,7 +379,7 @@ test('CR10: review fail requires a reason', () => {
 // never resolve to "the first file whose name starts with it". Resolution is by
 // exact frontmatter.id equality, and it must not write to the wrong change.
 function repoWithTwoSamePrefix() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const fileA = newChange(
@@ -432,7 +432,7 @@ test('210508 CR1: discard without a reason throws and writes nothing', () => {
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => discard(id, '', root),
-    /discard requires a reason — sl discard <id> "<reason>"/,
+    /discard requires a reason — changeledger discard <id> "<reason>"/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
@@ -467,12 +467,12 @@ test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', 
 test('210508 CR1: status refuses discarded and points to the discard verb', () => {
   const { root, file, id } = repoWithChange();
   const before = fs.readFileSync(file, 'utf8');
-  assert.throws(() => status(id, 'discarded', root), /use `sl discard <id> "<reason>"`/);
+  assert.throws(() => status(id, 'discarded', root), /use `changeledger discard <id> "<reason>"`/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 function repoWithTwoTasks() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-agent-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const file = newChange(

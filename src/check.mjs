@@ -1,5 +1,5 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
-// { errors, warnings }. No IO — the `sl check` command does the IO and printing.
+// { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
 
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 
@@ -13,7 +13,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
   const warn = (c, message) => warnings.push({ file: c?.name ?? '(repo)', message });
 
-  checkConfig(config, (c, message) => err(c ?? { name: '.sl/config.yml' }, message));
+  checkConfig(config, (c, message) => err(c ?? { name: '.changeledger/config.yml' }, message));
 
   const statuses = config.statuses ?? [];
   const types = config.types ?? {};
@@ -275,7 +275,7 @@ function* graduationMarkers(change) {
 
 // Git merge conflict markers: exactly 7 of <, = or > at the start of a line.
 // `<` and `>` never appear in normal markdown; `=` could be a setext H1
-// underline, but Spec Ledger uses ATX headings, so this is safe in practice.
+// underline, but ChangeLedger uses ATX headings, so this is safe in practice.
 const CONFLICT = /^(<{7}|={7}|>{7})(\s|$)/;
 
 function checkConflictMarkers(c, err) {

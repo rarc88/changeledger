@@ -17,6 +17,6 @@ export const searchAllProjects = (query) =>
 export const postStatus = (project, id, status, reason) =>
   fetch('/api/status', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-sl-token': window.__SL_TOKEN__ },
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': window.__SL_TOKEN__ },
     body: JSON.stringify({ project, id, status, ...(reason ? { reason } : {}) }),
   });

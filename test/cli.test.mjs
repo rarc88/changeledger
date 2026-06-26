@@ -12,18 +12,18 @@ import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
-import { findSpecDir, loadConfig } from '../src/config.mjs';
+import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { agentsTemplate } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
-process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 // A bare temp dir (no root AGENTS.md) — for the negative discovery case.
 function bare() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cli-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-'));
 }
 
 // A temp repo with the project's own root AGENTS.md already present, which init
@@ -34,13 +34,13 @@ function tmp() {
   return root;
 }
 
-test('init creates .sl/ with config and links the contract', () => {
+test('init creates .changeledger/ with config and links the contract', () => {
   const root = tmp();
   init(root);
-  assert.ok(fs.existsSync(path.join(root, '.sl', 'config.yml')));
-  assert.ok(fs.existsSync(path.join(root, '.sl', 'changes')));
-  // .sl/AGENTS.md is a symlink to the installed contract, not a copy (CR1).
-  const link = path.join(root, '.sl', 'AGENTS.md');
+  assert.ok(fs.existsSync(path.join(root, '.changeledger', 'config.yml')));
+  assert.ok(fs.existsSync(path.join(root, '.changeledger', 'changes')));
+  // .changeledger/AGENTS.md is a symlink to the installed contract, not a copy (CR1).
+  const link = path.join(root, '.changeledger', 'AGENTS.md');
   assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
   assert.equal(fs.readlinkSync(link), agentsTemplate);
 });
@@ -50,39 +50,39 @@ test('init preserves the root AGENTS.md and appends a reference (CR1)', () => {
   init(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
   assert.match(text, /Own project contract\./);
-  assert.match(text, /\.sl\/AGENTS\.md/);
+  assert.match(text, /\.changeledger\/AGENTS\.md/);
 });
 
-test('init refuses without a root AGENTS.md and leaves no .sl/ (CR2)', () => {
+test('init refuses without a root AGENTS.md and leaves no .changeledger/ (CR2)', () => {
   const root = bare();
   assert.throws(() => init(root), /Create AGENTS\.md/);
-  assert.equal(fs.existsSync(path.join(root, '.sl')), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger')), false);
 });
 
 test('init gitignores the per-machine contract link (CR4)', () => {
   const root = tmp();
   init(root);
   const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
-  assert.ok(gi.split('\n').some((l) => l.trim() === '.sl/AGENTS.md'));
+  assert.ok(gi.split('\n').some((l) => l.trim() === '.changeledger/AGENTS.md'));
 });
 
 test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   const root = tmp();
   init(root);
-  const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
+  const cfg = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   assert.match(cfg, /^tdd: true$/m);
 });
 
 test('235628 CR3/CR8: init seeds portable release impacts and contract boundary', () => {
   const root = tmp();
   init(root);
-  const cfg = fs.readFileSync(path.join(root, '.sl', 'config.yml'), 'utf8');
+  const cfg = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
   assert.match(cfg, /^release:$/m);
   assert.match(cfg, /^ {4}feature: minor$/m);
   assert.match(cfg, /^ {4}bug: patch$/m);
-  assert.match(contract, /sl release plan \[--json\]/);
-  assert.match(contract, /Never infer that every Spec Ledger repository uses npm or GitHub/);
+  assert.match(contract, /changeledger release plan \[--json\]/);
+  assert.match(contract, /Never infer that every ChangeLedger repository uses npm or GitHub/);
 });
 
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
@@ -101,8 +101,8 @@ test('122611 CR3: installed contract recommends structural verify clauses', () =
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
   const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /`sl status <id> <status>`.*It does\s+not accept `done`/);
-  assert.match(contract, /or `discarded` \(use\s+`sl discard <id> "<reason>"`\)/);
+  assert.match(contract, /`changeledger status <id> <status>`.*It does\s+not accept `done`/);
+  assert.match(contract, /or `discarded` \(use\s+`changeledger discard <id> "<reason>"`\)/);
   assert.match(contract, /without overwriting the spec body \(the agent edits the body manually\)/);
 });
 
@@ -160,7 +160,7 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
   const root = tmp();
   init(root);
-  const file = path.join(root, '.sl', 'changes', '20260613-120001-done.md');
+  const file = path.join(root, '.changeledger', 'changes', '20260613-120001-done.md');
   fs.writeFileSync(
     file,
     `---
@@ -202,7 +202,7 @@ P
 `,
   );
   const before = fs.readFileSync(file, 'utf8');
-  const bin = path.resolve('bin/sl.mjs');
+  const bin = path.resolve('bin/changeledger.mjs');
   const { stdout } = await execFileAsync(
     process.execPath,
     [bin, 'archive', '--graduated', '--dry-run'],
@@ -218,7 +218,7 @@ P
 test('CR1: init seeds in-review and review_required per type (review-gate)', () => {
   const root = tmp();
   init(root);
-  const cfg = loadConfig(findSpecDir(root));
+  const cfg = loadConfig(findChangeledgerDir(root));
   assert.deepEqual(cfg.statuses, [
     'draft',
     'approved',
@@ -242,9 +242,9 @@ test('reference and gitignore entries are idempotent (CR3)', () => {
   registerRepo(root);
   registerRepo(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
-  assert.equal(text.match(/<!-- spec-ledger -->/g).length, 1);
+  assert.equal(text.match(/<!-- changeledger -->/g).length, 1);
   const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
-  assert.equal(gi.split('\n').filter((l) => l.trim() === '.sl/AGENTS.md').length, 1);
+  assert.equal(gi.split('\n').filter((l) => l.trim() === '.changeledger/AGENTS.md').length, 1);
 });
 
 test('reference covers CLAUDE.md when present, as a GitHub alert (CR1)', () => {
@@ -253,7 +253,7 @@ test('reference covers CLAUDE.md when present, as a GitHub alert (CR1)', () => {
   init(root);
   const claude = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
   assert.match(claude, /# Claude rules/);
-  assert.match(claude, /<!-- spec-ledger -->/);
+  assert.match(claude, /<!-- changeledger -->/);
   assert.match(claude, /> \[!IMPORTANT\]/);
 });
 
@@ -265,7 +265,7 @@ test('reference skips a symlinked contract file', () => {
   assert.equal(fs.lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), true);
   // Only one reference total (in the AGENTS.md target), not doubled via the link.
   assert.equal(
-    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/<!-- spec-ledger -->/g).length,
+    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/<!-- changeledger -->/g).length,
     1,
   );
 });
@@ -273,7 +273,7 @@ test('reference skips a symlinked contract file', () => {
 test('register regenerates a missing contract link (CR5)', () => {
   const root = tmp();
   init(root);
-  const link = path.join(root, '.sl', 'AGENTS.md');
+  const link = path.join(root, '.changeledger', 'AGENTS.md');
   fs.unlinkSync(link);
   assert.equal(fs.existsSync(link), false);
   registerRepo(root);
@@ -283,16 +283,16 @@ test('register regenerates a missing contract link (CR5)', () => {
 test('checkContract flags missing reference and dangling link (CR6)', () => {
   const root = tmp();
   init(root);
-  const specDir = path.join(root, '.sl');
+  const changeledgerDir = path.join(root, '.changeledger');
   // Healthy repo: no discovery errors.
-  assert.deepEqual(checkContract(root, specDir), []);
+  assert.deepEqual(checkContract(root, changeledgerDir), []);
 
   // Strip the reference and break the link.
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# only project rules\n');
-  fs.unlinkSync(path.join(specDir, 'AGENTS.md'));
-  const errors = checkContract(root, specDir);
+  fs.unlinkSync(path.join(changeledgerDir, 'AGENTS.md'));
+  const errors = checkContract(root, changeledgerDir);
   assert.equal(errors.length, 2);
-  assert.ok(errors.some((e) => /no Spec Ledger reference/.test(e)));
+  assert.ok(errors.some((e) => /no ChangeLedger reference/.test(e)));
   assert.ok(errors.some((e) => /missing or dangling/.test(e)));
 });
 
@@ -300,18 +300,18 @@ test('checkContract flags a CLAUDE.md without the reference (CR6)', () => {
   const root = tmp();
   init(root);
   fs.writeFileSync(path.join(root, 'CLAUDE.md'), '# Claude rules, no reference\n');
-  const errors = checkContract(root, path.join(root, '.sl'));
-  assert.ok(errors.some((e) => /^CLAUDE\.md has no Spec Ledger reference/.test(e)));
+  const errors = checkContract(root, path.join(root, '.changeledger'));
+  assert.ok(errors.some((e) => /^CLAUDE\.md has no ChangeLedger reference/.test(e)));
 });
 
 test('check surfaces discovery errors repo-wide (CR6)', () => {
   const root = tmp();
   init(root);
-  fs.unlinkSync(path.join(root, '.sl', 'AGENTS.md'));
+  fs.unlinkSync(path.join(root, '.changeledger', 'AGENTS.md'));
   assert.equal(check([], root, silentOutput()), 1);
 });
 
-test('init refuses to overwrite an existing .sl/', () => {
+test('init refuses to overwrite an existing .changeledger/', () => {
   const root = tmp();
   init(root);
   assert.throws(() => init(root), /already exists/);
@@ -361,7 +361,7 @@ test('new rejects a slug that normalizes to empty', () => {
     /slug must contain at least one ASCII letter or number/,
   );
   assert.deepEqual(
-    fs.readdirSync(path.join(root, '.sl', 'changes')).filter((n) => n.endsWith('.md')),
+    fs.readdirSync(path.join(root, '.changeledger', 'changes')).filter((n) => n.endsWith('.md')),
     [],
   );
 });
@@ -385,7 +385,7 @@ test('new bumps the id to stay unique within the same second', () => {
 test('new recovers from an orphan id lock', () => {
   const root = tmp();
   init(root);
-  const changesDir = path.join(root, '.sl', 'changes');
+  const changesDir = path.join(root, '.changeledger', 'changes');
   const lock = path.join(changesDir, '.20260613-150000.lock');
   fs.writeFileSync(lock, 'not-json');
   const stale = new Date(Date.now() - 60_000);
@@ -407,7 +407,7 @@ test('new recovers from an orphan id lock', () => {
 test('new tolerates a lock removed while checking whether it is stale', () => {
   const root = tmp();
   init(root);
-  const changesDir = path.join(root, '.sl', 'changes');
+  const changesDir = path.join(root, '.changeledger', 'changes');
   const lock = path.join(changesDir, '.20260613-150000.lock');
   fs.writeFileSync(lock, 'not-json');
 
@@ -434,7 +434,7 @@ test('new tolerates a lock removed while checking whether it is stale', () => {
 test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () => {
   const root = tmp();
   init(root);
-  const changesDir = path.join(root, '.sl', 'changes');
+  const changesDir = path.join(root, '.changeledger', 'changes');
   const lock = path.join(changesDir, '.20260613-150000.lock');
   fs.mkdirSync(changesDir, { recursive: true });
   fs.writeFileSync(lock, 'not-json');
@@ -463,7 +463,7 @@ test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () =
 test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live', () => {
   const root = tmp();
   init(root);
-  const changesDir = path.join(root, '.sl', 'changes');
+  const changesDir = path.join(root, '.changeledger', 'changes');
   const lock = path.join(changesDir, '.20260613-150000.lock');
   fs.mkdirSync(changesDir, { recursive: true });
   fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
@@ -531,9 +531,11 @@ test('new reserves ids atomically across concurrent processes', async () => {
   ]);
 
   const changes = fs
-    .readdirSync(path.join(root, '.sl', 'changes'))
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
     .filter((n) => n.endsWith('.md'))
-    .map((n) => parseChange(fs.readFileSync(path.join(root, '.sl', 'changes', n), 'utf8')));
+    .map((n) =>
+      parseChange(fs.readFileSync(path.join(root, '.changeledger', 'changes', n), 'utf8')),
+    );
   assert.deepEqual(changes.map((c) => c.frontmatter.id).sort(), [
     '20260613-150000',
     '20260613-150001',

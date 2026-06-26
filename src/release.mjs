@@ -4,7 +4,7 @@ import { resolveRepoPath } from './config.mjs';
 import { parseYaml } from './yaml.mjs';
 
 export const RELEASE_IMPACTS = ['none', 'patch', 'minor', 'major'];
-export const DEFAULT_RELEASES_DIR = '.sl/releases';
+export const DEFAULT_RELEASES_DIR = '.changeledger/releases';
 
 const STABLE_SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 

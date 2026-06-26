@@ -1,16 +1,16 @@
-# AGENTS.md — Spec Ledger (project's own contract)
+# AGENTS.md — ChangeLedger (project's own contract)
 
-This is the Spec Ledger repo itself. It dogfoods its own format: changes live
-under `.sl/changes/`, persistent truth under `.sl/specs/`.
+This is the ChangeLedger repo itself. It dogfoods its own format: changes live
+under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
-<!-- spec-ledger -->
+<!-- changeledger -->
 > [!IMPORTANT]
-> This repo uses **Spec Ledger**. Read and follow [`.sl/AGENTS.md`](.sl/AGENTS.md)
-> (the change contract). If it is missing, run `sl register`.
+> This repo uses **ChangeLedger**. Read and follow [`.changeledger/AGENTS.md`](.changeledger/AGENTS.md)
+> (the change contract). If it is missing, run `changeledger register`.
 
-The **canonical Spec Ledger contract** (the convention every consuming repo
+The **canonical ChangeLedger contract** (the convention every consuming repo
 follows) is shipped as [`templates/AGENTS.md`](templates/AGENTS.md) and linked
-into each repo as `.sl/AGENTS.md`. Edit the convention there, not here.
+into each repo as `.changeledger/AGENTS.md`. Edit the convention there, not here.
 
 ## Project-specific notes
 
@@ -18,8 +18,8 @@ into each repo as `.sl/AGENTS.md`. Edit the convention there, not here.
   allowed only when they are mature and justified: the CLI uses `yaml` for
   config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,
   `dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
-- `pnpm verify` (lint + test + `sl check`) is the full quality gate. The
-  versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `sl check`
+- `pnpm verify` (lint + test + `changeledger check`) is the full quality gate. The
+  versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `changeledger check`
   so staged formatting stays compatible with partial commits.
 - The contract you edit for the convention is `templates/AGENTS.md` — it is the
-  artifact that `sl init`/`register` symlink into other repos.
+  artifact that `changeledger init`/`register` symlink into other repos.

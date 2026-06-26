@@ -18,7 +18,9 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 export function releasePlan(cwd = process.cwd()) {
   const repo = loadRepo(cwd);
   if (!repo.releases.length) {
-    throw new Error('Release history is not initialized. Run `sl release init <version>`.');
+    throw new Error(
+      'Release history is not initialized. Run `changeledger release init <version>`.',
+    );
   }
 
   const currentVersion = latestVersion(repo.releases);

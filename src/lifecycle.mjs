@@ -1,5 +1,5 @@
 // The change lifecycle as an explicit, testable graph — the single authority on
-// which status moves are legal. Shared by the CLI (`sl status`) and the viewer
+// which status moves are legal. Shared by the CLI (`changeledger status`) and the viewer
 // so both decide validity the same way. The viewer layers an extra human-only
 // policy on top (approval plus final acceptance/rejection); it never relaxes
 // this graph.

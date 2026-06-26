@@ -1,7 +1,7 @@
 // Global project registry: maps a stable project_id to its absolute path on this
 // machine. Identity lives in the repo's config (committed); the path is local,
 // so moved/cloned repos just re-register. Override the home with
-// SPEC_LEDGER_HOME (used by tests).
+// CHANGELEDGER_HOME (used by tests).
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,11 +9,11 @@ import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
 
 export function registryDir() {
-  return path.join(process.env.SPEC_LEDGER_HOME || os.homedir(), '.spec-ledger');
+  return path.join(process.env.CHANGELEDGER_HOME || os.homedir(), '.changeledger');
 }
 
 export function registryPath() {
-  return path.join(registryDir(), 'registry.json');
+  return path.join(registryDir(), '.registry.json');
 }
 
 export function readRegistry() {
@@ -22,7 +22,7 @@ export function readRegistry() {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
-    throw new Error('registry.json is not valid JSON');
+    throw new Error('.registry.json is not valid JSON');
   }
 }
 

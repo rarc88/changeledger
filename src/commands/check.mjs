@@ -2,7 +2,7 @@ import { checkRepo } from '../check.mjs';
 import { checkContract } from '../contract.mjs';
 import { loadRepo } from '../repo.mjs';
 
-// Validates the repo (or a single change with `sl check <id>`). Prints findings
+// Validates the repo (or a single change with `changeledger check <id>`). Prints findings
 // and returns an exit code (1 if errors).
 export function check(args = [], cwd = process.cwd(), output = console) {
   const json = args.includes('--json');
@@ -25,7 +25,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   // Discovery validation needs the filesystem (root contract, symlink), so it
   // lives here, not in the pure validator. Repo-wide only.
   if (!id) {
-    for (const message of checkContract(repo.repoRoot, repo.specDir)) {
+    for (const message of checkContract(repo.repoRoot, repo.changeledgerDir)) {
       errors.push({ file: 'AGENTS.md', message });
     }
   }

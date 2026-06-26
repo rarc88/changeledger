@@ -1,5 +1,5 @@
 // Pure text transforms on a change file. They preserve the rest of the document
-// and are the basis for the `sl status`/`log`/`task` mutation commands.
+// and are the basis for the `changeledger status`/`log`/`task` mutation commands.
 
 import { parseDocument } from 'yaml';
 

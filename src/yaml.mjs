@@ -1,6 +1,6 @@
 import { parseDocument, stringify } from 'yaml';
 
-// YAML is a broad format; Spec Ledger keeps this wrapper narrow so callers get
+// YAML is a broad format; ChangeLedger keeps this wrapper narrow so callers get
 // stable domain behavior while syntax handling is delegated to a mature parser.
 
 const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

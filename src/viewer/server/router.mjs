@@ -168,7 +168,7 @@ export function createRequestListener(cwd, localOnly, token) {
         send(res, 404, 'text/plain', 'Not found');
       }
     } catch (e) {
-      process.stderr.write(`[sl-viewer] ${e.message}\n`);
+      process.stderr.write(`[changeledger-viewer] ${e.message}\n`);
       send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
     }
   };

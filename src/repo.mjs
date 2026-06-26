@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
-import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 
@@ -13,10 +13,10 @@ import { parseSpec } from './spec.mjs';
 // match, so it is skipped rather than aborting the search. Shared by every
 // mutating and locating command.
 export function resolveChange(start, id) {
-  const specDir = findSpecDir(start);
-  if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
-  const config = loadConfig(specDir);
-  const repoRoot = path.dirname(specDir);
+  const changeledgerDir = findChangeledgerDir(start);
+  if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+  const config = loadConfig(changeledgerDir);
+  const repoRoot = path.dirname(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   if (fs.existsSync(changesDir)) {
     for (const name of fs.readdirSync(changesDir).sort()) {
@@ -32,19 +32,21 @@ export function resolveChange(start, id) {
     }
   }
   throw new Error(
-    `No change with id "${id}" (use the exact id; run \`sl check\` if a filename's id looks wrong)`,
+    `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
   );
 }
 
-// Loads a Spec Ledger repo: locates .sl/, reads config and every change file.
-// Shared by `sl view` and `sl check`.
+// Loads a ChangeLedger repo: locates .changeledger/, reads config and every change file.
+// Shared by `changeledger view` and `changeledger check`.
 export function loadRepo(start = process.cwd()) {
-  const specDir = findSpecDir(start);
-  if (!specDir) {
-    throw new Error('Not a Spec Ledger repo (no .sl/ found). Run `sl init` first.');
+  const changeledgerDir = findChangeledgerDir(start);
+  if (!changeledgerDir) {
+    throw new Error(
+      'Not a ChangeLedger repo (no .changeledger/ found). Run `changeledger init` first.',
+    );
   }
-  const repoRoot = path.dirname(specDir);
-  const config = loadConfig(specDir);
+  const repoRoot = path.dirname(changeledgerDir);
+  const config = loadConfig(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
   const changes = [];
@@ -70,19 +72,21 @@ export function loadRepo(start = process.cwd()) {
 
   const releases = loadReleases(repoRoot);
 
-  return { specDir, repoRoot, config, changes, specs, releases };
+  return { changeledgerDir, repoRoot, config, changes, specs, releases };
 }
 
 // Async equivalent for HTTP paths that should not monopolize the Node event
 // loop while reading large change/spec histories. The synchronous loader remains
 // the command API for CLI code.
 export async function loadRepoAsync(start = process.cwd()) {
-  const specDir = findSpecDir(start);
-  if (!specDir) {
-    throw new Error('Not a Spec Ledger repo (no .sl/ found). Run `sl init` first.');
+  const changeledgerDir = findChangeledgerDir(start);
+  if (!changeledgerDir) {
+    throw new Error(
+      'Not a ChangeLedger repo (no .changeledger/ found). Run `changeledger init` first.',
+    );
   }
-  const repoRoot = path.dirname(specDir);
-  const config = loadConfig(specDir);
+  const repoRoot = path.dirname(changeledgerDir);
+  const config = loadConfig(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
   const changes = [];
@@ -114,5 +118,5 @@ export async function loadRepoAsync(start = process.cwd()) {
 
   const releases = await loadReleasesAsync(repoRoot);
 
-  return { specDir, repoRoot, config, changes, specs, releases };
+  return { changeledgerDir, repoRoot, config, changes, specs, releases };
 }

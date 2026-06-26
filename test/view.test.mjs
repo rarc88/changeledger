@@ -125,7 +125,7 @@ test('CR2: a write from a non-local Origin is rejected even with the token', asy
     path: '/api/status',
     headers: {
       'Content-Type': 'application/json',
-      'x-sl-token': TOKEN,
+      'x-changeledger-token': TOKEN,
       Origin: 'http://evil.example.com',
     },
     body: JSON.stringify({ project, id, status: 'approved' }),
@@ -142,7 +142,7 @@ test('CR2: an authorized write succeeds', async () => {
   const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
-    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
     body: JSON.stringify({ project, id, status: 'approved' }),
   });
   assert.equal(res.status, 200);
@@ -157,7 +157,7 @@ test('CR3: a write to an unknown project is a 404, not a fallback', async () => 
   const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
-    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
     body: JSON.stringify({ project: 'does-not-exist', id, status: 'approved' }),
   });
   assert.equal(res.status, 404);
@@ -170,7 +170,7 @@ test('CR4: an oversized body is rejected with 413', async () => {
   const res = await memoryRequest(root, {
     method: 'POST',
     path: '/api/status',
-    headers: { 'Content-Type': 'application/json', 'x-sl-token': TOKEN },
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
     body: huge,
   });
   assert.equal(res.status, 413);
@@ -256,7 +256,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
     { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
     root,
   );
-  const specsDir = path.join(root, '.sl', 'specs');
+  const specsDir = path.join(root, '.changeledger', 'specs');
   fs.mkdirSync(specsDir, { recursive: true });
   fs.writeFileSync(
     path.join(specsDir, 'viewer.md'),
@@ -363,7 +363,7 @@ test('190009 CR3: getRepo rejects when server returns 410', async () => {
 });
 
 test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empty arrays', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-proj-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   // no changes created — changesDir does not exist yet
@@ -373,11 +373,11 @@ test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empt
 });
 
 function isolatedHome() {
-  process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+  process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 }
 
 function newRepo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-proj-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-proj-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   return root;
@@ -387,7 +387,7 @@ test('global mode lists all registered projects', () => {
   isolatedHome();
   newRepo();
   newRepo();
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-out-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-out-'));
   const { projects, current } = resolveProjects(outside, false);
   assert.equal(projects.length, 2);
   assert.ok(projects.every((p) => p.alive));
@@ -409,8 +409,8 @@ test('current project is the repo the command runs in', () => {
 test('a project whose path is gone is marked not alive', () => {
   isolatedHome();
   const repo = newRepo();
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-out-'));
-  fs.rmSync(path.join(repo, '.sl'), { recursive: true, force: true });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-out-'));
+  fs.rmSync(path.join(repo, '.changeledger'), { recursive: true, force: true });
   const { projects } = resolveProjects(outside, false);
   assert.equal(projects[0].alive, false);
 });

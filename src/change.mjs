@@ -1,4 +1,4 @@
-// Parses a Spec Ledger change file: frontmatter + stages + tasks.
+// Parses a ChangeLedger change file: frontmatter + stages + tasks.
 // Stage bodies are kept raw (markdown) — the viewer renders them.
 
 import { parseYaml } from './yaml.mjs';

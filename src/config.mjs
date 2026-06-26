@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseYaml } from './yaml.mjs';
 
-// Walk up from `start` looking for a `.sl/` directory. Returns its absolute path
+// Walk up from `start` looking for a `.changeledger/` directory. Returns its absolute path
 // or null if none is found.
-export function findSpecDir(start = process.cwd()) {
+export function findChangeledgerDir(start = process.cwd()) {
   let dir = path.resolve(start);
   for (;;) {
-    const candidate = path.join(dir, '.sl');
+    const candidate = path.join(dir, '.changeledger');
     if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) return candidate;
     const parent = path.dirname(dir);
     if (parent === dir) return null;
@@ -15,8 +15,8 @@ export function findSpecDir(start = process.cwd()) {
   }
 }
 
-export function loadConfig(specDir) {
-  const file = path.join(specDir, 'config.yml');
+export function loadConfig(changeledgerDir) {
+  const file = path.join(changeledgerDir, 'config.yml');
   if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
   return parseYaml(fs.readFileSync(file, 'utf8'));
 }
@@ -69,7 +69,7 @@ function isInside(root, target) {
 // Single source of the specs directory: the configured `specs_dir` or the
 // default, always resolved through the containment guard. Shared by `loadRepo`
 // and `graduate` so a graduated spec lands where the repo will later read it.
-export const DEFAULT_SPECS_DIR = '.sl/specs';
+export const DEFAULT_SPECS_DIR = '.changeledger/specs';
 
 export function resolveSpecsDir(repoRoot, config) {
   return resolveRepoPath(repoRoot, config.specs_dir ?? DEFAULT_SPECS_DIR, 'specs_dir');

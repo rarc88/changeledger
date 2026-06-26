@@ -7,7 +7,21 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { validation } from '../src/commands/agent.mjs';
 
-const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'sl.mjs');
+const bin = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'bin',
+  'changeledger.mjs',
+);
+
+test('ChangeLedger migration exposes only the unscoped changeledger binary (CR1, CR2)', () => {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.resolve(path.dirname(bin), '..', 'package.json'), 'utf8'),
+  );
+  assert.equal(packageJson.name, 'changeledger');
+  assert.deepEqual(packageJson.bin, { changeledger: 'bin/changeledger.mjs' });
+  assert.equal(Object.hasOwn(packageJson.bin, 'sl'), false);
+});
 
 // Run the CLI; returns { code, out, err }.
 function run(...args) {
@@ -38,47 +52,47 @@ function runIn(cwd, env, ...args) {
   }
 }
 
-test('CR1: sl graduate --help shows --skip and --pending, exit 0', () => {
+test('CR1: changeledger graduate --help shows --skip and --pending, exit 0', () => {
   const { code, out } = run('graduate', '--help');
   assert.equal(code, 0);
   assert.match(out, /--skip/);
   assert.match(out, /--pending/);
 });
 
-test('CR2: sl task -h shows done|block, exit 0', () => {
+test('CR2: changeledger task -h shows done|block, exit 0', () => {
   const { code, out } = run('task', '-h');
   assert.equal(code, 0);
   assert.match(out, /done\|block/);
 });
 
-test('CR3: sl graduate with no args fails with its usage', () => {
+test('CR3: changeledger graduate with no args fails with its usage', () => {
   const { code, err } = run('graduate');
   assert.notEqual(code, 0);
   assert.match(err, /graduate/);
 });
 
-test('CR4: sl --help lists all commands', () => {
+test('CR4: changeledger --help lists all commands', () => {
   const { code, out } = run('--help');
   assert.equal(code, 0);
-  assert.match(out, /sl init/);
-  assert.match(out, /sl graduate/);
-  assert.match(out, /sl review/);
-  assert.match(out, /sl release/);
+  assert.match(out, /changeledger init/);
+  assert.match(out, /changeledger graduate/);
+  assert.match(out, /changeledger review/);
+  assert.match(out, /changeledger release/);
 });
 
 test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const file = fs
-    .readdirSync(path.join(root, '.sl', 'changes'))
-    .map((name) => path.join(root, '.sl', 'changes', name))
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => path.join(root, '.changeledger', 'changes', name))
     .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${item.id}"`));
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('status: draft', 'status: done'));
 
@@ -91,13 +105,13 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
     [item.id],
   );
   assert.equal(runIn(root, env, 'release', 'record', '0.2.0').code, 0);
-  assert.equal(fs.existsSync(path.join(root, '.sl', 'releases', '0.2.0.yml')), true);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases', '0.2.0.yml')), true);
 });
 
 test('151226: bin remains directly executable', { skip: process.platform === 'win32' }, () => {
   const { code, out } = runDirect('--help');
   assert.equal(code, 0);
-  assert.match(out, /sl init/);
+  assert.match(out, /changeledger init/);
 });
 
 test('151226: unknown options fail instead of being ignored', () => {
@@ -106,7 +120,7 @@ test('151226: unknown options fail instead of being ignored', () => {
   assert.match(err, /unknown option '--bogus'/);
 });
 
-test('sl review --help shows pass and fail routing, exit 0', () => {
+test('changeledger review --help shows pass and fail routing, exit 0', () => {
   const { code, out } = run('review', '--help');
   assert.equal(code, 0);
   assert.match(out, /pass/);
@@ -117,10 +131,10 @@ test('sl review --help shows pass and fail routing, exit 0', () => {
 // End-to-end: the bin parses `review <id> fail --block "<reason>"` (mode + reason
 // extraction) and routes the change to blocked.
 test('review wiring: fail --block parses the reason and blocks the change', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
@@ -139,13 +153,13 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   );
 });
 
-// End-to-end: `sl graduate <id> <slug> --into` links an existing spec (flag in
+// End-to-end: `changeledger graduate <id> <slug> --into` links an existing spec (flag in
 // any position) without touching its body, exit 0.
 test('CR6: graduate --into wires through and links an existing spec', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, SPEC_LEDGER_HOME: home };
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
@@ -156,7 +170,7 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   }
   validation(id, 'pass', {}, root);
 
-  const specFile = path.join(root, '.sl', 'specs', 'architecture.md');
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
   fs.mkdirSync(path.dirname(specFile), { recursive: true });
   fs.writeFileSync(
     specFile,

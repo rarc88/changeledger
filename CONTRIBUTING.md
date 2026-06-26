@@ -1,23 +1,23 @@
-# Contributing to Spec Ledger
+# Contributing to ChangeLedger
 
-Thanks for your interest. Spec Ledger **dogfoods itself**: changes are planned
-as documents under `.sl/` before code is written. Please follow the same flow.
+Thanks for your interest. ChangeLedger **dogfoods itself**: changes are planned
+as documents under `.changeledger/` before code is written. Please follow the same flow.
 
 ## The flow
 
-1. **Plan first.** Scaffold a change: `sl new <type> <slug> "<title>"`. Fill the
-   stages your type activates (see [`AGENTS.md`](AGENTS.md)). Open `sl view` to
+1. **Plan first.** Scaffold a change: `changeledger new <type> <slug> "<title>"`. Fill the
+   stages your type activates (see [`AGENTS.md`](AGENTS.md)). Open `changeledger view` to
    read it rendered.
 2. **Get it approved.** A change starts in `draft`. Don't implement until it's
    `approved` (the human's one move, in the viewer or by editing the file).
 3. **Implement via TDD.** With `tdd: true`, write the failing test from each
    acceptance criterion (`CRn`), make it pass, refactor. Tick tasks as you go
-   (`sl task <id> done <n>`) and move status with `sl status`.
+   (`changeledger task <id> done <n>`) and move status with `changeledger status`.
 4. **Independent review.** Types with `review_required` pass through `in-review`
    before `done` — a fresh, clean-context review verifies every `CRn` is met and
    no residue is left.
 5. **Graduate the truth.** On `done`, update or create the affected `specs/`
-   doc (`sl graduate ...`), or `--skip` when there's no persistent truth.
+   doc (`changeledger graduate ...`), or `--skip` when there's no persistent truth.
 
 The full contract for agents is [`AGENTS.md`](AGENTS.md).
 
@@ -46,25 +46,25 @@ Every commit must pass the gate. Enable the hook and run it locally:
 
 ```sh
 git config core.hooksPath hooks   # enable the pre-commit gate
-pnpm verify                       # lint (Biome) + tests (node --test) + sl check
+pnpm verify                       # lint (Biome) + tests (node --test) + changeledger check
 ```
 
 - **Atomic commits** referencing the change id: `feat(scope): description [#<id>]`.
 - Commit messages in English, Conventional Commits, subject ≤ 50 chars.
 - No `TODO`/`FIXME` or dead code in delivered work.
 
-The versioned pre-commit hook runs `lint-staged`, `pnpm test` and `sl check`.
+The versioned pre-commit hook runs `lint-staged`, `pnpm test` and `changeledger check`.
 `lint-staged` formats only staged JavaScript, JSON and CSS files while preserving
 partial commits; `pnpm verify` remains the complete manual and CI gate.
 
 ## Use a checkout as the global CLI
 
-To exercise local edits through the same `sl` command used by installed
+To exercise local edits through the same `changeledger` command used by installed
 consumers:
 
 ```sh
 pnpm link --global
-sl --help
+changeledger --help
 pnpm unlink --global
 ```
 

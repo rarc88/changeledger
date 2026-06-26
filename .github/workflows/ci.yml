@@ -22,7 +22,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node bin/sl.mjs register
+      - run: node bin/changeledger.mjs register
       - run: pnpm verify
 
   tarball:
@@ -44,8 +44,8 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/smoke && cd /tmp/smoke
           npm init -y >/dev/null
-          npm install /tmp/rarc88-spec-ledger-*.tgz
+          npm install /tmp/changeledger-*.tgz
           printf '# Rules\n' > AGENTS.md
-          ./node_modules/.bin/sl --help
-          ./node_modules/.bin/sl init
-          ./node_modules/.bin/sl check
+          ./node_modules/.bin/changeledger --help
+          ./node_modules/.bin/changeledger init
+          ./node_modules/.bin/changeledger check

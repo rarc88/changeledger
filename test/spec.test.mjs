@@ -20,15 +20,15 @@ test('parseSpec throws without frontmatter', () => {
 });
 
 test('loadRepo picks up specs from specs_dir', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-spec-'));
-  fs.mkdirSync(path.join(root, '.sl', 'changes'), { recursive: true });
-  fs.mkdirSync(path.join(root, '.sl', 'specs'), { recursive: true });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-spec-'));
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
   fs.writeFileSync(
-    path.join(root, '.sl', 'config.yml'),
-    'changes_dir: .sl/changes\nspecs_dir: .sl/specs\ntypes:\n  feature:\n    stages: [request]\n',
+    path.join(root, '.changeledger', 'config.yml'),
+    'changes_dir: .changeledger/changes\nspecs_dir: .changeledger/specs\ntypes:\n  feature:\n    stages: [request]\n',
   );
   fs.writeFileSync(
-    path.join(root, '.sl', 'specs', 'arch.md'),
+    path.join(root, '.changeledger', 'specs', 'arch.md'),
     '---\ntitle: Arch\nupdated: 2026-06-13T21:00:00Z\ntags: []\n---\n\nbody\n',
   );
 

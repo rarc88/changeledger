@@ -20,7 +20,7 @@ export async function view(args = [], cwd = process.cwd()) {
   const host = '127.0.0.1';
   const port = await listen(server, host, Number(args.find((a) => /^\d+$/.test(a))) || 4040);
   const url = `http://${host}:${port}`;
-  console.log(`Spec Ledger viewer → ${url}  (Ctrl+C to stop)`);
+  console.log(`ChangeLedger viewer → ${url}  (Ctrl+C to stop)`);
   openBrowser(url);
 }
 

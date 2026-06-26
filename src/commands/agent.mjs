@@ -24,7 +24,9 @@ export function status(
 ) {
   const { config, file } = locate(cwd, id);
   if (newStatus === 'discarded') {
-    throw new Error('to discard a change use `sl discard <id> "<reason>"` (a reason is required)');
+    throw new Error(
+      'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
+    );
   }
   if (newStatus === 'done') {
     throw new Error('to complete a change use human validation in the viewer');
@@ -78,7 +80,9 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
       );
     } else if (verdict === 'fail') {
       if (!reason) {
-        throw new Error('fail requires a reason — sl review <id> fail --retry|--block "<reason>"');
+        throw new Error(
+          'fail requires a reason — changeledger review <id> fail --retry|--block "<reason>"',
+        );
       }
       if (mode === 'retry') {
         text = setStatus(text, 'in-progress');
@@ -149,7 +153,7 @@ export function owner(id, name, cwd = process.cwd()) {
 // Log; the transition graph rejects discarding a done or in-review change.
 export function discard(id, reason, cwd = process.cwd()) {
   if (!reason) {
-    throw new Error('discard requires a reason — sl discard <id> "<reason>"');
+    throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
   const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {

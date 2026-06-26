@@ -11,13 +11,13 @@ import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
-process.env.SPEC_LEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-home-'));
+process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 
 function repo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-grad-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-grad-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const file = path.join(root, '.sl', 'changes', '20260613-120000-x.md');
+  const file = path.join(root, '.changeledger', 'changes', '20260613-120000-x.md');
   fs.writeFileSync(
     file,
     `---
@@ -43,7 +43,7 @@ El sistema soporta login OAuth.
 
 // Writes an existing spec with a known body and a stale `updated`.
 function seedSpec(root, name, body) {
-  const specsDir = path.join(root, '.sl', 'specs');
+  const specsDir = path.join(root, '.changeledger', 'specs');
   fs.mkdirSync(specsDir, { recursive: true });
   const file = path.join(specsDir, name);
   fs.writeFileSync(
@@ -109,7 +109,7 @@ test('162020 CR1: graduate rejects a slug that normalizes to empty without writi
     /slug must contain at least one ASCII letter or number/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  assert.equal(fs.existsSync(path.join(root, '.sl', 'specs', '.md')), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs', '.md')), false);
 });
 
 test('162020 CR2: graduate keeps valid slug behavior', () => {
@@ -142,7 +142,7 @@ test('162020 CR3: new and graduate share slug normalization behavior', () => {
 test('CR1/CR2: graduate with no specs_dir in config lands where loadRepo reads', () => {
   const { root, id } = repo();
   // Drop the specs_dir key so graduate and loadRepo must agree on the default.
-  const configFile = path.join(root, '.sl', 'config.yml');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
   const stripped = fs.readFileSync(configFile, 'utf8').replace(/^specs_dir:.*\n/m, '');
   fs.writeFileSync(configFile, stripped);
 
@@ -173,12 +173,12 @@ test('CR4: graduate refuses a non-done change and creates no spec', () => {
   const before = fs.readFileSync(f, 'utf8');
   assert.throws(() => graduate('20260104-000000', 'x', root), /only done changes/);
   assert.equal(fs.readFileSync(f, 'utf8'), before);
-  assert.ok(!fs.existsSync(path.join(root, '.sl', 'specs', 'x.md')));
+  assert.ok(!fs.existsSync(path.join(root, '.changeledger', 'specs', 'x.md')));
 });
 
 // Write a bare change file with a given id and status.
 function writeChange(root, id, status, extra = '') {
-  const file = path.join(root, '.sl', 'changes', `${id}-y.md`);
+  const file = path.join(root, '.changeledger', 'changes', `${id}-y.md`);
   fs.writeFileSync(
     file,
     `---\nid: "${id}"\ntitle: Y\ntype: feature\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Log\n`,
@@ -202,7 +202,7 @@ test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', ()
     c.stages.find((s) => s.key === 'log').body,
     /graduation skipped: bug fix, sin verdad persistente$/m,
   );
-  const specsDir = path.join(root, '.sl', 'specs');
+  const specsDir = path.join(root, '.changeledger', 'specs');
   assert.equal(fs.existsSync(specsDir) && fs.readdirSync(specsDir).length > 0, false);
 });
 
@@ -232,7 +232,7 @@ test('185958 CR1: validation failure before mutateFileAtomic leaves changeFile u
 test('185958 CR3: spec write failure leaves changeFile unmodified', () => {
   const { root, file, id } = repo();
   const before = fs.readFileSync(file, 'utf8');
-  const specsDir = path.join(root, '.sl', 'specs');
+  const specsDir = path.join(root, '.changeledger', 'specs');
   const specName = path.join(specsDir, 'auth.md');
   // Make specName a directory — writeFileAtomic will fail trying to write a file at a dir path
   fs.mkdirSync(specName, { recursive: true });
@@ -244,7 +244,7 @@ test('185958 CR3: spec write failure leaves changeFile unmodified', () => {
 test('185958 CR4: orphaned spec (write OK, log failed) is detectable and recoverable', () => {
   const { root, file, id } = repo();
   // Simulate orphaned spec: spec exists, but changeFile has no reviewed flag
-  const specsDir = path.join(root, '.sl', 'specs');
+  const specsDir = path.join(root, '.changeledger', 'specs');
   fs.mkdirSync(specsDir, { recursive: true });
   fs.writeFileSync(
     path.join(specsDir, 'auth.md'),

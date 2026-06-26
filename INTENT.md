@@ -1,8 +1,8 @@
-# Spec Ledger — ¿Para qué sirve y cómo debe funcionar?
+# ChangeLedger — ¿Para qué sirve y cómo debe funcionar?
 
 ## Propósito
 
-Spec Ledger es una herramienta que ayuda a coordinar el trabajo entre un humano y un agente de IA. Su objetivo principal es que ningún cambio de código ocurra sin antes haber sido pensado, documentado y aprobado por el humano. El documento es la fuente de verdad; el código es su consecuencia.
+ChangeLedger es una herramienta que ayuda a coordinar el trabajo entre un humano y un agente de IA. Su objetivo principal es que ningún cambio de código ocurra sin antes haber sido pensado, documentado y aprobado por el humano. El documento es la fuente de verdad; el código es su consecuencia.
 
 ---
 

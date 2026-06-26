@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Spec Ledger is pre-1.0. Security fixes land on the latest published `0.x`
+ChangeLedger is pre-1.0. Security fixes land on the latest published `0.x`
 release; older versions are not patched. Upgrade to the newest version before
 reporting.
 
@@ -15,7 +15,7 @@ reporting.
 
 Please report privately — do **not** open a public issue for a vulnerability.
 
-- Preferred: open a [private security advisory](https://github.com/rarc88/spec-ledger/security/advisories/new).
+- Preferred: open a [private security advisory](https://github.com/rarc88/changeledger/security/advisories/new).
 - Include: affected version, reproduction steps, and impact.
 
 You'll get an acknowledgement within a few days. Once a fix ships, the advisory
@@ -23,9 +23,9 @@ is published with credit (unless you prefer to stay anonymous).
 
 ## Threat model
 
-`sl` is a local developer tool: a CLI plus an optional local viewer (`sl view`).
+`changeledger` is a local developer tool: a CLI plus an optional local viewer (`changeledger view`).
 The relevant trust boundary is that **a repository's documents and config are
-untrusted input** — you may clone someone else's repo and run `sl` or open the
+untrusted input** — you may clone someone else's repo and run `changeledger` or open the
 viewer over it. The design holds these invariants:
 
 - **The viewer binds to loopback only** and rejects non-local `Host` headers

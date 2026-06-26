@@ -21,31 +21,31 @@ import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/
 import { view } from '../src/commands/view.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
-const USAGE = `Spec Ledger (sl)
+const USAGE = `ChangeLedger (changeledger)
 
-  sl init                          set up .sl/ in the current repo (+ register it)
-  sl register                      (re)link this repo's path in the global registry
-  sl new <type> <slug> <title>     scaffold a new change (slug is the English filename)
-  sl view [port]                   launch the local viewer (default port 4040)
-  sl check [id] [--json]           validate the repo or one change
-  sl status <id> <status>          move a change's lifecycle status
-  sl discard <id> "<reason>"       discard a change (terminal; keeps the record)
-  sl review <id> pass              independent review passed → in-validation
-  sl review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
-  sl owner <id> <name|->           set or clear a change's owner
-  sl archive <id> / unarchive <id>   hide/show a change in the viewer
-  sl archive --graduated [--dry-run] archive done changes already graduated/skipped
-  sl log <id> <message>            append a timestamped Log entry
-  sl task <id> done|block <n> [reason]   mark a Plan task
-  sl list [--status S] [--type T] [--json]   list changes
-  sl show <id> [--json]            print a change
-  sl graduate <change-id> <spec-slug>   graduate a change to a new spec
-  sl graduate <change-id> <spec-slug> --into   graduate into an existing spec
-  sl graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
-  sl graduate --pending                 list done changes not yet reviewed
-  sl release init <version>             initialize release history at X.Y.Z
-  sl release plan [--json]              calculate the next portable SemVer release
-  sl release record <version>           record the calculated release manifest`;
+  changeledger init                          set up .changeledger/ in the current repo (+ register it)
+  changeledger register                      (re)link this repo's path in the global registry
+  changeledger new <type> <slug> <title>     scaffold a new change (slug is the English filename)
+  changeledger view [port]                   launch the local viewer (default port 4040)
+  changeledger check [id] [--json]           validate the repo or one change
+  changeledger status <id> <status>          move a change's lifecycle status
+  changeledger discard <id> "<reason>"       discard a change (terminal; keeps the record)
+  changeledger review <id> pass              independent review passed → in-validation
+  changeledger review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
+  changeledger owner <id> <name|->           set or clear a change's owner
+  changeledger archive <id> / unarchive <id>   hide/show a change in the viewer
+  changeledger archive --graduated [--dry-run] archive done changes already graduated/skipped
+  changeledger log <id> <message>            append a timestamped Log entry
+  changeledger task <id> done|block <n> [reason]   mark a Plan task
+  changeledger list [--status S] [--type T] [--json]   list changes
+  changeledger show <id> [--json]            print a change
+  changeledger graduate <change-id> <spec-slug>   graduate a change to a new spec
+  changeledger graduate <change-id> <spec-slug> --into   graduate into an existing spec
+  changeledger graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
+  changeledger graduate --pending                 list done changes not yet reviewed
+  changeledger release init <version>             initialize release history at X.Y.Z
+  changeledger release plan [--json]              calculate the next portable SemVer release
+  changeledger release record <version>           record the calculated release manifest`;
 
 const program = new Command();
 
@@ -61,18 +61,18 @@ function action(fn) {
 }
 
 program
-  .name('sl')
-  .description('Spec Ledger (sl)')
+  .name('changeledger')
+  .description('ChangeLedger (changeledger)')
   .helpOption('-h, --help', 'display help for command')
   .addHelpText('after', `\n${USAGE}`);
 
 program
   .command('init')
-  .description('set up .sl/ in the current repo (+ register it)')
+  .description('set up .changeledger/ in the current repo (+ register it)')
   .action(
     action(() => {
       const dir = init();
-      console.log(`Initialized Spec Ledger at ${dir}`);
+      console.log(`Initialized ChangeLedger at ${dir}`);
     }),
   );
 
@@ -159,9 +159,9 @@ program
     [
       '',
       'Examples:',
-      '  sl review <id> pass',
-      '  sl review <id> fail --retry "<reason>"',
-      '  sl review <id> fail --block "<reason>"',
+      '  changeledger review <id> pass',
+      '  changeledger review <id> fail --retry "<reason>"',
+      '  changeledger review <id> fail --block "<reason>"',
     ].join('\n'),
   )
   .action(
@@ -291,10 +291,10 @@ program
     [
       '',
       'Examples:',
-      '  sl graduate <change-id> <spec-slug>',
-      '  sl graduate <change-id> <spec-slug> --into',
-      '  sl graduate <change-id> --skip [reason]',
-      '  sl graduate --pending',
+      '  changeledger graduate <change-id> <spec-slug>',
+      '  changeledger graduate <change-id> <spec-slug> --into',
+      '  changeledger graduate <change-id> --skip [reason]',
+      '  changeledger graduate --pending',
     ].join('\n'),
   )
   .action(
@@ -306,13 +306,13 @@ program
         return;
       }
       if (options.skip) {
-        if (!id) throw new Error('Usage: sl graduate <change-id> --skip [reason]');
+        if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
         skipGraduation(id, reason);
         console.log(`#${id} graduation skipped`);
         return;
       }
-      if (!id || !slug) throw new Error('Usage: sl graduate <change-id> <spec-slug>');
+      if (!id || !slug) throw new Error('Usage: changeledger graduate <change-id> <spec-slug>');
       const file = graduate(id, slug, process.cwd(), { into: options.into });
       console.log(`Graduated #${id} → ${file}`);
     }),
