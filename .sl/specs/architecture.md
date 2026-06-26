@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-26T17:41:15Z
+updated: 2026-06-26T23:20:45Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -37,6 +37,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
 > Graduado del change 20260626-115134 (formato machine-readable de tareas y readiness).
 > Graduado del change 20260626-160038 (política económica de delegación).
+> Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -369,6 +370,13 @@ repo. `init`/`register` lo enlazan en cada repo como `.sl/AGENTS.md` — symlink
 **por máquina, gitignored**: nunca se copia (no drifta) ni se committea (no queda
 dangling al clonar). Separarlo del raíz evita la recursión: el `AGENTS.md` raíz
 es el contrato **propio** del proyecto y solo **referencia** al enlazado.
+
+El contrato abre con un **Agent Fast Path** que concentra las decisiones
+operativas de mayor prioridad: autorización, aprobación, trazabilidad git,
+ejecución, revisión independiente, validación humana y graduación. Las reglas
+detalladas siguen debajo como referencia normativa y la sección de CLI conserva
+solo el flujo crítico; para sintaxis puntual, el agente consulta `sl help` o
+`sl <command> --help` bajo demanda.
 
 `init` exige el `AGENTS.md` raíz y appendea la referencia como **caja de alerta
 GitHub** (`> [!IMPORTANT]`, marcador `<!-- spec-ledger -->`, idempotente) a cada
