@@ -316,8 +316,17 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
     }
     if (!namesTargetAndVerification(t.text, config)) {
       const hint = readinessHint(config);
-      for (const cr of t.criteria)
-        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
+      const misplaced = misplacedVerificationSuffix(t, config);
+      for (const cr of t.criteria) {
+        if (misplaced) {
+          report(
+            c,
+            `Plan task for ${cr} puts verification in the reserved suffix; move "${misplaced}" before the final (CRn) block because "— ..." is reserved for done timestamps and blocked reasons`,
+          );
+        } else {
+          report(c, `Plan task for ${cr} must name target and verification (${hint})`);
+        }
+      }
     }
   }
 
@@ -344,6 +353,14 @@ function namesTargetAndVerification(text, config) {
   return (
     matchesAnyReadinessPattern(text, readiness.target_patterns) &&
     matchesAnyReadinessPattern(text, readiness.verification_patterns)
+  );
+}
+
+function misplacedVerificationSuffix(task, config) {
+  if (task.state !== 'todo' || !task.suffix) return null;
+  const readiness = readinessConfig(config);
+  return readiness.verification_patterns.find((pattern) =>
+    readinessPatternMatches(task.suffix, pattern),
   );
 }
 

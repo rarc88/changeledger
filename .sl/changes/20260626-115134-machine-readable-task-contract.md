@@ -2,10 +2,11 @@
 id: "20260626-115134"
 title: Aclarar formato machine-readable de tareas y readiness
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-26T11:51:34Z
 depends_on: []
 release_impact: patch
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -95,12 +96,14 @@ bloque de criterios.
 
 ## Plan
 
-- [ ] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134` (CR1, CR2, CR4)
-- [ ] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134` (CR3)
-- [ ] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test (CR5)
-- [ ] Actualizar src/check.mjs para emitir un diagnóstico específico cuando `verify:` queda en el sufijo reservado; verificar con pnpm test y node bin/sl.mjs check (CR5)
+- [x] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134` (CR1, CR2, CR4) — 2026-06-26T12:03:20Z
+- [x] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134` (CR3) — 2026-06-26T12:03:23Z
+- [x] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test (CR5) — 2026-06-26T12:04:03Z
+- [x] Actualizar src/change.mjs y src/check.mjs para conservar el sufijo reservado y emitir un diagnóstico específico cuando `verify:` queda allí; verificar con pnpm test y node bin/sl.mjs check (CR5) — 2026-06-26T12:04:06Z
 
 ## Log
 
 - 2026-06-26T11:51:34Z — Change creado en estado draft.
 - **2026-06-26T12:00:00Z** — status: draft → approved
+- **2026-06-26T12:01:33Z** — status: approved → in-progress
+- **2026-06-26T12:01:33Z** — owner → Roberto Ruiz (auto)

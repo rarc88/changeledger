@@ -914,6 +914,47 @@ X
   );
 });
 
+test('115134 CR5: misplaced verify suffix explains the parseable task order', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Update app/profile.ts (CR1) — verify: manual device check
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['app/**'],
+        verification_patterns: ['verify:'],
+      },
+    },
+  );
+  const message = msgs(errors).find((m) => /verify:/.test(m));
+  assert.match(message, /before the final \(CRn\) block/);
+  assert.match(message, /reserved for done timestamps and blocked reasons/);
+});
+
 test('151216 CR3: draft readiness gaps are warnings', () => {
   const { errors, warnings } = covResult(`---
 id: "20260613-120000"

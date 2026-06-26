@@ -77,6 +77,7 @@ depends_on: []
 `);
   assert.equal(c.tasks[0].text, 'Preserve wording — with an internal dash');
   assert.deepEqual(c.tasks[0].criteria, ['CR1']);
+  assert.equal(c.tasks[0].suffix, '2026-06-13T13:30:00Z');
   assert.equal(c.tasks[0].resolvedAt, '2026-06-13T13:30:00Z');
 });
 
