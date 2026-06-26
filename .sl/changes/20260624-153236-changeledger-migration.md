@@ -2,10 +2,11 @@
 id: "20260624-153236"
 title: Migrate Spec Ledger to ChangeLedger
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-24T15:32:36Z
 depends_on: []
 release_impact: minor
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -186,3 +187,5 @@ que dirija a `changeledger`.
 
 - **2026-06-24T15:32:36Z** — Cambio autorizado para una migración integral a ChangeLedger; se adopta un corte limpio sin compatibilidad con la identidad anterior.
 - **2026-06-26T23:24:53Z** — status: draft → approved
+- **2026-06-26T23:26:46Z** — status: approved → in-progress
+- **2026-06-26T23:26:46Z** — owner → Roberto Ruiz (auto)
