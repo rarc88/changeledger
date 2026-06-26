@@ -2,7 +2,7 @@
 id: "20260624-153236"
 title: Migrate Spec Ledger to ChangeLedger
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-24T15:32:36Z
 depends_on: []
 release_impact: minor
@@ -198,3 +198,4 @@ que dirija a `changeledger`.
 - **2026-06-26T23:39:31Z** — review → in-progress (retry): El contrato publicado conserva Spec Ledger partido por salto de línea y una prueba mantiene el sentinel __sl_xss.
 - **2026-06-26T23:40:27Z** — Corregidos los residuos encontrados en segunda revisión: contrato publicado sin marca partida y sentinel XSS renombrado; se añadió regresión contra Spec\s+Ledger. pnpm verify pasa con 365 pruebas.
 - **2026-06-26T23:40:27Z** — status: in-progress → in-review
+- **2026-06-26T23:42:39Z** — review → in-validation (delegated subagent, clean context)
