@@ -79,10 +79,11 @@ function parseTasks(planBody) {
     let rest = m[2].trim();
     let resolvedAt;
     let reason;
+    let suffix;
 
     const dash = rest.lastIndexOf(' — ');
     if (dash !== -1) {
-      const suffix = rest.slice(dash + 3).trim();
+      suffix = rest.slice(dash + 3).trim();
       rest = rest.slice(0, dash).trim();
       if (state === 'done') resolvedAt = suffix;
       else if (state === 'blocked') reason = suffix;
@@ -95,7 +96,7 @@ function parseTasks(planBody) {
       rest = rest.slice(0, crMatch.index).trim();
     }
 
-    tasks.push({ text: rest, state, criteria, resolvedAt, reason });
+    tasks.push({ text: rest, state, criteria, resolvedAt, reason, suffix });
   }
   return tasks;
 }

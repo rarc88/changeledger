@@ -117,32 +117,64 @@ by per-line steps:
 ```
 
 One block per scenario (`CR1`, `CR2`, …). The step keywords (`Given`, `When`,
-`Then`, `And`) are fixed English; the rest is content (per `language`).
+`Then`, `And`) are fixed English; the rest is content (per `language`). The
+machine-readable shape is exact: localized headings such as
+`## Especificación`, translated step labels such as `Dado`/`Cuando`/`Entonces`,
+inline criteria, or `#### CR1` do not count as structured criteria for
+`sl check`.
 
 ## 4. Tasks (inside `## Plan`)
 
 Markdown checklist. State convention by marker:
 
 ```markdown
-- [ ] Pending task (CR1)
-- [x] Completed task (CR1) — 2026-06-13T14:20:00Z
-- [!] Blocked task (CR1) — reason for the block
-- [ ] Operational task (support)
+- [ ] Pending task with target and verification (CR1)
+- [x] Completed task with target and verification (CR1) — 2026-06-13T14:20:00Z
+- [!] Blocked task with target and verification (CR1) — reason for the block
+- [ ] Operational task that changes no observable behavior (support)
 ```
 
 The viewer derives progress and the "blocked" state from these markers.
 
 **Traceability.** Each task references the criteria it satisfies, in trailing
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
-criterion → task, so coverage is auditable.
+criterion → task, so coverage is auditable. `sl check` extracts criteria only
+from the final parenthesized `CRn` block in the task description; mentions of
+`CR1` earlier in the sentence are prose, not traceability.
+
+**Machine-readable task grammar.** For tasks that satisfy criteria, keep all
+target and verification text inside the description before the final criteria
+block:
+
+```markdown
+- [ ] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+- [x] Update `src/app/foo.ts`; verify: `pnpm test` (CR1) — 2026-06-13T14:20:00Z
+- [!] Update `src/app/foo.ts`; verify: `pnpm test` (CR1) — blocked reason
+```
+
+The trailing `— ...` suffix is reserved for resolution metadata: done timestamps
+and blocked reasons. Pending tasks have no suffix. Do not put readiness evidence
+after the criteria block:
+
+```markdown
+- [ ] Update `src/app/foo.ts` (CR1) — verify: `pnpm test`
+```
+
+In that bad form, the parser removes `— verify: ...` before readiness checks, so
+the task still references `CR1` but appears to have no verification. Write it as:
+
+```markdown
+- [ ] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+```
 
 **Operational tasks.** Tasks that do not directly satisfy a criterion — running
 a test suite, reading a wrapper before refactoring, evaluating blast radius,
-scaffolding — may carry `(support)` instead of a `CRn`. `sl check` will not warn
-about missing criteria for these tasks, and readiness checks (target + verification
-patterns) do not apply to them either. `(support)` is not a substitute for a
-missing criterion on an implementation task — if a task writes or changes
-observable behaviour, it must cite the `CRn` it satisfies.
+scaffolding — may carry a literal trailing `(support)` instead of a `CRn`.
+`sl check` will not warn about missing criteria for these tasks, and readiness
+checks (target + verification patterns) do not apply to them either. `(support)`
+is not localized and must be the final parenthesized marker. It is not a
+substitute for a missing criterion on an implementation task — if a task writes
+or changes observable behaviour, it must cite the `CRn` it satisfies.
 
 **Resolution timestamp.** A completed task (`[x]`) carries a trailing
 `— <ISO 8601 UTC>` with the exact moment it was resolved (full timestamp, so
@@ -309,7 +341,9 @@ takes it explicitly: `sl new <type> <slug> "<title>"`.
 | frontmatter keys (`id`, `type`, `status`, …) | `title` value (it is change content) |
 | enum values: `status`, `type` | prose inside each stage |
 | stage keys and headings (`## Request`, …) | human narrative (README, etc.) |
-| task markers, file/dir names, CLI | |
+| acceptance ids and step keywords (`CR1`, `Given`, `When`, `Then`, `And`) | scenario content after the keyword |
+| task markers and structural markers (`- [ ]`, `(CR1)`, `(support)`) | task prose |
+| file/dir names, CLI | |
 
 This contract is the canonical spec and stays in English regardless of the
 repo's configured language.
@@ -414,12 +448,14 @@ When `tdd: true`, a change is **ready to implement** when:
    No requirement lives only in prose — if it must hold, it is a `CR`.
 2. **Plan is the implementation contract.** Every task references ≥1 `CR`, names
    the **target file(s)/area(s)** and the **verification** *in its description*
-   according to the repo's readiness patterns (keep the trailing
-   `— <timestamp>` slot for resolution, see §4), and is sized to one red-green
-   cycle. The verification can be a test file next to the target, a conventional
-   test directory, or a concrete command when that is how the repo proves the
-   behavior. Pure support tasks (docs, scaffolding) may carry no `CR` — `sl check`
-   will note them so the author confirms the omission is intentional.
+   according to the repo's readiness patterns, and is sized to one red-green
+   cycle. The description is the part before the final `(CRn)` block and before
+   any trailing `— ...` resolution suffix (see §4), so readiness evidence such as
+   `verify:` must appear before `(CRn)`. The verification can be a test file next
+   to the target, a conventional test directory, or a concrete command when that
+   is how the repo proves the behavior. Pure support tasks (docs, scaffolding)
+   may carry no `CR` — `sl check` will note them so the author confirms the
+   omission is intentional.
 3. **TDD is explicit.** The implementer writes the failing test from the `CR`,
    makes it pass, then refactors. The implementer never decides *what* to test —
    the `CR` fixes that; only *how*.
