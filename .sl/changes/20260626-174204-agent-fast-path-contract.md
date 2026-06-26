@@ -1,0 +1,66 @@
+---
+id: "20260626-174204"
+title: Optimizar AGENTS.md para atención de agentes
+type: refactor
+status: done
+created: 2026-06-26T17:42:04Z
+depends_on: []
+owner: Roberto Ruiz
+reviewed: true
+archived: true
+---
+
+## Request
+
+El contrato canónico `templates/AGENTS.md` está pensado para agentes, no para
+humanos. Después de añadir reglas de readiness, trazabilidad, revisión y
+delegación, el documento sigue siendo correcto pero empieza a competir por
+atención dentro del contexto principal del agente.
+
+Queremos reorganizarlo para que un agente entienda primero el camino operativo
+seguro y luego profundice en los detalles cuando los necesite. En particular:
+
+- Añadir un "Agent Fast Path" o equivalente al inicio, con las decisiones que un
+  agente debe seguir casi siempre.
+- Reducir la sección de helpers de CLI para no mantener una lista extensa que
+  pueda volverse ruido; los comandos críticos deben seguir inline, y el resto
+  puede apuntar a `sl --help` / `sl <command> --help` si eso es más efectivo.
+- Conservar la semántica ya aceptada: lifecycle, ownership humano, readiness,
+  revisión independiente, graduación, archivado y delegación económica.
+
+## Proposal
+
+Refactorizar solo la presentación del contrato canónico:
+
+- Introducir una ruta rápida al inicio de `templates/AGENTS.md` que priorice:
+  leer el contrato, crear/usar un change, no implementar sin aprobación,
+  mantener trazabilidad git, ejecutar revisión cuando aplique, esperar
+  validación humana antes de `done`, graduar/archivar al cierre y delegar con
+  criterio económico.
+- Compactar la sección de CLI helpers para que enseñe los comandos esenciales
+  del flujo y remita a `sl --help` / `sl <command> --help` para el resto,
+  evitando duplicar documentación que el CLI ya expone.
+- Mantener las reglas detalladas debajo como referencia normativa. El objetivo
+  es mejorar la atención del agente, no cambiar el contrato.
+
+## Plan
+
+- [x] Reorganizar `templates/AGENTS.md` con una ruta rápida para agentes y — 2026-06-26T17:46:02Z
+  verificar que el contrato sigue mencionando los gates críticos.
+- [x] Compactar la sección de CLI helpers, conservando los comandos esenciales y — 2026-06-26T17:46:02Z
+  apuntando a `sl --help` / `sl <command> --help` para detalle operativo.
+- [x] Ejecutar `node bin/sl.mjs check 20260626-174204` para validar el change. — 2026-06-26T17:46:02Z
+- [x] Ejecutar `CI=true pnpm verify` para confirmar que el contrato instalado y — 2026-06-26T17:47:55Z
+  los tests del repo siguen sanos.
+
+## Log
+
+- **2026-06-26T17:42:04Z** — draft created
+- **2026-06-26T17:43:45Z** — status: draft → approved
+- **2026-06-26T17:44:55Z** — status: approved → in-progress
+- **2026-06-26T17:44:55Z** — owner → Roberto Ruiz (auto)
+- **2026-06-26T17:47:59Z** — status: in-progress → in-review
+- **2026-06-26T17:52:47Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-26T23:19:02Z** — validation → done (human accepted)
+- **2026-06-26T23:20:45Z** — graduado a spec `architecture.md`
+- **2026-06-26T23:21:11Z** — archived

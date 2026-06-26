@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de Spec Ledger
-updated: 2026-06-24T09:58:32Z
+updated: 2026-06-26T23:20:45Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -35,6 +35,9 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260616-212309 (tests del viewer sin socket local).
 > Graduado del change 20260617-161309 (workflow git para trazabilidad).
 > Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
+> Graduado del change 20260626-115134 (formato machine-readable de tareas y readiness).
+> Graduado del change 20260626-160038 (política económica de delegación).
+> Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 
 Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -212,6 +215,19 @@ auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que e
 revisor puede invocar; Spec Ledger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el qué.
 
+El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
+presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo
+realmente independiente o aporta revisión de contexto limpio. La delegación no es
+un requisito universal ni un mecanismo prescrito por Spec Ledger: el agente
+principal decide según el harness disponible. Sí es una decisión auditable: cada
+delegación debe tener motivo, ownership o pregunta clara, salida esperada y
+criterio de integración. El contrato desaconseja sobrefragmentar (por archivo,
+por línea o por edición mecánica diminuta), exige disjunción para trabajo en
+paralelo y pide ajustar el modelo a la dificultad: modelos fuertes para
+ambigüedad, arquitectura, seguridad o revisiones difíciles; modelos suficientes y
+baratos para exploración localizada, inventarios, edición mecánica, tests y
+verificaciones acotadas.
+
 **Activación por tipo.** `config.yml` marca `review_required: true` por tipo
 (`feature`, `bug`, `refactor` por defecto). `chore` y `audit` saltan únicamente
 la revisión: van `in-progress → in-validation`. Todo tipo pasa por validación
@@ -290,6 +306,14 @@ headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,
 tareas `[!]` con razón y criterios `CRn` no duplicados. El parser de tareas
 interpreta el sufijo de resolución/bloqueo desde el último separador ` — ` para
 preservar descripciones que contienen la misma raya.
+Las tareas exponen una forma machine-readable: `task.text` es la descripción
+antes del bloque final de criterios y antes del sufijo reservado ` — ...`;
+`task.criteriaRefs` contiene solo los `CRn` del bloque final `(CR1, CR2)`, y
+`task.suffix` conserva el sufijo de resolución o bloqueo cuando existe. La
+evidencia de readiness, como `verify: ...`, pertenece al texto de la tarea y debe
+aparecer antes del bloque final de criterios. Si una tarea pendiente coloca
+evidencia de verificación dentro del sufijo reservado, `check.mjs` emite un
+diagnóstico específico para distinguir contrato mal escrito de criterio ausente.
 El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
 los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
 
@@ -346,6 +370,13 @@ repo. `init`/`register` lo enlazan en cada repo como `.sl/AGENTS.md` — symlink
 **por máquina, gitignored**: nunca se copia (no drifta) ni se committea (no queda
 dangling al clonar). Separarlo del raíz evita la recursión: el `AGENTS.md` raíz
 es el contrato **propio** del proyecto y solo **referencia** al enlazado.
+
+El contrato abre con un **Agent Fast Path** que concentra las decisiones
+operativas de mayor prioridad: autorización, aprobación, trazabilidad git,
+ejecución, revisión independiente, validación humana y graduación. Las reglas
+detalladas siguen debajo como referencia normativa y la sección de CLI conserva
+solo el flujo crítico; para sintaxis puntual, el agente consulta `sl help` o
+`sl <command> --help` bajo demanda.
 
 `init` exige el `AGENTS.md` raíz y appendea la referencia como **caja de alerta
 GitHub** (`> [!IMPORTANT]`, marcador `<!-- spec-ledger -->`, idempotente) a cada

@@ -9,6 +9,31 @@ Any agent working in this repo **must** follow this convention.
 > **Language policy.** Structure is always English; content follows the repo's
 > configured language. See §8.
 
+## Agent Fast Path
+
+Use this path first; read the detailed sections below when the work touches that
+area.
+
+1. Read the repo's own `AGENTS.md`, then this contract at `.sl/AGENTS.md`. If the
+   link is missing after a clone or move, run `sl register`.
+2. Do not create files or implement from a vague request. Create or update a
+   change only after the human authorizes documentation.
+3. Do not implement while the change is `draft`. Wait for human approval, then
+   commit the approved change document before editing implementation files.
+4. Work one approved change at a time on a non-main branch. Inspect the worktree
+   first and keep unrelated changes out of your commits.
+5. Keep the change current as you work: `sl status`, `sl task`, `sl log`, and
+   `sl owner` are the safest way to update lifecycle, tasks and ownership.
+6. For types that require review, move to `in-review` and delegate a clean-context
+   review before human validation. Size any delegated model to the actual
+   difficulty; do not over-shard work.
+7. Stop at `in-validation`. The human accepts or rejects the whole result; the
+   agent never marks `done`.
+8. After human acceptance, graduate persistent truth into `.sl/specs/` or record
+   an explicit graduation skip, then archive the done change.
+
+When you need exact CLI syntax, run `sl help` or `sl <command> --help`.
+
 ---
 
 ## 1. Principles
@@ -291,13 +316,50 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
 10. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
-11. **Delegation is the agent's call.** Spec Ledger is agnostic to *how* work
-    gets done: any stage may be delegated to subagents — sized to the difficulty
-    — at the host agent's discretion, and the contract never prescribes the
-    mechanism (that is the agent's and harness's responsibility). The one
-    exception is the review (§6.6), where delegation to a **clean-context**
-    subagent is a *contract requirement* — there, independence is correctness,
-    not an optimization.
+11. **Delegation is the agent's call, but it must be economical.** Spec Ledger is
+    agnostic to *how* work gets done: any stage may be delegated to subagents at
+    the host agent's discretion, and the contract never prescribes the mechanism
+    (that is the agent's and harness's responsibility). Delegation is expected
+    when it reduces main-context pressure, lowers cost with a sufficient model,
+    parallelizes genuinely independent work, or provides clean-context review.
+    It is wasteful when it multiplies coordination without improving quality,
+    speed, or context control.
+
+    **Delegate for a reason.** Good delegation units have a clear question or
+    ownership boundary: an investigation surface, a module, a package, a test
+    area, a migration slice, or an independent verification. Request and
+    Investigation may split independent codebase questions across explorers.
+    Proposal and Specification may use a stronger model when ambiguity,
+    architecture, safety, or product judgment is high. Implementation may split
+    across workers only when write sets are disjoint and integration is obvious.
+    Verification may be delegated when it catches risk without duplicating the
+    implementer's work. Review (§6.6) is special: for configured types,
+    delegation to a **clean-context** subagent is a *contract requirement* —
+    there, independence is correctness, not an optimization.
+
+    **Do not over-shard.** Do not create one subagent per file, per line, or per
+    tiny mechanical edit. If many files need the same small change, prefer one
+    well-scoped subagent, a batch edit, or a script that the main agent verifies.
+    Do not run parallel subagents over the same files or conceptual surface
+    unless the overlap is deliberate and the integration plan is explicit. If
+    the main agent cannot state why a subtask is independent, what output it
+    expects, and how it will integrate the result, keep the work in the main
+    thread or regroup it.
+
+    **Size the model to the task.** Use the strongest available models for
+    ambiguous scope, architectural tradeoffs, security-sensitive reasoning,
+    complex specification, and difficult reviews. Use sufficient cheaper models
+    for localized exploration, inventories, straightforward implementation,
+    mechanical edits, running tests, and checking narrow hypotheses. Escalate
+    model strength when uncertainty or risk rises; de-escalate when the task is
+    already specified and mostly execution.
+
+    **Every delegation prompt names the contract.** State the reason for
+    delegating, the owned files/area or investigation question, the expected
+    output, the model-sized difficulty if relevant, and the integration
+    criterion. Tell coding subagents that they are not alone in the codebase:
+    they must not revert others' edits, and they must keep changes inside their
+    assigned ownership.
 12. **Triage friction at handoff; retrospect after completion.** Before handing
     the human a completed or blocked work result, review any friction, ambiguity,
     bug, or improvement already discovered while using Spec Ledger, then
@@ -351,22 +413,27 @@ repo's configured language.
 ## 9. Optional CLI helpers
 
 Files are the source of truth; you may edit them directly. But the CLI does the
-error-prone parts (UTC timestamps, status enums, task markers) for you:
+error-prone parts (UTC timestamps, status enums, task markers) for you. Run
+`sl help` for the full list and `sl <command> --help` for exact options.
 
-- `sl register` — (re)link this repo's path in the global registry after a move/clone.
-- `sl new <type> <slug> "<title>"` — scaffold a change (English slug).
+Critical flow commands:
+
+- `sl register` — relink this repo's path and `.sl/AGENTS.md` after a move/clone.
+- `sl new <type> <slug> "<title>"` — scaffold a change; the slug is English.
 - `sl status <id> <status>` — move the lifecycle and log the transition. It does
   not accept `done` (the human accepts in the viewer) or `discarded` (use
   `sl discard <id> "<reason>"`); see §5.
+- `sl task <id> done|block <n> [reason]` — mark a Plan task; `done` injects UTC.
+- `sl log <id> "<message>"` and `sl owner <id> <name|->` — keep execution notes
+  and ownership current.
 - `sl review <id> pass` — record a passed independent review
   (`in-review → in-validation`).
-- `sl review <id> fail --retry|--block "<reason>"` — record a failed review,
-  routing back to `in-progress` (fixable) or `blocked` (escalates to a human).
-- `sl owner <id> <name|->` — set or clear the owner (`-` clears).
-- `sl archive <id>` / `sl unarchive <id>` — hide/show a change in the viewer.
-- `sl log <id> "<message>"` — append a timestamped Log entry.
-- `sl task <id> done|block <n> [reason]` — mark a Plan task (done injects the UTC).
-- `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — query.
+- `sl review <id> fail --retry|--block "<reason>"` — route review failure back
+  to `in-progress` (fixable) or `blocked` (escalates to a human).
+- `sl check [id]` — validate a change or the whole repo before committing.
+
+Closing and persistence commands:
+
 - `sl graduate <change-id> <spec-slug>` — scaffold a **new** spec seeded from the change.
 - `sl graduate <change-id> <spec-slug> --into` — graduate into an **existing**
   spec: refresh its `updated`, link it in the change Log and mark `reviewed`,
@@ -374,6 +441,12 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
   reviewed without a spec (bug/chore with no persistent truth); logs the reason.
 - `sl graduate --pending` — list done changes whose graduation is not reviewed yet.
+- `sl archive <id>` / `sl unarchive <id>` — hide/show a change in the viewer.
+- `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — inspect
+  state without manually parsing files.
+
+Release commands:
+
 - `sl release init <version>` — adopt release tracking at an existing stable
   SemVer version; the baseline includes all changes already `done`.
 - `sl release plan [--json]` — calculate the next version and included changes
@@ -381,7 +454,6 @@ error-prone parts (UTC timestamps, status enums, task markers) for you:
 - `sl release record <version>` — record the exactly calculated release in
   `.sl/releases/<version>.yml`; it does not edit stack manifests or perform Git,
   hosting or publishing operations.
-- `sl check [id]` — validate before committing.
 
 ### Release boundary
 
@@ -416,7 +488,7 @@ scaffolds a **new** spec seeded from the change's Specification/Proposal and lin
 it back in the change's Log — then refine the wording by hand. To graduate into an
 **existing** spec (the common case — extending `architecture.md` etc.), use
 `--into`: it links and marks `reviewed` and refreshes the spec's `updated` without
-overwriting the body, which you edit. Prefer diagrams (§9 / mermaid) where they
+overwriting the body, which you edit. Prefer diagrams (§6.10 / mermaid) where they
 explain the system better than prose.
 
 **Graduation review.** A done change either graduates to a spec or is reviewed as
