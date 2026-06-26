@@ -2,9 +2,10 @@
 id: "20260626-174204"
 title: Optimizar AGENTS.md para atención de agentes
 type: refactor
-status: approved
+status: in-review
 created: 2026-06-26T17:42:04Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -42,15 +43,18 @@ Refactorizar solo la presentación del contrato canónico:
 
 ## Plan
 
-- [ ] Reorganizar `templates/AGENTS.md` con una ruta rápida para agentes y
+- [x] Reorganizar `templates/AGENTS.md` con una ruta rápida para agentes y — 2026-06-26T17:46:02Z
   verificar que el contrato sigue mencionando los gates críticos.
-- [ ] Compactar la sección de CLI helpers, conservando los comandos esenciales y
+- [x] Compactar la sección de CLI helpers, conservando los comandos esenciales y — 2026-06-26T17:46:02Z
   apuntando a `sl --help` / `sl <command> --help` para detalle operativo.
-- [ ] Ejecutar `node bin/sl.mjs check 20260626-174204` para validar el change.
-- [ ] Ejecutar `CI=true pnpm verify` para confirmar que el contrato instalado y
+- [x] Ejecutar `node bin/sl.mjs check 20260626-174204` para validar el change. — 2026-06-26T17:46:02Z
+- [x] Ejecutar `CI=true pnpm verify` para confirmar que el contrato instalado y — 2026-06-26T17:47:55Z
   los tests del repo siguen sanos.
 
 ## Log
 
 - **2026-06-26T17:42:04Z** — draft created
 - **2026-06-26T17:43:45Z** — status: draft → approved
+- **2026-06-26T17:44:55Z** — status: approved → in-progress
+- **2026-06-26T17:44:55Z** — owner → Roberto Ruiz (auto)
+- **2026-06-26T17:47:59Z** — status: in-progress → in-review
