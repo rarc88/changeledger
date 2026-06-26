@@ -2,7 +2,7 @@
 id: "20260626-174204"
 title: Optimizar AGENTS.md para atención de agentes
 type: refactor
-status: draft
+status: approved
 created: 2026-06-26T17:42:04Z
 depends_on: []
 ---
@@ -53,3 +53,4 @@ Refactorizar solo la presentación del contrato canónico:
 ## Log
 
 - **2026-06-26T17:42:04Z** — draft created
+- **2026-06-26T17:43:45Z** — status: draft → approved
