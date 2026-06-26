@@ -2,7 +2,7 @@
 id: "20260626-115134"
 title: Aclarar formato machine-readable de tareas y readiness
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-06-26T11:51:34Z
 depends_on: []
 release_impact: patch
@@ -107,3 +107,5 @@ bloque de criterios.
 - **2026-06-26T12:00:00Z** — status: draft → approved
 - **2026-06-26T12:01:33Z** — status: approved → in-progress
 - **2026-06-26T12:01:33Z** — owner → Roberto Ruiz (auto)
+- **2026-06-26T12:05:28Z** — status: in-progress → in-review
+- **2026-06-26T12:07:05Z** — review → in-validation (delegated subagent, clean context)
