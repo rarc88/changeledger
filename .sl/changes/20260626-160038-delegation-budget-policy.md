@@ -2,10 +2,11 @@
 id: "20260626-160038"
 title: Política de delegación inteligente por granularidad y modelo
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-26T16:00:38Z
 depends_on: []
 release_impact: minor
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -139,12 +140,14 @@ agentes, porque depende del harness y del coste disponible en cada entorno.
 
 ## Plan
 
-- [ ] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038` (CR1, CR2, CR3)
-- [ ] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038` (CR4)
-- [ ] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038` (CR5)
-- [ ] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos (support)
+- [x] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038` (CR1, CR2, CR3) — 2026-06-26T17:23:07Z
+- [x] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038` (CR4) — 2026-06-26T17:23:12Z
+- [x] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038` (CR5) — 2026-06-26T17:23:17Z
+- [x] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos (support) — 2026-06-26T17:23:35Z
 
 ## Log
 
 - 2026-06-26T16:00:38Z — Change creado en estado draft.
 - **2026-06-26T17:19:43Z** — status: draft → approved
+- **2026-06-26T17:22:36Z** — status: approved → in-progress
+- **2026-06-26T17:22:36Z** — owner → Roberto Ruiz (auto)

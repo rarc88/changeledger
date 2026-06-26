@@ -291,13 +291,50 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
 10. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
-11. **Delegation is the agent's call.** Spec Ledger is agnostic to *how* work
-    gets done: any stage may be delegated to subagents — sized to the difficulty
-    — at the host agent's discretion, and the contract never prescribes the
-    mechanism (that is the agent's and harness's responsibility). The one
-    exception is the review (§6.6), where delegation to a **clean-context**
-    subagent is a *contract requirement* — there, independence is correctness,
-    not an optimization.
+11. **Delegation is the agent's call, but it must be economical.** Spec Ledger is
+    agnostic to *how* work gets done: any stage may be delegated to subagents at
+    the host agent's discretion, and the contract never prescribes the mechanism
+    (that is the agent's and harness's responsibility). Delegation is expected
+    when it reduces main-context pressure, lowers cost with a sufficient model,
+    parallelizes genuinely independent work, or provides clean-context review.
+    It is wasteful when it multiplies coordination without improving quality,
+    speed, or context control.
+
+    **Delegate for a reason.** Good delegation units have a clear question or
+    ownership boundary: an investigation surface, a module, a package, a test
+    area, a migration slice, or an independent verification. Request and
+    Investigation may split independent codebase questions across explorers.
+    Proposal and Specification may use a stronger model when ambiguity,
+    architecture, safety, or product judgment is high. Implementation may split
+    across workers only when write sets are disjoint and integration is obvious.
+    Verification may be delegated when it catches risk without duplicating the
+    implementer's work. Review (§6.6) is special: for configured types,
+    delegation to a **clean-context** subagent is a *contract requirement* —
+    there, independence is correctness, not an optimization.
+
+    **Do not over-shard.** Do not create one subagent per file, per line, or per
+    tiny mechanical edit. If many files need the same small change, prefer one
+    well-scoped subagent, a batch edit, or a script that the main agent verifies.
+    Do not run parallel subagents over the same files or conceptual surface
+    unless the overlap is deliberate and the integration plan is explicit. If
+    the main agent cannot state why a subtask is independent, what output it
+    expects, and how it will integrate the result, keep the work in the main
+    thread or regroup it.
+
+    **Size the model to the task.** Use the strongest available models for
+    ambiguous scope, architectural tradeoffs, security-sensitive reasoning,
+    complex specification, and difficult reviews. Use sufficient cheaper models
+    for localized exploration, inventories, straightforward implementation,
+    mechanical edits, running tests, and checking narrow hypotheses. Escalate
+    model strength when uncertainty or risk rises; de-escalate when the task is
+    already specified and mostly execution.
+
+    **Every delegation prompt names the contract.** State the reason for
+    delegating, the owned files/area or investigation question, the expected
+    output, the model-sized difficulty if relevant, and the integration
+    criterion. Tell coding subagents that they are not alone in the codebase:
+    they must not revert others' edits, and they must keep changes inside their
+    assigned ownership.
 12. **Triage friction at handoff; retrospect after completion.** Before handing
     the human a completed or blocked work result, review any friction, ambiguity,
     bug, or improvement already discovered while using Spec Ledger, then
