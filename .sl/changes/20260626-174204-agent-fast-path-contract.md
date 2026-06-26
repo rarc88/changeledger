@@ -2,7 +2,7 @@
 id: "20260626-174204"
 title: Optimizar AGENTS.md para atención de agentes
 type: refactor
-status: in-review
+status: done
 created: 2026-06-26T17:42:04Z
 depends_on: []
 owner: Roberto Ruiz
@@ -58,3 +58,5 @@ Refactorizar solo la presentación del contrato canónico:
 - **2026-06-26T17:44:55Z** — status: approved → in-progress
 - **2026-06-26T17:44:55Z** — owner → Roberto Ruiz (auto)
 - **2026-06-26T17:47:59Z** — status: in-progress → in-review
+- **2026-06-26T17:52:47Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-26T23:19:02Z** — validation → done (human accepted)

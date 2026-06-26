@@ -488,7 +488,7 @@ scaffolds a **new** spec seeded from the change's Specification/Proposal and lin
 it back in the change's Log — then refine the wording by hand. To graduate into an
 **existing** spec (the common case — extending `architecture.md` etc.), use
 `--into`: it links and marks `reviewed` and refreshes the spec's `updated` without
-overwriting the body, which you edit. Prefer diagrams (§9 / mermaid) where they
+overwriting the body, which you edit. Prefer diagrams (§6.10 / mermaid) where they
 explain the system better than prose.
 
 **Graduation review.** A done change either graduates to a spec or is reviewed as
