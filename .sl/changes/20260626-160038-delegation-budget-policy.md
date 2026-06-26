@@ -2,7 +2,7 @@
 id: "20260626-160038"
 title: Política de delegación inteligente por granularidad y modelo
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-06-26T16:00:38Z
 depends_on: []
 release_impact: minor
@@ -151,3 +151,5 @@ agentes, porque depende del harness y del coste disponible en cada entorno.
 - **2026-06-26T17:19:43Z** — status: draft → approved
 - **2026-06-26T17:22:36Z** — status: approved → in-progress
 - **2026-06-26T17:22:36Z** — owner → Roberto Ruiz (auto)
+- **2026-06-26T17:24:20Z** — status: in-progress → in-review
+- **2026-06-26T17:26:00Z** — review → in-validation (delegated subagent, clean context)
