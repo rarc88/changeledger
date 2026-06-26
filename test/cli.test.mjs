@@ -83,6 +83,7 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   assert.match(cfg, /^ {4}bug: patch$/m);
   assert.match(contract, /changeledger release plan \[--json\]/);
   assert.match(contract, /Never infer that every ChangeLedger repository uses npm or GitHub/);
+  assert.doesNotMatch(contract, /Spec\s+Ledger/i);
 });
 
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {

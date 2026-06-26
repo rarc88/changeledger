@@ -297,8 +297,8 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
    difficulty** (don't spend a costly model on a trivial check). The reviewer
    verifies: every `CRn` is met, no residue (rule 8), and the Plan is truly done.
    Deep security/SAST/lint live in
-   dedicated tools — the reviewer may invoke them and record the verdict, but Spec
-   Ledger does not reimplement them. Record the verdict with `changeledger review` (§9):
+   dedicated tools — the reviewer may invoke them and record the verdict, but
+   ChangeLedger does not reimplement them. Record the verdict with `changeledger review` (§9):
    `pass → in-validation`; `fail --retry` (defect inside the contract → back to
    `in-progress`); `fail --block` (exceeds the contract → `blocked` for a human).
    *How* the subagent is spawned is the host agent's concern; the contract only

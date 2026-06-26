@@ -195,3 +195,6 @@ que dirija a `changeledger`.
 - **2026-06-26T23:35:21Z** — review → in-progress (retry): El viewer conserva la marca Spec Ledger y el token runtime __SL_TOKEN__; deben migrarse a ChangeLedger.
 - **2026-06-26T23:36:05Z** — Corregidos los hallazgos de revisión: marca visible del viewer y token runtime migrados completamente a ChangeLedger; pnpm verify vuelve a pasar con 365 pruebas.
 - **2026-06-26T23:36:05Z** — status: in-progress → in-review
+- **2026-06-26T23:39:31Z** — review → in-progress (retry): El contrato publicado conserva Spec Ledger partido por salto de línea y una prueba mantiene el sentinel __sl_xss.
+- **2026-06-26T23:40:27Z** — Corregidos los residuos encontrados en segunda revisión: contrato publicado sin marca partida y sentinel XSS renombrado; se añadió regresión contra Spec\s+Ledger. pnpm verify pasa con 365 pruebas.
+- **2026-06-26T23:40:27Z** — status: in-progress → in-review
