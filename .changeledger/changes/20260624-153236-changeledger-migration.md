@@ -192,3 +192,6 @@ que dirija a `changeledger`.
 - **2026-06-26T23:34:00Z** — Se aclaró CR9 para preservar sin reescritura la evidencia histórica exigida por CR4; el corte limpio aplica a superficies operativas y vigentes.
 - **2026-06-26T23:32:27Z** — Migración integral implementada; pnpm verify pasó con 365 pruebas y 121 changes válidos. El tarball changeledger-0.2.0 se instaló en aislamiento y completó help, init y check sin exponer sl.
 - **2026-06-26T23:32:27Z** — status: in-progress → in-review
+- **2026-06-26T23:35:21Z** — review → in-progress (retry): El viewer conserva la marca Spec Ledger y el token runtime __SL_TOKEN__; deben migrarse a ChangeLedger.
+- **2026-06-26T23:36:05Z** — Corregidos los hallazgos de revisión: marca visible del viewer y token runtime migrados completamente a ChangeLedger; pnpm verify vuelve a pasar con 365 pruebas.
+- **2026-06-26T23:36:05Z** — status: in-progress → in-review
