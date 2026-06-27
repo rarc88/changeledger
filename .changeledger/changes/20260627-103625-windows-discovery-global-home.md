@@ -2,7 +2,7 @@
 id: "20260627-103625"
 title: Ignore global ChangeLedger home during project discovery
 type: bug
-status: in-progress
+status: in-review
 created: 2026-06-27T10:36:25Z
 depends_on: []
 release_impact: patch
@@ -55,9 +55,9 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 
 ## Plan
 
-- [ ] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`); verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2)
-- [ ] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado; verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2, CR3)
-- [ ] Ejecutar el gate completo para `src/**`; verify: `pnpm test` mediante `pnpm verify` (CR3)
+- [x] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`); verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2) — 2026-06-27T10:40:39Z
+- [x] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado; verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2, CR3) — 2026-06-27T10:40:39Z
+- [x] Ejecutar el gate completo para `src/**`; verify: `pnpm test` mediante `pnpm verify` (CR3) — 2026-06-27T10:40:39Z
 
 ## Log
 
@@ -65,3 +65,5 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 - **2026-06-27T10:38:08Z** — status: draft → approved
 - **2026-06-27T10:39:06Z** — status: approved → in-progress
 - **2026-06-27T10:39:06Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-27T10:40:39Z** — Discovery ahora exige .changeledger/config.yml; la regresión sintética reproduce el layout Windows y pnpm verify pasa con 366 pruebas y 123 changes válidos.
+- **2026-06-27T10:40:39Z** — status: in-progress → in-review
