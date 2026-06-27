@@ -2,10 +2,12 @@
 id: "20260627-111218"
 title: Gestionar proyectos y su configuración desde el viewer
 type: feature
-status: in-validation
+status: done
 created: 2026-06-27T11:12:18Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -183,3 +185,6 @@ global.
 - **2026-06-27T12:01:16Z** — Quinta corrección del review: readiness con patrones no-lista devuelve su causa sin romper coverage y el change documenta config.yml como autoridad del nombre visible. 112 tests focalizados pasan; el gate completo no pudo repetirse por límite de uso del entorno, tras haber pasado previamente con 386 tests.
 - **2026-06-27T12:01:16Z** — status: in-progress → in-review
 - **2026-06-27T19:05:23Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T19:18:20Z** — validation → done (human accepted)
+- **2026-06-27T19:19:39Z** — graduado a spec `architecture.md`
+- **2026-06-27T19:19:40Z** — archived

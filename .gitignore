@@ -13,3 +13,6 @@ npm-debug.log*
 .vscode/
 *.swp
 .changeledger/AGENTS.md
+
+# Temporary files
+.tmp

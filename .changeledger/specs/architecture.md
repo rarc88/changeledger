@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-27T10:44:24Z
+updated: 2026-06-27T19:19:39Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -452,6 +452,24 @@ status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
 locales. La cobertura del transporte real queda acotada a un smoke test del bind
 a `127.0.0.1`; si el sandbox niega ese bind con `EPERM`/`EACCES`, la suite no
 falla por una restricción del entorno que no afecta al router.
+
+La pestaña **Projects** administra el registro local desde el propio visor:
+muestra id, nombre, ruta y salud; permite reparar una ruta movida solo cuando el
+`project_id` coincide, y desregistrar una entrada sin eliminar archivos del
+repositorio. En modo `--local` conserva la lectura/edición del proyecto actual,
+pero oculta las mutaciones del registro global.
+
+Para proyectos vivos, `.changeledger/config.yml` es la autoridad del nombre. El
+nombre guardado en `.registry.json` solo sirve como fallback cuando la ruta ya no
+existe. El editor entrega el YAML exacto —comentarios incluidos— y protege
+`project_id` como identidad inmutable. Antes de una escritura carga el
+repositorio completo con el config candidato, ejecuta las validaciones de
+contrato y rutas, compara una revisión SHA-256 para detectar ediciones externas
+y reemplaza el archivo atómicamente. Configs sintáctica o estructuralmente
+inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
+normalizan para no revelar rutas locales. Los endpoints de config, reparación y
+desregistro comparten token efímero, límite de body y frontera loopback con las
+demás escrituras del viewer.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
