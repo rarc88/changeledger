@@ -2,7 +2,7 @@
 id: "20260627-212133"
 title: Partir architecture.md en specs por dominio
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-06-27T21:21:33Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -53,7 +53,7 @@ Reparto de las secciones actuales:
 | Componentes (mapa de alto nivel) | `architecture.md` (reducido) |
 | Modelo de datos + Identidad | `data-model.md` |
 | Ciclo de vida y gate de revisión | `lifecycle.md` |
-| Releases portables | `releases.md` |
+| Releases portables (solo release init/plan/record) | `releases.md` |
 | Validación (`changeledger check`) | `validation.md` |
 | Trazabilidad git | `git-traceability.md` |
 | Discovery del contrato | `contract-discovery.md` |
@@ -62,6 +62,13 @@ Reparto de las secciones actuales:
 | Presentación | `viewer.md` |
 | Política de dependencias | `dependencies.md` |
 | Métricas | `metrics.md` |
+
+La sección `## Releases portables` del monolito mezclaba contenido no-release
+(deuda preexistente): graduación, escritura atómica, `depends_on` cross-proyecto,
+Log/owner e intención/ejecución. Se reparte temáticamente, no por encabezado:
+release init/plan/record → `releases.md`; graduación + Log/owner +
+intención/ejecución → `lifecycle.md`; escritura atómica + `depends_on`
+cross-proyecto → `data-model.md`.
 
 Reglas de la partición:
 
@@ -90,3 +97,6 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 - **2026-06-27T21:25:08Z** — status: approved → in-progress
 - **2026-06-27T21:25:08Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-27T21:31:33Z** — status: in-progress → in-review
+- **2026-06-27T21:34:56Z** — review → in-progress (retry): releases.md heredó contenido no-release (graduación, escritura atómica, depends_on cross-project) que en el monolito estaba mal ubicado bajo '## Releases portables'. Repartir temáticamente: graduación→lifecycle.md, persistencia+depends_on cross-project→data-model.md; releases.md queda solo con release init/plan/record.
+- **2026-06-27T21:37:40Z** — status: in-progress → in-review
+- **2026-06-27T21:39:24Z** — review → in-validation (delegated subagent, clean context)

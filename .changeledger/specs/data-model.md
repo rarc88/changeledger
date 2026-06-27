@@ -1,6 +1,6 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:37:15Z
 tags: [ data-model ]
 ---
 
@@ -34,3 +34,31 @@ La normalización de slugs vive en un helper compartido por `changeledger new` y
 `changeledger graduate`: minúsculas, diacríticos fuera, separadores no alfanuméricos a
 guiones y rechazo cuando no queda ninguna letra o número ASCII. Así los nombres
 estructurales mantienen la misma política en changes y specs.
+
+## Escritura atómica
+
+Las mutaciones de frontmatter en `writer.mjs` preservan el formato textual del
+documento, pero fallan explícitamente si no encuentran la línea ancla que deben
+editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
+del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
+Las escrituras que reemplazan documentos o estado local pasan por
+`writeFileAtomic`: escriben a un temporal en el mismo directorio, sincronizan el
+descriptor, hacen `rename` sobre el destino y limpian el temporal si algo falla.
+Las creaciones que dependen de exclusividad, como `changeledger new`, conservan `flag:
+'wx'` para no perder la reserva atomica del id.
+
+Las mutaciones read-modify-write de un documento usan `mutateFileAtomic`: toman
+un lock por archivo (`.<basename>.lock`), releen la versión actual bajo esa
+sección crítica, aplican la transformación y escriben con `writeFileAtomic`.
+Así dos comandos sobre el mismo change se serializan sin perder tareas ni Log,
+mientras cambios distintos usan locks distintos y no comparten un bloqueo global.
+El lock se borra en `finally`; si otro proceso encuentra un lock existente, espera
+hasta un timeout y falla sin borrarlo, porque expirar un lock solo por edad puede
+romper la exclusión si una mutación legítima tarda más de lo esperado.
+
+## Dependencias cross-proyecto
+
+Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
+dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
+repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
+nombre de proyecto y navega a ese change.

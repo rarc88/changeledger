@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:37:15Z
 tags: [ lifecycle ]
 ---
 
@@ -93,3 +93,50 @@ allí: no crea un chore. Si es independiente, propone al humano tipo, título y
 motivo y espera autorización antes de crear el `draft`. Lo demasiado vago se
 menciona sin crear archivos. Al alcanzar `done`, comparte además una retrospectiva
 breve del ciclo; `discarded` no implica un ciclo de implementación completado.
+
+## Intención y ejecución
+
+El contrato separa intención y ejecución. Antes de crear un change permite
+conversación e investigación de solo lectura, pero exige conjuntamente claridad
+suficiente y autorización humana explícita; una petición directa de creación ya
+autoriza, sin permitir que el agente invente requisitos faltantes. El humano
+autoriza alcance, aprueba drafts y acepta resultados; el agente divide y ejecuta
+el trabajo dentro de ese alcance.
+
+## Log y owner
+
+El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
+contenido del tipo: registra cada transición de `status` con su timestamp y se
+crea automáticamente al primer cambio de estado aunque el tipo no lo declare
+(p.ej. `chore`). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
+el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
+fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
+(vacío si ninguno). No pisa un owner fijado a mano (`changeledger owner`).
+
+## Graduación
+
+**Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
+o se descarta (bug/chore sin verdad persistente). Ambos casos fijan `reviewed: true`
+(`writer.setReviewed`). `changeledger graduate --pending` (`pendingGraduation`) lista los
+`done` con `reviewed !== true`; `changeledger graduate <id> --skip [razón]` (`skipGraduation`,
+solo en `done`) descarta dejando `graduation skipped` en el Log; `graduate()` a spec
+también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
+`graduado a spec` del Log — `reviewed` solo registra que la pregunta quedó zanjada.
+`check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
+bajo demanda).
+
+`changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
+conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
+con resolución de graduación en `## Log` (`graduado a spec` o `graduation
+skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
+masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
+`archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
+sin reviewed ni cambios ya archivados.
+
+`graduate()` tiene dos rutas. Por defecto **crea** un spec nuevo (semilla desde
+Specification/Proposal) y falla si ya existe. Con `--into` (`{ into: true }`)
+**gradúa a un spec existente**: exige que exista (error simétrico si no), refresca
+su `updated` (`writer.setSpecUpdated`) y deja el cuerpo al agente — no lo
+sobrescribe. Ambas rutas comparten el registro en el change (marker + `reviewed`).
+La sustitución es explícita (flag), nunca por auto-detección, para que un slug mal
+tecleado no enlace por error.
