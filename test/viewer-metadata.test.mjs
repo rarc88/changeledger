@@ -31,9 +31,11 @@ const {
   sortIndicator,
   statusTag,
   statusSummary,
+  syncViewerShell,
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { state: appState } = await import('../src/viewer/public/app-state.js');
 const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
@@ -204,6 +206,29 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
     ['repair', '/repos/alpha', 'project-path-form'],
     ['unregister', 'project-editor'],
   ]);
+});
+
+test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  appState.filters.text = 'authentication';
+  appState.currentView = 'graph';
+  appState.globalMode = false;
+  syncViewerShell(root, false);
+  assert.equal(root.querySelector('#search').value, 'authentication');
+  assert.ok(root.querySelector('#view-graph').classList.contains('active'));
+  assert.ok(!root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#board').classList.contains('hidden'));
+
+  appState.globalMode = true;
+  syncViewerShell(root, false);
+  assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
+  assert.ok(!root.querySelector('#global').classList.contains('hidden'));
+  assert.ok(root.querySelector('#graph').classList.contains('hidden'));
 });
 
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {

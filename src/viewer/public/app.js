@@ -11,7 +11,10 @@ import {
 } from './api.js';
 import {
   clearStatusFilters,
+  initializeProjects,
   invalidateCache,
+  normalizeRepoState,
+  restoreViewerState,
   selectProject,
   setOwnerFilter,
   setRepo,
@@ -68,7 +71,7 @@ async function loadProjects() {
     ),
     sel,
   );
-  state.currentProject = current ?? projects.find((p) => p.alive)?.id ?? null;
+  initializeProjects(projects, current);
   if (state.currentProject) sel.value = state.currentProject;
   sel.style.display = projects.length > 1 ? '' : 'none';
   await load();
@@ -76,6 +79,10 @@ async function loadProjects() {
 
 async function load() {
   if (!state.currentProject) {
+    if (state.currentView === 'projects') {
+      syncViewerShell();
+      return;
+    }
     litRender(
       html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
       $('#board'),
@@ -86,8 +93,9 @@ async function load() {
     const text = await getRepo(state.currentProject);
     if (text === state.lastJson) return;
     setRepo(text);
+    normalizeRepoState(state.repo);
     hydrateFilters();
-    render();
+    syncViewerShell();
   } catch (e) {
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
   }
@@ -594,6 +602,21 @@ function renderMetrics() {
   litRender(metricsHtml(state.repo.metrics || {}), $('#metrics'));
 }
 
+export function syncViewerShell(root = document, renderContent = true) {
+  root.querySelector('#search').value = state.filters.text;
+  root.querySelector('#toggle-global').classList.toggle('active', state.globalMode);
+  for (const name of VIEWS) {
+    root.querySelector(`#view-${name}`).classList.toggle('active', name === state.currentView);
+    root
+      .querySelector(`#${name}`)
+      .classList.toggle('hidden', state.globalMode || name !== state.currentView);
+  }
+  root.querySelector('#global').classList.toggle('hidden', !state.globalMode);
+  if (!renderContent) return;
+  if (state.globalMode) renderGlobal();
+  else render();
+}
+
 let managedProject = null;
 let managedConfig = null;
 
@@ -714,11 +737,8 @@ export function requestUnregisterConfirmation(project, ask = prompt) {
 
 async function refreshProjectRegistry() {
   const { projects, current, localOnly } = await getProjects();
-  state.projectsList = projects;
   state.localOnly = localOnly;
-  const currentAlive = projects.some((item) => item.id === state.currentProject && item.alive);
-  if (!currentAlive)
-    state.currentProject = current ?? projects.find((item) => item.alive)?.id ?? null;
+  initializeProjects(projects, current);
   const select = $('#project');
   litRender(
     projects.map(
@@ -879,6 +899,7 @@ const fmtDate = (iso) => {
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
 function bootstrap() {
+  restoreViewerState(window.localStorage);
   diagramLightbox = createDiagramLightbox({
     overlay: $('#diagram-overlay'),
     canvas: $('#diagram-canvas'),

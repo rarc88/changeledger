@@ -9,6 +9,15 @@ async function freshState() {
   return mod;
 }
 
+function memoryStorage(initial = {}) {
+  const values = new Map(Object.entries(initial));
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    value: (key) => values.get(key),
+  };
+}
+
 test('231428: initial state has correct defaults', async () => {
   const { state } = await freshState();
   assert.equal(state.repo, null);
@@ -134,4 +143,166 @@ test('231428: toggleGlobalMode flips and returns new value', async () => {
   assert.equal(state.globalMode, true);
   assert.equal(toggleGlobalMode(), false);
   assert.equal(state.globalMode, false);
+});
+
+test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer context', async () => {
+  const first = await freshState();
+  const store = memoryStorage();
+  first.restoreViewerState(store);
+  first.initializeProjects([{ id: 'alpha', alive: true }], 'alpha');
+  first.setTextFilter('release');
+  first.setTypeFilter('feature');
+  first.setOwnerFilter('ana');
+  first.toggleStatusFilter('draft');
+  first.toggleShowArchived();
+  first.toggleShowDiscarded();
+  first.setView('table');
+  first.setSortKey('progress');
+  first.setSortKey('progress');
+  first.toggleGlobalMode();
+
+  const second = await freshState();
+  assert.equal(second.restoreViewerState(store), true);
+  assert.equal(second.state.currentProject, 'alpha');
+  assert.equal(second.state.currentView, 'table');
+  assert.equal(second.state.globalMode, true);
+  assert.equal(second.state.filters.text, 'release');
+  assert.equal(second.state.filters.type, 'feature');
+  assert.equal(second.state.filters.owner, 'ana');
+  assert.deepEqual([...second.state.filters.statuses], ['draft']);
+  assert.equal(second.state.filters.showArchived, true);
+  assert.equal(second.state.filters.showDiscarded, true);
+  assert.equal(second.state.sortKey, 'progress');
+  assert.equal(second.state.sortDir, -1);
+
+  const saved = store.value(second.VIEWER_STATE_KEY);
+  assert.ok(!saved.includes('token'));
+  assert.ok(!saved.includes('config.yml'));
+  assert.ok(!saved.includes('/repos/'));
+});
+
+test('111219 CR3: project selection preserves independent filters', async () => {
+  const {
+    state,
+    initializeProjects,
+    selectProject,
+    setOwnerFilter,
+    setTypeFilter,
+    toggleShowDiscarded,
+  } = await freshState();
+  initializeProjects(
+    [
+      { id: 'alpha', alive: true },
+      { id: 'beta', alive: true },
+    ],
+    'alpha',
+  );
+  setTypeFilter('feature');
+  state.filters.statuses.add('draft');
+  selectProject('beta');
+  setTypeFilter('bug');
+  setOwnerFilter('bob');
+  toggleShowDiscarded();
+
+  selectProject('alpha');
+  assert.equal(state.filters.type, 'feature');
+  assert.deepEqual([...state.filters.statuses], ['draft']);
+  assert.equal(state.filters.owner, 'all');
+  assert.equal(state.filters.showDiscarded, false);
+
+  selectProject('beta');
+  assert.equal(state.filters.type, 'bug');
+  assert.equal(state.filters.owner, 'bob');
+  assert.equal(state.filters.showDiscarded, true);
+});
+
+test('111219 CR4: missing selected project falls back and rewrites snapshot', async () => {
+  const mod = await freshState();
+  const store = memoryStorage({
+    [mod.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentProject: 'gone',
+      currentView: 'graph',
+      projects: {},
+    }),
+  });
+  mod.restoreViewerState(store);
+  assert.equal(
+    mod.initializeProjects(
+      [
+        { id: 'gone', alive: false },
+        { id: 'alpha', alive: true },
+      ],
+      'alpha',
+    ),
+    'alpha',
+  );
+  assert.equal(JSON.parse(store.value(mod.VIEWER_STATE_KEY)).currentProject, 'alpha');
+});
+
+test('111219 CR5: repo normalization drops stale values and keeps valid statuses', async () => {
+  const mod = await freshState();
+  mod.state.currentView = 'timeline';
+  mod.state.sortKey = 'banana';
+  mod.state.sortDir = 7;
+  mod.state.filters.type = 'removed';
+  mod.state.filters.owner = 'former';
+  mod.state.filters.statuses = new Set(['draft', 'removed']);
+  mod.normalizeRepoState({
+    types: ['feature'],
+    statuses: ['draft', 'done'],
+    changes: [{ owner: 'ana' }],
+  });
+  assert.equal(mod.state.currentView, 'board');
+  assert.equal(mod.state.sortKey, 'id');
+  assert.equal(mod.state.sortDir, 1);
+  assert.equal(mod.state.filters.type, 'all');
+  assert.equal(mod.state.filters.owner, 'all');
+  assert.deepEqual([...mod.state.filters.statuses], ['draft']);
+});
+
+test('111219 CR6: corrupt, unknown and throwing storage never blocks state', async () => {
+  const corrupt = await freshState();
+  assert.equal(
+    corrupt.restoreViewerState(memoryStorage({ [corrupt.VIEWER_STATE_KEY]: '{' })),
+    false,
+  );
+
+  const unknown = await freshState();
+  assert.equal(
+    unknown.restoreViewerState(
+      memoryStorage({ [unknown.VIEWER_STATE_KEY]: JSON.stringify({ version: 99 }) }),
+    ),
+    false,
+  );
+
+  const blocked = await freshState();
+  const throwing = {
+    getItem() {
+      throw new Error('blocked');
+    },
+    setItem() {
+      throw new Error('quota');
+    },
+  };
+  assert.equal(blocked.restoreViewerState(throwing), false);
+  blocked.setTextFilter('still works');
+  assert.equal(blocked.state.filters.text, 'still works');
+});
+
+test('111219 CR7: Clear persists empty statuses and disabled visibility', async () => {
+  const mod = await freshState();
+  const store = memoryStorage();
+  mod.restoreViewerState(store);
+  mod.initializeProjects([{ id: 'alpha', alive: true }], 'alpha');
+  mod.toggleStatusFilter('draft');
+  mod.toggleStatusFilter('done');
+  mod.toggleShowArchived();
+  mod.toggleShowDiscarded();
+  mod.clearStatusFilters();
+
+  const saved = JSON.parse(store.value(mod.VIEWER_STATE_KEY));
+  assert.deepEqual(saved.projects.alpha.statuses, []);
+  assert.equal(saved.projects.alpha.showArchived, false);
+  assert.equal(saved.projects.alpha.showDiscarded, false);
 });

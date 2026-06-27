@@ -2,9 +2,10 @@
 id: "20260627-111219"
 title: Conservar el estado del viewer entre recargas
 type: feature
-status: approved
+status: in-review
 created: 2026-06-27T11:12:19Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -117,11 +118,15 @@ errores.
 
 ## Plan
 
-- [ ] Escribir tests de serialización, restauración, normalización y fallos de storage en `test/app-state.test.mjs`; implementar snapshot versionado y filtros por proyecto en `src/viewer/public/app-state.js`; verificar con `node --test test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
-- [ ] Añadir tests DOM de hidratación inicial y cambios de controles en `test/viewer-metadata.test.mjs`; integrar restauración previa al primer render y persistencia de cada mutación en `src/viewer/public/app.js`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
-- [ ] Ejecutar `pnpm verify` y comprobar manualmente recarga, reinicio, cambio entre dos proyectos, Global, storage corrupto y proyecto previamente seleccionado ya ausente (support)
+- [x] Escribir tests de serialización, restauración, normalización y fallos de storage en `test/app-state.test.mjs`; implementar snapshot versionado y filtros por proyecto en `src/viewer/public/app-state.js`; verificar con `node --test test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8) — 2026-06-27T19:28:18Z
+- [x] Añadir tests DOM de hidratación inicial y cambios de controles en `test/viewer-metadata.test.mjs`; integrar restauración previa al primer render y persistencia de cada mutación en `src/viewer/public/app.js`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7) — 2026-06-27T19:28:18Z
+- [x] Ejecutar `pnpm verify` y comprobar manualmente recarga, reinicio, cambio entre dos proyectos, Global, storage corrupto y proyecto previamente seleccionado ya ausente (support) — 2026-06-27T19:28:18Z
 
 ## Log
 
 - **2026-06-27T11:12:19Z** — Draft creado tras localizar todo el estado efímero en `app-state.js` y confirmar que `loadProjects()` y `selectProject()` descartan selección y filtros. Se propone un snapshot local versionado con filtros independientes por proyecto.
 - **2026-06-27T11:16:23Z** — status: draft → approved
+- **2026-06-27T19:21:54Z** — status: approved → in-progress
+- **2026-06-27T19:21:54Z** — owner → Roberto Ruiz (auto)
+- **2026-06-27T19:28:18Z** — Implementación completa: snapshot local versionado, filtros por proyecto, restauración/normalización del shell y tolerancia a storage corrupto o bloqueado. pnpm verify pasa con 395 tests; verificación real confirma proyecto, Table, búsqueda, filtros y Global tras recarga.
+- **2026-06-27T19:28:18Z** — status: in-progress → in-review
