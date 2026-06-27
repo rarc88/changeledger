@@ -680,14 +680,14 @@ async function openManagedProject(id, { reload = false } = {}) {
   renderProjects();
 }
 
-function setProjectFormPending(root, pending) {
+export function setProjectFormPending(root, pending) {
   root.querySelectorAll('button, input, textarea').forEach((control) => {
     control.disabled = pending;
   });
   root.classList.toggle('is-pending', pending);
 }
 
-async function projectMutation(root, request, onSuccess) {
+export async function projectMutation(root, request, onSuccess) {
   setProjectFormPending(root, true);
   const error = root.querySelector('.project-error');
   if (error) error.hidden = true;
@@ -704,6 +704,12 @@ async function projectMutation(root, request, onSuccess) {
   } finally {
     setProjectFormPending(root, false);
   }
+}
+
+export function requestUnregisterConfirmation(project, ask = prompt) {
+  return ask(
+    `Type "${project.name}" to unregister this project. No repository files will be deleted.`,
+  );
 }
 
 async function refreshProjectRegistry() {
@@ -731,16 +737,10 @@ function renderProjects() {
     projectsViewTemplate(state.projectsList, managedProject, managedConfig, state.localOnly),
     root,
   );
-  root.querySelectorAll('[data-manage-project]').forEach((button) => {
-    button.onclick = () => openManagedProject(button.dataset.manageProject);
-  });
-  const reload = root.querySelector('[data-reload-config]');
-  if (reload) reload.onclick = () => openManagedProject(managedProject, { reload: true });
-  const configForm = root.querySelector('.config-form');
-  if (configForm)
-    configForm.onsubmit = (event) => {
-      event.preventDefault();
-      const content = configForm.querySelector('textarea').value;
+  bindProjectViewActions(root, {
+    select: (id) => openManagedProject(id),
+    reload: () => openManagedProject(managedProject, { reload: true }),
+    save: (content, configForm) =>
       projectMutation(
         configForm,
         () => postProjectConfig(managedProject, content, managedConfig.revision),
@@ -749,31 +749,22 @@ function renderProjects() {
           await refreshProjectRegistry();
           renderProjects();
         },
-      );
-    };
-  const pathForm = root.querySelector('.project-path-form');
-  if (pathForm)
-    pathForm.onsubmit = (event) => {
-      event.preventDefault();
+      ),
+    repair: (projectPath, pathForm) =>
       projectMutation(
         pathForm,
-        () => postProjectPath(managedProject, pathForm.elements.path.value),
+        () => postProjectPath(managedProject, projectPath),
         async () => {
           await refreshProjectRegistry();
           await openManagedProject(managedProject, { reload: true });
         },
-      );
-    };
-  const unregister = root.querySelector('[data-unregister]');
-  if (unregister)
-    unregister.onclick = () => {
+      ),
+    unregister: (editor) => {
       const project = state.projectsList.find((item) => item.id === managedProject);
-      const confirm = prompt(
-        `Type "${project.name}" to unregister this project. No repository files will be deleted.`,
-      );
+      const confirm = requestUnregisterConfirmation(project);
       if (confirm === null) return;
       projectMutation(
-        root.querySelector('.project-editor'),
+        editor,
         () => postProjectRemove(managedProject, confirm),
         async () => {
           managedProject = null;
@@ -783,7 +774,31 @@ function renderProjects() {
           renderProjects();
         },
       );
+    },
+  });
+}
+
+export function bindProjectViewActions(root, handlers) {
+  root.querySelectorAll('[data-manage-project]').forEach((button) => {
+    button.onclick = () => handlers.select(button.dataset.manageProject);
+  });
+  const reload = root.querySelector('[data-reload-config]');
+  if (reload) reload.onclick = () => handlers.reload();
+  const configForm = root.querySelector('.config-form');
+  if (configForm)
+    configForm.onsubmit = (event) => {
+      event.preventDefault();
+      handlers.save(configForm.querySelector('textarea').value, configForm);
     };
+  const pathForm = root.querySelector('.project-path-form');
+  if (pathForm)
+    pathForm.onsubmit = (event) => {
+      event.preventDefault();
+      handlers.repair(pathForm.elements.path.value, pathForm);
+    };
+  const unregister = root.querySelector('[data-unregister]');
+  if (unregister)
+    unregister.onclick = () => handlers.unregister(root.querySelector('.project-editor'));
 }
 
 function activateView(v) {

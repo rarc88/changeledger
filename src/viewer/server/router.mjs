@@ -111,25 +111,30 @@ export function createRequestListener(cwd, localOnly, token) {
         });
         req.on('end', () => {
           if (aborted) return;
-          let payload;
           try {
-            payload = JSON.parse(raw || '{}');
-          } catch {
-            send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid JSON body' }));
-            return;
+            let payload;
+            try {
+              payload = JSON.parse(raw || '{}');
+            } catch {
+              send(res, 400, MIME['.json'], JSON.stringify({ error: 'invalid JSON body' }));
+              return;
+            }
+            const { projects } = resolveProjects(cwd, localOnly);
+            const options = { localOnly };
+            const result =
+              route === '/api/status'
+                ? changeStatus(projects, payload)
+                : route === '/api/project-config'
+                  ? saveProjectConfig(projects, payload, options)
+                  : route === '/api/project-path'
+                    ? repairProjectPath(projects, payload, options)
+                    : unregisterProject(projects, payload, options);
+            const { code, body } = result;
+            send(res, code, MIME['.json'], JSON.stringify(body));
+          } catch (error) {
+            process.stderr.write(`[changeledger-viewer] ${error.message}\n`);
+            send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
           }
-          const { projects } = resolveProjects(cwd, localOnly);
-          const options = { localOnly };
-          const result =
-            route === '/api/status'
-              ? changeStatus(projects, payload)
-              : route === '/api/project-config'
-                ? saveProjectConfig(projects, payload, options)
-                : route === '/api/project-path'
-                  ? repairProjectPath(projects, payload, options)
-                  : unregisterProject(projects, payload, options);
-          const { code, body } = result;
-          send(res, code, MIME['.json'], JSON.stringify(body));
         });
         return;
       }

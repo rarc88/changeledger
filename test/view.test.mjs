@@ -579,7 +579,10 @@ test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed 
 
   assert.equal(saved.code, 200);
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), content);
-  assert.equal(readRegistry()[current].name, 'alpha-renamed');
+  assert.equal(
+    resolveProjects(root, false).projects.find((item) => item.id === current).name,
+    'alpha-renamed',
+  );
 });
 
 test('111218 CR4/CR5/CR9: invalid, identity-changing and stale configs preserve disk', () => {
@@ -612,6 +615,149 @@ test('111218 CR4/CR5/CR9: invalid, identity-changing and stale configs preserve 
   assert.equal(stale.code, 409);
   assert.equal(stale.body.error, 'configuration changed on disk; reload before saving');
   assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+});
+
+test('111218 CR4: candidate directories are loaded before config replacement', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const read = readProjectConfig(projects, current);
+  const candidateDir = path.join(root, 'candidate-changes');
+  fs.mkdirSync(candidateDir);
+  fs.writeFileSync(path.join(candidateDir, 'broken.md'), 'not a ChangeLedger change');
+  const candidate = read.body.content.replace(
+    'changes_dir: .changeledger/changes',
+    'changes_dir: candidate-changes',
+  );
+
+  const result = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: read.body.revision,
+  });
+
+  assert.equal(result.code, 400);
+  assert.equal(result.body.error, 'candidate configuration cannot load the repository');
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
+});
+
+test('111218 CR4: wrong-shaped config returns validation error and preserves the file', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const read = readProjectConfig(projects, current);
+  const candidate = read.body.content.replace(/^statuses:.*$/m, 'statuses:\n  draft: true');
+
+  const direct = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: read.body.revision,
+  });
+  assert.equal(direct.code, 400);
+  assert.equal(direct.body.error, 'config "statuses" must be a list');
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
+
+  const httpResult = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/project-config',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({ project: current, content: candidate, revision: read.body.revision }),
+    localOnly: false,
+  });
+  assert.equal(httpResult.status, 400);
+  assert.match(httpResult.body, /statuses/);
+});
+
+test('111218 CR4: malformed type definitions return 400 instead of escaping', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const read = readProjectConfig(projects, current);
+  const candidates = [
+    read.body.content.replace(/^types:$/m, 'types: feature'),
+    read.body.content.replace(
+      /types:\n {2}feature:\n {4}stages: \[[^\n]+/,
+      'types:\n  feature:\n    stages:\n      request: true',
+    ),
+  ];
+
+  for (const content of candidates) {
+    const result = saveProjectConfig(projects, {
+      project: current,
+      content,
+      revision: read.body.revision,
+    });
+    assert.equal(result.code, 400);
+  }
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
+});
+
+test('111218 CR4: malformed readiness patterns return their validation cause', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const read = readProjectConfig(projects, current);
+  const candidate = read.body.content.replace(
+    'changes_dir:',
+    'readiness:\n  target_patterns:\n    source: true\n  verification_patterns: ["test/**"]\n\nchanges_dir:',
+  );
+
+  const result = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: read.body.revision,
+  });
+
+  assert.equal(result.code, 400);
+  assert.equal(result.body.error, 'config "readiness.target_patterns" must be a list');
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
+});
+
+test('111218 CR3/CR4: config write failure leaves config and registry unchanged', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const read = readProjectConfig(projects, current);
+  const candidate = read.body.content.replace(/^project_name:.*$/m, 'project_name: renamed');
+  const registryBefore = structuredClone(readRegistry());
+
+  const result = saveProjectConfig(
+    projects,
+    { project: current, content: candidate, revision: read.body.revision },
+    {
+      mutateConfig: () => {
+        throw new Error(`disk failure at ${configFile}`);
+      },
+    },
+  );
+
+  assert.equal(result.code, 400);
+  assert.equal(result.body.error, 'unable to save project configuration');
+  assert.ok(!result.body.error.includes(root));
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
+  assert.deepEqual(readRegistry(), registryBefore);
+});
+
+test('111218 CR4: current project load failures do not expose internal paths', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const read = readProjectConfig(projects, current);
+  fs.rmSync(path.join(root, '.changeledger', 'config.yml'));
+
+  const result = saveProjectConfig(projects, {
+    project: current,
+    content: read.body.content,
+    revision: read.body.revision,
+  });
+
+  assert.equal(result.body.error, 'unable to load the current project configuration');
+  assert.ok(!result.body.error.includes(root));
 });
 
 test('111218 CR6/CR7: path repair verifies identity and unregister never deletes files', () => {

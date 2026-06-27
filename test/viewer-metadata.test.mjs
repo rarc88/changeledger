@@ -14,6 +14,7 @@ globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
 const {
   boardStatuses,
+  bindProjectViewActions,
   card,
   closeStatusMenuOnOutsideClick,
   createDiagramLightbox,
@@ -21,7 +22,9 @@ const {
   esc,
   isVisible,
   passesTombstones,
+  projectMutation,
   projectsViewTemplate,
+  requestUnregisterConfirmation,
   resetValidationState,
   runValidationSubmission,
   stageBlock,
@@ -109,6 +112,98 @@ test('111218 CR1/CR8: missing and local projects expose only valid actions', () 
   assert.ok(local.querySelector('.config-form'));
   assert.equal(local.querySelector('.project-path-form'), null);
   assert.equal(local.querySelector('[data-unregister]'), null);
+});
+
+test('111218 CR3/CR9: project mutation disables controls pending and completes once', async () => {
+  const root = document.createElement('form');
+  root.innerHTML = '<button>Save</button><input><textarea></textarea><p class="project-error"></p>';
+  let resolveRequest;
+  let successes = 0;
+  const pending = projectMutation(
+    root,
+    () =>
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    async () => {
+      successes++;
+    },
+  );
+  assert.ok(root.classList.contains('is-pending'));
+  assert.ok([...root.querySelectorAll('button,input,textarea')].every((item) => item.disabled));
+  resolveRequest({ ok: true, json: async () => ({ ok: true }) });
+  await pending;
+  assert.equal(successes, 1);
+  assert.ok([...root.querySelectorAll('button,input,textarea')].every((item) => !item.disabled));
+});
+
+test('111218 CR4/CR9: project mutation keeps the form and exposes a server error', async () => {
+  const root = document.createElement('form');
+  root.innerHTML =
+    '<button>Save</button><textarea>candidate yaml</textarea><p class="project-error" hidden></p>';
+  let successes = 0;
+  await projectMutation(
+    root,
+    async () => ({
+      ok: false,
+      json: async () => ({ error: 'configuration changed on disk; reload before saving' }),
+    }),
+    async () => {
+      successes++;
+    },
+  );
+  assert.equal(successes, 0);
+  assert.equal(root.querySelector('textarea').value, 'candidate yaml');
+  assert.equal(root.querySelector('.project-error').hidden, false);
+  assert.match(root.querySelector('.project-error').textContent, /configuration changed on disk/);
+});
+
+test('111218 CR7: unregister confirmation names the project and promises no deletion', () => {
+  let message = '';
+  const answer = requestUnregisterConfirmation({ name: 'alpha' }, (value) => {
+    message = value;
+    return 'alpha';
+  });
+  assert.equal(answer, 'alpha');
+  assert.match(message, /Type "alpha"/);
+  assert.match(message, /No repository files will be deleted/);
+});
+
+test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair and unregister', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: 'project_name: alpha', revision: 'rev' },
+      false,
+    ),
+  );
+  const calls = [];
+  bindProjectViewActions(root, {
+    select: (id) => calls.push(['select', id]),
+    reload: () => calls.push(['reload']),
+    save: (content, form) => calls.push(['save', content, form.className]),
+    repair: (projectPath, form) => calls.push(['repair', projectPath, form.className]),
+    unregister: (editor) => calls.push(['unregister', editor.className]),
+  });
+
+  root.querySelector('[data-manage-project]').click();
+  root.querySelector('[data-reload-config]').click();
+  root
+    .querySelector('.config-form')
+    .dispatchEvent(new window.Event('submit', { cancelable: true }));
+  root
+    .querySelector('.project-path-form')
+    .dispatchEvent(new window.Event('submit', { cancelable: true }));
+  root.querySelector('[data-unregister]').click();
+
+  assert.deepEqual(calls, [
+    ['select', 'aaa111'],
+    ['reload'],
+    ['save', 'project_name: alpha', 'config-form'],
+    ['repair', '/repos/alpha', 'project-path-form'],
+    ['unregister', 'project-editor'],
+  ]);
 });
 
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {
