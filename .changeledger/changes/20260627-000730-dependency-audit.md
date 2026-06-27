@@ -2,7 +2,7 @@
 id: "20260627-000730"
 title: Resolve dependency audit vulnerabilities
 type: bug
-status: in-progress
+status: in-review
 created: 2026-06-27T00:07:30Z
 depends_on: [ "20260624-153236" ]
 release_impact: patch
@@ -54,9 +54,9 @@ son necesarias para cerrar estos advisories.
 
 ## Plan
 
-- [ ] Actualizar únicamente `dompurify` y las resoluciones de `undici` consumidas por `src/viewer/**` en `package.json`/`pnpm-lock.yaml`; verify: `pnpm why dompurify`, `pnpm why undici` y `node --test test/viewer-sanitize.test.mjs` (CR2)
-- [ ] Verificar sanitización y viewer en `src/viewer/**`; verify: `node --test test/viewer-sanitize.test.mjs test/view.test.mjs` (CR3)
-- [ ] Validar las dependencias que soportan `src/**`; verify: `pnpm audit --audit-level moderate` y `pnpm test` mediante `pnpm verify` (CR1, CR3)
+- [x] Actualizar únicamente `dompurify` y las resoluciones de `undici` consumidas por `src/viewer/**` en `package.json`/`pnpm-lock.yaml`; verify: `pnpm why dompurify`, `pnpm why undici` y `node --test test/viewer-sanitize.test.mjs` (CR2) — 2026-06-27T10:02:03Z
+- [x] Verificar sanitización y viewer en `src/viewer/**`; verify: `node --test test/viewer-sanitize.test.mjs test/view.test.mjs` (CR3) — 2026-06-27T10:02:03Z
+- [x] Validar las dependencias que soportan `src/**`; verify: `pnpm audit --audit-level moderate` y `pnpm test` mediante `pnpm verify` (CR1, CR3) — 2026-06-27T10:02:04Z
 
 ## Log
 
@@ -64,3 +64,5 @@ son necesarias para cerrar estos advisories.
 - **2026-06-27T00:09:14Z** — status: draft → approved
 - **2026-06-27T00:10:21Z** — status: approved → in-progress
 - **2026-06-27T00:10:21Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-27T10:02:04Z** — Actualizados dompurify a 3.4.11 y undici transitivo a 7.28.0 con pnpm 10.31.0; instalación frozen válida, audit sin vulnerabilidades, 365 pruebas y 122 changes válidos.
+- **2026-06-27T10:02:04Z** — status: in-progress → in-review
