@@ -2,9 +2,10 @@
 id: "20260627-212133"
 title: Partir architecture.md en specs por dominio
 type: refactor
-status: approved
+status: in-review
 created: 2026-06-27T21:21:33Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -79,10 +80,13 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 
 ## Plan
 
-- [ ] Crear los specs por dominio en `.changeledger/specs/` repartiendo las 14 secciones según la tabla, con frontmatter mínimo; verify: `node bin/changeledger.mjs check` (support)
-- [ ] Reducir `.changeledger/specs/architecture.md` al mapa de componentes con enlaces a cada spec de dominio; verify: `node bin/changeledger.mjs check` (support)
-- [ ] Verificar que ninguna línea de contenido del monolito se perdió en el reparto (diff de cobertura sección→archivo); verify: `node bin/changeledger.mjs check` (support)
+- [x] Crear los specs por dominio en `.changeledger/specs/` repartiendo las 14 secciones según la tabla, con frontmatter mínimo; verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
+- [x] Reducir `.changeledger/specs/architecture.md` al mapa de componentes con enlaces a cada spec de dominio; verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
+- [x] Verificar que ninguna línea de contenido del monolito se perdió en el reparto (diff de cobertura sección→archivo); verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
 
 ## Log
 </content>
 - **2026-06-27T21:22:50Z** — status: draft → approved
+- **2026-06-27T21:25:08Z** — status: approved → in-progress
+- **2026-06-27T21:25:08Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-27T21:31:33Z** — status: in-progress → in-review
