@@ -2,10 +2,11 @@
 id: "20260627-103625"
 title: Ignore global ChangeLedger home during project discovery
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-27T10:36:25Z
 depends_on: []
 release_impact: patch
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -62,3 +63,5 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 
 - **2026-06-27T10:36:25Z** — El fallo de Windows CI se aisló a la colisión entre `~/.changeledger/` global y el marcador de proyecto durante el ascenso de directorios.
 - **2026-06-27T10:38:08Z** — status: draft → approved
+- **2026-06-27T10:39:06Z** — status: approved → in-progress
+- **2026-06-27T10:39:06Z** — owner → raruiz-hiberuscom (auto)
