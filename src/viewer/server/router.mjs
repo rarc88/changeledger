@@ -61,7 +61,7 @@ function serveIndex(res, token) {
   const safeToken = JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
   const html = fs
     .readFileSync(path.join(publicDir, 'index.html'), 'utf8')
-    .replace("'__SL_TOKEN_VALUE__'", safeToken);
+    .replace("'__CHANGELEDGER_TOKEN_VALUE__'", safeToken);
   send(res, 200, MIME['.html'], html);
 }
 
@@ -168,7 +168,7 @@ export function createRequestListener(cwd, localOnly, token) {
         send(res, 404, 'text/plain', 'Not found');
       }
     } catch (e) {
-      process.stderr.write(`[sl-viewer] ${e.message}\n`);
+      process.stderr.write(`[changeledger-viewer] ${e.message}\n`);
       send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
     }
   };

@@ -66,7 +66,7 @@ async function loadProjects() {
 async function load() {
   if (!state.currentProject) {
     litRender(
-      html`<p class="empty" style="padding:20px">No projects registered. Run <code>sl init</code> in a repo.</p>`,
+      html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
       $('#board'),
     );
     return;

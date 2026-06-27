@@ -10,18 +10,18 @@ globalThis.DOMPurify = createDOMPurify(window);
 const { makeMermaidExpandable, safeHtml } = await import('../src/viewer/public/app.js');
 
 test('CR1: active HTML in a document does not survive into the DOM', () => {
-  const out = safeHtml('<img src=x onerror="window.__sl_xss=1">');
+  const out = safeHtml('<img src=x onerror="window.__changeledger_xss=1">');
   assert.ok(!/onerror/i.test(out), 'event handler stripped');
-  assert.ok(!/__sl_xss/.test(out));
+  assert.ok(!/__changeledger_xss/.test(out));
 });
 
 test('CR1: a script element is removed', () => {
-  const out = safeHtml('hi <script>window.__sl_xss=1</script> there');
+  const out = safeHtml('hi <script>window.__changeledger_xss=1</script> there');
   assert.ok(!/<script/i.test(out));
 });
 
 test('CR2: a javascript: link is neutralized', () => {
-  const out = safeHtml('[click](javascript:window.__sl_xss=1)');
+  const out = safeHtml('[click](javascript:window.__changeledger_xss=1)');
   assert.ok(!/javascript:/i.test(out), `still dangerous: ${out}`);
 });
 
@@ -45,7 +45,7 @@ test('214817 CR1: missing DOMPurify fails closed', () => {
   const original = globalThis.DOMPurify;
   try {
     delete globalThis.DOMPurify;
-    const out = safeHtml('<img src=x onerror="window.__sl_xss=1">');
+    const out = safeHtml('<img src=x onerror="window.__changeledger_xss=1">');
     assert.ok(!/<img/i.test(out), 'untrusted HTML was not returned');
     assert.ok(!/onerror/i.test(out), 'event handler not present');
     assert.match(out, /required viewer dependency failed to load/);

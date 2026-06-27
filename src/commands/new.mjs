@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findSpecDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
@@ -13,16 +13,16 @@ const LOCK_MTIME_STALE_MS = 30_000;
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See AGENTS.md §7-§8.
 export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()) {
-  const specDir = findSpecDir(cwd);
-  if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
+  const changeledgerDir = findChangeledgerDir(cwd);
+  if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
-  const config = loadConfig(specDir);
+  const config = loadConfig(changeledgerDir);
   const typeDef = config.types?.[type];
   if (!typeDef) {
     throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
   }
 
-  const repoRoot = path.dirname(specDir);
+  const repoRoot = path.dirname(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   fs.mkdirSync(changesDir, { recursive: true });
   const normalizedSlug = slugify(slug);
@@ -30,7 +30,7 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   // Guarantee a unique id even for changes created within the same second
   // (an agent creating several in a loop). Bump by 1s until free; keep created
   // coherent with the id. The final reservation is atomic (`wx`), so two
-  // separate `sl new` processes racing in the same second cannot both win the
+  // separate `changeledger new` processes racing in the same second cannot both win the
   // same id.
   let created = now;
   let id = idFromTimestamp(created);

@@ -93,7 +93,7 @@ test('parses nested maps by indentation', () => {
 test('parses a full config sample', () => {
   const text = [
     'language: es',
-    'changes_dir: .sl/changes',
+    'changes_dir: .changeledger/changes',
     'id_digits: 4',
     'statuses: [draft, approved, in-progress, blocked, done]',
     'types:',
@@ -102,7 +102,7 @@ test('parses a full config sample', () => {
   ].join('\n');
   const r = parseYaml(text);
   assert.equal(r.language, 'es');
-  assert.equal(r.changes_dir, '.sl/changes');
+  assert.equal(r.changes_dir, '.changeledger/changes');
   assert.equal(r.id_digits, 4);
   assert.deepEqual(r.statuses, ['draft', 'approved', 'in-progress', 'blocked', 'done']);
   assert.deepEqual(r.types.feature.stages, ['request', 'investigation', 'plan']);

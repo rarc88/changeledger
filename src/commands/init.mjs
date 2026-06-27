@@ -7,23 +7,25 @@ import { templatesDir } from '../paths.mjs';
 import { register } from '../registry.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
-// Sets up `.sl/` in the repo, gives it a stable identity, links the installed
-// AGENTS.md contract into `.sl/`, references it from the project's root
+// Sets up `.changeledger/` in the repo, gives it a stable identity, links the installed
+// AGENTS.md contract into `.changeledger/`, references it from the project's root
 // AGENTS.md, and registers the repo in the global registry.
 export function init(cwd = process.cwd()) {
   const repoRoot = path.resolve(cwd);
-  const specDir = path.join(repoRoot, '.sl');
-  if (fs.existsSync(specDir)) {
-    throw new Error('.sl/ already exists. Use `sl register` to (re)link this repo.');
+  const changeledgerDir = path.join(repoRoot, '.changeledger');
+  if (fs.existsSync(changeledgerDir)) {
+    throw new Error(
+      '.changeledger/ already exists. Use `changeledger register` to (re)link this repo.',
+    );
   }
   // The root AGENTS.md is the project's own contract; we reference the tool's
-  // contract from it but never create it ourselves. Fail before touching .sl/.
+  // contract from it but never create it ourselves. Fail before touching .changeledger/.
   if (!fs.existsSync(rootContract(repoRoot))) {
-    throw new Error('Create AGENTS.md at the repo root first, then re-run `sl init`.');
+    throw new Error('Create AGENTS.md at the repo root first, then re-run `changeledger init`.');
   }
 
-  fs.mkdirSync(path.join(specDir, 'changes'), { recursive: true });
-  const configFile = path.join(specDir, 'config.yml');
+  fs.mkdirSync(path.join(changeledgerDir, 'changes'), { recursive: true });
+  const configFile = path.join(changeledgerDir, 'config.yml');
 
   const id = crypto.randomBytes(5).toString('hex');
   const name = path.basename(repoRoot);
@@ -32,10 +34,10 @@ export function init(cwd = process.cwd()) {
     `${fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8')}\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${serializeScalar(name)}\n`,
   );
 
-  linkContract(specDir);
+  linkContract(changeledgerDir);
   ensureReference(repoRoot);
   ensureGitignore(repoRoot);
 
   register({ id, name, path: repoRoot });
-  return specDir;
+  return changeledgerDir;
 }

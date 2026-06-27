@@ -1,6 +1,6 @@
-# AGENTS.md — Spec Ledger Contract
+# AGENTS.md — ChangeLedger Contract
 
-This repo uses **Spec Ledger**. The documents under `.sl/` are the **source of
+This repo uses **ChangeLedger**. The documents under `.changeledger/` are the **source of
 truth**. Code is their reflection. Work is planned and documented here before any
 code is written.
 
@@ -14,25 +14,25 @@ Any agent working in this repo **must** follow this convention.
 Use this path first; read the detailed sections below when the work touches that
 area.
 
-1. Read the repo's own `AGENTS.md`, then this contract at `.sl/AGENTS.md`. If the
-   link is missing after a clone or move, run `sl register`.
+1. Read the repo's own `AGENTS.md`, then this contract at `.changeledger/AGENTS.md`. If the
+   link is missing after a clone or move, run `changeledger register`.
 2. Do not create files or implement from a vague request. Create or update a
    change only after the human authorizes documentation.
 3. Do not implement while the change is `draft`. Wait for human approval, then
    commit the approved change document before editing implementation files.
 4. Work one approved change at a time on a non-main branch. Inspect the worktree
    first and keep unrelated changes out of your commits.
-5. Keep the change current as you work: `sl status`, `sl task`, `sl log`, and
-   `sl owner` are the safest way to update lifecycle, tasks and ownership.
+5. Keep the change current as you work: `changeledger status`, `changeledger task`, `changeledger log`, and
+   `changeledger owner` are the safest way to update lifecycle, tasks and ownership.
 6. For types that require review, move to `in-review` and delegate a clean-context
    review before human validation. Size any delegated model to the actual
    difficulty; do not over-shard work.
 7. Stop at `in-validation`. The human accepts or rejects the whole result; the
    agent never marks `done`.
-8. After human acceptance, graduate persistent truth into `.sl/specs/` or record
+8. After human acceptance, graduate persistent truth into `.changeledger/specs/` or record
    an explicit graduation skip, then archive the done change.
 
-When you need exact CLI syntax, run `sl help` or `sl <command> --help`.
+When you need exact CLI syntax, run `changeledger help` or `changeledger <command> --help`.
 
 ---
 
@@ -50,29 +50,29 @@ When you need exact CLI syntax, run `sl help` or `sl <command> --help`.
    code.
 4. The document wins. If code and document diverge, the document is the truth:
    update the code, never quietly drift the document.
-5. Humans consume these documents in the **viewer** (`sl view`), not as raw
+5. Humans consume these documents in the **viewer** (`changeledger view`), not as raw
    markdown. Write with the rendered view in mind.
 
 ## 2. Repo layout
 
 ```
-.sl/
+.changeledger/
   config.yml          # types, active stages, paths, language (repo specifics)
   changes/
     0001-title.md     # one change = one file
   specs/              # persistent truth (appears once the first change graduates)
   AGENTS.md           # symlink to the installed contract (per-machine, gitignored)
-AGENTS.md             # the project's own contract; references .sl/AGENTS.md
+AGENTS.md             # the project's own contract; references .changeledger/AGENTS.md
 CLAUDE.md             # optional — same reference, for Claude Code
 ```
 
 **Contract discovery.** This contract is a tool artifact, not a project artifact:
-it ships with `sl` and is linked into each repo as `.sl/AGENTS.md` (a per-machine,
+it ships with `changeledger` and is linked into each repo as `.changeledger/AGENTS.md` (a per-machine,
 gitignored symlink — never copied, never committed, so it never drifts). The
 project's own contract files (`AGENTS.md`, and `CLAUDE.md` if present) keep their
-own content; `sl init` only appends an alert-box reference pointing agents to
-`.sl/AGENTS.md`. `sl register` regenerates the link after a clone or move;
-`sl check` fails if a reference or the link is missing.
+own content; `changeledger init` only appends an alert-box reference pointing agents to
+`.changeledger/AGENTS.md`. `changeledger register` regenerates the link after a clone or move;
+`changeledger check` fails if a reference or the link is missing.
 
 ## 3. The change
 
@@ -98,7 +98,7 @@ release_impact: minor          # optional — none | patch | minor | major
 moment work starts — the `approved → in-progress` transition — unless already set.
 The handle is the **GitHub login** (`gh api user --jq .login`), falling back to
 `git config user.name` when `gh` is missing or unauthenticated. Override or clear
-it anytime with `sl owner <id> <name|->`. Absent means unassigned.
+it anytime with `changeledger owner <id> <name|->`. Absent means unassigned.
 
 ### Stages (body)
 
@@ -146,7 +146,7 @@ One block per scenario (`CR1`, `CR2`, …). The step keywords (`Given`, `When`,
 machine-readable shape is exact: localized headings such as
 `## Especificación`, translated step labels such as `Dado`/`Cuando`/`Entonces`,
 inline criteria, or `#### CR1` do not count as structured criteria for
-`sl check`.
+`changeledger check`.
 
 ## 4. Tasks (inside `## Plan`)
 
@@ -163,7 +163,7 @@ The viewer derives progress and the "blocked" state from these markers.
 
 **Traceability.** Each task references the criteria it satisfies, in trailing
 parentheses: `- [ ] Validate frontmatter (CR1, CR2)`. This links
-criterion → task, so coverage is auditable. `sl check` extracts criteria only
+criterion → task, so coverage is auditable. `changeledger check` extracts criteria only
 from the final parenthesized `CRn` block in the task description; mentions of
 `CR1` earlier in the sentence are prose, not traceability.
 
@@ -195,7 +195,7 @@ the task still references `CR1` but appears to have no verification. Write it as
 **Operational tasks.** Tasks that do not directly satisfy a criterion — running
 a test suite, reading a wrapper before refactoring, evaluating blast radius,
 scaffolding — may carry a literal trailing `(support)` instead of a `CRn`.
-`sl check` will not warn about missing criteria for these tasks, and readiness
+`changeledger check` will not warn about missing criteria for these tasks, and readiness
 checks (target + verification patterns) do not apply to them either. `(support)`
 is not localized and must be the final parenthesized marker. It is not a
 substitute for a missing criterion on an implementation task — if a task writes
@@ -235,17 +235,17 @@ in-validation → in-progress                       [human rejection]
 - **discarded** — a terminal tombstone: the change was decided against. Reachable
   from an active state before the closing gates (not from `done`, `in-review` or
   `in-validation`) via
-  `sl discard <id> "<reason>"` — the reason is **required** and logged. Prefer
+  `changeledger discard <id> "<reason>"` — the reason is **required** and logged. Prefer
   this over deleting the file: the decision and its rationale stay part of the
   truth, and `depends_on` references keep resolving. Hidden from the board by
   default; revealed by the viewer's "Discarded" toggle. Terminal changes are
   never resurrected; later work gets a new authorized change.
 
-**Transitions are enforced.** `sl status` validates the graph above; a move
+**Transitions are enforced.** `changeledger status` validates the graph above; a move
 outside it (e.g. skipping `in-validation`, or reopening a `done`) is rejected.
-`sl status` refuses both `done` (human acceptance belongs to the viewer) and
+`changeledger status` refuses both `done` (human acceptance belongs to the viewer) and
 `discarded` — use the dedicated
-`sl discard <id> "<reason>"` so a reason is always captured. The viewer only
+`changeledger discard <id> "<reason>"` so a reason is always captured. The viewer only
 performs the human-owned moves: `draft → approved` and
 `in-validation → done|in-progress`. The agent performs the rest via the CLI.
 After a human-owned move, continue with the existing execution rule: approval
@@ -297,8 +297,8 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
    difficulty** (don't spend a costly model on a trivial check). The reviewer
    verifies: every `CRn` is met, no residue (rule 8), and the Plan is truly done.
    Deep security/SAST/lint live in
-   dedicated tools — the reviewer may invoke them and record the verdict, but Spec
-   Ledger does not reimplement them. Record the verdict with `sl review` (§9):
+   dedicated tools — the reviewer may invoke them and record the verdict, but
+   ChangeLedger does not reimplement them. Record the verdict with `changeledger review` (§9):
    `pass → in-validation`; `fail --retry` (defect inside the contract → back to
    `in-progress`); `fail --block` (exceeds the contract → `blocked` for a human).
    *How* the subagent is spawned is the host agent's concern; the contract only
@@ -316,7 +316,7 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
 10. **Prefer visuals.** When a diagram explains something better than prose
    (flows, state, architecture, relationships), use a ` ```mermaid ` block. The
    diagram text is the source; the viewer renders it. Humans grasp it faster.
-11. **Delegation is the agent's call, but it must be economical.** Spec Ledger is
+11. **Delegation is the agent's call, but it must be economical.** ChangeLedger is
     agnostic to *how* work gets done: any stage may be delegated to subagents at
     the host agent's discretion, and the contract never prescribes the mechanism
     (that is the agent's and harness's responsibility). Delegation is expected
@@ -362,7 +362,7 @@ uses §6.4, rejection uses §6.7, and acceptance uses §6.9 and §10.
     assigned ownership.
 12. **Triage friction at handoff; retrospect after completion.** Before handing
     the human a completed or blocked work result, review any friction, ambiguity,
-    bug, or improvement already discovered while using Spec Ledger, then
+    bug, or improvement already discovered while using ChangeLedger, then
     classify it:
     - If it is necessary to fulfill the purpose of an active change, update that
       change's Specification/Plan/Log; do not create another.
@@ -393,8 +393,8 @@ devs/agents on parallel branches never collide. They sort chronologically. The
 viewer may display an abbreviated form (`#0613-1504`); the full id is canonical.
 
 The `{slug}` is **always English** (it is part of the filename — structure, not
-content; see §8), even when the change content is in another language. `sl new`
-takes it explicitly: `sl new <type> <slug> "<title>"`.
+content; see §8), even when the change content is in another language. `changeledger new`
+takes it explicitly: `changeledger new <type> <slug> "<title>"`.
 
 ## 8. Language policy
 
@@ -414,60 +414,60 @@ repo's configured language.
 
 Files are the source of truth; you may edit them directly. But the CLI does the
 error-prone parts (UTC timestamps, status enums, task markers) for you. Run
-`sl help` for the full list and `sl <command> --help` for exact options.
+`changeledger help` for the full list and `changeledger <command> --help` for exact options.
 
 Critical flow commands:
 
-- `sl register` — relink this repo's path and `.sl/AGENTS.md` after a move/clone.
-- `sl new <type> <slug> "<title>"` — scaffold a change; the slug is English.
-- `sl status <id> <status>` — move the lifecycle and log the transition. It does
+- `changeledger register` — relink this repo's path and `.changeledger/AGENTS.md` after a move/clone.
+- `changeledger new <type> <slug> "<title>"` — scaffold a change; the slug is English.
+- `changeledger status <id> <status>` — move the lifecycle and log the transition. It does
   not accept `done` (the human accepts in the viewer) or `discarded` (use
-  `sl discard <id> "<reason>"`); see §5.
-- `sl task <id> done|block <n> [reason]` — mark a Plan task; `done` injects UTC.
-- `sl log <id> "<message>"` and `sl owner <id> <name|->` — keep execution notes
+  `changeledger discard <id> "<reason>"`); see §5.
+- `changeledger task <id> done|block <n> [reason]` — mark a Plan task; `done` injects UTC.
+- `changeledger log <id> "<message>"` and `changeledger owner <id> <name|->` — keep execution notes
   and ownership current.
-- `sl review <id> pass` — record a passed independent review
+- `changeledger review <id> pass` — record a passed independent review
   (`in-review → in-validation`).
-- `sl review <id> fail --retry|--block "<reason>"` — route review failure back
+- `changeledger review <id> fail --retry|--block "<reason>"` — route review failure back
   to `in-progress` (fixable) or `blocked` (escalates to a human).
-- `sl check [id]` — validate a change or the whole repo before committing.
+- `changeledger check [id]` — validate a change or the whole repo before committing.
 
 Closing and persistence commands:
 
-- `sl graduate <change-id> <spec-slug>` — scaffold a **new** spec seeded from the change.
-- `sl graduate <change-id> <spec-slug> --into` — graduate into an **existing**
+- `changeledger graduate <change-id> <spec-slug>` — scaffold a **new** spec seeded from the change.
+- `changeledger graduate <change-id> <spec-slug> --into` — graduate into an **existing**
   spec: refresh its `updated`, link it in the change Log and mark `reviewed`,
   without overwriting the spec body (the agent edits the body manually).
-- `sl graduate <change-id> --skip [reason]` — mark a done change's graduation
+- `changeledger graduate <change-id> --skip [reason]` — mark a done change's graduation
   reviewed without a spec (bug/chore with no persistent truth); logs the reason.
-- `sl graduate --pending` — list done changes whose graduation is not reviewed yet.
-- `sl archive <id>` / `sl unarchive <id>` — hide/show a change in the viewer.
-- `sl list [--status S] [--type T] [--json]` / `sl show <id> [--json]` — inspect
+- `changeledger graduate --pending` — list done changes whose graduation is not reviewed yet.
+- `changeledger archive <id>` / `changeledger unarchive <id>` — hide/show a change in the viewer.
+- `changeledger list [--status S] [--type T] [--json]` / `changeledger show <id> [--json]` — inspect
   state without manually parsing files.
 
 Release commands:
 
-- `sl release init <version>` — adopt release tracking at an existing stable
+- `changeledger release init <version>` — adopt release tracking at an existing stable
   SemVer version; the baseline includes all changes already `done`.
-- `sl release plan [--json]` — calculate the next version and included changes
+- `changeledger release plan [--json]` — calculate the next version and included changes
   without writing. JSON is the handoff contract for the operating agent.
-- `sl release record <version>` — record the exactly calculated release in
-  `.sl/releases/<version>.yml`; it does not edit stack manifests or perform Git,
+- `changeledger release record <version>` — record the exactly calculated release in
+  `.changeledger/releases/<version>.yml`; it does not edit stack manifests or perform Git,
   hosting or publishing operations.
 
 ### Release boundary
 
-Release impact defaults live under `release.impacts` in `.sl/config.yml` and a
-change may override its type with `release_impact`. Spec Ledger owns the
+Release impact defaults live under `release.impacts` in `.changeledger/config.yml` and a
+change may override its type with `release_impact`. ChangeLedger owns the
 portable decision: which completed changes ship and what stable SemVer follows.
 The operating agent owns technology-specific application and delivery: update
 `package.json`, `pubspec.yaml`, `Cargo.toml`, Gradle, Xcode or monorepo surfaces;
 run the project gates; then commit, tag and publish according to the local
-contract. Never infer that every Spec Ledger repository uses npm or GitHub.
+contract. Never infer that every ChangeLedger repository uses npm or GitHub.
 
 ## 10. Specs (persistent truth)
 
-`changes/` are deltas with a lifecycle; `.sl/specs/*.md` are the **persistent
+`changes/` are deltas with a lifecycle; `.changeledger/specs/*.md` are the **persistent
 truth** — the current state of the system (capabilities, architecture, domain).
 Code reflects the specs.
 
@@ -483,7 +483,7 @@ tags: []
 ```
 
 When a change reaches `done`, update or create the spec(s) it affects. A change
-is the journey; a spec is the destination. `sl graduate <change-id> <spec-slug>`
+is the journey; a spec is the destination. `changeledger graduate <change-id> <spec-slug>`
 scaffolds a **new** spec seeded from the change's Specification/Proposal and links
 it back in the change's Log — then refine the wording by hand. To graduate into an
 **existing** spec (the common case — extending `architecture.md` etc.), use
@@ -493,15 +493,15 @@ explain the system better than prose.
 
 **Graduation review.** A done change either graduates to a spec or is reviewed as
 needing none (a bug/chore with no persistent truth). Both set the optional
-`reviewed: true` frontmatter flag. `sl graduate --pending` lists done changes
-still unreviewed; resolve each with `sl graduate <id> <spec>` or
-`sl graduate <id> --skip [reason]`. ("graduated to a spec" stays derivable from
+`reviewed: true` frontmatter flag. `changeledger graduate --pending` lists done changes
+still unreviewed; resolve each with `changeledger graduate <id> <spec>` or
+`changeledger graduate <id> --skip [reason]`. ("graduated to a spec" stays derivable from
 the `graduado a spec` Log marker; `reviewed` only tracks that the question is
 settled.)
 
 ## 11. Definition of Ready (implementation)
 
-Spec Ledger is built for a split: a **strong model documents**, a **less capable
+ChangeLedger is built for a split: a **strong model documents**, a **less capable
 (but able) model implements**. So a change must carry enough that the implementer
 needs no extra reasoning. The `tdd` flag in `config.yml` governs this (default
 `true`); set it `false` only for exploratory repos. Repos may tune the concrete
@@ -526,13 +526,13 @@ When `tdd: true`, a change is **ready to implement** when:
    `verify:` must appear before `(CRn)`. The verification can be a test file next
    to the target, a conventional test directory, or a concrete command when that
    is how the repo proves the behavior. Pure support tasks (docs, scaffolding)
-   may carry no `CR` — `sl check` will note them so the author confirms the
+   may carry no `CR` — `changeledger check` will note them so the author confirms the
    omission is intentional.
 3. **TDD is explicit.** The implementer writes the failing test from the `CR`,
    makes it pass, then refactors. The implementer never decides *what* to test —
    the `CR` fixes that; only *how*.
 
-`sl check` enforces this lightly: for a change whose type activates
+`changeledger check` enforces this lightly: for a change whose type activates
 `## Specification`, it reports readiness gaps (`draft` as warnings,
 `approved`/`in-progress` as errors) when a `CR` has no covering task, a task
 references no `CR`, a task references an unknown `CR`, a criterion is missing

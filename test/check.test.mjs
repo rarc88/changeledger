@@ -4,7 +4,7 @@ import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 
 const config = {
-  changes_dir: '.sl/changes',
+  changes_dir: '.changeledger/changes',
   statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
   types: {
@@ -441,7 +441,7 @@ test('151221 CR4: duplicate criteria are an error', () => {
 // --- Definition of Ready coverage (tdd) ---
 
 const tddConfig = {
-  changes_dir: '.sl/changes',
+  changes_dir: '.changeledger/changes',
   statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
   stages: ['request', 'specification', 'plan', 'log'],
   types: {

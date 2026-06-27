@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
-import { findSpecDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, loadConfig } from '../config.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects } from '../registry.mjs';
@@ -37,16 +37,16 @@ export function serialize(repo) {
   };
 }
 
-const isAlive = (p) => fs.existsSync(path.join(p, '.sl', 'config.yml'));
+const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
 
 // The project list and which one is "current" (the repo the command ran in).
 export function resolveProjects(cwd, localOnly) {
-  const specDir = findSpecDir(cwd);
-  const repoRoot = specDir ? path.dirname(specDir) : null;
+  const changeledgerDir = findChangeledgerDir(cwd);
+  const repoRoot = changeledgerDir ? path.dirname(changeledgerDir) : null;
 
   if (localOnly) {
-    if (!repoRoot) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
-    const config = loadConfig(specDir);
+    if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+    const config = loadConfig(changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
     return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };

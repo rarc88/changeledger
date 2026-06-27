@@ -1,9 +1,9 @@
 #!/bin/sh
-# Spec Ledger commit gate. lint-staged formats + lints only the STAGED files
+# ChangeLedger commit gate. lint-staged formats + lints only the STAGED files
 # (stashing unstaged changes first, so partial commits stay intact). Then run
-# tests and `sl check`. The whole-tree lint lives in `pnpm verify` (CI/manual),
+# tests and `changeledger check`. The whole-tree lint lives in `pnpm verify` (CI/manual),
 # NOT here — re-linting the full tree would fail on unstaged, unformatted files
 # and defeat lint-staged. Enable with: git config core.hooksPath hooks
 npx lint-staged || exit 1
 pnpm test || exit 1
-exec node bin/sl.mjs check
+exec node bin/changeledger.mjs check

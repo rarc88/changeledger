@@ -12,11 +12,11 @@ import { loadRepo } from '../src/repo.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-release-'));
-  fs.mkdirSync(path.join(root, '.sl', 'changes'), { recursive: true });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-release-'));
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
   fs.copyFileSync(
     path.join(projectRoot, 'templates', 'config.yml'),
-    path.join(root, '.sl', 'config.yml'),
+    path.join(root, '.changeledger', 'config.yml'),
   );
   return root;
 }
@@ -49,7 +49,7 @@ ${optional}
 
 X
 `;
-  const file = path.join(root, '.sl', 'changes', `${id}-x.md`);
+  const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
   fs.writeFileSync(file, text);
   return file;
 }
@@ -91,7 +91,7 @@ test('CR3: plan rejects a type without a default or override', () => {
   const root = fixture();
   initReleaseHistory('0.1.0', root);
   writeChange(root, '20260624-000001');
-  const configFile = path.join(root, '.sl', 'config.yml');
+  const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
     fs.readFileSync(configFile, 'utf8').replace('    feature: minor\n', ''),
@@ -110,12 +110,12 @@ test('CR5/CR6: plan is read-only and none-only work is a successful no-op', () =
   const root = fixture();
   initReleaseHistory('0.1.0', root);
   writeChange(root, '20260624-000001', { type: 'chore' });
-  const before = fs.readdirSync(path.join(root, '.sl', 'releases'));
+  const before = fs.readdirSync(path.join(root, '.changeledger', 'releases'));
   const plan = releasePlan(root);
   assert.equal(plan.releasable, false);
   assert.equal(plan.nextVersion, null);
   assert.equal(plan.impact, 'none');
-  assert.deepEqual(fs.readdirSync(path.join(root, '.sl', 'releases')), before);
+  assert.deepEqual(fs.readdirSync(path.join(root, '.changeledger', 'releases')), before);
 });
 
 test('CR7/CR8: record is exact and atomic without touching stack manifests', () => {
@@ -126,7 +126,7 @@ test('CR7/CR8: record is exact and atomic without touching stack manifests', () 
   writeChange(root, '20260624-000001', { type: 'bug' });
 
   assert.throws(() => recordRelease('0.3.0', root), /calculated 0.1.1/);
-  assert.equal(fs.existsSync(path.join(root, '.sl', 'releases', '0.3.0.yml')), false);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'releases', '0.3.0.yml')), false);
   const result = recordRelease('0.1.1', root, '2026-06-24T02:00:00Z');
   assert.deepEqual(result.manifest.changes, ['20260624-000001']);
   assert.equal(fs.readFileSync(packageFile, 'utf8'), '{"version":"9.9.9"}\n');
@@ -164,7 +164,7 @@ test('CR9: invalid configured impacts identify config file and exact value', () 
   const repo = loadRepo(root);
   repo.config.release.impacts.feature = 'banana';
   const error = checkRepo(repo).errors.find((item) => /release impact/.test(item.message));
-  assert.equal(error.file, '.sl/config.yml');
+  assert.equal(error.file, '.changeledger/config.yml');
   assert.match(error.message, /"banana"/);
   assert.match(error.message, /"feature"/);
 });

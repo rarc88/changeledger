@@ -20,7 +20,7 @@ export function isLocalHost(req) {
 // browser sends one) and the per-process token the page was given. A
 // cross-origin attacker cannot read the token, so it cannot forge the header.
 export function isAuthorizedWrite(req, token) {
-  if (req.headers['x-sl-token'] !== token) return false;
+  if (req.headers['x-changeledger-token'] !== token) return false;
   const origin = req.headers.origin;
   if (origin && !LOOPBACK.has(hostnameOf(new URL(origin).host))) return false;
   return true;

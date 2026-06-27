@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { mutateFileAtomic, writeFileAtomic } from '../src/atomic-write.mjs';
 
 test('162017: writeFileAtomic replaces a file with complete content', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
 
@@ -20,7 +20,7 @@ test('162017: writeFileAtomic replaces a file with complete content', () => {
 });
 
 test('162017: writeFileAtomic removes the temp file if rename fails', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
   const fsImpl = {
@@ -39,7 +39,7 @@ test('162017: writeFileAtomic removes the temp file if rename fails', () => {
 });
 
 test('212314 CR3: mutateFileAtomic removes the lock when the mutation throws', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
 
@@ -61,7 +61,7 @@ test('212314 CR3: mutateFileAtomic removes the lock when the mutation throws', (
 });
 
 test('212314 CR3: mutateFileAtomic removes its lock when metadata write fails', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
   const fsImpl = {
@@ -81,7 +81,7 @@ test('212314 CR3: mutateFileAtomic removes its lock when metadata write fails', 
 });
 
 test('212314 CR1/CR3: mutateFileAtomic does not delete an existing old lock', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
   const lock = path.join(dir, '.doc.md.lock');
@@ -98,7 +98,7 @@ test('212314 CR1/CR3: mutateFileAtomic does not delete an existing old lock', ()
 });
 
 test('212314 CR4: mutateFileAtomic keeps the old file when atomic write fails', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-atomic-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
   const file = path.join(dir, 'doc.md');
   fs.writeFileSync(file, 'old');
   const fsImpl = {

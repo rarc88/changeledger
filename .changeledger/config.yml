@@ -1,4 +1,4 @@
-# Spec Ledger — repo configuration
+# ChangeLedger — repo configuration
 # Repo specifics: documentation language, change types and active stages per type.
 
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
@@ -6,7 +6,7 @@
 language: es
 
 # Definition of Ready policy. When true (default), changes are documented
-# test-grade and implemented via TDD; `sl check` warns on criteria ↔ task
+# test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
 # coverage gaps. Set false for exploratory repos. See AGENTS.md §11.
 tdd: true
 
@@ -27,18 +27,18 @@ readiness:
     - "src/**"
     - "bin/**"
     - "templates/**"
-    - ".sl/config.yml"
-    - ".sl/specs/**"
+    - ".changeledger/config.yml"
+    - ".changeledger/specs/**"
   verification_patterns:
     - "test/**"
     - "**/*.test.*"
     - "**/*.spec.*"
     - "pnpm test"
     - "node --test"
-    - "node bin/sl.mjs check"
+    - "node bin/changeledger.mjs check"
 
-changes_dir: .sl/changes
-specs_dir: .sl/specs
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
 
 # Valid lifecycle statuses (order = progress)
 statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
@@ -66,4 +66,4 @@ types:
 
 # Project identity (stable; the global registry maps it to a path)
 project_id: "304c473ce5"
-project_name: spec-ledger
+project_name: changeledger

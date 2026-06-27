@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { findSpecDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -88,10 +88,10 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
 
 // Lists done changes whose graduation has not been reviewed yet.
 export function pendingGraduation(cwd = process.cwd()) {
-  const specDir = findSpecDir(cwd);
-  if (!specDir) throw new Error('Not a Spec Ledger repo. Run `sl init` first.');
-  const config = loadConfig(specDir);
-  const repoRoot = path.dirname(specDir);
+  const changeledgerDir = findChangeledgerDir(cwd);
+  if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+  const config = loadConfig(changeledgerDir);
+  const repoRoot = path.dirname(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   if (!fs.existsSync(changesDir)) return [];
 

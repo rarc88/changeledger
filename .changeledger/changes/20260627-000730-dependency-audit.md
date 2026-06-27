@@ -1,0 +1,74 @@
+---
+id: "20260627-000730"
+title: Resolve dependency audit vulnerabilities
+type: bug
+status: done
+created: 2026-06-27T00:07:30Z
+depends_on: [ "20260624-153236" ]
+release_impact: patch
+owner: raruiz-hiberuscom
+reviewed: true
+archived: true
+---
+
+## Request
+
+Resolver las vulnerabilidades reportadas por `pnpm audit --audit-level moderate`
+antes de publicar ChangeLedger 0.3.0, manteniendo el alcance limitado a las
+dependencias afectadas y sin introducir actualizaciones mayores innecesarias.
+
+## Investigation
+
+El audit del lockfile actual reporta ocho vulnerabilidades: tres high, tres
+moderate y dos low. Los hallazgos que superan el umbral se concentran en:
+
+- `undici@7.27.2`, dependencia transitiva de `jsdom@29.1.1`. Cinco advisories
+  high/moderate quedan corregidos en `undici >=7.28.0`.
+- `dompurify@3.4.10`, dependencia directa y también transitiva de
+  `mermaid@11.15.0`. El advisory moderate queda corregido en
+  `dompurify >=3.4.11`.
+
+`pnpm outdated` confirma que `dompurify@3.4.11` es la actualización patch
+disponible. `jsdom@29.1.1` ya está en su versión vigente y su rango transitivo
+permite refrescar la resolución de `undici` sin convertirlo en dependencia
+directa. Commander 15 constituye un major no relacionado y queda fuera de
+alcance; las actualizaciones disponibles de Biome, lint-staged y Mermaid tampoco
+son necesarias para cerrar estos advisories.
+
+## Specification
+
+### CR1 — Audit sin vulnerabilidades relevantes
+- **Given** las dependencias instaladas desde el lockfile actualizado
+- **When** se ejecuta `pnpm audit --audit-level moderate`
+- **Then** el comando termina correctamente sin vulnerabilidades moderate, high o critical
+
+### CR2 — Actualización mínima y trazable
+- **Given** los advisories identificados en `dompurify` y `undici`
+- **When** se inspeccionan `package.json` y `pnpm-lock.yaml`
+- **Then** `dompurify` resuelve a una versión igual o superior a 3.4.11 y `undici` a una versión igual o superior a 7.28.0
+- **And** no se agregan dependencias directas ni actualizaciones mayores ajenas al fix
+
+### CR3 — Viewer y CLI sin regresiones
+- **Given** las dependencias corregidas instaladas
+- **When** se ejecutan las pruebas de sanitización, viewer y el gate completo
+- **Then** la sanitización de contenido no confiable, el viewer y el CLI conservan su comportamiento esperado
+- **And** `pnpm verify` termina correctamente
+
+## Plan
+
+- [x] Actualizar únicamente `dompurify` y las resoluciones de `undici` consumidas por `src/viewer/**` en `package.json`/`pnpm-lock.yaml`; verify: `pnpm why dompurify`, `pnpm why undici` y `node --test test/viewer-sanitize.test.mjs` (CR2) — 2026-06-27T10:02:03Z
+- [x] Verificar sanitización y viewer en `src/viewer/**`; verify: `node --test test/viewer-sanitize.test.mjs test/view.test.mjs` (CR3) — 2026-06-27T10:02:03Z
+- [x] Validar las dependencias que soportan `src/**`; verify: `pnpm audit --audit-level moderate` y `pnpm test` mediante `pnpm verify` (CR1, CR3) — 2026-06-27T10:02:04Z
+
+## Log
+
+- **2026-06-27T00:07:30Z** — `pnpm audit --audit-level moderate` reportó 8 vulnerabilidades (3 high, 3 moderate, 2 low); se aislaron en `dompurify` y `undici` transitivo de `jsdom`.
+- **2026-06-27T00:09:14Z** — status: draft → approved
+- **2026-06-27T00:10:21Z** — status: approved → in-progress
+- **2026-06-27T00:10:21Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-27T10:02:04Z** — Actualizados dompurify a 3.4.11 y undici transitivo a 7.28.0 con pnpm 10.31.0; instalación frozen válida, audit sin vulnerabilidades, 365 pruebas y 122 changes válidos.
+- **2026-06-27T10:02:04Z** — status: in-progress → in-review
+- **2026-06-27T10:04:13Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:05:18Z** — validation → done (human accepted)
+- **2026-06-27T10:08:06Z** — graduation skipped: Dependency-only security fix; no additional persistent product behavior.
+- **2026-06-27T10:08:06Z** — archived
