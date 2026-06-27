@@ -1,10 +1,15 @@
 ---
 title: Viewer y presentación
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ viewer ]
 ---
 
 ## Presentación
+
+> Graduado del change 20260616-151234 (resolución segura de assets estáticos).
+> Graduado del change 20260616-212309 (tests del viewer sin socket local).
+> Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
+> Graduado del change 20260627-111219 (persistencia del estado del viewer).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza

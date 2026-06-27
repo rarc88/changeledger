@@ -74,6 +74,10 @@ Reglas de la partición:
 
 - **Sin pérdida de contenido**: cada línea del monolito termina en exactamente un
   spec destino. `architecture.md` conserva solo el mapa de componentes y enlaces.
+- **Trazabilidad de graduación por dominio**: los 35 markers `> Graduado del change
+  X (tema)` se distribuyen al spec del dominio de su tema (cada id en exactamente
+  un spec); `architecture.md` conserva solo los de arquitectura general (parser
+  CLI, migración integral).
 - **Sin cambio de verdad**: es reorganización, no reescritura de lo que el sistema
   hace. Si al partir se detecta contenido obsoleto, se anota pero no se corrige
   aquí (sería otro concern).
@@ -90,6 +94,7 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 - [x] Crear los specs por dominio en `.changeledger/specs/` repartiendo las 14 secciones según la tabla, con frontmatter mínimo; verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
 - [x] Reducir `.changeledger/specs/architecture.md` al mapa de componentes con enlaces a cada spec de dominio; verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
 - [x] Verificar que ninguna línea de contenido del monolito se perdió en el reparto (diff de cobertura sección→archivo); verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:31:33Z
+- [x] Distribuir los 35 markers de graduación al spec de su dominio (cada id 1 vez); verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:53:42Z
 
 ## Log
 </content>
@@ -100,3 +105,7 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 - **2026-06-27T21:34:56Z** — review → in-progress (retry): releases.md heredó contenido no-release (graduación, escritura atómica, depends_on cross-project) que en el monolito estaba mal ubicado bajo '## Releases portables'. Repartir temáticamente: graduación→lifecycle.md, persistencia+depends_on cross-project→data-model.md; releases.md queda solo con release init/plan/record.
 - **2026-06-27T21:37:40Z** — status: in-progress → in-review
 - **2026-06-27T21:39:24Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T21:50:01Z** — status: in-validation → in-progress
+- **2026-06-27T21:50:02Z** — validación rechazada (humano, vía CLI autorizado): los 37 markers 'Graduado del change' quedaron todos en architecture.md; deben distribuirse al spec del dominio de cada tema
+- **2026-06-27T21:53:42Z** — status: in-progress → in-review
+- **2026-06-27T21:55:50Z** — review → in-validation (delegated subagent, clean context)

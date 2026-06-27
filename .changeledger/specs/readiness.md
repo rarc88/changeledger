@@ -1,10 +1,15 @@
 ---
 title: Definition of Ready
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ readiness, tdd ]
 ---
 
 ## Definition of Ready (tdd)
+
+> Graduado del change 20260614-162547 (Definition of Ready / tdd).
+> Graduado del change 20260616-151216 (Definition of Ready verificable).
+> Graduado del change 20260617-020229 (Definition of Ready con patrones configurables).
+> Graduado del change 20260626-115134 (formato machine-readable de tareas y readiness).
 
 El modelo de uso es **documentar con modelo fuerte, implementar con modelo menos
 potente**. El flag `tdd` en `config.yml` (default `true`) gobierna la política: con

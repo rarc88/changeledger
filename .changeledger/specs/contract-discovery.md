@@ -1,10 +1,15 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ contract ]
 ---
 
 ## Discovery del contrato
+
+> Graduado del change 20260614-151759 (discovery del contrato).
+> Graduado del change 20260616-162027 (registry corrupto falla sin sobrescribir).
+> Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
+> Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
 
 El **contrato canónico de la herramienta** (instrucciones de uso) vive separado
 del contrato propio de cada repo: se distribuye como `templates/AGENTS.md` y

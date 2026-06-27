@@ -1,10 +1,21 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-06-27T21:37:15Z
+updated: 2026-06-27T21:50:56Z
 tags: [ lifecycle ]
 ---
 
 ## Ciclo de vida y gate de revisión
+
+> Graduado del change 20260614-165720 (revisión de graduación / reviewed).
+> Graduado del change 20260614-182513 (owner desde GitHub login).
+> Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
+> Graduado del change 20260615-170803 (graduación a spec existente, `changeledger graduate --into`).
+> Graduado del change 20260615-210508 (estado terminal `discarded`).
+> Graduado del change 20260616-212836 (ejemplos de graduación no crean enlaces reales).
+> Graduado del change 20260616-212840 (captura automática de fricciones).
+> Graduado del change 20260616-212319 (archivar no vuelve stale el spec).
+> Graduado del change 20260616-212322 (archivado masivo de graduados).
+> Graduado del change 20260626-160038 (política económica de delegación).
 
 ```mermaid
 stateDiagram-v2

@@ -1,10 +1,12 @@
 ---
 title: Métricas
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ metrics ]
 ---
 
 ## Métricas
+
+> Graduado del change 20260616-210825 (métricas cuentan cierres por revisión).
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
 (`done`) y el paso a cada estado se leen del `## Log`, tanto desde transiciones

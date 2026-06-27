@@ -1,10 +1,16 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-06-27T21:37:15Z
+updated: 2026-06-27T21:50:56Z
 tags: [ data-model ]
 ---
 
 ## Modelo de datos
+
+> Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
+> Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
+> Graduado del change 20260616-162020 (normalización compartida de slugs).
+> Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
+> Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,

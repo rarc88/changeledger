@@ -1,10 +1,12 @@
 ---
 title: Trazabilidad git
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ git ]
 ---
 
 ## Trazabilidad git
+
+> Graduado del change 20260617-161309 (workflow git para trazabilidad).
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
 convención de commit `[#<id>]`: lista los commits que lo referencian y las

@@ -1,10 +1,15 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-06-27T21:25:58Z
+updated: 2026-06-27T21:50:56Z
 tags: [ validation ]
 ---
 
 ## Validación (`changeledger check`)
+
+> Graduado del change 20260616-151221 (parsing estricto de changes).
+> Graduado del change 20260616-162014 (validación de criterios referenciados por tareas).
+> Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
+> Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
 
 `check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
