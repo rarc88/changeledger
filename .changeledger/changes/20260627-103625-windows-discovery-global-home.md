@@ -2,11 +2,13 @@
 id: "20260627-103625"
 title: Ignore global ChangeLedger home during project discovery
 type: bug
-status: in-validation
+status: done
 created: 2026-06-27T10:36:25Z
 depends_on: []
 release_impact: patch
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -68,3 +70,6 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 - **2026-06-27T10:40:39Z** — Discovery ahora exige .changeledger/config.yml; la regresión sintética reproduce el layout Windows y pnpm verify pasa con 366 pruebas y 123 changes válidos.
 - **2026-06-27T10:40:39Z** — status: in-progress → in-review
 - **2026-06-27T10:42:02Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:43:15Z** — validation → done (human accepted)
+- **2026-06-27T10:44:24Z** — graduado a spec `architecture.md`
+- **2026-06-27T10:44:24Z** — archived
