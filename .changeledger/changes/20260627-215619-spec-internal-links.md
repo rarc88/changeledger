@@ -2,11 +2,13 @@
 id: "20260627-215619"
 title: Navegación entre specs por enlaces en el viewer
 type: feature
-status: in-validation
+status: done
 created: 2026-06-27T21:56:19Z
 depends_on: [ "20260627-212133" ]
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -112,3 +114,6 @@ spec a change, y deep-linking por URL. Si se quieren, serán changes aparte.
 - **2026-06-27T22:04:01Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-27T22:07:57Z** — status: in-progress → in-review
 - **2026-06-27T22:09:48Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T22:11:41Z** — validation → done (human accepted)
+- **2026-06-27T22:13:56Z** — graduado a spec `viewer.md`
+- **2026-06-27T22:14:30Z** — archived

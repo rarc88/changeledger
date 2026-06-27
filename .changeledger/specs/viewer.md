@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-06-27T21:50:56Z
+updated: 2026-06-27T22:13:56Z
 tags: [ viewer ]
 ---
 
@@ -10,6 +10,7 @@ tags: [ viewer ]
 > Graduado del change 20260616-212309 (tests del viewer sin socket local).
 > Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
 > Graduado del change 20260627-111219 (persistencia del estado del viewer).
+> Graduado del change 20260627-215619 (navegación entre specs por enlaces).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -113,3 +114,11 @@ comparten nombre, pero no marcador. `findChangeledgerDir()` asciende por los
 ancestros y solo reconoce una raíz de proyecto si contiene
 `.changeledger/config.yml`; así ignora el home global, incluso cuando el
 directorio temporal está debajo del home como ocurre en Windows.
+
+**Navegación entre specs.** El cuerpo de un spec puede enlazar a otro con
+markdown relativo (`[Modelo de datos](data-model.md)`). El visor intercepta el
+click sobre esos enlaces `*.md` relativos (`handleSpecBodyClick`), previene la
+navegación nativa del navegador y abre el spec destino dentro del visor
+(`openSpecByName` resuelve el href —sin `./` ni `.md`— contra `state.repo.specs`),
+reusando el patrón de las dependencias de un change. Los enlaces externos (con
+esquema o path absoluto) pasan sin interceptar. Un destino inexistente es no-op.
