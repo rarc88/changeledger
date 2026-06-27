@@ -2,10 +2,12 @@
 id: "20260627-212133"
 title: Partir architecture.md en specs por dominio
 type: refactor
-status: in-validation
+status: done
 created: 2026-06-27T21:21:33Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -109,3 +111,6 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 - **2026-06-27T21:50:02Z** — validación rechazada (humano, vía CLI autorizado): los 37 markers 'Graduado del change' quedaron todos en architecture.md; deben distribuirse al spec del dominio de cada tema
 - **2026-06-27T21:53:42Z** — status: in-progress → in-review
 - **2026-06-27T21:55:50Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T21:58:50Z** — validation → done (human accepted)
+- **2026-06-27T22:00:53Z** — graduation skipped: reorganización estructural de la verdad persistente; el contenido se conservó íntegro, no hay verdad nueva que graduar
+- **2026-06-27T22:00:53Z** — archived
