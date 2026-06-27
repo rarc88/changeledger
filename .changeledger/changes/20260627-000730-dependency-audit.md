@@ -2,10 +2,11 @@
 id: "20260627-000730"
 title: Resolve dependency audit vulnerabilities
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-27T00:07:30Z
 depends_on: [ "20260624-153236" ]
 release_impact: patch
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -61,3 +62,5 @@ son necesarias para cerrar estos advisories.
 
 - **2026-06-27T00:07:30Z** — `pnpm audit --audit-level moderate` reportó 8 vulnerabilidades (3 high, 3 moderate, 2 low); se aislaron en `dompurify` y `undici` transitivo de `jsdom`.
 - **2026-06-27T00:09:14Z** — status: draft → approved
+- **2026-06-27T00:10:21Z** — status: approved → in-progress
+- **2026-06-27T00:10:21Z** — owner → raruiz-hiberuscom (auto)
