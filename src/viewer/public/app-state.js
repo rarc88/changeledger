@@ -14,6 +14,7 @@ export const state = {
   sortDir: 1,
   currentProject: null,
   projectsList: [],
+  localOnly: false,
   globalMode: false,
 };
 

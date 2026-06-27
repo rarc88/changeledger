@@ -1,4 +1,14 @@
-import { getGitRefs, getProjects, getRepo, postStatus, searchAllProjects } from './api.js';
+import {
+  getGitRefs,
+  getProjectConfig,
+  getProjects,
+  getRepo,
+  postProjectConfig,
+  postProjectPath,
+  postProjectRemove,
+  postStatus,
+  searchAllProjects,
+} from './api.js';
 import {
   clearStatusFilters,
   invalidateCache,
@@ -47,8 +57,9 @@ const $ = (sel) => document.querySelector(sel);
 initMermaid();
 
 async function loadProjects() {
-  const { projects, current } = await getProjects();
+  const { projects, current, localOnly } = await getProjects();
   state.projectsList = projects;
+  state.localOnly = localOnly;
   const sel = $('#project');
   litRender(
     projects.map(
@@ -176,6 +187,7 @@ function render() {
   else if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'specs') renderSpecs();
   else if (state.currentView === 'metrics') renderMetrics();
+  else if (state.currentView === 'projects') renderProjects();
   else renderBoard();
 }
 
@@ -576,10 +588,202 @@ function openSpec(s) {
   renderExpandableMermaid($('#detail'));
 }
 
-const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics'];
+const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
 
 function renderMetrics() {
   litRender(metricsHtml(state.repo.metrics || {}), $('#metrics'));
+}
+
+let managedProject = null;
+let managedConfig = null;
+
+export function projectsViewTemplate(projects, selected, config, localOnly) {
+  const project = projects.find((item) => item.id === selected);
+  return html`<div class="projects-shell">
+    <div class="projects-list">
+      <div class="projects-heading">
+        <div><span class="eyebrow">Registry</span><h1>Projects</h1></div>
+        <span class="count">${projects.length}</span>
+      </div>
+      ${
+        projects.length
+          ? html`<div class="project-rows">${projects.map(
+              (
+                item,
+              ) => html`<button type="button" class=${`project-row${item.id === selected ? ' active' : ''}`} data-manage-project=${item.id}>
+              <span class=${`health-dot ${item.alive ? 'available' : 'missing'}`} aria-hidden="true"></span>
+              <span class="project-summary"><strong>${item.name}</strong><small>${item.path}</small></span>
+              <span class="mono project-id">${item.id}</span>
+              <span class=${`project-health ${item.alive ? 'available' : 'missing'}`}>${item.alive ? 'Available' : 'Missing'}</span>
+            </button>`,
+            )}</div>`
+          : html`<p class="empty">No projects registered.</p>`
+      }
+    </div>
+    <div class="project-editor">
+      ${
+        !project
+          ? html`<div class="project-placeholder"><span class="eyebrow">Configuration</span><h2>Select a project</h2><p>Inspect its registry entry and edit its ChangeLedger configuration.</p></div>`
+          : html`<div class="project-editor-head">
+              <div><span class="eyebrow">${project.id}</span><h2>${project.name}</h2><p>${project.path}</p></div>
+              <span class=${`project-health ${project.alive ? 'available' : 'missing'}`}>${project.alive ? 'Available' : 'Missing'}</span>
+            </div>
+            ${
+              !localOnly
+                ? html`<form class="project-path-form">
+                  <label for="project-path">Registered path</label>
+                  <div><input id="project-path" name="path" .value=${project.path} /><button class="button secondary" type="submit">Repair path</button></div>
+                </form>`
+                : nothing
+            }
+            ${
+              project.alive
+                ? config?.loading
+                  ? html`<p class="empty">Loading configuration…</p>`
+                  : html`<form class="config-form">
+                    <div class="config-label"><label for="project-config">.changeledger/config.yml</label><button type="button" class="text-button" data-reload-config>Reload</button></div>
+                    <textarea id="project-config" spellcheck="false" .value=${config?.content ?? ''}></textarea>
+                    <p class="project-error" ?hidden=${!config?.error}>${config?.error ?? ''}</p>
+                    <div class="project-actions"><button class="button" type="submit">Save configuration</button></div>
+                  </form>`
+                : html`<div class="missing-config"><h3>Configuration unavailable</h3><p>Repair the registered path to edit this project.</p></div>`
+            }
+            ${
+              !localOnly
+                ? html`<div class="danger-zone"><div><strong>Unregister project</strong><p>Removes this local registry entry. Repository files are never deleted.</p></div><button type="button" class="button danger" data-unregister>Unregister</button></div>`
+                : nothing
+            }`
+      }
+    </div>
+  </div>`;
+}
+
+async function openManagedProject(id, { reload = false } = {}) {
+  managedProject = id;
+  const project = state.projectsList.find((item) => item.id === id);
+  if (!project?.alive) {
+    managedConfig = null;
+    renderProjects();
+    return;
+  }
+  if (!reload && managedConfig?.id === id && !managedConfig.error) {
+    renderProjects();
+    return;
+  }
+  managedConfig = { id, loading: true };
+  renderProjects();
+  try {
+    managedConfig = { id, ...(await getProjectConfig(id)) };
+  } catch (error) {
+    managedConfig = { id, content: '', revision: '', error: error.message };
+  }
+  renderProjects();
+}
+
+function setProjectFormPending(root, pending) {
+  root.querySelectorAll('button, input, textarea').forEach((control) => {
+    control.disabled = pending;
+  });
+  root.classList.toggle('is-pending', pending);
+}
+
+async function projectMutation(root, request, onSuccess) {
+  setProjectFormPending(root, true);
+  const error = root.querySelector('.project-error');
+  if (error) error.hidden = true;
+  try {
+    const response = await request();
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || 'Project update failed.');
+    await onSuccess(body);
+  } catch (failure) {
+    if (error) {
+      error.textContent = failure.message;
+      error.hidden = false;
+    } else alert(failure.message);
+  } finally {
+    setProjectFormPending(root, false);
+  }
+}
+
+async function refreshProjectRegistry() {
+  const { projects, current, localOnly } = await getProjects();
+  state.projectsList = projects;
+  state.localOnly = localOnly;
+  const currentAlive = projects.some((item) => item.id === state.currentProject && item.alive);
+  if (!currentAlive)
+    state.currentProject = current ?? projects.find((item) => item.alive)?.id ?? null;
+  const select = $('#project');
+  litRender(
+    projects.map(
+      (item) =>
+        html`<option value=${item.id} ?disabled=${!item.alive}>${item.name}${item.alive ? '' : ' (missing)'}</option>`,
+    ),
+    select,
+  );
+  if (state.currentProject) select.value = state.currentProject;
+  select.style.display = projects.length > 1 ? '' : 'none';
+}
+
+function renderProjects() {
+  const root = $('#projects');
+  litRender(
+    projectsViewTemplate(state.projectsList, managedProject, managedConfig, state.localOnly),
+    root,
+  );
+  root.querySelectorAll('[data-manage-project]').forEach((button) => {
+    button.onclick = () => openManagedProject(button.dataset.manageProject);
+  });
+  const reload = root.querySelector('[data-reload-config]');
+  if (reload) reload.onclick = () => openManagedProject(managedProject, { reload: true });
+  const configForm = root.querySelector('.config-form');
+  if (configForm)
+    configForm.onsubmit = (event) => {
+      event.preventDefault();
+      const content = configForm.querySelector('textarea').value;
+      projectMutation(
+        configForm,
+        () => postProjectConfig(managedProject, content, managedConfig.revision),
+        async (body) => {
+          managedConfig = { id: managedProject, content, revision: body.revision };
+          await refreshProjectRegistry();
+          renderProjects();
+        },
+      );
+    };
+  const pathForm = root.querySelector('.project-path-form');
+  if (pathForm)
+    pathForm.onsubmit = (event) => {
+      event.preventDefault();
+      projectMutation(
+        pathForm,
+        () => postProjectPath(managedProject, pathForm.elements.path.value),
+        async () => {
+          await refreshProjectRegistry();
+          await openManagedProject(managedProject, { reload: true });
+        },
+      );
+    };
+  const unregister = root.querySelector('[data-unregister]');
+  if (unregister)
+    unregister.onclick = () => {
+      const project = state.projectsList.find((item) => item.id === managedProject);
+      const confirm = prompt(
+        `Type "${project.name}" to unregister this project. No repository files will be deleted.`,
+      );
+      if (confirm === null) return;
+      projectMutation(
+        root.querySelector('.project-editor'),
+        () => postProjectRemove(managedProject, confirm),
+        async () => {
+          managedProject = null;
+          managedConfig = null;
+          await refreshProjectRegistry();
+          if (state.currentProject) await load();
+          renderProjects();
+        },
+      );
+    };
 }
 
 function activateView(v) {
@@ -692,6 +896,7 @@ function bootstrap() {
   $('#view-graph').onclick = () => activateView('graph');
   $('#view-specs').onclick = () => activateView('specs');
   $('#view-metrics').onclick = () => activateView('metrics');
+  $('#view-projects').onclick = () => activateView('projects');
   $('#project').onchange = (e) => {
     selectProject(e.target.value);
     load();

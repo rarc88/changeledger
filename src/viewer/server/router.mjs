@@ -4,7 +4,16 @@ import path from 'node:path';
 import { gitRefs } from '../../git.mjs';
 import { publicDir } from '../../paths.mjs';
 import { loadRepoAsync } from '../../repo.mjs';
-import { changeStatus, resolveProjects, searchProjects, serialize } from '../domain.mjs';
+import {
+  changeStatus,
+  readProjectConfig,
+  repairProjectPath,
+  resolveProjects,
+  saveProjectConfig,
+  searchProjects,
+  serialize,
+  unregisterProject,
+} from '../domain.mjs';
 import { isAuthorizedWrite, isLocalHost } from './security.mjs';
 
 const require = createRequire(import.meta.url);
@@ -78,7 +87,12 @@ export function createRequestListener(cwd, localOnly, token) {
       const route = url.pathname;
       const params = url.searchParams;
 
-      if (req.method === 'POST' && route === '/api/status') {
+      if (
+        req.method === 'POST' &&
+        ['/api/status', '/api/project-config', '/api/project-path', '/api/project-remove'].includes(
+          route,
+        )
+      ) {
         if (!isAuthorizedWrite(req, token)) {
           send(res, 403, MIME['.json'], JSON.stringify({ error: 'unauthorized write' }));
           req.destroy();
@@ -105,14 +119,34 @@ export function createRequestListener(cwd, localOnly, token) {
             return;
           }
           const { projects } = resolveProjects(cwd, localOnly);
-          const { code, body } = changeStatus(projects, payload);
+          const options = { localOnly };
+          const result =
+            route === '/api/status'
+              ? changeStatus(projects, payload)
+              : route === '/api/project-config'
+                ? saveProjectConfig(projects, payload, options)
+                : route === '/api/project-path'
+                  ? repairProjectPath(projects, payload, options)
+                  : unregisterProject(projects, payload, options);
+          const { code, body } = result;
           send(res, code, MIME['.json'], JSON.stringify(body));
         });
         return;
       }
 
       if (route === '/api/projects') {
-        send(res, 200, MIME['.json'], JSON.stringify(resolveProjects(cwd, localOnly)));
+        send(
+          res,
+          200,
+          MIME['.json'],
+          JSON.stringify({ ...resolveProjects(cwd, localOnly), localOnly }),
+        );
+        return;
+      }
+      if (route === '/api/project-config') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const { code, body } = readProjectConfig(projects, params.get('project'));
+        send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
       if (route === '/api/git') {

@@ -2,9 +2,10 @@
 id: "20260627-111218"
 title: Gestionar proyectos y su configuración desde el viewer
 type: feature
-status: approved
+status: in-review
 created: 2026-06-27T11:12:18Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -143,12 +144,16 @@ global.
 
 ## Plan
 
-- [ ] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR9)
-- [ ] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs` (CR2, CR4, CR5, CR6, CR7, CR8, CR9)
-- [ ] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9)
-- [ ] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local` (support)
+- [x] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR9) — 2026-06-27T11:24:53Z
+- [x] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs` (CR2, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-27T11:24:54Z
+- [x] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-27T11:24:54Z
+- [x] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local` (support) — 2026-06-27T11:24:54Z
 
 ## Log
 
 - **2026-06-27T11:12:18Z** — Draft creado tras confirmar que el viewer solo selecciona proyectos, el registro ya puede eliminar entradas y el config aún no se expone. El alcance autorizado incluye editar `config.yml`; se protege `project_id` como identidad estable y el desregistro nunca elimina archivos.
 - **2026-06-27T11:16:07Z** — status: draft → approved
+- **2026-06-27T11:18:00Z** — status: approved → in-progress
+- **2026-06-27T11:18:00Z** — owner → Roberto Ruiz (auto)
+- **2026-06-27T11:24:54Z** — Implementación completa: gestión global/local de proyectos, edición YAML validada y atómica, control de conflictos, reparación de rutas y desregistro seguro. pnpm verify pasa con 375 tests; comprobación visual sin overflow a 1280 px y 680 px.
+- **2026-06-27T11:25:08Z** — status: in-progress → in-review

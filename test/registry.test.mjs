@@ -7,7 +7,7 @@ import { Worker } from 'node:worker_threads';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { readRegistry, register, registryDir, registryPath } from '../src/registry.mjs';
+import { readRegistry, register, registryDir, registryPath, update } from '../src/registry.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -65,6 +65,26 @@ test('register relinks the path for the same project_id without duplicating', ()
   const reg = readRegistry();
   assert.equal(Object.keys(reg).length, 1);
   assert.equal(reg[id].path, path.resolve(moved));
+});
+
+test('111218 CR6: update repairs one registered project without replacing siblings', () => {
+  isolatedHome();
+  register({ id: 'aaa', name: 'alpha', path: '/old/alpha' });
+  register({ id: 'bbb', name: 'beta', path: '/repos/beta' });
+
+  update('aaa', { name: 'alpha moved', path: '/repos/alpha' });
+
+  assert.deepEqual(readRegistry(), {
+    aaa: { name: 'alpha moved', path: '/repos/alpha' },
+    bbb: { name: 'beta', path: '/repos/beta' },
+  });
+});
+
+test('111218 CR6: update rejects an unknown registry id without creating it', () => {
+  isolatedHome();
+  register({ id: 'aaa', name: 'alpha', path: '/repos/alpha' });
+  assert.throws(() => update('missing', { path: '/tmp/x' }), /no registered project/);
+  assert.deepEqual(Object.keys(readRegistry()), ['aaa']);
 });
 
 test('init refuses an existing .changeledger and points to register', () => {

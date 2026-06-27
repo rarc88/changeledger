@@ -21,6 +21,7 @@ const {
   esc,
   isVisible,
   passesTombstones,
+  projectsViewTemplate,
   resetValidationState,
   runValidationSubmission,
   stageBlock,
@@ -62,6 +63,52 @@ const baseChange = () => ({
   progress: { total: 0, done: 0, blocked: 0 },
   stages: [],
   tasks: [],
+});
+
+test('111218 CR1/CR2: projects view renders health, exact YAML text and safe metadata', () => {
+  const host = parse(
+    projectsViewTemplate(
+      [
+        { id: 'aaa111', name: XSS, path: '/repos/alpha', alive: true },
+        { id: 'bbb222', name: 'beta', path: '/gone/beta', alive: false },
+      ],
+      'aaa111',
+      { content: 'language: es\n# <script>alert(1)</script>', revision: 'rev' },
+      false,
+    ),
+  );
+  assert.equal(host.querySelectorAll('.project-row').length, 2);
+  assert.equal(host.querySelectorAll('.project-health.available').length, 2);
+  assert.equal(host.querySelectorAll('.project-health.missing').length, 1);
+  assert.equal(host.querySelector('textarea').value, 'language: es\n# <script>alert(1)</script>');
+  assert.equal(host.querySelector('script'), null);
+  assert.equal(host.querySelector('img'), null);
+});
+
+test('111218 CR1/CR8: missing and local projects expose only valid actions', () => {
+  const missing = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/gone', alive: false }],
+      'aaa111',
+      null,
+      false,
+    ),
+  );
+  assert.ok(missing.querySelector('.project-path-form'));
+  assert.ok(missing.querySelector('[data-unregister]'));
+  assert.equal(missing.querySelector('.config-form'), null);
+
+  const local = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: 'project_id: aaa111', revision: 'rev' },
+      true,
+    ),
+  );
+  assert.ok(local.querySelector('.config-form'));
+  assert.equal(local.querySelector('.project-path-form'), null);
+  assert.equal(local.querySelector('[data-unregister]'), null);
 });
 
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {

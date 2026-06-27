@@ -53,3 +53,14 @@ export function remove(id) {
     writeRegistry(reg);
   });
 }
+
+export function update(id, values) {
+  fs.mkdirSync(registryDir(), { recursive: true });
+  return withFileLock(registryPath(), () => {
+    const reg = readRegistry();
+    if (!reg[id]) throw new Error(`no registered project "${id}"`);
+    reg[id] = { ...reg[id], ...values };
+    writeRegistry(reg);
+    return reg[id];
+  });
+}

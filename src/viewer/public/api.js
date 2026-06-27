@@ -1,5 +1,12 @@
 export const getProjects = () => fetch('/api/projects').then((r) => r.json());
 
+export const getProjectConfig = (project) =>
+  fetch(`/api/project-config?project=${encodeURIComponent(project)}`).then(async (response) => {
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+    return body;
+  });
+
 export const getRepo = async (project) => {
   const res = await fetch(`/api/repo?project=${encodeURIComponent(project)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -23,3 +30,22 @@ export const postStatus = (project, id, status, reason) =>
     },
     body: JSON.stringify({ project, id, status, ...(reason ? { reason } : {}) }),
   });
+
+const postProject = (route, body) =>
+  fetch(route, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-changeledger-token': window.__CHANGELEDGER_TOKEN__,
+    },
+    body: JSON.stringify(body),
+  });
+
+export const postProjectConfig = (project, content, revision) =>
+  postProject('/api/project-config', { project, content, revision });
+
+export const postProjectPath = (project, path) =>
+  postProject('/api/project-path', { project, path });
+
+export const postProjectRemove = (project, confirm) =>
+  postProject('/api/project-remove', { project, confirm });
