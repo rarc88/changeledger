@@ -2,10 +2,12 @@
 id: "20260627-111219"
 title: Conservar el estado del viewer entre recargas
 type: feature
-status: in-validation
+status: done
 created: 2026-06-27T11:12:19Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -139,3 +141,6 @@ errores.
 - **2026-06-27T19:37:15Z** — Corrección del segundo review: cuando no existe un proyecto vivo se normaliza la vista a Board, se desactiva Global y el estado vacío queda visible. Regresión DOM añadida.
 - **2026-06-27T19:37:15Z** — status: in-progress → in-review
 - **2026-06-27T19:38:22Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T19:43:27Z** — validation → done (human accepted)
+- **2026-06-27T19:44:36Z** — graduado a spec `architecture.md`
+- **2026-06-27T19:44:36Z** — archived

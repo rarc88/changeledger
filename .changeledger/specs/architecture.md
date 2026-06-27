@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-27T19:19:39Z
+updated: 2026-06-27T19:44:36Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -40,6 +40,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 > Graduado del change 20260624-153236 (migración integral a ChangeLedger).
 > Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
+> Graduado del change 20260627-111219 (persistencia del estado del viewer).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -470,6 +471,15 @@ inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
 normalizan para no revelar rutas locales. Los endpoints de config, reparación y
 desregistro comparten token efímero, límite de body y frontera loopback con las
 demás escrituras del viewer.
+
+El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
+sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden y filtros de
+cada proyecto. La restauración hidrata el shell antes de iniciar los fetches y
+normaliza proyectos o valores que ya no existen; cada proyecto mantiene sus
+propios filtros. Un storage ausente, corrupto, bloqueado o sin cuota nunca impide
+el arranque. El snapshot excluye tokens, rutas, YAML, contenido del repositorio,
+formularios y errores. Si no queda ningún proyecto vivo, la UI corrige el estado
+a Board, desactiva Global y muestra el estado vacío visible.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así
