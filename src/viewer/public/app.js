@@ -595,11 +595,41 @@ function openSpec(s) {
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
-  $('#detail').querySelector('.close').onclick = closeDetail;
+  const detail = $('#detail');
+  detail.querySelector('.close').onclick = closeDetail;
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };
-  renderExpandableMermaid($('#detail'));
+  detail.onclick = (e) => handleSpecBodyClick(e, (href) => openSpecByName(href, state, openSpec));
+  renderExpandableMermaid(detail);
+}
+
+/**
+ * Normalizes a spec href and opens the matching spec.
+ * Exported for testing: accepts `repoState` and `_openSpec` to avoid DOM coupling.
+ */
+export function openSpecByName(href, repoState = state, _openSpec = openSpec) {
+  const name = href.replace(/^\.\//, '').replace(/\.md$/, '');
+  const found = (repoState.repo?.specs ?? []).find((s) => s.name.replace(/\.md$/, '') === name);
+  if (found) _openSpec(found);
+}
+
+/**
+ * Click handler for the spec body container.
+ * Exported for testing: accepts `_openSpecByName` callback to avoid DOM coupling.
+ * Intercepts relative *.md links only; lets external links through unchanged.
+ */
+export function handleSpecBodyClick(event, _openSpecByName) {
+  const anchor = event.target.closest('a');
+  if (!anchor) return;
+  const href = anchor.getAttribute('href');
+  if (!href) return;
+  // Let external links (with scheme or absolute path) through unchanged.
+  if (/^[a-z][a-z\d+\-.]*:/i.test(href) || href.startsWith('/')) return;
+  // Only intercept relative *.md links.
+  if (!href.endsWith('.md')) return;
+  event.preventDefault();
+  _openSpecByName(href);
 }
 
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];

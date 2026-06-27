@@ -830,3 +830,113 @@ test('111218 CR2/CR8: project config HTTP routes enforce authorization', async (
   });
   assert.equal(denied.status, 403);
 });
+
+// --- 20260627-215619: spec internal link navigation ---
+
+async function freshApp() {
+  const url = new URL('../src/viewer/public/app.js', import.meta.url).href;
+  const mod = await import(`${url}?bust=${Math.random()}`);
+  return mod;
+}
+
+async function freshAppState() {
+  const url = new URL('../src/viewer/public/app-state.js', import.meta.url).href;
+  return import(`${url}?bust=${Math.random()}`);
+}
+
+test('20260627-215619 CR1: openSpecByName abre el spec destino cuando existe', async () => {
+  const { openSpecByName } = await freshApp();
+  const appState = await freshAppState();
+  appState.setRepo(
+    JSON.stringify({
+      changes: [],
+      statuses: [],
+      types: [],
+      specs: [
+        { name: 'data-model.md', title: 'Data Model', body: '', tags: [], updated: '' },
+        { name: 'architecture.md', title: 'Architecture', body: '', tags: [], updated: '' },
+      ],
+    }),
+  );
+  const opened = [];
+  openSpecByName('data-model.md', appState.state, (s) => opened.push(s));
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].name, 'data-model.md');
+});
+
+test('20260627-215619 CR2: openSpecByName no lanza excepción cuando el spec no existe', async () => {
+  const { openSpecByName } = await freshApp();
+  const appState = await freshAppState();
+  appState.setRepo(JSON.stringify({ changes: [], statuses: [], types: [], specs: [] }));
+  const opened = [];
+  assert.doesNotThrow(() => openSpecByName('no-existe.md', appState.state, (s) => opened.push(s)));
+  assert.equal(opened.length, 0);
+});
+
+test('20260627-215619 CR3: handleSpecBodyClick no intercepta enlaces externos', async () => {
+  const { handleSpecBodyClick } = await freshApp();
+  let prevented = false;
+  let specByNameCalled = false;
+  const fakeEvent = {
+    target: {
+      closest: (sel) => (sel === 'a' ? { getAttribute: () => 'https://example.com' } : null),
+    },
+    preventDefault: () => {
+      prevented = true;
+    },
+  };
+  handleSpecBodyClick(fakeEvent, () => {
+    specByNameCalled = true;
+  });
+  assert.equal(prevented, false);
+  assert.equal(specByNameCalled, false);
+});
+
+test('20260627-215619 CR3: handleSpecBodyClick no intercepta enlaces con path absoluto', async () => {
+  const { handleSpecBodyClick } = await freshApp();
+  let prevented = false;
+  let specByNameCalled = false;
+  const fakeEvent = {
+    target: { closest: (sel) => (sel === 'a' ? { getAttribute: () => '/docs/foo.md' } : null) },
+    preventDefault: () => {
+      prevented = true;
+    },
+  };
+  handleSpecBodyClick(fakeEvent, () => {
+    specByNameCalled = true;
+  });
+  assert.equal(prevented, false);
+  assert.equal(specByNameCalled, false);
+});
+
+test('20260627-215619 CR4: openSpecByName normaliza prefijo ./ y extensión .md', async () => {
+  const { openSpecByName } = await freshApp();
+  const appState = await freshAppState();
+  appState.setRepo(
+    JSON.stringify({
+      changes: [],
+      statuses: [],
+      types: [],
+      specs: [{ name: 'lifecycle.md', title: 'Lifecycle', body: '', tags: [], updated: '' }],
+    }),
+  );
+  const opened = [];
+  openSpecByName('./lifecycle.md', appState.state, (s) => opened.push(s));
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].name, 'lifecycle.md');
+});
+
+test('20260627-215619 CR1: handleSpecBodyClick intercepta enlace .md relativo y llama openSpecByName', async () => {
+  const { handleSpecBodyClick } = await freshApp();
+  let prevented = false;
+  const calledWith = [];
+  const fakeEvent = {
+    target: { closest: (sel) => (sel === 'a' ? { getAttribute: () => 'data-model.md' } : null) },
+    preventDefault: () => {
+      prevented = true;
+    },
+  };
+  handleSpecBodyClick(fakeEvent, (href) => calledWith.push(href));
+  assert.equal(prevented, true);
+  assert.deepEqual(calledWith, ['data-model.md']);
+});

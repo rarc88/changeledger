@@ -2,10 +2,11 @@
 id: "20260627-215619"
 title: Navegación entre specs por enlaces en el viewer
 type: feature
-status: approved
+status: in-validation
 created: 2026-06-27T21:56:19Z
 depends_on: [ "20260627-212133" ]
 release_impact: minor
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -101,9 +102,13 @@ spec a change, y deep-linking por URL. Si se quieren, serán changes aparte.
 
 ## Plan
 
-- [ ] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`; verify: `node --test test/view.test.mjs` (CR1, CR4)
-- [ ] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3)
-- [ ] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op); verify: `node --test test/view.test.mjs` (CR2)
+- [x] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`; verify: `node --test test/view.test.mjs` (CR1, CR4) — 2026-06-27T22:07:57Z
+- [x] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3) — 2026-06-27T22:07:57Z
+- [x] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op); verify: `node --test test/view.test.mjs` (CR2) — 2026-06-27T22:07:57Z
 
 ## Log
 - **2026-06-27T21:58:59Z** — status: draft → approved
+- **2026-06-27T22:04:01Z** — status: approved → in-progress
+- **2026-06-27T22:04:01Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-27T22:07:57Z** — status: in-progress → in-review
+- **2026-06-27T22:09:48Z** — review → in-validation (delegated subagent, clean context)
