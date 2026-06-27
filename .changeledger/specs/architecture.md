@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-27T10:08:06Z
+updated: 2026-06-27T10:44:24Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -38,6 +38,8 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260626-115134 (formato machine-readable de tareas y readiness).
 > Graduado del change 20260626-160038 (política económica de delegación).
 > Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
+> Graduado del change 20260624-153236 (migración integral a ChangeLedger).
+> Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -479,6 +481,12 @@ read-modify-write del registry (`register`, `remove`) se envuelven en
 `withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
 `changeledger register`/`changeledger remove` sobre el mismo archivo. El directorio se garantiza
 antes de tomar el lock porque el lock file requiere que el directorio exista.
+
+El estado global `~/.changeledger/` y los datos de proyecto `.changeledger/`
+comparten nombre, pero no marcador. `findChangeledgerDir()` asciende por los
+ancestros y solo reconoce una raíz de proyecto si contiene
+`.changeledger/config.yml`; así ignora el home global, incluso cuando el
+directorio temporal está debajo del home como ocurre en Windows.
 
 ## Política de dependencias
 

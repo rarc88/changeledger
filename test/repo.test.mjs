@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { resolveRepoPath } from '../src/config.mjs';
+import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo } from '../src/repo.mjs';
 
 function fixture(changesDir = '.changeledger/changes') {
@@ -40,6 +40,33 @@ test('loadRepo walks up from a subdirectory', () => {
 test('loadRepo throws outside a ChangeLedger repo', () => {
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-empty-'));
   assert.throws(() => loadRepo(empty), /Run `changeledger init`/);
+});
+
+test('103625: project discovery ignores a global home and finds only configured repos', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-tree-'));
+  const globalState = path.join(home, '.changeledger');
+  fs.mkdirSync(globalState);
+  fs.writeFileSync(path.join(globalState, '.registry.json'), '{}\n');
+
+  const tempRoot = path.join(home, 'AppData', 'Local', 'Temp');
+  const outside = path.join(tempRoot, 'outside');
+  fs.mkdirSync(outside, { recursive: true });
+
+  assert.equal(findChangeledgerDir(outside), null);
+  assert.throws(() => loadRepo(outside), /no \.changeledger\/ found/);
+
+  const repoRoot = path.join(tempRoot, 'repo');
+  const projectState = path.join(repoRoot, '.changeledger');
+  const nested = path.join(repoRoot, 'src', 'nested');
+  fs.mkdirSync(projectState, { recursive: true });
+  fs.mkdirSync(nested, { recursive: true });
+  fs.writeFileSync(
+    path.join(projectState, 'config.yml'),
+    'changes_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+
+  assert.equal(findChangeledgerDir(nested), projectState);
+  assert.equal(loadRepo(nested).repoRoot, repoRoot);
 });
 
 test('ChangeLedger migration does not discover the retired project directory (CR3, CR9)', () => {
