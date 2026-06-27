@@ -2,7 +2,7 @@
 id: "20260627-111219"
 title: Conservar el estado del viewer entre recargas
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-27T11:12:19Z
 depends_on: []
 owner: Roberto Ruiz
@@ -121,6 +121,8 @@ errores.
 - [x] Escribir tests de serialización, restauración, normalización y fallos de storage en `test/app-state.test.mjs`; implementar snapshot versionado y filtros por proyecto en `src/viewer/public/app-state.js`; verificar con `node --test test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8) — 2026-06-27T19:28:18Z
 - [x] Añadir tests DOM de hidratación inicial y cambios de controles en `test/viewer-metadata.test.mjs`; integrar restauración previa al primer render y persistencia de cada mutación en `src/viewer/public/app.js`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7) — 2026-06-27T19:28:18Z
 - [x] Ejecutar `pnpm verify` y comprobar manualmente recarga, reinicio, cambio entre dos proyectos, Global, storage corrupto y proyecto previamente seleccionado ya ausente (support) — 2026-06-27T19:28:18Z
+- [x] Aplicar el snapshot al shell antes de los fetches y proteger el acceso inicial a storage en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR6) — 2026-06-27T19:34:56Z
+- [x] Mostrar el estado vacío en Board cuando no queda ningún proyecto vivo en `src/viewer/public/app.js` y cubrir la regresión en `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR4) — 2026-06-27T19:37:15Z
 
 ## Log
 
@@ -130,3 +132,10 @@ errores.
 - **2026-06-27T19:21:54Z** — owner → Roberto Ruiz (auto)
 - **2026-06-27T19:28:18Z** — Implementación completa: snapshot local versionado, filtros por proyecto, restauración/normalización del shell y tolerancia a storage corrupto o bloqueado. pnpm verify pasa con 395 tests; verificación real confirma proyecto, Table, búsqueda, filtros y Global tras recarga.
 - **2026-06-27T19:28:18Z** — status: in-progress → in-review
+- **2026-06-27T19:32:54Z** — review → in-progress (retry): CR6: window.localStorage puede lanzar antes del try; CR1: el shell restaurado se aplica después de los fetches y muestra un estado intermedio incorrecto.
+- **2026-06-27T19:34:56Z** — Corrección del review: acceso inicial a localStorage protegido y shell restaurado síncronamente antes de los fetches. pnpm verify pasa con 396 tests.
+- **2026-06-27T19:34:57Z** — status: in-progress → in-review
+- **2026-06-27T19:36:04Z** — review → in-progress (retry): CR4: sin proyectos vivos, una vista o Global restaurados pueden ocultar el mensaje No projects registered porque load() no resincroniza el shell.
+- **2026-06-27T19:37:15Z** — Corrección del segundo review: cuando no existe un proyecto vivo se normaliza la vista a Board, se desactiva Global y el estado vacío queda visible. Regresión DOM añadida.
+- **2026-06-27T19:37:15Z** — status: in-progress → in-review
+- **2026-06-27T19:38:22Z** — review → in-validation (delegated subagent, clean context)

@@ -83,10 +83,7 @@ async function load() {
       syncViewerShell();
       return;
     }
-    litRender(
-      html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
-      $('#board'),
-    );
+    showNoProjects();
     return;
   }
   try {
@@ -99,6 +96,15 @@ async function load() {
   } catch (e) {
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
   }
+}
+
+export function showNoProjects(root = document) {
+  setView('board');
+  litRender(
+    html`<p class="empty" style="padding:20px">No projects registered. Run <code>changeledger init</code> in a repo.</p>`,
+    root.querySelector('#board'),
+  );
+  syncViewerShell(root, false);
 }
 
 // Rebuilt on each project load (types/statuses can differ per project).
@@ -617,6 +623,17 @@ export function syncViewerShell(root = document, renderContent = true) {
   else render();
 }
 
+export function restoreInitialViewerShell(root = document, getStorage = () => window.localStorage) {
+  let browserStorage = null;
+  try {
+    browserStorage = getStorage();
+  } catch {
+    // Storage access itself may be forbidden (opaque origins/privacy policy).
+  }
+  restoreViewerState(browserStorage);
+  syncViewerShell(root, false);
+}
+
 let managedProject = null;
 let managedConfig = null;
 
@@ -899,7 +916,7 @@ const fmtDate = (iso) => {
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
 function bootstrap() {
-  restoreViewerState(window.localStorage);
+  restoreInitialViewerShell();
   diagramLightbox = createDiagramLightbox({
     overlay: $('#diagram-overlay'),
     canvas: $('#diagram-canvas'),

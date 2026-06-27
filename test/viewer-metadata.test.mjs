@@ -25,8 +25,10 @@ const {
   projectMutation,
   projectsViewTemplate,
   requestUnregisterConfirmation,
+  restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
+  showNoProjects,
   stageBlock,
   sortIndicator,
   statusTag,
@@ -229,6 +231,58 @@ test('111219 CR1/CR2: restored state hydrates search, active view and global mod
   assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
   assert.ok(!root.querySelector('#global').classList.contains('hidden'));
   assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+});
+
+test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates blocked storage access', () => {
+  const shell = () => {
+    const root = document.createElement('div');
+    root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+      ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+        .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+        .join('')}
+      <section id="global"></section>`;
+    return root;
+  };
+  const root = shell();
+  const snapshot = JSON.stringify({
+    version: 1,
+    currentView: 'table',
+    globalMode: true,
+    text: 'restored before fetch',
+    projects: {},
+  });
+  restoreInitialViewerShell(root, () => ({ getItem: () => snapshot, setItem() {} }));
+  assert.equal(root.querySelector('#search').value, 'restored before fetch');
+  assert.ok(root.querySelector('#view-table').classList.contains('active'));
+  assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
+  assert.ok(!root.querySelector('#global').classList.contains('hidden'));
+
+  assert.doesNotThrow(() =>
+    restoreInitialViewerShell(shell(), () => {
+      throw new window.DOMException('blocked', 'SecurityError');
+    }),
+  );
+});
+
+test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  appState.currentProject = null;
+  appState.currentView = 'table';
+  appState.globalMode = true;
+
+  showNoProjects(root);
+
+  assert.equal(appState.currentView, 'board');
+  assert.equal(appState.globalMode, false);
+  assert.ok(root.querySelector('#view-board').classList.contains('active'));
+  assert.ok(!root.querySelector('#board').classList.contains('hidden'));
+  assert.ok(root.querySelector('#table').classList.contains('hidden'));
+  assert.match(root.querySelector('#board').textContent, /No projects registered/);
 });
 
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {
