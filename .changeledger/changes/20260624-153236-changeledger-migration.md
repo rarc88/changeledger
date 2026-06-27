@@ -2,11 +2,13 @@
 id: "20260624-153236"
 title: Migrate Spec Ledger to ChangeLedger
 type: feature
-status: in-validation
+status: done
 created: 2026-06-24T15:32:36Z
 depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -199,3 +201,6 @@ que dirija a `changeledger`.
 - **2026-06-26T23:40:27Z** — Corregidos los residuos encontrados en segunda revisión: contrato publicado sin marca partida y sentinel XSS renombrado; se añadió regresión contra Spec\s+Ledger. pnpm verify pasa con 365 pruebas.
 - **2026-06-26T23:40:27Z** — status: in-progress → in-review
 - **2026-06-26T23:42:39Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:05:16Z** — validation → done (human accepted)
+- **2026-06-27T10:08:06Z** — graduado a spec `architecture.md`
+- **2026-06-27T10:08:06Z** — archived

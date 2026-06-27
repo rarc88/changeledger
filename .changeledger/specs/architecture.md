@@ -1,10 +1,10 @@
 ---
-title: Arquitectura de Spec Ledger
-updated: 2026-06-26T23:20:45Z
+title: Arquitectura de ChangeLedger
+updated: 2026-06-27T10:08:06Z
 tags: [ architecture, cli, viewer ]
 ---
 
-# Arquitectura de Spec Ledger
+# Arquitectura de ChangeLedger
 
 > Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
 > Graduado del change 20260614-151759 (discovery del contrato).
@@ -12,7 +12,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260614-165720 (revisión de graduación / reviewed).
 > Graduado del change 20260614-182513 (owner desde GitHub login).
 > Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
-> Graduado del change 20260615-170803 (graduación a spec existente, `sl graduate --into`).
+> Graduado del change 20260615-170803 (graduación a spec existente, `changeledger graduate --into`).
 > Graduado del change 20260615-210508 (estado terminal `discarded`).
 > Graduado del change 20260616-151221 (parsing estricto de changes).
 > Graduado del change 20260616-151216 (Definition of Ready verificable).
@@ -39,15 +39,15 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260626-160038 (política económica de delegación).
 > Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 
-Spec Ledger separa **almacén** (fuente de verdad, optimizada para agente y git)
+ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
-cada repo solo viven los documentos bajo `.sl/`.
+cada repo solo viven los documentos bajo `.changeledger/`.
 
 ## Componentes
 
 ```mermaid
 flowchart TD
-  subgraph repo[".sl/ en el repo"]
+  subgraph repo[".changeledger/ en el repo"]
     CFG[config.yml]
     CH[changes/*.md]
     SP[specs/*.md]
@@ -61,7 +61,7 @@ flowchart TD
     REPO --> CHECK[check.mjs]
     REPO --> WRITER[writer.mjs]
   end
-  subgraph cli["CLI (bin/sl)"]
+  subgraph cli["CLI (bin/changeledger)"]
     INIT[init] --> repo
     NEW[new] --> CH
     CHECKC[check] --> CHECK
@@ -72,10 +72,10 @@ flowchart TD
   SRV --> UI[visor: board / table / graph / specs / metrics]
 ```
 
-`bin/sl.mjs` define la interfaz de comandos con `commander`, manteniendo
+`bin/changeledger.mjs` define la interfaz de comandos con `commander`, manteniendo
 `src/commands/*` como capa de aplicación. La dependencia está fijada en una
 línea compatible con Node 20 y el binario conserva el shebang + modo ejecutable,
-porque se publica como comando global `sl`. El parser rechaza opciones
+porque se publica como comando global `changeledger`. El parser rechaza opciones
 desconocidas en lugar de ignorarlas silenciosamente.
 
 ## Modelo de datos
@@ -88,20 +88,20 @@ desconocidas en lugar de ignorarlas silenciosamente.
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
   `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
-- **release**: manifiesto YAML inmutable en `.sl/releases/<version>.yml` con
+- **release**: manifiesto YAML inmutable en `.changeledger/releases/<version>.yml` con
   versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva
   solo de estos manifiestos y no se duplica en cada change.
 
 ## Releases portables
 
-`sl release init <version>` crea el baseline de adopción con todos los changes
-que ya están `done`. A partir de ahí, `sl release plan [--json]` selecciona los
+`changeledger release init <version>` crea el baseline de adopción con todos los changes
+que ya están `done`. A partir de ahí, `changeledger release plan [--json]` selecciona los
 `done` ausentes del historial, resuelve el impacto desde
 `release_impact` o `release.impacts.<type>` y calcula el siguiente SemVer por el
 impacto máximo. Los changes con impacto `none` acompañan una entrega cuando otro
 change exige bump; si todos son `none`, el plan es un no-op exitoso.
 
-`sl release record <version>` recalcula bajo un lock global del historial y crea
+`changeledger release record <version>` recalcula bajo un lock global del historial y crea
 atómicamente el manifiesto solo si la versión coincide. El CLI no conoce ni
 modifica manifests de Node, Flutter, Rust u otras tecnologías, y tampoco crea
 commits, tags, releases remotas, pushes o publicaciones. La salida JSON es el
@@ -110,15 +110,15 @@ repositorio.
 
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o se descarta (bug/chore sin verdad persistente). Ambos casos fijan `reviewed: true`
-(`writer.setReviewed`). `sl graduate --pending` (`pendingGraduation`) lista los
-`done` con `reviewed !== true`; `sl graduate <id> --skip [razón]` (`skipGraduation`,
+(`writer.setReviewed`). `changeledger graduate --pending` (`pendingGraduation`) lista los
+`done` con `reviewed !== true`; `changeledger graduate <id> --skip [razón]` (`skipGraduation`,
 solo en `done`) descarta dejando `graduation skipped` en el Log; `graduate()` a spec
 también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
 `graduado a spec` del Log — `reviewed` solo registra que la pregunta quedó zanjada.
 `check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
 bajo demanda).
 
-`sl archive --graduated [--dry-run]` limpia el board de forma explícita y
+`changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
 conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
 con resolución de graduación en `## Log` (`graduado a spec` o `graduation
 skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
@@ -141,7 +141,7 @@ del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
 Las escrituras que reemplazan documentos o estado local pasan por
 `writeFileAtomic`: escriben a un temporal en el mismo directorio, sincronizan el
 descriptor, hacen `rename` sobre el destino y limpian el temporal si algo falla.
-Las creaciones que dependen de exclusividad, como `sl new`, conservan `flag:
+Las creaciones que dependen de exclusividad, como `changeledger new`, conservan `flag:
 'wx'` para no perder la reserva atomica del id.
 
 Las mutaciones read-modify-write de un documento usan `mutateFileAtomic`: toman
@@ -159,7 +159,7 @@ crea automáticamente al primer cambio de estado aunque el tipo no lo declare
 (p.ej. `chore`). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
 el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
 fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
-(vacío si ninguno). No pisa un owner fijado a mano (`sl owner`).
+(vacío si ninguno). No pisa un owner fijado a mano (`changeledger owner`).
 
 Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
@@ -189,7 +189,7 @@ stateDiagram-v2
     in_validation --> done: humano acepta (viewer)
     in_validation --> in_progress: humano rechaza con motivo
     blocked --> in_progress
-    draft --> discarded: sl discard "razón"
+    draft --> discarded: changeledger discard "razón"
     approved --> discarded
     in_progress --> discarded
     blocked --> discarded
@@ -199,11 +199,11 @@ stateDiagram-v2
 
 **Descartar.** `discarded` es un estado **terminal** alternativo a `done`: el
 change se decidió no hacer. Se alcanza desde cualquier estado activo no terminal
-(`draft`, `approved`, `in-progress`, `blocked`) con `sl discard <id> "<razón>"`
+(`draft`, `approved`, `in-progress`, `blocked`) con `changeledger discard <id> "<razón>"`
 —la razón es obligatoria y se registra en el Log—. Preferirlo a borrar el
 archivo: la decisión y su porqué siguen siendo verdad, y las referencias
 `depends_on` se mantienen resolubles. El visor lo oculta por defecto (toggle
-"Discarded") y nunca le da columna. `sl status` rechaza `discarded` para forzar
+"Discarded") y nunca le da columna. `changeledger status` rechaza `discarded` para forzar
 el verbo con razón; tampoco es alcanzable desde el visor.
 
 El gate opcional **`in-review`** cierra el lazo doc↔código para los tipos que
@@ -212,13 +212,13 @@ ejecuta un **subagente con contexto limpio** (sin el historial de implementació
 para no heredar sesgo) y un **modelo acorde a la dificultad**. *Qué* valida:
 cada `CRn` cumplido, sin residuo y Plan realmente hecho. La
 auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
-revisor puede invocar; Spec Ledger no las reimplementa. El *cómo* se lanza el
+revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el qué.
 
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo
 realmente independiente o aporta revisión de contexto limpio. La delegación no es
-un requisito universal ni un mecanismo prescrito por Spec Ledger: el agente
+un requisito universal ni un mecanismo prescrito por ChangeLedger: el agente
 principal decide según el harness disponible. Sí es una decisión auditable: cada
 delegación debe tener motivo, ownership o pregunta clara, salida esperada y
 criterio de integración. El contrato desaconseja sobrefragmentar (por archivo,
@@ -234,18 +234,18 @@ la revisión: van `in-progress → in-validation`. Todo tipo pasa por validació
 humana antes de `done`; así `done` siempre significa resultado aceptado.
 
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
-es la **única autoridad**, compartida por `sl status` y el visor.
+es la **única autoridad**, compartida por `changeledger status` y el visor.
 `lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
 completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así que
 el CLI rechaza saltos, regresiones y no-ops
 (`change is already "X"`), y el gate (`in-progress → in-validation` bajo
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
-validación por enum. `sl status done` se rechaza por separado porque solo el
+validación por enum. `changeledger status done` se rechaza por separado porque solo el
 veredicto humano puede cerrar. `done` y `discarded` son terminales y nunca se reabren. El
 visor añade la política de actor: permite únicamente las transiciones humanas
 `draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
 
-**Veredicto (`sl review`, en `agent.review()`).** `pass` → `in-validation`;
+**Veredicto (`changeledger review`, en `agent.review()`).** `pass` → `in-validation`;
 `fail --retry`
 → `in-progress` (defecto dentro del contrato, el implementador corrige);
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
@@ -266,17 +266,17 @@ breve del ciclo; `discarded` no implica un ciclo de implementación completado.
 ## Identidad
 
 `id` = instante UTC de creación `YYYYMMDD-HHMMSS`, derivado de `created`. Único
-sin coordinación central; `sl new` incrementa 1s ante colisión en el mismo
+sin coordinación central; `changeledger new` incrementa 1s ante colisión en el mismo
 segundo. La reserva se hace de forma atómica por id (`wx` sobre un lock temporal
 y escritura exclusiva del archivo final), de modo que dos procesos concurrentes
 no pueden escribir el mismo id. El lock incluye metadata del proceso propietario:
-si queda huérfano por una terminación abrupta, `sl new` lo puede recuperar; si el
+si queda huérfano por una terminación abrupta, `changeledger new` lo puede recuperar; si el
 lock desaparece durante la comprobación, el comando reintenta sin fallar. El slug
 estructural se normaliza a kebab ASCII y se rechaza si queda vacío. Ordenable
 cronológicamente.
 
-La normalización de slugs vive en un helper compartido por `sl new` y
-`sl graduate`: minúsculas, diacríticos fuera, separadores no alfanuméricos a
+La normalización de slugs vive en un helper compartido por `changeledger new` y
+`changeledger graduate`: minúsculas, diacríticos fuera, separadores no alfanuméricos a
 guiones y rechazo cuando no queda ninguna letra o número ASCII. Así los nombres
 estructurales mantienen la misma política en changes y specs.
 
@@ -289,13 +289,13 @@ cycle time (`done − created`), lead time por etapa, WIP actual, aging de los
 `in-progress`, tiempo bloqueado, throughput por día y desgloses por tipo/owner.
 El server las precalcula y el visor las pinta en la pestaña **Metrics**.
 
-## Validación (`sl check`)
+## Validación (`changeledger check`)
 
 `check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
 duplicadas, enlaces change↔spec rotos (error), specs huérfanos y `updated`
 desfasado respecto a la actividad de un change enlazado (warning). Los enlaces
-change→spec salen solo de los marcadores reales que `sl graduate` escribe en
+change→spec salen solo de los marcadores reales que `changeledger graduate` escribe en
 `## Log`; ejemplos o placeholders del mismo texto en otras etapas no crean
 enlaces reales. Para detectar specs stale, `updated` se compara contra la
 actividad de graduación enlazada, no contra entradas posteriores del Log como
@@ -366,7 +366,7 @@ El **contrato canónico de la herramienta** (instrucciones de uso) vive separado
 del contrato propio de cada repo: se distribuye como `templates/AGENTS.md` y
 `paths.mjs` lo resuelve como `agentsTemplate`, sin importar la instalación (npm
 global, `pnpm link`, node_modules). Es artefacto **de la herramienta**, no del
-repo. `init`/`register` lo enlazan en cada repo como `.sl/AGENTS.md` — symlink
+repo. `init`/`register` lo enlazan en cada repo como `.changeledger/AGENTS.md` — symlink
 **por máquina, gitignored**: nunca se copia (no drifta) ni se committea (no queda
 dangling al clonar). Separarlo del raíz evita la recursión: el `AGENTS.md` raíz
 es el contrato **propio** del proyecto y solo **referencia** al enlazado.
@@ -375,16 +375,16 @@ El contrato abre con un **Agent Fast Path** que concentra las decisiones
 operativas de mayor prioridad: autorización, aprobación, trazabilidad git,
 ejecución, revisión independiente, validación humana y graduación. Las reglas
 detalladas siguen debajo como referencia normativa y la sección de CLI conserva
-solo el flujo crítico; para sintaxis puntual, el agente consulta `sl help` o
-`sl <command> --help` bajo demanda.
+solo el flujo crítico; para sintaxis puntual, el agente consulta `changeledger help` o
+`changeledger <command> --help` bajo demanda.
 
 `init` exige el `AGENTS.md` raíz y appendea la referencia como **caja de alerta
-GitHub** (`> [!IMPORTANT]`, marcador `<!-- spec-ledger -->`, idempotente) a cada
+GitHub** (`> [!IMPORTANT]`, marcador `<!-- changeledger -->`, idempotente) a cada
 archivo de contrato presente que **no sea symlink** — `AGENTS.md` y `CLAUDE.md` —
 de modo que cualquier agente (Claude, Codex, opencode, Copilot, Cursor…) lo
 descubra sin tooling específico. `contract.mjs` concentra la lógica
 (`linkContract`, `ensureReference`, `ensureGitignore`, `checkContract`);
-`sl check` falla (error, no warning) si falta el raíz, si un contrato presente no
+`changeledger check` falla (error, no warning) si falta el raíz, si un contrato presente no
 referencia, o si el link no resuelve — el discovery es condición para que la
 herramienta funcione en el repo.
 
@@ -410,12 +410,12 @@ inglés canónico.
 
 ## Presentación
 
-El visor (`sl view`) levanta un server `node:http` enlazado **solo a loopback**
-(`127.0.0.1`) que relee `.sl/` en cada request (live) y expone JSON. Rechaza
+El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
+(`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
 requests cuyo `Host`/`Origin` no sea local (defensa anti DNS-rebinding), añade
 headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
 body y exige una credencial efímera por proceso (inyectada en la página y
-enviada en `x-sl-token`) para escribir. Las escrituras exigen un `project`
+enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** apruebe un change `draft` arrastrando su card y acepte o
 rechace con motivo un change `in-validation` desde su detalle; el resto del ciclo
@@ -477,15 +477,15 @@ empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un erro
 claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
 read-modify-write del registry (`register`, `remove`) se envuelven en
 `withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
-`sl register`/`sl remove` sobre el mismo archivo. El directorio se garantiza
+`changeledger register`/`changeledger remove` sobre el mismo archivo. El directorio se garantiza
 antes de tomar el lock porque el lock file requiere que el directorio exista.
 
 ## Política de dependencias
 
-Spec Ledger no prohíbe dependencias runtime, pero las trata como coste de
+ChangeLedger no prohíbe dependencias runtime, pero las trata como coste de
 producto: cada una debe ser madura, mantenida y proporcional al problema que
 resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño,
-pero usa `yaml` para parsear y serializar `.sl/config.yml` y frontmatter porque
+pero usa `yaml` para parsear y serializar `.changeledger/config.yml` y frontmatter porque
 YAML tiene suficientes reglas y bordes como para no mantener un parser propio. En
 dominios con superficie amplia o riesgo de seguridad —templates DOM, render
 Markdown, sanitización HTML, diagramas— el visor usa librerías especializadas y

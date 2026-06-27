@@ -2,11 +2,13 @@
 id: "20260627-000730"
 title: Resolve dependency audit vulnerabilities
 type: bug
-status: in-validation
+status: done
 created: 2026-06-27T00:07:30Z
 depends_on: [ "20260624-153236" ]
 release_impact: patch
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -67,3 +69,6 @@ son necesarias para cerrar estos advisories.
 - **2026-06-27T10:02:04Z** — Actualizados dompurify a 3.4.11 y undici transitivo a 7.28.0 con pnpm 10.31.0; instalación frozen válida, audit sin vulnerabilidades, 365 pruebas y 122 changes válidos.
 - **2026-06-27T10:02:04Z** — status: in-progress → in-review
 - **2026-06-27T10:04:13Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:05:18Z** — validation → done (human accepted)
+- **2026-06-27T10:08:06Z** — graduation skipped: Dependency-only security fix; no additional persistent product behavior.
+- **2026-06-27T10:08:06Z** — archived
