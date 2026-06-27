@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-27T10:44:24Z
+updated: 2026-06-27T19:44:36Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -40,6 +40,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 > Graduado del change 20260624-153236 (migración integral a ChangeLedger).
 > Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
+> Graduado del change 20260627-111219 (persistencia del estado del viewer).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -452,6 +453,33 @@ status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
 locales. La cobertura del transporte real queda acotada a un smoke test del bind
 a `127.0.0.1`; si el sandbox niega ese bind con `EPERM`/`EACCES`, la suite no
 falla por una restricción del entorno que no afecta al router.
+
+La pestaña **Projects** administra el registro local desde el propio visor:
+muestra id, nombre, ruta y salud; permite reparar una ruta movida solo cuando el
+`project_id` coincide, y desregistrar una entrada sin eliminar archivos del
+repositorio. En modo `--local` conserva la lectura/edición del proyecto actual,
+pero oculta las mutaciones del registro global.
+
+Para proyectos vivos, `.changeledger/config.yml` es la autoridad del nombre. El
+nombre guardado en `.registry.json` solo sirve como fallback cuando la ruta ya no
+existe. El editor entrega el YAML exacto —comentarios incluidos— y protege
+`project_id` como identidad inmutable. Antes de una escritura carga el
+repositorio completo con el config candidato, ejecuta las validaciones de
+contrato y rutas, compara una revisión SHA-256 para detectar ediciones externas
+y reemplaza el archivo atómicamente. Configs sintáctica o estructuralmente
+inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
+normalizan para no revelar rutas locales. Los endpoints de config, reparación y
+desregistro comparten token efímero, límite de body y frontera loopback con las
+demás escrituras del viewer.
+
+El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
+sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden y filtros de
+cada proyecto. La restauración hidrata el shell antes de iniciar los fetches y
+normaliza proyectos o valores que ya no existen; cada proyecto mantiene sus
+propios filtros. Un storage ausente, corrupto, bloqueado o sin cuota nunca impide
+el arranque. El snapshot excluye tokens, rutas, YAML, contenido del repositorio,
+formularios y errores. Si no queda ningún proyecto vivo, la UI corrige el estado
+a Board, desactiva Global y muestra el estado vacío visible.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
 mostrarlos); el flag los saca del board sin sacarlos de `changes_dir`, así

@@ -5,7 +5,16 @@ import { resolveProjects } from '../viewer/domain.mjs';
 import { createRequestListener, staticFile } from '../viewer/server/router.mjs';
 import { hostnameOf, isAuthorizedWrite, isLocalHost } from '../viewer/server/security.mjs';
 
-export { changeStatus, resolveProjects, searchProjects, serialize } from '../viewer/domain.mjs';
+export {
+  changeStatus,
+  readProjectConfig,
+  repairProjectPath,
+  resolveProjects,
+  saveProjectConfig,
+  searchProjects,
+  serialize,
+  unregisterProject,
+} from '../viewer/domain.mjs';
 export { createRequestListener, hostnameOf, isAuthorizedWrite, isLocalHost, staticFile };
 
 export async function view(args = [], cwd = process.cwd()) {

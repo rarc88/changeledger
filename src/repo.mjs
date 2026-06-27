@@ -47,6 +47,13 @@ export function loadRepo(start = process.cwd()) {
   }
   const repoRoot = path.dirname(changeledgerDir);
   const config = loadConfig(changeledgerDir);
+  return loadRepoWithConfig(repoRoot, changeledgerDir, config);
+}
+
+// Loads repository content using an already parsed candidate config. The viewer
+// uses this before replacing config.yml so changes to configured directories are
+// validated against the content they would actually expose after the save.
+export function loadRepoWithConfig(repoRoot, changeledgerDir, config) {
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
   const changes = [];

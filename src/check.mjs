@@ -15,9 +15,9 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
   checkConfig(config, (c, message) => err(c ?? { name: '.changeledger/config.yml' }, message));
 
-  const statuses = config.statuses ?? [];
-  const types = config.types ?? {};
-  const canonical = config.stages ?? [];
+  const statuses = Array.isArray(config.statuses) ? config.statuses : [];
+  const types = isMapping(config.types) ? config.types : {};
+  const canonical = Array.isArray(config.stages) ? config.stages : [];
 
   // Scope: a single change (fast, post-write check) or the whole repo.
   let targets = changes;
@@ -64,7 +64,8 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     const ordered = [...known].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b));
     if (known.join(',') !== ordered.join(',')) err(c, 'stages are out of canonical order');
 
-    const active = types[fm.type]?.stages;
+    const typeDefinition = isMapping(types[fm.type]) ? types[fm.type] : null;
+    const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : null;
     if (active) {
       for (const k of active)
         if (!present.includes(k)) err(c, `missing active stage "## ${k}" for type ${fm.type}`);
@@ -365,9 +366,20 @@ function misplacedVerificationSuffix(task, config) {
 }
 
 function readinessConfig(config) {
+  const readiness = isMapping(config?.readiness) ? config.readiness : null;
   return {
-    target_patterns: config?.readiness?.target_patterns ?? ['src/**'],
-    verification_patterns: config?.readiness?.verification_patterns ?? ['test/**'],
+    target_patterns:
+      readiness && 'target_patterns' in readiness
+        ? Array.isArray(readiness.target_patterns)
+          ? readiness.target_patterns
+          : []
+        : ['src/**'],
+    verification_patterns:
+      readiness && 'verification_patterns' in readiness
+        ? Array.isArray(readiness.verification_patterns)
+          ? readiness.verification_patterns
+          : []
+        : ['test/**'],
   };
 }
 
@@ -445,17 +457,31 @@ function checkConfig(config, err) {
   }
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
+  if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
-  if ('release' in c) checkReleaseConfig(c.release, c.types ?? {}, err);
+  const configuredTypes = isMapping(c.types) ? c.types : {};
+  if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
-  for (const [type, def] of Object.entries(c.types ?? {})) {
-    for (const s of def?.stages ?? []) {
+  for (const [type, def] of Object.entries(configuredTypes)) {
+    if (!isMapping(def)) {
+      err(null, `config type "${type}" must be a mapping`);
+      continue;
+    }
+    if (!Array.isArray(def.stages)) {
+      err(null, `config type "${type}": stages must be a list`);
+      continue;
+    }
+    for (const s of def.stages) {
       if (!canonical.includes(s))
         err(null, `config type "${type}" references unknown stage "${s}"`);
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
   }
+}
+
+function isMapping(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function checkReleaseConfig(release, types, err) {

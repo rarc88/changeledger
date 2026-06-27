@@ -1,11 +1,15 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { mutateFileAtomic } from '../atomic-write.mjs';
+import { checkRepo } from '../check.mjs';
 import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
-import { listProjects } from '../registry.mjs';
-import { loadRepo } from '../repo.mjs';
+import { listProjects, remove, update } from '../registry.mjs';
+import { loadRepo, loadRepoWithConfig } from '../repo.mjs';
+import { parseYaml } from '../yaml.mjs';
 
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
@@ -130,4 +134,133 @@ export function changeStatus(projects, { project, id, status, reason }) {
   } catch (e) {
     return { code: 400, body: { error: e.message } };
   }
+}
+
+const revision = (text) => crypto.createHash('sha256').update(text).digest('hex');
+
+function projectFor(projects, id) {
+  const project = projects.find((item) => item.id === id);
+  if (!project) return { code: 404, body: { error: `no project "${id}"` } };
+  if (!project.alive) return { code: 410, body: { error: 'project path is gone' } };
+  return { project };
+}
+
+export function readProjectConfig(projects, id) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  return { code: 200, body: { content, revision: revision(content) } };
+}
+
+export function saveProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+  const found = projectFor(projects, payload.project);
+  if (!found.project) return found;
+  if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
+    return { code: 400, body: { error: 'content and revision are required' } };
+  }
+
+  let candidate;
+  try {
+    candidate = parseYaml(payload.content);
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
+  if (String(candidate.project_id ?? '') !== String(found.project.id)) {
+    return { code: 400, body: { error: 'project_id cannot be changed from the viewer' } };
+  }
+
+  let repo;
+  try {
+    repo = loadRepo(found.project.path);
+  } catch {
+    return { code: 400, body: { error: 'unable to load the current project configuration' } };
+  }
+  try {
+    resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
+    resolveSpecsDir(repo.repoRoot, candidate);
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
+  let candidateRepo;
+  try {
+    candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+  } catch {
+    return { code: 400, body: { error: 'candidate configuration cannot load the repository' } };
+  }
+  let errors;
+  try {
+    ({ errors } = checkRepo(candidateRepo));
+  } catch {
+    return {
+      code: 400,
+      body: { error: 'candidate configuration violates the ChangeLedger contract' },
+    };
+  }
+  if (errors.length) return { code: 400, body: { error: errors[0].message } };
+
+  const file = path.join(repo.changeledgerDir, 'config.yml');
+  const projectName =
+    typeof candidate.project_name === 'string' && candidate.project_name.trim()
+      ? candidate.project_name
+      : found.project.name;
+  try {
+    mutateConfig(file, (before) => {
+      if (revision(before) !== payload.revision) {
+        throw new Error('configuration changed on disk; reload before saving');
+      }
+      return payload.content;
+    });
+  } catch (error) {
+    if (error.message === 'configuration changed on disk; reload before saving') {
+      return { code: 409, body: { error: error.message } };
+    }
+    return { code: 400, body: { error: 'unable to save project configuration' } };
+  }
+  return {
+    code: 200,
+    body: { ok: true, name: projectName, revision: revision(payload.content) },
+  };
+}
+
+export function repairProjectPath(projects, payload, { localOnly = false } = {}) {
+  if (localOnly)
+    return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
+  const project = projects.find((item) => item.id === payload.project);
+  if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (typeof payload.path !== 'string' || !path.isAbsolute(payload.path)) {
+    return { code: 400, body: { error: 'project path must be absolute' } };
+  }
+  const root = path.resolve(payload.path);
+  let config;
+  try {
+    config = loadConfig(path.join(root, '.changeledger'));
+  } catch {
+    return { code: 400, body: { error: 'project path is not a ChangeLedger repository' } };
+  }
+  if (String(config.project_id ?? '') !== String(project.id)) {
+    return { code: 400, body: { error: 'project path belongs to a different project_id' } };
+  }
+  try {
+    update(project.id, { name: config.project_name ?? project.name, path: root });
+  } catch {
+    return { code: 400, body: { error: 'unable to update project registry' } };
+  }
+  return { code: 200, body: { ok: true } };
+}
+
+export function unregisterProject(projects, payload, { localOnly = false } = {}) {
+  if (localOnly)
+    return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
+  const project = projects.find((item) => item.id === payload.project);
+  if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (payload.confirm !== project.name) {
+    return { code: 400, body: { error: `type "${project.name}" to confirm` } };
+  }
+  try {
+    remove(project.id);
+  } catch {
+    return { code: 400, body: { error: 'unable to update project registry' } };
+  }
+  return { code: 200, body: { ok: true } };
 }

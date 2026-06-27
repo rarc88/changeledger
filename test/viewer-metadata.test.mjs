@@ -14,6 +14,7 @@ globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
 const {
   boardStatuses,
+  bindProjectViewActions,
   card,
   closeStatusMenuOnOutsideClick,
   createDiagramLightbox,
@@ -21,15 +22,22 @@ const {
   esc,
   isVisible,
   passesTombstones,
+  projectMutation,
+  projectsViewTemplate,
+  requestUnregisterConfirmation,
+  restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
+  showNoProjects,
   stageBlock,
   sortIndicator,
   statusTag,
   statusSummary,
+  syncViewerShell,
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { state: appState } = await import('../src/viewer/public/app-state.js');
 const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
@@ -62,6 +70,219 @@ const baseChange = () => ({
   progress: { total: 0, done: 0, blocked: 0 },
   stages: [],
   tasks: [],
+});
+
+test('111218 CR1/CR2: projects view renders health, exact YAML text and safe metadata', () => {
+  const host = parse(
+    projectsViewTemplate(
+      [
+        { id: 'aaa111', name: XSS, path: '/repos/alpha', alive: true },
+        { id: 'bbb222', name: 'beta', path: '/gone/beta', alive: false },
+      ],
+      'aaa111',
+      { content: 'language: es\n# <script>alert(1)</script>', revision: 'rev' },
+      false,
+    ),
+  );
+  assert.equal(host.querySelectorAll('.project-row').length, 2);
+  assert.equal(host.querySelectorAll('.project-health.available').length, 2);
+  assert.equal(host.querySelectorAll('.project-health.missing').length, 1);
+  assert.equal(host.querySelector('textarea').value, 'language: es\n# <script>alert(1)</script>');
+  assert.equal(host.querySelector('script'), null);
+  assert.equal(host.querySelector('img'), null);
+});
+
+test('111218 CR1/CR8: missing and local projects expose only valid actions', () => {
+  const missing = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/gone', alive: false }],
+      'aaa111',
+      null,
+      false,
+    ),
+  );
+  assert.ok(missing.querySelector('.project-path-form'));
+  assert.ok(missing.querySelector('[data-unregister]'));
+  assert.equal(missing.querySelector('.config-form'), null);
+
+  const local = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: 'project_id: aaa111', revision: 'rev' },
+      true,
+    ),
+  );
+  assert.ok(local.querySelector('.config-form'));
+  assert.equal(local.querySelector('.project-path-form'), null);
+  assert.equal(local.querySelector('[data-unregister]'), null);
+});
+
+test('111218 CR3/CR9: project mutation disables controls pending and completes once', async () => {
+  const root = document.createElement('form');
+  root.innerHTML = '<button>Save</button><input><textarea></textarea><p class="project-error"></p>';
+  let resolveRequest;
+  let successes = 0;
+  const pending = projectMutation(
+    root,
+    () =>
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    async () => {
+      successes++;
+    },
+  );
+  assert.ok(root.classList.contains('is-pending'));
+  assert.ok([...root.querySelectorAll('button,input,textarea')].every((item) => item.disabled));
+  resolveRequest({ ok: true, json: async () => ({ ok: true }) });
+  await pending;
+  assert.equal(successes, 1);
+  assert.ok([...root.querySelectorAll('button,input,textarea')].every((item) => !item.disabled));
+});
+
+test('111218 CR4/CR9: project mutation keeps the form and exposes a server error', async () => {
+  const root = document.createElement('form');
+  root.innerHTML =
+    '<button>Save</button><textarea>candidate yaml</textarea><p class="project-error" hidden></p>';
+  let successes = 0;
+  await projectMutation(
+    root,
+    async () => ({
+      ok: false,
+      json: async () => ({ error: 'configuration changed on disk; reload before saving' }),
+    }),
+    async () => {
+      successes++;
+    },
+  );
+  assert.equal(successes, 0);
+  assert.equal(root.querySelector('textarea').value, 'candidate yaml');
+  assert.equal(root.querySelector('.project-error').hidden, false);
+  assert.match(root.querySelector('.project-error').textContent, /configuration changed on disk/);
+});
+
+test('111218 CR7: unregister confirmation names the project and promises no deletion', () => {
+  let message = '';
+  const answer = requestUnregisterConfirmation({ name: 'alpha' }, (value) => {
+    message = value;
+    return 'alpha';
+  });
+  assert.equal(answer, 'alpha');
+  assert.match(message, /Type "alpha"/);
+  assert.match(message, /No repository files will be deleted/);
+});
+
+test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair and unregister', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: 'project_name: alpha', revision: 'rev' },
+      false,
+    ),
+  );
+  const calls = [];
+  bindProjectViewActions(root, {
+    select: (id) => calls.push(['select', id]),
+    reload: () => calls.push(['reload']),
+    save: (content, form) => calls.push(['save', content, form.className]),
+    repair: (projectPath, form) => calls.push(['repair', projectPath, form.className]),
+    unregister: (editor) => calls.push(['unregister', editor.className]),
+  });
+
+  root.querySelector('[data-manage-project]').click();
+  root.querySelector('[data-reload-config]').click();
+  root
+    .querySelector('.config-form')
+    .dispatchEvent(new window.Event('submit', { cancelable: true }));
+  root
+    .querySelector('.project-path-form')
+    .dispatchEvent(new window.Event('submit', { cancelable: true }));
+  root.querySelector('[data-unregister]').click();
+
+  assert.deepEqual(calls, [
+    ['select', 'aaa111'],
+    ['reload'],
+    ['save', 'project_name: alpha', 'config-form'],
+    ['repair', '/repos/alpha', 'project-path-form'],
+    ['unregister', 'project-editor'],
+  ]);
+});
+
+test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  appState.filters.text = 'authentication';
+  appState.currentView = 'graph';
+  appState.globalMode = false;
+  syncViewerShell(root, false);
+  assert.equal(root.querySelector('#search').value, 'authentication');
+  assert.ok(root.querySelector('#view-graph').classList.contains('active'));
+  assert.ok(!root.querySelector('#graph').classList.contains('hidden'));
+  assert.ok(root.querySelector('#board').classList.contains('hidden'));
+
+  appState.globalMode = true;
+  syncViewerShell(root, false);
+  assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
+  assert.ok(!root.querySelector('#global').classList.contains('hidden'));
+  assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+});
+
+test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates blocked storage access', () => {
+  const shell = () => {
+    const root = document.createElement('div');
+    root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+      ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+        .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+        .join('')}
+      <section id="global"></section>`;
+    return root;
+  };
+  const root = shell();
+  const snapshot = JSON.stringify({
+    version: 1,
+    currentView: 'table',
+    globalMode: true,
+    text: 'restored before fetch',
+    projects: {},
+  });
+  restoreInitialViewerShell(root, () => ({ getItem: () => snapshot, setItem() {} }));
+  assert.equal(root.querySelector('#search').value, 'restored before fetch');
+  assert.ok(root.querySelector('#view-table').classList.contains('active'));
+  assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
+  assert.ok(!root.querySelector('#global').classList.contains('hidden'));
+
+  assert.doesNotThrow(() =>
+    restoreInitialViewerShell(shell(), () => {
+      throw new window.DOMException('blocked', 'SecurityError');
+    }),
+  );
+});
+
+test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button>
+    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  appState.currentProject = null;
+  appState.currentView = 'table';
+  appState.globalMode = true;
+
+  showNoProjects(root);
+
+  assert.equal(appState.currentView, 'board');
+  assert.equal(appState.globalMode, false);
+  assert.ok(root.querySelector('#view-board').classList.contains('active'));
+  assert.ok(!root.querySelector('#board').classList.contains('hidden'));
+  assert.ok(root.querySelector('#table').classList.contains('hidden'));
+  assert.match(root.querySelector('#board').textContent, /No projects registered/);
 });
 
 test('175732 CR1: a payload in id/type/status does not create active HTML in a card', () => {

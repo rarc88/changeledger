@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
+import { loadConfig } from './config.mjs';
 
 export function registryDir() {
   return path.join(process.env.CHANGELEDGER_HOME || os.homedir(), '.changeledger');
@@ -42,7 +43,18 @@ export function register({ id, name, path: repoPath }) {
 }
 
 export function listProjects() {
-  return Object.entries(readRegistry()).map(([id, v]) => ({ id, name: v.name, path: v.path }));
+  return Object.entries(readRegistry()).map(([id, value]) => {
+    let name = value.name;
+    try {
+      const config = loadConfig(path.join(value.path, '.changeledger'));
+      if (String(config.project_id) === id && typeof config.project_name === 'string') {
+        name = config.project_name;
+      }
+    } catch {
+      // Missing projects keep their last registered display name.
+    }
+    return { id, name, path: value.path };
+  });
 }
 
 export function remove(id) {
@@ -51,5 +63,16 @@ export function remove(id) {
     const reg = readRegistry();
     delete reg[id];
     writeRegistry(reg);
+  });
+}
+
+export function update(id, values) {
+  fs.mkdirSync(registryDir(), { recursive: true });
+  return withFileLock(registryPath(), () => {
+    const reg = readRegistry();
+    if (!reg[id]) throw new Error(`no registered project "${id}"`);
+    reg[id] = { ...reg[id], ...values };
+    writeRegistry(reg);
+    return reg[id];
   });
 }

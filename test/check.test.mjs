@@ -150,6 +150,49 @@ test('config missing a required key is an error', () => {
   assert.ok(msgs(errors).some((m) => /config missing "statuses"/.test(m)));
 });
 
+test('111218 CR4: wrong-shaped config collections report errors instead of throwing', () => {
+  const bad = { ...config, statuses: { draft: true }, stages: { request: true }, types: [] };
+  const { errors } = checkRepo({ config: bad, changes: [change()] });
+  assert.ok(msgs(errors).some((message) => message.includes('config "statuses" must be a list')));
+  assert.ok(msgs(errors).some((message) => message.includes('config "stages" must be a list')));
+  assert.ok(msgs(errors).some((message) => message.includes('config "types" must be a mapping')));
+});
+
+test('111218 CR4: malformed type definitions report precise structural errors', () => {
+  const scalarTypes = checkRepo({ config: { ...config, types: 'feature' }, changes: [change()] });
+  assert.ok(
+    msgs(scalarTypes.errors).some((message) =>
+      message.includes('config "types" must be a mapping'),
+    ),
+  );
+
+  for (const stages of [{ request: true }, 'request']) {
+    const result = checkRepo({
+      config: { ...config, types: { feature: { stages } } },
+      changes: [change()],
+    });
+    assert.ok(
+      msgs(result.errors).some((message) =>
+        message.includes('config type "feature": stages must be a list'),
+      ),
+    );
+  }
+});
+
+test('111218 CR4: malformed readiness patterns report errors without breaking coverage', () => {
+  for (const target_patterns of ['src/**', { src: true }]) {
+    const result = checkRepo({
+      config: { ...config, readiness: { target_patterns, verification_patterns: ['test/**'] } },
+      changes: [change()],
+    });
+    assert.ok(
+      msgs(result.errors).some((message) =>
+        message.includes('config "readiness.target_patterns" must be a list'),
+      ),
+    );
+  }
+});
+
 test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
   const missing = {
     ...config,
