@@ -188,7 +188,7 @@ const pkgVersion = JSON.parse(
 test('113218 CR1: --version prints package version and exits 0', () => {
   const { code, out } = run('--version');
   assert.equal(code, 0);
-  assert.equal(out.trim(), pkgVersion);
+  assert.equal(out, `${pkgVersion}\n`);
 });
 
 test('113218 CR2: -V produces identical output to --version', () => {
@@ -201,7 +201,7 @@ test('113218 CR2: -V produces identical output to --version', () => {
 
 test('113218 CR3: version comes from package.json, not a hardcoded literal', () => {
   const { out } = run('--version');
-  assert.equal(out.trim(), pkgVersion, 'version must match package.json at runtime');
+  assert.equal(out, `${pkgVersion}\n`, 'version must match package.json at runtime');
 });
 
 test('113218 CR4: --help lists -V, --version option', () => {
