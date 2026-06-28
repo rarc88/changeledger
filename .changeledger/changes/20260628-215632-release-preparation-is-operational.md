@@ -2,7 +2,7 @@
 id: "20260628-215632"
 title: Treat routine release preparation as operational work
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-28T21:56:32Z
 depends_on: []
 owner: Roberto Ruiz
@@ -90,3 +90,4 @@ GitHub ni un stack concreto.
 - **2026-06-28T21:58:16Z** — owner → Roberto Ruiz (auto)
 - **2026-06-28T21:59:14Z** — Implementado con TDD: el contexto release clasifica la preparación rutinaria como trabajo operativo, evita chores circulares y exige resolver cambios reales antes de recalcular el plan. pnpm verify: 468 tests.
 - **2026-06-28T21:59:14Z** — status: in-progress → in-review
+- **2026-06-28T22:01:22Z** — review → in-validation (delegated subagent, clean context)
