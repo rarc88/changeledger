@@ -2,10 +2,12 @@
 id: "20260628-113219"
 title: Migrar configuraciones de repositorios de forma segura
 type: feature
-status: in-validation
+status: done
 created: 2026-06-28T11:32:19Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -163,3 +165,6 @@ archivo vigente es un no-op byte-idéntico.
 - **2026-06-28T16:47:36Z** — Corrección final: cobertura explícita para comentarios administrados en claves añadidas y config dogfood alineado con referencias actuales, sin bloque readiness duplicado. pnpm verify: 462 tests.
 - **2026-06-28T16:47:36Z** — status: in-progress → in-review
 - **2026-06-28T16:51:50Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T17:13:43Z** — validation → done (human accepted)
+- **2026-06-28T17:15:04Z** — graduado a spec `architecture.md`
+- **2026-06-28T17:15:04Z** — archived

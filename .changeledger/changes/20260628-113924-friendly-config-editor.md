@@ -2,10 +2,12 @@
 id: "20260628-113924"
 title: Editor amigable y migración de config en el viewer
 type: feature
-status: in-validation
+status: done
 created: 2026-06-28T11:39:24Z
 depends_on: [ "20260628-113219" ]
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -187,3 +189,6 @@ claves custom o rediseñar el resto de Projects.
 - **2026-06-28T17:03:00Z** — Corrección de review CR7: el preview exitoso renderiza summary con Config migration 0 → 1 (dry run), además de cambios y YAML candidato; regresión DOM. pnpm verify: 466 tests.
 - **2026-06-28T17:03:00Z** — status: in-progress → in-review
 - **2026-06-28T17:04:51Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T17:13:45Z** — validation → done (human accepted)
+- **2026-06-28T17:15:04Z** — graduado a spec `viewer.md`
+- **2026-06-28T17:15:04Z** — archived

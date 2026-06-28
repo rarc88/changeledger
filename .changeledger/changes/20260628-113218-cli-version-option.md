@@ -2,10 +2,12 @@
 id: "20260628-113218"
 title: Exponer la versión instalada desde el CLI
 type: bug
-status: in-validation
+status: done
 created: 2026-06-28T11:32:18Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -64,3 +66,6 @@ no ofrece hoy la convención estándar `--version`/`-V`; responde `unknown optio
 - **2026-06-28T12:44:39Z** — status: in-progress → in-review
 - **2026-06-28T12:44:39Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T12:44:39Z** — Corrección: -v añadido como alias; -V normalizado en pre-parse; tests actualizados.
+- **2026-06-28T17:13:41Z** — validation → done (human accepted)
+- **2026-06-28T17:15:04Z** — graduado a spec `architecture.md`
+- **2026-06-28T17:15:04Z** — archived

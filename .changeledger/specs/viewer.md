@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-06-27T22:13:56Z
+updated: 2026-06-28T17:15:04Z
 tags: [ viewer ]
 ---
 
@@ -11,6 +11,7 @@ tags: [ viewer ]
 > Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
 > Graduado del change 20260627-111219 (persistencia del estado del viewer).
 > Graduado del change 20260627-215619 (navegación entre specs por enlaces).
+> Graduado del change 20260628-113924 (editor amigable y migración de config).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -70,6 +71,23 @@ inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
 normalizan para no revelar rutas locales. Los endpoints de config, reparación y
 desregistro comparten token efímero, límite de body y frontera loopback con las
 demás escrituras del viewer.
+
+La configuración ofrece dos modos. **Form** es el predeterminado y representa
+General, Paths, statuses y stages del lifecycle, tipos y stages activos, política
+de review, impacto SemVer, Definition of Ready e identidad interna. **Raw YAML**
+conserva la edición avanzada. Form envía únicamente un patch semántico allowlisted
+y diferencial, por lo que cambiar un campo no reconstruye el documento ni inventa
+defaults para tipos custom. El servidor conserva la autoridad: rechaza identidad,
+valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de una
+escritura atómica.
+
+Un config antiguo muestra **Migration required** y permite previsualizar el resumen
+`0 → 1`, los cambios y el YAML candidato antes de una aplicación confirmada. CLI y
+viewer comparten el mismo motor de migración. Un schema futuro es estrictamente de
+solo lectura tanto en UI como en endpoints Raw/Form. Cambiar de modo, recargar o
+seleccionar otro proyecto con ediciones locales exige confirmación. Confirmaciones,
+desregistro y errores usan dialogs/toasts propios accesibles; no dependen de
+`alert`, `confirm` ni `prompt` del navegador.
 
 El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
 sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden y filtros de
