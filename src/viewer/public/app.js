@@ -705,6 +705,47 @@ export function setConfirmImpl(impl) {
   _confirmImpl = impl;
 }
 
+// Prompt dialog — returns the entered string or null (cancel). Mockable via _promptImpl.
+let _promptImpl = null;
+export function setPromptImpl(impl) {
+  _promptImpl = impl;
+}
+
+export function showPrompt(message, { placeholder = '' } = {}) {
+  if (_promptImpl !== null) return Promise.resolve(_promptImpl(message));
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'cl-confirm-dialog';
+    dialog.innerHTML = `
+      <p class="cl-confirm-message"></p>
+      <input class="cl-prompt-input" type="text" autocomplete="off" />
+      <div class="cl-confirm-actions">
+        <button type="button" class="button cl-confirm-yes">Confirm</button>
+        <button type="button" class="button secondary cl-confirm-no">Cancel</button>
+      </div>`;
+    dialog.querySelector('.cl-confirm-message').textContent = message;
+    const input = dialog.querySelector('.cl-prompt-input');
+    if (placeholder) input.placeholder = placeholder;
+    document.body.appendChild(dialog);
+    const done = (result) => {
+      dialog.close();
+      dialog.remove();
+      resolve(result);
+    };
+    dialog.querySelector('.cl-confirm-yes').onclick = () => done(input.value);
+    dialog.querySelector('.cl-confirm-no').onclick = () => done(null);
+    dialog.addEventListener('cancel', () => done(null));
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) done(null);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') done(input.value);
+    });
+    dialog.showModal();
+    input.focus();
+  });
+}
+
 export function showConfirm(message) {
   if (_confirmImpl) return Promise.resolve(_confirmImpl(message));
   return new Promise((resolve) => {
@@ -1072,9 +1113,14 @@ export async function projectMutation(root, request, onSuccess) {
   }
 }
 
-export function requestUnregisterConfirmation(project, ask = prompt) {
-  return ask(
+export function requestUnregisterConfirmation(project, ask = null) {
+  if (ask !== null)
+    return ask(
+      `Type "${project.name}" to unregister this project. No repository files will be deleted.`,
+    );
+  return showPrompt(
     `Type "${project.name}" to unregister this project. No repository files will be deleted.`,
+    { placeholder: project.name },
   );
 }
 
@@ -1227,13 +1273,13 @@ function renderProjects() {
           await openManagedProject(managedProject, { reload: true });
         },
       ),
-    unregister: (editor) => {
+    unregister: async (editor) => {
       const project = state.projectsList.find((item) => item.id === managedProject);
-      const confirm = requestUnregisterConfirmation(project);
-      if (confirm === null) return;
+      const answer = await requestUnregisterConfirmation(project);
+      if (answer === null) return;
       projectMutation(
         editor,
-        () => postProjectRemove(managedProject, confirm),
+        () => postProjectRemove(managedProject, answer),
         async () => {
           managedProject = null;
           managedConfig = null;

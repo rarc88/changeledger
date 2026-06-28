@@ -1539,3 +1539,21 @@ body {
   border: 1px solid rgba(246, 193, 119, 0.3);
   color: #f6c177;
 }
+
+/* Prompt input inside confirm dialog */
+.cl-prompt-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.cl-prompt-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}

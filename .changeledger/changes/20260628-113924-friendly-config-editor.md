@@ -170,3 +170,4 @@ claves custom o rediseñar el resto de Projects.
 - **2026-06-28T13:36:37Z** — Corrección 5 hallazgos bloqueantes: (1) CR11 dirty-state guard en switchMode/select/reload con showConfirm; (2) migration refresca comentarios en nuevas claves (string-key→Scalar fix); (3) collectFormPatch no inventa impacts para tipos custom sin impacto previo; (4) Lifecycle section con badges de status y stages visuales; (5) 4 alert() reemplazados con showToast() + toast-container en index.html.
 - **2026-06-28T13:36:37Z** — status: in-progress → in-review
 - **2026-06-28T13:36:37Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T13:48:02Z** — Eliminado último modal nativo: requestUnregisterConfirmation reemplazado con showPrompt() usando native <dialog> con input; setPromptImpl() para test injection; CSS para cl-prompt-input.

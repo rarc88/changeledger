@@ -29,8 +29,10 @@ const {
   resetValidationState,
   runValidationSubmission,
   setConfirmImpl,
+  setPromptImpl,
   showConfirm,
   showNoProjects,
+  showPrompt,
   showToast,
   stageBlock,
   sortIndicator,
@@ -831,4 +833,34 @@ test('113924 CR3 lifecycle: canonical statuses shown as badges, stages shown', (
 // showToast: exported and testable (just verifies it doesn't throw in test env)
 test('113924: showToast does not throw when toast-container is absent', () => {
   assert.doesNotThrow(() => showToast('test error'));
+});
+
+test('113924: showPrompt is mockable via setPromptImpl', async () => {
+  let prompted = null;
+  setPromptImpl((msg) => {
+    prompted = msg;
+    return 'typed-value';
+  });
+  const val = await showPrompt('Type the name');
+  setPromptImpl(null);
+  assert.equal(val, 'typed-value');
+  assert.equal(prompted, 'Type the name');
+});
+
+test('113924: requestUnregisterConfirmation uses showPrompt when no ask override', async () => {
+  setPromptImpl(() => 'alpha');
+  const result = await requestUnregisterConfirmation({ name: 'alpha' });
+  setPromptImpl(null);
+  assert.equal(result, 'alpha');
+});
+
+test('113924: requestUnregisterConfirmation still accepts legacy ask override', () => {
+  let message = '';
+  const answer = requestUnregisterConfirmation({ name: 'alpha' }, (value) => {
+    message = value;
+    return 'alpha';
+  });
+  assert.equal(answer, 'alpha');
+  assert.match(message, /Type "alpha"/);
+  assert.match(message, /No repository files will be deleted/);
 });
