@@ -199,15 +199,24 @@ test('113218 CR2: -V produces identical output to --version', () => {
   assert.equal(out1, out2);
 });
 
+test('113218 CR2: -v produces identical output to --version', () => {
+  const { code: code1, out: out1 } = run('--version');
+  const { code: code2, out: out2 } = run('-v');
+  assert.equal(code1, 0);
+  assert.equal(code2, 0);
+  assert.equal(out1, out2);
+});
+
 test('113218 CR3: version comes from package.json, not a hardcoded literal', () => {
   const { out } = run('--version');
   assert.equal(out, `${pkgVersion}\n`, 'version must match package.json at runtime');
 });
 
-test('113218 CR4: --help lists -V, --version option', () => {
+test('113218 CR4: --help lists version flags', () => {
   const { code, out } = run('--help');
   assert.equal(code, 0);
-  assert.match(out, /-V.*--version/);
+  assert.match(out, /-v.*--version/);
+  assert.match(out, /-V/);
 });
 
 // 20260628-113219: config migrate CLI integration

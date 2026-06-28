@@ -75,7 +75,7 @@ function action(fn) {
 program
   .name('changeledger')
   .description('ChangeLedger (changeledger)')
-  .version(version, '-V, --version', 'output the installed version')
+  .version(version, '-v, --version', 'output the installed version (-V also accepted)')
   .helpOption('-h, --help', 'display help for command')
   .addHelpText('after', `\n${USAGE}`);
 
@@ -405,8 +405,10 @@ releaseCommand
     }),
   );
 
-if (process.argv.length <= 2) {
+// Normalize -V to --version so both short aliases work identically.
+const argv = process.argv.map((a) => (a === '-V' ? '--version' : a));
+if (argv.length <= 2) {
   console.log(USAGE);
 } else {
-  program.parse();
+  program.parse(argv);
 }
