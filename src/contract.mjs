@@ -1,29 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic-write.mjs';
-import { agentsTemplate } from './paths.mjs';
 
-// The tool's contract (templates/AGENTS.md) is a tool artifact, not a project
-// artifact. Each repo links to the installed copy via `.changeledger/AGENTS.md` (a
-// per-machine, gitignored symlink) and points its own contract files at that
-// link. We never copy the contract (it would drift) nor commit the symlink (it
-// would dangle on another machine). See change #20260614-151759.
-
-// Project-owned contract files that should reference the linked contract. The
-// root AGENTS.md is required by `init`; CLAUDE.md is referenced when present.
 const CONTRACT_FILES = ['AGENTS.md', 'CLAUDE.md'];
-
 const MARKER = '<!-- changeledger -->';
-const REFERENCE = `${MARKER}
+const LEGACY_ENTRY = '.changeledger/AGENTS.md';
+const LEGACY_HEADING = '# AGENTS.md — ChangeLedger Contract';
+
+export const REFERENCE = `${MARKER}
 > [!IMPORTANT]
-> This repo uses **ChangeLedger**. Read and follow \`.changeledger/AGENTS.md\` (the change
-> contract). If it is missing, run \`changeledger register\`.
+> This repo uses **ChangeLedger**. Before creating or modifying files, run
+> \`changeledger context\` (or \`changeledger context <change-id>\`) and follow its output.
+> If the command is unavailable, stop and restore/install ChangeLedger; do not proceed from memory.
 `;
 
 export const contractLink = (changeledgerDir) => path.join(changeledgerDir, 'AGENTS.md');
 export const rootContract = (repoRoot) => path.join(repoRoot, 'AGENTS.md');
 
-// A real, non-symlink file we may safely append to.
 function isPlainFile(file) {
   try {
     return fs.lstatSync(file).isFile();
@@ -32,69 +25,82 @@ function isPlainFile(file) {
   }
 }
 
-// Create (or refresh) the `.changeledger/AGENTS.md` symlink to the installed contract.
-// Idempotent and tolerant of a pre-existing/dangling link.
-export function linkContract(changeledgerDir) {
-  const link = contractLink(changeledgerDir);
-  try {
-    fs.lstatSync(link);
-    fs.unlinkSync(link);
-  } catch {
-    // no existing link — nothing to remove
-  }
-  try {
-    fs.symlinkSync(agentsTemplate, link);
-  } catch {
-    // Windows without Developer Mode/admin cannot create symlinks. Fall back to
-    // a copy so the contract is still present; `changeledger register` refreshes it if the
-    // installed contract changes.
-    writeFileAtomic(link, fs.readFileSync(agentsTemplate, 'utf8'));
-  }
-  return link;
+function replaceReference(text) {
+  const start = text.indexOf(MARKER);
+  if (start === -1) return `${text}${text.endsWith('\n') ? '' : '\n'}\n${REFERENCE}`;
+  const tail = text.slice(start).split('\n');
+  let consumed = 1;
+  while (consumed < tail.length && tail[consumed].startsWith('>')) consumed += 1;
+  const before = text.slice(0, start);
+  const after = tail.slice(consumed).join('\n').replace(/^\n+/, '');
+  return `${before}${REFERENCE}${after ? `\n${after}` : ''}`;
 }
 
-// Append the reference block to each present, non-symlink contract file unless
-// already there. Symlinks are skipped (appending would write into their target).
+// Add or replace the managed bootstrap block in project-owned agent files.
 export function ensureReference(repoRoot) {
   const touched = [];
   for (const name of CONTRACT_FILES) {
     const file = path.join(repoRoot, name);
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
-    if (text.includes(MARKER)) continue;
-    writeFileAtomic(file, `${text}${text.endsWith('\n') ? '' : '\n'}\n${REFERENCE}`);
+    const updated = replaceReference(text);
+    if (updated === text) continue;
+    writeFileAtomic(file, updated);
     touched.push(name);
   }
   return touched;
 }
 
-// Ensure `.changeledger/AGENTS.md` is gitignored (it is a per-machine artifact).
-export function ensureGitignore(repoRoot) {
+// Remove only artifacts known to be managed by legacy ChangeLedger versions.
+// Unknown regular files fail closed instead of being deleted.
+export function removeLegacyContract(changeledgerDir) {
+  const file = contractLink(changeledgerDir);
+  let stat;
+  try {
+    stat = fs.lstatSync(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+  if (stat.isSymbolicLink()) {
+    fs.unlinkSync(file);
+    return true;
+  }
+  if (stat.isFile() && fs.readFileSync(file, 'utf8').startsWith(LEGACY_HEADING)) {
+    fs.unlinkSync(file);
+    return true;
+  }
+  throw new Error(
+    '`.changeledger/AGENTS.md` is not a recognized legacy ChangeLedger contract; move or remove it manually, then run `changeledger register` again',
+  );
+}
+
+export function removeLegacyGitignore(repoRoot) {
   const file = path.join(repoRoot, '.gitignore');
-  const entry = '.changeledger/AGENTS.md';
-  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-  if (text.split('\n').some((l) => l.trim() === entry)) return false;
-  writeFileAtomic(file, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${entry}\n`);
+  if (!fs.existsSync(file)) return false;
+  const text = fs.readFileSync(file, 'utf8');
+  const lines = text.split('\n');
+  const kept = lines.filter((line) => line.trim() !== LEGACY_ENTRY);
+  if (kept.length === lines.length) return false;
+  writeFileAtomic(file, kept.join('\n'));
   return true;
 }
 
-// IO-level discovery validation (repo-wide). Returns a list of error messages.
-export function checkContract(repoRoot, changeledgerDir) {
+export function checkContract(repoRoot) {
   const errors = [];
   const root = rootContract(repoRoot);
   if (!fs.existsSync(root)) {
     errors.push('missing AGENTS.md at the repo root (ChangeLedger contract reference lives here)');
   }
-  // Every present, non-symlink contract file must carry the reference.
   for (const name of CONTRACT_FILES) {
     const file = path.join(repoRoot, name);
     if (!isPlainFile(file)) continue;
-    if (!fs.readFileSync(file, 'utf8').includes(MARKER)) {
+    const text = fs.readFileSync(file, 'utf8');
+    if (!text.includes(MARKER)) {
       errors.push(`${name} has no ChangeLedger reference — run \`changeledger register\``);
+    } else if (!text.includes(REFERENCE.trim())) {
+      errors.push(`${name} has an outdated ChangeLedger reference — run \`changeledger register\``);
     }
-  }
-  if (!fs.existsSync(contractLink(changeledgerDir))) {
-    errors.push('`.changeledger/AGENTS.md` is missing or dangling — run `changeledger register`');
   }
   return errors;
 }

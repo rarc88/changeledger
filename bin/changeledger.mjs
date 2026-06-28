@@ -13,6 +13,7 @@ import {
   task,
 } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
+import { context } from '../src/commands/context.mjs';
 import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
@@ -28,6 +29,7 @@ const USAGE = `ChangeLedger (changeledger)
   changeledger new <type> <slug> <title>     scaffold a new change (slug is the English filename)
   changeledger view [port]                   launch the local viewer (default port 4040)
   changeledger check [id] [--json]           validate the repo or one change
+  changeledger context [mode|change-id]       print deterministic task context
   changeledger status <id> <status>          move a change's lifecycle status
   changeledger discard <id> "<reason>"       discard a change (terminal; keeps the record)
   changeledger review <id> pass              independent review passed → in-validation
@@ -121,6 +123,12 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command('context')
+  .description('print deterministic task context')
+  .argument('[mode-or-change-id]')
+  .action(action((input) => context(input)));
 
 program
   .command('status')

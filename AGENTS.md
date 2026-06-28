@@ -5,12 +5,14 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
 <!-- changeledger -->
 > [!IMPORTANT]
-> This repo uses **ChangeLedger**. Read and follow [`.changeledger/AGENTS.md`](.changeledger/AGENTS.md)
-> (the change contract). If it is missing, run `changeledger register`.
+> This repo uses **ChangeLedger**. Before creating or modifying files, run
+> `changeledger context` (or `changeledger context <change-id>`) and follow its output.
+> If the command is unavailable, stop and restore/install ChangeLedger; do not proceed from memory.
 
-The **canonical ChangeLedger contract** (the convention every consuming repo
-follows) is shipped as [`templates/AGENTS.md`](templates/AGENTS.md) and linked
-into each repo as `.changeledger/AGENTS.md`. Edit the convention there, not here.
+The canonical ChangeLedger contract is split into task-focused fragments under
+[`templates/contract/`](templates/contract/). The deterministic
+`changeledger context` command composes them; consuming repos keep only the
+bootstrap above, not a linked or copied contract.
 
 ## Project-specific notes
 
@@ -25,5 +27,5 @@ into each repo as `.changeledger/AGENTS.md`. Edit the convention there, not here
 - `pnpm verify` (lint + test + `changeledger check`) is the full quality gate. The
   versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `changeledger check`
   so staged formatting stays compatible with partial commits.
-- The contract you edit for the convention is `templates/AGENTS.md` — it is the
-  artifact that `changeledger init`/`register` symlink into other repos.
+- Edit the convention in `templates/contract/`; keep each rule in one fragment
+  so task contexts compose without duplicated truth.

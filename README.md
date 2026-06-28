@@ -128,17 +128,25 @@ CI:
 changeledger check || exit 1
 ```
 
-The contract itself ships with the CLI and is linked as `.changeledger/AGENTS.md`. It is
-per-machine and gitignored, so upgrades do not leave committed copies behind.
-Run `changeledger register` after cloning, moving a repository or updating the global
-installation.
+The contract ships as task-focused fragments and is compiled on demand:
+
+```sh
+changeledger context                    # minimal non-negotiable core
+changeledger context <change-id>        # lifecycle-aware rules + selected change
+changeledger context review             # explicit task mode
+```
+
+`init` places a small fail-closed bootstrap in the project-owned `AGENTS.md`;
+there is no linked or copied contract under `.changeledger/`. Run
+`changeledger register` after upgrading to refresh that bootstrap and migrate
+legacy repositories.
 
 ## Compatibility and security
 
 - Node.js **24+**.
 - Tested on Linux, macOS and Windows.
-- On Windows, contract linking uses a symlink when permitted and falls back to a
-  copy when Developer Mode or administrator privileges are unavailable.
+- No symlink privileges are required on Windows; context fragments remain in the
+  installed package and the CLI prints them on demand.
 - The viewer binds to loopback and treats repository content as untrusted input.
   See [`SECURITY.md`](SECURITY.md) for the threat model and private reporting
   instructions.

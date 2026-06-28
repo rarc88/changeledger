@@ -1,12 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, loadConfig } from '../config.mjs';
-import { ensureGitignore, ensureReference, linkContract, rootContract } from '../contract.mjs';
+import {
+  ensureReference,
+  removeLegacyContract,
+  removeLegacyGitignore,
+  rootContract,
+} from '../contract.mjs';
 import { register } from '../registry.mjs';
 
-// (Re)links the current repo's path to its config project_id in the global
-// registry, and regenerates the per-machine `.changeledger/AGENTS.md` contract link. Use
-// after moving the repo or cloning it on another machine.
+// Refreshes the repo bootstrap and registry path. Also migrates the per-machine
+// contract artifact left by legacy versions.
 export function registerRepo(cwd = process.cwd()) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
@@ -19,8 +23,8 @@ export function registerRepo(cwd = process.cwd()) {
   const repoRoot = path.dirname(changeledgerDir);
   const name = config.project_name || path.basename(repoRoot);
 
-  linkContract(changeledgerDir);
-  ensureGitignore(repoRoot);
+  removeLegacyContract(changeledgerDir);
+  removeLegacyGitignore(repoRoot);
   if (fs.existsSync(rootContract(repoRoot))) ensureReference(repoRoot);
 
   register({ id: config.project_id, name, path: repoRoot });

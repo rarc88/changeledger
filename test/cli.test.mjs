@@ -14,7 +14,7 @@ import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
-import { agentsTemplate } from '../src/paths.mjs';
+import { contractTemplatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,15 +34,21 @@ function tmp() {
   return root;
 }
 
-test('init creates .changeledger/ with config and links the contract', () => {
+function contractText() {
+  return fs
+    .readdirSync(contractTemplatesDir)
+    .filter((name) => name.endsWith('.md'))
+    .sort()
+    .map((name) => fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8'))
+    .join('\n');
+}
+
+test('init creates .changeledger/ with config and no per-machine contract artifact', () => {
   const root = tmp();
   init(root);
   assert.ok(fs.existsSync(path.join(root, '.changeledger', 'config.yml')));
   assert.ok(fs.existsSync(path.join(root, '.changeledger', 'changes')));
-  // .changeledger/AGENTS.md is a symlink to the installed contract, not a copy (CR1).
-  const link = path.join(root, '.changeledger', 'AGENTS.md');
-  assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
-  assert.equal(fs.readlinkSync(link), agentsTemplate);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'AGENTS.md')), false);
 });
 
 test('init preserves the root AGENTS.md and appends a reference (CR1)', () => {
@@ -50,7 +56,7 @@ test('init preserves the root AGENTS.md and appends a reference (CR1)', () => {
   init(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
   assert.match(text, /Own project contract\./);
-  assert.match(text, /\.changeledger\/AGENTS\.md/);
+  assert.match(text, /changeledger context/);
 });
 
 test('init refuses without a root AGENTS.md and leaves no .changeledger/ (CR2)', () => {
@@ -59,11 +65,10 @@ test('init refuses without a root AGENTS.md and leaves no .changeledger/ (CR2)',
   assert.equal(fs.existsSync(path.join(root, '.changeledger')), false);
 });
 
-test('init gitignores the per-machine contract link (CR4)', () => {
+test('init does not create a gitignore entry for a contract artifact', () => {
   const root = tmp();
   init(root);
-  const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
-  assert.ok(gi.split('\n').some((l) => l.trim() === '.changeledger/AGENTS.md'));
+  assert.equal(fs.existsSync(path.join(root, '.gitignore')), false);
 });
 
 test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
@@ -77,7 +82,7 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   const root = tmp();
   init(root);
   const cfg = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  const contract = contractText();
   assert.match(cfg, /^release:$/m);
   assert.match(cfg, /^ {4}feature: minor$/m);
   assert.match(cfg, /^ {4}bug: patch$/m);
@@ -87,54 +92,57 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
 });
 
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  const contract = contractText();
   assert.match(contract, /readiness\.target_patterns/);
   assert.match(contract, /readiness\.verification_patterns/);
   assert.match(contract, /target file\(s\)\/area\(s\)/);
 });
 
 test('122611 CR3: installed contract recommends structural verify clauses', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  const contract = contractText();
   assert.match(contract, /verification_patterns: \["verify:"\]/);
   assert.match(contract, /manual Android device check/);
   assert.match(contract, /instead of listing every possible manual phrase/);
 });
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /`changeledger status <id> <status>`.*It does\s+not accept `done`/);
-  assert.match(contract, /or `discarded` \(use\s+`changeledger discard <id> "<reason>"`\)/);
+  const contract = contractText();
+  assert.match(
+    contract,
+    /`changeledger status <id> <status>`[\s\S]*does not accept `done` or `discarded`/,
+  );
+  assert.match(contract, /`changeledger discard <id> "<reason>"`/);
   assert.match(contract, /without overwriting the spec body \(the agent edits the body manually\)/);
 });
 
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /enough clarity to document faithfully \*\*and\*\* the human/);
-  assert.match(contract, /direct request such as “create the\s+change” is authorization/);
+  const contract = contractText();
+  assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
+  assert.match(contract, /direct request such\s+as “create the change” is authorization/);
   assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
   assert.match(
     contract,
-    /materially expands observable\s+scope, obtain explicit human authorization/,
+    /materially expands observable scope, obtain explicit human\s+authorization/,
   );
   assert.match(contract, /Triage friction at handoff; retrospect after completion/);
   assert.match(contract, /necessary to fulfill the purpose of an active change/);
-  assert.match(contract, /operational step.*verify, commit, graduate/);
-  assert.match(contract, /propose its\s+type, title, and reason to the human/);
-  assert.match(contract, /Create the draft only after explicit\s+authorization/);
+  assert.match(contract, /operational step such as verify, commit, graduate/);
+  assert.match(contract, /propose its type, title, and reason to\s+the human/);
+  assert.match(contract, /Create the draft only after explicit authorization/);
   assert.match(contract, /too vague for backlog/);
-  assert.match(contract, /When a change reaches `done`, also\s+share a brief retrospective/);
+  assert.match(contract, /When a change reaches `done`, also share a brief retrospective/);
 });
 
 test('214902 CR5/CR6: installed contract preserves traceability without false-fix commits', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
-  assert.match(contract, /Never implement approved changes on\s+`main`, `master`, or `dev`/);
-  assert.match(contract, /inspect the worktree/);
-  assert.match(contract, /unrelated\s+changes exist/);
+  const contract = contractText();
+  assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
+  assert.match(contract, /Inspect the\s+worktree/);
+  assert.match(contract, /unrelated changes exist/);
   assert.match(
     contract,
-    /commit the approved change\s+documentation before touching implementation code/,
+    /Commit the approved change documentation before touching implementation code/,
   );
-  assert.match(contract, /Implement one change at a\s+time/);
+  assert.match(contract, /Implement one change at a time/);
   assert.match(contract, /Commit a completed unit before continuing/);
   assert.match(
     contract,
@@ -142,20 +150,20 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   );
   assert.match(
     contract,
-    /After `pass`, commit the\s+confirmed correction.*before asking for human\s+validation/,
+    /After `pass`, commit the confirmed correction[\s\S]*before asking for\s+human validation/,
   );
-  assert.match(contract, /keep the candidate correction\s+uncommitted until the human confirms/);
-  assert.match(contract, /do not start another task or\s+change while a correction waits/);
-  assert.match(contract, /If shared files\s+make a combined\s+commit unavoidable/);
+  assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
+  assert.match(contract, /do not start another task or change\s+while a correction waits/i);
+  assert.match(contract, /If shared files make a combined commit\s+unavoidable/);
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
-  const contract = fs.readFileSync(agentsTemplate, 'utf8');
+  const contract = contractText();
   assert.match(contract, /in-progress → in-review → in-validation → done/);
   assert.match(contract, /in-progress → in-validation → done/);
   assert.match(contract, /human accepted the complete result/);
-  assert.match(contract, /agent never\s+accepts on the human's behalf/);
-  assert.match(contract, /`done`\s+and `discarded` never reopen/);
+  assert.match(contract, /agent never accepts on the human's behalf/i);
+  assert.match(contract, /`done` and `discarded`\s+never reopen/);
 });
 
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
@@ -237,15 +245,14 @@ test('CR1: init seeds in-review and review_required per type (review-gate)', () 
   assert.equal('review_required' in cfg.types.audit, false);
 });
 
-test('reference and gitignore entries are idempotent (CR3)', () => {
+test('reference refresh is idempotent and does not add a legacy gitignore entry', () => {
   const root = tmp();
   init(root);
   registerRepo(root);
   registerRepo(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
   assert.equal(text.match(/<!-- changeledger -->/g).length, 1);
-  const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
-  assert.equal(gi.split('\n').filter((l) => l.trim() === '.changeledger/AGENTS.md').length, 1);
+  assert.equal(fs.existsSync(path.join(root, '.gitignore')), false);
 });
 
 test('reference covers CLAUDE.md when present, as a GitHub alert (CR1)', () => {
@@ -271,30 +278,25 @@ test('reference skips a symlinked contract file', () => {
   );
 });
 
-test('register regenerates a missing contract link (CR5)', () => {
+test('register does not regenerate the retired contract link', () => {
   const root = tmp();
   init(root);
-  const link = path.join(root, '.changeledger', 'AGENTS.md');
-  fs.unlinkSync(link);
-  assert.equal(fs.existsSync(link), false);
   registerRepo(root);
-  assert.equal(fs.readlinkSync(link), agentsTemplate);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'AGENTS.md')), false);
 });
 
-test('checkContract flags missing reference and dangling link (CR6)', () => {
+test('checkContract flags a missing reference without requiring a link', () => {
   const root = tmp();
   init(root);
   const changeledgerDir = path.join(root, '.changeledger');
   // Healthy repo: no discovery errors.
   assert.deepEqual(checkContract(root, changeledgerDir), []);
 
-  // Strip the reference and break the link.
+  // Strip the reference; no per-machine link is part of discovery anymore.
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# only project rules\n');
-  fs.unlinkSync(path.join(changeledgerDir, 'AGENTS.md'));
   const errors = checkContract(root, changeledgerDir);
-  assert.equal(errors.length, 2);
+  assert.equal(errors.length, 1);
   assert.ok(errors.some((e) => /no ChangeLedger reference/.test(e)));
-  assert.ok(errors.some((e) => /missing or dangling/.test(e)));
 });
 
 test('checkContract flags a CLAUDE.md without the reference (CR6)', () => {
@@ -308,7 +310,7 @@ test('checkContract flags a CLAUDE.md without the reference (CR6)', () => {
 test('check surfaces discovery errors repo-wide (CR6)', () => {
   const root = tmp();
   init(root);
-  fs.unlinkSync(path.join(root, '.changeledger', 'AGENTS.md'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# missing bootstrap\n');
   assert.equal(check([], root, silentOutput()), 1);
 });
 

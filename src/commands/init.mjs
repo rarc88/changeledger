@@ -2,13 +2,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from '../atomic-write.mjs';
-import { ensureGitignore, ensureReference, linkContract, rootContract } from '../contract.mjs';
+import { ensureReference, rootContract } from '../contract.mjs';
 import { templatesDir } from '../paths.mjs';
 import { register } from '../registry.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
-// Sets up `.changeledger/` in the repo, gives it a stable identity, links the installed
-// AGENTS.md contract into `.changeledger/`, references it from the project's root
+// Sets up `.changeledger/`, installs the context bootstrap in the project-owned
 // AGENTS.md, and registers the repo in the global registry.
 export function init(cwd = process.cwd()) {
   const repoRoot = path.resolve(cwd);
@@ -34,9 +33,7 @@ export function init(cwd = process.cwd()) {
     `${fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8')}\n# Project identity (stable; the global registry maps it to a path)\nproject_id: "${id}"\nproject_name: ${serializeScalar(name)}\n`,
   );
 
-  linkContract(changeledgerDir);
   ensureReference(repoRoot);
-  ensureGitignore(repoRoot);
 
   register({ id, name, path: repoRoot });
   return changeledgerDir;

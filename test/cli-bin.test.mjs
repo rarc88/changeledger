@@ -75,9 +75,33 @@ test('CR4: changeledger --help lists all commands', () => {
   const { code, out } = run('--help');
   assert.equal(code, 0);
   assert.match(out, /changeledger init/);
+  assert.match(out, /changeledger context/);
   assert.match(out, /changeledger graduate/);
   assert.match(out, /changeledger review/);
   assert.match(out, /changeledger release/);
+});
+
+test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const core = runIn(root, env, 'context');
+  assert.equal(core.code, 0);
+  assert.match(core.out, /Mode: core/);
+
+  const review = runIn(root, env, 'context', 'review');
+  assert.equal(review.code, 0);
+  assert.match(review.out, /Mode: review/);
+
+  const unknown = runIn(root, env, 'context', 'bogus');
+  assert.equal(unknown.code, 1);
+  assert.match(
+    unknown.err,
+    /Unknown context "bogus" — valid modes: implement, review, spec, release \(or pass a change id\)/,
+  );
 });
 
 test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () => {
