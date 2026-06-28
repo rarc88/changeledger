@@ -2,10 +2,12 @@
 id: "20260628-213942"
 title: Orientar el descubrimiento operativo desde el contexto inicial
 type: feature
-status: in-validation
+status: done
 created: 2026-06-28T21:39:42Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -93,3 +95,6 @@ preguntas operativas observadas al iniciar y cerrar trabajo.
 - **2026-06-28T21:43:15Z** — Implementado con TDD: el contexto core recomienda list --status approved y graduate --pending antes de escanear archivos; permanece determinista, no incorpora estado y conserva el presupuesto. pnpm verify: 467 tests.
 - **2026-06-28T21:43:15Z** — status: in-progress → in-review
 - **2026-06-28T21:45:41Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T21:46:59Z** — validation → done (human accepted)
+- **2026-06-28T21:49:06Z** — graduado a spec `architecture.md`
+- **2026-06-28T21:49:06Z** — archived

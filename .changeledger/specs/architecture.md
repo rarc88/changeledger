@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-28T17:15:04Z
+updated: 2026-06-28T21:49:06Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -11,6 +11,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260627-205033 (compilador de contexto determinista).
 > Graduado del change 20260628-113218 (versión instalada desde el CLI).
 > Graduado del change 20260628-113219 (schema y migración segura de configuración).
+> Graduado del change 20260628-213942 (descubrimiento operativo desde el contexto inicial).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -65,6 +66,12 @@ migración explícita construye un candidato con el AST de YAML, actualiza estru
 y comentarios administrados, conserva decisiones y extensiones propias, no mueve
 directorios y escribe atómicamente. Repetirla sobre el schema vigente es un no-op
 byte-idéntico; un schema más nuevo que el soportado falla cerrado.
+
+El contexto core funciona también como índice operativo mínimo. Antes de escanear
+archivos, orienta a consultar trabajo autorizado con `changeledger list --status
+approved` y decisiones de cierre pendientes con `changeledger graduate --pending`.
+La orientación es estática: no ejecuta esas consultas ni incorpora estado efímero
+al contexto determinista.
 
 ## Specs de dominio
 
