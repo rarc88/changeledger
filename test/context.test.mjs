@@ -67,6 +67,29 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
 });
 
+test('213942 CR1-CR4: core teaches operational discovery without embedding or mutating state', () => {
+  const root = repo();
+  const id = addChange(root, 'approved');
+  const changeFile = path.join(root, '.changeledger', 'changes', `${id}-context-fixture.md`);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const changeBefore = fs.readFileSync(changeFile, 'utf8');
+  const configBefore = fs.readFileSync(configFile, 'utf8');
+
+  const first = buildContext(undefined, root);
+  const second = buildContext(undefined, root);
+
+  assert.match(first, /`changeledger list --status approved`/);
+  assert.match(first, /`changeledger graduate --pending`/);
+  assert.match(first, /before (scanning|searching) files/i);
+  assert.doesNotMatch(first, new RegExp(id));
+  assert.doesNotMatch(first, /Context fixture/);
+  assert.equal(first, second);
+  assert.ok(first.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), changeBefore);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
+});
+
 test('CR2: change id infers implement and includes complete actionable stages', () => {
   const root = repo();
   const id = addChange(root, 'in-progress');

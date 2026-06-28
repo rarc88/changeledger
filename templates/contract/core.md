@@ -60,5 +60,12 @@ Valid modes: implement, review, spec, release.
 - `changeledger context release`: plan portable delivery metadata.
 - `changeledger context <change-id>`: infer the correct context from lifecycle.
 
+## Operational discovery
+
+Prefer structured CLI queries before scanning files:
+
+- `changeledger list --status approved`: find approved changes ready to implement.
+- `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
+
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
 Structure is always English; narrative content follows `.changeledger/config.yml`.

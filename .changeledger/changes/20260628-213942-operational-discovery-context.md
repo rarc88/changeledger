@@ -2,9 +2,10 @@
 id: "20260628-213942"
 title: Orientar el descubrimiento operativo desde el contexto inicial
 type: feature
-status: approved
+status: in-review
 created: 2026-06-28T21:39:42Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -82,8 +83,12 @@ preguntas operativas observadas al iniciar y cerrar trabajo.
 
 ## Plan
 
-- [ ] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] Ejecutar el gate completo y comprobar el output real del binario; verify: `pnpm verify` y `node bin/changeledger.mjs context` (support)
+- [x] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-28T21:42:55Z
+- [x] Ejecutar el gate completo y comprobar el output real del binario; verify: `pnpm verify` y `node bin/changeledger.mjs context` (support) — 2026-06-28T21:43:15Z
 
 ## Log
 - **2026-06-28T21:40:56Z** — status: draft → approved
+- **2026-06-28T21:42:11Z** — status: approved → in-progress
+- **2026-06-28T21:42:11Z** — owner → Roberto Ruiz (auto)
+- **2026-06-28T21:43:15Z** — Implementado con TDD: el contexto core recomienda list --status approved y graduate --pending antes de escanear archivos; permanece determinista, no incorpora estado y conserva el presupuesto. pnpm verify: 467 tests.
+- **2026-06-28T21:43:15Z** — status: in-progress → in-review
