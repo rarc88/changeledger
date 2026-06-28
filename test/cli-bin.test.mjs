@@ -210,6 +210,55 @@ test('113218 CR4: --help lists -V, --version option', () => {
   assert.match(out, /-V.*--version/);
 });
 
+// 20260628-113219: config migrate CLI integration
+test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 without writing', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  // Downgrade to schema 0 by removing schema_version
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  fs.writeFileSync(configFile, original);
+  const before = fs.readFileSync(configFile, 'utf8');
+
+  const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
+  assert.equal(code, 0);
+  assert.match(out, /Config migration 0 → 1 \(dry run\)/);
+  assert.match(out, /schema_version: 1/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
+});
+
+test('113219 CLI CR7: config migrate is idempotent', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  // Already at schema 1 — should be no-op
+  const { code, out } = runIn(root, env, 'config', 'migrate');
+  assert.equal(code, 0);
+  assert.match(out, /already at schema/i);
+});
+
+test('113219 CLI CR8: config migrate on invalid YAML exits 1', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(configFile, 'statuses: [\n  broken yaml');
+
+  const { code, err } = runIn(root, env, 'config', 'migrate');
+  assert.equal(code, 1);
+  assert.match(err, /Error:/);
+});
+
 // End-to-end: `changeledger graduate <id> <slug> --into` links an existing spec (flag in
 // any position) without touching its body, exit 0.
 test('CR6: graduate --into wires through and links an existing spec', () => {

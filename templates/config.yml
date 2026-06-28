@@ -1,6 +1,10 @@
 # ChangeLedger — repo configuration
 # Repo specifics: documentation language, change types and active stages per type.
 
+# Schema version — used to detect and migrate outdated configurations.
+# Run `changeledger config migrate --dry-run` to inspect available migrations.
+schema_version: 1
+
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
 language: en

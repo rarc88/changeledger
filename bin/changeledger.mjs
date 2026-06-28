@@ -21,6 +21,12 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { view } from '../src/commands/view.mjs';
+import { findChangeledgerDir } from '../src/config.mjs';
+import {
+  applyMigration,
+  buildMigration,
+  SUPPORTED_SCHEMA_VERSION,
+} from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
@@ -48,6 +54,7 @@ const USAGE = `ChangeLedger (changeledger)
   changeledger graduate <change-id> <spec-slug> --into   graduate into an existing spec
   changeledger graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   changeledger graduate --pending                 list done changes not yet reviewed
+  changeledger config migrate [--dry-run]          migrate .changeledger/config.yml to schema ${SUPPORTED_SCHEMA_VERSION}
   changeledger release init <version>             initialize release history at X.Y.Z
   changeledger release plan [--json]              calculate the next portable SemVer release
   changeledger release record <version>           record the calculated release manifest`;
@@ -327,6 +334,24 @@ program
       if (!id || !slug) throw new Error('Usage: changeledger graduate <change-id> <spec-slug>');
       const file = graduate(id, slug, process.cwd(), { into: options.into });
       console.log(`Graduated #${id} → ${file}`);
+    }),
+  );
+
+const configCommand = program
+  .command('config')
+  .description('inspect and manage the repo configuration');
+
+configCommand
+  .command('migrate')
+  .description('migrate .changeledger/config.yml to the current schema')
+  .option('--dry-run', 'show the migration plan and candidate YAML without writing')
+  .action(
+    action((options) => {
+      const changeledgerDir = findChangeledgerDir();
+      if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
+      const configFile = `${changeledgerDir}/config.yml`;
+      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      console.log(result);
     }),
   );
 

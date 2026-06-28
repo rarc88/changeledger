@@ -2,7 +2,7 @@
 id: "20260628-113218"
 title: Exponer la versión instalada desde el CLI
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-06-28T11:32:18Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -49,10 +49,14 @@ no ofrece hoy la convención estándar `--version`/`-V`; responde `unknown optio
 
 ## Plan
 
-- [ ] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] Empaquetar e invocar `--version` desde una instalación aislada; verify: `pnpm test` pasa y el resultado coincide con el `package.json` del tarball (support)
+- [x] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-28T11:47:56Z
+- [x] Empaquetar e invocar `--version` desde una instalación aislada; verify: `pnpm test` pasa y el resultado coincide con el `package.json` del tarball (support) — 2026-06-28T11:47:57Z
 
 ## Log
 - **2026-06-28T11:41:15Z** — status: draft → approved
 - **2026-06-28T11:46:13Z** — status: approved → in-progress
 - **2026-06-28T11:46:13Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-28T11:47:57Z** — Implemented .version() via Commander; reads version from package.json at runtime with createRequire. Tests CR1-CR4 pass, pnpm verify clean.
+- **2026-06-28T11:48:13Z** — status: in-progress → in-review
+- **2026-06-28T11:50:49Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T11:50:50Z** — Review passed after tightening CR1/CR3 assertions to exact newline match.
