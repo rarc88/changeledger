@@ -90,6 +90,34 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
 });
 
+test('215632 CR1-CR3: release context treats routine delivery as operational work', () => {
+  const root = repo();
+  const id = addChange(root, 'done');
+  const changeFile = path.join(root, '.changeledger', 'changes', `${id}-context-fixture.md`);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const changeBefore = fs.readFileSync(changeFile, 'utf8');
+  const configBefore = fs.readFileSync(configFile, 'utf8');
+
+  const first = buildContext('release', root);
+  const second = buildContext('release', root);
+
+  assert.match(first, /Routine release preparation is operational work\./);
+  assert.match(
+    first,
+    /Version bumps, release manifests, quality gates, packaging, commits, tags and publishing do not require a ChangeLedger change by themselves\./,
+  );
+  assert.match(first, /Do not create a change only to group those routine steps\./);
+  assert.match(first, /functional fix, release-workflow change or persistent documentation/);
+  assert.match(
+    first,
+    /rerun `changeledger release plan` before `changeledger release record <version>`/,
+  );
+  assert.match(first, /do not assume npm, GitHub or specific manifest filenames/i);
+  assert.equal(first, second);
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), changeBefore);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
+});
+
 test('CR2: change id infers implement and includes complete actionable stages', () => {
   const root = repo();
   const id = addChange(root, 'in-progress');
