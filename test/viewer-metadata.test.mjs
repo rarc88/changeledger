@@ -186,7 +186,7 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
   bindProjectViewActions(root, {
     select: (id) => calls.push(['select', id]),
     reload: () => calls.push(['reload']),
-    save: (content, form) => calls.push(['save', content, form.className]),
+    saveRaw: (content, form) => calls.push(['saveRaw', content, form.className]),
     repair: (projectPath, form) => calls.push(['repair', projectPath, form.className]),
     unregister: (editor) => calls.push(['unregister', editor.className]),
   });
@@ -204,7 +204,7 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
   assert.deepEqual(calls, [
     ['select', 'aaa111'],
     ['reload'],
-    ['save', 'project_name: alpha', 'config-form'],
+    ['saveRaw', 'project_name: alpha', 'config-form'],
     ['repair', '/repos/alpha', 'project-path-form'],
     ['unregister', 'project-editor'],
   ]);

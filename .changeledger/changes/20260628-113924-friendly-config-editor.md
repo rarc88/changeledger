@@ -147,13 +147,14 @@ claves custom o rediseñar el resto de Projects.
 
 ## Plan
 
-- [ ] Extender `src/viewer/domain.mjs` con lectura estructurada, patch allowlisted y preview/apply que reutilicen `src/config-migration.mjs`; verify: `test/view.test.mjs` cubre preservación, validación, revisión y schemas (CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10)
-- [ ] Exponer endpoints autorizados de patch y migración en `src/viewer/server/router.mjs` y `src/viewer/public/api.js`; verify: `test/view.test.mjs` prueba token, payloads y códigos HTTP (CR5, CR6, CR7, CR8, CR10)
-- [ ] Implementar tabs Form/Raw y el formulario agrupado en `src/viewer/public/app.js`; verify: `test/view.test.mjs` cubre default, mapeo, raw y protección de cambios sucios (CR1, CR2, CR3, CR11)
-- [ ] Diseñar estados de formulario, migración, errores y responsive en `src/viewer/public/styles.css`; verify: inspección visual desktop/estrecha y `test/view.test.mjs` cubre hooks accesibles (CR7, CR8, CR10, CR12)
-- [ ] Ejecutar `pnpm verify` y validar manualmente config actual, schema `0`, schema futuro y claves custom desde el viewer (support)
+- [x] Extender `src/viewer/domain.mjs` con lectura estructurada, patch allowlisted y preview/apply que reutilicen `src/config-migration.mjs`; verify: `test/view.test.mjs` cubre preservación, validación, revisión y schemas (CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10) — 2026-06-28T12:12:00Z
+- [x] Exponer endpoints autorizados de patch y migración en `src/viewer/server/router.mjs` y `src/viewer/public/api.js`; verify: `test/view.test.mjs` prueba token, payloads y códigos HTTP (CR5, CR6, CR7, CR8, CR10) — 2026-06-28T12:12:00Z
+- [x] Implementar tabs Form/Raw y el formulario agrupado en `src/viewer/public/app.js`; verify: `test/view.test.mjs` cubre default, mapeo, raw y protección de cambios sucios (CR1, CR2, CR3, CR11) — 2026-06-28T12:12:01Z
+- [x] Diseñar estados de formulario, migración, errores y responsive en `src/viewer/public/styles.css`; verify: inspección visual desktop/estrecha y `test/view.test.mjs` cubre hooks accesibles (CR7, CR8, CR10, CR12) — 2026-06-28T12:12:01Z
+- [x] Ejecutar `pnpm verify` y validar manualmente config actual, schema `0`, schema futuro y claves custom desde el viewer (support) — 2026-06-28T12:12:01Z
 
 ## Log
 - **2026-06-28T11:42:41Z** — status: draft → approved
 - **2026-06-28T12:02:15Z** — status: approved → in-progress
 - **2026-06-28T12:02:15Z** — owner → raruiz-hiberuscom (auto)
+- **2026-06-28T12:12:01Z** — Implemented: domain.mjs extended with readProjectConfigStructured/patchProjectConfig/previewConfigMigration/applyConfigMigration; new HTTP routes in router.mjs; API client in api.js; Form/Raw tabbed UI in app.js with form groups, migration card, future-schema fail-closed; styles in styles.css. 442 tests pass, pnpm verify clean.

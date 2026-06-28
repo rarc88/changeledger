@@ -1,8 +1,12 @@
 import {
+  getConfigMigrationPreview,
   getGitRefs,
   getProjectConfig,
+  getProjectConfigStructured,
   getProjects,
   getRepo,
+  patchProjectConfigApi,
+  postConfigMigrationApply,
   postProjectConfig,
   postProjectPath,
   postProjectRemove,
@@ -666,6 +670,193 @@ export function restoreInitialViewerShell(root = document, getStorage = () => wi
 
 let managedProject = null;
 let managedConfig = null;
+let configMode = 'form'; // 'form' | 'raw'
+let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
+
+const SUPPORTED_SCHEMA_VERSION = 1;
+const CANONICAL_STATUSES = [
+  'draft',
+  'approved',
+  'in-progress',
+  'in-review',
+  'in-validation',
+  'blocked',
+  'done',
+  'discarded',
+];
+
+function configSectionTemplate(config, mode, preview) {
+  if (!config) return nothing;
+  if (config.error) {
+    return html`<div class="config-section">
+      <p class="project-error">${config.error}</p>
+    </div>`;
+  }
+
+  const schema = config.schemaVersion ?? 0;
+  const futureSch = schema > SUPPORTED_SCHEMA_VERSION;
+  const outdated = schema < SUPPORTED_SCHEMA_VERSION;
+
+  return html`<div class="config-section">
+    ${
+      !futureSch
+        ? html`<div class="config-tabs" role="tablist" aria-label="Config editor mode">
+            <button
+              type="button"
+              role="tab"
+              class=${`config-tab${mode === 'form' ? ' active' : ''}`}
+              aria-selected=${mode === 'form'}
+              data-config-mode="form"
+            >Form</button>
+            <button
+              type="button"
+              role="tab"
+              class=${`config-tab${mode === 'raw' ? ' active' : ''}`}
+              aria-selected=${mode === 'raw'}
+              data-config-mode="raw"
+            >Raw YAML</button>
+          </div>`
+        : nothing
+    }
+
+    ${
+      futureSch
+        ? html`<div class="config-future-schema">
+            <p class="config-schema-badge">Schema ${schema}</p>
+            <p>Update ChangeLedger to edit config schema ${schema}.</p>
+            <div class="config-tabs" role="tablist" aria-label="Config editor mode">
+              <button type="button" role="tab" class="config-tab active" data-config-mode="raw" aria-selected="true">Raw YAML</button>
+            </div>
+            ${rawEditorTemplate(config)}
+          </div>`
+        : outdated
+          ? html`<div class="config-migration-card">
+              <h3>Migration required</h3>
+              <p>Config schema ${schema} is outdated. Preview and apply the migration to schema ${SUPPORTED_SCHEMA_VERSION} to enable the Form editor.</p>
+              ${
+                preview?.already_current
+                  ? html`<p class="config-migration-ok">Migration already applied.</p>`
+                  : preview
+                    ? html`<div class="config-migration-preview">
+                        <p><strong>Changes:</strong></p>
+                        <ul>${preview.changes?.map((c) => html`<li>${c}</li>`)}</ul>
+                        <pre class="config-migration-yaml">${preview.yaml}</pre>
+                        <div class="project-actions">
+                          <button class="button" type="button" data-apply-migration>Apply migration</button>
+                        </div>
+                      </div>`
+                    : html`<div class="project-actions">
+                        <button class="button secondary" type="button" data-preview-migration>Preview migration</button>
+                      </div>`
+              }
+              <p class="config-section-note">You can still inspect the current config in Raw YAML.</p>
+              ${rawEditorTemplate(config)}
+            </div>`
+          : mode === 'form'
+            ? formEditorTemplate(config)
+            : rawEditorTemplate(config)
+    }
+  </div>`;
+}
+
+function rawEditorTemplate(config) {
+  return html`<form class="config-form">
+    <div class="config-label"><label for="project-config">.changeledger/config.yml</label><button type="button" class="text-button" data-reload-config>Reload</button></div>
+    <textarea id="project-config" spellcheck="false" .value=${config?.content ?? ''}></textarea>
+    <p class="project-error" ?hidden=${!config?.error}>${config?.error ?? ''}</p>
+    <div class="project-actions"><button class="button" type="submit">Save configuration</button></div>
+  </form>`;
+}
+
+function formEditorTemplate(config) {
+  const cfg = config.config ?? {};
+  const types = cfg.types ?? {};
+  const impacts = cfg.release?.impacts ?? {};
+  const readiness = cfg.readiness ?? {};
+
+  return html`<form class="config-form config-form-structured" data-config-form>
+    <div class="config-label">
+      <label>.changeledger/config.yml (Form)</label>
+      <button type="button" class="text-button" data-reload-config>Reload</button>
+    </div>
+
+    <fieldset class="config-group">
+      <legend>General</legend>
+      <label>Language
+        <input name="language" .value=${cfg.language ?? 'en'} />
+      </label>
+      <label class="config-checkbox">
+        <input type="checkbox" name="tdd" ?checked=${cfg.tdd !== false} />
+        TDD mode (require test-grade criteria)
+      </label>
+    </fieldset>
+
+    <fieldset class="config-group">
+      <legend>Paths</legend>
+      <p class="config-note">Changing paths only updates the config — existing files are not moved.</p>
+      <label>Changes directory
+        <input name="changes_dir" .value=${cfg.changes_dir ?? '.changeledger/changes'} />
+      </label>
+      <label>Specs directory
+        <input name="specs_dir" .value=${cfg.specs_dir ?? '.changeledger/specs'} />
+      </label>
+    </fieldset>
+
+    <fieldset class="config-group">
+      <legend>Lifecycle statuses</legend>
+      <p class="config-note">Canonical statuses (required): ${CANONICAL_STATUSES.filter((s) => (cfg.statuses ?? []).includes(s)).join(', ')}</p>
+      ${
+        (cfg.statuses ?? []).filter((s) => !CANONICAL_STATUSES.includes(s)).length
+          ? html`<p class="config-note">Custom: ${(cfg.statuses ?? []).filter((s) => !CANONICAL_STATUSES.includes(s)).join(', ')}</p>`
+          : nothing
+      }
+      <p class="config-note config-readonly-note">Edit statuses in Raw YAML.</p>
+    </fieldset>
+
+    <fieldset class="config-group">
+      <legend>Change types</legend>
+      ${Object.entries(types).map(
+        ([typeName, typeDef]) => html`
+          <div class="config-type-row">
+            <strong>${typeName}</strong>
+            <label class="config-checkbox">
+              <input type="checkbox" name=${'review_required_' + typeName}
+                ?checked=${typeDef?.review_required !== false}
+                ?disabled=${typeDef?.review_required === undefined && !['feature', 'bug', 'refactor'].includes(typeName)} />
+              Review required
+            </label>
+            <label>SemVer impact
+              <select name=${'impact_' + typeName}>
+                ${['none', 'patch', 'minor', 'major'].map((v) => html`<option value=${v} ?selected=${(impacts[typeName] ?? 'none') === v}>${v}</option>`)}
+              </select>
+            </label>
+          </div>
+        `,
+      )}
+    </fieldset>
+
+    <fieldset class="config-group">
+      <legend>Definition of Ready</legend>
+      <label>Target patterns (one per line)
+        <textarea name="target_patterns" rows="3">${(readiness.target_patterns ?? []).join('\n')}</textarea>
+      </label>
+      <label>Verification patterns (one per line)
+        <textarea name="verification_patterns" rows="3">${(readiness.verification_patterns ?? []).join('\n')}</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset class="config-group config-group-internal">
+      <legend>Internal</legend>
+      <p><span class="config-readonly-label">schema_version</span><span class="config-readonly-value">${cfg.schema_version ?? 0}</span></p>
+      <p><span class="config-readonly-label">project_id</span><span class="config-readonly-value mono">${cfg.project_id ?? ''}</span></p>
+    </fieldset>
+
+    <p class="project-error" ?hidden=${!config?.formError}>${config?.formError ?? ''}</p>
+    <div class="project-actions">
+      <button class="button" type="submit">Save configuration</button>
+    </div>
+  </form>`;
+}
 
 export function projectsViewTemplate(projects, selected, config, localOnly) {
   const project = projects.find((item) => item.id === selected);
@@ -710,12 +901,7 @@ export function projectsViewTemplate(projects, selected, config, localOnly) {
               project.alive
                 ? config?.loading
                   ? html`<p class="empty">Loading configuration…</p>`
-                  : html`<form class="config-form">
-                    <div class="config-label"><label for="project-config">.changeledger/config.yml</label><button type="button" class="text-button" data-reload-config>Reload</button></div>
-                    <textarea id="project-config" spellcheck="false" .value=${config?.content ?? ''}></textarea>
-                    <p class="project-error" ?hidden=${!config?.error}>${config?.error ?? ''}</p>
-                    <div class="project-actions"><button class="button" type="submit">Save configuration</button></div>
-                  </form>`
+                  : configSectionTemplate(config, configMode, migrationPreview)
                 : html`<div class="missing-config"><h3>Configuration unavailable</h3><p>Repair the registered path to edit this project.</p></div>`
             }
             ${
@@ -733,6 +919,7 @@ async function openManagedProject(id, { reload = false } = {}) {
   const project = state.projectsList.find((item) => item.id === id);
   if (!project?.alive) {
     managedConfig = null;
+    migrationPreview = null;
     renderProjects();
     return;
   }
@@ -741,9 +928,17 @@ async function openManagedProject(id, { reload = false } = {}) {
     return;
   }
   managedConfig = { id, loading: true };
+  migrationPreview = null;
   renderProjects();
   try {
-    managedConfig = { id, ...(await getProjectConfig(id)) };
+    const structured = await getProjectConfigStructured(id);
+    managedConfig = { id, ...structured };
+    // Default to form for current schema, raw for future schema
+    if (structured.schemaVersion > SUPPORTED_SCHEMA_VERSION) {
+      configMode = 'raw';
+    } else {
+      configMode = 'form';
+    }
   } catch (error) {
     managedConfig = { id, content: '', revision: '', error: error.message };
   }
@@ -798,6 +993,45 @@ async function refreshProjectRegistry() {
   select.style.display = projects.length > 1 ? '' : 'none';
 }
 
+function collectFormPatch(formEl, currentConfig) {
+  const patch = {};
+  const els = formEl.elements;
+
+  if (els.language) patch.language = els.language.value;
+  if (els.tdd) patch.tdd = els.tdd.checked;
+  if (els.changes_dir) patch.changes_dir = els.changes_dir.value;
+  if (els.specs_dir) patch.specs_dir = els.specs_dir.value;
+
+  // types: review_required and release impacts
+  const types = currentConfig.types ?? {};
+  const typePatch = {};
+  const impacts = {};
+  for (const typeName of Object.keys(types)) {
+    const rrEl = els['review_required_' + typeName];
+    const impactEl = els['impact_' + typeName];
+    if (rrEl)
+      typePatch[typeName] = { ...(typePatch[typeName] ?? {}), review_required: rrEl.checked };
+    if (impactEl) impacts[typeName] = impactEl.value;
+  }
+  if (Object.keys(typePatch).length) patch.types = typePatch;
+  if (Object.keys(impacts).length) patch.release = { impacts };
+
+  // readiness patterns
+  if (els.target_patterns !== undefined) {
+    const targetPatterns = els.target_patterns.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const verifyPatterns = els.verification_patterns.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    patch.readiness = { target_patterns: targetPatterns, verification_patterns: verifyPatterns };
+  }
+
+  return patch;
+}
+
 function renderProjects() {
   const root = $('#projects');
   litRender(
@@ -807,16 +1041,50 @@ function renderProjects() {
   bindProjectViewActions(root, {
     select: (id) => openManagedProject(id),
     reload: () => openManagedProject(managedProject, { reload: true }),
-    save: (content, configForm) =>
+    switchMode: (mode) => {
+      configMode = mode;
+      renderProjects();
+    },
+    saveRaw: (content, configForm) =>
       projectMutation(
         configForm,
         () => postProjectConfig(managedProject, content, managedConfig.revision),
         async (body) => {
-          managedConfig = { id: managedProject, content, revision: body.revision };
+          managedConfig = { ...managedConfig, content, revision: body.revision };
           await refreshProjectRegistry();
           renderProjects();
         },
       ),
+    saveForm: (formEl, configForm) =>
+      projectMutation(
+        configForm,
+        () => {
+          const patch = collectFormPatch(formEl, managedConfig.config ?? {});
+          return patchProjectConfigApi(managedProject, patch, managedConfig.revision);
+        },
+        async (body) => {
+          await openManagedProject(managedProject, { reload: true });
+        },
+      ),
+    previewMigration: async () => {
+      try {
+        migrationPreview = await getConfigMigrationPreview(managedProject, managedConfig.revision);
+        renderProjects();
+      } catch (e) {
+        migrationPreview = null;
+        renderProjects();
+      }
+    },
+    applyMigration: async () => {
+      if (!confirm('Apply the config migration? This will update .changeledger/config.yml.'))
+        return;
+      try {
+        await postConfigMigrationApply(managedProject, managedConfig.revision);
+        await openManagedProject(managedProject, { reload: true });
+      } catch (e) {
+        alert(e.message);
+      }
+    },
     repair: (projectPath, pathForm) =>
       projectMutation(
         pathForm,
@@ -849,14 +1117,34 @@ export function bindProjectViewActions(root, handlers) {
   root.querySelectorAll('[data-manage-project]').forEach((button) => {
     button.onclick = () => handlers.select(button.dataset.manageProject);
   });
+
+  root.querySelectorAll('[data-config-mode]').forEach((button) => {
+    button.onclick = () => handlers.switchMode(button.dataset.configMode);
+  });
+
   const reload = root.querySelector('[data-reload-config]');
   if (reload) reload.onclick = () => handlers.reload();
-  const configForm = root.querySelector('.config-form');
-  if (configForm)
-    configForm.onsubmit = (event) => {
+
+  const rawForm = root.querySelector('.config-form:not([data-config-form])');
+  if (rawForm)
+    rawForm.onsubmit = (event) => {
       event.preventDefault();
-      handlers.save(configForm.querySelector('textarea').value, configForm);
+      handlers.saveRaw(rawForm.querySelector('textarea').value, rawForm);
     };
+
+  const formEditor = root.querySelector('[data-config-form]');
+  if (formEditor)
+    formEditor.onsubmit = (event) => {
+      event.preventDefault();
+      handlers.saveForm(formEditor, formEditor);
+    };
+
+  const previewBtn = root.querySelector('[data-preview-migration]');
+  if (previewBtn) previewBtn.onclick = () => handlers.previewMigration();
+
+  const applyBtn = root.querySelector('[data-apply-migration]');
+  if (applyBtn) applyBtn.onclick = () => handlers.applyMigration();
+
   const pathForm = root.querySelector('.project-path-form');
   if (pathForm)
     pathForm.onsubmit = (event) => {

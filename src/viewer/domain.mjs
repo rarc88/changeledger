@@ -1,10 +1,16 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic } from '../atomic-write.mjs';
+import { parseDocument } from 'yaml';
+import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { checkRepo } from '../check.mjs';
 import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  buildMigration,
+  getSchemaVersion,
+  SUPPORTED_SCHEMA_VERSION,
+} from '../config-migration.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
@@ -263,4 +269,210 @@ export function unregisterProject(projects, payload, { localOnly = false } = {})
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
   return { code: 200, body: { ok: true } };
+}
+
+// Returns config content + schema metadata without mutating anything.
+export function readProjectConfigStructured(projects, id) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  const config = parseYaml(content);
+  const schemaVersion = getSchemaVersion(config);
+  return {
+    code: 200,
+    body: {
+      content,
+      revision: revision(content),
+      schemaVersion,
+      supported: SUPPORTED_SCHEMA_VERSION,
+      config,
+    },
+  };
+}
+
+// Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
+// comments, unknown keys and fields the form does not represent.
+export function patchProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+  const found = projectFor(projects, payload.project);
+  if (!found.project) return found;
+  if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
+    return { code: 400, body: { error: 'patch must be an object' } };
+  }
+  if (typeof payload.revision !== 'string') {
+    return { code: 400, body: { error: 'revision is required' } };
+  }
+
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+
+  let result;
+  try {
+    mutateConfig(file, (before) => {
+      if (revision(before) !== payload.revision) {
+        throw new Error('configuration changed on disk; reload before saving');
+      }
+
+      const doc = parseDocument(before, { merge: false });
+      const config = doc.toJS() ?? {};
+
+      // Fail closed for future schema
+      const schemaVersion = getSchemaVersion(config);
+      if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
+        throw new Error(
+          `config schema ${schemaVersion} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
+        );
+      }
+
+      applyPatch(doc, payload.patch, config);
+
+      const patched = doc.toString();
+      const candidate = parseYaml(patched);
+
+      // Identity guard
+      if (String(candidate.project_id ?? '') !== String(found.project.id)) {
+        throw new Error('project_id cannot be changed from the viewer');
+      }
+
+      // Structural validation
+      const repo = loadRepo(found.project.path);
+      resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
+      resolveSpecsDir(repo.repoRoot, candidate);
+      const candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+      const { errors } = checkRepo(candidateRepo);
+      if (errors.length) throw new Error(errors[0].message);
+
+      result = { content: patched, rev: revision(patched) };
+      return patched;
+    });
+  } catch (error) {
+    if (error.message === 'configuration changed on disk; reload before saving') {
+      return { code: 409, body: { error: error.message } };
+    }
+    return { code: 400, body: { error: error.message } };
+  }
+
+  return { code: 200, body: { ok: true, revision: result.rev } };
+}
+
+// Preview the migration without writing. Returns summary + candidate YAML.
+export function previewConfigMigration(projects, id, rev) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  if (rev && revision(content) !== rev) {
+    return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
+  }
+  let migrationResult;
+  try {
+    migrationResult = buildMigration(content);
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+  if (!migrationResult) {
+    return {
+      code: 200,
+      body: {
+        already_current: true,
+        message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
+      },
+    };
+  }
+  return {
+    code: 200,
+    body: {
+      summary: `Config migration 0 → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
+      changes: migrationResult.changes,
+      yaml: migrationResult.yaml,
+    },
+  };
+}
+
+// Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
+export function applyConfigMigration(projects, payload, { writeConfig = writeFileAtomic } = {}) {
+  const found = projectFor(projects, payload.project);
+  if (!found.project) return found;
+  if (typeof payload.revision !== 'string') {
+    return { code: 400, body: { error: 'revision is required' } };
+  }
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  if (revision(content) !== payload.revision) {
+    return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
+  }
+  let migrationResult;
+  try {
+    migrationResult = buildMigration(content);
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+  if (!migrationResult) {
+    return {
+      code: 200,
+      body: { already_current: true, revision: payload.revision },
+    };
+  }
+  writeConfig(file, migrationResult.yaml);
+  return {
+    code: 200,
+    body: { ok: true, revision: revision(migrationResult.yaml) },
+  };
+}
+
+// Allowlisted fields the form patch may update.
+const PATCH_ALLOWED = new Set([
+  'language',
+  'tdd',
+  'changes_dir',
+  'specs_dir',
+  'readiness',
+  'types',
+  'release',
+]);
+
+function applyPatch(doc, patch, currentConfig) {
+  for (const [key, value] of Object.entries(patch)) {
+    if (!PATCH_ALLOWED.has(key)) continue;
+
+    if (key === 'types') {
+      applyTypesPatch(doc, value, currentConfig.types ?? {});
+    } else if (key === 'release') {
+      applyReleasePatch(doc, value, currentConfig.release ?? {});
+    } else if (key === 'readiness') {
+      applyReadinessPatch(doc, value);
+    } else {
+      doc.set(key, value);
+    }
+  }
+}
+
+function applyTypesPatch(doc, typesPatch, currentTypes) {
+  for (const [typeName, typeDef] of Object.entries(typesPatch)) {
+    if (!Object.hasOwn(currentTypes, typeName)) continue; // don't add new types
+    if (!typeDef || typeof typeDef !== 'object') continue;
+    if (Array.isArray(typeDef.stages)) {
+      doc.setIn(['types', typeName, 'stages'], typeDef.stages);
+    }
+    if (typeof typeDef.review_required === 'boolean') {
+      doc.setIn(['types', typeName, 'review_required'], typeDef.review_required);
+    }
+  }
+}
+
+function applyReleasePatch(doc, releasePatch, currentRelease) {
+  if (releasePatch.impacts && typeof releasePatch.impacts === 'object') {
+    for (const [type, impact] of Object.entries(releasePatch.impacts)) {
+      doc.setIn(['release', 'impacts', type], impact);
+    }
+  }
+}
+
+function applyReadinessPatch(doc, readinessPatch) {
+  if (!readinessPatch || typeof readinessPatch !== 'object') return;
+  if (Array.isArray(readinessPatch.target_patterns)) {
+    doc.setIn(['readiness', 'target_patterns'], readinessPatch.target_patterns);
+  }
+  if (Array.isArray(readinessPatch.verification_patterns)) {
+    doc.setIn(['readiness', 'verification_patterns'], readinessPatch.verification_patterns);
+  }
 }

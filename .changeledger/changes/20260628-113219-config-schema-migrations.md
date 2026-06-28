@@ -2,7 +2,7 @@
 id: "20260628-113219"
 title: Migrar configuraciones de repositorios de forma segura
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-06-28T11:32:19Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -152,3 +152,6 @@ archivo vigente es un no-op byte-idéntico.
 - **2026-06-28T11:51:01Z** — status: approved → in-progress
 - **2026-06-28T11:51:01Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-28T12:00:00Z** — Implemented schema versioning (0→1 migration): buildMigration/applyMigration in src/config-migration.mjs, check/register detect schema 0 with actionable warning, CLI exposes 'config migrate [--dry-run]', template seeded with schema_version:1, repo's own config migrated as dogfood. 433 tests pass, pnpm verify clean.
+- **2026-06-28T12:00:17Z** — status: in-progress → in-review
+- **2026-06-28T12:02:07Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:02:07Z** — Review passed — no issues found. All CRs verified.
