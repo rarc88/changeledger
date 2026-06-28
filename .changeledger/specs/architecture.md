@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-27T21:50:56Z
+updated: 2026-06-28T01:46:07Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -8,6 +8,7 @@ tags: [ architecture, cli, viewer ]
 
 > Graduado del change 20260616-151226 (parser CLI con commander).
 > Graduado del change 20260624-153236 (migración integral a ChangeLedger).
+> Graduado del change 20260627-205033 (compilador de contexto determinista).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -30,11 +31,14 @@ flowchart TD
     SPEC --> REPO
     REPO --> CHECK[check.mjs]
     REPO --> WRITER[writer.mjs]
+    CT[commands/context.mjs] --> REPO
   end
+  FRAG[templates/contract/*.md] --> CT
   subgraph cli["CLI (bin/changeledger)"]
     INIT[init] --> repo
     NEW[new] --> CH
     CHECKC[check] --> CHECK
+    CONTEXT[context] --> CT
     AGENT[status/log/task/list/show] --> WRITER
     VIEW[view] --> SRV
   end

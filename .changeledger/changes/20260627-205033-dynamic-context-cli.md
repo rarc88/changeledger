@@ -2,11 +2,13 @@
 id: "20260627-205033"
 title: Contexto dinámico por CLI y retiro del symlink del contrato
 type: feature
-status: in-validation
+status: done
 created: 2026-06-27T20:50:33Z
 depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -250,3 +252,8 @@ determinista que lo soporte.
 - **2026-06-28T01:41:24Z** — Review correction: regular legacy copies now require an exact SHA-256 match against historical shipped contracts; similarly named files fail closed, and gitignore cleanup removes only the literal entry
 - **2026-06-28T01:41:29Z** — status: in-progress → in-review
 - **2026-06-28T01:43:31Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T01:45:18Z** — validation → done (human accepted)
+- **2026-06-28T01:46:07Z** — graduado a spec `contract-discovery.md`
+- **2026-06-28T01:46:07Z** — graduado a spec `language.md`
+- **2026-06-28T01:46:07Z** — graduado a spec `architecture.md`
+- **2026-06-28T01:46:50Z** — archived
