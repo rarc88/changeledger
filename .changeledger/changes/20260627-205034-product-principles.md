@@ -2,9 +2,10 @@
 id: "20260627-205034"
 title: Filtros de decisión y no-goals de producto
 type: chore
-status: approved
+status: in-validation
 created: 2026-06-27T20:50:34Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -37,9 +38,12 @@ humana mediante el gate normal de graduación; no se adelanta verdad a
 
 ## Plan
 
-- [ ] Ampliar `INTENT.md` con el presupuesto de complejidad, las preguntas de evaluación y los no-goals, sin duplicar los principios que ya contiene; verify: `node bin/changeledger.mjs check` (support)
-- [ ] Añadir en el `AGENTS.md` raíz de este repo una versión breve que remita a `INTENT.md`, para que influya en decisiones de desarrollo sin cargar el detalle en repos consumidores; verify: `node bin/changeledger.mjs check` (support)
+- [x] Ampliar `INTENT.md` con el presupuesto de complejidad, las preguntas de evaluación y los no-goals, sin duplicar los principios que ya contiene; verify: `node bin/changeledger.mjs check` (support) — 2026-06-28T01:03:17Z
+- [x] Añadir en el `AGENTS.md` raíz de este repo una versión breve que remita a `INTENT.md`, para que influya en decisiones de desarrollo sin cargar el detalle en repos consumidores; verify: `node bin/changeledger.mjs check` (support) — 2026-06-28T01:03:18Z
 
 ## Log
 
 - **2026-06-28T01:01:00Z** — status: draft → approved
+- **2026-06-28T01:02:57Z** — status: approved → in-progress
+- **2026-06-28T01:02:57Z** — owner → Roberto Ruiz (auto)
+- **2026-06-28T01:03:18Z** — status: in-progress → in-validation

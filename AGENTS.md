@@ -14,6 +14,10 @@ into each repo as `.changeledger/AGENTS.md`. Edit the convention there, not here
 
 ## Project-specific notes
 
+- Product evolution follows the complexity budget and no-goals in
+  [`INTENT.md`](INTENT.md): prefer observed problems and a small deterministic,
+  local-first core; AI orchestration, memory and cloud services belong only in
+  optional integrations.
 - Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
   allowed only when they are mature and justified: the CLI uses `yaml` for
   config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,

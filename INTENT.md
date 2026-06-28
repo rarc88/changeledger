@@ -85,3 +85,24 @@ Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano
 - **Un change cerrado es terminal.** Lo que se quiera hacer después es un change nuevo.
 - **El humano decide en los momentos clave**: qué alcance se autoriza, si un borrador se aprueba, si una ampliación material se incorpora y si el resultado final es aceptable.
 - **El agente decide en la ejecución dentro del alcance autorizado**: cómo dividir el trabajo, cuándo commitear y qué tamaño de subagente usar para la revisión.
+
+---
+
+## Filtros de evolución del producto
+
+La complejidad del core es un presupuesto limitado. Una capacidad nueva debe
+reducir la complejidad total o aportar una mejora real demostrada por el uso; si
+no hace ninguna de las dos, no pertenece al core.
+
+Antes de incorporarla hay que responder:
+
+- ¿Resuelve un problema observado en proyectos reales?
+- ¿Puede resolverse limpiamente fuera de ChangeLedger?
+- ¿Simplifica el modelo mental lo suficiente para justificar conceptos nuevos?
+- ¿Seguirá teniendo sentido aunque cambien los agentes y editores actuales?
+
+ChangeLedger no es un orquestador de IA, un sistema de memoria ni una plataforma
+de agentes autónomos. El core no introduce automatización oculta ni dependencias
+obligatorias de nube, autenticación o proveedores. Esas capacidades pueden vivir
+en integraciones opcionales, pero el flujo canónico permanece determinista,
+local-first, explícito y agnóstico al agente.
