@@ -10,9 +10,13 @@ import { review, status } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
+  applyConfigMigration,
   changeStatus,
   createRequestListener,
+  patchProjectConfig,
+  previewConfigMigration,
   readProjectConfig,
+  readProjectConfigStructured,
   repairProjectPath,
   resolveProjects,
   saveProjectConfig,
@@ -364,6 +368,28 @@ test('190009 CR3: getRepo rejects when server returns 410', async () => {
     await assert.rejects(() => getRepo('proj'), /HTTP 410/);
   } finally {
     globalThis.fetch = origFetch;
+  }
+});
+
+test('113924 CR6: migration apply client rejects HTTP conflict with server message', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  globalThis.window = { __CHANGELEDGER_TOKEN__: 'test-token' };
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 409,
+    json: async () => ({ error: 'configuration changed on disk; reload before saving' }),
+  });
+  try {
+    const { postConfigMigrationApply } = await import('../src/viewer/public/api.js');
+    await assert.rejects(
+      () => postConfigMigrationApply('project-id', 'stale-revision'),
+      /configuration changed on disk; reload before saving/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
   }
 });
 
@@ -939,4 +965,258 @@ test('20260627-215619 CR1: handleSpecBodyClick intercepta enlace .md relativo y 
   handleSpecBodyClick(fakeEvent, (href) => calledWith.push(href));
   assert.equal(prevented, true);
   assert.deepEqual(calledWith, ['data-model.md']);
+});
+
+// 20260628-113924: Form editor and config migration in the viewer
+
+test('113924 CR3: readProjectConfigStructured returns config object and schema metadata', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = readProjectConfigStructured(projects, current);
+  assert.equal(result.code, 200);
+  assert.ok(typeof result.body.content === 'string');
+  assert.ok(typeof result.body.revision === 'string');
+  assert.equal(typeof result.body.schemaVersion, 'number');
+  assert.equal(result.body.supported, 1);
+  assert.ok(typeof result.body.config === 'object');
+  assert.ok('language' in result.body.config);
+  assert.ok('tdd' in result.body.config);
+  assert.ok('types' in result.body.config);
+});
+
+test('113924 CR4: patchProjectConfig only changes patched field, preserves comments and custom keys', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  // Add a comment and custom key to the config
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  const withCustom = `${original}\n# my note\ncustom_key: preserved\n`;
+  fs.writeFileSync(configFile, withCustom);
+
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { language: 'fr' },
+  });
+
+  assert.equal(result.code, 200, result.body?.error);
+  const after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /language: fr/);
+  assert.match(after, /custom_key: preserved/);
+  assert.match(after, /# my note/);
+  // Ensure nothing else changed
+  assert.doesNotMatch(after, /language: en/);
+});
+
+test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { project_id: 'hacked' },
+  });
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /project_id cannot be changed/);
+});
+
+test('113924 CR5: patch rejects invalid changes_dir (path traversal)', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { changes_dir: '../../../etc' },
+  });
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /escapes/);
+});
+
+test('113924 CR5: patch rejects removal of required lifecycle values without writing', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const before = fs.readFileSync(configFile, 'utf8');
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const withoutValidation = body.config.statuses.filter((status) => status !== 'in-validation');
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { statuses: withoutValidation },
+  });
+
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /statuses cannot remove required value "in-validation"/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+});
+
+test('113924 CR6 atomic: applyConfigMigration revision check and write are atomic (TOCTOU safe)', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  fs.writeFileSync(configFile, text);
+  // A stale revision is checked while mutateFileAtomic holds the file lock.
+  const staleResult = applyConfigMigration(projects, { project: current, revision: 'stale' });
+  assert.equal(staleResult.code, 409);
+  assert.match(staleResult.body.error, /changed on disk/);
+  // File must be unmodified
+  assert.equal(fs.readFileSync(configFile, 'utf8'), text);
+});
+
+test('113924 CR6: stale revision on patch returns 409', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: 'stale',
+    patch: { language: 'fr' },
+  });
+  assert.equal(result.code, 409);
+  assert.match(result.body.error, /changed on disk/);
+});
+
+test('113924 CR7: previewConfigMigration does not write and returns candidate YAML', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  // Downgrade to schema 0
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  fs.writeFileSync(configFile, text);
+  const before = fs.readFileSync(configFile, 'utf8');
+
+  const result = previewConfigMigration(projects, current);
+  assert.equal(result.code, 200);
+  assert.ok(result.body.yaml.includes('schema_version: 1'));
+  assert.ok(result.body.changes.length > 0);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
+});
+
+test('113924 CR7: previewConfigMigration returns already_current when schema is current', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = previewConfigMigration(projects, current);
+  assert.equal(result.code, 200);
+  assert.equal(result.body.already_current, true);
+});
+
+test('113924 CR8: applyConfigMigration uses buildMigration engine and writes atomically', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  fs.writeFileSync(configFile, text);
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const result = applyConfigMigration(projects, { project: current, revision: body.revision });
+  assert.equal(result.code, 200);
+  assert.ok(result.body.ok);
+  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 1'));
+  // Verify idempotent
+  const result2 = applyConfigMigration(projects, {
+    project: current,
+    revision: result.body.revision,
+  });
+  assert.equal(result2.code, 200);
+  assert.equal(result2.body.already_current, true);
+});
+
+test('113924 CR9: read never triggers migration implicitly', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  fs.writeFileSync(configFile, text);
+  const before = fs.readFileSync(configFile, 'utf8');
+
+  // Multiple reads must not trigger any write
+  readProjectConfig(projects, current);
+  readProjectConfigStructured(projects, current);
+  previewConfigMigration(projects, current);
+
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'reads must not modify config');
+});
+
+test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const text = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/schema_version: 1/, 'schema_version: 2');
+  fs.writeFileSync(configFile, text);
+  const { body } = readProjectConfigStructured(projects, current);
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { language: 'fr' },
+  });
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /newer than supported/);
+});
+
+test('113924 CR10: raw domain and HTTP writes fail closed for future schema', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const future = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/schema_version: 1/, 'schema_version: 2');
+  fs.writeFileSync(configFile, future);
+  const read = readProjectConfig(projects, current);
+  const candidate = future.replace(/language: en/, 'language: fr');
+
+  const direct = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: read.body.revision,
+  });
+  assert.equal(direct.code, 400);
+  assert.match(direct.body.error, /config schema 2 is newer than supported schema 1/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), future);
+
+  const response = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/project-config',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({
+      project: current,
+      content: candidate,
+      revision: read.body.revision,
+    }),
+    localOnly: false,
+  });
+  assert.equal(response.status, 400);
+  assert.match(response.body, /config schema 2 is newer than supported schema 1/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });

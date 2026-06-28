@@ -1,4 +1,5 @@
 import { checkRepo } from '../check.mjs';
+import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { loadRepo } from '../repo.mjs';
 
@@ -21,6 +22,15 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   }
 
   const { errors, warnings } = checkRepo(repo, { id });
+
+  // Schema version detection — warn without mutating.
+  const schemaVersion = getSchemaVersion(repo.config);
+  if (!id && schemaVersion < SUPPORTED_SCHEMA_VERSION) {
+    warnings.push({
+      file: '.changeledger/config.yml',
+      message: `config schema ${schemaVersion} is outdated; run \`changeledger config migrate --dry-run\``,
+    });
+  }
 
   // Discovery validation needs the filesystem (root contract bootstrap), so it
   // lives here, not in the pure validator. Repo-wide only.

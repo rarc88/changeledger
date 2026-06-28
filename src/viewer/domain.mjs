@@ -1,10 +1,16 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { checkRepo } from '../check.mjs';
 import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  buildMigration,
+  getSchemaVersion,
+  SUPPORTED_SCHEMA_VERSION,
+} from '../config-migration.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
@@ -209,11 +215,20 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
+      const currentSchema = getSchemaVersion(parseYaml(before));
+      if (currentSchema > SUPPORTED_SCHEMA_VERSION) {
+        throw new Error(
+          `config schema ${currentSchema} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
+        );
+      }
       return payload.content;
     });
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
+    }
+    if (/^config schema \d+ is newer than supported schema \d+$/.test(error.message)) {
+      return { code: 400, body: { error: error.message } };
     }
     return { code: 400, body: { error: 'unable to save project configuration' } };
   }
@@ -263,4 +278,269 @@ export function unregisterProject(projects, payload, { localOnly = false } = {})
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
   return { code: 200, body: { ok: true } };
+}
+
+// Returns config content + schema metadata without mutating anything.
+export function readProjectConfigStructured(projects, id) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  const config = parseYaml(content);
+  const schemaVersion = getSchemaVersion(config);
+  return {
+    code: 200,
+    body: {
+      content,
+      revision: revision(content),
+      schemaVersion,
+      supported: SUPPORTED_SCHEMA_VERSION,
+      config,
+    },
+  };
+}
+
+// Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
+// comments, unknown keys and fields the form does not represent.
+export function patchProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+  const found = projectFor(projects, payload.project);
+  if (!found.project) return found;
+  if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
+    return { code: 400, body: { error: 'patch must be an object' } };
+  }
+  if (typeof payload.revision !== 'string') {
+    return { code: 400, body: { error: 'revision is required' } };
+  }
+  // Explicitly reject attempts to change identity fields via patch.
+  if ('project_id' in payload.patch) {
+    return { code: 400, body: { error: 'project_id cannot be changed from the viewer' } };
+  }
+  if ('schema_version' in payload.patch) {
+    return { code: 400, body: { error: 'schema_version cannot be changed via patch' } };
+  }
+
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+
+  let result;
+  try {
+    mutateConfig(file, (before) => {
+      if (revision(before) !== payload.revision) {
+        throw new Error('configuration changed on disk; reload before saving');
+      }
+
+      const doc = parseDocument(before, { merge: false });
+      const config = doc.toJS() ?? {};
+
+      // Fail closed for future schema
+      const schemaVersion = getSchemaVersion(config);
+      if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
+        throw new Error(
+          `config schema ${schemaVersion} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
+        );
+      }
+
+      applyPatch(doc, payload.patch, config);
+
+      const patched = doc.toString();
+      const candidate = parseYaml(patched);
+
+      // Identity guard
+      if (String(candidate.project_id ?? '') !== String(found.project.id)) {
+        throw new Error('project_id cannot be changed from the viewer');
+      }
+
+      // Structural validation
+      const repo = loadRepo(found.project.path);
+      resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
+      resolveSpecsDir(repo.repoRoot, candidate);
+      const candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+      const { errors } = checkRepo(candidateRepo);
+      if (errors.length) throw new Error(errors[0].message);
+
+      result = { content: patched, rev: revision(patched) };
+      return patched;
+    });
+  } catch (error) {
+    if (error.message === 'configuration changed on disk; reload before saving') {
+      return { code: 409, body: { error: error.message } };
+    }
+    return { code: 400, body: { error: error.message } };
+  }
+
+  return { code: 200, body: { ok: true, revision: result.rev } };
+}
+
+// Preview the migration without writing. Returns summary + candidate YAML.
+export function previewConfigMigration(projects, id, rev) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  const content = fs.readFileSync(file, 'utf8');
+  if (rev && revision(content) !== rev) {
+    return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
+  }
+  let migrationResult;
+  try {
+    migrationResult = buildMigration(content);
+  } catch (e) {
+    return { code: 400, body: { error: e.message } };
+  }
+  if (!migrationResult) {
+    return {
+      code: 200,
+      body: {
+        already_current: true,
+        message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
+      },
+    };
+  }
+  return {
+    code: 200,
+    body: {
+      summary: `Config migration 0 → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
+      changes: migrationResult.changes,
+      yaml: migrationResult.yaml,
+    },
+  };
+}
+
+// Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
+// Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
+export function applyConfigMigration(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+  const found = projectFor(projects, payload.project);
+  if (!found.project) return found;
+  if (typeof payload.revision !== 'string') {
+    return { code: 400, body: { error: 'revision is required' } };
+  }
+  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+
+  let result;
+  try {
+    mutateConfig(file, (before) => {
+      if (revision(before) !== payload.revision) {
+        throw new Error('configuration changed on disk; reload before saving');
+      }
+      let migrationResult;
+      try {
+        migrationResult = buildMigration(before);
+      } catch (e) {
+        throw new Error(e.message);
+      }
+      if (!migrationResult) {
+        result = { already_current: true, rev: payload.revision };
+        return undefined; // no write needed
+      }
+      result = { ok: true, rev: revision(migrationResult.yaml) };
+      return migrationResult.yaml;
+    });
+  } catch (error) {
+    if (error.message === 'configuration changed on disk; reload before saving') {
+      return { code: 409, body: { error: error.message } };
+    }
+    return { code: 400, body: { error: error.message } };
+  }
+
+  if (result.already_current) {
+    return { code: 200, body: { already_current: true, revision: result.rev } };
+  }
+  return { code: 200, body: { ok: true, revision: result.rev } };
+}
+
+// Allowlisted fields the form patch may update.
+const PATCH_ALLOWED = new Set([
+  'project_name',
+  'language',
+  'tdd',
+  'changes_dir',
+  'specs_dir',
+  'statuses',
+  'stages',
+  'readiness',
+  'types',
+  'release',
+]);
+
+const CANONICAL_STATUSES_REQUIRED = new Set([
+  'draft',
+  'approved',
+  'in-progress',
+  'in-review',
+  'in-validation',
+  'blocked',
+  'done',
+  'discarded',
+]);
+
+const CANONICAL_STAGES_REQUIRED = new Set([
+  'request',
+  'investigation',
+  'proposal',
+  'specification',
+  'plan',
+  'log',
+]);
+
+function applyPatch(doc, patch, currentConfig) {
+  for (const [key, value] of Object.entries(patch)) {
+    if (!PATCH_ALLOWED.has(key)) continue;
+
+    if (key === 'types') {
+      applyTypesPatch(doc, value, currentConfig.types ?? {});
+    } else if (key === 'release') {
+      applyReleasePatch(doc, value);
+    } else if (key === 'readiness') {
+      applyReadinessPatch(doc, value);
+    } else if (key === 'statuses') {
+      applyRequiredListPatch(doc, 'statuses', value, CANONICAL_STATUSES_REQUIRED);
+    } else if (key === 'stages') {
+      applyRequiredListPatch(doc, 'stages', value, CANONICAL_STAGES_REQUIRED);
+    } else {
+      doc.set(key, value);
+    }
+  }
+}
+
+function applyRequiredListPatch(doc, key, proposed, required) {
+  if (!Array.isArray(proposed) || proposed.some((value) => typeof value !== 'string')) {
+    throw new Error(`${key} must be a list of strings`);
+  }
+  const duplicate = proposed.find((value, index) => proposed.indexOf(value) !== index);
+  if (duplicate) throw new Error(`${key} contains duplicate value "${duplicate}"`);
+  const missing = [...required].find((value) => !proposed.includes(value));
+  if (missing) throw new Error(`${key} cannot remove required value "${missing}"`);
+  doc.set(key, proposed);
+}
+
+function applyTypesPatch(doc, typesPatch, currentTypes) {
+  for (const [typeName, typeDef] of Object.entries(typesPatch)) {
+    if (!Object.hasOwn(currentTypes, typeName)) continue; // don't add new types
+    if (!typeDef || typeof typeDef !== 'object') continue;
+    if (Array.isArray(typeDef.stages)) {
+      doc.setIn(['types', typeName, 'stages'], typeDef.stages);
+    }
+    if (typeof typeDef.review_required === 'boolean') {
+      doc.setIn(['types', typeName, 'review_required'], typeDef.review_required);
+    } else if (typeDef.review_required === null) {
+      doc.deleteIn(['types', typeName, 'review_required']);
+    }
+  }
+}
+
+function applyReleasePatch(doc, releasePatch) {
+  if (releasePatch.impacts && typeof releasePatch.impacts === 'object') {
+    for (const [type, impact] of Object.entries(releasePatch.impacts)) {
+      if (impact === null) doc.deleteIn(['release', 'impacts', type]);
+      else doc.setIn(['release', 'impacts', type], impact);
+    }
+  }
+}
+
+function applyReadinessPatch(doc, readinessPatch) {
+  if (!readinessPatch || typeof readinessPatch !== 'object') return;
+  if (Array.isArray(readinessPatch.target_patterns)) {
+    doc.setIn(['readiness', 'target_patterns'], readinessPatch.target_patterns);
+  }
+  if (Array.isArray(readinessPatch.verification_patterns)) {
+    doc.setIn(['readiness', 'verification_patterns'], readinessPatch.verification_patterns);
+  }
 }

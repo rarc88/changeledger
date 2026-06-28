@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import {
   archive,
@@ -20,7 +21,11 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { view } from '../src/commands/view.mjs';
+import { findChangeledgerDir } from '../src/config.mjs';
+import { applyMigration, SUPPORTED_SCHEMA_VERSION } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
+
+const { version } = createRequire(import.meta.url)('../package.json');
 
 const USAGE = `ChangeLedger (changeledger)
 
@@ -45,6 +50,7 @@ const USAGE = `ChangeLedger (changeledger)
   changeledger graduate <change-id> <spec-slug> --into   graduate into an existing spec
   changeledger graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   changeledger graduate --pending                 list done changes not yet reviewed
+  changeledger config migrate [--dry-run]          migrate .changeledger/config.yml to schema ${SUPPORTED_SCHEMA_VERSION}
   changeledger release init <version>             initialize release history at X.Y.Z
   changeledger release plan [--json]              calculate the next portable SemVer release
   changeledger release record <version>           record the calculated release manifest`;
@@ -65,6 +71,7 @@ function action(fn) {
 program
   .name('changeledger')
   .description('ChangeLedger (changeledger)')
+  .version(version, '-v, --version', 'output the installed version (-V also accepted)')
   .helpOption('-h, --help', 'display help for command')
   .addHelpText('after', `\n${USAGE}`);
 
@@ -326,6 +333,24 @@ program
     }),
   );
 
+const configCommand = program
+  .command('config')
+  .description('inspect and manage the repo configuration');
+
+configCommand
+  .command('migrate')
+  .description('migrate .changeledger/config.yml to the current schema')
+  .option('--dry-run', 'show the migration plan and candidate YAML without writing')
+  .action(
+    action((options) => {
+      const changeledgerDir = findChangeledgerDir();
+      if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
+      const configFile = `${changeledgerDir}/config.yml`;
+      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      console.log(result);
+    }),
+  );
+
 const releaseCommand = program
   .command('release')
   .description('plan and record portable SemVer releases');
@@ -376,8 +401,10 @@ releaseCommand
     }),
   );
 
-if (process.argv.length <= 2) {
+// Normalize -V to --version so both short aliases work identically.
+const argv = process.argv.map((a) => (a === '-V' ? '--version' : a));
+if (argv.length <= 2) {
   console.log(USAGE);
 } else {
-  program.parse();
+  program.parse(argv);
 }

@@ -139,8 +139,21 @@ changeledger context review             # explicit task mode
 
 `init` places a small fail-closed bootstrap in the project-owned `AGENTS.md`;
 there is no linked or copied contract under `.changeledger/`. Run
-`changeledger register` after upgrading to refresh that bootstrap and migrate
-legacy repositories.
+`changeledger register` after upgrading to refresh that bootstrap.
+
+### Upgrading an existing repo's configuration
+
+Repos created before ChangeLedger 0.6 may have an older configuration schema.
+Run this to inspect and apply available migrations:
+
+```sh
+changeledger config migrate --dry-run   # preview changes without writing
+changeledger config migrate             # apply atomically
+changeledger check                      # confirm the repo is valid
+```
+
+Migrations are safe to run more than once — if the config is already current,
+the command reports so and exits without modifying any file.
 
 ## Compatibility and security
 

@@ -41,8 +41,36 @@ const postProject = (route, body) =>
     body: JSON.stringify(body),
   });
 
+const jsonOrThrow = async (response) => {
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  return body;
+};
+
 export const postProjectConfig = (project, content, revision) =>
   postProject('/api/project-config', { project, content, revision });
+
+export const getProjectConfigStructured = (project) =>
+  fetch(`/api/project-config-structured?project=${encodeURIComponent(project)}`).then(async (r) => {
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    return body;
+  });
+
+export const patchProjectConfigApi = (project, patch, revision) =>
+  postProject('/api/project-config-patch', { project, patch, revision });
+
+export const getConfigMigrationPreview = (project, revision) =>
+  fetch(
+    `/api/project-config-migrate-preview?project=${encodeURIComponent(project)}&revision=${encodeURIComponent(revision ?? '')}`,
+  ).then(async (r) => {
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+    return body;
+  });
+
+export const postConfigMigrationApply = (project, revision) =>
+  postProject('/api/project-config-migrate-apply', { project, revision }).then(jsonOrThrow);
 
 export const postProjectPath = (project, path) =>
   postProject('/api/project-path', { project, path });

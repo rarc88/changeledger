@@ -5,8 +5,12 @@ import { gitRefs } from '../../git.mjs';
 import { publicDir } from '../../paths.mjs';
 import { loadRepoAsync } from '../../repo.mjs';
 import {
+  applyConfigMigration,
   changeStatus,
+  patchProjectConfig,
+  previewConfigMigration,
   readProjectConfig,
+  readProjectConfigStructured,
   repairProjectPath,
   resolveProjects,
   saveProjectConfig,
@@ -87,12 +91,15 @@ export function createRequestListener(cwd, localOnly, token) {
       const route = url.pathname;
       const params = url.searchParams;
 
-      if (
-        req.method === 'POST' &&
-        ['/api/status', '/api/project-config', '/api/project-path', '/api/project-remove'].includes(
-          route,
-        )
-      ) {
+      const WRITE_ROUTES = new Set([
+        '/api/status',
+        '/api/project-config',
+        '/api/project-config-patch',
+        '/api/project-config-migrate-apply',
+        '/api/project-path',
+        '/api/project-remove',
+      ]);
+      if (req.method === 'POST' && WRITE_ROUTES.has(route)) {
         if (!isAuthorizedWrite(req, token)) {
           send(res, 403, MIME['.json'], JSON.stringify({ error: 'unauthorized write' }));
           req.destroy();
@@ -121,14 +128,17 @@ export function createRequestListener(cwd, localOnly, token) {
             }
             const { projects } = resolveProjects(cwd, localOnly);
             const options = { localOnly };
-            const result =
-              route === '/api/status'
-                ? changeStatus(projects, payload)
-                : route === '/api/project-config'
-                  ? saveProjectConfig(projects, payload, options)
-                  : route === '/api/project-path'
-                    ? repairProjectPath(projects, payload, options)
-                    : unregisterProject(projects, payload, options);
+            let result;
+            if (route === '/api/status') result = changeStatus(projects, payload);
+            else if (route === '/api/project-config')
+              result = saveProjectConfig(projects, payload, options);
+            else if (route === '/api/project-config-patch')
+              result = patchProjectConfig(projects, payload);
+            else if (route === '/api/project-config-migrate-apply')
+              result = applyConfigMigration(projects, payload);
+            else if (route === '/api/project-path')
+              result = repairProjectPath(projects, payload, options);
+            else result = unregisterProject(projects, payload, options);
             const { code, body } = result;
             send(res, code, MIME['.json'], JSON.stringify(body));
           } catch (error) {
@@ -151,6 +161,22 @@ export function createRequestListener(cwd, localOnly, token) {
       if (route === '/api/project-config') {
         const { projects } = resolveProjects(cwd, localOnly);
         const { code, body } = readProjectConfig(projects, params.get('project'));
+        send(res, code, MIME['.json'], JSON.stringify(body));
+        return;
+      }
+      if (route === '/api/project-config-structured') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const { code, body } = readProjectConfigStructured(projects, params.get('project'));
+        send(res, code, MIME['.json'], JSON.stringify(body));
+        return;
+      }
+      if (route === '/api/project-config-migrate-preview') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const { code, body } = previewConfigMigration(
+          projects,
+          params.get('project'),
+          params.get('revision'),
+        );
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }

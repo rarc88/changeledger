@@ -6,8 +6,12 @@ import { createRequestListener, staticFile } from '../viewer/server/router.mjs';
 import { hostnameOf, isAuthorizedWrite, isLocalHost } from '../viewer/server/security.mjs';
 
 export {
+  applyConfigMigration,
   changeStatus,
+  patchProjectConfig,
+  previewConfigMigration,
   readProjectConfig,
+  readProjectConfigStructured,
   repairProjectPath,
   resolveProjects,
   saveProjectConfig,
