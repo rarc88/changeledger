@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
-import { checkContract, REFERENCE } from '../src/contract.mjs';
+import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'contract-home-'));
 
@@ -62,8 +63,10 @@ test('CR11: register removes a recognized Windows fallback copy', () => {
   const dir = root();
   init(dir);
   const artifact = path.join(dir, '.changeledger', 'AGENTS.md');
-  fs.writeFileSync(artifact, '# AGENTS.md — ChangeLedger Contract\nlegacy\n');
-  registerRepo(dir);
+  const legacy = '# AGENTS.md — ChangeLedger Contract\nknown exact legacy payload\n';
+  fs.writeFileSync(artifact, legacy);
+  const digest = crypto.createHash('sha256').update(legacy).digest('hex');
+  removeLegacyContract(path.join(dir, '.changeledger'), new Set([digest]));
   assert.equal(fs.existsSync(artifact), false);
 });
 
@@ -71,7 +74,24 @@ test('CR11: register preserves and rejects an unknown regular file', () => {
   const dir = root();
   init(dir);
   const artifact = path.join(dir, '.changeledger', 'AGENTS.md');
-  fs.writeFileSync(artifact, '# user-owned file\n');
+  fs.writeFileSync(artifact, '# AGENTS.md — ChangeLedger Contract\nuser-owned additions\n');
   assert.throws(() => registerRepo(dir), /not a recognized legacy ChangeLedger contract/);
-  assert.equal(fs.readFileSync(artifact, 'utf8'), '# user-owned file\n');
+  assert.equal(
+    fs.readFileSync(artifact, 'utf8'),
+    '# AGENTS.md — ChangeLedger Contract\nuser-owned additions\n',
+  );
+});
+
+test('CR11: register removes only the literal legacy gitignore line', () => {
+  const dir = root();
+  init(dir);
+  fs.writeFileSync(
+    path.join(dir, '.gitignore'),
+    '.changeledger/AGENTS.md\n .changeledger/AGENTS.md\n.changeledger/AGENTS.md \n',
+  );
+  registerRepo(dir);
+  assert.equal(
+    fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
+    ' .changeledger/AGENTS.md\n.changeledger/AGENTS.md \n',
+  );
 });

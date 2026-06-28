@@ -2,7 +2,7 @@
 id: "20260627-205033"
 title: Contexto dinámico por CLI y retiro del symlink del contrato
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-27T20:50:33Z
 depends_on: []
 release_impact: minor
@@ -246,3 +246,7 @@ determinista que lo soporte.
 - **2026-06-28T01:06:08Z** — owner → Roberto Ruiz (auto)
 - **2026-06-28T01:17:03Z** — Implementation complete: dynamic context, safe legacy migration, public docs and self-registration verified; pnpm verify passed with 413 tests
 - **2026-06-28T01:17:03Z** — status: in-progress → in-review
+- **2026-06-28T01:40:20Z** — review → in-progress (retry): CR11 legacy-copy recognition can delete an unrelated regular file sharing the historical heading; use exact known-content hashes and remove only the literal gitignore entry
+- **2026-06-28T01:41:24Z** — Review correction: regular legacy copies now require an exact SHA-256 match against historical shipped contracts; similarly named files fail closed, and gitignore cleanup removes only the literal entry
+- **2026-06-28T01:41:29Z** — status: in-progress → in-review
+- **2026-06-28T01:43:31Z** — review → in-validation (delegated subagent, clean context)
