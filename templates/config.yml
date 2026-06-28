@@ -2,12 +2,12 @@
 # Repo specifics: documentation language, change types and active stages per type.
 
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
-# is always English. See AGENTS.md §8.
+# is always English. See `changeledger context spec`.
 language: en
 
 # Definition of Ready policy. When true (default), changes are documented
 # test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
-# coverage gaps. Set false for exploratory repos. See AGENTS.md §11.
+# coverage gaps. Set false for exploratory repos. See `changeledger context spec`.
 tdd: true
 
 # Default SemVer impact for a completed change. A change may override its type
@@ -38,7 +38,8 @@ stages: [request, investigation, proposal, specification, plan, log]
 
 # Active stages per type. The viewer shows only these.
 # `review_required: true` makes the change pass through `in-review` (an
-# independent subagent review) before universal human validation. See AGENTS.md §5/§6.
+# independent subagent review) before universal human validation. See
+# `changeledger context implement` and `changeledger context review`.
 types:
   feature:
     stages: [request, investigation, proposal, specification, plan, log]

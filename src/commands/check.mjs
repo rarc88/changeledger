@@ -22,7 +22,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
 
   const { errors, warnings } = checkRepo(repo, { id });
 
-  // Discovery validation needs the filesystem (root contract, symlink), so it
+  // Discovery validation needs the filesystem (root contract bootstrap), so it
   // lives here, not in the pure validator. Repo-wide only.
   if (!id) {
     for (const message of checkContract(repo.repoRoot, repo.changeledgerDir)) {

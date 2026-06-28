@@ -14,7 +14,7 @@ export function init(cwd = process.cwd()) {
   const changeledgerDir = path.join(repoRoot, '.changeledger');
   if (fs.existsSync(changeledgerDir)) {
     throw new Error(
-      '.changeledger/ already exists. Use `changeledger register` to (re)link this repo.',
+      '.changeledger/ already exists. Use `changeledger register` to refresh this repo.',
     );
   }
   // The root AGENTS.md is the project's own contract; we reference the tool's

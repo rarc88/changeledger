@@ -11,7 +11,7 @@ const LOCK_MTIME_STALE_MS = 30_000;
 
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
-// (repo language). See AGENTS.md §7-§8.
+// (repo language). See `changeledger context spec`.
 export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');

@@ -45,11 +45,9 @@ in-validation → in-progress                       [human rejection]
 - `done`: terminal; the human accepted the complete result.
 - `discarded`: terminal tombstone; never reopen it.
 
-`changeledger status` enforces agent-owned transitions and refuses `done` and
-`discarded`. Humans approve and validate in the viewer. Use
-`changeledger discard <id> "<reason>"` for a discarded change.
-`changeledger status <id> <status>` does not accept `done` or `discarded` (use
-`changeledger discard <id> "<reason>"` for the latter). `done` and `discarded`
+`changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
+Humans approve and validate in the viewer; use
+`changeledger discard <id> "<reason>"` for a discarded change. `done` and `discarded`
 never reopen.
 
 ## Context modes

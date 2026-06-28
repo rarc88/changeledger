@@ -59,7 +59,7 @@ export function status(
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
-// with clean context — see AGENTS.md §6). `pass` advances to human validation;
+// with clean context — see `changeledger context review`). `pass` advances to human validation;
 // `fail` routes it back: `retry` for a defect inside the contract (the
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.

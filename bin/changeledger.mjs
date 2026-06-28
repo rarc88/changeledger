@@ -25,7 +25,7 @@ import { nowUtc } from '../src/paths.mjs';
 const USAGE = `ChangeLedger (changeledger)
 
   changeledger init                          set up .changeledger/ in the current repo (+ register it)
-  changeledger register                      (re)link this repo's path in the global registry
+  changeledger register                      refresh registration and context bootstrap
   changeledger new <type> <slug> <title>     scaffold a new change (slug is the English filename)
   changeledger view [port]                   launch the local viewer (default port 4040)
   changeledger check [id] [--json]           validate the repo or one change
@@ -80,7 +80,7 @@ program
 
 program
   .command('register')
-  .description("(re)link this repo's path in the global registry")
+  .description('refresh registration and context bootstrap')
   .action(
     action(() => {
       const { id, path: p } = registerRepo();

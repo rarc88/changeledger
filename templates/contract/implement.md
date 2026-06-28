@@ -1,18 +1,15 @@
 # Implementing an Approved Change
 
 1. Keep one concern per change. Work necessary for the authorized objective may
-   update Specification, Plan and Log. Materially expanded observable scope
-   needs explicit human authorization; independent work is proposed separately.
-   If related work materially expands observable scope, obtain explicit human
-   authorization before adding it.
+   update Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
+   authorization before adding it; propose independent work separately.
 2. Never implement approved changes on `main`, `master`, or `dev`. Inspect the
    worktree first. If unrelated changes exist, do not include them silently.
 3. Commit the approved change documentation before touching implementation code.
    Implement one change at a time.
 4. Commit a completed unit before continuing when another task or shared edit makes attribution
-   ambiguous. Commit messages reference the id. If shared files force a combined
-   commit, record that explicitly. If shared files make a combined commit
-   unavoidable, name every change sharing the surface.
+   ambiguous. Commit messages reference the id. If shared files make a combined commit
+   unavoidable, record it explicitly and name every change sharing the surface.
 5. Keep the change current with `changeledger task`, `changeledger log`,
    `changeledger owner` and `changeledger status`.
 6. Follow the Specification exactly. Write a failing test from each criterion,

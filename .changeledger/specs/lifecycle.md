@@ -55,7 +55,7 @@ para no heredar sesgo) y un **modelo acorde a la dificultad**. *Qué* valida:
 cada `CRn` cumplido, sin residuo y Plan realmente hecho. La
 auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
-subagente es del agente anfitrión — el contrato (AGENTS.md §6) solo fija el qué.
+subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
 
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo

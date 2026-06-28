@@ -27,9 +27,10 @@ changeledger init
 changeledger view
 ```
 
-`changeledger init` creates `.changeledger/`, gives the project a stable identity and links the
-installed agent contract. The repository keeps only its configuration and
-documents; the CLI and viewer remain in the global package.
+`changeledger init` creates `.changeledger/`, gives the project a stable identity
+and installs a small context bootstrap in the project-owned `AGENTS.md`. The
+repository keeps only its configuration and documents; the CLI, viewer and
+canonical contract fragments remain in the global package.
 
 ## The workflow
 
@@ -62,8 +63,8 @@ other tools discover it through the repository's `AGENTS.md` reference.
 
 With the default Definition of Ready policy, `changeledger check` verifies that acceptance
 criteria are test-grade and mapped to actionable tasks. Repositories doing
-exploratory work can set `tdd: false`; the complete rules live in
-[`AGENTS.md`](AGENTS.md).
+exploratory work can set `tdd: false`; run `changeledger context spec` or
+`changeledger context implement` for the complete task-specific rules.
 
 ## Essential commands
 
@@ -71,7 +72,7 @@ exploratory work can set `tdd: false`; the complete rules live in
 
 ```sh
 changeledger init                         # initialize and register the current repository
-changeledger register                     # relink a moved or freshly cloned repository
+changeledger register                     # refresh registration and the context bootstrap
 changeledger view                         # view every registered project
 changeledger view .                       # view only the current project
 changeledger check [id]                   # validate the repository or one change
@@ -159,7 +160,7 @@ latest `0.x` release to receive fixes.
 
 Contributions are welcome. Development setup, quality gates and repository
 conventions live in [`CONTRIBUTING.md`](CONTRIBUTING.md). The canonical agent
-contract is [`AGENTS.md`](AGENTS.md).
+contract is composed from [`templates/contract/`](templates/contract/).
 
 ## Language policy
 
