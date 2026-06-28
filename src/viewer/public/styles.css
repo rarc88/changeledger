@@ -1442,3 +1442,31 @@ body {
   color: var(--muted);
   font-style: italic;
 }
+
+/* Native confirm dialog (cl-confirm-dialog) */
+.cl-confirm-dialog {
+  margin: auto;
+  padding: 28px 28px 24px;
+  min-width: 320px;
+  max-width: 440px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.55);
+  color: var(--text);
+}
+.cl-confirm-dialog::backdrop {
+  background: rgba(4, 6, 10, 0.75);
+  backdrop-filter: blur(4px);
+}
+.cl-confirm-message {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.cl-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

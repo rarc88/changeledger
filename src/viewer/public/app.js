@@ -685,8 +685,41 @@ const CANONICAL_STATUSES = [
   'discarded',
 ];
 
-// Inline confirm dialog state (replaces browser confirm/alert)
-let confirmDialog = null; // null | { message, onConfirm, onCancel }
+// Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
+// _confirmImpl is replaceable in tests (JSDOM lacks showModal).
+let _confirmImpl = null;
+
+export function setConfirmImpl(impl) {
+  _confirmImpl = impl;
+}
+
+export function showConfirm(message) {
+  if (_confirmImpl) return Promise.resolve(_confirmImpl(message));
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'cl-confirm-dialog';
+    dialog.innerHTML = `
+      <p class="cl-confirm-message"></p>
+      <div class="cl-confirm-actions">
+        <button type="button" class="button cl-confirm-yes">Confirm</button>
+        <button type="button" class="button secondary cl-confirm-no">Cancel</button>
+      </div>`;
+    dialog.querySelector('.cl-confirm-message').textContent = message;
+    document.body.appendChild(dialog);
+    const done = (result) => {
+      dialog.close();
+      dialog.remove();
+      resolve(result);
+    };
+    dialog.querySelector('.cl-confirm-yes').onclick = () => done(true);
+    dialog.querySelector('.cl-confirm-no').onclick = () => done(false);
+    dialog.addEventListener('cancel', () => done(false));
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) done(false);
+    });
+    dialog.showModal();
+  });
+}
 
 function configSectionTemplate(config, mode, preview) {
   if (!config) return nothing;
@@ -701,8 +734,6 @@ function configSectionTemplate(config, mode, preview) {
   const outdated = schema < SUPPORTED_SCHEMA_VERSION;
 
   return html`<div class="config-section">
-    ${confirmDialog ? confirmDialogTemplate(confirmDialog) : nothing}
-
     ${
       !futureSch
         ? html`<div class="config-tabs" role="tablist" aria-label="Config editor mode">
@@ -763,18 +794,6 @@ function configSectionTemplate(config, mode, preview) {
             ? formEditorTemplate(config)
             : rawEditorTemplate(config)
     }
-  </div>`;
-}
-
-function confirmDialogTemplate(dialog) {
-  return html`<div class="config-confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm">
-    <div class="config-confirm-box">
-      <p>${dialog.message}</p>
-      <div class="config-confirm-actions">
-        <button type="button" class="button" data-confirm-yes>Confirm</button>
-        <button type="button" class="button secondary" data-confirm-no>Cancel</button>
-      </div>
-    </div>
   </div>`;
 }
 
@@ -1078,11 +1097,6 @@ function collectFormPatch(formEl, currentConfig) {
   return patch;
 }
 
-export function showConfirmDialog(message, onConfirm) {
-  confirmDialog = { message, onConfirm };
-  renderProjects();
-}
-
 function renderProjects() {
   const root = $('#projects');
   litRender(
@@ -1090,16 +1104,6 @@ function renderProjects() {
     root,
   );
   bindProjectViewActions(root, {
-    confirmYes: () => {
-      const cb = confirmDialog?.onConfirm;
-      confirmDialog = null;
-      renderProjects();
-      if (cb) cb();
-    },
-    confirmNo: () => {
-      confirmDialog = null;
-      renderProjects();
-    },
     select: (id) => openManagedProject(id),
     reload: () => openManagedProject(managedProject, { reload: true }),
     switchMode: (mode) => {
@@ -1136,20 +1140,18 @@ function renderProjects() {
       }
       renderProjects();
     },
-    applyMigration: () => {
-      confirmDialog = {
-        message: 'Apply the config migration? This will update .changeledger/config.yml.',
-        onConfirm: async () => {
-          try {
-            await postConfigMigrationApply(managedProject, managedConfig.revision);
-            await openManagedProject(managedProject, { reload: true });
-          } catch (e) {
-            migrationPreview = { error: e.message };
-            renderProjects();
-          }
-        },
-      };
-      renderProjects();
+    applyMigration: async () => {
+      const ok = await showConfirm(
+        'Apply the config migration? This will update .changeledger/config.yml.',
+      );
+      if (!ok) return;
+      try {
+        await postConfigMigrationApply(managedProject, managedConfig.revision);
+        await openManagedProject(managedProject, { reload: true });
+      } catch (e) {
+        migrationPreview = { error: e.message };
+        renderProjects();
+      }
     },
     repair: (projectPath, pathForm) =>
       projectMutation(
@@ -1180,12 +1182,6 @@ function renderProjects() {
 }
 
 export function bindProjectViewActions(root, handlers) {
-  // Inline confirm dialog buttons
-  const confirmYes = root.querySelector('[data-confirm-yes]');
-  const confirmNo = root.querySelector('[data-confirm-no]');
-  if (confirmYes) confirmYes.onclick = () => handlers.confirmYes();
-  if (confirmNo) confirmNo.onclick = () => handlers.confirmNo();
-
   root.querySelectorAll('[data-manage-project]').forEach((button) => {
     button.onclick = () => handlers.select(button.dataset.manageProject);
   });

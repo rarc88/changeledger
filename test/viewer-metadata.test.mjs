@@ -28,7 +28,8 @@ const {
   restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
-  showConfirmDialog,
+  setConfirmImpl,
+  showConfirm,
   showNoProjects,
   stageBlock,
   sortIndicator,
@@ -711,8 +712,8 @@ test('113924 CR3 form: form renders project_name, lifecycle statuses, type stage
   assert.match(internalText, /project_name/);
 });
 
-// Inline confirm dialog: appears, fires confirm, fires cancel
-test('113924 CR1: inline confirm dialog replaces browser confirm/alert', () => {
+// Native <dialog>: no inline markup in template, mockable via setConfirmImpl
+test('113924 CR1: showConfirm — no inline markup, mockable for tests', async () => {
   const root = parse(
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
@@ -727,8 +728,20 @@ test('113924 CR1: inline confirm dialog replaces browser confirm/alert', () => {
       false,
     ),
   );
-  // No dialog initially
+  // No inline confirm overlay in the template
+  assert.equal(root.querySelector('[data-confirm-yes]'), null);
   assert.equal(root.querySelector('.config-confirm-overlay'), null);
+
+  // showConfirm is mockable — returns the impl result
+  let prompted = null;
+  setConfirmImpl((msg) => {
+    prompted = msg;
+    return true;
+  });
+  const val = await showConfirm('Are you sure?');
+  setConfirmImpl(null);
+  assert.equal(val, true);
+  assert.equal(prompted, 'Are you sure?');
 });
 
 test('113924 CR7: migration preview error is shown in UI', () => {
