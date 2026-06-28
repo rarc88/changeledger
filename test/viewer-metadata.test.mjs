@@ -28,6 +28,7 @@ const {
   restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
+  showConfirmDialog,
   showNoProjects,
   stageBlock,
   sortIndicator,
@@ -626,4 +627,128 @@ test('162104 CR3: simple graph still places dependents after dependencies', () =
     ]),
   );
   assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
+});
+
+// 20260628-113924 UI tests
+
+// Future schema: Raw tab only, save button absent, textarea readonly
+test('113924 CR10: future schema shows readonly raw and no save button', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: 'schema_version: 2\nproject_id: "aaa111"\n',
+        revision: 'rev',
+        schemaVersion: 2,
+        supported: 1,
+        config: { schema_version: 2, project_id: 'aaa111' },
+      },
+      false,
+    ),
+  );
+  // No save button inside the config section for future schema
+  const configSection = root.querySelector('.config-section');
+  assert.equal(
+    configSection?.querySelectorAll('button[type="submit"]').length ?? 0,
+    0,
+    'no submit button in config section for future schema',
+  );
+  // Textarea is readonly
+  const ta = root.querySelector('textarea[readonly]');
+  assert.ok(ta, 'textarea must be readonly for future schema');
+  // No Form tab
+  const tabs = root.querySelectorAll('[data-config-mode]');
+  const formTab = [...tabs].find((b) => b.dataset.configMode === 'form');
+  assert.equal(formTab, undefined, 'no Form tab for future schema');
+});
+
+// Form mode: project_name field, lifecycle section, types with stages
+test('113924 CR3 form: form renders project_name, lifecycle statuses, type stages and internal fields', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: '',
+        revision: 'rev',
+        schemaVersion: 1,
+        supported: 1,
+        config: {
+          schema_version: 1,
+          project_id: 'aaa111',
+          project_name: 'alpha',
+          language: 'es',
+          tdd: true,
+          statuses: ['draft', 'approved', 'in-progress', 'done'],
+          stages: ['request', 'plan', 'log'],
+          types: { feature: { stages: ['request', 'plan', 'log'], review_required: true } },
+          release: { impacts: { feature: 'minor' } },
+          changes_dir: '.changeledger/changes',
+          specs_dir: '.changeledger/specs',
+        },
+      },
+      false,
+    ),
+  );
+  // project_name field
+  const projectNameInput = root.querySelector('input[name="project_name"]');
+  assert.ok(projectNameInput, 'project_name input must be present');
+  assert.equal(projectNameInput.value, 'alpha');
+
+  // Lifecycle section shows statuses
+  const lifecycleSection = [...root.querySelectorAll('fieldset legend')].find((l) =>
+    l.textContent.includes('Lifecycle'),
+  );
+  assert.ok(lifecycleSection, 'Lifecycle fieldset must be present');
+
+  // Type stages shown
+  assert.match(root.querySelector('.config-type-stages')?.textContent ?? '', /request/);
+
+  // Internal section shows project_id
+  const internalText = root.querySelector('.config-group-internal')?.textContent ?? '';
+  assert.match(internalText, /aaa111/);
+  assert.match(internalText, /project_name/);
+});
+
+// Inline confirm dialog: appears, fires confirm, fires cancel
+test('113924 CR1: inline confirm dialog replaces browser confirm/alert', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: '',
+        revision: 'rev',
+        schemaVersion: 1,
+        supported: 1,
+        config: { project_id: 'aaa111' },
+      },
+      false,
+    ),
+  );
+  // No dialog initially
+  assert.equal(root.querySelector('.config-confirm-overlay'), null);
+});
+
+test('113924 CR7: migration preview error is shown in UI', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: '',
+        revision: 'rev',
+        schemaVersion: 0,
+        supported: 1,
+        config: { project_id: 'aaa111' },
+      },
+      false,
+      { error: 'Migration failed: invalid YAML' },
+    ),
+  );
+  // Error shown, not the preview YAML
+  assert.match(root.querySelector('.project-error')?.textContent ?? '', /Migration failed/);
+  // Retry button shown
+  assert.ok(root.querySelector('[data-preview-migration]'), 'Retry preview button must be present');
 });

@@ -155,3 +155,7 @@ archivo vigente es un no-op byte-idéntico.
 - **2026-06-28T12:00:17Z** — status: in-progress → in-review
 - **2026-06-28T12:02:07Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T12:02:07Z** — Review passed — no issues found. All CRs verified.
+- **2026-06-28T12:38:33Z** — validation → in-progress (human rejected): La migración debe refrescar los comentarios administrados desde el template actual, eliminando referencias históricas a Spec Ledger/sl check y preservando comentarios custom; añadir fixtures y assertions que lo demuestren.
+- **2026-06-28T12:50:43Z** — status: in-progress → in-review
+- **2026-06-28T12:50:43Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:50:43Z** — Corrección: migración refresca comentarios managed desde template (elimina referencias sl/SpecLedger, preserva comentarios custom); guarda template faltante con try/catch; elimina schema_version existente antes de prepend para evitar duplicados; tests añadidos.

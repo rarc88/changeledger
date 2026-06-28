@@ -60,3 +60,7 @@ no ofrece hoy la convención estándar `--version`/`-V`; responde `unknown optio
 - **2026-06-28T11:48:13Z** — status: in-progress → in-review
 - **2026-06-28T11:50:49Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T11:50:50Z** — Review passed after tightening CR1/CR3 assertions to exact newline match.
+- **2026-06-28T12:38:33Z** — validation → in-progress (human rejected): Añadir el alias corto -v además de -V/--version, actualizar help y cubrir las tres variantes con tests.
+- **2026-06-28T12:44:39Z** — status: in-progress → in-review
+- **2026-06-28T12:44:39Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:44:39Z** — Corrección: -v añadido como alias; -V normalizado en pre-parse; tests actualizados.

@@ -685,6 +685,9 @@ const CANONICAL_STATUSES = [
   'discarded',
 ];
 
+// Inline confirm dialog state (replaces browser confirm/alert)
+let confirmDialog = null; // null | { message, onConfirm, onCancel }
+
 function configSectionTemplate(config, mode, preview) {
   if (!config) return nothing;
   if (config.error) {
@@ -698,6 +701,8 @@ function configSectionTemplate(config, mode, preview) {
   const outdated = schema < SUPPORTED_SCHEMA_VERSION;
 
   return html`<div class="config-section">
+    ${confirmDialog ? confirmDialogTemplate(confirmDialog) : nothing}
+
     ${
       !futureSch
         ? html`<div class="config-tabs" role="tablist" aria-label="Config editor mode">
@@ -724,11 +729,8 @@ function configSectionTemplate(config, mode, preview) {
         ? html`<div class="config-future-schema">
             <p class="config-schema-badge">Schema ${schema}</p>
             <p>Update ChangeLedger to edit config schema ${schema}.</p>
-            <div class="config-tabs" role="tablist" aria-label="Config editor mode">
-              <button type="button" role="tab" class="config-tab active" data-config-mode="raw" aria-selected="true">Raw YAML</button>
-            </div>
-            ${rawEditorTemplate(config)}
-          </div>`
+          </div>
+          ${rawReadonlyTemplate(config)}`
         : outdated
           ? html`<div class="config-migration-card">
               <h3>Migration required</h3>
@@ -736,18 +738,23 @@ function configSectionTemplate(config, mode, preview) {
               ${
                 preview?.already_current
                   ? html`<p class="config-migration-ok">Migration already applied.</p>`
-                  : preview
-                    ? html`<div class="config-migration-preview">
-                        <p><strong>Changes:</strong></p>
-                        <ul>${preview.changes?.map((c) => html`<li>${c}</li>`)}</ul>
-                        <pre class="config-migration-yaml">${preview.yaml}</pre>
+                  : preview?.error
+                    ? html`<p class="project-error">${preview.error}</p>
                         <div class="project-actions">
-                          <button class="button" type="button" data-apply-migration>Apply migration</button>
-                        </div>
-                      </div>`
-                    : html`<div class="project-actions">
-                        <button class="button secondary" type="button" data-preview-migration>Preview migration</button>
-                      </div>`
+                          <button class="button secondary" type="button" data-preview-migration>Retry preview</button>
+                        </div>`
+                    : preview
+                      ? html`<div class="config-migration-preview">
+                          <p><strong>Changes:</strong></p>
+                          <ul>${preview.changes?.map((c) => html`<li>${c}</li>`)}</ul>
+                          <pre class="config-migration-yaml">${preview.yaml}</pre>
+                          <div class="project-actions">
+                            <button class="button" type="button" data-apply-migration>Apply migration</button>
+                          </div>
+                        </div>`
+                      : html`<div class="project-actions">
+                          <button class="button secondary" type="button" data-preview-migration>Preview migration</button>
+                        </div>`
               }
               <p class="config-section-note">You can still inspect the current config in Raw YAML.</p>
               ${rawEditorTemplate(config)}
@@ -759,20 +766,46 @@ function configSectionTemplate(config, mode, preview) {
   </div>`;
 }
 
+function confirmDialogTemplate(dialog) {
+  return html`<div class="config-confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm">
+    <div class="config-confirm-box">
+      <p>${dialog.message}</p>
+      <div class="config-confirm-actions">
+        <button type="button" class="button" data-confirm-yes>Confirm</button>
+        <button type="button" class="button secondary" data-confirm-no>Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Raw editor with Save button (for editable schemas)
 function rawEditorTemplate(config) {
   return html`<form class="config-form">
     <div class="config-label"><label for="project-config">.changeledger/config.yml</label><button type="button" class="text-button" data-reload-config>Reload</button></div>
     <textarea id="project-config" spellcheck="false" .value=${config?.content ?? ''}></textarea>
-    <p class="project-error" ?hidden=${!config?.error}>${config?.error ?? ''}</p>
+    <p class="project-error" ?hidden=${!config?.rawError}>${config?.rawError ?? ''}</p>
     <div class="project-actions"><button class="button" type="submit">Save configuration</button></div>
   </form>`;
 }
+
+// Raw viewer without Save (future schema — strictly read-only)
+function rawReadonlyTemplate(config) {
+  return html`<div class="config-form config-form-readonly">
+    <div class="config-label"><label for="project-config-ro">.changeledger/config.yml</label></div>
+    <textarea id="project-config-ro" spellcheck="false" readonly .value=${config?.content ?? ''}></textarea>
+    <p class="config-note">Editing disabled for schema ${config.schemaVersion ?? '?'}. Update ChangeLedger to enable editing.</p>
+  </div>`;
+}
+
+const BUILTIN_TYPES_UI = ['feature', 'bug', 'refactor'];
 
 function formEditorTemplate(config) {
   const cfg = config.config ?? {};
   const types = cfg.types ?? {};
   const impacts = cfg.release?.impacts ?? {};
   const readiness = cfg.readiness ?? {};
+  const allStatuses = cfg.statuses ?? [];
+  const stages = cfg.stages ?? [];
 
   return html`<form class="config-form config-form-structured" data-config-form>
     <div class="config-label">
@@ -782,6 +815,9 @@ function formEditorTemplate(config) {
 
     <fieldset class="config-group">
       <legend>General</legend>
+      <label>Project name
+        <input name="project_name" .value=${cfg.project_name ?? ''} />
+      </label>
       <label>Language
         <input name="language" .value=${cfg.language ?? 'en'} />
       </label>
@@ -803,35 +839,36 @@ function formEditorTemplate(config) {
     </fieldset>
 
     <fieldset class="config-group">
-      <legend>Lifecycle statuses</legend>
-      <p class="config-note">Canonical statuses (required): ${CANONICAL_STATUSES.filter((s) => (cfg.statuses ?? []).includes(s)).join(', ')}</p>
-      ${
-        (cfg.statuses ?? []).filter((s) => !CANONICAL_STATUSES.includes(s)).length
-          ? html`<p class="config-note">Custom: ${(cfg.statuses ?? []).filter((s) => !CANONICAL_STATUSES.includes(s)).join(', ')}</p>`
-          : nothing
-      }
-      <p class="config-note config-readonly-note">Edit statuses in Raw YAML.</p>
+      <legend>Lifecycle</legend>
+      <p class="config-note"><strong>Statuses</strong> (order = progress):</p>
+      <p class="config-note">${allStatuses.join(' → ')}</p>
+      <p class="config-note"><strong>Canonical stages:</strong> ${stages.join(', ')}</p>
+      <p class="config-note config-readonly-note">Edit statuses and stages in Raw YAML.</p>
     </fieldset>
 
     <fieldset class="config-group">
       <legend>Change types</legend>
       ${Object.entries(types).map(
         ([typeName, typeDef]) => html`
-          <div class="config-type-row">
-            <strong>${typeName}</strong>
-            <label class="config-checkbox">
-              <input type="checkbox" name=${'review_required_' + typeName}
-                ?checked=${typeDef?.review_required !== false}
-                ?disabled=${typeDef?.review_required === undefined && !['feature', 'bug', 'refactor'].includes(typeName)} />
-              Review required
-            </label>
-            <label>SemVer impact
-              <select name=${'impact_' + typeName}>
-                ${['none', 'patch', 'minor', 'major'].map((v) => html`<option value=${v} ?selected=${(impacts[typeName] ?? 'none') === v}>${v}</option>`)}
-              </select>
-            </label>
-          </div>
-        `,
+            <div class="config-type-row">
+              <strong>${typeName}</strong>
+              <span class="config-type-stages">${(typeDef?.stages ?? []).join(', ')}</span>
+              <label class="config-checkbox">
+                <input type="checkbox" name=${'review_required_' + typeName}
+                  ?checked=${typeDef?.review_required === true}
+                  ?disabled=${!BUILTIN_TYPES_UI.includes(typeName)} />
+                Review required
+              </label>
+              <label>SemVer impact
+                <select name=${'impact_' + typeName}>
+                  ${['none', 'patch', 'minor', 'major'].map(
+                    (v) =>
+                      html`<option value=${v} ?selected=${(impacts[typeName] ?? 'none') === v}>${v}</option>`,
+                  )}
+                </select>
+              </label>
+            </div>
+          `,
       )}
     </fieldset>
 
@@ -849,6 +886,7 @@ function formEditorTemplate(config) {
       <legend>Internal</legend>
       <p><span class="config-readonly-label">schema_version</span><span class="config-readonly-value">${cfg.schema_version ?? 0}</span></p>
       <p><span class="config-readonly-label">project_id</span><span class="config-readonly-value mono">${cfg.project_id ?? ''}</span></p>
+      <p><span class="config-readonly-label">project_name</span><span class="config-readonly-value">${cfg.project_name ?? ''}</span></p>
     </fieldset>
 
     <p class="project-error" ?hidden=${!config?.formError}>${config?.formError ?? ''}</p>
@@ -858,7 +896,13 @@ function formEditorTemplate(config) {
   </form>`;
 }
 
-export function projectsViewTemplate(projects, selected, config, localOnly) {
+export function projectsViewTemplate(
+  projects,
+  selected,
+  config,
+  localOnly,
+  preview = migrationPreview,
+) {
   const project = projects.find((item) => item.id === selected);
   return html`<div class="projects-shell">
     <div class="projects-list">
@@ -901,7 +945,7 @@ export function projectsViewTemplate(projects, selected, config, localOnly) {
               project.alive
                 ? config?.loading
                   ? html`<p class="empty">Loading configuration…</p>`
-                  : configSectionTemplate(config, configMode, migrationPreview)
+                  : configSectionTemplate(config, configMode, preview)
                 : html`<div class="missing-config"><h3>Configuration unavailable</h3><p>Repair the registered path to edit this project.</p></div>`
             }
             ${
@@ -997,20 +1041,22 @@ function collectFormPatch(formEl, currentConfig) {
   const patch = {};
   const els = formEl.elements;
 
+  if (els.project_name) patch.project_name = els.project_name.value;
   if (els.language) patch.language = els.language.value;
   if (els.tdd) patch.tdd = els.tdd.checked;
   if (els.changes_dir) patch.changes_dir = els.changes_dir.value;
   if (els.specs_dir) patch.specs_dir = els.specs_dir.value;
 
-  // types: review_required and release impacts
+  // types: review_required (only enabled ones) and release impacts
   const types = currentConfig.types ?? {};
   const typePatch = {};
   const impacts = {};
   for (const typeName of Object.keys(types)) {
     const rrEl = els['review_required_' + typeName];
     const impactEl = els['impact_' + typeName];
-    if (rrEl)
+    if (rrEl && !rrEl.disabled) {
       typePatch[typeName] = { ...(typePatch[typeName] ?? {}), review_required: rrEl.checked };
+    }
     if (impactEl) impacts[typeName] = impactEl.value;
   }
   if (Object.keys(typePatch).length) patch.types = typePatch;
@@ -1022,7 +1068,7 @@ function collectFormPatch(formEl, currentConfig) {
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
-    const verifyPatterns = els.verification_patterns.value
+    const verifyPatterns = (els.verification_patterns?.value ?? '')
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
@@ -1032,6 +1078,11 @@ function collectFormPatch(formEl, currentConfig) {
   return patch;
 }
 
+export function showConfirmDialog(message, onConfirm) {
+  confirmDialog = { message, onConfirm };
+  renderProjects();
+}
+
 function renderProjects() {
   const root = $('#projects');
   litRender(
@@ -1039,6 +1090,16 @@ function renderProjects() {
     root,
   );
   bindProjectViewActions(root, {
+    confirmYes: () => {
+      const cb = confirmDialog?.onConfirm;
+      confirmDialog = null;
+      renderProjects();
+      if (cb) cb();
+    },
+    confirmNo: () => {
+      confirmDialog = null;
+      renderProjects();
+    },
     select: (id) => openManagedProject(id),
     reload: () => openManagedProject(managedProject, { reload: true }),
     switchMode: (mode) => {
@@ -1062,28 +1123,33 @@ function renderProjects() {
           const patch = collectFormPatch(formEl, managedConfig.config ?? {});
           return patchProjectConfigApi(managedProject, patch, managedConfig.revision);
         },
-        async (body) => {
+        async (_body) => {
           await openManagedProject(managedProject, { reload: true });
         },
       ),
     previewMigration: async () => {
       try {
-        migrationPreview = await getConfigMigrationPreview(managedProject, managedConfig.revision);
-        renderProjects();
+        const result = await getConfigMigrationPreview(managedProject, managedConfig.revision);
+        migrationPreview = result;
       } catch (e) {
-        migrationPreview = null;
-        renderProjects();
+        migrationPreview = { error: e.message };
       }
+      renderProjects();
     },
-    applyMigration: async () => {
-      if (!confirm('Apply the config migration? This will update .changeledger/config.yml.'))
-        return;
-      try {
-        await postConfigMigrationApply(managedProject, managedConfig.revision);
-        await openManagedProject(managedProject, { reload: true });
-      } catch (e) {
-        alert(e.message);
-      }
+    applyMigration: () => {
+      confirmDialog = {
+        message: 'Apply the config migration? This will update .changeledger/config.yml.',
+        onConfirm: async () => {
+          try {
+            await postConfigMigrationApply(managedProject, managedConfig.revision);
+            await openManagedProject(managedProject, { reload: true });
+          } catch (e) {
+            migrationPreview = { error: e.message };
+            renderProjects();
+          }
+        },
+      };
+      renderProjects();
     },
     repair: (projectPath, pathForm) =>
       projectMutation(
@@ -1114,6 +1180,12 @@ function renderProjects() {
 }
 
 export function bindProjectViewActions(root, handlers) {
+  // Inline confirm dialog buttons
+  const confirmYes = root.querySelector('[data-confirm-yes]');
+  const confirmNo = root.querySelector('[data-confirm-no]');
+  if (confirmYes) confirmYes.onclick = () => handlers.confirmYes();
+  if (confirmNo) confirmNo.onclick = () => handlers.confirmNo();
+
   root.querySelectorAll('[data-manage-project]').forEach((button) => {
     button.onclick = () => handlers.select(button.dataset.manageProject);
   });

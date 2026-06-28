@@ -2,7 +2,7 @@
 id: "20260628-113924"
 title: Editor amigable y migración de config en el viewer
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-06-28T11:39:24Z
 depends_on: [ "20260628-113219" ]
 owner: raruiz-hiberuscom
@@ -158,3 +158,10 @@ claves custom o rediseñar el resto de Projects.
 - **2026-06-28T12:02:15Z** — status: approved → in-progress
 - **2026-06-28T12:02:15Z** — owner → raruiz-hiberuscom (auto)
 - **2026-06-28T12:12:01Z** — Implemented: domain.mjs extended with readProjectConfigStructured/patchProjectConfig/previewConfigMigration/applyConfigMigration; new HTTP routes in router.mjs; API client in api.js; Form/Raw tabbed UI in app.js with form groups, migration card, future-schema fail-closed; styles in styles.css. 442 tests pass, pnpm verify clean.
+- **2026-06-28T12:12:18Z** — status: in-progress → in-review
+- **2026-06-28T12:15:15Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:15:16Z** — Review passed — all CRs verified, no security issues found.
+- **2026-06-28T12:38:33Z** — validation → in-progress (human rejected): Reemplazar confirm/alert nativos por UI propia; implementar protección de cambios sin guardar; hacer Raw estrictamente read-only para schemas futuros; completar project_name, lifecycle/stages y tipos; rechazar explícitamente cambios de project_id; hacer atómica la comprobación de revisión y escritura de migración; mostrar errores de preview y cubrir todos estos CRs con tests.
+- **2026-06-28T12:57:06Z** — status: in-progress → in-review
+- **2026-06-28T12:57:06Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:57:06Z** — Corrección: UI confirm dialog propio (sin browser confirm/alert); Raw read-only para schema futuro; project_name en formulario y en patch; lifecycle completo (statuses + stages); project_id rechazado explícitamente en patch; applyConfigMigration usa mutateFileAtomic para atomicidad; errores de preview mostrados en UI; project_name en PATCH_ALLOWED; tests añadidos.

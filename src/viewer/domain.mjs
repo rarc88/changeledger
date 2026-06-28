@@ -302,6 +302,13 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };
   }
+  // Explicitly reject attempts to change identity fields via patch.
+  if ('project_id' in payload.patch) {
+    return { code: 400, body: { error: 'project_id cannot be changed from the viewer' } };
+  }
+  if ('schema_version' in payload.patch) {
+    return { code: 400, body: { error: 'schema_version cannot be changed via patch' } };
+  }
 
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
 
@@ -389,38 +396,50 @@ export function previewConfigMigration(projects, id, rev) {
 }
 
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
-export function applyConfigMigration(projects, payload, { writeConfig = writeFileAtomic } = {}) {
+// Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
+export function applyConfigMigration(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };
   }
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
-  if (revision(content) !== payload.revision) {
-    return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
-  }
-  let migrationResult;
+
+  let result;
   try {
-    migrationResult = buildMigration(content);
-  } catch (e) {
-    return { code: 400, body: { error: e.message } };
+    mutateConfig(file, (before) => {
+      if (revision(before) !== payload.revision) {
+        throw new Error('configuration changed on disk; reload before saving');
+      }
+      let migrationResult;
+      try {
+        migrationResult = buildMigration(before);
+      } catch (e) {
+        throw new Error(e.message);
+      }
+      if (!migrationResult) {
+        result = { already_current: true, rev: payload.revision };
+        return undefined; // no write needed
+      }
+      result = { ok: true, rev: revision(migrationResult.yaml) };
+      return migrationResult.yaml;
+    });
+  } catch (error) {
+    if (error.message === 'configuration changed on disk; reload before saving') {
+      return { code: 409, body: { error: error.message } };
+    }
+    return { code: 400, body: { error: error.message } };
   }
-  if (!migrationResult) {
-    return {
-      code: 200,
-      body: { already_current: true, revision: payload.revision },
-    };
+
+  if (result.already_current) {
+    return { code: 200, body: { already_current: true, revision: result.rev } };
   }
-  writeConfig(file, migrationResult.yaml);
-  return {
-    code: 200,
-    body: { ok: true, revision: revision(migrationResult.yaml) },
-  };
+  return { code: 200, body: { ok: true, revision: result.rev } };
 }
 
 // Allowlisted fields the form patch may update.
 const PATCH_ALLOWED = new Set([
+  'project_name',
   'language',
   'tdd',
   'changes_dir',
