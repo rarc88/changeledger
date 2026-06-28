@@ -1,6 +1,8 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
+import { templatesDir } from './paths.mjs';
 
 export const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -57,7 +59,10 @@ export function buildMigration(originalText) {
 
   const changes = [];
 
-  // schema_version: 1 — prepend so it appears first
+  // schema_version: 1 — remove any existing value, then prepend to appear first
+  if (Object.hasOwn(config, 'schema_version')) {
+    doc.delete('schema_version');
+  }
   doc.contents.items.unshift(doc.createPair('schema_version', 1));
   changes.push('added schema_version: 1');
 
@@ -116,6 +121,11 @@ export function buildMigration(originalText) {
     changes.push('removed legacy id_digits');
   }
 
+  // Refresh managed comments from the current template, preserving custom comments.
+  const templateComments = loadTemplateComments();
+  const commentChanges = refreshManagedComments(doc, templateComments);
+  changes.push(...commentChanges);
+
   return { yaml: doc.toString(), changes };
 }
 
@@ -157,4 +167,41 @@ function findInsertBefore(currentList, canonicalOrder, status) {
     if (pos !== -1) return pos;
   }
   return -1;
+}
+
+// Reads the current template and returns a map of top-level key → commentBefore string.
+// Returns an empty map if the template is unreadable (comment refresh is optional).
+function loadTemplateComments() {
+  try {
+    const templateText = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+    const templateDoc = parseDocument(templateText, { merge: false });
+    const comments = new Map();
+    for (const pair of templateDoc.contents.items) {
+      const key = pair.key?.value;
+      const comment = pair.key?.commentBefore;
+      if (key && comment !== undefined) {
+        comments.set(key, comment);
+      }
+    }
+    return comments;
+  } catch {
+    return new Map();
+  }
+}
+
+// Replace managed comments (those defined in the template) on existing keys,
+// preserving comments on custom/unknown keys.
+function refreshManagedComments(doc, templateComments) {
+  const changes = [];
+  for (const pair of doc.contents.items) {
+    const key = pair.key?.value;
+    if (!key) continue;
+    if (!templateComments.has(key)) continue; // custom key — preserve its comment
+    const templateComment = templateComments.get(key);
+    const currentComment = pair.key?.commentBefore;
+    if (currentComment === templateComment) continue; // already matches
+    pair.key.commentBefore = templateComment;
+    changes.push(`refreshed comment for ${key}`);
+  }
+  return changes;
 }

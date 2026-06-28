@@ -253,6 +253,36 @@ test('113219 CR7: migration is idempotent — second run returns null', () => {
   assert.equal(result2, null, 're-running migration on already-migrated config must return null');
 });
 
+test('113219 CR7: config with explicit schema_version: 0 migrates without duplicate key', () => {
+  const withExplicitZero = `\
+schema_version: 0
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+  const result = buildMigration(withExplicitZero);
+  assert.ok(result);
+  const { yaml: migrated } = result;
+  // Only one schema_version key
+  assert.equal(
+    (migrated.match(/^schema_version:/gm) ?? []).length,
+    1,
+    'no duplicate schema_version',
+  );
+  assert.match(migrated, /^schema_version: 1/m);
+  // Idempotent
+  assert.equal(buildMigration(migrated), null);
+});
+
 // CR8 — invalid YAML and future schema fail closed
 test('113219 CR8: invalid YAML throws with explanation', () => {
   assert.throws(() => buildMigration('statuses: [\n  - bad'), /Invalid YAML/);
@@ -297,4 +327,64 @@ test('113219 CR9: all historical fixture generations converge to schema 1', () =
     const second = buildMigration(migrated);
     assert.equal(second, null, `migration was not idempotent for fixture: ${fixture.slice(0, 80)}`);
   }
+});
+
+// CR5 (comments) — managed comments refreshed, custom comments preserved
+test('113219 CR5 comments: SpecLedger-era managed comments are replaced with current template comments', () => {
+  const specLedgerWithOldComments = `\
+# Spec Ledger — repo configuration
+language: en
+# Definition of Ready. See \`sl context spec\` and run \`sl check\`.
+tdd: true
+changes_dir: .sl/changes
+statuses: [draft, approved, in-progress, blocked, done]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+project_id: "abc123"
+project_name: myrepo
+`;
+
+  const result = buildMigration(specLedgerWithOldComments);
+  assert.ok(result);
+  const { yaml: migrated } = result;
+
+  // Old sl check / Spec Ledger references must be gone from managed comments
+  assert.doesNotMatch(migrated, /sl check/);
+  assert.doesNotMatch(migrated, /sl context/);
+  assert.doesNotMatch(migrated, /Spec Ledger/);
+
+  // Current template comment for language must appear
+  assert.match(migrated, /changeledger context spec/);
+
+  // Values must be preserved
+  assert.match(migrated, /language: en/);
+  assert.match(migrated, /tdd: true/);
+});
+
+test('113219 CR5 comments: custom (unknown key) comments are preserved', () => {
+  const configWithCustomComment = `\
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+# THIS IS MY CUSTOM NOTE — do not remove
+custom_policy: strict
+statuses: [draft, approved, in-progress, blocked, done]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+project_id: "abc123"
+project_name: myrepo
+`;
+
+  const result = buildMigration(configWithCustomComment);
+  assert.ok(result);
+  const { yaml: migrated } = result;
+
+  // Custom comment preserved
+  assert.match(migrated, /THIS IS MY CUSTOM NOTE/);
+  // Custom key preserved
+  assert.match(migrated, /custom_policy: strict/);
 });
