@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import {
   archive,
@@ -21,6 +22,8 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { view } from '../src/commands/view.mjs';
 import { nowUtc } from '../src/paths.mjs';
+
+const { version } = createRequire(import.meta.url)('../package.json');
 
 const USAGE = `ChangeLedger (changeledger)
 
@@ -65,6 +68,7 @@ function action(fn) {
 program
   .name('changeledger')
   .description('ChangeLedger (changeledger)')
+  .version(version, '-V, --version', 'output the installed version')
   .helpOption('-h, --help', 'display help for command')
   .addHelpText('after', `\n${USAGE}`);
 

@@ -177,6 +177,39 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   );
 });
 
+// 20260628-113218: --version / -V expose the installed package version
+const pkgVersion = JSON.parse(
+  fs.readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json'),
+    'utf8',
+  ),
+).version;
+
+test('113218 CR1: --version prints package version and exits 0', () => {
+  const { code, out } = run('--version');
+  assert.equal(code, 0);
+  assert.equal(out.trim(), pkgVersion);
+});
+
+test('113218 CR2: -V produces identical output to --version', () => {
+  const { code: code1, out: out1 } = run('--version');
+  const { code: code2, out: out2 } = run('-V');
+  assert.equal(code1, 0);
+  assert.equal(code2, 0);
+  assert.equal(out1, out2);
+});
+
+test('113218 CR3: version comes from package.json, not a hardcoded literal', () => {
+  const { out } = run('--version');
+  assert.equal(out.trim(), pkgVersion, 'version must match package.json at runtime');
+});
+
+test('113218 CR4: --help lists -V, --version option', () => {
+  const { code, out } = run('--help');
+  assert.equal(code, 0);
+  assert.match(out, /-V.*--version/);
+});
+
 // End-to-end: `changeledger graduate <id> <slug> --into` links an existing spec (flag in
 // any position) without touching its body, exit 0.
 test('CR6: graduate --into wires through and links an existing spec', () => {
