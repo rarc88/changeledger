@@ -171,3 +171,19 @@ claves custom o rediseñar el resto de Projects.
 - **2026-06-28T13:36:37Z** — status: in-progress → in-review
 - **2026-06-28T13:36:37Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T13:48:02Z** — Eliminado último modal nativo: requestUnregisterConfirmation reemplazado con showPrompt() usando native <dialog> con input; setPromptImpl() para test injection; CSS para cl-prompt-input.
+- **2026-06-28T16:39:52Z** — validation → in-progress (human rejected): Lifecycle y stages por tipo siguen sin controles editables; retirar in-validation se corrige silenciosamente en lugar de rechazarse; el formulario debe emitir un patch diferencial que preserve campos no modificados.
+- **2026-06-28T16:47:36Z** — Corrección final: Lifecycle y stages por tipo son controles editables; decisiones custom usan estado no configurado sin defaults inventados; patch diferencial; retirada de valores canónicos falla explícitamente; selector global también protege cambios sucios; accesibilidad por fieldsets. Validado en navegador y pnpm verify: 462 tests.
+- **2026-06-28T16:47:36Z** — status: in-progress → in-review
+- **2026-06-28T16:51:50Z** — review → in-progress (retry): CR10: el endpoint de guardado Raw permite mutar schema futuro; debe fallar cerrado y preservar disco, con regresión de dominio y HTTP.
+- **2026-06-28T16:52:44Z** — Corrección de review: saveProjectConfig comprueba dentro del lock el schema actualmente guardado y rechaza escrituras Raw sobre schemas futuros; regresiones de dominio y HTTP preservan disco. pnpm verify: 463 tests.
+- **2026-06-28T16:52:45Z** — status: in-progress → in-review
+- **2026-06-28T16:54:51Z** — review → in-progress (retry): CR6: postConfigMigrationApply no rechaza HTTP non-2xx; la UI recarga y oculta el 409 de revisión obsoleta en vez de mostrarlo.
+- **2026-06-28T16:56:09Z** — Corrección de review: postConfigMigrationApply rechaza respuestas HTTP non-2xx con el mensaje del servidor, permitiendo que la UI muestre conflictos 409 sin recargar; regresión del cliente API. pnpm verify: 464 tests.
+- **2026-06-28T16:56:09Z** — status: in-progress → in-review
+- **2026-06-28T16:58:39Z** — review → in-progress (retry): CR12: dialogs sin nombre accesible, input de prompt sin label y errores asíncronos sin role=alert/aria-live.
+- **2026-06-28T17:00:11Z** — Corrección de review CR12: dialogs con aria-labelledby único, input de prompt con label asociado y errores dinámicos con role=alert/aria-live; eliminado CSS residual. pnpm verify: 465 tests.
+- **2026-06-28T17:00:11Z** — status: in-progress → in-review
+- **2026-06-28T17:02:25Z** — review → in-progress (retry): CR7: el preview UI no renderiza preview.summary, por lo que no muestra explícitamente Config migration 0 → 1.
+- **2026-06-28T17:03:00Z** — Corrección de review CR7: el preview exitoso renderiza summary con Config migration 0 → 1 (dry run), además de cambios y YAML candidato; regresión DOM. pnpm verify: 466 tests.
+- **2026-06-28T17:03:00Z** — status: in-progress → in-review
+- **2026-06-28T17:04:51Z** — review → in-validation (delegated subagent, clean context)

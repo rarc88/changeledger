@@ -159,3 +159,7 @@ archivo vigente es un no-op byte-idéntico.
 - **2026-06-28T12:50:43Z** — status: in-progress → in-review
 - **2026-06-28T12:50:43Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T12:50:43Z** — Corrección: migración refresca comentarios managed desde template (elimina referencias sl/SpecLedger, preserva comentarios custom); guarda template faltante con try/catch; elimina schema_version existente antes de prepend para evitar duplicados; tests añadidos.
+- **2026-06-28T16:39:52Z** — validation → in-progress (human rejected): La corrección de comentarios para claves añadidas necesita cobertura explícita y el config dogfood debe quedar alineado sin comentarios duplicados.
+- **2026-06-28T16:47:36Z** — Corrección final: cobertura explícita para comentarios administrados en claves añadidas y config dogfood alineado con referencias actuales, sin bloque readiness duplicado. pnpm verify: 462 tests.
+- **2026-06-28T16:47:36Z** — status: in-progress → in-review
+- **2026-06-28T16:51:50Z** — review → in-validation (delegated subagent, clean context)

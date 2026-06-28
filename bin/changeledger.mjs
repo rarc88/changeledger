@@ -22,11 +22,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
-import {
-  applyMigration,
-  buildMigration,
-  SUPPORTED_SCHEMA_VERSION,
-} from '../src/config-migration.mjs';
+import { applyMigration, SUPPORTED_SCHEMA_VERSION } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');

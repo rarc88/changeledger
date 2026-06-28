@@ -17,6 +17,7 @@ const {
   bindProjectViewActions,
   card,
   closeStatusMenuOnOutsideClick,
+  collectFormPatch,
   createDiagramLightbox,
   cssIdent,
   esc,
@@ -706,13 +707,17 @@ test('113924 CR3 form: form renders project_name, lifecycle statuses, type stage
   );
   assert.ok(lifecycleSection, 'Lifecycle fieldset must be present');
 
-  // Type stages shown
-  assert.match(root.querySelector('.config-type-stages')?.textContent ?? '', /request/);
+  assert.equal(
+    root.querySelector('textarea[name="statuses"]').value,
+    'draft\napproved\nin-progress\ndone',
+  );
+  assert.equal(root.querySelector('textarea[name="stages"]').value, 'request\nplan\nlog');
+  assert.equal(root.querySelector('textarea[name="stages_feature"]').value, 'request\nplan\nlog');
 
   // Internal section shows project_id
   const internalText = root.querySelector('.config-group-internal')?.textContent ?? '';
   assert.match(internalText, /aaa111/);
-  assert.match(internalText, /project_name/);
+  assert.doesNotMatch(internalText, /project_name/);
 });
 
 // Native <dialog>: no inline markup in template, mockable via setConfirmImpl
@@ -764,9 +769,43 @@ test('113924 CR7: migration preview error is shown in UI', () => {
     ),
   );
   // Error shown, not the preview YAML
-  assert.match(root.querySelector('.project-error')?.textContent ?? '', /Migration failed/);
+  const error = root.querySelector('.project-error');
+  assert.match(error?.textContent ?? '', /Migration failed/);
+  assert.equal(error?.getAttribute('role'), 'alert');
+  assert.equal(error?.getAttribute('aria-live'), 'assertive');
   // Retry button shown
   assert.ok(root.querySelector('[data-preview-migration]'), 'Retry preview button must be present');
+});
+
+test('113924 CR7: successful migration preview shows version summary and candidate', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: 'language: en',
+        revision: 'rev',
+        schemaVersion: 0,
+        supported: 1,
+        config: { project_id: 'aaa111' },
+      },
+      false,
+      {
+        summary: 'Config migration 0 → 1 (dry run)',
+        changes: ['added schema_version: 1'],
+        yaml: 'schema_version: 1\nlanguage: en\n',
+      },
+    ),
+  );
+  assert.equal(
+    root.querySelector('.config-migration-summary')?.textContent,
+    'Config migration 0 → 1 (dry run)',
+  );
+  assert.match(
+    root.querySelector('.config-migration-yaml')?.textContent ?? '',
+    /schema_version: 1/,
+  );
+  assert.ok(root.querySelector('[data-apply-migration]'));
 });
 
 // CR11: dirty state guard
@@ -799,8 +838,7 @@ test('113924 CR11: bindProjectViewActions marks dirty and fires markDirty handle
   }
 });
 
-// Lifecycle section shows canonical badges and stage badges
-test('113924 CR3 lifecycle: canonical statuses shown as badges, stages shown', () => {
+test('113924 CR3 lifecycle: statuses and stages render as editable controls', () => {
   const root = parse(
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
@@ -821,13 +859,73 @@ test('113924 CR3 lifecycle: canonical statuses shown as badges, stages shown', (
       false,
     ),
   );
-  const canonical = root.querySelectorAll('.config-status-canonical');
-  assert.ok(canonical.length > 0, 'canonical status badges present');
-  const custom = root.querySelectorAll('.config-status-custom');
-  assert.equal(custom.length, 1, 'one custom status badge');
-  assert.equal(custom[0].textContent.trim(), 'my-custom');
-  // Stages shown somewhere in config section
-  assert.match(root.querySelector('.config-section')?.textContent ?? '', /request/);
+  assert.match(root.querySelector('textarea[name="statuses"]')?.value ?? '', /my-custom/);
+  assert.equal(root.querySelector('textarea[name="stages"]')?.value, 'request\nplan\nlog');
+});
+
+test('113924 CR4: form emits only fields changed by the human', () => {
+  const config = {
+    project_id: 'aaa111',
+    project_name: 'alpha',
+    language: 'es',
+    tdd: true,
+    changes_dir: '.changeledger/changes',
+    specs_dir: '.changeledger/specs',
+    statuses: [
+      'draft',
+      'approved',
+      'in-progress',
+      'in-review',
+      'in-validation',
+      'blocked',
+      'done',
+      'discarded',
+    ],
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: {
+      feature: { stages: ['request', 'plan', 'log'], review_required: true },
+      experiment: { stages: ['request', 'log'] },
+    },
+    release: { impacts: { feature: 'minor' } },
+    readiness: { target_patterns: ['src/**'], verification_patterns: ['test/**'] },
+  };
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 1, supported: 1, config },
+      false,
+    ),
+  );
+  const form = root.querySelector('[data-config-form]');
+  form.elements.language.value = 'en';
+  assert.deepEqual(collectFormPatch(form, config), { language: 'en' });
+});
+
+test('113924 CR3: custom type decisions can be configured without assumed defaults', () => {
+  const config = {
+    project_id: 'aaa111',
+    statuses: [],
+    stages: ['request', 'log'],
+    types: { experiment: { stages: ['request', 'log'] } },
+  };
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 1, supported: 1, config },
+      false,
+    ),
+  );
+  const form = root.querySelector('[data-config-form]');
+  assert.equal(form.elements.review_required_experiment.value, '');
+  assert.equal(form.elements.impact_experiment.value, '');
+  form.elements.review_required_experiment.value = 'true';
+  form.elements.impact_experiment.value = 'minor';
+  assert.deepEqual(collectFormPatch(form, config), {
+    types: { experiment: { review_required: true } },
+    release: { impacts: { experiment: 'minor' } },
+  });
 });
 
 // showToast: exported and testable (just verifies it doesn't throw in test env)
@@ -845,6 +943,41 @@ test('113924: showPrompt is mockable via setPromptImpl', async () => {
   setPromptImpl(null);
   assert.equal(val, 'typed-value');
   assert.equal(prompted, 'Type the name');
+});
+
+test('113924 CR12: dialogs and prompt input expose accessible names', async () => {
+  const prototype = window.HTMLDialogElement.prototype;
+  const originalShowModal = prototype.showModal;
+  const originalClose = prototype.close;
+  prototype.showModal = function showModal() {
+    this.open = true;
+  };
+  prototype.close = function close() {
+    this.open = false;
+  };
+  try {
+    const confirmPromise = showConfirm('Discard unsaved changes?');
+    const confirmDialog = document.body.querySelector('dialog');
+    const confirmTitle = document.getElementById(confirmDialog.getAttribute('aria-labelledby'));
+    assert.equal(confirmTitle?.textContent, 'Discard unsaved changes?');
+    confirmDialog.querySelector('.cl-confirm-no').click();
+    assert.equal(await confirmPromise, false);
+
+    const promptPromise = showPrompt('Type the project name');
+    const promptDialog = document.body.querySelector('dialog');
+    const promptTitle = document.getElementById(promptDialog.getAttribute('aria-labelledby'));
+    const input = promptDialog.querySelector('.cl-prompt-input');
+    const label = promptDialog.querySelector(`label[for="${input.id}"]`);
+    assert.equal(promptTitle?.textContent, 'Type the project name');
+    assert.equal(label?.textContent, 'Confirmation value');
+    promptDialog.querySelector('.cl-confirm-no').click();
+    assert.equal(await promptPromise, null);
+  } finally {
+    if (originalShowModal === undefined) delete prototype.showModal;
+    else prototype.showModal = originalShowModal;
+    if (originalClose === undefined) delete prototype.close;
+    else prototype.close = originalClose;
+  }
 });
 
 test('113924: requestUnregisterConfirmation uses showPrompt when no ask override', async () => {

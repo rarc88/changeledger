@@ -1,7 +1,6 @@
 import {
   getConfigMigrationPreview,
   getGitRefs,
-  getProjectConfig,
   getProjectConfigStructured,
   getProjects,
   getRepo,
@@ -675,20 +674,10 @@ let configDirty = false; // true when form/raw has unsaved edits
 let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
 
 const SUPPORTED_SCHEMA_VERSION = 1;
-const CANONICAL_STATUSES = [
-  'draft',
-  'approved',
-  'in-progress',
-  'in-review',
-  'in-validation',
-  'blocked',
-  'done',
-  'discarded',
-];
-
 // Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
 // _confirmImpl is replaceable in tests (JSDOM lacks showModal).
 let _confirmImpl = null;
+let dialogSequence = 0;
 
 export function showToast(message, { type = 'error', duration = 4000 } = {}) {
   const container = document.getElementById('toast-container');
@@ -714,11 +703,14 @@ export function setPromptImpl(impl) {
 export function showPrompt(message, { placeholder = '' } = {}) {
   if (_promptImpl !== null) return Promise.resolve(_promptImpl(message));
   return new Promise((resolve) => {
+    const id = `cl-prompt-${++dialogSequence}`;
     const dialog = document.createElement('dialog');
     dialog.className = 'cl-confirm-dialog';
+    dialog.setAttribute('aria-labelledby', `${id}-title`);
     dialog.innerHTML = `
-      <p class="cl-confirm-message"></p>
-      <input class="cl-prompt-input" type="text" autocomplete="off" />
+      <p id="${id}-title" class="cl-confirm-message"></p>
+      <label for="${id}-input" class="cl-prompt-label">Confirmation value</label>
+      <input id="${id}-input" class="cl-prompt-input" type="text" autocomplete="off" />
       <div class="cl-confirm-actions">
         <button type="button" class="button cl-confirm-yes">Confirm</button>
         <button type="button" class="button secondary cl-confirm-no">Cancel</button>
@@ -749,10 +741,12 @@ export function showPrompt(message, { placeholder = '' } = {}) {
 export function showConfirm(message) {
   if (_confirmImpl) return Promise.resolve(_confirmImpl(message));
   return new Promise((resolve) => {
+    const id = `cl-confirm-${++dialogSequence}`;
     const dialog = document.createElement('dialog');
     dialog.className = 'cl-confirm-dialog';
+    dialog.setAttribute('aria-labelledby', `${id}-title`);
     dialog.innerHTML = `
-      <p class="cl-confirm-message"></p>
+      <p id="${id}-title" class="cl-confirm-message"></p>
       <div class="cl-confirm-actions">
         <button type="button" class="button cl-confirm-yes">Confirm</button>
         <button type="button" class="button secondary cl-confirm-no">Cancel</button>
@@ -778,7 +772,7 @@ function configSectionTemplate(config, mode, preview) {
   if (!config) return nothing;
   if (config.error) {
     return html`<div class="config-section">
-      <p class="project-error">${config.error}</p>
+      <p class="project-error" role="alert" aria-live="assertive">${config.error}</p>
     </div>`;
   }
 
@@ -823,12 +817,13 @@ function configSectionTemplate(config, mode, preview) {
                 preview?.already_current
                   ? html`<p class="config-migration-ok">Migration already applied.</p>`
                   : preview?.error
-                    ? html`<p class="project-error">${preview.error}</p>
+                    ? html`<p class="project-error" role="alert" aria-live="assertive">${preview.error}</p>
                         <div class="project-actions">
                           <button class="button secondary" type="button" data-preview-migration>Retry preview</button>
                         </div>`
                     : preview
                       ? html`<div class="config-migration-preview">
+                          <p class="config-migration-summary">${preview.summary}</p>
                           <p><strong>Changes:</strong></p>
                           <ul>${preview.changes?.map((c) => html`<li>${c}</li>`)}</ul>
                           <pre class="config-migration-yaml">${preview.yaml}</pre>
@@ -855,7 +850,7 @@ function rawEditorTemplate(config) {
   return html`<form class="config-form">
     <div class="config-label"><label for="project-config">.changeledger/config.yml</label><button type="button" class="text-button" data-reload-config>Reload</button></div>
     <textarea id="project-config" spellcheck="false" .value=${config?.content ?? ''}></textarea>
-    <p class="project-error" ?hidden=${!config?.rawError}>${config?.rawError ?? ''}</p>
+    <p class="project-error" role="alert" aria-live="assertive" ?hidden=${!config?.rawError}>${config?.rawError ?? ''}</p>
     <div class="project-actions"><button class="button" type="submit">Save configuration</button></div>
   </form>`;
 }
@@ -868,8 +863,6 @@ function rawReadonlyTemplate(config) {
     <p class="config-note">Editing disabled for schema ${config.schemaVersion ?? '?'}. Update ChangeLedger to enable editing.</p>
   </div>`;
 }
-
-const BUILTIN_TYPES_UI = ['feature', 'bug', 'refactor'];
 
 function formEditorTemplate(config) {
   const cfg = config.config ?? {};
@@ -912,59 +905,46 @@ function formEditorTemplate(config) {
 
     <fieldset class="config-group">
       <legend>Lifecycle statuses</legend>
-      <p class="config-note">Canonical (required — cannot be removed via form):</p>
-      <div class="config-status-list">
-        ${allStatuses
-          .filter((s) => CANONICAL_STATUSES.includes(s))
-          .map((s) => html`<span class="config-status-badge config-status-canonical">${s}</span>`)}
-      </div>
-      ${
-        allStatuses.filter((s) => !CANONICAL_STATUSES.includes(s)).length
-          ? html`<p class="config-note" style="margin-top:8px">Custom (visible in board):</p>
-              <div class="config-status-list">
-                ${allStatuses
-                  .filter((s) => !CANONICAL_STATUSES.includes(s))
-                  .map(
-                    (s) =>
-                      html`<span class="config-status-badge config-status-custom" data-status-name=${s}>${s}</span>`,
-                  )}
-              </div>`
-          : nothing
-      }
-      <p class="config-note config-readonly-note" style="margin-top:8px">To add or reorder statuses, use Raw YAML.</p>
+      <label>Status order (one per line)
+        <textarea name="statuses" rows="8">${allStatuses.join('\n')}</textarea>
+      </label>
+      <p class="config-note">Canonical statuses are required. Custom statuses may be added and reordered.</p>
     </fieldset>
 
     <fieldset class="config-group">
       <legend>Lifecycle stages</legend>
-      <p class="config-note">Canonical stage headings used across change types:</p>
-      <div class="config-status-list">
-        ${stages.map((s) => html`<span class="config-status-badge">${s}</span>`)}
-      </div>
-      <p class="config-note config-readonly-note" style="margin-top:8px">Stages are structural — edit in Raw YAML.</p>
+      <label>Canonical stage order (one per line)
+        <textarea name="stages" rows="6">${stages.join('\n')}</textarea>
+      </label>
+      <p class="config-note">Stages used by a change type cannot be removed until that type is updated.</p>
     </fieldset>
 
     <fieldset class="config-group">
       <legend>Change types</legend>
       ${Object.entries(types).map(
         ([typeName, typeDef]) => html`
-            <div class="config-type-row">
-              <strong>${typeName}</strong>
-              <span class="config-type-stages">${(typeDef?.stages ?? []).join(', ')}</span>
-              <label class="config-checkbox">
-                <input type="checkbox" name=${'review_required_' + typeName}
-                  ?checked=${typeDef?.review_required === true}
-                  ?disabled=${!BUILTIN_TYPES_UI.includes(typeName)} />
-                Review required
+            <fieldset class="config-type-row">
+              <legend>${typeName}</legend>
+              <label>Active stages (one per line)
+                <textarea name=${`stages_${typeName}`} rows="3">${(typeDef?.stages ?? []).join('\n')}</textarea>
+              </label>
+              <label>Review policy
+                <select name=${`review_required_${typeName}`}>
+                  <option value="" ?selected=${!Object.hasOwn(typeDef ?? {}, 'review_required')}>Not configured</option>
+                  <option value="true" ?selected=${typeDef?.review_required === true}>Required</option>
+                  <option value="false" ?selected=${typeDef?.review_required === false}>Not required</option>
+                </select>
               </label>
               <label>SemVer impact
-                <select name=${'impact_' + typeName}>
+                <select name=${`impact_${typeName}`}>
+                  <option value="" ?selected=${!Object.hasOwn(impacts, typeName)}>Not configured</option>
                   ${['none', 'patch', 'minor', 'major'].map(
                     (v) =>
-                      html`<option value=${v} ?selected=${(impacts[typeName] ?? 'none') === v}>${v}</option>`,
+                      html`<option value=${v} ?selected=${impacts[typeName] === v}>${v}</option>`,
                   )}
                 </select>
               </label>
-            </div>
+            </fieldset>
           `,
       )}
     </fieldset>
@@ -983,10 +963,9 @@ function formEditorTemplate(config) {
       <legend>Internal</legend>
       <p><span class="config-readonly-label">schema_version</span><span class="config-readonly-value">${cfg.schema_version ?? 0}</span></p>
       <p><span class="config-readonly-label">project_id</span><span class="config-readonly-value mono">${cfg.project_id ?? ''}</span></p>
-      <p><span class="config-readonly-label">project_name</span><span class="config-readonly-value">${cfg.project_name ?? ''}</span></p>
     </fieldset>
 
-    <p class="project-error" ?hidden=${!config?.formError}>${config?.formError ?? ''}</p>
+    <p class="project-error" role="alert" aria-live="assertive" ?hidden=${!config?.formError}>${config?.formError ?? ''}</p>
     <div class="project-actions">
       <button class="button" type="submit">Save configuration</button>
     </div>
@@ -1140,31 +1119,68 @@ async function refreshProjectRegistry() {
   select.style.display = projects.length > 1 ? '' : 'none';
 }
 
-function collectFormPatch(formEl, currentConfig) {
+const listFromControl = (control) =>
+  (control?.value ?? '')
+    .split('\n')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+const sameList = (left = [], right = []) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
+export function collectFormPatch(formEl, currentConfig) {
   const patch = {};
   const els = formEl.elements;
 
-  if (els.project_name) patch.project_name = els.project_name.value;
-  if (els.language) patch.language = els.language.value;
-  if (els.tdd) patch.tdd = els.tdd.checked;
-  if (els.changes_dir) patch.changes_dir = els.changes_dir.value;
-  if (els.specs_dir) patch.specs_dir = els.specs_dir.value;
+  if (els.project_name && els.project_name.value !== (currentConfig.project_name ?? '')) {
+    patch.project_name = els.project_name.value;
+  }
+  if (els.language && els.language.value !== (currentConfig.language ?? 'en')) {
+    patch.language = els.language.value;
+  }
+  if (els.tdd && els.tdd.checked !== (currentConfig.tdd !== false)) patch.tdd = els.tdd.checked;
+  if (
+    els.changes_dir &&
+    els.changes_dir.value !== (currentConfig.changes_dir ?? '.changeledger/changes')
+  ) {
+    patch.changes_dir = els.changes_dir.value;
+  }
+  if (els.specs_dir && els.specs_dir.value !== (currentConfig.specs_dir ?? '.changeledger/specs')) {
+    patch.specs_dir = els.specs_dir.value;
+  }
 
-  // types: review_required (only enabled ones) and release impacts
+  const statuses = listFromControl(els.statuses);
+  if (els.statuses && !sameList(statuses, currentConfig.statuses ?? [])) patch.statuses = statuses;
+  const stages = listFromControl(els.stages);
+  if (els.stages && !sameList(stages, currentConfig.stages ?? [])) patch.stages = stages;
+
+  // Type fields are tri-state: an empty select means the key is not configured.
   const types = currentConfig.types ?? {};
   const existingImpacts = currentConfig.release?.impacts ?? {};
   const typePatch = {};
   const impacts = {};
   for (const typeName of Object.keys(types)) {
-    const rrEl = els['review_required_' + typeName];
-    const impactEl = els['impact_' + typeName];
-    if (rrEl && !rrEl.disabled) {
-      typePatch[typeName] = { ...(typePatch[typeName] ?? {}), review_required: rrEl.checked };
+    const currentType = types[typeName] ?? {};
+    const typeStages = listFromControl(els[`stages_${typeName}`]);
+    if (els[`stages_${typeName}`] && !sameList(typeStages, currentType.stages ?? [])) {
+      typePatch[typeName] = { ...(typePatch[typeName] ?? {}), stages: typeStages };
     }
-    // Only include impact in patch if the type already had an explicit impact configured.
-    // This prevents inventing release.impacts.<custom>: none for custom types.
-    if (impactEl && Object.hasOwn(existingImpacts, typeName)) {
-      impacts[typeName] = impactEl.value;
+
+    const rrEl = els[`review_required_${typeName}`];
+    const currentReview = Object.hasOwn(currentType, 'review_required')
+      ? String(currentType.review_required)
+      : '';
+    if (rrEl && rrEl.value !== currentReview) {
+      typePatch[typeName] = {
+        ...(typePatch[typeName] ?? {}),
+        review_required: rrEl.value === '' ? null : rrEl.value === 'true',
+      };
+    }
+
+    const impactEl = els[`impact_${typeName}`];
+    const currentImpact = Object.hasOwn(existingImpacts, typeName) ? existingImpacts[typeName] : '';
+    if (impactEl && impactEl.value !== currentImpact) {
+      impacts[typeName] = impactEl.value === '' ? null : impactEl.value;
     }
   }
   if (Object.keys(typePatch).length) patch.types = typePatch;
@@ -1172,15 +1188,18 @@ function collectFormPatch(formEl, currentConfig) {
 
   // readiness patterns
   if (els.target_patterns !== undefined) {
-    const targetPatterns = els.target_patterns.value
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const verifyPatterns = (els.verification_patterns?.value ?? '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    patch.readiness = { target_patterns: targetPatterns, verification_patterns: verifyPatterns };
+    const targetPatterns = listFromControl(els.target_patterns);
+    const verifyPatterns = listFromControl(els.verification_patterns);
+    const currentReadiness = currentConfig.readiness ?? {};
+    if (
+      !sameList(targetPatterns, currentReadiness.target_patterns ?? []) ||
+      !sameList(verifyPatterns, currentReadiness.verification_patterns ?? [])
+    ) {
+      patch.readiness = {
+        target_patterns: targetPatterns,
+        verification_patterns: verifyPatterns,
+      };
+    }
   }
 
   return patch;
@@ -1452,8 +1471,17 @@ function bootstrap() {
   $('#view-specs').onclick = () => activateView('specs');
   $('#view-metrics').onclick = () => activateView('metrics');
   $('#view-projects').onclick = () => activateView('projects');
-  $('#project').onchange = (e) => {
-    selectProject(e.target.value);
+  $('#project').onchange = async (e) => {
+    const nextProject = e.target.value;
+    if (state.currentView === 'projects' && configDirty && nextProject !== state.currentProject) {
+      const ok = await showConfirm('You have unsaved changes. Switch project and discard them?');
+      if (!ok) {
+        e.target.value = state.currentProject;
+        return;
+      }
+      configDirty = false;
+    }
+    selectProject(nextProject);
     load();
   };
   document.onkeydown = (e) => {

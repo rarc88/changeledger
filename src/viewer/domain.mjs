@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
-import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
+import { mutateFileAtomic } from '../atomic-write.mjs';
 import { checkRepo } from '../check.mjs';
 import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
@@ -215,11 +215,20 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
+      const currentSchema = getSchemaVersion(parseYaml(before));
+      if (currentSchema > SUPPORTED_SCHEMA_VERSION) {
+        throw new Error(
+          `config schema ${currentSchema} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
+        );
+      }
       return payload.content;
     });
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
+    }
+    if (/^config schema \d+ is newer than supported schema \d+$/.test(error.message)) {
+      return { code: 400, body: { error: error.message } };
     }
     return { code: 400, body: { error: 'unable to save project configuration' } };
   }
@@ -445,6 +454,7 @@ const PATCH_ALLOWED = new Set([
   'changes_dir',
   'specs_dir',
   'statuses',
+  'stages',
   'readiness',
   'types',
   'release',
@@ -454,8 +464,20 @@ const CANONICAL_STATUSES_REQUIRED = new Set([
   'draft',
   'approved',
   'in-progress',
+  'in-review',
   'in-validation',
+  'blocked',
   'done',
+  'discarded',
+]);
+
+const CANONICAL_STAGES_REQUIRED = new Set([
+  'request',
+  'investigation',
+  'proposal',
+  'specification',
+  'plan',
+  'log',
 ]);
 
 function applyPatch(doc, patch, currentConfig) {
@@ -465,28 +487,28 @@ function applyPatch(doc, patch, currentConfig) {
     if (key === 'types') {
       applyTypesPatch(doc, value, currentConfig.types ?? {});
     } else if (key === 'release') {
-      applyReleasePatch(doc, value, currentConfig.release ?? {});
+      applyReleasePatch(doc, value);
     } else if (key === 'readiness') {
       applyReadinessPatch(doc, value);
     } else if (key === 'statuses') {
-      applyStatusesPatch(doc, value, currentConfig.statuses ?? []);
+      applyRequiredListPatch(doc, 'statuses', value, CANONICAL_STATUSES_REQUIRED);
+    } else if (key === 'stages') {
+      applyRequiredListPatch(doc, 'stages', value, CANONICAL_STAGES_REQUIRED);
     } else {
       doc.set(key, value);
     }
   }
 }
 
-function applyStatusesPatch(doc, proposed, current) {
-  // Required canonical statuses cannot be removed via form.
-  const required = [...CANONICAL_STATUSES_REQUIRED].filter((s) => current.includes(s));
-  const merged = [
-    ...proposed.filter((s) => !CANONICAL_STATUSES_REQUIRED.has(s) || required.includes(s)),
-    ...required.filter((s) => !proposed.includes(s)),
-  ];
-  // Preserve canonical order from current, then append new custom ones
-  const ordered = current.filter((s) => merged.includes(s));
-  const added = merged.filter((s) => !ordered.includes(s));
-  doc.set('statuses', [...ordered, ...added]);
+function applyRequiredListPatch(doc, key, proposed, required) {
+  if (!Array.isArray(proposed) || proposed.some((value) => typeof value !== 'string')) {
+    throw new Error(`${key} must be a list of strings`);
+  }
+  const duplicate = proposed.find((value, index) => proposed.indexOf(value) !== index);
+  if (duplicate) throw new Error(`${key} contains duplicate value "${duplicate}"`);
+  const missing = [...required].find((value) => !proposed.includes(value));
+  if (missing) throw new Error(`${key} cannot remove required value "${missing}"`);
+  doc.set(key, proposed);
 }
 
 function applyTypesPatch(doc, typesPatch, currentTypes) {
@@ -498,14 +520,17 @@ function applyTypesPatch(doc, typesPatch, currentTypes) {
     }
     if (typeof typeDef.review_required === 'boolean') {
       doc.setIn(['types', typeName, 'review_required'], typeDef.review_required);
+    } else if (typeDef.review_required === null) {
+      doc.deleteIn(['types', typeName, 'review_required']);
     }
   }
 }
 
-function applyReleasePatch(doc, releasePatch, currentRelease) {
+function applyReleasePatch(doc, releasePatch) {
   if (releasePatch.impacts && typeof releasePatch.impacts === 'object') {
     for (const [type, impact] of Object.entries(releasePatch.impacts)) {
-      doc.setIn(['release', 'impacts', type], impact);
+      if (impact === null) doc.deleteIn(['release', 'impacts', type]);
+      else doc.setIn(['release', 'impacts', type], impact);
     }
   }
 }

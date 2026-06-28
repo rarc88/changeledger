@@ -1338,11 +1338,11 @@ body {
   font-family: ui-monospace, monospace;
   resize: vertical;
 }
-.config-checkbox {
-  flex-direction: row !important;
+.config-group label.config-checkbox {
+  flex-direction: row;
   align-items: center;
-  gap: 8px !important;
-  color: var(--text) !important;
+  gap: 8px;
+  color: var(--text);
 }
 .config-checkbox input[type="checkbox"] {
   width: 16px;
@@ -1354,15 +1354,24 @@ body {
   align-items: center;
   gap: 16px;
   padding: 6px 0;
+  margin: 0;
+  border: 0;
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
 .config-type-row:last-child {
   border-bottom: none;
 }
-.config-type-row strong {
+.config-group .config-type-row legend {
   min-width: 80px;
   font-size: 13px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+  margin: 0;
+}
+.config-type-row label:first-of-type {
+  flex: 1 1 240px;
 }
 .config-type-row select {
   padding: 4px 8px;
@@ -1513,34 +1522,13 @@ body {
   }
 }
 
-/* Status badges in lifecycle section */
-.config-status-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-.config-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.config-status-canonical {
-  background: rgba(91, 157, 255, 0.12);
-  border: 1px solid rgba(91, 157, 255, 0.3);
-  color: var(--accent);
-}
-.config-status-custom {
-  background: rgba(246, 193, 119, 0.1);
-  border: 1px solid rgba(246, 193, 119, 0.3);
-  color: #f6c177;
-}
-
 /* Prompt input inside confirm dialog */
+.cl-prompt-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .cl-prompt-input {
   display: block;
   width: 100%;

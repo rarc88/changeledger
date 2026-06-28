@@ -388,3 +388,31 @@ project_name: myrepo
   // Custom key preserved
   assert.match(migrated, /custom_policy: strict/);
 });
+
+test('113219 CR4 comments: newly added managed keys receive current template documentation', () => {
+  const historical = `\
+language: es
+changes_dir: .sl/changes
+statuses: [draft, approved, in-progress, blocked, done]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+project_id: "abc123"
+project_name: legacy
+`;
+
+  const { yaml: migrated } = buildMigration(historical);
+  assert.match(
+    migrated,
+    /# Definition of Ready policy[\s\S]*?tdd: true/,
+    'new tdd key should carry its managed comment',
+  );
+  assert.match(
+    migrated,
+    /# Default SemVer impact[\s\S]*?release:/,
+    'new release key should carry its managed comment',
+  );
+  assert.match(migrated, /changeledger context spec/);
+  assert.doesNotMatch(migrated, /Spec Ledger|\bsl check\b|AGENTS\.md §/);
+});
