@@ -30,6 +30,5 @@ para no volver a engordar el monolito.
 - [ ] Confirmar que `changeledger graduate --pending` queda en cero; verify: `node bin/changeledger.mjs graduate --pending` (support)
 
 ## Log
-</content>
 - **2026-06-27T21:22:57Z** — status: draft → approved
 - **2026-06-27T22:02:45Z** — status: approved → discarded: premisa falsa verificada: la deuda de graduación no existe. graduate --pending = 0 y 0 changes done sin reviewed:true. El conteo inicial de 32 fue un falso positivo de un grep por marker textual en vez del flag reviewed

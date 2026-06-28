@@ -99,7 +99,6 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 - [x] Distribuir los 35 markers de graduación al spec de su dominio (cada id 1 vez); verify: `node bin/changeledger.mjs check` (support) — 2026-06-27T21:53:42Z
 
 ## Log
-</content>
 - **2026-06-27T21:22:50Z** — status: draft → approved
 - **2026-06-27T21:25:08Z** — status: approved → in-progress
 - **2026-06-27T21:25:08Z** — owner → raruiz-hiberuscom (auto)
