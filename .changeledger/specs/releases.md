@@ -1,6 +1,6 @@
 ---
 title: Releases portables
-updated: 2026-06-27T21:37:15Z
+updated: 2026-06-28T22:02:31Z
 tags: [ releases ]
 ---
 
@@ -19,3 +19,11 @@ modifica manifests de Node, Flutter, Rust u otras tecnologías, y tampoco crea
 commits, tags, releases remotas, pushes o publicaciones. La salida JSON es el
 contrato para que el agente aplique la versión y ejecute el delivery propio del
 repositorio.
+
+La preparación rutinaria de una entrega es trabajo operativo: bump de versión,
+manifiesto de release, gates de calidad, empaquetado, commits, tags y publicación
+no requieren un change por sí solos ni deben agruparse en un chore. Si durante
+la preparación aparece una corrección funcional, un cambio del workflow de
+publicación o documentación persistente, se captura como un change independiente,
+se completa y se vuelve a ejecutar `changeledger release plan` antes de
+`changeledger release record <version>`. El flujo se mantiene agnóstico del stack.
