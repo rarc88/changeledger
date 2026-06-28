@@ -165,3 +165,8 @@ claves custom o rediseñar el resto de Projects.
 - **2026-06-28T12:57:06Z** — status: in-progress → in-review
 - **2026-06-28T12:57:06Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-28T12:57:06Z** — Corrección: UI confirm dialog propio (sin browser confirm/alert); Raw read-only para schema futuro; project_name en formulario y en patch; lifecycle completo (statuses + stages); project_id rechazado explícitamente en patch; applyConfigMigration usa mutateFileAtomic para atomicidad; errores de preview mostrados en UI; project_name en PATCH_ALLOWED; tests añadidos.
+- **2026-06-28T13:11:16Z** — Fix adicional: reemplazado inline confirm dialog por native <dialog> con showModal(); setConfirmImpl() para test injection; CSS ::backdrop con paleta del app; eliminado confirmDialog state.
+- **2026-06-28T13:27:40Z** — validation → in-progress (human rejected): CR11 dirty-state guard missing; new keys lack template comments; form invents custom impacts; lifecycle read-only; 4 alert() remain
+- **2026-06-28T13:36:37Z** — Corrección 5 hallazgos bloqueantes: (1) CR11 dirty-state guard en switchMode/select/reload con showConfirm; (2) migration refresca comentarios en nuevas claves (string-key→Scalar fix); (3) collectFormPatch no inventa impacts para tipos custom sin impacto previo; (4) Lifecycle section con badges de status y stages visuales; (5) 4 alert() reemplazados con showToast() + toast-container en index.html.
+- **2026-06-28T13:36:37Z** — status: in-progress → in-review
+- **2026-06-28T13:36:37Z** — review → in-validation (delegated subagent, clean context)

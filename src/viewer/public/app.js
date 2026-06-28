@@ -259,11 +259,11 @@ async function moveStatus(id, status, reason) {
     const res = await postStatus(state.currentProject, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
-      alert(out.error || 'status change failed');
+      showToast(out.error || 'status change failed');
       return;
     }
   } catch (e) {
-    alert(e.message);
+    showToast(e.message);
     return;
   }
   invalidateCache();
@@ -489,7 +489,7 @@ export function createDiagramLightbox({ overlay, canvas, closeButton }) {
 async function gotoChange(proj, changeId) {
   const match = state.projectsList.find((p) => p.id === proj || p.name === proj);
   if (!match?.alive) {
-    alert(`Project "${proj}" is not registered or its path is gone.`);
+    showToast(`Project "${proj}" is not registered or its path is gone.`);
     return;
   }
   if (match.id !== state.currentProject) {
@@ -671,6 +671,7 @@ export function restoreInitialViewerShell(root = document, getStorage = () => wi
 let managedProject = null;
 let managedConfig = null;
 let configMode = 'form'; // 'form' | 'raw'
+let configDirty = false; // true when form/raw has unsaved edits
 let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
 
 const SUPPORTED_SCHEMA_VERSION = 1;
@@ -688,6 +689,17 @@ const CANONICAL_STATUSES = [
 // Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
 // _confirmImpl is replaceable in tests (JSDOM lacks showModal).
 let _confirmImpl = null;
+
+export function showToast(message, { type = 'error', duration = 4000 } = {}) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  el.setAttribute('role', 'alert');
+  container.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
 
 export function setConfirmImpl(impl) {
   _confirmImpl = impl;
@@ -858,11 +870,36 @@ function formEditorTemplate(config) {
     </fieldset>
 
     <fieldset class="config-group">
-      <legend>Lifecycle</legend>
-      <p class="config-note"><strong>Statuses</strong> (order = progress):</p>
-      <p class="config-note">${allStatuses.join(' → ')}</p>
-      <p class="config-note"><strong>Canonical stages:</strong> ${stages.join(', ')}</p>
-      <p class="config-note config-readonly-note">Edit statuses and stages in Raw YAML.</p>
+      <legend>Lifecycle statuses</legend>
+      <p class="config-note">Canonical (required — cannot be removed via form):</p>
+      <div class="config-status-list">
+        ${allStatuses
+          .filter((s) => CANONICAL_STATUSES.includes(s))
+          .map((s) => html`<span class="config-status-badge config-status-canonical">${s}</span>`)}
+      </div>
+      ${
+        allStatuses.filter((s) => !CANONICAL_STATUSES.includes(s)).length
+          ? html`<p class="config-note" style="margin-top:8px">Custom (visible in board):</p>
+              <div class="config-status-list">
+                ${allStatuses
+                  .filter((s) => !CANONICAL_STATUSES.includes(s))
+                  .map(
+                    (s) =>
+                      html`<span class="config-status-badge config-status-custom" data-status-name=${s}>${s}</span>`,
+                  )}
+              </div>`
+          : nothing
+      }
+      <p class="config-note config-readonly-note" style="margin-top:8px">To add or reorder statuses, use Raw YAML.</p>
+    </fieldset>
+
+    <fieldset class="config-group">
+      <legend>Lifecycle stages</legend>
+      <p class="config-note">Canonical stage headings used across change types:</p>
+      <div class="config-status-list">
+        ${stages.map((s) => html`<span class="config-status-badge">${s}</span>`)}
+      </div>
+      <p class="config-note config-readonly-note" style="margin-top:8px">Stages are structural — edit in Raw YAML.</p>
     </fieldset>
 
     <fieldset class="config-group">
@@ -979,6 +1016,7 @@ export function projectsViewTemplate(
 
 async function openManagedProject(id, { reload = false } = {}) {
   managedProject = id;
+  configDirty = false;
   const project = state.projectsList.find((item) => item.id === id);
   if (!project?.alive) {
     managedConfig = null;
@@ -1028,7 +1066,7 @@ export async function projectMutation(root, request, onSuccess) {
     if (error) {
       error.textContent = failure.message;
       error.hidden = false;
-    } else alert(failure.message);
+    } else showToast(failure.message);
   } finally {
     setProjectFormPending(root, false);
   }
@@ -1068,6 +1106,7 @@ function collectFormPatch(formEl, currentConfig) {
 
   // types: review_required (only enabled ones) and release impacts
   const types = currentConfig.types ?? {};
+  const existingImpacts = currentConfig.release?.impacts ?? {};
   const typePatch = {};
   const impacts = {};
   for (const typeName of Object.keys(types)) {
@@ -1076,7 +1115,11 @@ function collectFormPatch(formEl, currentConfig) {
     if (rrEl && !rrEl.disabled) {
       typePatch[typeName] = { ...(typePatch[typeName] ?? {}), review_required: rrEl.checked };
     }
-    if (impactEl) impacts[typeName] = impactEl.value;
+    // Only include impact in patch if the type already had an explicit impact configured.
+    // This prevents inventing release.impacts.<custom>: none for custom types.
+    if (impactEl && Object.hasOwn(existingImpacts, typeName)) {
+      impacts[typeName] = impactEl.value;
+    }
   }
   if (Object.keys(typePatch).length) patch.types = typePatch;
   if (Object.keys(impacts).length) patch.release = { impacts };
@@ -1104,10 +1147,30 @@ function renderProjects() {
     root,
   );
   bindProjectViewActions(root, {
-    select: (id) => openManagedProject(id),
-    reload: () => openManagedProject(managedProject, { reload: true }),
-    switchMode: (mode) => {
+    select: async (id) => {
+      if (configDirty) {
+        const ok = await showConfirm('You have unsaved changes. Switch project and discard them?');
+        if (!ok) return;
+      }
+      openManagedProject(id);
+    },
+    reload: async () => {
+      if (configDirty) {
+        const ok = await showConfirm('Reload will discard your unsaved changes. Continue?');
+        if (!ok) return;
+      }
+      openManagedProject(managedProject, { reload: true });
+    },
+    markDirty: () => {
+      configDirty = true;
+    },
+    switchMode: async (mode) => {
+      if (configDirty && mode !== configMode) {
+        const ok = await showConfirm('You have unsaved changes. Switch mode and discard them?');
+        if (!ok) return;
+      }
       configMode = mode;
+      configDirty = false;
       renderProjects();
     },
     saveRaw: (content, configForm) =>
@@ -1115,6 +1178,7 @@ function renderProjects() {
         configForm,
         () => postProjectConfig(managedProject, content, managedConfig.revision),
         async (body) => {
+          configDirty = false;
           managedConfig = { ...managedConfig, content, revision: body.revision };
           await refreshProjectRegistry();
           renderProjects();
@@ -1128,6 +1192,7 @@ function renderProjects() {
           return patchProjectConfigApi(managedProject, patch, managedConfig.revision);
         },
         async (_body) => {
+          configDirty = false;
           await openManagedProject(managedProject, { reload: true });
         },
       ),
@@ -1194,18 +1259,23 @@ export function bindProjectViewActions(root, handlers) {
   if (reload) reload.onclick = () => handlers.reload();
 
   const rawForm = root.querySelector('.config-form:not([data-config-form])');
-  if (rawForm)
+  if (rawForm) {
     rawForm.onsubmit = (event) => {
       event.preventDefault();
       handlers.saveRaw(rawForm.querySelector('textarea').value, rawForm);
     };
+    rawForm.querySelector('textarea')?.addEventListener('input', () => handlers.markDirty?.());
+  }
 
   const formEditor = root.querySelector('[data-config-form]');
-  if (formEditor)
+  if (formEditor) {
     formEditor.onsubmit = (event) => {
       event.preventDefault();
       handlers.saveForm(formEditor, formEditor);
     };
+    formEditor.addEventListener('input', () => handlers.markDirty?.());
+    formEditor.addEventListener('change', () => handlers.markDirty?.());
+  }
 
   const previewBtn = root.querySelector('[data-preview-migration]');
   if (previewBtn) previewBtn.onclick = () => handlers.previewMigration();

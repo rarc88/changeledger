@@ -444,9 +444,18 @@ const PATCH_ALLOWED = new Set([
   'tdd',
   'changes_dir',
   'specs_dir',
+  'statuses',
   'readiness',
   'types',
   'release',
+]);
+
+const CANONICAL_STATUSES_REQUIRED = new Set([
+  'draft',
+  'approved',
+  'in-progress',
+  'in-validation',
+  'done',
 ]);
 
 function applyPatch(doc, patch, currentConfig) {
@@ -459,10 +468,25 @@ function applyPatch(doc, patch, currentConfig) {
       applyReleasePatch(doc, value, currentConfig.release ?? {});
     } else if (key === 'readiness') {
       applyReadinessPatch(doc, value);
+    } else if (key === 'statuses') {
+      applyStatusesPatch(doc, value, currentConfig.statuses ?? []);
     } else {
       doc.set(key, value);
     }
   }
+}
+
+function applyStatusesPatch(doc, proposed, current) {
+  // Required canonical statuses cannot be removed via form.
+  const required = [...CANONICAL_STATUSES_REQUIRED].filter((s) => current.includes(s));
+  const merged = [
+    ...proposed.filter((s) => !CANONICAL_STATUSES_REQUIRED.has(s) || required.includes(s)),
+    ...required.filter((s) => !proposed.includes(s)),
+  ];
+  // Preserve canonical order from current, then append new custom ones
+  const ordered = current.filter((s) => merged.includes(s));
+  const added = merged.filter((s) => !ordered.includes(s));
+  doc.set('statuses', [...ordered, ...added]);
 }
 
 function applyTypesPatch(doc, typesPatch, currentTypes) {

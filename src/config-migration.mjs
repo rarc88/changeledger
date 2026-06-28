@@ -191,9 +191,15 @@ function loadTemplateComments() {
 
 // Replace managed comments (those defined in the template) on existing keys,
 // preserving comments on custom/unknown keys.
+// doc.set() creates keys as plain strings (not Scalar nodes), so commentBefore
+// cannot be set on them directly. Convert string keys to Scalar nodes first.
 function refreshManagedComments(doc, templateComments) {
   const changes = [];
   for (const pair of doc.contents.items) {
+    // Normalise string-primitive keys to Scalar nodes so commentBefore is writable.
+    if (typeof pair.key === 'string') {
+      pair.key = doc.createNode(pair.key);
+    }
     const key = pair.key?.value;
     if (!key) continue;
     if (!templateComments.has(key)) continue; // custom key — preserve its comment

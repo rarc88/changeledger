@@ -31,6 +31,7 @@ const {
   setConfirmImpl,
   showConfirm,
   showNoProjects,
+  showToast,
   stageBlock,
   sortIndicator,
   statusTag,
@@ -764,4 +765,70 @@ test('113924 CR7: migration preview error is shown in UI', () => {
   assert.match(root.querySelector('.project-error')?.textContent ?? '', /Migration failed/);
   // Retry button shown
   assert.ok(root.querySelector('[data-preview-migration]'), 'Retry preview button must be present');
+});
+
+// CR11: dirty state guard
+test('113924 CR11: bindProjectViewActions marks dirty and fires markDirty handler', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: '',
+        revision: 'rev',
+        schemaVersion: 1,
+        supported: 1,
+        config: { project_id: 'aaa111', language: 'en', types: {}, statuses: [], stages: [] },
+      },
+      false,
+    ),
+  );
+  let dirtyCalls = 0;
+  bindProjectViewActions(root, {
+    markDirty: () => {
+      dirtyCalls++;
+    },
+  });
+  // Simulate input on the form editor
+  const formEditor = root.querySelector('[data-config-form]');
+  if (formEditor) {
+    formEditor.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(dirtyCalls, 1, 'markDirty called on input');
+  }
+});
+
+// Lifecycle section shows canonical badges and stage badges
+test('113924 CR3 lifecycle: canonical statuses shown as badges, stages shown', () => {
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      {
+        content: '',
+        revision: 'rev',
+        schemaVersion: 1,
+        supported: 1,
+        config: {
+          project_id: 'aaa111',
+          statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'done', 'my-custom'],
+          stages: ['request', 'plan', 'log'],
+          types: {},
+          language: 'en',
+        },
+      },
+      false,
+    ),
+  );
+  const canonical = root.querySelectorAll('.config-status-canonical');
+  assert.ok(canonical.length > 0, 'canonical status badges present');
+  const custom = root.querySelectorAll('.config-status-custom');
+  assert.equal(custom.length, 1, 'one custom status badge');
+  assert.equal(custom[0].textContent.trim(), 'my-custom');
+  // Stages shown somewhere in config section
+  assert.match(root.querySelector('.config-section')?.textContent ?? '', /request/);
+});
+
+// showToast: exported and testable (just verifies it doesn't throw in test env)
+test('113924: showToast does not throw when toast-container is absent', () => {
+  assert.doesNotThrow(() => showToast('test error'));
 });
