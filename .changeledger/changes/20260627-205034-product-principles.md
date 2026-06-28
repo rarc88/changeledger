@@ -2,10 +2,12 @@
 id: "20260627-205034"
 title: Filtros de decisión y no-goals de producto
 type: chore
-status: in-validation
+status: done
 created: 2026-06-27T20:50:34Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -47,3 +49,6 @@ humana mediante el gate normal de graduación; no se adelanta verdad a
 - **2026-06-28T01:02:57Z** — status: approved → in-progress
 - **2026-06-28T01:02:57Z** — owner → Roberto Ruiz (auto)
 - **2026-06-28T01:03:18Z** — status: in-progress → in-validation
+- **2026-06-28T01:04:39Z** — validation → done (human accepted)
+- **2026-06-28T01:05:07Z** — graduado a spec `product-principles.md`
+- **2026-06-28T01:05:08Z** — archived
