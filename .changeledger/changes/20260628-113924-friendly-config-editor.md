@@ -2,9 +2,10 @@
 id: "20260628-113924"
 title: Editor amigable y migración de config en el viewer
 type: feature
-status: approved
+status: in-progress
 created: 2026-06-28T11:39:24Z
 depends_on: [ "20260628-113219" ]
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -154,3 +155,5 @@ claves custom o rediseñar el resto de Projects.
 
 ## Log
 - **2026-06-28T11:42:41Z** — status: draft → approved
+- **2026-06-28T12:02:15Z** — status: approved → in-progress
+- **2026-06-28T12:02:15Z** — owner → raruiz-hiberuscom (auto)
