@@ -62,6 +62,12 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const second = buildContext(undefined, root);
   assert.equal(first, second);
   assert.match(first, /Mode: core/);
+  assert.match(first, /Running `changeledger context` is discovery, not compliance/);
+  assert.match(first, /Read the\s+complete output and follow the current mode/);
+  assert.match(first, /truncated or\s+incomplete, stop and restore complete context/);
+  assert.match(first, /If no approved or in-progress change applies/);
+  assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
+  assert.match(first, /If unsure, document it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
   assert.ok(first.split('\n').length <= 120);
   assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);

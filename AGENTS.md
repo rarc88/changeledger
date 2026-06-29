@@ -6,8 +6,10 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 <!-- changeledger -->
 > [!IMPORTANT]
 > This repo uses **ChangeLedger**. Before creating or modifying files, run
-> `changeledger context` (or `changeledger context <change-id>`) and follow its output.
-> If the command is unavailable, stop and restore/install ChangeLedger; do not proceed from memory.
+> `changeledger context`, read its complete output, and follow it.
+> If the output is truncated/incomplete, stop and restore complete context before
+> proceeding. If the command is unavailable, stop and restore/install
+> ChangeLedger; do not proceed from memory.
 
 The canonical ChangeLedger contract is split into task-focused fragments under
 [`templates/contract/`](templates/contract/). The deterministic

@@ -2,9 +2,10 @@
 id: "20260629-155349"
 title: Reforzar descubrimiento completo del contrato
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-29T15:53:49Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -102,9 +103,9 @@ actual.
 
 ## Plan
 
-- [ ] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs` (CR1, CR2)
-- [ ] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs` (CR3, CR4, CR5)
-- [ ] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349` (CR1, CR2, CR3, CR4, CR5)
+- [x] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs` (CR1, CR2) — 2026-06-29T16:05:03Z
+- [x] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs` (CR3, CR4, CR5) — 2026-06-29T16:05:08Z
+- [x] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349` (CR1, CR2, CR3, CR4, CR5) — 2026-06-29T16:05:27Z
 
 ## Log
 
@@ -114,3 +115,5 @@ actual.
   ejecutar `changeledger context <change-id>` contra un change anterior, no del
   contexto inicial sin argumentos.
 - **2026-06-29T16:02:24Z** — status: draft → approved
+- **2026-06-29T16:03:44Z** — status: approved → in-progress
+- **2026-06-29T16:03:44Z** — owner → Roberto Ruiz (auto)

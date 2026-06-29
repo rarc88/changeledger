@@ -5,6 +5,10 @@ reflection. Work is planned and documented before code is written.
 
 ## Non-negotiable fast path
 
+Running `changeledger context` is discovery, not compliance by itself. Read the
+complete output and follow the current mode. If the output is truncated or
+incomplete, stop and restore complete context before creating or modifying files.
+
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
    to document faithfully **and** the human explicitly authorizes documentation. A direct request such
@@ -21,6 +25,11 @@ reflection. Work is planned and documented before code is written.
 7. Stop at `in-validation`. The agent never accepts on the human's behalf.
 8. After human acceptance, graduate persistent truth or record an explicit skip,
    then archive the done change.
+
+If no approved or in-progress change applies, do not silently edit repository
+files. Create or update a change, or ask the human whether a purely operational,
+reversible edit with no persistent truth or observable behavior change should be
+done directly. If unsure, document it in ChangeLedger.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 
