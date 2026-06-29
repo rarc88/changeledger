@@ -66,6 +66,9 @@ never reopen.
 
 Valid modes: implement, review, spec, release.
 
+Run these only after reading the complete base output. Each mode and change-id
+context extends the core context already read without repeating it.
+
 - `changeledger context spec`: author or refine a change.
 - `changeledger context implement`: execute an approved change.
 - `changeledger context review`: independently verify completed work.

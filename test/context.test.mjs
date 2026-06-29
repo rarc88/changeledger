@@ -71,6 +71,7 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
   assert.match(first, /If unsure, document it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
+  assert.match(first, /extends? the core context already read without repeating it/);
   assert.ok(first.split('\n').length <= 120);
   assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
 });
@@ -110,6 +111,12 @@ test('215632 CR1-CR3: release context treats routine delivery as operational wor
   const second = buildContext('release', root);
 
   assert.match(first, /Routine release preparation is operational work\./);
+  assert.doesNotMatch(first, /# ChangeLedger — Core Contract/);
+  assert.match(first, /This incremental context extends the complete core context already read/);
+  assert.match(
+    first,
+    /If the complete base output has not been read, stop and run `changeledger context`/,
+  );
   assert.match(
     first,
     /Version bumps, release manifests, quality gates, packaging, commits, tags and publishing do not require a ChangeLedger change by themselves\./,
@@ -131,6 +138,12 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const id = addChange(root, 'in-progress');
   const output = buildContext(id, root);
   assert.match(output, /Mode: implement/);
+  assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
+  assert.match(output, /This incremental context extends the complete core context already read/);
+  assert.match(
+    output,
+    /If the complete base output has not been read, stop and run `changeledger context`/,
+  );
   assert.match(output, /# Implementing an Approved Change/);
   assert.match(output, /# Definition of Ready/);
   assert.match(output, /## Request[\s\S]*Need exact context/);
@@ -142,7 +155,23 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 
 test('CR3/CR4: explicit modes work and unknown input has the exact error', () => {
   const root = repo();
-  assert.match(buildContext('review', root), /Mode: review/);
+  const expected = {
+    implement: /# Implementing an Approved Change/,
+    review: /# Independent Review/,
+    spec: /# Authoring a Change/,
+    release: /# Portable Release Planning/,
+  };
+  for (const [mode, heading] of Object.entries(expected)) {
+    const output = buildContext(mode, root);
+    assert.match(output, new RegExp(`Mode: ${mode}`));
+    assert.match(output, heading);
+    assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
+    assert.match(output, /This incremental context extends the complete core context already read/);
+    assert.match(
+      output,
+      /If the complete base output has not been read, stop and run `changeledger context`/,
+    );
+  }
   assert.throws(
     () => buildContext('bogus', root),
     /Unknown context "bogus" — valid modes: implement, review, spec, release \(or pass a change id\)/,
@@ -161,6 +190,8 @@ test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded'
     const id = addChange(root, status, `20260627-12000${index}`);
     const output = buildContext(id, root);
     for (const pattern of patterns) assert.match(output, pattern);
+    assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
+    assert.match(output, /This incremental context extends the complete core context already read/);
     assert.doesNotMatch(output, /Mode: release/);
     if (status === 'blocked') assert.doesNotMatch(output, /# Implementing an Approved Change/);
   }

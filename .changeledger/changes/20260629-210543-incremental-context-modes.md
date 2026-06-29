@@ -2,10 +2,11 @@
 id: "20260629-210543"
 title: Contextos específicos incrementales
 type: feature
-status: approved
+status: in-review
 created: 2026-06-29T21:05:43Z
 depends_on: []
 release_impact: patch
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -72,11 +73,15 @@ siendo determinista y stateless, y la precondición continúa en el bootstrap.
 
 ## Plan
 
-- [ ] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+- [x] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-06-29T21:14:05Z
+- [x] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4) — 2026-06-29T21:14:05Z
+- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support) — 2026-06-29T21:14:31Z
 
 ## Log
 
 - 2026-06-29T21:05:43Z — Alcance autorizado por el humano; se documenta como mejora separada y se pospone el release para incluir ambos cambios.
 - **2026-06-29T21:11:52Z** — status: draft → approved
+- **2026-06-29T21:12:55Z** — status: approved → in-progress
+- **2026-06-29T21:12:55Z** — owner → Roberto Ruiz (auto)
+- **2026-06-29T21:14:31Z** — Implementación completada: los contextos específicos son incrementales y pnpm verify pasa con 468 tests; permanece el warning conocido de dependencies.md huérfano.
+- **2026-06-29T21:14:40Z** — status: in-progress → in-review
