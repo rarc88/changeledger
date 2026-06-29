@@ -2,7 +2,7 @@
 id: "20260629-155349"
 title: Reforzar descubrimiento completo del contrato
 type: bug
-status: in-review
+status: in-validation
 created: 2026-06-29T15:53:49Z
 depends_on: []
 owner: Roberto Ruiz
@@ -118,3 +118,4 @@ actual.
 - **2026-06-29T16:03:44Z** — status: approved → in-progress
 - **2026-06-29T16:03:44Z** — owner → Roberto Ruiz (auto)
 - **2026-06-29T16:07:19Z** — status: in-progress → in-review
+- **2026-06-29T16:09:15Z** — review → in-validation (delegated subagent, clean context)
