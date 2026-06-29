@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-28T01:46:07Z
+updated: 2026-06-29T16:21:35Z
 tags: [ contract ]
 ---
 
@@ -11,6 +11,7 @@ tags: [ contract ]
 > Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
 > Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
 > Graduado del change 20260627-205033 (contexto dinámico y retiro del symlink).
+> Graduado del change 20260629-155349 (lectura completa del contexto y bootstrap mínimo).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -36,10 +37,21 @@ graduada ocupa 68 líneas y ~3.3 KB frente al antiguo monolito de 540 líneas y
 
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta con marcador
 `<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
-`CLAUDE.md`. El bootstrap ordena ejecutar `changeledger context` antes de
-modificar archivos y falla cerrado si el CLI no está disponible. No crea
+`CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
+`changeledger context`. Ordena leer su salida completa antes de modificar
+archivos, falla cerrado si la salida está truncada o incompleta, y falla cerrado
+si el CLI no está disponible. No menciona modos ni variantes con change id; esa
+orientación vive dentro de la salida de contexto. No crea
 `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
 `.gitignore`.
+
+Ejecutar `changeledger context` no basta por sí solo para cumplir el contrato. El
+agente debe leer la salida completa y seguir el modo actual. Si no existe un
+change `approved` o `in-progress` aplicable, el agente no edita archivos del
+repo en silencio: crea o actualiza un change, o pregunta al humano si una edición
+puramente operativa, reversible y sin cambio de verdad persistente ni
+comportamiento observable debe hacerse directo. En caso de duda, se documenta en
+ChangeLedger.
 
 `register` actualiza el bloque administrado y migra repos antiguos. Elimina un
 symlink legacy; una copia regular sólo se elimina cuando su SHA-256 coincide
