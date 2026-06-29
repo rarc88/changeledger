@@ -2,11 +2,13 @@
 id: "20260629-210543"
 title: Contextos específicos incrementales
 type: feature
-status: in-validation
+status: done
 created: 2026-06-29T21:05:43Z
 depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -89,3 +91,6 @@ siendo determinista y stateless, y la precondición continúa en el bootstrap.
 - **2026-06-29T21:18:17Z** — Corrección de review: CR2 cubre ahora los ocho estados soportados; pnpm verify pasa con 469 tests. La corrección permanece sin commit para revisión limpia.
 - **2026-06-29T21:18:17Z** — status: in-progress → in-review
 - **2026-06-29T21:19:31Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-29T23:19:39Z** — validation → done (human accepted)
+- **2026-06-29T23:20:33Z** — graduado a spec `contract-discovery.md`
+- **2026-06-29T23:20:57Z** — archived

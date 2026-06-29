@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-29T17:16:09Z
+updated: 2026-06-29T23:20:33Z
 tags: [ contract ]
 ---
 
@@ -12,6 +12,8 @@ tags: [ contract ]
 > Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
 > Graduado del change 20260627-205033 (contexto dinámico y retiro del symlink).
 > Graduado del change 20260629-155349 (lectura completa del contexto y bootstrap mínimo).
+> Graduado del change 20260629-165838 (prohibición de contexto truncado).
+> Graduado del change 20260629-210543 (contextos específicos incrementales).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -23,15 +25,17 @@ divergir.
 `changeledger context` los compone de forma determinista:
 
 - sin argumento entrega sólo el núcleo no negociable;
-- con modo explícito entrega núcleo + pack;
-- con change id infiere pack/overlay desde el status y añade el change completo,
-  incluidos criterios, tareas y Log;
+- con modo explícito entrega una advertencia incremental breve y sólo el pack
+  especializado, sin repetir el núcleo ya leído;
+- con change id entrega la misma advertencia, infiere el pack u overlay desde el
+  status y añade el change completo, incluidos criterios, tareas y Log;
 - no intenta adivinar specs relacionadas: conserva los enlaces explícitos del
   change, sin heurística ni IA.
 
-El núcleo tiene un presupuesto de 120 líneas y 8192 bytes UTF-8; la versión
-graduada ocupa 68 líneas y ~3.3 KB frente al antiguo monolito de 540 líneas y
-~30 KB.
+El contexto base tiene un presupuesto de 120 líneas y 8192 bytes UTF-8; la
+versión graduada ocupa 88 líneas y ~4.3 KB frente al antiguo monolito de 540
+líneas y ~30 KB. Los contextos posteriores amplían esa salida y fallan cerrado
+por instrucción si el agente aún no la leyó completa.
 
 ## Bootstrap y migración
 
