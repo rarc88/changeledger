@@ -2,7 +2,7 @@
 id: "20260629-210543"
 title: Contextos específicos incrementales
 type: feature
-status: in-review
+status: in-validation
 created: 2026-06-29T21:05:43Z
 depends_on: []
 release_impact: patch
@@ -85,3 +85,7 @@ siendo determinista y stateless, y la precondición continúa en el bootstrap.
 - **2026-06-29T21:12:55Z** — owner → Roberto Ruiz (auto)
 - **2026-06-29T21:14:31Z** — Implementación completada: los contextos específicos son incrementales y pnpm verify pasa con 468 tests; permanece el warning conocido de dependencies.md huérfano.
 - **2026-06-29T21:14:40Z** — status: in-progress → in-review
+- **2026-06-29T21:17:36Z** — review → in-progress (retry): CR2 no cubre draft, approved e in-review; ampliar la matriz a todos los estados soportados.
+- **2026-06-29T21:18:17Z** — Corrección de review: CR2 cubre ahora los ocho estados soportados; pnpm verify pasa con 469 tests. La corrección permanece sin commit para revisión limpia.
+- **2026-06-29T21:18:17Z** — status: in-progress → in-review
+- **2026-06-29T21:19:31Z** — review → in-validation (delegated subagent, clean context)

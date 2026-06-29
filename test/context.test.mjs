@@ -153,6 +153,30 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   assert.match(output, /## Log[\s\S]*Decision retained/);
 });
 
+test('20260629-210543 CR2: every supported status produces incremental change context', () => {
+  const expected = {
+    draft: [/Mode: spec/, /# Authoring a Change/],
+    approved: [/Mode: implement/, /# Implementing an Approved Change/],
+    'in-progress': [/Mode: implement/, /# Implementing an Approved Change/],
+    'in-review': [/Mode: review/, /# Independent Review/],
+    blocked: [/Mode: blocked/, /# Blocked — Resolve Before Implementing/],
+    'in-validation': [/Mode: validation/, /# Human Validation — Stop/],
+    done: [/Mode: close/, /# Closing Accepted Work/],
+    discarded: [/Mode: discarded/, /# Discarded — Terminal/],
+  };
+
+  for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
+    const root = repo();
+    const id = addChange(root, status, `20260627-13000${index}`);
+    const output = buildContext(id, root);
+    for (const pattern of patterns) assert.match(output, pattern);
+    assert.match(output, /This incremental context extends the complete core context already read/);
+    assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
+    assert.match(output, new RegExp(`id: "${id}"`));
+    assert.match(output, /# Selected change/);
+  }
+});
+
 test('CR3/CR4: explicit modes work and unknown input has the exact error', () => {
   const root = repo();
   const expected = {
