@@ -2,7 +2,7 @@
 id: "20260629-165838"
 title: Forbid truncated context output
 type: bug
-status: in-progress
+status: in-review
 created: 2026-06-29T16:58:38Z
 depends_on: []
 owner: Roberto Ruiz
@@ -76,3 +76,4 @@ La corrección debe ser acotada:
 - **2026-06-29T17:07:27Z** — status: approved → in-progress
 - **2026-06-29T17:07:27Z** — owner → Roberto Ruiz (auto)
 - **2026-06-29T17:10:29Z** — Implementado: bootstrap y core ahora exigen ejecutar changeledger context directamente, sin pipes/filtros/resúmenes/límites/truncamiento; tests enfocados y pnpm verify pasan.
+- **2026-06-29T17:11:19Z** — status: in-progress → in-review
