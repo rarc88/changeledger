@@ -99,6 +99,55 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
 });
 
+test('234939 CR1-CR10: restored invariants stay in their owning contexts', () => {
+  const root = repo();
+  const blockedId = addChange(root, 'blocked', '20260629-230001');
+  const validationId = addChange(root, 'in-validation', '20260629-230002');
+  const outputs = {
+    core: buildContext(undefined, root),
+    spec: buildContext('spec', root),
+    implement: buildContext('implement', root),
+    review: buildContext('review', root),
+    blocked: buildContext(blockedId, root),
+    validation: buildContext(validationId, root),
+  };
+  const normalized = Object.fromEntries(
+    Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
+  );
+  const invariants = [
+    ['core', /Files are the source of truth and may be edited directly/],
+    ['core', /CLI helpers are optional and preferred for error-prone operations/],
+    ['core', /Delegate only with a clear boundary and benefit/],
+    ['core', /ownership, expected output and integration criterion/],
+    ['core', /must not revert others' work/],
+    ['core', /Do not over-shard or overlap write surfaces without an explicit integration plan/],
+    ['core', /Size the model to the task's difficulty and risk/],
+    ['spec', /Keep each fact in one stage and link to it from the others/],
+    [
+      'spec',
+      /For bugs, Investigation contains the root cause; for audits, it is the core analysis/,
+    ],
+    ['spec', /Proposal includes the chosen solution, discarded alternatives and scenarios/],
+    ['spec', /use a Mermaid block and keep its text as the source/],
+    ['implement', /ask the human whether to stash, commit, ignore or include them/],
+    [
+      'implement',
+      /After human acceptance, graduate or record a skip, then commit the correction with its ledger truth/,
+    ],
+    ['review', /Deep security, SAST and lint belong to dedicated tools/],
+    ['review', /ChangeLedger does not reimplement them/],
+    ['review', /run `changeledger context <id>` before modifying implementation/],
+    ['blocked', /run `changeledger context <id>` before modifying implementation/],
+    ['validation', /run `changeledger context <id>` before modifying implementation/],
+  ];
+
+  for (const [context, pattern] of invariants) {
+    assert.match(normalized[context], pattern, `${context} is missing ${pattern}`);
+  }
+  assert.ok(outputs.core.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
+});
+
 test('215632 CR1-CR3: release context treats routine delivery as operational work', () => {
   const root = repo();
   const id = addChange(root, 'done');

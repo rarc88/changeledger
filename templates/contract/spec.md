@@ -35,13 +35,16 @@ release_impact: minor  # optional: none | patch | minor | major
 `owner` is assigned on `approved → in-progress` when absent, preferring the
 GitHub login and falling back to `git config user.name`.
 
+Keep each fact in one stage and link to it from the others; do not duplicate
+truth across the document.
+
 Stages use this order:
 
 | Key | Heading | Purpose |
 |---|---|---|
 | request | `## Request` | Ask, context and why |
 | investigation | `## Investigation` | Current state, evidence, constraints, risks |
-| proposal | `## Proposal` | Chosen solution and discarded alternatives |
+| proposal | `## Proposal` | Chosen solution, discarded alternatives and scenarios |
 | specification | `## Specification` | Testable acceptance criteria |
 | plan | `## Plan` | Actionable checklist |
 | log | `## Log` | Chronological execution decisions |
@@ -55,6 +58,13 @@ Use only the stages activated for the type in `config.yml`. Defaults are:
 | audit | ✓ | ✓ | — | — | — | ✓ |
 | refactor | ✓ | — | ✓ | — | ✓ | ✓ |
 | chore | ✓ | — | — | — | ✓ | — |
+
+For bugs, Investigation contains the root cause; for audits, it is the core
+analysis. Proposal includes the chosen solution, discarded alternatives and
+scenarios.
+
+When a relationship, flow or architecture is clearer visually, use a Mermaid
+block and keep its text as the source; the viewer renders it.
 
 ## Acceptance criteria
 

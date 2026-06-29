@@ -4,7 +4,8 @@
    update Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
    authorization before adding it; propose independent work separately.
 2. Never implement approved changes on `main`, `master`, or `dev`. Inspect the
-   worktree first. If unrelated changes exist, do not include them silently.
+   worktree first. If unrelated changes exist, do not include them silently; ask
+   the human whether to stash, commit, ignore or include them.
 3. Commit the approved change documentation before touching implementation code.
    Implement one change at a time.
 4. Commit a completed unit before continuing when another task or shared edit makes attribution
@@ -27,7 +28,9 @@ human validation.
 
 After human rejection (`in-validation → in-progress`), keep the correction
 uncommitted until the human confirms it. Do not start another task or change
-while a correction waits; the worktree is the isolation boundary.
+while a correction waits; the worktree is the isolation boundary. After human
+acceptance, graduate or record a skip, then commit the correction with its ledger
+truth.
 
 ## Triage friction at handoff; retrospect after completion
 

@@ -2,10 +2,11 @@
 id: "20260629-234939"
 title: Restaurar invariantes del contrato en el contexto dinámico
 type: feature
-status: approved
+status: in-review
 created: 2026-06-29T23:49:39Z
 depends_on: []
 release_impact: patch
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -160,14 +161,18 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Restaurar en `templates/**` (`templates/contract/core.md`) la frontera archivos/CLI y la disciplina transversal de delegación; verify: `node --test test/context.test.mjs` (`test/**`) (CR3, CR8, CR9)
-- [ ] Restaurar en `templates/**` (`templates/contract/spec.md`) fuente única entre stages, semántica de bug/audit/Proposal y criterio Mermaid; verify: `node --test test/context.test.mjs` (`test/**`) (CR1, CR2, CR9)
-- [ ] Completar en `templates/**` (`templates/contract/implement.md`) el manejo del worktree ajeno y cierre de correcciones rechazadas; verify: `node --test test/context.test.mjs` (`test/**`) (CR4, CR5, CR9)
-- [ ] Completar en `templates/**` (`templates/contract/review.md`, `blocked.md` y `validation.md`) el límite de herramientas y la recarga tras volver a `in-progress`; verify: `node --test test/context.test.mjs` (`test/**`) (CR6, CR7, CR9)
-- [ ] Blindar los outputs de `templates/**` con la matriz de invariantes y casos por modo/lifecycle en `test/**` (`test/context.test.mjs`), conservando determinismo y presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10)
-- [ ] Ejecutar el gate completo del repositorio; verify: `pnpm verify` (support)
+- [x] Restaurar en `templates/**` (`templates/contract/core.md`) la frontera archivos/CLI y la disciplina transversal de delegación; verify: `node --test test/context.test.mjs` (`test/**`) (CR3, CR8, CR9) — 2026-06-29T23:57:14Z
+- [x] Restaurar en `templates/**` (`templates/contract/spec.md`) fuente única entre stages, semántica de bug/audit/Proposal y criterio Mermaid; verify: `node --test test/context.test.mjs` (`test/**`) (CR1, CR2, CR9) — 2026-06-29T23:57:14Z
+- [x] Completar en `templates/**` (`templates/contract/implement.md`) el manejo del worktree ajeno y cierre de correcciones rechazadas; verify: `node --test test/context.test.mjs` (`test/**`) (CR4, CR5, CR9) — 2026-06-29T23:57:14Z
+- [x] Completar en `templates/**` (`templates/contract/review.md`, `blocked.md` y `validation.md`) el límite de herramientas y la recarga tras volver a `in-progress`; verify: `node --test test/context.test.mjs` (`test/**`) (CR6, CR7, CR9) — 2026-06-29T23:57:14Z
+- [x] Blindar los outputs de `templates/**` con la matriz de invariantes y casos por modo/lifecycle en `test/**` (`test/context.test.mjs`), conservando determinismo y presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10) — 2026-06-29T23:57:14Z
+- [x] Ejecutar el gate completo del repositorio; verify: `pnpm verify` (support) — 2026-06-29T23:57:50Z
 
 ## Log
 
 - **2026-06-29T23:49:39Z** — Draft creado tras autorización humana para rescatar los invariantes importantes sin restaurar el monolito.
 - **2026-06-29T23:54:08Z** — status: draft → approved
+- **2026-06-29T23:55:36Z** — status: approved → in-progress
+- **2026-06-29T23:55:36Z** — owner → Roberto Ruiz (auto)
+- **2026-06-29T23:57:50Z** — Implementación completada: matriz de invariantes en verde; pnpm verify pasa con 470 tests y 141 changes válidos; core 100 líneas / 4860 bytes.
+- **2026-06-29T23:57:55Z** — status: in-progress → in-review

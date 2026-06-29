@@ -36,6 +36,18 @@ done directly. If unsure, document it in ChangeLedger.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 
+## Files and delegation
+
+Files are the source of truth and may be edited directly. CLI helpers are
+optional and preferred for error-prone operations such as timestamps, lifecycle
+transitions and task markers.
+
+Delegate only with a clear boundary and benefit. Each delegation prompt states
+ownership, expected output and integration criterion; coding agents must know
+they share the codebase and must not revert others' work. Do not over-shard or
+overlap write surfaces without an explicit integration plan. Size the model to
+the task's difficulty and risk.
+
 ## Lifecycle
 
 ```text
