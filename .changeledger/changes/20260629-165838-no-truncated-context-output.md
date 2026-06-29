@@ -2,10 +2,12 @@
 id: "20260629-165838"
 title: Forbid truncated context output
 type: bug
-status: in-validation
+status: done
 created: 2026-06-29T16:58:38Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -78,3 +80,6 @@ La corrección debe ser acotada:
 - **2026-06-29T17:10:29Z** — Implementado: bootstrap y core ahora exigen ejecutar changeledger context directamente, sin pipes/filtros/resúmenes/límites/truncamiento; tests enfocados y pnpm verify pasan.
 - **2026-06-29T17:11:19Z** — status: in-progress → in-review
 - **2026-06-29T17:13:16Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-29T17:14:53Z** — validation → done (human accepted)
+- **2026-06-29T17:16:09Z** — graduado a spec `contract-discovery.md`
+- **2026-06-29T17:16:13Z** — archived
