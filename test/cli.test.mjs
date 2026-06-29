@@ -118,8 +118,10 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = contractText();
   assert.match(contract, /Running `changeledger context` is discovery, not compliance/);
+  assert.match(contract, /Run it\s+directly, without piping, filtering, summarizing/);
   assert.match(contract, /Read the\s+complete output and follow the current mode/);
-  assert.match(contract, /truncated or\s+incomplete, stop and restore complete context/);
+  assert.match(contract, /tools such as `head`,\s+`tail`, `sed` or `grep`/);
+  assert.match(contract, /stop and restore complete context/);
   assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
   assert.match(contract, /direct request such\s+as “create the change” is authorization/);
   assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);

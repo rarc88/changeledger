@@ -58,11 +58,11 @@ La corrección debe ser acotada:
 
 ## Plan
 
-- [ ] Target src/contract.mjs; verify: pnpm test test/contract.test.mjs (CR1)
-- [ ] Target templates/contract/core.md; verify: pnpm test test/context.test.mjs test/cli.test.mjs (CR2)
-- [ ] Target .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR2)
-- [ ] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs (CR1, CR2, CR3)
-- [ ] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR1, CR2, CR3)
+- [x] Target src/contract.mjs; verify: pnpm test test/contract.test.mjs (CR1) — 2026-06-29T17:09:47Z
+- [x] Target templates/contract/core.md; verify: pnpm test test/context.test.mjs test/cli.test.mjs (CR2) — 2026-06-29T17:09:50Z
+- [x] Target .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR2) — 2026-06-29T17:09:56Z
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs (CR1, CR2, CR3) — 2026-06-29T17:10:01Z
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR1, CR2, CR3) — 2026-06-29T17:10:24Z
 
 ## Log
 
@@ -75,3 +75,4 @@ La corrección debe ser acotada:
   keywords estructurales y trazabilidad requeridas por `changeledger check`.
 - **2026-06-29T17:07:27Z** — status: approved → in-progress
 - **2026-06-29T17:07:27Z** — owner → Roberto Ruiz (auto)
+- **2026-06-29T17:10:29Z** — Implementado: bootstrap y core ahora exigen ejecutar changeledger context directamente, sin pipes/filtros/resúmenes/límites/truncamiento; tests enfocados y pnpm verify pasan.

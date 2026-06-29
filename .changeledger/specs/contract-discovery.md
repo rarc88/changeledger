@@ -38,10 +38,12 @@ graduada ocupa 68 líneas y ~3.3 KB frente al antiguo monolito de 540 líneas y
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta con marcador
 `<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
 `CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
-`changeledger context`. Ordena leer su salida completa antes de modificar
-archivos, falla cerrado si la salida está truncada o incompleta, y falla cerrado
-si el CLI no está disponible. No menciona modos ni variantes con change id; esa
-orientación vive dentro de la salida de contexto. No crea
+`changeledger context`. Ordena ejecutarlo directamente y leer su salida completa
+antes de modificar archivos; prohíbe usar pipes, filtros, resúmenes, límites o
+truncamiento antes de leer la salida. Falla cerrado si la salida está truncada o
+incompleta, incluso por herramientas como `head`, `tail`, `sed` o `grep`, y
+falla cerrado si el CLI no está disponible. No menciona modos ni variantes con
+change id; esa orientación vive dentro de la salida de contexto. No crea
 `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
 `.gitignore`.
 

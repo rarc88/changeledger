@@ -6,7 +6,8 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 <!-- changeledger -->
 > [!IMPORTANT]
 > This repo uses **ChangeLedger**. Before creating or modifying files, run
-> `changeledger context`, read its complete output, and follow it.
+> `changeledger context` directly, read its complete output, and follow it.
+> Do not pipe, filter, summarize, limit, or truncate the output before reading it.
 > If the output is truncated/incomplete, stop and restore complete context before
 > proceeding. If the command is unavailable, stop and restore/install
 > ChangeLedger; do not proceed from memory.

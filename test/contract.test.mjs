@@ -23,7 +23,9 @@ test('CR10: init installs a fail-closed bootstrap without link or gitignore entr
   assert.equal(fs.existsSync(path.join(dir, '.gitignore')), false);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /changeledger context/);
+  assert.match(agents, /`changeledger context` directly/);
   assert.match(agents, /read its complete output/);
+  assert.match(agents, /Do not pipe, filter, summarize, limit, or truncate/);
   assert.match(agents, /truncated\/incomplete/);
   assert.match(agents, /stop and restore\/install\s+>\s+ChangeLedger/);
   assert.doesNotMatch(agents, /context <change-id>/);
