@@ -2,9 +2,10 @@
 id: "20260629-165838"
 title: Forbid truncated context output
 type: bug
-status: approved
+status: in-progress
 created: 2026-06-29T16:58:38Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -72,3 +73,5 @@ La corrección debe ser acotada:
 - **2026-06-29T17:03:15Z** — status: draft → approved
 - 2026-06-29T17:05:00Z — Se ajustaron los criterios y tareas para cumplir las
   keywords estructurales y trazabilidad requeridas por `changeledger check`.
+- **2026-06-29T17:07:27Z** — status: approved → in-progress
+- **2026-06-29T17:07:27Z** — owner → Roberto Ruiz (auto)
