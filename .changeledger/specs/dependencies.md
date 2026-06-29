@@ -6,6 +6,8 @@ tags: [ dependencies ]
 
 ## Política de dependencias
 
+> Graduado del change 20260615-214818.
+
 ChangeLedger no prohíbe dependencias runtime, pero las trata como coste de
 producto: cada una debe ser madura, mantenida y proporcional al problema que
 resuelve. El núcleo CLI prefiere APIs estándar de Node y código propio pequeño,
