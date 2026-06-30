@@ -15,7 +15,12 @@ import {
 } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { context } from '../src/commands/context.mjs';
-import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
+import {
+  graduate,
+  pendingGraduation,
+  scaffoldSpec,
+  skipGraduation,
+} from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -46,7 +51,7 @@ const USAGE = `ChangeLedger (changeledger)
   changeledger task <id> done|block <n> [reason]   mark a Plan task
   changeledger list [--status S] [--type T] [--json]   list changes
   changeledger show <id> [--json]            print a change
-  changeledger graduate <change-id> <spec-slug>   graduate a change to a new spec
+  changeledger graduate <change-id> <spec-slug> --new   create a spec scaffold to refine
   changeledger graduate <change-id> <spec-slug> --into   graduate into an existing spec
   changeledger graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
   changeledger graduate --pending                 list done changes not yet reviewed
@@ -298,7 +303,8 @@ program
   .argument('[change-id]')
   .argument('[spec-slug]')
   .argument('[reason...]')
-  .option('--into', 'graduate into an existing spec')
+  .option('--new', 'create a spec scaffold without resolving graduation')
+  .option('--into', 'finalize graduation into an existing refined spec')
   .option('--skip', 'mark graduation reviewed without a spec')
   .option('--pending', 'list done changes not yet reviewed')
   .addHelpText(
@@ -306,7 +312,7 @@ program
     [
       '',
       'Examples:',
-      '  changeledger graduate <change-id> <spec-slug>',
+      '  changeledger graduate <change-id> <spec-slug> --new',
       '  changeledger graduate <change-id> <spec-slug> --into',
       '  changeledger graduate <change-id> --skip [reason]',
       '  changeledger graduate --pending',
@@ -314,7 +320,15 @@ program
   )
   .action(
     action((id, slug, reasonParts, options) => {
+      const modeCount = [options.new, options.into, options.skip, options.pending].filter(
+        Boolean,
+      ).length;
+      const modeUsage =
+        'Usage: changeledger graduate requires exactly one mode: --new, --into, --skip, or --pending';
+      if (modeCount !== 1) throw new Error(modeUsage);
+
       if (options.pending) {
+        if (id || slug || reasonParts.length) throw new Error(modeUsage);
         const items = pendingGraduation();
         if (!items.length) console.log('No changes pending graduation.');
         for (const c of items) console.log(`#${c.id}  ${c.title}`);
@@ -327,7 +341,15 @@ program
         console.log(`#${id} graduation skipped`);
         return;
       }
-      if (!id || !slug) throw new Error('Usage: changeledger graduate <change-id> <spec-slug>');
+
+      if (!id || !slug || reasonParts.length) throw new Error(modeUsage);
+      if (options.new) {
+        const file = scaffoldSpec(id, slug);
+        console.log(
+          `Created spec scaffold ${file}. Refine it, then run: changeledger graduate ${id} ${slug} --into`,
+        );
+        return;
+      }
       const file = graduate(id, slug, process.cwd(), { into: options.into });
       console.log(`Graduated #${id} → ${file}`);
     }),

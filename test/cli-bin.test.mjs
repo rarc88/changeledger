@@ -52,11 +52,100 @@ function runIn(cwd, env, ...args) {
   }
 }
 
-test('CR1: changeledger graduate --help shows --skip and --pending, exit 0', () => {
+function doneRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const changeFile = fs
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => path.join(root, '.changeledger', 'changes', name))
+    .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${item.id}"`));
+  fs.writeFileSync(
+    changeFile,
+    fs.readFileSync(changeFile, 'utf8').replace('status: draft', 'status: done'),
+  );
+  return { root, env, id: item.id, changeFile };
+}
+
+test('CR1: changeledger graduate --help shows every explicit mode, exit 0', () => {
   const { code, out } = run('graduate', '--help');
   assert.equal(code, 0);
+  assert.match(out, /--new/);
+  assert.match(out, /--into/);
   assert.match(out, /--skip/);
   assert.match(out, /--pending/);
+});
+
+test('191857 CR1: graduate without a mode rejects skip-like slugs without writing', () => {
+  const { root, env, id, changeFile } = doneRepo();
+  const before = fs.readFileSync(changeFile, 'utf8');
+
+  for (const slug of ['skip', 'skip-map-driver-riders']) {
+    const result = runIn(root, env, 'graduate', id, slug);
+    assert.equal(result.code, 1);
+    assert.match(result.err, /--new/);
+    assert.match(result.err, /--into/);
+    assert.match(result.err, /--skip/);
+  }
+
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs')), false);
+});
+
+test('191857 CR2/CR3: --new scaffolds pending truth and --into finalizes it', () => {
+  const { root, env, id } = doneRepo();
+
+  const created = runIn(root, env, 'graduate', id, 'auth', '--new');
+  assert.equal(created.code, 0);
+  assert.match(created.out, /Refine it, then run:/);
+  assert.equal(
+    JSON.parse(runIn(root, env, 'show', id, '--json').out).frontmatter.reviewed,
+    undefined,
+  );
+  assert.match(runIn(root, env, 'graduate', '--pending').out, new RegExp(id));
+
+  const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
+  fs.writeFileSync(
+    specFile,
+    fs.readFileSync(specFile, 'utf8').replace('<!-- changeledger:spec-scaffold -->\n\n', ''),
+  );
+  const finalized = runIn(root, env, 'graduate', id, 'auth', '--into');
+  assert.equal(finalized.code, 0);
+  assert.equal(JSON.parse(runIn(root, env, 'show', id, '--json').out).frontmatter.reviewed, true);
+});
+
+test('191857 CR4: --skip records the reason without creating a spec', () => {
+  const { root, env, id } = doneRepo();
+  const result = runIn(root, env, 'graduate', id, '--skip', 'no durable truth');
+  assert.equal(result.code, 0);
+  const shown = JSON.parse(runIn(root, env, 'show', id, '--json').out);
+  assert.equal(shown.frontmatter.reviewed, true);
+  assert.match(shown.stages.find((stage) => stage.key === 'log').body, /no durable truth/);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs')), false);
+});
+
+test('191857 CR5: incompatible graduate modes and arguments fail without writing', () => {
+  const { root, env, id, changeFile } = doneRepo();
+  const before = fs.readFileSync(changeFile, 'utf8');
+  const cases = [
+    ['graduate', id, 'auth', '--new', '--into'],
+    ['graduate', id, '--skip', '--pending'],
+    ['graduate', '--pending', id],
+    ['graduate', id, 'auth', 'extra', '--into'],
+  ];
+
+  for (const args of cases) {
+    const result = runIn(root, env, ...args);
+    assert.equal(result.code, 1, args.join(' '));
+    assert.match(result.err, /Usage: changeledger graduate/);
+  }
+
+  assert.equal(fs.readFileSync(changeFile, 'utf8'), before);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs')), false);
 });
 
 test('CR2: changeledger task -h shows done|block, exit 0', () => {

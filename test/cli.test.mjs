@@ -112,7 +112,7 @@ test('221849: installed CLI reference names actors and dedicated terminal action
     /`changeledger status <id> <status>`[\s\S]*does not accept `done` or `discarded`/,
   );
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
-  assert.match(contract, /without overwriting the spec body \(the agent edits the body manually\)/);
+  assert.match(contract, /the agent edits its body first, then runs/);
 });
 
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {

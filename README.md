@@ -96,9 +96,11 @@ changeledger discard <id> <reason>
 ### Preserve completed truth
 
 ```sh
-changeledger graduate <id> <spec-slug>           # create a persistent spec
-changeledger graduate <id> <spec-slug> --into    # update an existing spec's provenance
+changeledger graduate <id> <spec-slug> --new     # create a marked scaffold; remains pending
+# refine the scaffold and remove its marker
+changeledger graduate <id> <spec-slug> --into    # finalize an existing refined spec
 changeledger graduate <id> --skip [reason]       # record that no spec is needed
+changeledger graduate --pending                  # list unresolved graduation decisions
 changeledger archive --graduated [--dry-run]     # hide resolved changes from the board
 ```
 
