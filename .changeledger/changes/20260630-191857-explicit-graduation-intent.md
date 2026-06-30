@@ -2,10 +2,12 @@
 id: "20260630-191857"
 title: Hacer explícita y verificable la intención de graduación
 type: bug
-status: in-validation
+status: done
 created: 2026-06-30T19:18:57Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -114,3 +116,6 @@ operación.
 - **2026-06-30T19:38:23Z** — owner → Roberto Ruiz (auto)
 - **2026-06-30T19:47:01Z** — status: in-progress → in-review
 - **2026-06-30T19:56:53Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-30T19:58:37Z** — validation → done (human accepted)
+- **2026-06-30T20:25:58Z** — graduado a spec `lifecycle.md`
+- **2026-06-30T20:25:58Z** — archived
