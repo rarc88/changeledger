@@ -2,7 +2,7 @@
 id: "20260630-191857"
 title: Hacer explícita y verificable la intención de graduación
 type: bug
-status: in-progress
+status: in-review
 created: 2026-06-30T19:18:57Z
 depends_on: []
 owner: Roberto Ruiz
@@ -102,8 +102,8 @@ operación.
 - [x] Separar scaffold y finalización en `src/commands/graduate.mjs` y cablear `--new` en `bin/changeledger.mjs`, dejando la creación pendiente hasta `--into`; verify: `node --test test/graduate.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-30T19:43:42Z
 - [x] Actualizar la guía de cierre y el handoff de fase en `templates/contract/core.md` y `templates/contract/close.md`, con hashes y expectativas correspondientes en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6) — 2026-06-30T19:43:42Z
 - [x] Alinear `README.md` con la ayuda canónica de `templates/contract/close.md` y sus expectativas de contexto; verify: `node --test test/context.test.mjs` y `rg -n "graduate" README.md templates bin test` (CR1, CR2, CR3, CR4, CR6) — 2026-06-30T19:43:42Z
-- [ ] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes (support)
-- [ ] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación; verify: `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app` (CR7)
+- [x] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes (support) — 2026-06-30T19:45:43Z
+- [x] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación; verify: `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app` (CR7) — 2026-06-30T19:46:55Z
 
 ## Log
 
@@ -112,3 +112,4 @@ operación.
 - **2026-06-30T19:45:00Z** — Durante el TDD se precisó la condición verificable de refinamiento: `--new` deja un marcador de scaffold y `--into` no puede finalizar mientras siga presente.
 - **2026-06-30T19:38:23Z** — status: approved → in-progress
 - **2026-06-30T19:38:23Z** — owner → Roberto Ruiz (auto)
+- **2026-06-30T19:47:01Z** — status: in-progress → in-review
