@@ -1,6 +1,6 @@
-// Graduates a change to a spec: scaffolds the spec file (frontmatter + a body
-// seeded from the change's Specification/Proposal) and links it back in the
-// change's Log. The final wording stays a manual/agent task.
+// Graduation is intentionally two-phase for a new spec. `scaffoldSpec` creates
+// an editable seed without resolving the change; `graduate --into` links only
+// after the durable wording has been reviewed.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,55 +13,73 @@ import { slugify } from '../slug.mjs';
 import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
-// `into: true` graduates into an EXISTING spec — it refreshes the spec's
-// `updated` and links it back, but leaves the body to the agent (who knows what
-// to refine). Without `into`, a new spec is scaffolded and an existing one is an
-// error. Both routes share the same change-side record (marker + reviewed).
-export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
-  const { config, repoRoot, file: changeFile } = resolveChange(cwd, id);
+const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
 
-  const specsDir = resolveSpecsDir(repoRoot, config);
+function graduationTarget(id, slug, cwd) {
+  const resolved = resolveChange(cwd, id);
+  const specsDir = resolveSpecsDir(resolved.repoRoot, resolved.config);
   const specName = `${slugify(slug)}.md`;
-  const specFile = path.join(specsDir, specName);
+  return { ...resolved, specsDir, specName, specFile: path.join(specsDir, specName) };
+}
 
-  // Validate preconditions before acquiring the change file lock — ensures no
-  // write happens at all when the existence check fails (CR1).
-  const exists = fs.existsSync(specFile);
-  if (into && !exists)
-    throw new Error(`Spec "${specName}" does not exist — drop --into to create it`);
-  if (!into && exists) throw new Error(`Spec "${specName}" already exists`);
+function requireDone(changeText) {
+  const change = parseChange(changeText);
+  if (change.frontmatter.status !== 'done') {
+    throw new Error('only done changes can be graduated/skipped');
+  }
+  return change;
+}
 
-  mutateFileAtomic(changeFile, (changeText) => {
-    const change = parseChange(changeText);
-    if (change.frontmatter.status !== 'done') {
-      throw new Error('only done changes can be graduated/skipped');
-    }
+export function scaffoldSpec(id, slug, cwd = process.cwd()) {
+  const { file: changeFile, specsDir, specName, specFile } = graduationTarget(id, slug, cwd);
+  if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
 
-    if (into) {
-      // Refresh the spec's updated; the body stays the agent's to edit.
-      writeFileAtomic(specFile, setSpecUpdated(fs.readFileSync(specFile, 'utf8'), nowUtc()));
-    } else {
-      const seedStage =
-        change.stages.find((s) => s.key === 'specification') ??
-        change.stages.find((s) => s.key === 'proposal');
-      const seed = seedStage ? seedStage.body : '';
-      const title = change.frontmatter.title;
-
-      const content = `---
-title: ${serializeScalar(title)}
+  const change = requireDone(fs.readFileSync(changeFile, 'utf8'));
+  const seedStage =
+    change.stages.find((stage) => stage.key === 'specification') ??
+    change.stages.find((stage) => stage.key === 'proposal');
+  const seed = seedStage ? seedStage.body : '';
+  const content = `---
+title: ${serializeScalar(change.frontmatter.title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
 ---
 
-# ${title}
+# ${change.frontmatter.title}
 
-> Graduado del change ${id}.
+${SPEC_SCAFFOLD_MARKER}
+
+> Scaffold from change ${id}; replace this seed with durable current truth before --into.
 
 ${seed}
 `;
-      fs.mkdirSync(specsDir, { recursive: true });
-      writeFileAtomic(specFile, content);
+
+  fs.mkdirSync(specsDir, { recursive: true });
+  writeFileAtomic(specFile, content);
+  return specFile;
+}
+
+// Finalizes graduation into an EXISTING, manually refined spec. The command
+// refreshes `updated` and links it back, but never overwrites the body.
+export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
+  if (!into) {
+    throw new Error('graduation mode required: use --new, --into, or --skip');
+  }
+  const { file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
+
+  if (!fs.existsSync(specFile)) {
+    throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
+  }
+
+  mutateFileAtomic(changeFile, (changeText) => {
+    requireDone(changeText);
+    const specText = fs.readFileSync(specFile, 'utf8');
+    if (specText.includes(SPEC_SCAFFOLD_MARKER)) {
+      throw new Error(
+        `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
+      );
     }
+    writeFileAtomic(specFile, setSpecUpdated(specText, nowUtc()));
 
     let text = appendLog(changeText, nowUtc(), `graduado a spec \`${specName}\``);
     text = setReviewed(text, true);

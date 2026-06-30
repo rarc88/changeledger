@@ -26,8 +26,9 @@ modifying files.
 6. For types that require review, use a fresh clean-context reviewer before
    human validation.
 7. Stop at `in-validation`. The agent never accepts on the human's behalf.
-8. After human acceptance, graduate persistent truth or record an explicit skip,
-   then archive the done change.
+8. After human acceptance, reload `changeledger context <id>` for the `done`
+   change, then graduate persistent truth or run
+   `changeledger graduate <id> --skip [reason]`; archive only after that decision.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,

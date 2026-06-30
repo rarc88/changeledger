@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-06-28T10:58:45Z
+updated: 2026-06-30T20:25:58Z
 tags: [ lifecycle ]
 ---
 
@@ -127,14 +127,14 @@ fallback a `git config user.name` si `gh` falta o no está autenticado; tolerant
 ## Graduación
 
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
-o se descarta (bug/chore sin verdad persistente). Ambos casos fijan `reviewed: true`
-(`writer.setReviewed`). `changeledger graduate --pending` (`pendingGraduation`) lista los
-`done` con `reviewed !== true`; `changeledger graduate <id> --skip [razón]` (`skipGraduation`,
-solo en `done`) descarta dejando `graduation skipped` en el Log; `graduate()` a spec
-también fija `reviewed`. "Graduado a spec" sigue siendo derivable de la marca
-`graduado a spec` del Log — `reviewed` solo registra que la pregunta quedó zanjada.
-`check` valida que `reviewed`, si está, sea booleano; no avisa de pendientes (es
-bajo demanda).
+o registra un skip (bug/chore sin verdad persistente). La finalización con
+`--into` y el skip fijan `reviewed: true` (`writer.setReviewed`);
+`changeledger graduate --pending` (`pendingGraduation`) lista los `done` con
+`reviewed !== true`. `changeledger graduate <id> --skip [razón]`
+(`skipGraduation`, solo en `done`) deja `graduation skipped` en el Log sin crear
+una spec. "Graduado a spec" sigue siendo derivable de la marca `graduado a spec`
+del Log — `reviewed` solo registra que la pregunta quedó zanjada. `check` valida
+que `reviewed`, si está, sea booleano; no avisa de pendientes (es bajo demanda).
 
 `changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
 conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
@@ -144,10 +144,16 @@ masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
 `archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
 sin reviewed ni cambios ya archivados.
 
-`graduate()` tiene dos rutas. Por defecto **crea** un spec nuevo (semilla desde
-Specification/Proposal) y falla si ya existe. Con `--into` (`{ into: true }`)
-**gradúa a un spec existente**: exige que exista (error simétrico si no), refresca
-su `updated` (`writer.setSpecUpdated`) y deja el cuerpo al agente — no lo
-sobrescribe. Ambas rutas comparten el registro en el change (marker + `reviewed`).
-La sustitución es explícita (flag), nunca por auto-detección, para que un slug mal
-tecleado no enlace por error.
+La intención es siempre explícita y los modos `--new`, `--into`, `--skip` y
+`--pending` son mutuamente excluyentes. Un slug posicional sin modo falla sin
+escribir, por lo que `skip` o `skip-*` nunca pueden convertirse accidentalmente
+en nombres de spec.
+
+Para una spec nueva, `--new` llama a `scaffoldSpec()`: crea una semilla desde
+Specification/Proposal con un marcador explícito de scaffold, pero no escribe el
+Log ni fija `reviewed`; el change continúa pendiente. El agente reemplaza la
+semilla por verdad actual durable y elimina el marcador. Después `--into`
+(`graduate(..., { into: true })`) exige que la spec exista y que el marcador ya
+no esté, refresca `updated` (`writer.setSpecUpdated`), deja intacto el cuerpo y
+registra el vínculo más `reviewed: true`. Para una spec ya existente, el agente
+edita primero su cuerpo y usa directamente `--into`.

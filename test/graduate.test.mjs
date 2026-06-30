@@ -4,7 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { graduate, pendingGraduation, skipGraduation } from '../src/commands/graduate.mjs';
+import {
+  graduate,
+  pendingGraduation,
+  scaffoldSpec,
+  skipGraduation,
+} from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -53,6 +58,13 @@ function seedSpec(root, name, body) {
   return file;
 }
 
+function refineScaffold(file) {
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('<!-- changeledger:spec-scaffold -->\n\n', ''),
+  );
+}
+
 test('CR1: graduate --into links an existing spec without touching its body', () => {
   const { root, file, id } = repo();
   const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
@@ -75,37 +87,41 @@ test('CR2: graduate --into on a missing spec errors without writing', () => {
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => graduate(id, 'ghost', root, { into: true }),
-    /^Error: Spec "ghost\.md" does not exist — drop --into to create it$/,
+    /^Error: Spec "ghost\.md" does not exist — use --new to create a scaffold$/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('CR3: graduate without --into on an existing spec still errors', () => {
+test('CR2: scaffoldSpec on an existing spec errors', () => {
   const { root, id } = repo();
-  graduate(id, 'auth', root); // creates auth.md
-  assert.throws(() => graduate(id, 'auth', root), /^Error: Spec "auth\.md" already exists$/);
+  scaffoldSpec(id, 'auth', root);
+  assert.throws(() => scaffoldSpec(id, 'auth', root), /^Error: Spec "auth\.md" already exists$/);
 });
 
-test('graduate creates a seeded spec and links it in the change Log', () => {
+test('CR2: scaffoldSpec creates a seed without resolving graduation', () => {
   const { root, file, id } = repo();
-  const specFile = graduate(id, 'auth', root);
+  const before = fs.readFileSync(file, 'utf8');
+  const specFile = scaffoldSpec(id, 'auth', root);
   assert.equal(path.basename(specFile), 'auth.md');
 
   const spec = parseSpec(fs.readFileSync(specFile, 'utf8'));
   assert.equal(spec.frontmatter.title, 'Login OAuth');
   assert.deepEqual(spec.frontmatter.tags, ['feature']);
   assert.match(spec.body, /soporta login OAuth/);
-  assert.match(spec.body, new RegExp(`Graduado del change ${id}`));
+  assert.match(spec.body, /changeledger:spec-scaffold/);
+  assert.match(spec.body, new RegExp(`Scaffold from change ${id}`));
 
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
   const change = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.match(change.stages.find((s) => s.key === 'log').body, /graduado a spec `auth.md`/);
+  assert.notEqual(change.frontmatter.reviewed, true);
+  assert.doesNotMatch(change.stages.find((s) => s.key === 'log').body, /graduado a spec/);
 });
 
 test('162020 CR1: graduate rejects a slug that normalizes to empty without writing', () => {
   const { root, file, id } = repo();
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
-    () => graduate(id, '!!!', root),
+    () => scaffoldSpec(id, '!!!', root),
     /slug must contain at least one ASCII letter or number/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
@@ -114,13 +130,10 @@ test('162020 CR1: graduate rejects a slug that normalizes to empty without writi
 
 test('162020 CR2: graduate keeps valid slug behavior', () => {
   const { root, file, id } = repo();
-  const specFile = graduate(id, 'architecture-note', root);
+  const specFile = scaffoldSpec(id, 'architecture-note', root);
   assert.equal(path.basename(specFile), 'architecture-note.md');
   const change = parseChange(fs.readFileSync(file, 'utf8'));
-  assert.match(
-    change.stages.find((s) => s.key === 'log').body,
-    /graduado a spec `architecture-note.md`/,
-  );
+  assert.doesNotMatch(change.stages.find((s) => s.key === 'log').body, /graduado a spec/);
 });
 
 test('162020 CR3: new and graduate share slug normalization behavior', () => {
@@ -134,7 +147,7 @@ test('162020 CR3: new and graduate share slug normalization behavior', () => {
     },
     root,
   );
-  const specFile = graduate(id, 'Árbol Técnico', root);
+  const specFile = scaffoldSpec(id, 'Árbol Técnico', root);
   assert.equal(path.basename(changeFile), '20260613-120001-arbol-tecnico.md');
   assert.equal(path.basename(specFile), 'arbol-tecnico.md');
 });
@@ -146,7 +159,7 @@ test('CR1/CR2: graduate with no specs_dir in config lands where loadRepo reads',
   const stripped = fs.readFileSync(configFile, 'utf8').replace(/^specs_dir:.*\n/m, '');
   fs.writeFileSync(configFile, stripped);
 
-  const specFile = graduate(id, 'auth', root);
+  const specFile = scaffoldSpec(id, 'auth', root);
   assert.ok(fs.existsSync(specFile), 'spec file written to disk');
 
   const repoData = loadRepo(root);
@@ -156,22 +169,22 @@ test('CR1/CR2: graduate with no specs_dir in config lands where loadRepo reads',
   );
 });
 
-test('graduate refuses to overwrite an existing spec', () => {
+test('scaffoldSpec refuses to overwrite an existing spec', () => {
   const { root, id } = repo();
-  graduate(id, 'auth', root);
-  assert.throws(() => graduate(id, 'auth', root), /already exists/);
+  scaffoldSpec(id, 'auth', root);
+  assert.throws(() => scaffoldSpec(id, 'auth', root), /already exists/);
 });
 
-test('graduate throws on an unknown change id', () => {
+test('scaffoldSpec throws on an unknown change id', () => {
   const { root } = repo();
-  assert.throws(() => graduate('99999999-000000', 'x', root), /No change with id/);
+  assert.throws(() => scaffoldSpec('99999999-000000', 'x', root), /No change with id/);
 });
 
-test('CR4: graduate refuses a non-done change and creates no spec', () => {
+test('CR2: scaffoldSpec refuses a non-done change and creates no spec', () => {
   const { root } = repo();
   const f = writeChange(root, '20260104-000000', 'in-progress');
   const before = fs.readFileSync(f, 'utf8');
-  assert.throws(() => graduate('20260104-000000', 'x', root), /only done changes/);
+  assert.throws(() => scaffoldSpec('20260104-000000', 'x', root), /only done changes/);
   assert.equal(fs.readFileSync(f, 'utf8'), before);
   assert.ok(!fs.existsSync(path.join(root, '.changeledger', 'specs', 'x.md')));
 });
@@ -186,10 +199,25 @@ function writeChange(root, id, status, extra = '') {
   return file;
 }
 
-test('graduate marks the change reviewed (CR1)', () => {
+test('CR3: graduate --into marks the change reviewed after scaffold refinement', () => {
   const { root, file, id } = repo();
-  graduate(id, 'auth', root);
+  const specFile = scaffoldSpec(id, 'auth', root);
+  refineScaffold(specFile);
+  graduate(id, 'auth', root, { into: true });
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
+});
+
+test('CR3: graduate --into rejects an unrefined scaffold without writing', () => {
+  const { root, file, id } = repo();
+  const specFile = scaffoldSpec(id, 'auth', root);
+  const changeBefore = fs.readFileSync(file, 'utf8');
+  const specBefore = fs.readFileSync(specFile, 'utf8');
+  assert.throws(
+    () => graduate(id, 'auth', root, { into: true }),
+    /still contains the scaffold marker/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), changeBefore);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), specBefore);
 });
 
 test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', () => {
@@ -236,7 +264,7 @@ test('185958 CR3: spec write failure leaves changeFile unmodified', () => {
   const specName = path.join(specsDir, 'auth.md');
   // Make specName a directory — writeFileAtomic will fail trying to write a file at a dir path
   fs.mkdirSync(specName, { recursive: true });
-  assert.throws(() => graduate(id, 'auth', root));
+  assert.throws(() => scaffoldSpec(id, 'auth', root));
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'changeFile must not be modified');
   fs.rmdirSync(specName); // cleanup
 });
@@ -251,21 +279,28 @@ test('185958 CR4: orphaned spec (write OK, log failed) is detectable and recover
     '---\ntitle: Auth\nupdated: 2026-06-13T12:00:00Z\ntags: []\n---\n\n# Auth\n',
   );
   // Retry without --into → "already exists" (CR4 detectable state)
-  assert.throws(() => graduate(id, 'auth', root), /already exists/);
+  assert.throws(() => scaffoldSpec(id, 'auth', root), /already exists/);
   // Retry with --into → succeeds (CR4 recoverable)
   assert.doesNotThrow(() => graduate(id, 'auth', root, { into: true }));
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
 });
 
-test('185958 CR5: happy path --into and new spec unchanged', () => {
+test('185958 CR5 / CR2 / CR3: scaffold then --into happy paths', () => {
   const { root, id } = repo();
-  // New spec case
-  const specFile = graduate(id, 'auth', root);
+  const specFile = scaffoldSpec(id, 'auth', root);
   assert.ok(fs.existsSync(specFile));
+  refineScaffold(specFile);
+  assert.doesNotThrow(() => graduate(id, 'auth', root, { into: true }));
   // --into case on a second done change
   const f2 = writeChange(root, '20260615-120000', 'done');
   const { id: id2 } = parseChange(fs.readFileSync(f2, 'utf8')).frontmatter;
   assert.doesNotThrow(() => graduate(id2, 'auth', root, { into: true }));
+});
+
+test('CR2: a scaffolded change remains pending graduation', () => {
+  const { root, id } = repo();
+  scaffoldSpec(id, 'auth', root);
+  assert.ok(pendingGraduation(root).some((change) => change.id === id));
 });
 
 test('pendingGraduation lists only unreviewed done changes (CR4)', () => {
