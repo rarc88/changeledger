@@ -2,11 +2,13 @@
 id: "20260629-234939"
 title: Restaurar invariantes del contrato en el contexto dinámico
 type: feature
-status: in-validation
+status: done
 created: 2026-06-29T23:49:39Z
 depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -322,3 +324,6 @@ Alternativas descartadas:
 - **2026-06-30T10:44:44Z** — status: in-progress → in-review
 - **2026-06-30T10:48:03Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-30T15:26:26Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-30T15:28:42Z** — validation → done (human accepted)
+- **2026-06-30T15:35:02Z** — graduado a spec `contract-discovery.md`
+- **2026-06-30T15:35:24Z** — archived
