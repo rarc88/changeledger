@@ -1,52 +1,68 @@
 # Implementing an Approved Change
 
-1. Keep one concern per change. Work necessary for the authorized objective may
-   update Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
-   authorization before adding it; propose independent work separately.
-2. Never implement approved changes on `main`, `master`, or `dev`. Inspect the
-   worktree first. If unrelated changes exist, do not include them silently.
-3. Commit the approved change documentation before touching implementation code.
-   Implement one change at a time.
-4. Commit a completed unit before continuing when another task or shared edit makes attribution
-   ambiguous. Commit messages reference the id. If shared files make a combined commit
-   unavoidable, record it explicitly and name every change sharing the surface.
-5. Keep the change current with `changeledger task`, `changeledger log`,
-   `changeledger owner` and `changeledger status`.
-6. Follow the Specification exactly. Write a failing test from each criterion,
-   make it pass, then refactor. Do not silently drift the document.
-7. Leave no TODO/FIXME, dead code or unrelated residue without explicit agreement.
-8. When implementation and tasks are complete, move to `in-review` if the type
-   requires independent review; otherwise move to `in-validation` and stop.
+## Scope and truth
 
-## Correction isolation
+Keep one concern per change. Work necessary for the authorized objective belongs
+in its Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
+authorization before adding it; propose independent work separately.
 
-After review `fail --retry`, keep the candidate correction uncommitted while a
-fresh clean-context reviewer checks it. If it fails again, iterate on that diff.
-After `pass`, commit the confirmed correction and ledger truth before asking for
-human validation.
+Follow the Specification exactly. If code and document diverge, update code;
+never quietly drift the approved contract. Keep status, tasks, owner and Log
+current throughout execution.
 
-After human rejection (`in-validation → in-progress`), keep the correction
-uncommitted until the human confirms it. Do not start another task or change
-while a correction waits; the worktree is the isolation boundary.
+## Git protects traceability
 
-## Triage friction at handoff; retrospect after completion
+Never implement approved changes on `main`, `master`, or `dev`; create or switch
+to a work branch or ask the human before continuing. Inspect the worktree first. If
+unrelated changes exist, do not include them silently; ask the human whether to
+stash, commit, ignore or include them before changing the worktree.
 
-Before handing the human completed or blocked work, classify discovered
-friction:
+Commit the approved change documentation before touching implementation code.
+Implement one change at a time. Commit a completed unit before continuing when
+another task, change or edit of the same surface could make attribution
+ambiguous; do not wait until the end to reconstruct mixed diffs.
 
-- If necessary to fulfill the purpose of an active change, update that change.
-- If it is an operational step such as verify, commit, graduate or archive,
-  execute or record it in the current flow.
-- If independent or materially larger, propose its type, title, and reason to
-  the human. Create the draft only after explicit authorization.
-- If too vague for backlog, mention it without creating a file.
+Commit messages use the canonical shape:
 
-When a change reaches `done`, also share a brief retrospective with the human.
+```text
+feat(scope): description [#20260629-234939]
+```
 
-## Useful commands
+Use the actual change id and the appropriate conventional type. If shared files make a combined commit
+unavoidable, record it in Log or the handoff and name every change sharing the
+surface.
+
+## Execute the Plan
+
+Write the failing test from each criterion, make it pass, then refactor. Tick
+tasks as they become true, not in a batch at the end. Leave no TODO/FIXME, dead
+code or unrelated residue without explicit agreement.
+
+Useful mutation commands:
 
 - `changeledger status <id> <status>`
 - `changeledger task <id> done|block <n> [reason]`
 - `changeledger log <id> "<message>"`
 - `changeledger owner <id> <name|->`
 - `changeledger check [id]`
+
+When implementation and every task are complete, move to `in-review` if the
+type requires independent review; otherwise move to `in-validation` and stop.
+
+## Correction isolation
+
+After review `fail --retry`, keep the candidate correction uncommitted while a
+fresh clean-context reviewer checks it. If it fails again, iterate on that same
+diff. Do not start another task or change while a correction waits: the
+worktree is its isolation boundary. After `pass`, commit the confirmed correction
+with its related ledger truth before asking for human validation.
+
+After human rejection (`in-validation → in-progress`), run
+`changeledger context <id>` before modifying implementation; keep the correction
+uncommitted until the human confirms it fixes the reported failure. Do not start
+another task or change while a correction waits; iterate on
+the same diff if it does not. After human acceptance, graduate or record a skip,
+then commit the correction with its ledger truth.
+
+These exceptions prevent false fix attempts from becoming permanent history;
+they do not relax intermediate commits for already verified units.

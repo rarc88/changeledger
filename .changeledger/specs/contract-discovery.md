@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-29T23:20:33Z
+updated: 2026-06-30T15:35:02Z
 tags: [ contract ]
 ---
 
@@ -14,13 +14,21 @@ tags: [ contract ]
 > Graduado del change 20260629-155349 (lectura completa del contexto y bootstrap mínimo).
 > Graduado del change 20260629-165838 (prohibición de contexto truncado).
 > Graduado del change 20260629-210543 (contextos específicos incrementales).
+> Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
 `templates/contract/`: `core.md`, packs de tarea (`spec`, `implement`, `review`,
-`release`), `readiness.md` compartido y overlays de lifecycle (`blocked`,
-`validation`, `close`, `discarded`). No existe un monolito paralelo que pueda
-divergir.
+`release`), fragmentos compartidos (`readiness`, `delegation`, `handoff`) y
+overlays de lifecycle (`blocked`, `validation`, `close`, `discarded`). No existe
+un monolito paralelo que pueda divergir.
+
+El contexto dinámico reduce carga seleccionando el detalle que necesita la
+etapa, no recortando precisión operativa. Conserva comandos y ejemplos
+canónicos, antipatrones del parser, razones que evitan decisiones erróneas y
+reglas de ownership/integración. Una regla transversal puede tener un resumen
+en `core` y una única elaboración normativa compartida, sin crear fuentes
+competidoras.
 
 `changeledger context` los compone de forma determinista:
 
@@ -32,10 +40,25 @@ divergir.
 - no intenta adivinar specs relacionadas: conserva los enlaces explícitos del
   change, sin heurística ni IA.
 
+La composición especializada es explícita:
+
+- `spec`: autoría + delegación + readiness;
+- `implement`: implementación + delegación + readiness + handoff;
+- `review`: revisión independiente + delegación + handoff;
+- `blocked`: resolución del bloqueo + handoff;
+- `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
+
 El contexto base tiene un presupuesto de 120 líneas y 8192 bytes UTF-8; la
-versión graduada ocupa 88 líneas y ~4.3 KB frente al antiguo monolito de 540
-líneas y ~30 KB. Los contextos posteriores amplían esa salida y fallan cerrado
-por instrucción si el agente aún no la leyó completa.
+versión graduada ocupa aproximadamente 100 líneas y 5 KB frente al antiguo
+monolito de 540 líneas y ~30 KB. Los contextos posteriores amplían esa salida y
+fallan cerrado por instrucción si el agente aún no la leyó completa.
+
+La regresión contractual se protege en dos niveles: una matriz semántica exige
+cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
+packs ajenos; snapshots SHA-256 normalizados de todos los fragmentos hacen
+fallar cualquier eliminación silenciosa. Cambiar el contrato exige reclasificar
+explícitamente la regla afectada como preservada, reemplazada o retirada antes
+de actualizar el snapshot.
 
 ## Bootstrap y migración
 

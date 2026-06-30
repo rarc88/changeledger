@@ -7,6 +7,10 @@
 - `changeledger release record <version>` records exactly that plan in
   `.changeledger/releases/<version>.yml`.
 
+`changeledger release plan --json` is the handoff contract for the operating
+agent: consume that exact machine-readable membership and version when applying
+stack-specific release steps.
+
 Defaults live under `release.impacts` in `.changeledger/config.yml`; a change may
 override its type with `release_impact` (`none|patch|minor|major`).
 
