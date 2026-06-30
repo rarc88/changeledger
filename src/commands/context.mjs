@@ -7,9 +7,9 @@ import { resolveChange } from '../repo.mjs';
 
 const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
-  implement: ['implement', 'readiness'],
-  review: ['review'],
-  spec: ['spec', 'readiness'],
+  implement: ['implement', 'delegation', 'readiness', 'handoff'],
+  review: ['review', 'delegation', 'handoff'],
+  spec: ['spec', 'delegation', 'readiness'],
   release: ['release'],
 };
 const STATUS_CONTEXT = {
@@ -17,7 +17,7 @@ const STATUS_CONTEXT = {
   approved: { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-progress': { mode: 'implement', fragments: MODE_CONTEXT.implement },
   'in-review': { mode: 'review', fragments: MODE_CONTEXT.review },
-  blocked: { mode: 'blocked', fragments: ['blocked'] },
+  blocked: { mode: 'blocked', fragments: ['blocked', 'handoff'] },
   'in-validation': { mode: 'validation', fragments: ['validation'] },
   done: { mode: 'close', fragments: ['close'] },
   discarded: { mode: 'discarded', fragments: ['discarded'] },

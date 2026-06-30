@@ -70,9 +70,11 @@ in-validation → in-progress                       [human rejection]
 - `discarded`: terminal tombstone; never reopen it.
 
 `changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
-Humans approve and validate in the viewer; use
-`changeledger discard <id> "<reason>"` for a discarded change. `done` and `discarded`
-never reopen.
+The viewer owns `draft → approved` and `in-validation → done|in-progress`; the
+agent performs the other non-terminal moves. Use
+`changeledger discard <id> "<reason>"`: the discard reason is required and
+logged, and dependencies remain resolvable. `done` and `discarded` never reopen;
+later reconsideration needs a newly authorized change.
 
 ## Context modes
 
