@@ -34,31 +34,13 @@ const { version } = createRequire(import.meta.url)('../package.json');
 
 const USAGE = `ChangeLedger (changeledger)
 
-  changeledger init                          set up .changeledger/ in the current repo (+ register it)
-  changeledger register                      refresh registration and context bootstrap
-  changeledger new <type> <slug> <title>     scaffold a new change (slug is the English filename)
-  changeledger view [port]                   launch the local viewer (default port 4040)
-  changeledger check [id] [--json]           validate the repo or one change
-  changeledger context [mode|change-id]       print deterministic task context
-  changeledger status <id> <status>          move a change's lifecycle status
-  changeledger discard <id> "<reason>"       discard a change (terminal; keeps the record)
-  changeledger review <id> pass              independent review passed → in-validation
-  changeledger review <id> fail --retry|--block "<reason>"   review failed → in-progress|blocked
-  changeledger owner <id> <name|->           set or clear a change's owner
-  changeledger archive <id> / unarchive <id>   hide/show a change in the viewer
-  changeledger archive --graduated [--dry-run] archive done changes already graduated/skipped
-  changeledger log <id> <message>            append a timestamped Log entry
-  changeledger task <id> done|block <n> [reason]   mark a Plan task
-  changeledger list [--status S] [--type T] [--json]   list changes
-  changeledger show <id> [--json]            print a change
-  changeledger graduate <change-id> <spec-slug> --new   create a spec scaffold to refine
-  changeledger graduate <change-id> <spec-slug> --into   graduate into an existing spec
-  changeledger graduate <change-id> --skip [reason]   mark graduation reviewed, no spec
-  changeledger graduate --pending                 list done changes not yet reviewed
-  changeledger config migrate [--dry-run]          migrate .changeledger/config.yml to schema ${SUPPORTED_SCHEMA_VERSION}
-  changeledger release init <version>             initialize release history at X.Y.Z
-  changeledger release plan [--json]              calculate the next portable SemVer release
-  changeledger release record <version>           record the calculated release manifest`;
+Run \`changeledger context\` first in any repo — it is the mandatory bootstrap.
+
+  changeledger init | register | new | view | check | context
+  changeledger status | discard | review | owner | archive | unarchive
+  changeledger log | task | list | show | graduate | config | release
+
+Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
 const program = new Command();
 
@@ -78,7 +60,11 @@ program
   .description('ChangeLedger (changeledger)')
   .version(version, '-v, --version', 'output the installed version (-V also accepted)')
   .helpOption('-h, --help', 'display help for command')
-  .addHelpText('after', `\n${USAGE}`);
+  .addHelpText(
+    'after',
+    '\nRun `changeledger context` first in any repo — it is the mandatory bootstrap.\n' +
+      "Run `changeledger <command> --help` for that command's syntax, values and examples.",
+  );
 
 program
   .command('init')
@@ -103,10 +89,18 @@ program
 program
   .command('new')
   .description('scaffold a new change')
-  .argument('<type>')
-  .argument('<slug>')
-  .argument('<title...>')
-  .option('--owner <name>', 'set the initial owner')
+  .argument('<type>', 'a type key configured in .changeledger/config.yml (types:)')
+  .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
+  .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
+  .option('--owner <name>', 'set the initial owner (defaults to unassigned)')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Example:',
+      '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
+    ].join('\n'),
+  )
   .action(
     action((type, slug, titleParts, options) => {
       const title = titleParts.join(' ').trim();
@@ -117,8 +111,19 @@ program
 
 program
   .command('view')
-  .description('launch the local viewer')
-  .argument('[args...]')
+  .description('launch the local viewer (all registered projects, or one repo with `.`)')
+  .argument('[args...]', 'optional "." for local-only mode and/or a port (default 4040)')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger view              # every registered project, port 4040',
+      '  changeledger view .            # only the current repo, port 4040',
+      '  changeledger view 4041         # every registered project, port 4041',
+      '  changeledger view . 4041       # only the current repo, port 4041',
+    ].join('\n'),
+  )
   .action(action((args) => view(args)));
 
 program
@@ -139,14 +144,61 @@ program
 program
   .command('context')
   .description('print deterministic task context')
-  .argument('[mode-or-change-id]')
+  .argument(
+    '[mode-or-change-id]',
+    'spec|implement|review|release, or a change id (pack inferred from its status)',
+  )
+  .addHelpText(
+    'after',
+    [
+      '',
+      'With no argument: prints the mandatory bootstrap core. Always run this first —',
+      'every mode and change id below is incremental and extends the core already read,',
+      'it never replaces it.',
+      '',
+      'Explicit modes (pass one literally):',
+      '  spec        author or refine a change',
+      '  implement   execute an approved change',
+      '  review      independently verify completed work',
+      '  release     plan portable delivery metadata',
+      '',
+      'Change id (e.g. changeledger context 20260630-225212): loads the pack inferred',
+      "from that change's current lifecycle status — you never choose this pack",
+      'yourself. Lifecycle overlays such as blocked, validation, close and discarded',
+      'are inferred the same way from the change id; they are not modes you pass',
+      'explicitly.',
+      '',
+      'Examples:',
+      '  changeledger context',
+      '  changeledger context spec',
+      '  changeledger context implement',
+      '  changeledger context review',
+      '  changeledger context release',
+      '  changeledger context 20260630-225212',
+    ].join('\n'),
+  )
   .action(action((input) => context(input)));
 
 program
   .command('status')
-  .description("move a change's lifecycle status")
+  .description("move a change's lifecycle status (agent-owned, non-terminal moves only)")
   .argument('<id>')
-  .argument('<status>')
+  .argument(
+    '<status>',
+    'a status configured in .changeledger/config.yml (statuses:), e.g. approved, in-progress, in-review, blocked',
+  )
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
+      'to discard, and human validation in the viewer to reach done.',
+      '',
+      'Examples:',
+      '  changeledger status <id> in-progress',
+      '  changeledger status <id> blocked',
+    ].join('\n'),
+  )
   .action(
     action((id, st) => {
       status(id, st);
@@ -197,7 +249,16 @@ program
   .command('owner')
   .description("set or clear a change's owner")
   .argument('<id>')
-  .argument('<name>')
+  .argument('<name>', 'owner handle, or "-" to clear it')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger owner <id> jdoe',
+      '  changeledger owner <id> -   # clears the owner',
+    ].join('\n'),
+  )
   .action(
     action((id, name) => {
       owner(id, name);
@@ -208,9 +269,19 @@ program
 program
   .command('archive')
   .description('hide a change in the viewer, or archive all graduated done changes')
-  .argument('[id]')
-  .option('--graduated', 'archive done changes already graduated or skipped')
-  .option('--dry-run', 'show what would be archived without writing')
+  .argument('[id]', 'a change id; mutually exclusive with --graduated')
+  .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
+  .option('--dry-run', 'preview --graduated without writing; requires --graduated')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger archive <id>',
+      '  changeledger archive --graduated',
+      '  changeledger archive --graduated --dry-run',
+    ].join('\n'),
+  )
   .action(
     action((id, options) => {
       if (options.graduated) {
@@ -257,8 +328,17 @@ program
   .description('mark a Plan task')
   .argument('<id>')
   .argument('<action>', 'done|block')
-  .argument('<n>')
-  .argument('[reason...]')
+  .argument('<n>', 'the Plan task index, 1-based, in document order')
+  .argument('[reason...]', 'required when action is block; ignored when action is done')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger task <id> done 1',
+      '  changeledger task <id> block 2 "waiting on design decision"',
+    ].join('\n'),
+  )
   .action(
     action((id, taskAction, nStr, reasonParts) => {
       const n = Number(nStr);
@@ -270,9 +350,21 @@ program
 program
   .command('list')
   .description('list changes')
-  .option('--status <status>', 'filter by status')
-  .option('--type <type>', 'filter by type')
+  .option(
+    '--status <status>',
+    'filter by a status configured in .changeledger/config.yml (statuses:)',
+  )
+  .option('--type <type>', 'filter by a type configured in .changeledger/config.yml (types:)')
   .option('--json', 'print JSON')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger list --status approved',
+      '  changeledger list --type feature --json',
+    ].join('\n'),
+  )
   .action(
     action((options) => {
       const items = list({ status: options.status, type: options.type });

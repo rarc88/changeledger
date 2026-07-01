@@ -2,7 +2,7 @@
 id: "20260630-225212"
 title: Hacer autocontenida la ayuda de los comandos CLI
 type: feature
-status: in-progress
+status: in-review
 created: 2026-06-30T22:52:12Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -97,10 +97,10 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 
 ## Plan
 
-- [ ] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos; verify: `node --test test/cli-bin.test.mjs test/view.test.mjs` (CR4)
-- [ ] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-01T22:30:06Z
+- [x] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos; verify: `node --test test/cli-bin.test.mjs test/view.test.mjs` (CR4) — 2026-07-01T22:30:06Z
+- [x] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-01T22:30:06Z
+- [x] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-01T22:30:10Z
 
 ## Log
 
@@ -108,3 +108,5 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 - **2026-07-01T21:51:36Z** — status: draft → approved
 - **2026-07-01T22:24:48Z** — status: approved → in-progress
 - **2026-07-01T22:24:48Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T22:30:17Z** — README.md and templates/contract/** already matched the new CLI syntax (view/context/status/task/owner/list); no edits needed, verified by full pnpm test pass.
+- **2026-07-01T22:30:28Z** — status: in-progress → in-review
