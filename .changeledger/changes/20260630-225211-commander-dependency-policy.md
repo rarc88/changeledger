@@ -7,6 +7,7 @@ created: 2026-06-30T22:52:11Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -30,3 +31,4 @@ mismo estándar aplicado a `yaml` y a las librerías del viewer.
 - **2026-07-01T22:24:14Z** — status: in-progress → in-validation
 - **2026-07-01T23:17:59Z** — validation → done (human accepted)
 - **2026-07-01T23:21:38Z** — graduado a spec `dependencies.md`
+- **2026-07-01T23:23:29Z** — archived

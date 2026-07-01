@@ -7,6 +7,7 @@ created: 2026-06-30T22:52:12Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -114,3 +115,4 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 - **2026-07-01T22:33:28Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-01T23:18:00Z** — validation → done (human accepted)
 - **2026-07-01T23:21:49Z** — graduation skipped: La ayuda autocontenida es interfaz viva en bin/changeledger.mjs protegida por la matriz de tests de help; no introduce verdad persistente fuera del código
+- **2026-07-01T23:23:29Z** — archived

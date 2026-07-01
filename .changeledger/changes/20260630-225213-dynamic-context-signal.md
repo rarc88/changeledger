@@ -7,6 +7,7 @@ created: 2026-06-30T22:52:13Z
 depends_on: [ "20260701-213931" ]
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -161,3 +162,4 @@ evaluación de redundancia.
 - **2026-07-01T22:48:10Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-01T23:18:02Z** — validation → done (human accepted)
 - **2026-07-01T23:22:20Z** — graduado a spec `contract-discovery.md`
+- **2026-07-01T23:23:29Z** — archived
