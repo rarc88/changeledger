@@ -2,7 +2,7 @@
 id: "20260701-230608"
 title: Reglas absolutas del core omiten excepciones definidas en otros packs
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-01T23:06:08Z
 depends_on: [ "20260701-213931", "20260630-225213" ]
 owner: raruiz-hiberuscom
@@ -74,3 +74,4 @@ contradicciones directas (clase A); tres hallazgos menores:
 - **2026-07-01T23:23:49Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-01T23:25:31Z** — Regla de delegación del core ahora dice 'at least' y remite al contrato completo del pack; regla 8 explicita el doble paso --new/--into; snapshot reclasificado; gate verde
 - **2026-07-01T23:25:43Z** — status: in-progress → in-review
+- **2026-07-01T23:27:08Z** — review → in-validation (delegated subagent, clean context)
