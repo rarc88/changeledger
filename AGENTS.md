@@ -5,12 +5,16 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
 <!-- changeledger -->
 > [!IMPORTANT]
-> This repo uses **ChangeLedger**. Before creating or modifying files, run
-> `changeledger context` directly, read its complete output, and follow it.
-> Do not pipe, filter, summarize, limit, or truncate the output before reading it.
-> If the output is truncated/incomplete, stop and restore complete context before
-> proceeding. If the command is unavailable, stop and restore/install
-> ChangeLedger; do not proceed from memory.
+> This repo uses **ChangeLedger**. Immediately after reading this file — before
+> planning, investigating, or acting — run `changeledger context` directly and
+> read its complete output through the `CHANGELEDGER CONTEXT END` line. If that
+> line is missing, the output was truncated: stop and re-run the command
+> directly, without pipes or filters. If the command is unavailable, stop and
+> restore/install ChangeLedger; do not proceed from memory.
+>
+> Never create or modify files without an authorized ChangeLedger change. Task
+> contexts: `changeledger context spec|implement|review|release` and
+> `changeledger context <change-id>`.
 
 The canonical ChangeLedger contract is split into task-focused fragments under
 [`templates/contract/`](templates/contract/). The deterministic

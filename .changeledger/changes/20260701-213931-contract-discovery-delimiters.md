@@ -128,12 +128,12 @@ core en los `AGENTS.md` de los repos consumidores:
 
 ## Plan
 
-- [ ] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3)
+- [x] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3) — 2026-07-01T21:55:55Z
 - [ ] Añadir delimitadores BEGIN/END con modo, change id y versión en `src/commands/context.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
 - [ ] Acortar en `templates/contract/core.md` la regla anti-truncado remitiéndola al centinela END; verify: `node --test test/context.test.mjs` (CR6)
 - [ ] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos; verify: `node --test test/context.test.mjs` (CR6)
-- [ ] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7)
-- [ ] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support)
+- [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7) — 2026-07-01T21:55:55Z
+- [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support) — 2026-07-01T21:56:16Z
 - [ ] Ejecutar el gate completo tras la implementación (support)
 
 ## Log
@@ -143,3 +143,4 @@ core en los `AGENTS.md` de los repos consumidores:
 - **2026-07-01T21:51:41Z** — status: draft → approved
 - **2026-07-01T21:53:05Z** — status: approved → in-progress
 - **2026-07-01T21:53:05Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T21:55:55Z** — REFERENCE renovado: trigger inmediato, capability card y centinela END; detección de bloque desactualizado cubierta con el bloque anterior literal
