@@ -2,7 +2,7 @@
 id: "20260630-225213"
 title: Optimizar señal y política efectiva del contexto dinámico
 type: feature
-status: in-validation
+status: done
 created: 2026-06-30T22:52:13Z
 depends_on: [ "20260701-213931" ]
 owner: raruiz-hiberuscom
@@ -158,3 +158,4 @@ evaluación de redundancia.
 - **2026-07-01T22:44:10Z** — Tareas 1-6 done. Tarea 7 mezcla dos pasos: (a) ejecutar el gate completo -> hecho, pnpm verify verde (513 tests, lint, check); (b) graduar la arquitectura -> paso post-aceptacion, se difiere al graduate tras done. Se deja la tarea abierta hasta la graduacion; check valida OK.
 - **2026-07-01T22:44:31Z** — status: in-progress → in-review
 - **2026-07-01T22:48:10Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:18:02Z** — validation → done (human accepted)

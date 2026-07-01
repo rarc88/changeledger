@@ -2,7 +2,7 @@
 id: "20260630-225208"
 title: Alinear la verdad persistente de readiness con el comportamiento real
 type: bug
-status: in-validation
+status: done
 created: 2026-06-30T22:52:08Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -64,3 +64,4 @@ comportamiento antiguo y compiten con el código.
 - **2026-07-01T22:09:12Z** — Spec, fragmento canónico readiness.md y comentario de checkCoverage alineados con la matriz real; test 225208 CR3 fija el split de severidad en approved; gate verde
 - **2026-07-01T22:09:22Z** — status: in-progress → in-review
 - **2026-07-01T22:10:38Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:17:51Z** — validation → done (human accepted)

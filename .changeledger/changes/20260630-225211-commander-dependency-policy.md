@@ -2,7 +2,7 @@
 id: "20260630-225211"
 title: Justificar Commander en la política de dependencias runtime
 type: chore
-status: in-validation
+status: done
 created: 2026-06-30T22:52:11Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -27,3 +27,4 @@ mismo estándar aplicado a `yaml` y a las librerías del viewer.
 - **2026-07-01T22:23:14Z** — status: approved → in-progress
 - **2026-07-01T22:23:14Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-01T22:24:14Z** — status: in-progress → in-validation
+- **2026-07-01T23:17:59Z** — validation → done (human accepted)

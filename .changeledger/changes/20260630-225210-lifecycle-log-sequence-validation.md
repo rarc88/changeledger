@@ -2,7 +2,7 @@
 id: "20260630-225210"
 title: Validar la secuencia de lifecycle registrada en el Log
 type: bug
-status: in-validation
+status: done
 created: 2026-06-30T22:52:10Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -76,3 +76,4 @@ confirmada.
 - **2026-07-01T22:19:52Z** — parseLogEvent compartido en lifecycle.mjs (metrics lo reutiliza); validación secuencial en check con resync legacy acotado (solo status: explícito, hacia delante, pre-review) y aristas legacy literales; duplicado de 234939 eliminado y cierre en prosa de 222911 formalizado; specs lifecycle/metrics graduadas; 488 tests y 149 changes verdes
 - **2026-07-01T22:20:02Z** — status: in-progress → in-review
 - **2026-07-01T22:22:31Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:17:56Z** — validation → done (human accepted)

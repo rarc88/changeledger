@@ -2,7 +2,7 @@
 id: "20260630-225212"
 title: Hacer autocontenida la ayuda de los comandos CLI
 type: feature
-status: in-validation
+status: done
 created: 2026-06-30T22:52:12Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -111,3 +111,4 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 - **2026-07-01T22:30:17Z** — README.md and templates/contract/** already matched the new CLI syntax (view/context/status/task/owner/list); no edits needed, verified by full pnpm test pass.
 - **2026-07-01T22:30:28Z** — status: in-progress → in-review
 - **2026-07-01T22:33:28Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:18:00Z** — validation → done (human accepted)
