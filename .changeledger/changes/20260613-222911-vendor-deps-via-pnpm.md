@@ -32,5 +32,5 @@ navegador desde `node_modules` (`marked/lib/marked.umd.js`,
 - **2026-06-13T22:31:11Z** — status: draft → in-progress
 - **2026-06-13T22:33:11Z** — Implementado. marked@18/mermaid@11 como deps; servidos
   desde node_modules (200, mermaid 3.3M fuera de git); diagrama renderiza.
-  `in-progress → done`.
+- **2026-06-13T22:33:11Z** — status: in-progress → done
 - **2026-06-15T21:17:54Z** — archived

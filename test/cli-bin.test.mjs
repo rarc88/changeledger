@@ -154,6 +154,130 @@ test('CR2: changeledger task -h shows done|block, exit 0', () => {
   assert.match(out, /done\|block/);
 });
 
+// 225212 CR1/CR2: context -h enumerates the accepted domain and preserves the
+// mandatory bootstrap order documented in AGENTS.md.
+test('225212 CR1: changeledger context -h enumerates modes, no-arg and change-id behavior', () => {
+  const { code, out } = run('context', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /Usage: changeledger context/);
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    assert.match(out, new RegExp(mode));
+  }
+  assert.match(out, /no argument/i);
+  assert.match(out, /change id/i);
+  assert.match(out, /blocked/);
+  assert.match(out, /validation/);
+  assert.match(out, /close|discarded/);
+  assert.match(out, /inferred/i);
+});
+
+test('225212 CR2: context -h never tells the reader to run context <id> before the base context', () => {
+  const { out } = run('context', '-h');
+  assert.doesNotMatch(out, /run `?changeledger context <(id|change-id)>`? before/i);
+  assert.match(out, /already read|incremental|extends/i);
+});
+
+test('225212 CR3: changeledger new -h documents type domain and slug language', () => {
+  const { code, out } = run('new', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /\.changeledger\/config\.yml/);
+  assert.match(out, /English/i);
+});
+
+test('225212 CR3: changeledger status -h documents status domain and terminal moves', () => {
+  const { code, out } = run('status', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /\.changeledger\/config\.yml/);
+  assert.match(out, /changeledger discard/);
+  assert.doesNotMatch(out, /status .*\bdone\|discarded\b/);
+});
+
+test('225212 CR3: changeledger task -h documents n as the Plan task index and reason for block', () => {
+  const { code, out } = run('task', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /index/i);
+  assert.match(out, /reason/i);
+});
+
+test('225212 CR3: changeledger owner -h documents that "-" clears the owner', () => {
+  const { code, out } = run('owner', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /-.*clears?/i);
+});
+
+test('225212 CR3: changeledger archive -h documents --graduated/--dry-run relationship', () => {
+  const { code, out } = run('archive', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /--dry-run.*--graduated|--graduated.*--dry-run/is);
+});
+
+test('225212 CR3: changeledger list -h documents status/type come from config', () => {
+  const { code, out } = run('list', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /\.changeledger\/config\.yml/);
+});
+
+test('225212 CR4: changeledger view -h shows explicit syntax for view, view . and a port', () => {
+  const { code, out } = run('view', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /changeledger view\b/);
+  assert.match(out, /changeledger view \./);
+  assert.match(out, /changeledger view (<port>|\d)/);
+});
+
+test('225212 CR4: changeledger view rejects unknown arguments instead of ignoring them', () => {
+  const { code, err } = run('view', 'bogus');
+  assert.notEqual(code, 0);
+  assert.match(err, /bogus/);
+});
+
+test('225212 CR5: root --help offers a concise index without a divergent manual table', () => {
+  const { code, out } = run('--help');
+  assert.equal(code, 0);
+  const lines = out.split('\n');
+  assert.ok(lines.length <= 60, `root help should stay concise, got ${lines.length} lines`);
+  // No second full manual listing of every subcommand's flags duplicated after Commander's own table.
+  const occurrences = out.match(/changeledger graduate/g) ?? [];
+  assert.ok(
+    occurrences.length <= 1,
+    'graduate should not appear in both a Commander table and a manual table',
+  );
+});
+
+// CR6: every public command and subcommand's help exits 0, shows Usage, matrix.
+test('225212 CR6: help matrix — every command and subcommand documents Usage on exit 0', () => {
+  const commands = [
+    ['init'],
+    ['register'],
+    ['new'],
+    ['view'],
+    ['check'],
+    ['context'],
+    ['status'],
+    ['discard'],
+    ['review'],
+    ['owner'],
+    ['archive'],
+    ['unarchive'],
+    ['log'],
+    ['task'],
+    ['list'],
+    ['show'],
+    ['graduate'],
+    ['config'],
+    ['config', 'migrate'],
+    ['release'],
+    ['release', 'init'],
+    ['release', 'plan'],
+    ['release', 'record'],
+  ];
+  for (const cmd of commands) {
+    const { code, out } = run(...cmd, '-h');
+    assert.equal(code, 0, `${cmd.join(' ')} -h should exit 0`);
+    assert.match(out, /Usage: changeledger/, `${cmd.join(' ')} -h should show Usage`);
+  }
+});
+
 test('CR3: changeledger graduate with no args fails with its usage', () => {
   const { code, err } = run('graduate');
   assert.notEqual(code, 0);
@@ -163,11 +287,11 @@ test('CR3: changeledger graduate with no args fails with its usage', () => {
 test('CR4: changeledger --help lists all commands', () => {
   const { code, out } = run('--help');
   assert.equal(code, 0);
-  assert.match(out, /changeledger init/);
-  assert.match(out, /changeledger context/);
-  assert.match(out, /changeledger graduate/);
-  assert.match(out, /changeledger review/);
-  assert.match(out, /changeledger release/);
+  assert.match(out, /^\s+init\s/m);
+  assert.match(out, /^\s+context\s/m);
+  assert.match(out, /^\s+graduate\s/m);
+  assert.match(out, /^\s+review\s/m);
+  assert.match(out, /^\s+release\s/m);
 });
 
 test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
@@ -179,11 +303,11 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
 
   const core = runIn(root, env, 'context');
   assert.equal(core.code, 0);
-  assert.match(core.out, /Mode: core/);
+  assert.match(core.out, /mode: core/);
 
   const review = runIn(root, env, 'context', 'review');
   assert.equal(review.code, 0);
-  assert.match(review.out, /Mode: review/);
+  assert.match(review.out, /mode: review/);
 
   const unknown = runIn(root, env, 'context', 'bogus');
   assert.equal(unknown.code, 1);
@@ -224,7 +348,7 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
 test('151226: bin remains directly executable', { skip: process.platform === 'win32' }, () => {
   const { code, out } = runDirect('--help');
   assert.equal(code, 0);
-  assert.match(out, /changeledger init/);
+  assert.match(out, /^\s+init\s/m);
 });
 
 test('151226: unknown options fail instead of being ignored', () => {

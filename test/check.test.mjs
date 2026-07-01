@@ -1151,3 +1151,173 @@ test('210508 CR7: a dependency on a discarded change is not flagged as missing',
   const { errors } = checkRepo({ config: cfg, changes: [a, b] });
   assert.ok(!msgs(errors).some((m) => /dangling|missing|depend/i.test(m)), msgs(errors).join('; '));
 });
+
+test('225208 CR3: approved keeps the severity split — defects error, coverage gaps warn', () => {
+  const text = `---
+id: "20260613-120000"
+title: x
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+r
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+### CR2 — Not test-grade
+- **Given** a
+
+### CR3 — Uncovered
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
+- [ ] vague work without recognizable evidence (CR2)
+- [ ] Update \`src/b.mjs\`; verify: \`node --test test/b.test.mjs\` (CR404)
+- [ ] loose task without criterion
+
+## Log
+
+- l
+`;
+  const { errors, warnings } = covResult(text);
+  const e = msgs(errors);
+  const w = msgs(warnings);
+  assert.ok(e.some((m) => /CR2 is not test-grade: missing Given\/When\/Then/.test(m)));
+  assert.ok(e.some((m) => /references unknown criterion "CR404"/.test(m)));
+  assert.ok(e.some((m) => /Plan task for CR2 must name target and verification/.test(m)));
+  assert.ok(w.some((m) => /CR3 is not covered by any Plan task/.test(m)));
+  assert.ok(w.some((m) => /references no criterion/.test(m)));
+  assert.deepEqual(
+    e.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
+    [],
+  );
+});
+
+// 20260630-225210 — lifecycle sequence validation over ## Log.
+function seqChange(status, logLines) {
+  return `---
+id: "20260613-120000"
+title: x
+type: feature
+status: ${status}
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+r
+
+## Specification
+
+### CR1 — c
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
+
+## Log
+
+${logLines.join('\n')}
+`;
+}
+
+test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
+  const text = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+  ]);
+  const e = msgs(covResult(text).errors);
+  assert.ok(
+    e.some((m) =>
+      /Log line \d+: transition "in-review → in-validation" starts from "in-review" but the reconstructed status is "in-validation"/.test(
+        m,
+      ),
+    ),
+    e.join('\n'),
+  );
+});
+
+test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch fail', () => {
+  const ok = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** — review → in-progress (retry): reason',
+    '- **2026-06-13T12:45:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
+    [],
+  );
+
+  const selfLoop = seqChange('in-progress', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-progress',
+  ]);
+  assert.ok(
+    msgs(covResult(selfLoop).errors).some((m) =>
+      /Log line \d+: invalid lifecycle transition "in-progress → in-progress"/.test(m),
+    ),
+  );
+
+  const skip = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → done']);
+  assert.ok(
+    msgs(covResult(skip).errors).some((m) =>
+      /Log line \d+: invalid lifecycle transition "draft → done"/.test(m),
+    ),
+  );
+
+  const mismatch = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → approved']);
+  assert.ok(
+    msgs(covResult(mismatch).errors).some((m) =>
+      /Log reconstructs status "approved" but frontmatter says "done"/.test(m),
+    ),
+  );
+});
+
+test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
+  const legacyReviewClose = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** — status: in-review → done',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(legacyReviewClose).errors).filter((m) => /Log/.test(m)),
+    [],
+  );
+
+  const legacyDirectClose = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → done',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(legacyDirectClose).errors).filter((m) => /Log/.test(m)),
+    [],
+  );
+});

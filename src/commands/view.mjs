@@ -21,8 +21,28 @@ export {
 } from '../viewer/domain.mjs';
 export { createRequestListener, hostnameOf, isAuthorizedWrite, isLocalHost, staticFile };
 
+// Explicit grammar: `.` selects local-only mode, a bare integer selects the
+// port (default 4040), both may combine, and anything else is rejected
+// instead of being silently ignored.
+function parseViewArgs(args) {
+  let localOnly = false;
+  let port = 4040;
+  const unknown = [];
+  for (const a of args) {
+    if (a === '.') localOnly = true;
+    else if (/^\d+$/.test(a)) port = Number(a);
+    else unknown.push(a);
+  }
+  if (unknown.length) {
+    throw new Error(
+      `Unknown argument(s) for "changeledger view": ${unknown.join(', ')} — usage: changeledger view [.] [port]`,
+    );
+  }
+  return { localOnly, port };
+}
+
 export async function view(args = [], cwd = process.cwd()) {
-  const localOnly = args.includes('.');
+  const { localOnly, port: requestedPort } = parseViewArgs(args);
   resolveProjects(cwd, localOnly); // fail fast if local mode outside a repo
 
   const token = crypto.randomBytes(16).toString('hex');
@@ -31,10 +51,11 @@ export async function view(args = [], cwd = process.cwd()) {
   server.headersTimeout = 10_000;
 
   const host = '127.0.0.1';
-  const port = await listen(server, host, Number(args.find((a) => /^\d+$/.test(a))) || 4040);
+  const port = await listen(server, host, requestedPort);
   const url = `http://${host}:${port}`;
   console.log(`ChangeLedger viewer → ${url}  (Ctrl+C to stop)`);
   openBrowser(url);
+  return server;
 }
 
 function listen(server, host, port, attempts = 10) {

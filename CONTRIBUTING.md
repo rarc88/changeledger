@@ -37,8 +37,9 @@ pnpm verify
 The CLI core stays intentionally lightweight and mostly standard-library based.
 Runtime dependencies are welcome only when they are mature and reduce real
 maintenance or security risk. The CLI uses `yaml` for configuration and
-frontmatter; the viewer uses `lit-html`, `marked`, `dompurify` and `mermaid` for
-templating, Markdown, sanitization and diagrams.
+frontmatter, and `commander` as a mature CLI parser that centralizes arguments,
+options, subcommands, errors and help; the viewer uses `lit-html`, `marked`,
+`dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
 
 ## Quality gate
 

@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-06-30T20:25:58Z
+updated: 2026-07-01T23:21:38Z
 tags: [ lifecycle ]
 ---
 
@@ -16,6 +16,7 @@ tags: [ lifecycle ]
 > Graduado del change 20260616-212319 (archivar no vuelve stale el spec).
 > Graduado del change 20260616-212322 (archivado masivo de graduados).
 > Graduado del change 20260626-160038 (política económica de delegación).
+> Graduado del change 20260630-225210 (validación secuencial del Log).
 
 ```mermaid
 stateDiagram-v2
@@ -119,7 +120,23 @@ el trabajo dentro de ese alcance.
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
 crea automáticamente al primer cambio de estado aunque el tipo no lo declare
-(p.ej. `chore`). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
+(p.ej. `chore`).
+
+**Validación secuencial.** `changeledger check` reproduce los eventos del Log
+desde `draft` contra el grafo de `src/lifecycle.mjs` mediante el parser
+compartido `parseLogEvent` (líneas `status: from → to` con origen explícito;
+`review → …` y `validation → …` con origen implícito `in-review`/`in-validation`).
+Son **errores**: una transición cuyo origen no coincide con el estado
+reconstruido (p.ej. un veredicto `review → in-validation` duplicado), self-loops,
+aristas fuera del grafo y un `status` final incompatible con la secuencia. Dos
+compatibilidades **acotadas** mantienen legible el historial anterior al gate
+universal sin relajar el grafo para trabajo nuevo: las aristas legacy literales
+(`in-review → done`, `in-progress → done`, `draft → in-progress`) y el *resync*
+de huecos tempranos — solo un origen explícito `status:` puede adelantar la
+reconstrucción, solo hacia delante y solo entre `draft`/`approved`/`in-progress`;
+los orígenes implícitos de review/validation exigen siempre la secuencia exacta.
+Statuses no canónicos desactivan la validación del change (el grafo no modela
+esos estados). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
 el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
 fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
 (vacío si ninguno). No pisa un owner fijado a mano (`changeledger owner`).

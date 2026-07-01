@@ -5,12 +5,15 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
 <!-- changeledger -->
 > [!IMPORTANT]
-> This repo uses **ChangeLedger**. Before creating or modifying files, run
-> `changeledger context` directly, read its complete output, and follow it.
-> Do not pipe, filter, summarize, limit, or truncate the output before reading it.
-> If the output is truncated/incomplete, stop and restore complete context before
-> proceeding. If the command is unavailable, stop and restore/install
-> ChangeLedger; do not proceed from memory.
+> This repo uses **ChangeLedger**. Immediately after reading this file — before
+> planning, investigating, or acting — run `changeledger context` directly and
+> read its complete output through the `CHANGELEDGER CONTEXT END` line. If that
+> line is missing, the output was truncated: stop and re-run the command
+> directly, without pipes or filters. If the command is unavailable, stop and
+> restore/install ChangeLedger; do not proceed from memory.
+>
+> Do not create or modify files without an authorized change; the core context
+> defines the workflow, the task contexts, and the narrow operational exception.
 
 The canonical ChangeLedger contract is split into task-focused fragments under
 [`templates/contract/`](templates/contract/). The deterministic
@@ -25,8 +28,10 @@ bootstrap above, not a linked or copied contract.
   optional integrations.
 - Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
   allowed only when they are mature and justified: the CLI uses `yaml` for
-  config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,
-  `dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
+  config/frontmatter parsing and `commander` for argument/option/subcommand
+  parsing with built-in errors and help, and the viewer uses `lit-html`,
+  `marked`, `dompurify` and `mermaid` for templating, Markdown, sanitization and
+  diagrams.
 - `pnpm verify` (lint + test + `changeledger check`) is the full quality gate. The
   versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `changeledger check`
   so staged formatting stays compatible with partial commits.

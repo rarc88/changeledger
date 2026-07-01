@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-30T15:35:02Z
+updated: 2026-07-01T23:29:25Z
 tags: [ contract ]
 ---
 
@@ -15,6 +15,9 @@ tags: [ contract ]
 > Graduado del change 20260629-165838 (prohibición de contexto truncado).
 > Graduado del change 20260629-210543 (contextos específicos incrementales).
 > Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
+> Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
+> Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
+> Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -28,7 +31,9 @@ etapa, no recortando precisión operativa. Conserva comandos y ejemplos
 canónicos, antipatrones del parser, razones que evitan decisiones erróneas y
 reglas de ownership/integración. Una regla transversal puede tener un resumen
 en `core` y una única elaboración normativa compartida, sin crear fuentes
-competidoras.
+competidoras; el resumen debe leerse como mínimo con puntero al pack propietario
+("at least ..."), nunca como lista exhaustiva ni como regla absoluta que
+contradiga la excepción que el pack define.
 
 `changeledger context` los compone de forma determinista:
 
@@ -43,15 +48,28 @@ competidoras.
 La composición especializada es explícita:
 
 - `spec`: autoría + delegación + readiness;
-- `implement`: implementación + delegación + readiness + handoff;
-- `review`: revisión independiente + delegación + handoff;
+- `implement`: implementación + delegación + handoff (la regla TDD efectiva
+  llega por la cabecera de política; el detalle de autoría/readiness pertenece
+  a `spec`);
+- `review`: revisión independiente + handoff (el reviewer es hoja: no recibe la
+  guía general de delegación);
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
 
-El contexto base tiene un presupuesto de 120 líneas y 8192 bytes UTF-8; la
-versión graduada ocupa aproximadamente 100 líneas y 5 KB frente al antiguo
-monolito de 540 líneas y ~30 KB. Los contextos posteriores amplían esa salida y
-fallan cerrado por instrucción si el agente aún no la leyó completa.
+Cada composición de modo o id incluye una cabecera determinista **Effective
+policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
+`tdd`; en modo por id además `review_required` y stages del tipo), de modo que
+el agente no lee el config crudo. El core lleva la línea transversal mínima. En
+modo por id, cada dependencia local de `depends_on` se resume como
+`#id — título — status` sin incorporar su cuerpo; las referencias externas se
+conservan como referencias sin resolución local.
+
+Toda composición base (sin el change seleccionado, cuya longitud pertenece al
+trabajo) tiene presupuesto explícito en tests: core 120 líneas/8192 bytes; spec
+285/11800; implement 170/7300; review 75/3200; release 45/2200; overlays
+blocked 70/3000, validation 45/1700, close 90/3500, discarded 40/1300. Los
+contextos posteriores amplían el core y fallan cerrado por instrucción si el
+agente aún no lo leyó completo.
 
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
@@ -65,14 +83,18 @@ de actualizar el snapshot.
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta con marcador
 `<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
 `CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
-`changeledger context`. Ordena ejecutarlo directamente y leer su salida completa
-antes de modificar archivos; prohíbe usar pipes, filtros, resúmenes, límites o
-truncamiento antes de leer la salida. Falla cerrado si la salida está truncada o
-incompleta, incluso por herramientas como `head`, `tail`, `sed` o `grep`, y
-falla cerrado si el CLI no está disponible. No menciona modos ni variantes con
-change id; esa orientación vive dentro de la salida de contexto. No crea
-`.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
-`.gitignore`.
+`changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
+—antes de planificar, investigar o actuar— y leer la salida completa hasta la
+línea `CHANGELEDGER CONTEXT END`. La completitud se verifica por centinela: toda
+salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode>
+[— change: #<id>] — v<version> =====` y cierra con una línea END autodetectora;
+si falta, la salida llegó truncada y hay que re-ejecutar sin pipes ni filtros.
+Falla cerrado si el CLI no está disponible. El bloque incluye además la regla
+dura —no crear ni modificar archivos sin change autorizado— con un puntero al
+core como única fuente del workflow, los task contexts y la excepción
+operacional; no enumera modos (eso invitaría a saltarse el contexto base). No
+crea `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade
+entradas a `.gitignore`.
 
 Ejecutar `changeledger context` no basta por sí solo para cumplir el contrato. El
 agente debe leer la salida completa y seguir el modo actual. Si no existe un

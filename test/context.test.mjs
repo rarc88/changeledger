@@ -57,22 +57,65 @@ Chosen behavior.
   return id;
 }
 
+function writeRawChange(
+  root,
+  { id, status, type = 'feature', dependsOn = [], title = 'Dep target' },
+) {
+  const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
+  const text = `---
+id: "${id}"
+title: ${title}
+type: ${type}
+status: ${status}
+created: 2026-06-27T12:00:00Z
+depends_on: ${deps}
+---
+
+## Request
+
+Body.
+
+## Specification
+
+### CR1 — Criterion
+- **Given** input
+- **When** action
+- **Then** result
+
+## Plan
+
+- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR1)
+
+## Log
+
+- Note.
+`;
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', `${id}-${type}.md`), text);
+  return id;
+}
+
+function setConfig(root, replacements) {
+  const file = path.join(root, '.changeledger', 'config.yml');
+  let text = fs.readFileSync(file, 'utf8');
+  for (const [pattern, value] of replacements) text = text.replace(pattern, value);
+  fs.writeFileSync(file, text);
+}
+
 test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const root = repo();
   const first = buildContext(undefined, root);
   const second = buildContext(undefined, root);
   assert.equal(first, second);
-  assert.match(first, /Mode: core/);
+  assert.match(first, /mode: core/);
   assert.match(first, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(first, /Run it\s+directly, without piping, filtering, summarizing/);
-  assert.match(first, /Read the\s+complete output and follow the current mode/);
-  assert.match(first, /tools such as `head`,\s+`tail`, `sed` or `grep`/);
-  assert.match(first, /stop and restore complete context/);
+  assert.match(first, /Read the\s+complete output through the `CHANGELEDGER CONTEXT END` line/);
+  assert.match(first, /follow the\s+current mode/);
+  assert.match(first, /Stop and re-run\s+the command directly, without pipes or filters/);
   assert.match(first, /If no approved or in-progress change applies/);
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
   assert.match(first, /If unsure, document it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
-  assert.match(first, /extends? the core context already read without repeating it/);
+  assert.match(first, /extends the core\s+context already read; it never repeats it/);
   assert.ok(first.split('\n').length <= 120);
   assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
 });
@@ -179,9 +222,12 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
       fs.readFileSync(file, 'utf8').replace(`status: ${status}`, 'status: in-progress'),
     );
     const resumed = buildContext(id, root);
-    assert.match(resumed, /Mode: implement/);
+    assert.match(resumed, /mode: implement/);
     assert.match(resumed, /# Implementing an Approved Change/);
-    assert.match(resumed, /# Definition of Ready/);
+    // 225213 CR5: the effective TDD rule now rides the policy header + implement
+    // pack; the full Definition of Ready authoring detail is spec-owned only.
+    assert.match(resumed, /Effective policy:.*tdd=(on|off)/);
+    assert.doesNotMatch(resumed, /# Definition of Ready/);
   }
   assert.ok(outputs.core.split('\n').length <= 120);
   assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
@@ -294,7 +340,6 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['implement', /Request and Investigation may split independent codebase questions/],
     ['implement', /Implementation may split only when write sets are disjoint/],
     ['implement', /Configured review is special: a fresh clean-context subagent/],
-    ['review', /question, module, package, test area, migration slice or independent verification/],
     ['review', /do not trust the implementer's summary/],
     ['review', /model sized to the review difficulty/],
     ['review', /every `CRn`, every Plan task, tests, the actual diff/],
@@ -361,22 +406,19 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     assert.doesNotMatch(output, /\.changeledger\/AGENTS\.md/);
     assert.doesNotMatch(output, /changeledger register/);
   }
-  for (const mode of ['spec', 'implement', 'review']) {
+  for (const mode of ['spec', 'implement']) {
     assert.match(outputs[mode], /# Economical Delegation/);
   }
+  // 225213 CR4: review no longer carries the general delegation guide.
+  assert.doesNotMatch(outputs.review, /# Economical Delegation/);
   assert.match(outputs.implement, /# Handoff Triage/);
   assert.match(outputs.review, /# Handoff Triage/);
 
   const ownedHeadings = {
     core: ['# ChangeLedger — Core Contract'],
     spec: ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'],
-    implement: [
-      '# Implementing an Approved Change',
-      '# Economical Delegation',
-      '# Definition of Ready',
-      '# Handoff Triage',
-    ],
-    review: ['# Independent Review', '# Economical Delegation', '# Handoff Triage'],
+    implement: ['# Implementing an Approved Change', '# Economical Delegation', '# Handoff Triage'],
+    review: ['# Independent Review', '# Handoff Triage'],
     blocked: ['# Blocked — Resolve Before Implementing', '# Handoff Triage'],
     validation: ['# Human Validation — Stop'],
     discarded: ['# Discarded — Terminal'],
@@ -402,12 +444,19 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
     'close.md': 'fa3f83e7767fdee719d2f5319279207c3103739670c21c110a76375f6a49907c',
-    'core.md': '5f7df2c4c22b1021b47ae5657985aa820a3f23f1de8c10fbb7e7ac290fc8ad23',
+    // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
+    // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
+    // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
+    // reads as a minimum deferring to the task context, and rule 8 states the --new/--into
+    // two-step so graduation is not presented as a settled binary.
+    'core.md': '6444366245256bf656cac1c9133bf06d290359067a40a348e1b07841d5b42ef6',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
     'implement.md': 'ba9c5ee4e5e82bfda28364c27dccbf595ddb083d0fe026f297f977fda78414af',
-    'readiness.md': 'e13225b2306857b4af10b15371265232f7bf86f49c8ca3bc5956329cdedea7bd',
+    // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
+    // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
+    'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
     'review.md': '4cd4b1b14fc6e0ea7aabff5cecaa9b57d47db4d633a87551a62077254078821a',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
@@ -449,7 +498,7 @@ test('215632 CR1-CR3: release context treats routine delivery as operational wor
   assert.match(first, /This incremental context extends the complete core context already read/);
   assert.match(
     first,
-    /If the complete base output has not been read, stop and run `changeledger context`/,
+    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
   );
   assert.match(
     first,
@@ -471,15 +520,16 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const root = repo();
   const id = addChange(root, 'in-progress');
   const output = buildContext(id, root);
-  assert.match(output, /Mode: implement/);
+  assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
   assert.match(output, /This incremental context extends the complete core context already read/);
   assert.match(
     output,
-    /If the complete base output has not been read, stop and run `changeledger context`/,
+    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
   );
   assert.match(output, /# Implementing an Approved Change/);
-  assert.match(output, /# Definition of Ready/);
+  // 225213 CR5: implement carries the effective TDD signal, not the full DoR pack.
+  assert.match(output, /Effective policy:.*tdd=(on|off)/);
   assert.match(output, /## Request[\s\S]*Need exact context/);
   assert.match(output, /### CR1 — Full criterion/);
   assert.match(output, /\*\*Then\*\* exact criterion text is present/);
@@ -489,14 +539,14 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 
 test('20260629-210543 CR2: every supported status produces incremental change context', () => {
   const expected = {
-    draft: [/Mode: spec/, /# Authoring a Change/],
-    approved: [/Mode: implement/, /# Implementing an Approved Change/],
-    'in-progress': [/Mode: implement/, /# Implementing an Approved Change/],
-    'in-review': [/Mode: review/, /# Independent Review/],
-    blocked: [/Mode: blocked/, /# Blocked — Resolve Before Implementing/],
-    'in-validation': [/Mode: validation/, /# Human Validation — Stop/],
-    done: [/Mode: close/, /# Closing Accepted Work/],
-    discarded: [/Mode: discarded/, /# Discarded — Terminal/],
+    draft: [/mode: spec/, /# Authoring a Change/],
+    approved: [/mode: implement/, /# Implementing an Approved Change/],
+    'in-progress': [/mode: implement/, /# Implementing an Approved Change/],
+    'in-review': [/mode: review/, /# Independent Review/],
+    blocked: [/mode: blocked/, /# Blocked — Resolve Before Implementing/],
+    'in-validation': [/mode: validation/, /# Human Validation — Stop/],
+    done: [/mode: close/, /# Closing Accepted Work/],
+    discarded: [/mode: discarded/, /# Discarded — Terminal/],
   };
 
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
@@ -521,13 +571,13 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
   };
   for (const [mode, heading] of Object.entries(expected)) {
     const output = buildContext(mode, root);
-    assert.match(output, new RegExp(`Mode: ${mode}`));
+    assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
     assert.match(
       output,
-      /If the complete base output has not been read, stop and run `changeledger context`/,
+      /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
     );
   }
   assert.throws(
@@ -538,10 +588,10 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
 
 test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded', () => {
   const expected = {
-    blocked: [/Mode: blocked/, /Resolve Before Implementing/],
-    'in-validation': [/Mode: validation/, /Human Validation — Stop/],
-    done: [/Mode: close/, /Closing Accepted Work/],
-    discarded: [/Mode: discarded/, /Discarded — Terminal/],
+    blocked: [/mode: blocked/, /Resolve Before Implementing/],
+    'in-validation': [/mode: validation/, /Human Validation — Stop/],
+    done: [/mode: close/, /Closing Accepted Work/],
+    discarded: [/mode: discarded/, /Discarded — Terminal/],
   };
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
     const root = repo();
@@ -550,9 +600,219 @@ test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded'
     for (const pattern of patterns) assert.match(output, pattern);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.doesNotMatch(output, /Mode: release/);
+    assert.doesNotMatch(output, /mode: release/);
     if (status === 'blocked') assert.doesNotMatch(output, /# Implementing an Approved Change/);
   }
   const root = repo();
-  assert.match(buildContext('release', root), /Mode: release/);
+  assert.match(buildContext('release', root), /mode: release/);
+});
+
+test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budget', () => {
+  const root = repo();
+  const id = addChange(root, 'approved');
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  const begin = (label) => `===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} =====`;
+  const end =
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
+
+  const core = buildContext(undefined, root);
+  assert.equal(core.split('\n')[0], begin('core'));
+  assert.equal(core.trimEnd().split('\n').at(-1), end);
+  assert.doesNotMatch(core, /^Mode: core$/m);
+  assert.ok(core.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    const output = buildContext(mode, root);
+    assert.equal(output.split('\n')[0], begin(mode));
+    assert.equal(output.trimEnd().split('\n').at(-1), end);
+    assert.doesNotMatch(output, /^Mode: /m);
+  }
+
+  const byId = buildContext(id, root);
+  assert.equal(byId.split('\n')[0], begin(`implement — change: #${id}`));
+  assert.equal(byId.trimEnd().split('\n').at(-1), end);
+});
+
+test('225213 CR8: core exposes the transversal effective policy without raw config', () => {
+  const root = repo();
+  setConfig(root, [
+    [/^language: en$/m, 'language: es'],
+    [/^tdd: true$/m, 'tdd: false'],
+  ]);
+  const core = buildContext(undefined, root);
+  // Effective language and tdd resolved on one line, defaults already applied.
+  assert.match(core, /Effective policy: language=es — tdd=off/);
+  // Core points to per-context policy instead of the raw config file.
+  assert.match(core, /each context delivers the effective policy/i);
+  assert.doesNotMatch(core, /narrative content follows `\.changeledger\/config\.yml`/);
+  // Delimited core stays within budget.
+  assert.ok(core.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+});
+
+test('225213 CR8: core resolves defaults when config omits language and tdd', () => {
+  const root = repo();
+  // Remove explicit keys so defaults must be resolved (language=en, tdd=on).
+  setConfig(root, [
+    [/^language: en$/m, ''],
+    [/^tdd: true$/m, ''],
+  ]);
+  const core = buildContext(undefined, root);
+  assert.match(core, /Effective policy: language=en — tdd=on/);
+});
+
+test('225213 CR2: mode packs show the effective policy affecting the task', () => {
+  const root = repo();
+  setConfig(root, [[/^language: en$/m, 'language: es']]);
+  for (const mode of ['spec', 'implement']) {
+    const output = buildContext(mode, root);
+    assert.match(output, /Effective policy: language=es — tdd=on/);
+  }
+  // Review cares about the content language it verifies.
+  assert.match(buildContext('review', root), /Effective policy: language=es/);
+});
+
+test('225213 CR2: change-id context shows type-specific effective policy', () => {
+  const root = repo();
+  setConfig(root, [[/^language: en$/m, 'language: es']]);
+  const id = writeRawChange(root, {
+    id: '20260627-140000',
+    status: 'in-progress',
+    type: 'feature',
+  });
+  const output = buildContext(id, root);
+  assert.match(output, /Effective policy: language=es/);
+  assert.match(output, /tdd=on/);
+  // feature requires review in the fixture config.
+  assert.match(output, /review_required\(feature\)=yes/);
+  // Active stages for the type are resolved, not left for the agent to infer.
+  assert.match(output, /stages\(feature\)=[a-z, ]*specification/);
+});
+
+test('225213 CR2: change-id policy reflects a type without review', () => {
+  const root = repo();
+  const id = writeRawChange(root, {
+    id: '20260627-140001',
+    status: 'in-progress',
+    type: 'audit',
+  });
+  const output = buildContext(id, root);
+  // audit has no review_required in the fixture config → resolved to no.
+  assert.match(output, /review_required\(audit\)=no/);
+});
+
+test('225213 CR3: change-id resolves local dependencies without inflating bodies', () => {
+  const root = repo();
+  const depId = writeRawChange(root, {
+    id: '20260627-150000',
+    status: 'done',
+    title: 'Delivery layer',
+  });
+  const id = writeRawChange(root, {
+    id: '20260627-150001',
+    status: 'in-progress',
+    title: 'Consumer',
+    dependsOn: [depId, 'otherproj:20260101-000000'],
+  });
+  const output = buildContext(id, root);
+  // Local dependency: id, title and current status on one line.
+  assert.match(output, new RegExp(`#${depId} — Delivery layer — done`));
+  // The dependency body is not embedded.
+  assert.doesNotMatch(output, /## Request\s+Body\.\s+## Specification[\s\S]*Delivery layer/);
+  // External reference stays a reference, not pretended resolved.
+  assert.match(output, /otherproj:20260101-000000/);
+  assert.match(output, /external reference/i);
+});
+
+test('225213 CR3: change without dependencies emits no dependency block', () => {
+  const root = repo();
+  const id = writeRawChange(root, { id: '20260627-150002', status: 'in-progress' });
+  const output = buildContext(id, root);
+  assert.doesNotMatch(output, /## Dependencies/);
+});
+
+test('225213 CR6: every base composition stays within its explicit budget', () => {
+  const root = repo();
+  // Budgets measured WITHOUT any selected change text — base compositions only.
+  const budgets = {
+    core: { lines: 120, bytes: 8192 },
+    spec: { lines: 285, bytes: 11800 },
+    implement: { lines: 170, bytes: 7300 },
+    review: { lines: 75, bytes: 3200 },
+    release: { lines: 45, bytes: 2200 },
+  };
+  for (const [mode, budget] of Object.entries(budgets)) {
+    const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
+    assert.ok(
+      output.split('\n').length <= budget.lines,
+      `${mode} exceeds ${budget.lines} lines: ${output.split('\n').length}`,
+    );
+    assert.ok(
+      Buffer.byteLength(output, 'utf8') <= budget.bytes,
+      `${mode} exceeds ${budget.bytes} bytes: ${Buffer.byteLength(output, 'utf8')}`,
+    );
+  }
+});
+
+test('225213 CR6: status overlays stay within their explicit budget (no change text)', () => {
+  const root = repo();
+  // Overlay base = fragments + delimiters + policy header, empty change body.
+  const budgets = {
+    blocked: { lines: 70, bytes: 3000 },
+    'in-validation': { lines: 45, bytes: 1700 },
+    done: { lines: 90, bytes: 3500 },
+    discarded: { lines: 40, bytes: 1300 },
+  };
+  let i = 0;
+  for (const [status, budget] of Object.entries(budgets)) {
+    const id = writeRawChange(root, { id: `20260627-16000${i}`, status });
+    i += 1;
+    // Strip the selected change section to measure the base composition only.
+    const output = buildContext(id, root);
+    const base = output.split('\n# Selected change')[0];
+    assert.ok(
+      base.split('\n').length <= budget.lines,
+      `${status} overlay exceeds ${budget.lines} lines: ${base.split('\n').length}`,
+    );
+    assert.ok(
+      Buffer.byteLength(base, 'utf8') <= budget.bytes,
+      `${status} overlay exceeds ${budget.bytes} bytes: ${Buffer.byteLength(base, 'utf8')}`,
+    );
+  }
+});
+
+test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rules', () => {
+  const root = repo();
+  const review = buildContext('review', root);
+  // Review keeps independence, review surface, verdict mechanics and handoff.
+  assert.match(review, /# Independent Review/);
+  assert.match(review, /do not trust the implementer's summary/);
+  assert.match(review, /changeledger review <id> pass/);
+  assert.match(review, /# Handoff Triage/);
+  // Review no longer carries the general delegation guide the reviewer does not need.
+  assert.doesNotMatch(review, /# Economical Delegation/);
+  assert.doesNotMatch(review, /Do not over-shard/);
+  assert.doesNotMatch(review, /Delegation prompt contract/);
+
+  // Implement keeps its actionable contract but drops authoring/config detail.
+  const implement = buildContext('implement', root);
+  assert.match(implement, /# Implementing an Approved Change/);
+  assert.match(implement, /Tick\s+tasks as they become true/);
+  assert.match(implement, /# Handoff Triage/);
+});
+
+test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
+  const root = repo();
+  const core = buildContext(undefined, root).replace(/\s+/g, ' ');
+  // CR1: the delegation-prompt summary reads as a minimum, not a complete list.
+  assert.match(
+    core,
+    /Each delegation prompt states at least ownership, expected output and integration criterion; the task context carries the full prompt contract/,
+  );
+  // CR2: graduation is not presented as a settled binary — --new alone leaves it pending.
+  assert.match(core, /a new spec is a two-step `--new` then `--into`/);
+  assert.ok(core.length > 0);
 });

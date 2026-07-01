@@ -22,6 +22,7 @@ import {
   saveProjectConfig,
   searchProjects,
   unregisterProject,
+  view,
 } from '../src/commands/view.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry } from '../src/registry.mjs';
@@ -1219,4 +1220,26 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   assert.equal(response.status, 400);
   assert.match(response.body, /config schema 2 is newer than supported schema 1/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
+});
+
+// 225212 CR4: view's grammar is explicit — '.', a port, both, or neither — and
+// anything else fails fast instead of being silently ignored.
+test('225212 CR4: view rejects an unknown argument instead of ignoring it', async () => {
+  await assert.rejects(() => view(['bogus']), /Unknown (argument|option)s?.*bogus/i);
+});
+
+test('225212 CR4: view rejects a non-numeric, non-"." argument', async () => {
+  await assert.rejects(() => view(['4040x']), /Unknown (argument|option)s?.*4040x/i);
+});
+
+test('225212 CR4: view accepts "." combined with a port', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const server = await view(['.', '0'], root);
+  try {
+    assert.equal(typeof server.address().port, 'number');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

@@ -3,14 +3,13 @@
 Documents under `.changeledger/` are the source of truth. Code is their
 reflection. Work is planned and documented before code is written.
 
-## Non-negotiable fast path
+## Read complete context before acting
 
-Running `changeledger context` is discovery, not compliance by itself. Run it
-directly, without piping, filtering, summarizing, limiting or truncating output
-before reading it. Read the complete output and follow the current mode. If the
-output is truncated or incomplete, including through tools such as `head`,
-`tail`, `sed` or `grep`, stop and restore complete context before creating or
-modifying files.
+Running `changeledger context` is discovery, not compliance by itself. Read the
+complete output through the `CHANGELEDGER CONTEXT END` line, then follow the
+current mode. If that line is missing, the output was truncated. Stop and re-run
+the command directly, without pipes or filters, before creating or modifying
+files.
 
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
@@ -27,8 +26,9 @@ modifying files.
    human validation.
 7. Stop at `in-validation`. The agent never accepts on the human's behalf.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
-   change, then graduate persistent truth or run
-   `changeledger graduate <id> --skip [reason]`; archive only after that decision.
+   change, then graduate persistent truth (a new spec is a two-step `--new`
+   then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive
+   only after that decision.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
@@ -44,7 +44,8 @@ optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
 
 Delegate only with a clear boundary and benefit. Each delegation prompt states
-ownership, expected output and integration criterion; coding agents must know
+at least ownership, expected output and integration criterion; the task context
+carries the full prompt contract. Coding agents must know
 they share the codebase and must not revert others' work. Do not over-shard or
 overlap write surfaces without an explicit integration plan. Size the model to
 the task's difficulty and risk.
@@ -81,8 +82,11 @@ later reconsideration needs a newly authorized change.
 
 Valid modes: implement, review, spec, release.
 
-Run these only after reading the complete base output. Each mode and change-id
-context extends the core context already read without repeating it.
+Escalate to a mode before acting. Before documenting, run
+`changeledger context spec`. Before executing, run `changeledger context
+implement` or `changeledger context <change-id>`. Run each only after reading
+the complete base output. Every mode and change-id context extends the core
+context already read; it never repeats it.
 
 - `changeledger context spec`: author or refine a change.
 - `changeledger context implement`: execute an approved change.
@@ -98,4 +102,5 @@ Prefer structured CLI queries before scanning files:
 - `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
-Structure is always English; narrative content follows `.changeledger/config.yml`.
+Structure is always English. Each context delivers the effective policy that
+applies to its task, so you never read `.changeledger/config.yml` raw to operate.

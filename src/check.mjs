@@ -1,6 +1,7 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
 // { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
 
+import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
@@ -88,6 +89,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     }
 
     checkCoverage(c, fm, active, config, warn, err);
+    checkLifecycleSequence(c, fm, err);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -288,10 +290,73 @@ function checkConflictMarkers(c, err) {
   }
 }
 
-// Definition-of-Ready coverage: when `tdd` is on (default), a change being built
-// (approved/in-progress) whose type activates `## Specification` must map
-// criteria ↔ Plan tasks both ways. Warnings only — it nudges, never blocks.
-// It checks coverage, not whether a criterion is "test-grade" (not parseable).
+// Lifecycle history recorded under the previous contract (before
+// `in-validation` became the universal human gate) stays readable without
+// relaxing the current graph for new work (20260630-225210 CR3). Two bounded
+// allowances, both covered by fixtures mirroring real history:
+// - LEGACY_EDGES: closing/skipping edges old flows wrote literally.
+// - Gap resync: old writers did not log every early move (draft → approved,
+//   approved → in-progress). An explicit `status:` origin may fast-forward the
+//   reconstruction, but only forward and only across pre-review states —
+//   implied review/validation origins always require the exact sequence.
+const LEGACY_EDGES = new Set(['in-review→done', 'in-progress→done', 'draft→in-progress']);
+const LEGACY_RESYNC_RANK = { draft: 0, approved: 1, 'in-progress': 2 };
+const CANONICAL = new Set(CANONICAL_STATUSES);
+
+// Replays `## Log` lifecycle events from `draft` against the transition graph
+// in lifecycle.mjs. Stops at the first inconsistency to avoid cascading noise.
+// Changes using non-canonical statuses are left alone — the graph cannot
+// reason about states it does not model.
+function checkLifecycleSequence(c, fm, err) {
+  const lines = (c.text ?? '').split('\n');
+  let inLog = false;
+  let current = 'draft';
+  let events = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s/.test(line)) {
+      inLog = /^##\s+Log\s*$/.test(line);
+      continue;
+    }
+    if (!inLog) continue;
+    const event = parseLogEvent(line);
+    if (!event) continue;
+    if (!CANONICAL.has(event.from) || !CANONICAL.has(event.to)) return;
+    events += 1;
+    if (event.from !== current) {
+      const legacyGap =
+        event.explicit &&
+        LEGACY_RESYNC_RANK[current] !== undefined &&
+        LEGACY_RESYNC_RANK[event.from] !== undefined &&
+        LEGACY_RESYNC_RANK[event.from] > LEGACY_RESYNC_RANK[current];
+      if (!legacyGap) {
+        err(
+          c,
+          `Log line ${i + 1}: transition "${event.from} → ${event.to}" starts from "${event.from}" but the reconstructed status is "${current}"`,
+        );
+        return;
+      }
+      current = event.from;
+    }
+    if (!canTransition(event.from, event.to) && !LEGACY_EDGES.has(`${event.from}→${event.to}`)) {
+      err(c, `Log line ${i + 1}: invalid lifecycle transition "${event.from} → ${event.to}"`);
+      return;
+    }
+    current = event.to;
+  }
+  if (events && CANONICAL.has(fm.status) && current !== fm.status) {
+    err(c, `Log reconstructs status "${current}" but frontmatter says "${fm.status}"`);
+  }
+}
+
+// Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
+// activates `## Specification` is checked in draft, approved and in-progress.
+// Draft reports everything as warnings. In approved/in-progress, readiness
+// defects (criterion missing Given/When/Then, reference to an unknown
+// criterion, CR-bearing task without target+verification) are errors, while
+// coverage gaps (uncovered criterion, non-support task without a CR) stay
+// warnings. Only the Given/When/Then structure is machine-checkable; semantic
+// test-grade quality remains the documenting agent's judgment.
 function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   if (config?.tdd === false) return;
   if (!active?.includes('specification')) return;
