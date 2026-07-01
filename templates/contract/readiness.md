@@ -37,6 +37,9 @@ evidence in the task instead of listing every possible manual phrase in config.
 
 `changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
 tasks without traceability and CR-bearing tasks without configured target and
-verification. Gaps are warnings in `draft` and errors in `approved` or
-`in-progress`. Truly operational `(support)` tasks are exempt; observable
+verification. Every diagnostic is a warning in `draft`. In `approved` or
+`in-progress`, readiness defects (missing Given/When/Then, unknown criterion
+references, CR-bearing tasks without target and verification) are errors, while
+coverage gaps (uncovered criteria, non-support tasks without a CR) stay
+warnings. Truly operational `(support)` tasks are exempt; observable
 implementation is not.

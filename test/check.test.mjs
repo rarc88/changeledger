@@ -1151,3 +1151,57 @@ test('210508 CR7: a dependency on a discarded change is not flagged as missing',
   const { errors } = checkRepo({ config: cfg, changes: [a, b] });
   assert.ok(!msgs(errors).some((m) => /dangling|missing|depend/i.test(m)), msgs(errors).join('; '));
 });
+
+test('225208 CR3: approved keeps the severity split — defects error, coverage gaps warn', () => {
+  const text = `---
+id: "20260613-120000"
+title: x
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+r
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+### CR2 — Not test-grade
+- **Given** a
+
+### CR3 — Uncovered
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
+- [ ] vague work without recognizable evidence (CR2)
+- [ ] Update \`src/b.mjs\`; verify: \`node --test test/b.test.mjs\` (CR404)
+- [ ] loose task without criterion
+
+## Log
+
+- l
+`;
+  const { errors, warnings } = covResult(text);
+  const e = msgs(errors);
+  const w = msgs(warnings);
+  assert.ok(e.some((m) => /CR2 is not test-grade: missing Given\/When\/Then/.test(m)));
+  assert.ok(e.some((m) => /references unknown criterion "CR404"/.test(m)));
+  assert.ok(e.some((m) => /Plan task for CR2 must name target and verification/.test(m)));
+  assert.ok(w.some((m) => /CR3 is not covered by any Plan task/.test(m)));
+  assert.ok(w.some((m) => /references no criterion/.test(m)));
+  assert.deepEqual(
+    e.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
+    [],
+  );
+});

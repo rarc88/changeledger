@@ -288,10 +288,14 @@ function checkConflictMarkers(c, err) {
   }
 }
 
-// Definition-of-Ready coverage: when `tdd` is on (default), a change being built
-// (approved/in-progress) whose type activates `## Specification` must map
-// criteria ↔ Plan tasks both ways. Warnings only — it nudges, never blocks.
-// It checks coverage, not whether a criterion is "test-grade" (not parseable).
+// Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
+// activates `## Specification` is checked in draft, approved and in-progress.
+// Draft reports everything as warnings. In approved/in-progress, readiness
+// defects (criterion missing Given/When/Then, reference to an unknown
+// criterion, CR-bearing task without target+verification) are errors, while
+// coverage gaps (uncovered criterion, non-support task without a CR) stay
+// warnings. Only the Given/When/Then structure is machine-checkable; semantic
+// test-grade quality remains the documenting agent's judgment.
 function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   if (config?.tdd === false) return;
   if (!active?.includes('specification')) return;

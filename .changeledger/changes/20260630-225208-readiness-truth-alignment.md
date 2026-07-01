@@ -51,9 +51,9 @@ comportamiento antiguo y compiten con el código.
 
 ## Plan
 
-- [ ] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades; verify: `node bin/changeledger.mjs check` (CR1, CR2)
-- [ ] Alinear los comentarios de `src/check.mjs` sin modificar la semántica; verify: `node --test test/check.test.mjs` (CR2, CR3)
-- [ ] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate; verify: `pnpm test` (CR1, CR2, CR3)
+- [x] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades; verify: `node bin/changeledger.mjs check` (CR1, CR2) — 2026-07-01T22:09:12Z
+- [x] Alinear los comentarios de `src/check.mjs` sin modificar la semántica; verify: `node --test test/check.test.mjs` (CR2, CR3) — 2026-07-01T22:09:12Z
+- [x] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate; verify: `pnpm test` (CR1, CR2, CR3) — 2026-07-01T22:09:12Z
 
 ## Log
 
@@ -61,3 +61,4 @@ comportamiento antiguo y compiten con el código.
 - **2026-07-01T21:51:09Z** — status: draft → approved
 - **2026-07-01T22:04:33Z** — status: approved → in-progress
 - **2026-07-01T22:04:33Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T22:09:12Z** — Spec, fragmento canónico readiness.md y comentario de checkCoverage alineados con la matriz real; test 225208 CR3 fija el split de severidad en approved; gate verde

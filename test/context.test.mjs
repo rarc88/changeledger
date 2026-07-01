@@ -408,7 +408,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
     'implement.md': 'ba9c5ee4e5e82bfda28364c27dccbf595ddb083d0fe026f297f977fda78414af',
-    'readiness.md': 'e13225b2306857b4af10b15371265232f7bf86f49c8ca3bc5956329cdedea7bd',
+    // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
+    // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
+    'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
     'review.md': '4cd4b1b14fc6e0ea7aabff5cecaa9b57d47db4d633a87551a62077254078821a',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
