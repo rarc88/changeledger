@@ -2,7 +2,7 @@
 id: "20260630-225213"
 title: Optimizar señal y política efectiva del contexto dinámico
 type: feature
-status: in-progress
+status: in-review
 created: 2026-06-30T22:52:13Z
 depends_on: [ "20260701-213931" ]
 owner: raruiz-hiberuscom
@@ -156,3 +156,4 @@ evaluación de redundancia.
 - **2026-07-01T22:43:07Z** — Presupuestos base elegidos (sin change adjunto): core 120L/8192B, spec 285L/11800B, implement 170L/7300B, review 75L/3200B, release 45L/2200B; overlays blocked 70L/3000B, in-validation 45L/1700B, done 90L/3500B, discarded 40L/1300B. Medidos con delimitadores presentes.
 - **2026-07-01T22:43:16Z** — Diseño: cabecera Effective policy derivada de config con defaults resueltos (language=en, tdd=true). Core: linea transversal (language+tdd). Modos: language+tdd. Id: anade review_required(type) y stages(type), mas resumen de dependencias locales (id/titulo/status); refs externas project:id quedan como referencia. Review pack pierde delegation.md (MODE_CONTEXT), conserva review+handoff. Implement pack pierde readiness.md (autoria); la regla TDD efectiva viaja en la cabecera + regla failing-test de implement.md. core.md: titulo literal, escalada imperativa a modos, fin de remision a config crudo (CR7 replaced, semantica preservada).
 - **2026-07-01T22:44:10Z** — Tareas 1-6 done. Tarea 7 mezcla dos pasos: (a) ejecutar el gate completo -> hecho, pnpm verify verde (513 tests, lint, check); (b) graduar la arquitectura -> paso post-aceptacion, se difiere al graduate tras done. Se deja la tarea abierta hasta la graduacion; check valida OK.
+- **2026-07-01T22:44:31Z** — status: in-progress → in-review
