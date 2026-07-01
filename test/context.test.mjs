@@ -62,12 +62,11 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const first = buildContext(undefined, root);
   const second = buildContext(undefined, root);
   assert.equal(first, second);
-  assert.match(first, /Mode: core/);
+  assert.match(first, /mode: core/);
   assert.match(first, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(first, /Run it\s+directly, without piping, filtering, summarizing/);
-  assert.match(first, /Read the\s+complete output and follow the current mode/);
-  assert.match(first, /tools such as `head`,\s+`tail`, `sed` or `grep`/);
-  assert.match(first, /stop and restore complete context/);
+  assert.match(first, /Read the complete output\s+through the `CHANGELEDGER CONTEXT END` line/);
+  assert.match(first, /follow the current mode/);
+  assert.match(first, /stop and re-run the\s+command directly, without pipes or filters/);
   assert.match(first, /If no approved or in-progress change applies/);
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
   assert.match(first, /If unsure, document it in ChangeLedger/);
@@ -179,7 +178,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
       fs.readFileSync(file, 'utf8').replace(`status: ${status}`, 'status: in-progress'),
     );
     const resumed = buildContext(id, root);
-    assert.match(resumed, /Mode: implement/);
+    assert.match(resumed, /mode: implement/);
     assert.match(resumed, /# Implementing an Approved Change/);
     assert.match(resumed, /# Definition of Ready/);
   }
@@ -402,7 +401,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
     'close.md': 'fa3f83e7767fdee719d2f5319279207c3103739670c21c110a76375f6a49907c',
-    'core.md': '5f7df2c4c22b1021b47ae5657985aa820a3f23f1de8c10fbb7e7ac290fc8ad23',
+    // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
+    // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
+    'core.md': '9c6224dc0007d2a979846ffabb07b9276b3052a4613f5089503c96aef8fd2b89',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
@@ -449,7 +450,7 @@ test('215632 CR1-CR3: release context treats routine delivery as operational wor
   assert.match(first, /This incremental context extends the complete core context already read/);
   assert.match(
     first,
-    /If the complete base output has not been read, stop and run `changeledger context`/,
+    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
   );
   assert.match(
     first,
@@ -471,12 +472,12 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   const root = repo();
   const id = addChange(root, 'in-progress');
   const output = buildContext(id, root);
-  assert.match(output, /Mode: implement/);
+  assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
   assert.match(output, /This incremental context extends the complete core context already read/);
   assert.match(
     output,
-    /If the complete base output has not been read, stop and run `changeledger context`/,
+    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
   );
   assert.match(output, /# Implementing an Approved Change/);
   assert.match(output, /# Definition of Ready/);
@@ -489,14 +490,14 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 
 test('20260629-210543 CR2: every supported status produces incremental change context', () => {
   const expected = {
-    draft: [/Mode: spec/, /# Authoring a Change/],
-    approved: [/Mode: implement/, /# Implementing an Approved Change/],
-    'in-progress': [/Mode: implement/, /# Implementing an Approved Change/],
-    'in-review': [/Mode: review/, /# Independent Review/],
-    blocked: [/Mode: blocked/, /# Blocked — Resolve Before Implementing/],
-    'in-validation': [/Mode: validation/, /# Human Validation — Stop/],
-    done: [/Mode: close/, /# Closing Accepted Work/],
-    discarded: [/Mode: discarded/, /# Discarded — Terminal/],
+    draft: [/mode: spec/, /# Authoring a Change/],
+    approved: [/mode: implement/, /# Implementing an Approved Change/],
+    'in-progress': [/mode: implement/, /# Implementing an Approved Change/],
+    'in-review': [/mode: review/, /# Independent Review/],
+    blocked: [/mode: blocked/, /# Blocked — Resolve Before Implementing/],
+    'in-validation': [/mode: validation/, /# Human Validation — Stop/],
+    done: [/mode: close/, /# Closing Accepted Work/],
+    discarded: [/mode: discarded/, /# Discarded — Terminal/],
   };
 
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
@@ -521,13 +522,13 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
   };
   for (const [mode, heading] of Object.entries(expected)) {
     const output = buildContext(mode, root);
-    assert.match(output, new RegExp(`Mode: ${mode}`));
+    assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
     assert.match(
       output,
-      /If the complete base output has not been read, stop and run `changeledger context`/,
+      /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
     );
   }
   assert.throws(
@@ -538,10 +539,10 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
 
 test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded', () => {
   const expected = {
-    blocked: [/Mode: blocked/, /Resolve Before Implementing/],
-    'in-validation': [/Mode: validation/, /Human Validation — Stop/],
-    done: [/Mode: close/, /Closing Accepted Work/],
-    discarded: [/Mode: discarded/, /Discarded — Terminal/],
+    blocked: [/mode: blocked/, /Resolve Before Implementing/],
+    'in-validation': [/mode: validation/, /Human Validation — Stop/],
+    done: [/mode: close/, /Closing Accepted Work/],
+    discarded: [/mode: discarded/, /Discarded — Terminal/],
   };
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
     const root = repo();
@@ -550,9 +551,38 @@ test('CR8/CR9: lifecycle overlays guard blocked, validation, done and discarded'
     for (const pattern of patterns) assert.match(output, pattern);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.doesNotMatch(output, /Mode: release/);
+    assert.doesNotMatch(output, /mode: release/);
     if (status === 'blocked') assert.doesNotMatch(output, /# Implementing an Approved Change/);
   }
   const root = repo();
-  assert.match(buildContext('release', root), /Mode: release/);
+  assert.match(buildContext('release', root), /mode: release/);
+});
+
+test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budget', () => {
+  const root = repo();
+  const id = addChange(root, 'approved');
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  const begin = (label) => `===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} =====`;
+  const end =
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
+
+  const core = buildContext(undefined, root);
+  assert.equal(core.split('\n')[0], begin('core'));
+  assert.equal(core.trimEnd().split('\n').at(-1), end);
+  assert.doesNotMatch(core, /^Mode: core$/m);
+  assert.ok(core.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    const output = buildContext(mode, root);
+    assert.equal(output.split('\n')[0], begin(mode));
+    assert.equal(output.trimEnd().split('\n').at(-1), end);
+    assert.doesNotMatch(output, /^Mode: /m);
+  }
+
+  const byId = buildContext(id, root);
+  assert.equal(byId.split('\n')[0], begin(`implement — change: #${id}`));
+  assert.equal(byId.trimEnd().split('\n').at(-1), end);
 });

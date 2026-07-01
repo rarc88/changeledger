@@ -179,11 +179,11 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
 
   const core = runIn(root, env, 'context');
   assert.equal(core.code, 0);
-  assert.match(core.out, /Mode: core/);
+  assert.match(core.out, /mode: core/);
 
   const review = runIn(root, env, 'context', 'review');
   assert.equal(review.code, 0);
-  assert.match(review.out, /Mode: review/);
+  assert.match(review.out, /mode: review/);
 
   const unknown = runIn(root, env, 'context', 'bogus');
   assert.equal(unknown.code, 1);

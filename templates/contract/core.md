@@ -5,12 +5,10 @@ reflection. Work is planned and documented before code is written.
 
 ## Non-negotiable fast path
 
-Running `changeledger context` is discovery, not compliance by itself. Run it
-directly, without piping, filtering, summarizing, limiting or truncating output
-before reading it. Read the complete output and follow the current mode. If the
-output is truncated or incomplete, including through tools such as `head`,
-`tail`, `sed` or `grep`, stop and restore complete context before creating or
-modifying files.
+Running `changeledger context` is discovery, not compliance by itself. Read the complete output
+through the `CHANGELEDGER CONTEXT END` line and follow the current mode. If that
+line is missing, the output was truncated: stop and re-run the
+command directly, without pipes or filters, before creating or modifying files.
 
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
