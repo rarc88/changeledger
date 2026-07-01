@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-01T23:28:15Z
+updated: 2026-07-01T23:29:25Z
 tags: [ contract ]
 ---
 
@@ -17,6 +17,7 @@ tags: [ contract ]
 > Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
 > Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
 > Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
+> Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -30,7 +31,9 @@ etapa, no recortando precisión operativa. Conserva comandos y ejemplos
 canónicos, antipatrones del parser, razones que evitan decisiones erróneas y
 reglas de ownership/integración. Una regla transversal puede tener un resumen
 en `core` y una única elaboración normativa compartida, sin crear fuentes
-competidoras.
+competidoras; el resumen debe leerse como mínimo con puntero al pack propietario
+("at least ..."), nunca como lista exhaustiva ni como regla absoluta que
+contradiga la excepción que el pack define.
 
 `changeledger context` los compone de forma determinista:
 
