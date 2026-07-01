@@ -3,12 +3,13 @@
 Documents under `.changeledger/` are the source of truth. Code is their
 reflection. Work is planned and documented before code is written.
 
-## Non-negotiable fast path
+## Read complete context before acting
 
-Running `changeledger context` is discovery, not compliance by itself. Read the complete output
-through the `CHANGELEDGER CONTEXT END` line and follow the current mode. If that
-line is missing, the output was truncated: stop and re-run the
-command directly, without pipes or filters, before creating or modifying files.
+Running `changeledger context` is discovery, not compliance by itself. Read the
+complete output through the `CHANGELEDGER CONTEXT END` line, then follow the
+current mode. If that line is missing, the output was truncated. Stop and re-run
+the command directly, without pipes or filters, before creating or modifying
+files.
 
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
@@ -79,8 +80,11 @@ later reconsideration needs a newly authorized change.
 
 Valid modes: implement, review, spec, release.
 
-Run these only after reading the complete base output. Each mode and change-id
-context extends the core context already read without repeating it.
+Escalate to a mode before acting. Before documenting, run
+`changeledger context spec`. Before executing, run `changeledger context
+implement` or `changeledger context <change-id>`. Run each only after reading
+the complete base output. Every mode and change-id context extends the core
+context already read; it never repeats it.
 
 - `changeledger context spec`: author or refine a change.
 - `changeledger context implement`: execute an approved change.
@@ -96,4 +100,5 @@ Prefer structured CLI queries before scanning files:
 - `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
-Structure is always English; narrative content follows `.changeledger/config.yml`.
+Structure is always English. Each context delivers the effective policy that
+applies to its task, so you never read `.changeledger/config.yml` raw to operate.
