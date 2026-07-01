@@ -2,10 +2,12 @@
 id: "20260701-213931"
 title: Descubrimiento temprano del contrato y delimitadores en context
 type: feature
-status: in-validation
+status: done
 created: 2026-07-01T21:39:31Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -153,3 +155,6 @@ core en los `AGENTS.md` de los repos consumidores:
 - **2026-07-01T23:03:27Z** — Corrección tras rechazo humano: la card ya no enumera modos (duplicaba el core e invitaba a saltar el contexto base) ni usa 'Never' absoluto; ahora regla dura + puntero al core, que es la única fuente de la excepción operacional. CR2 y Proposal actualizados.
 - **2026-07-01T23:20:06Z** — status: in-progress → in-review
 - **2026-07-01T23:22:09Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:25:36Z** — validation → done (human accepted)
+- **2026-07-01T23:28:15Z** — graduado a spec `contract-discovery.md`
+- **2026-07-01T23:28:35Z** — archived

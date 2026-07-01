@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-01T23:22:20Z
+updated: 2026-07-01T23:28:15Z
 tags: [ contract ]
 ---
 
@@ -16,6 +16,7 @@ tags: [ contract ]
 > Graduado del change 20260629-210543 (contextos específicos incrementales).
 > Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
 > Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
+> Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -79,14 +80,18 @@ de actualizar el snapshot.
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta con marcador
 `<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
 `CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
-`changeledger context`. Ordena ejecutarlo directamente y leer su salida completa
-antes de modificar archivos; prohíbe usar pipes, filtros, resúmenes, límites o
-truncamiento antes de leer la salida. Falla cerrado si la salida está truncada o
-incompleta, incluso por herramientas como `head`, `tail`, `sed` o `grep`, y
-falla cerrado si el CLI no está disponible. No menciona modos ni variantes con
-change id; esa orientación vive dentro de la salida de contexto. No crea
-`.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
-`.gitignore`.
+`changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
+—antes de planificar, investigar o actuar— y leer la salida completa hasta la
+línea `CHANGELEDGER CONTEXT END`. La completitud se verifica por centinela: toda
+salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode>
+[— change: #<id>] — v<version> =====` y cierra con una línea END autodetectora;
+si falta, la salida llegó truncada y hay que re-ejecutar sin pipes ni filtros.
+Falla cerrado si el CLI no está disponible. El bloque incluye además la regla
+dura —no crear ni modificar archivos sin change autorizado— con un puntero al
+core como única fuente del workflow, los task contexts y la excepción
+operacional; no enumera modos (eso invitaría a saltarse el contexto base). No
+crea `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade
+entradas a `.gitignore`.
 
 Ejecutar `changeledger context` no basta por sí solo para cumplir el contrato. El
 agente debe leer la salida completa y seguir el modo actual. Si no existe un
