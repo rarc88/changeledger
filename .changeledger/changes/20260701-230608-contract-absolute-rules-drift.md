@@ -61,9 +61,9 @@ contradicciones directas (clase A); tres hallazgos menores:
 
 ## Plan
 
-- [ ] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios; verify: `node --test test/context.test.mjs` (CR1, CR2)
-- [ ] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Ejecutar el gate completo (support)
+- [x] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios; verify: `node --test test/context.test.mjs` (CR1, CR2) — 2026-07-01T23:25:31Z
+- [x] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-01T23:25:31Z
+- [x] Ejecutar el gate completo (support) — 2026-07-01T23:25:31Z
 
 ## Log
 
@@ -72,3 +72,4 @@ contradicciones directas (clase A); tres hallazgos menores:
 - **2026-07-01T23:17:25Z** — status: draft → approved
 - **2026-07-01T23:23:49Z** — status: approved → in-progress
 - **2026-07-01T23:23:49Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T23:25:31Z** — Regla de delegación del core ahora dice 'at least' y remite al contrato completo del pack; regla 8 explicita el doble paso --new/--into; snapshot reclasificado; gate verde

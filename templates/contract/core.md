@@ -26,8 +26,9 @@ files.
    human validation.
 7. Stop at `in-validation`. The agent never accepts on the human's behalf.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
-   change, then graduate persistent truth or run
-   `changeledger graduate <id> --skip [reason]`; archive only after that decision.
+   change, then graduate persistent truth (a new spec is a two-step `--new`
+   then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive
+   only after that decision.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
@@ -43,7 +44,8 @@ optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
 
 Delegate only with a clear boundary and benefit. Each delegation prompt states
-ownership, expected output and integration criterion; coding agents must know
+at least ownership, expected output and integration criterion; the task context
+carries the full prompt contract. Coding agents must know
 they share the codebase and must not revert others' work. Do not over-shard or
 overlap write surfaces without an explicit integration plan. Size the model to
 the task's difficulty and risk.

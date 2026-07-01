@@ -446,10 +446,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'close.md': 'fa3f83e7767fdee719d2f5319279207c3103739670c21c110a76375f6a49907c',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
-    // 20260630-225213: fast-path title made literal, mode escalation made imperative, and the
-    // raw-config reference replaced by "each context delivers the effective policy" — all
-    // clarity edits, every rule preserved; no rule retired.
-    'core.md': '5dac7ec7f58ea627359ba61b068b85f95feb661930145dc46890da43d814bc97',
+    // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
+    // reads as a minimum deferring to the task context, and rule 8 states the --new/--into
+    // two-step so graduation is not presented as a settled binary.
+    'core.md': '6444366245256bf656cac1c9133bf06d290359067a40a348e1b07841d5b42ef6',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
@@ -802,4 +802,17 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   assert.match(implement, /# Implementing an Approved Change/);
   assert.match(implement, /Tick\s+tasks as they become true/);
   assert.match(implement, /# Handoff Triage/);
+});
+
+test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
+  const root = repo();
+  const core = buildContext(undefined, root).replace(/\s+/g, ' ');
+  // CR1: the delegation-prompt summary reads as a minimum, not a complete list.
+  assert.match(
+    core,
+    /Each delegation prompt states at least ownership, expected output and integration criterion; the task context carries the full prompt contract/,
+  );
+  // CR2: graduation is not presented as a settled binary — --new alone leaves it pending.
+  assert.match(core, /a new spec is a two-step `--new` then `--into`/);
+  assert.ok(core.length > 0);
 });
