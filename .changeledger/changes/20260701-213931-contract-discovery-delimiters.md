@@ -2,7 +2,7 @@
 id: "20260701-213931"
 title: Descubrimiento temprano del contrato y delimitadores en context
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-01T21:39:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -134,7 +134,7 @@ core en los `AGENTS.md` de los repos consumidores:
 - [x] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos; verify: `node --test test/context.test.mjs` (CR6) — 2026-07-01T22:00:59Z
 - [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7) — 2026-07-01T21:55:55Z
 - [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support) — 2026-07-01T21:56:16Z
-- [ ] Ejecutar el gate completo tras la implementación (support)
+- [x] Ejecutar el gate completo tras la implementación (support) — 2026-07-01T22:01:27Z
 
 ## Log
 
@@ -145,3 +145,4 @@ core en los `AGENTS.md` de los repos consumidores:
 - **2026-07-01T21:53:05Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-01T21:55:55Z** — REFERENCE renovado: trigger inmediato, capability card y centinela END; detección de bloque desactualizado cubierta con el bloque anterior literal
 - **2026-07-01T22:01:00Z** — Delimitadores BEGIN/END con versión y change id; core recortado al centinela; presupuesto y todos los modos cubiertos; suite completa verde (483)
+- **2026-07-01T22:01:57Z** — status: in-progress → in-review
