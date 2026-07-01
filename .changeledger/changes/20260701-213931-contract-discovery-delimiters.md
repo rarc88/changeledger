@@ -2,7 +2,7 @@
 id: "20260701-213931"
 title: Descubrimiento temprano del contrato y delimitadores en context
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-01T21:39:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -146,3 +146,4 @@ core en los `AGENTS.md` de los repos consumidores:
 - **2026-07-01T21:55:55Z** — REFERENCE renovado: trigger inmediato, capability card y centinela END; detección de bloque desactualizado cubierta con el bloque anterior literal
 - **2026-07-01T22:01:00Z** — Delimitadores BEGIN/END con versión y change id; core recortado al centinela; presupuesto y todos los modos cubiertos; suite completa verde (483)
 - **2026-07-01T22:01:57Z** — status: in-progress → in-review
+- **2026-07-01T22:03:22Z** — review → in-validation (delegated subagent, clean context)
