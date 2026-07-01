@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-06-30T15:35:02Z
+updated: 2026-07-01T23:22:20Z
 tags: [ contract ]
 ---
 
@@ -15,6 +15,7 @@ tags: [ contract ]
 > Graduado del change 20260629-165838 (prohibición de contexto truncado).
 > Graduado del change 20260629-210543 (contextos específicos incrementales).
 > Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
+> Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -43,15 +44,28 @@ competidoras.
 La composición especializada es explícita:
 
 - `spec`: autoría + delegación + readiness;
-- `implement`: implementación + delegación + readiness + handoff;
-- `review`: revisión independiente + delegación + handoff;
+- `implement`: implementación + delegación + handoff (la regla TDD efectiva
+  llega por la cabecera de política; el detalle de autoría/readiness pertenece
+  a `spec`);
+- `review`: revisión independiente + handoff (el reviewer es hoja: no recibe la
+  guía general de delegación);
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
 
-El contexto base tiene un presupuesto de 120 líneas y 8192 bytes UTF-8; la
-versión graduada ocupa aproximadamente 100 líneas y 5 KB frente al antiguo
-monolito de 540 líneas y ~30 KB. Los contextos posteriores amplían esa salida y
-fallan cerrado por instrucción si el agente aún no la leyó completa.
+Cada composición de modo o id incluye una cabecera determinista **Effective
+policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
+`tdd`; en modo por id además `review_required` y stages del tipo), de modo que
+el agente no lee el config crudo. El core lleva la línea transversal mínima. En
+modo por id, cada dependencia local de `depends_on` se resume como
+`#id — título — status` sin incorporar su cuerpo; las referencias externas se
+conservan como referencias sin resolución local.
+
+Toda composición base (sin el change seleccionado, cuya longitud pertenece al
+trabajo) tiene presupuesto explícito en tests: core 120 líneas/8192 bytes; spec
+285/11800; implement 170/7300; review 75/3200; release 45/2200; overlays
+blocked 70/3000, validation 45/1700, close 90/3500, discarded 40/1300. Los
+contextos posteriores amplían el core y fallan cerrado por instrucción si el
+agente aún no lo leyó completo.
 
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza

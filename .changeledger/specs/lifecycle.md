@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-01T22:18:32Z
+updated: 2026-07-01T23:21:38Z
 tags: [ lifecycle ]
 ---
 

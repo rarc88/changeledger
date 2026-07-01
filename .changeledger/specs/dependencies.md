@@ -1,6 +1,6 @@
 ---
 title: Política de dependencias
-updated: 2026-07-01T22:23:29Z
+updated: 2026-07-01T23:21:38Z
 tags: [ dependencies ]
 ---
 

@@ -6,6 +6,7 @@ status: done
 created: 2026-06-30T22:52:13Z
 depends_on: [ "20260701-213931" ]
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -142,7 +143,7 @@ evaluación de redundancia.
 - [x] Clarificar `templates/contract/core.md`: título literal para el fast path, escalada imperativa a modos y frases cortas, preservando semántica; verify: `node --test test/context.test.mjs` (CR7) — 2026-07-01T22:43:51Z
 - [x] Definir en `src/commands/context.mjs` y `test/context.test.mjs` presupuestos por modo/overlay separados del change adjunto; verify: `node --test test/context.test.mjs` (CR6, CR7) — 2026-07-01T22:43:51Z
 - [x] Actualizar `templates/contract/**` y `test/context.test.mjs` con clasificación explícita de cada regla preservada, movida o retirada; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7) — 2026-07-01T22:43:51Z
-- [ ] Graduar la arquitectura de `src/commands/context.mjs` y ejecutar el gate completo; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Graduar la arquitectura de `src/commands/context.mjs` y ejecutar el gate completo; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6, CR7) — 2026-07-01T23:22:20Z
 
 ## Log
 
@@ -159,3 +160,4 @@ evaluación de redundancia.
 - **2026-07-01T22:44:31Z** — status: in-progress → in-review
 - **2026-07-01T22:48:10Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-01T23:18:02Z** — validation → done (human accepted)
+- **2026-07-01T23:22:20Z** — graduado a spec `contract-discovery.md`

@@ -1,6 +1,6 @@
 ---
 title: Definition of Ready
-updated: 2026-07-01T22:07:01Z
+updated: 2026-07-01T23:21:38Z
 tags: [ readiness, tdd ]
 ---
 

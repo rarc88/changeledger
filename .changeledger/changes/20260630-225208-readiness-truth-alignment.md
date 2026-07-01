@@ -6,6 +6,7 @@ status: done
 created: 2026-06-30T22:52:08Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -65,3 +66,4 @@ comportamiento antiguo y compiten con el código.
 - **2026-07-01T22:09:22Z** — status: in-progress → in-review
 - **2026-07-01T22:10:38Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-01T23:17:51Z** — validation → done (human accepted)
+- **2026-07-01T23:21:38Z** — graduado a spec `readiness.md`
