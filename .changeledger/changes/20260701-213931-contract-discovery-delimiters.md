@@ -2,7 +2,7 @@
 id: "20260701-213931"
 title: Descubrimiento temprano del contrato y delimitadores en context
 type: feature
-status: in-validation
+status: in-progress
 created: 2026-07-01T21:39:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -53,9 +53,10 @@ core en los `AGENTS.md` de los repos consumidores:
   hasta la línea `END`; si falta, el output está truncado y hay que re-ejecutar
   sin pipes ni filtros.
 - Capability card mínima dentro del bloque: regla dura (no crear/modificar
-  archivos sin change autorizado), modos válidos (`spec`, `implement`,
-  `review`, `release`) y `context <change-id>`. Suficiente para que el agente
-  conozca la herramienta y sepa expandir, sin duplicar el core.
+  archivos sin change autorizado) más un puntero al core como única fuente del
+  workflow, los task contexts y la excepción operacional. Sin enumerar modos
+  (duplicaría el core e invita a saltarse el contexto base) y sin un "Never"
+  absoluto que contradiga la válvula operacional que el propio core define.
 
 **Delimitadores en la salida de `context`:**
 
@@ -89,11 +90,12 @@ core en los `AGENTS.md` de los repos consumidores:
 - **Then** el bloque administrado instruye ejecutar `changeledger context` inmediatamente después de leer el archivo, antes de planificar, investigar o actuar
 - **And** el bloque ya no condiciona la carga a "before creating or modifying files"
 
-### CR2 — El bootstrap incluye capability card mínima
+### CR2 — El bootstrap incluye la regla dura y delega el detalle al core
 - **Given** el bloque administrado generado por `register`
 - **When** un agente lo lee sin ejecutar ningún comando
-- **Then** el bloque enuncia la regla dura de no crear ni modificar archivos sin un change autorizado
-- **And** lista los modos `spec`, `implement`, `review`, `release` y la forma `changeledger context <change-id>`
+- **Then** el bloque enuncia la regla de no crear ni modificar archivos sin un change autorizado
+- **And** remite al core como única fuente del workflow, los task contexts y la excepción operacional
+- **And** no enumera los modos ni usa un "Never" absoluto que contradiga la válvula operacional del core
 
 ### CR3 — El bootstrap verifica completitud por centinela END
 - **Given** el bloque administrado generado por `register`
@@ -147,3 +149,5 @@ core en los `AGENTS.md` de los repos consumidores:
 - **2026-07-01T22:01:00Z** — Delimitadores BEGIN/END con versión y change id; core recortado al centinela; presupuesto y todos los modos cubiertos; suite completa verde (483)
 - **2026-07-01T22:01:57Z** — status: in-progress → in-review
 - **2026-07-01T22:03:22Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:00:36Z** — validation → in-progress (human rejected): card redundante con los modos y contradice la válvula operacional del core
+- **2026-07-01T23:03:27Z** — Corrección tras rechazo humano: la card ya no enumera modos (duplicaba el core e invitaba a saltar el contexto base) ni usa 'Never' absoluto; ahora regla dura + puntero al core, que es la única fuente de la excepción operacional. CR2 y Proposal actualizados.

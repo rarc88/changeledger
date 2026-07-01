@@ -12,9 +12,8 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 > directly, without pipes or filters. If the command is unavailable, stop and
 > restore/install ChangeLedger; do not proceed from memory.
 >
-> Never create or modify files without an authorized ChangeLedger change. Task
-> contexts: `changeledger context spec|implement|review|release` and
-> `changeledger context <change-id>`.
+> Do not create or modify files without an authorized change; the core context
+> defines the workflow, the task contexts, and the narrow operational exception.
 
 The canonical ChangeLedger contract is split into task-focused fragments under
 [`templates/contract/`](templates/contract/). The deterministic

@@ -38,13 +38,19 @@ test('213931 CR1: bootstrap triggers the core load immediately, not only before 
   assert.doesNotMatch(agents, /Before creating or modifying files/);
 });
 
-test('213931 CR2: bootstrap carries the minimal capability card', () => {
+test('213931 CR2: bootstrap carries the hard rule and defers detail to the core', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /Never create or modify files without an authorized ChangeLedger change/);
-  assert.match(agents, /`changeledger context spec\|implement\|review\|release`/);
-  assert.match(agents, /`changeledger context <change-id>`/);
+  assert.match(agents, /Do not create or modify files without an authorized change/);
+  assert.match(
+    agents,
+    /the core context\s+>?\s*defines the workflow, the task contexts, and the narrow operational exception/,
+  );
+  // No mode enumeration (it invites skipping the base context) and no absolute
+  // "Never" (the core's operational-exception valve is the single truth).
+  assert.doesNotMatch(agents, /spec\|implement\|review\|release/);
+  assert.doesNotMatch(agents, /Never create or modify/);
 });
 
 test('213931 CR3: bootstrap verifies completeness through the END sentinel', () => {
