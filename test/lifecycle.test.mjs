@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assertTransition, canTransition } from '../src/lifecycle.mjs';
+import { assertTransition, canTransition, parseLogEvent } from '../src/lifecycle.mjs';
 
 test('CR1: the happy path is allowed at every step', () => {
   const path = ['draft', 'approved', 'in-progress', 'in-validation', 'done'];
@@ -90,4 +90,31 @@ test('discarded: reachable before closing gates, while done/validation stay term
     () => assertTransition('discarded', 'in-progress'),
     /invalid lifecycle transition: discarded → in-progress/,
   );
+});
+
+// 20260630-225210 — shared Log event parser (CR2/CR5).
+test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () => {
+  assert.deepEqual(parseLogEvent('- **2026-06-30T10:36:01Z** — status: in-progress → in-review'), {
+    at: '2026-06-30T10:36:01Z',
+    from: 'in-progress',
+    to: 'in-review',
+    explicit: true,
+  });
+  assert.deepEqual(
+    parseLogEvent(
+      '- **2026-06-30T10:48:03Z** — review → in-validation (delegated subagent, clean context)',
+    ),
+    { at: '2026-06-30T10:48:03Z', from: 'in-review', to: 'in-validation', explicit: false },
+  );
+  assert.deepEqual(
+    parseLogEvent('- **2026-06-30T15:28:42Z** — validation → done (human accepted)'),
+    { at: '2026-06-30T15:28:42Z', from: 'in-validation', to: 'done', explicit: false },
+  );
+  assert.deepEqual(
+    parseLogEvent('- **2026-06-30T15:28:42Z** — status: in-progress → discarded: superseded'),
+    { at: '2026-06-30T15:28:42Z', from: 'in-progress', to: 'discarded', explicit: true },
+  );
+  assert.equal(parseLogEvent('- **2026-06-30T15:28:42Z** — owner → ana (auto)'), null);
+  assert.equal(parseLogEvent('- **2026-06-30T15:28:42Z** — graduado a spec `x.md`'), null);
+  assert.equal(parseLogEvent('- plain decision note'), null);
 });

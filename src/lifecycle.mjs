@@ -55,3 +55,19 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
     throw new Error(`${type} changes must be reviewed before validation — move to in-review first`);
   }
 }
+
+// A lifecycle event recorded in `## Log`. `status:` lines carry an explicit
+// origin; review/validation verdict lines imply it (the writer only emits them
+// from in-review / in-validation). Non-lifecycle entries (owner, graduation,
+// free notes) return null.
+const LOG_EVENT =
+  /\*\*([^*]+)\*\*\s*—\s*(?:status:\s*([a-z-]+)\s*→\s*([a-z-]+)|(review)\s*→\s*([a-z-]+)|(validation)\s*→\s*([a-z-]+))/;
+
+export function parseLogEvent(line) {
+  const m = line.match(LOG_EVENT);
+  if (!m) return null;
+  const at = m[1].trim();
+  if (m[2]) return { at, from: m[2], to: m[3], explicit: true };
+  if (m[4]) return { at, from: 'in-review', to: m[5], explicit: false };
+  return { at, from: 'in-validation', to: m[7], explicit: false };
+}

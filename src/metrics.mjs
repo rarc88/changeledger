@@ -3,16 +3,19 @@
 // Everything is reconstructed from `created` plus the `## Log` status
 // transitions. The viewer renders the result.
 
+import { parseLogEvent } from './lifecycle.mjs';
+
 const ACTIVE = ['approved', 'in-progress', 'in-review', 'in-validation', 'blocked'];
 
 function logBody(change) {
   return (change.stages ?? []).find((s) => s.key === 'log')?.body ?? '';
 }
 
+// Same event grammar as `changeledger check`'s sequence validation — one shared
+// parser so metrics and validation cannot drift (20260630-225210 CR5).
 function logTransition(line) {
-  const m = line.match(/\*\*([^*]+)\*\*\s*—\s*(?:status:.*|review|validation)\s*→\s*([a-z-]+)\b/);
-  if (!m) return null;
-  return { at: m[1].trim(), state: m[2].trim() };
+  const event = parseLogEvent(line);
+  return event ? { at: event.at, state: event.to } : null;
 }
 
 // The moment a change reached `done`: the last lifecycle transition to done, or

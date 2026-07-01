@@ -62,10 +62,10 @@ confirmada.
 
 ## Plan
 
-- [ ] Extraer o ampliar en `src/lifecycle.mjs`/`src/metrics.mjs` el parser de eventos necesario para reproducir el Log; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs` (CR2, CR3, CR5)
-- [ ] Incorporar la validación secuencial en `src/check.mjs` con diagnósticos de línea y compatibilidad legacy; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
-- [ ] Reparar la entrada duplicada de `.changeledger/changes/20260629-234939-restore-dynamic-context-contract.md` y comprobarla contra `src/check.mjs`; verify: `node bin/changeledger.mjs check 20260629-234939` (CR4)
-- [ ] Graduar la semántica de `src/lifecycle.mjs` a `.changeledger/specs/lifecycle.md` y `.changeledger/specs/metrics.md`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5)
+- [x] Extraer o ampliar en `src/lifecycle.mjs`/`src/metrics.mjs` el parser de eventos necesario para reproducir el Log; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs` (CR2, CR3, CR5) — 2026-07-01T22:19:51Z
+- [x] Incorporar la validación secuencial en `src/check.mjs` con diagnósticos de línea y compatibilidad legacy; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3) — 2026-07-01T22:19:52Z
+- [x] Reparar la entrada duplicada de `.changeledger/changes/20260629-234939-restore-dynamic-context-contract.md` y comprobarla contra `src/check.mjs`; verify: `node bin/changeledger.mjs check 20260629-234939` (CR4) — 2026-07-01T22:19:52Z
+- [x] Graduar la semántica de `src/lifecycle.mjs` a `.changeledger/specs/lifecycle.md` y `.changeledger/specs/metrics.md`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5) — 2026-07-01T22:19:52Z
 
 ## Log
 
@@ -73,3 +73,4 @@ confirmada.
 - **2026-07-01T21:51:30Z** — status: draft → approved
 - **2026-07-01T22:11:24Z** — status: approved → in-progress
 - **2026-07-01T22:11:24Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T22:19:52Z** — parseLogEvent compartido en lifecycle.mjs (metrics lo reutiliza); validación secuencial en check con resync legacy acotado (solo status: explícito, hacia delante, pre-review) y aristas legacy literales; duplicado de 234939 eliminado y cierre en prosa de 222911 formalizado; specs lifecycle/metrics graduadas; 488 tests y 149 changes verdes
