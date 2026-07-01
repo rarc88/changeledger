@@ -136,12 +136,12 @@ evaluación de redundancia.
 
 ## Plan
 
-- [ ] Diseñar en `src/commands/context.mjs` una cabecera de política efectiva y resumen de dependencias reutilizando config/modelo de repo; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Derivar en `src/commands/context.mjs` la línea de política transversal del core y ajustar `templates/contract/core.md` para dejar de remitir al config crudo; verify: `node --test test/context.test.mjs` (CR8)
-- [ ] Reorganizar `templates/contract/**` para adelgazar review e implement sin perder reglas propietarias; verify: `node --test test/context.test.mjs` (CR4, CR5, CR7)
-- [ ] Clarificar `templates/contract/core.md`: título literal para el fast path, escalada imperativa a modos y frases cortas, preservando semántica; verify: `node --test test/context.test.mjs` (CR7)
-- [ ] Definir en `src/commands/context.mjs` y `test/context.test.mjs` presupuestos por modo/overlay separados del change adjunto; verify: `node --test test/context.test.mjs` (CR6, CR7)
-- [ ] Actualizar `templates/contract/**` y `test/context.test.mjs` con clasificación explícita de cada regla preservada, movida o retirada; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Diseñar en `src/commands/context.mjs` una cabecera de política efectiva y resumen de dependencias reutilizando config/modelo de repo; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-01T22:43:51Z
+- [x] Derivar en `src/commands/context.mjs` la línea de política transversal del core y ajustar `templates/contract/core.md` para dejar de remitir al config crudo; verify: `node --test test/context.test.mjs` (CR8) — 2026-07-01T22:43:51Z
+- [x] Reorganizar `templates/contract/**` para adelgazar review e implement sin perder reglas propietarias; verify: `node --test test/context.test.mjs` (CR4, CR5, CR7) — 2026-07-01T22:43:51Z
+- [x] Clarificar `templates/contract/core.md`: título literal para el fast path, escalada imperativa a modos y frases cortas, preservando semántica; verify: `node --test test/context.test.mjs` (CR7) — 2026-07-01T22:43:51Z
+- [x] Definir en `src/commands/context.mjs` y `test/context.test.mjs` presupuestos por modo/overlay separados del change adjunto; verify: `node --test test/context.test.mjs` (CR6, CR7) — 2026-07-01T22:43:51Z
+- [x] Actualizar `templates/contract/**` y `test/context.test.mjs` con clasificación explícita de cada regla preservada, movida o retirada; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7) — 2026-07-01T22:43:51Z
 - [ ] Graduar la arquitectura de `src/commands/context.mjs` y ejecutar el gate completo; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
 
 ## Log
@@ -153,3 +153,6 @@ evaluación de redundancia.
 - **2026-07-01T21:51:40Z** — status: draft → approved
 - **2026-07-01T22:34:08Z** — status: approved → in-progress
 - **2026-07-01T22:34:08Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-01T22:43:07Z** — Presupuestos base elegidos (sin change adjunto): core 120L/8192B, spec 285L/11800B, implement 170L/7300B, review 75L/3200B, release 45L/2200B; overlays blocked 70L/3000B, in-validation 45L/1700B, done 90L/3500B, discarded 40L/1300B. Medidos con delimitadores presentes.
+- **2026-07-01T22:43:16Z** — Diseño: cabecera Effective policy derivada de config con defaults resueltos (language=en, tdd=true). Core: linea transversal (language+tdd). Modos: language+tdd. Id: anade review_required(type) y stages(type), mas resumen de dependencias locales (id/titulo/status); refs externas project:id quedan como referencia. Review pack pierde delegation.md (MODE_CONTEXT), conserva review+handoff. Implement pack pierde readiness.md (autoria); la regla TDD efectiva viaja en la cabecera + regla failing-test de implement.md. core.md: titulo literal, escalada imperativa a modos, fin de remision a config crudo (CR7 replaced, semantica preservada).
+- **2026-07-01T22:44:10Z** — Tareas 1-6 done. Tarea 7 mezcla dos pasos: (a) ejecutar el gate completo -> hecho, pnpm verify verde (513 tests, lint, check); (b) graduar la arquitectura -> paso post-aceptacion, se difiere al graduate tras done. Se deja la tarea abierta hasta la graduacion; check valida OK.
