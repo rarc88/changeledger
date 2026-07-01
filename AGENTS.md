@@ -29,8 +29,10 @@ bootstrap above, not a linked or copied contract.
   optional integrations.
 - Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
   allowed only when they are mature and justified: the CLI uses `yaml` for
-  config/frontmatter parsing, and the viewer uses `lit-html`, `marked`,
-  `dompurify` and `mermaid` for templating, Markdown, sanitization and diagrams.
+  config/frontmatter parsing and `commander` for argument/option/subcommand
+  parsing with built-in errors and help, and the viewer uses `lit-html`,
+  `marked`, `dompurify` and `mermaid` for templating, Markdown, sanitization and
+  diagrams.
 - `pnpm verify` (lint + test + `changeledger check`) is the full quality gate. The
   versioned `hooks/pre-commit` runs `lint-staged`, `pnpm test` and `changeledger check`
   so staged formatting stays compatible with partial commits.
