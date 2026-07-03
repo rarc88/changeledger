@@ -2,11 +2,12 @@
 id: "20260703-150231"
 title: Bloquear cierre y graduación inconsistentes
 type: bug
-status: in-review
+status: done
 created: 2026-07-03T15:02:31Z
 depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -91,3 +92,7 @@ relacionados no deben convertirse accidentalmente en gates.
 - **2026-07-03T17:10:51Z** — review → in-progress (retry): CR6 falla: aceptación y los tres modos de graduación llaman loadRepo(cwd) antes del check scoped; si otro change no se puede parsear, loadRepo lanza y bloquea el seleccionado válido. Reproducido con un archivo ajeno sin frontmatter: validation(pass) y skipGraduation fallan con 'Change is missing its frontmatter block' aunque el seleccionado permanece byte por byte intacto. Aislar la carga/parseo al change seleccionado y añadir cobertura de error de parseo ajeno.
 - **2026-07-03T17:13:37Z** — Corrección de review: aceptación, viewer y graduación resuelven y validan sólo el archivo seleccionado; siblings no parseables quedan fuera del gate scoped. Regresión añadida en las tres rutas.
 - **2026-07-03T17:13:37Z** — status: in-progress → in-review
+- **2026-07-03T17:15:23Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-03T22:43:18Z** — validation → done (human accepted)
+- **2026-07-03T23:21:32Z** — graduado a spec `lifecycle.md`
+- **2026-07-03T23:21:32Z** — graduado a spec `validation.md`

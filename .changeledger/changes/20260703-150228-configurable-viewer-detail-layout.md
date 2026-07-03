@@ -2,11 +2,12 @@
 id: "20260703-150228"
 title: Configurar el layout del detalle en el viewer
 type: feature
-status: in-validation
+status: done
 created: 2026-07-03T15:02:28Z
 depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -110,3 +111,5 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 - **2026-07-03T22:36:05Z** — status: in-progress → in-review
 - **2026-07-03T22:37:24Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
 - **2026-07-03T22:37:24Z** — status: in-review → in-validation
+- **2026-07-03T22:43:07Z** — validation → done (human accepted)
+- **2026-07-03T23:21:10Z** — graduado a spec `viewer.md`

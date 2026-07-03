@@ -6,6 +6,7 @@ status: done
 created: 2026-07-03T22:00:14Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -93,3 +94,4 @@ el core local-first y no es necesario para resolver la espera artificial.
 - **2026-07-03T22:55:47Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. CR3 confirmado como trazado manual salto a salto vía changeledger context <id>, no resolución automática de la cadena — consistente con el diseño sin orquestación oculta.
 - **2026-07-03T22:55:48Z** — status: in-review → in-validation
 - **2026-07-03T22:56:28Z** — validation → done (human accepted)
+- **2026-07-03T23:21:51Z** — graduado a spec `lifecycle.md`

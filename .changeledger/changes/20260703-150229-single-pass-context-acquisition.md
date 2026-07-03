@@ -2,11 +2,12 @@
 id: "20260703-150229"
 title: Evitar cargas duplicadas del contexto
 type: bug
-status: in-review
+status: done
 created: 2026-07-03T15:02:29Z
 depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -85,3 +86,6 @@ repita mientras el resultado completo continúe en contexto.
 - **2026-07-03T16:53:35Z** — owner → Roberto Ruiz (auto)
 - **2026-07-03T16:58:44Z** — La captura completa de una sola pasada quedó exigida en bootstrap, core y contextos especializados; la matriz BEGIN/END cubre todos los modos y estados sin ampliar los presupuestos.
 - **2026-07-03T16:59:49Z** — status: in-progress → in-review
+- **2026-07-03T17:01:59Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-03T22:43:11Z** — validation → done (human accepted)
+- **2026-07-03T23:21:20Z** — graduado a spec `contract-discovery.md`

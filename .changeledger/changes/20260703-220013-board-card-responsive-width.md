@@ -2,10 +2,11 @@
 id: "20260703-220013"
 title: Evitar desbordamiento y ampliar columnas del board
 type: bug
-status: in-validation
+status: done
 created: 2026-07-03T22:00:13Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -78,3 +79,5 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **2026-07-03T23:00:45Z** — status: in-progress → in-review
 - **2026-07-03T23:12:40Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. Fórmula verificada aritméticamente: 6×190+5×14+32=1242px cabe en 1280px con margen para scrollbar.
 - **2026-07-03T23:12:40Z** — status: in-review → in-validation
+- **2026-07-03T23:15:27Z** — validation → done (human accepted)
+- **2026-07-03T23:21:51Z** — graduado a spec `viewer.md`

@@ -1,6 +1,6 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-07-03T17:06:55Z
+updated: 2026-07-03T23:21:32Z
 tags: [ validation ]
 ---
 

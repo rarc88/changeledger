@@ -2,11 +2,12 @@
 id: "20260703-150232"
 title: Reabrir changes aceptados con cierre pendiente
 type: feature
-status: in-validation
+status: done
 created: 2026-07-03T15:02:32Z
 depends_on: [ "20260703-150231" ]
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -124,3 +125,5 @@ change nuevo.
 - **2026-07-03T23:15:24Z** — Review fail --retry: .validation-controls es compartida por validationPanel() (3 hijos: pass/field/fail) y reopenPanel() (2 hijos); mi fix anterior redujo la clase a 2 columnas y rompió el panel accept/reject (el tercer botón caía en fila implícita). Corrección: reopenPanel usa ahora su propia clase .reopen-controls (minmax(190px,1fr) auto); .validation-controls vuelve a su template original de 3 columnas (auto minmax(190px,1fr) auto). Media query móvil actualizada para ambas clases. Añadido test de regresión (viewer-metadata.test.mjs) que falla si ambos paneles vuelven a compartir clase con conteo de hijos incompatible. Verificado en preview 1400px: reopen 731/117px, accept/reject 112/593/133px.
 - **2026-07-03T23:17:39Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. Confirmada separación limpia de clases (.validation-controls solo en validationPanel, .reopen-controls solo en reopenPanel) y que el test de regresión detecta la reincidencia.
 - **2026-07-03T23:17:39Z** — status: in-review → in-validation
+- **2026-07-03T23:18:01Z** — validation → done (human accepted)
+- **2026-07-03T23:21:40Z** — graduado a spec `lifecycle.md`

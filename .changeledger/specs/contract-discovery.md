@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-03T17:00:00Z
+updated: 2026-07-03T23:21:20Z
 tags: [ contract ]
 ---
 
