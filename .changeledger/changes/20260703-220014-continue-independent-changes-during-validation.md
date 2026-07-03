@@ -2,7 +2,7 @@
 id: "20260703-220014"
 title: Continuar cambios independientes durante validación
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-03T22:00:14Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -90,3 +90,5 @@ el core local-first y no es necesario para resolver la espera artificial.
 - **2026-07-03T22:47:31Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-03T22:53:50Z** — pnpm verify: 534 pruebas ok (+2 nuevas: 220014 CR1/CR4 y CR2/CR3), 157 changes válidos. Redacción escogida: la parada de in-validation queda scoped a ese change; el chequeo de cadena transitiva reutiliza changeledger context <id> salto a salto, sin comando nuevo.
 - **2026-07-03T22:53:50Z** — status: in-progress → in-review
+- **2026-07-03T22:55:47Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. CR3 confirmado como trazado manual salto a salto vía changeledger context <id>, no resolución automática de la cadena — consistente con el diseño sin orquestación oculta.
+- **2026-07-03T22:55:48Z** — status: in-review → in-validation
