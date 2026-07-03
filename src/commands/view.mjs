@@ -41,7 +41,11 @@ function parseViewArgs(args) {
   return { localOnly, port };
 }
 
-export async function view(args = [], cwd = process.cwd()) {
+export async function view(
+  args = [],
+  cwd = process.cwd(),
+  { openBrowser: shouldOpen = true } = {},
+) {
   const { localOnly, port: requestedPort } = parseViewArgs(args);
   resolveProjects(cwd, localOnly); // fail fast if local mode outside a repo
 
@@ -54,7 +58,7 @@ export async function view(args = [], cwd = process.cwd()) {
   const port = await listen(server, host, requestedPort);
   const url = `http://${host}:${port}`;
   console.log(`ChangeLedger viewer → ${url}  (Ctrl+C to stop)`);
-  openBrowser(url);
+  if (shouldOpen) openBrowser(url);
   return server;
 }
 

@@ -1310,7 +1310,7 @@ test('225212 CR4: view accepts "." combined with a port', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const server = await view(['.', '0'], root);
+  const server = await view(['.', '0'], root, { openBrowser: false });
   try {
     assert.equal(typeof server.address().port, 'number');
   } finally {
