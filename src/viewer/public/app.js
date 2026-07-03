@@ -321,7 +321,7 @@ export function reopenPanel(status) {
       <h2 id="reopen-title">Reopen completed change</h2>
       <p>Return this change to active work while preserving why its completion was reconsidered.</p>
     </div>
-    <div class="validation-controls">
+    <div class="reopen-controls">
       <div class="rejection-field">
         <label for="reopen-reason">Reason for reopening</label>
         <input

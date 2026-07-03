@@ -497,6 +497,22 @@ test('005437 CR2: opening another validation panel clears the previous form erro
   assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
 });
 
+test('150232 CR-retry: reopen and validation panels never share a grid container class', () => {
+  // Regression: reopenPanel() (2 children) once reused .validation-controls,
+  // whose 3-track grid template is owned by validationPanel() (3 children).
+  // Sharing the class silently breaks whichever panel's child count doesn't
+  // match the other's track count.
+  const validation = parse(validationPanel());
+  const validationControls = validation.querySelector('.validation-controls');
+  assert.equal(validationControls.children.length, 3);
+  assert.equal(validation.querySelector('.reopen-controls'), null);
+
+  const reopen = parse(reopenPanel('done'));
+  const reopenControls = reopen.querySelector('.reopen-controls');
+  assert.equal(reopenControls.children.length, 2);
+  assert.equal(reopen.querySelector('.validation-controls'), null);
+});
+
 test('150232 CR4: only a done change exposes an accessible reopen action', () => {
   const done = parse(reopenPanel('done'));
   assert.equal(

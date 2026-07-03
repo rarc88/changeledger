@@ -725,6 +725,13 @@ body {
 }
 .validation-controls {
   display: grid;
+  grid-template-columns: auto minmax(190px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 15px;
+}
+.reopen-controls {
+  display: grid;
   grid-template-columns: minmax(190px, 1fr) auto;
   align-items: end;
   gap: 10px;
@@ -1354,7 +1361,8 @@ body {
     width: 100%;
     flex: 0 0 auto;
   }
-  .validation-controls {
+  .validation-controls,
+  .reopen-controls {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
