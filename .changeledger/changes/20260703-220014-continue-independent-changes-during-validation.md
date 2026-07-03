@@ -2,7 +2,7 @@
 id: "20260703-220014"
 title: Continuar cambios independientes durante validación
 type: feature
-status: in-validation
+status: done
 created: 2026-07-03T22:00:14Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -80,7 +80,7 @@ el core local-first y no es necesario para resolver la espera artificial.
 
 - [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:04Z
 - [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:05Z
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:53:50Z
 
 ## Log
 
@@ -92,3 +92,4 @@ el core local-first y no es necesario para resolver la espera artificial.
 - **2026-07-03T22:53:50Z** — status: in-progress → in-review
 - **2026-07-03T22:55:47Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. CR3 confirmado como trazado manual salto a salto vía changeledger context <id>, no resolución automática de la cadena — consistente con el diseño sin orquestación oculta.
 - **2026-07-03T22:55:48Z** — status: in-review → in-validation
+- **2026-07-03T22:56:28Z** — validation → done (human accepted)
