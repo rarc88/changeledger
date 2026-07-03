@@ -17,10 +17,16 @@ to a work branch or ask the human before continuing. Inspect the worktree first.
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
-Commit the approved change documentation before touching implementation code.
-Implement one change at a time. Commit a completed unit before continuing when
-another task, change or edit of the same surface could make attribution
-ambiguous; do not wait until the end to reconstruct mixed diffs.
+After `approved → in-progress`, create a baseline commit of the approved change
+document before code. Implement one change at a time.
+
+Commit completed units with their tasks and Log when later work could obscure
+attribution. Do not create a dedicated commit for a lifecycle-only transition.
+Coalesce it with the nearest meaningful commit; for example, include
+`in-progress → in-review` with the final implementation unit. Do not wait until
+the end to reconstruct mixed diffs. If a handoff precedes the next
+meaningful commit, one consolidated checkpoint persists pending state; record
+why and never create one per transition.
 
 Commit messages use the canonical shape:
 
@@ -54,15 +60,16 @@ type requires independent review; otherwise move to `in-validation` and stop.
 After review `fail --retry`, keep the candidate correction uncommitted while a
 fresh clean-context reviewer checks it. If it fails again, iterate on that same
 diff. Do not start another task or change while a correction waits: the
-worktree is its isolation boundary. After `pass`, commit the confirmed correction
-with its related ledger truth before asking for human validation.
+worktree is its isolation boundary. After `pass`, commit the confirmed correction,
+tests and ledger before human validation; this is meaningful correction evidence,
+not a status-only commit.
 
 After human rejection (`in-validation → in-progress`), run
 `changeledger context <id>` before modifying implementation; keep the correction
 uncommitted until the human confirms it fixes the reported failure. Do not start
 another task or change while a correction waits; iterate on
-the same diff if it does not. After human acceptance, graduate or record a skip,
-then commit the correction with its ledger truth.
+the same diff if it does not. After human acceptance, graduate or record a skip
+and include correction plus ledger in the final closure commit.
 
 These exceptions prevent false fix attempts from becoming permanent history;
 they do not relax intermediate commits for already verified units.

@@ -2,7 +2,7 @@
 id: "20260703-150230"
 title: Commits por evidencia significativa del change
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-03T15:02:30Z
 depends_on: []
 release_impact: minor
@@ -84,9 +84,9 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 
 ## Plan
 
-- [ ] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-150230` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T15:24:18Z
+- [x] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-150230` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T15:24:18Z
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T16:48:24Z
 
 ## Log
 
@@ -96,3 +96,5 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 - **2026-07-03T15:11:49Z** — status: draft → approved
 - **2026-07-03T15:17:07Z** — status: approved → in-progress
 - **2026-07-03T15:17:07Z** — owner → Roberto Ruiz (auto)
+- **2026-07-03T16:48:29Z** — Implementado: commits por evidencia significativa, transiciones coalescidas, cierre consolidado y checkpoint único de handoff; tests contractuales y pnpm verify pasan (3 warnings preexistentes de lint).
+- **2026-07-03T16:48:33Z** — status: in-progress → in-review

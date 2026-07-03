@@ -145,23 +145,25 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
   assert.match(contract, /Inspect the\s+worktree/);
   assert.match(contract, /unrelated changes exist/);
-  assert.match(
-    contract,
-    /Commit the approved change documentation before touching implementation code/,
-  );
-  assert.match(contract, /Implement one change at a time/);
-  assert.match(contract, /Commit a completed unit before continuing/);
+  assert.match(contract, /baseline commit of the approved change\s+document before code/);
+  assert.match(contract, /Implement one\s+change at a\s+time/);
+  assert.match(contract, /Commit completed units/);
   assert.match(
     contract,
     /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
   );
   assert.match(
     contract,
-    /After `pass`, commit the confirmed correction[\s\S]*before asking for\s+human validation/,
+    /After `pass`, commit the confirmed correction[\s\S]*before human validation/,
   );
   assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
   assert.match(contract, /do not start another task or change\s+while a correction waits/i);
   assert.match(contract, /If shared files make a combined commit\s+unavoidable/);
+  assert.match(contract, /approved.*in-progress.*baseline commit/i);
+  assert.match(contract, /Do not create a dedicated commit for a\s+lifecycle-only transition/);
+  assert.match(contract, /coalesce it with the nearest meaningful commit/i);
+  assert.match(contract, /handoff[\s\S]*one consolidated\s+checkpoint/i);
+  assert.match(contract, /one final closure commit[\s\S]*graduation/i);
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {

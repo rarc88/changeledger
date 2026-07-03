@@ -39,6 +39,12 @@ not necessarily that a spec was created.
 The graduation link remains derivable from the Log marker `graduado a spec`,
 which carries the spec link, rather than from the boolean flag.
 
+After `--into` or `--skip`, create one final closure commit that coalesces any
+pending `in-review → in-validation → done` ledger updates with the graduation
+decision and durable spec edit. Do not create separate commits whose only
+content is one of those transitions. If no lifecycle state is pending, the
+graduation or skip itself remains the meaningful closure evidence.
+
 Operational inspection and visibility:
 
 - `changeledger list [--status S] [--type T] [--json]`

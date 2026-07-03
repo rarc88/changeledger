@@ -8,3 +8,9 @@ change to `in-progress`; run `changeledger context <id>` before modifying
 implementation, update Specification/Plan as needed and repeat review when
 configured. The agent never accepts on the human's behalf. `done` and `discarded`
 never reopen.
+
+The validation transition alone does not require a dedicated commit. After
+acceptance, resolve graduation or skip first; the close overlay then requires one
+final closure commit containing the pending lifecycle Log and graduation truth.
+After rejection, follow correction isolation instead of committing an
+unconfirmed attempt.

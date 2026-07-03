@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-01T23:21:38Z
+updated: 2026-07-03T15:18:11Z
 tags: [ lifecycle ]
 ---
 
@@ -105,6 +105,19 @@ allí: no crea un chore. Si es independiente, propone al humano tipo, título y
 motivo y espera autorización antes de crear el `draft`. Lo demasiado vago se
 menciona sin crear archivos. Al alcanzar `done`, comparte además una retrospectiva
 breve del ciclo; `discarded` no implica un ciclo de implementación completado.
+
+**Fronteras de commit.** Git conserva evidencia significativa y el Log conserva
+la granularidad temporal. Al iniciar, `approved → in-progress` se commitea como
+baseline con el documento aprobado antes del código. Cada unidad de
+implementación agrupa código, tests y verdad del ledger relacionada; la
+transición a `in-review` puede acompañar la última unidad. Un movimiento que solo
+cambia status y Log no exige commit propio: se agrupa con el commit sustantivo
+más cercano. Tras aceptación, `done`, graduación o skip y la edición durable de
+spec forman un único commit final de cierre. Un handoff real entre sesión,
+agente o worktree puede persistir todo el estado pendiente en un único
+checkpoint justificado, nunca en un commit por transición. Las correcciones no
+confirmadas tras review o rechazo humano conservan las reglas de aislamiento del
+worktree hasta superar su gate.
 
 ## Intención y ejecución
 

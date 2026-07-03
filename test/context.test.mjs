@@ -179,7 +179,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     ['implement', /Do not start another task or change while a correction waits/],
     [
       'implement',
-      /After human acceptance, graduate or record a skip, then commit the correction with its ledger truth/,
+      /After human acceptance, graduate or record a skip and include correction plus ledger in the final closure commit/,
     ],
     ['review', /Deep security, SAST and lint belong to dedicated tools/],
     ['review', /ChangeLedger does not reimplement them/],
@@ -310,12 +310,16 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ],
     ['implement', /feat\(scope\): description \[#20260629-234939\]/],
     ['implement', /Never implement approved changes on `main`, `master`, or `dev`/],
-    ['implement', /Commit the approved change documentation before touching implementation code/],
+    ['implement', /baseline commit of the approved change\s+document before code/],
+    ['implement', /approved.*in-progress.*baseline commit/i],
+    ['implement', /Do not create a dedicated commit for a\s+lifecycle-only transition/],
+    ['implement', /coalesce it with the nearest meaningful commit/i],
+    ['implement', /handoff.*one consolidated.*checkpoint/i],
     ['implement', /Follow the Specification exactly/],
     ['implement', /Tick tasks as they become true, not in a batch at the end/],
     ['implement', /Leave no TODO\/FIXME, dead code or unrelated residue/],
     ['implement', /move to `in-review` if the type requires independent review/],
-    ['implement', /do not wait until the end to reconstruct mixed diffs/],
+    ['implement', /Do not wait until the end to reconstruct mixed diffs/],
     ['implement', /changeledger status <id> <status>/],
     ['implement', /changeledger task <id> done\|block <n> \[reason\]/],
     ['implement', /changeledger log <id> "<message>"/],
@@ -348,6 +352,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['review', /changeledger review <id> pass/],
     ['review', /changeledger review <id> fail --retry "<reason>"/],
     ['review', /changeledger review <id> fail --block "<reason>"/],
+    ['review', /review verdict alone needs no commit/i],
     [
       'review',
       /Types without `review_required` move directly from `in-progress` to `in-validation`/,
@@ -367,6 +372,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /seed from the change's Specification or Proposal/],
     ['close', /remove the explicit scaffold marker/],
     ['close', /`--into` refuses an unrefined marked scaffold/],
+    ['close', /one final closure commit.*graduation/i],
     ['blocked', /blocked task, an external impediment or a review escalation/],
     ['blocked', /Inspect the relevant task when one exists and read the Log/],
     ['blocked', /resolution requires scope or product judgment, ask the human/],
@@ -382,6 +388,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['validation', /Do not modify the result or mark it done/],
     ['validation', /Rejection requires a reason and returns the same change to `in-progress`/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
+    ['validation', /validation transition alone does not require a dedicated commit/i],
     ['discarded', /Preserve its reason and dependencies/],
     ['discarded', /requires a new authorized change/],
     [
@@ -443,7 +450,10 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
-    'close.md': 'fa3f83e7767fdee719d2f5319279207c3103739670c21c110a76375f6a49907c',
+    // 20260703-150230: existing traceability rules are preserved but their Git
+    // boundaries are replaced: baseline first, lifecycle-only moves coalesced,
+    // verified corrections remain meaningful, and graduation owns final closure.
+    'close.md': 'db3311fa7d770b6ea1ca1deeb1b5a834034126b511f4b14b91ed7b0644a83738',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -453,14 +463,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
-    'implement.md': 'ba9c5ee4e5e82bfda28364c27dccbf595ddb083d0fe026f297f977fda78414af',
+    'implement.md': 'e7cf8ab2ff61bd45068a10a7cff7de9b293118e778ba10003d0895d83306dae4',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
-    'review.md': '4cd4b1b14fc6e0ea7aabff5cecaa9b57d47db4d633a87551a62077254078821a',
+    'review.md': 'bee85dbd9fbc6c861d85cd7fbcc2700adb5fe0c13ff8db65eefe86a3a01ab2ff',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
-    'validation.md': 'fe60be7ad4a6bf905f6416346eef0e7c9b7b8014e2784cec38645318f667c0e3',
+    'validation.md': 'b511437a4eb3c83da0afc34ac24ba428489064862d4a7a598453c2c83f365358',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
