@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-03T22:17:20Z
+updated: 2026-07-03T22:55:00Z
 tags: [ viewer ]
 ---
 
@@ -13,6 +13,7 @@ tags: [ viewer ]
 > Graduado del change 20260627-215619 (navegación entre specs por enlaces).
 > Graduado del change 20260628-113924 (editor amigable y migración de config).
 > Actualizado por el change 20260703-150228 (layout y ancho configurables del detalle).
+> Actualizado por el change 20260703-220013 (ancho responsive y wrapping del board).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -40,7 +41,12 @@ dependiente, y los ciclos reales siguen terminando en un SVG finito.
 Los estados se filtran desde un menú compacto de selección múltiple. `Clear`
 restablece tanto los statuses como la visibilidad `Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las siete columnas
-normales. Table conserva ID, título, type, status y progreso en una línea, centra
+normales. Cada columna usa un ancho responsive entre 320 px y 400 px: en vez de
+comprimirse para que las siete quepan simultáneamente, `.board` ofrece scroll
+horizontal cuando exceden el viewport. Título, id y owner de la card envuelven
+tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
+card; por debajo de 680 px las columnas siguen apilándose a ancho completo.
+Table conserva ID, título, type, status y progreso en una línea, centra
 verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
 badge delineado distinto del type sólido. Los details presentan la validación
 humana como una única acción pendiente (controles deshabilitados durante el

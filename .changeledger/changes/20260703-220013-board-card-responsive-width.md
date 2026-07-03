@@ -2,7 +2,7 @@
 id: "20260703-220013"
 title: Evitar desbordamiento y ampliar columnas del board
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-03T22:00:13Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -56,10 +56,10 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 
 ## Plan
 
-- [ ] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] Record the board layout guarantees in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-220013` (CR1, CR2, CR3, CR4)
-- [ ] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path (support)
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4) — 2026-07-03T22:46:11Z
+- [x] Record the board layout guarantees in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-220013` (CR1, CR2, CR3, CR4) — 2026-07-03T22:46:11Z
+- [x] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path (support) — 2026-07-03T22:46:12Z
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:46:12Z
 
 ## Log
 
@@ -67,3 +67,6 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **2026-07-03T22:07:19Z** — status: draft → approved
 - **2026-07-03T22:42:39Z** — status: approved → in-progress
 - **2026-07-03T22:42:39Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-03T22:46:20Z** — Fix es puramente CSS (markup de card sin cambios); no hay comportamiento JS que testear con node --test. Verificación: overflow-wrap:anywhere en card-title/card-id/owner probado inyectando un token de 90 chars sin espacios (no desborda la card), .column crece 320-400px con scroll horizontal en vez de comprimirse (2048px/1280px), y el layout móvil (680px) sigue apilando sin overflow horizontal.
+- **2026-07-03T22:46:40Z** — pnpm verify: 532 pruebas ok, 157 changes válidos.
+- **2026-07-03T22:46:45Z** — status: in-progress → in-review

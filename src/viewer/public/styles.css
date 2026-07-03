@@ -582,10 +582,10 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  width: clamp(238px, calc((100vw - 116px) / 7), 320px);
-  min-width: 238px;
-  max-width: 320px;
-  flex: 0 0 clamp(238px, calc((100vw - 116px) / 7), 320px);
+  width: clamp(320px, 18vw, 400px);
+  min-width: 320px;
+  max-width: 400px;
+  flex: 0 0 clamp(320px, 18vw, 400px);
 }
 .column-head {
   display: flex;
@@ -630,6 +630,8 @@ body {
   font-family: ui-monospace, monospace;
   color: var(--muted);
   font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .type-tag {
   font-size: 10px;
@@ -662,6 +664,7 @@ body {
 .card-title {
   font-weight: 600;
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .progress {
   margin-top: 9px;
@@ -677,6 +680,7 @@ body {
 }
 .card-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 7px;
   font-size: 11px;
@@ -787,6 +791,7 @@ body {
 }
 .owner {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .card.archived {
   opacity: 0.55;
