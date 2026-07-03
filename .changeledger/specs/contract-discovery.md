@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-01T23:29:25Z
+updated: 2026-07-03T17:00:00Z
 tags: [ contract ]
 ---
 
@@ -18,6 +18,7 @@ tags: [ contract ]
 > Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
 > Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
 > Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
+> Actualizado por el change 20260703-150229 (adquisición completa en una sola pasada y recarga sólo por transición real).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -71,6 +72,17 @@ blocked 70/3000, validation 45/1700, close 90/3500, discarded 40/1300. Los
 contextos posteriores amplían el core y fallan cerrado por instrucción si el
 agente aún no lo leyó completo.
 
+Cada invocación se captura completa desde el primer intento. El consumidor no
+solicita previews, resúmenes ni límites voluntarios de líneas, bytes o tokens y,
+cuando su herramienta expone un presupuesto de salida, reserva capacidad para
+la respuesta entera. Una vista parcial nunca es contexto operativo válido. La
+ausencia de END después de esa captura deliberadamente completa es recuperación
+excepcional: se detiene el trabajo y se repite con mayor capacidad.
+
+Mientras el core completo siga disponible en la conversación activa, un nuevo
+mensaje humano por sí solo no provoca otra carga. Sólo una transición real de
+tarea o lifecycle solicita el modo o change id especializado que corresponda.
+
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
 packs ajenos; snapshots SHA-256 normalizados de todos los fragmentos hacen
@@ -84,11 +96,13 @@ de actualizar el snapshot.
 `<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
 `CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
 `changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
-—antes de planificar, investigar o actuar— y leer la salida completa hasta la
-línea `CHANGELEDGER CONTEXT END`. La completitud se verifica por centinela: toda
+—antes de planificar, investigar o actuar— y conservar stdout completo desde esa
+primera ejecución hasta la línea `CHANGELEDGER CONTEXT END`, sin previews ni
+límites voluntarios. La completitud se verifica por centinela: toda
 salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode>
 [— change: #<id>] — v<version> =====` y cierra con una línea END autodetectora;
-si falta, la salida llegó truncada y hay que re-ejecutar sin pipes ni filtros.
+si falta pese a la captura completa, la salida llegó truncada y hay que detenerse
+y re-ejecutar con mayor capacidad como recuperación excepcional.
 Falla cerrado si el CLI no está disponible. El bloque incluye además la regla
 dura —no crear ni modificar archivos sin change autorizado— con un puntero al
 core como única fuente del workflow, los task contexts y la excepción

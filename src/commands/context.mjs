@@ -26,7 +26,7 @@ const STATUS_CONTEXT = {
   discarded: { mode: 'discarded', fragments: ['discarded'] },
 };
 const INCREMENTAL_NOTICE = `This incremental context extends the complete core context already read.
-If you have not read the core output through its \`CHANGELEDGER CONTEXT END\` line, stop and run \`changeledger context\` directly before proceeding.`;
+Its one-pass full-capture rule applies here; a partial view is invalid.`;
 
 function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();
@@ -73,7 +73,7 @@ function changePolicyBlock(config, type) {
 
 // One line per local dependency (id, title, status); external `project:id`
 // references stay references, never pretending local resolution.
-function dependencyBlock(config, repoRoot, dependsOn, cwd) {
+function dependencyBlock(dependsOn, cwd) {
   if (!Array.isArray(dependsOn) || dependsOn.length === 0) return undefined;
   const lines = dependsOn.map((raw) => {
     const dep = String(raw);
@@ -140,7 +140,7 @@ export function buildContext(input, cwd = process.cwd()) {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(config, type),
-    dependencies: dependencyBlock(config, resolved.repoRoot, dependsOn, cwd),
+    dependencies: dependencyBlock(dependsOn, cwd),
   });
 }
 

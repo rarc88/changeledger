@@ -108,9 +108,11 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.equal(first, second);
   assert.match(first, /mode: core/);
   assert.match(first, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(first, /Read the\s+complete output through the `CHANGELEDGER CONTEXT END` line/);
+  assert.match(first, /Capture the first invocation completely in one pass/);
+  assert.match(first, /read through the `CHANGELEDGER CONTEXT END` line/);
   assert.match(first, /follow the\s+current mode/);
-  assert.match(first, /Stop and re-run\s+the command directly, without pipes or filters/);
+  assert.match(first, /exceptional recovery/);
+  assert.match(first, /new\s+human message alone does not trigger a reload/i);
   assert.match(first, /If no approved or in-progress change applies/);
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
   assert.match(first, /If unsure, document it in ChangeLedger/);
@@ -459,7 +461,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
     // reads as a minimum deferring to the task context, and rule 8 states the --new/--into
     // two-step so graduation is not presented as a settled binary.
-    'core.md': '6444366245256bf656cac1c9133bf06d290359067a40a348e1b07841d5b42ef6',
+    // 20260703-150229: anti-truncation is preserved and strengthened: deliberate one-pass
+    // capture is now normal, sentinel recovery exceptional, and messages do not reload core.
+    'core.md': '1407006ace601bbe5312d648feae9485befbaa27d522e234d34a874b62dd1764',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
@@ -506,10 +510,8 @@ test('215632 CR1-CR3: release context treats routine delivery as operational wor
   assert.match(first, /Routine release preparation is operational work\./);
   assert.doesNotMatch(first, /# ChangeLedger — Core Contract/);
   assert.match(first, /This incremental context extends the complete core context already read/);
-  assert.match(
-    first,
-    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
-  );
+  assert.match(first, /one-pass full-capture rule applies here/i);
+  assert.match(first, /a partial view is invalid/i);
   assert.match(
     first,
     /Version bumps, release manifests, quality gates, packaging, commits, tags and publishing do not require a ChangeLedger change by themselves\./,
@@ -533,10 +535,8 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   assert.match(output, /mode: implement/);
   assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
   assert.match(output, /This incremental context extends the complete core context already read/);
-  assert.match(
-    output,
-    /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
-  );
+  assert.match(output, /one-pass full-capture rule applies here/i);
+  assert.match(output, /a partial view is invalid/i);
   assert.match(output, /# Implementing an Approved Change/);
   // 225213 CR5: implement carries the effective TDD signal, not the full DoR pack.
   assert.match(output, /Effective policy:.*tdd=(on|off)/);
@@ -558,6 +558,11 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     done: [/mode: close/, /# Closing Accepted Work/],
     discarded: [/mode: discarded/, /# Discarded — Terminal/],
   };
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  const end =
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
 
   for (const [index, [status, patterns]] of Object.entries(expected).entries()) {
     const root = repo();
@@ -568,6 +573,13 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, new RegExp(`id: "${id}"`));
     assert.match(output, /# Selected change/);
+    const mode = output.match(/^===== CHANGELEDGER CONTEXT BEGIN — mode: ([^—]+?)(?: —|$)/)?.[1];
+    assert.ok(mode, `missing BEGIN mode for ${status}`);
+    assert.equal(
+      output.split('\n')[0],
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} =====`,
+    );
+    assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
 });
 
@@ -579,16 +591,24 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     spec: /# Authoring a Change/,
     release: /# Portable Release Planning/,
   };
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  const end =
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
   for (const [mode, heading] of Object.entries(expected)) {
     const output = buildContext(mode, root);
     assert.match(output, new RegExp(`mode: ${mode}`));
     assert.match(output, heading);
     assert.doesNotMatch(output, /# ChangeLedger — Core Contract/);
     assert.match(output, /This incremental context extends the complete core context already read/);
-    assert.match(
-      output,
-      /If you have not read the core output through its `CHANGELEDGER CONTEXT END` line, stop and run `changeledger context`/,
+    assert.match(output, /one-pass full-capture rule applies here/i);
+    assert.match(output, /a partial view is invalid/i);
+    assert.equal(
+      output.split('\n')[0],
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====`,
     );
+    assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
   assert.throws(
     () => buildContext('bogus', root),

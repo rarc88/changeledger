@@ -5,11 +5,16 @@ reflection. Work is planned and documented before code is written.
 
 ## Read complete context before acting
 
-Running `changeledger context` is discovery, not compliance by itself. Read the
-complete output through the `CHANGELEDGER CONTEXT END` line, then follow the
-current mode. If that line is missing, the output was truncated. Stop and re-run
-the command directly, without pipes or filters, before creating or modifying
-files.
+Running `changeledger context` is discovery, not compliance by itself. Capture the first invocation completely in one pass
+and read through the `CHANGELEDGER CONTEXT END` line, then follow the current mode. Never request a preview, summary
+or voluntary line, byte or token cap; if the tool exposes an output budget,
+reserve enough for the whole response. A missing END after this deliberate full
+capture is exceptional recovery: stop and re-run with a larger capture before
+planning or acting on the partial output.
+
+While the complete core remains available in the active conversation, a new
+human message alone does not trigger a reload. Load only the specialized mode or
+change-id context required by a real task or lifecycle transition.
 
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity

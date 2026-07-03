@@ -118,9 +118,11 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = contractText();
   assert.match(contract, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(contract, /Read the\s+complete output through the `CHANGELEDGER CONTEXT END` line/);
+  assert.match(contract, /Capture the first invocation completely in one pass/);
+  assert.match(contract, /Never request a preview, summary\s+or voluntary line, byte or token cap/);
+  assert.match(contract, /new\s+human message alone does not trigger a reload/i);
   assert.match(contract, /follow the\s+current mode/);
-  assert.match(contract, /Stop and re-run\s+the command directly, without pipes or filters/);
+  assert.match(contract, /exceptional recovery/i);
   assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
   assert.match(contract, /direct request such\s+as “create the change” is authorization/);
   assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
