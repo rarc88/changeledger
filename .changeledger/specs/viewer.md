@@ -41,9 +41,10 @@ dependiente, y los ciclos reales siguen terminando en un SVG finito.
 Los estados se filtran desde un menú compacto de selección múltiple. `Clear`
 restablece tanto los statuses como la visibilidad `Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las siete columnas
-normales. Cada columna usa un ancho responsive entre 320 px y 400 px: en vez de
-comprimirse para que las siete quepan simultáneamente, `.board` ofrece scroll
-horizontal cuando exceden el viewport. Título, id y owner de la card envuelven
+normales. Cada columna usa un ancho responsive entre 190 px y 400 px que garantiza al
+menos seis visibles sin scroll desde 1280 px; en vez de comprimirse para que
+las siete quepan, `.board` ofrece scroll horizontal para la restante. Título,
+id y owner de la card envuelven
 tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
 card; por debajo de 680 px las columnas siguen apilándose a ancho completo.
 Table conserva ID, título, type, status y progreso en una línea, centra

@@ -2,7 +2,7 @@
 id: "20260703-220013"
 title: Evitar desbordamiento y ampliar columnas del board
 type: bug
-status: in-validation
+status: in-review
 created: 2026-07-03T22:00:13Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -37,10 +37,10 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **And** el contenido se parte en líneas sin ocultar ni solapar el type tag, progreso o metadata
 
 ### CR2 — Columnas legibles en escritorio
-- **Given** un viewport de escritorio de al menos 1280 px con todos los estados visibles
-- **When** se renderiza el board
-- **Then** cada columna usa una base responsive de al menos 320 px y puede crecer hasta 400 px
-- **And** el board usa scroll horizontal cuando las columnas no caben sin comprimirlas
+- **Given** un viewport de escritorio de al menos 1280 px
+- **When** se renderiza el board con los siete estados
+- **Then** al menos seis columnas son visibles simultáneamente sin scroll horizontal
+- **And** el board usa scroll horizontal para el resto en vez de comprimir las visibles
 
 ### CR3 — Aprovechar espacio sin dejar huecos artificiales
 - **Given** un board cuyas columnas caben dentro del viewport respetando su ancho mínimo
@@ -72,3 +72,7 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **2026-07-03T22:46:45Z** — status: in-progress → in-review
 - **2026-07-03T22:48:25Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
 - **2026-07-03T22:48:25Z** — status: in-review → in-validation
+- **2026-07-03T22:56:11Z** — validation → in-progress (human rejected): Como minimo que se vea 6 columnas a la vez.
+- **2026-07-03T22:59:21Z** — Corrección de rechazo: CR2 exigía min 320px, pero el humano necesita ver 6 columnas simultáneas desde 1280px. Reescrita la CR y el CSS: clamp(190px, calc((100vw - 140px)/6), 400px). Verificado en preview: 1280px → 6/7 visibles sin scroll (190px c/u), 2048px → 318px c/u, 680px → apilado sin overflow.
+- **2026-07-03T23:00:45Z** — pnpm test: 534 pruebas ok. changeledger check scoped al 20260703-220013: válido (el check global reporta un error ajeno en 150232, edición en curso del humano, no tocado).
+- **2026-07-03T23:00:45Z** — status: in-progress → in-review

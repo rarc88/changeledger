@@ -582,10 +582,10 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  width: clamp(320px, 18vw, 400px);
-  min-width: 320px;
+  width: clamp(190px, calc((100vw - 140px) / 6), 400px);
+  min-width: 190px;
   max-width: 400px;
-  flex: 0 0 clamp(320px, 18vw, 400px);
+  flex: 0 0 clamp(190px, calc((100vw - 140px) / 6), 400px);
 }
 .column-head {
   display: flex;
