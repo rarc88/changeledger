@@ -19,6 +19,7 @@ import {
   normalizeRepoState,
   restoreViewerState,
   selectProject,
+  setDetailPresentation,
   setOwnerFilter,
   setRepo,
   setSortKey,
@@ -312,6 +313,109 @@ export async function runValidationSubmission({ root, request, onSuccess }) {
   return true;
 }
 
+export function reopenPanel(status) {
+  if (status !== 'done') return nothing;
+  return html`<section class="validation-actions" aria-labelledby="reopen-title">
+    <div class="validation-copy">
+      <span class="validation-kicker">Lifecycle correction</span>
+      <h2 id="reopen-title">Reopen completed change</h2>
+      <p>Return this change to active work while preserving why its completion was reconsidered.</p>
+    </div>
+    <div class="reopen-controls">
+      <div class="rejection-field">
+        <label for="reopen-reason">Reason for reopening</label>
+        <input
+          id="reopen-reason"
+          data-reopen-reason
+          type="text"
+          placeholder="What requires more work?"
+        />
+        <p class="validation-error" role="alert" hidden></p>
+      </div>
+      <button type="button" class="button button-danger" data-reopen>Reopen change</button>
+    </div>
+  </section>`;
+}
+
+export function bindReopenAction({ root, request, onSuccess }) {
+  const button = root.querySelector('[data-reopen]');
+  if (!button) return;
+  button.onclick = async () => {
+    const input = root.querySelector('[data-reopen-reason]');
+    const reason = input?.value.trim();
+    if (!reason) {
+      showValidationError(root, 'A reopening reason is required.');
+      input?.focus();
+      return false;
+    }
+    return runValidationSubmission({
+      root,
+      request: () => request(reason),
+      onSuccess,
+    });
+  };
+}
+
+export function detailPresentationControls(mode = 'side', size = 'wide') {
+  const options = (values, selected, attr) =>
+    values.map(
+      ([value, label]) => html`<button
+        type="button"
+        class="detail-option"
+        data-detail-setting=${attr}
+        data-detail-value=${value}
+        aria-pressed=${String(selected === value)}
+      >${label}</button>`,
+    );
+  return html`<div class="detail-presentation" aria-label="Detail presentation">
+    <div class="detail-choice" role="group" aria-label="Layout">
+      ${options(
+        [
+          ['side', 'Side panel'],
+          ['floating', 'Floating modal'],
+        ],
+        mode,
+        'mode',
+      )}
+    </div>
+    <div class="detail-choice" role="group" aria-label="Width">
+      ${options(
+        [
+          ['compact', 'Compact'],
+          ['wide', 'Wide'],
+          ['full', 'Full'],
+        ],
+        size,
+        'size',
+      )}
+    </div>
+  </div>`;
+}
+
+export function applyDetailPresentation(root = document) {
+  const overlay = root.querySelector('#overlay');
+  const detail = root.querySelector('#detail');
+  if (!overlay || !detail) return;
+  overlay.dataset.detailMode = state.detailMode;
+  detail.dataset.detailSize = state.detailSize;
+}
+
+export function bindDetailPresentation(root = document) {
+  root.querySelectorAll('[data-detail-setting]').forEach((button) => {
+    button.onclick = () => {
+      const setting = button.dataset.detailSetting;
+      setDetailPresentation(
+        setting === 'mode' ? button.dataset.detailValue : state.detailMode,
+        setting === 'size' ? button.dataset.detailValue : state.detailSize,
+      );
+      applyDetailPresentation(root);
+      root.querySelectorAll(`[data-detail-setting="${setting}"]`).forEach((option) => {
+        option.setAttribute('aria-pressed', String(option === button));
+      });
+    };
+  });
+}
+
 async function submitValidation(id, status, reason) {
   const root = $('#detail');
   await runValidationSubmission({
@@ -342,6 +446,7 @@ function openDetail(id) {
   litRender(
     html`
     ${closeButton()}
+    ${detailPresentationControls(state.detailMode, state.detailSize)}
     <h1>${c.title}</h1>
     <div class="detail-meta">
       <span class="pill">#${c.id}</span>
@@ -352,6 +457,7 @@ function openDetail(id) {
       ${deps}
     </div>
     ${c.status === 'in-validation' ? validationPanel() : nothing}
+    ${reopenPanel(c.status)}
     <div class="pipeline">${pipeline}</div>
     ${stages}
     <div id="git-section"></div>`,
@@ -362,6 +468,9 @@ function openDetail(id) {
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
+  document.documentElement.classList.add('detail-open');
+  applyDetailPresentation();
+  bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   const accept = $('#detail').querySelector('[data-validation="pass"]');
   if (accept) accept.onclick = () => submitValidation(c.id, 'done');
@@ -378,6 +487,15 @@ function openDetail(id) {
       submitValidation(c.id, 'in-progress', reason);
     };
   }
+  bindReopenAction({
+    root: $('#detail'),
+    request: (reason) => postStatus(state.currentProject, c.id, 'in-progress', reason),
+    onSuccess: async () => {
+      invalidateCache();
+      await load();
+      openDetail(c.id);
+    },
+  });
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };
@@ -441,6 +559,7 @@ async function loadGitRefs(id) {
 
 function closeDetail() {
   $('#overlay').classList.add('hidden');
+  document.documentElement.classList.remove('detail-open');
 }
 
 let diagramLightbox = null;
@@ -587,6 +706,7 @@ function openSpec(s) {
   litRender(
     html`
     ${closeButton()}
+    ${detailPresentationControls(state.detailMode, state.detailSize)}
     <h1>${s.title}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
@@ -598,6 +718,9 @@ function openSpec(s) {
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
+  document.documentElement.classList.add('detail-open');
+  applyDetailPresentation();
+  bindDetailPresentation();
   const detail = $('#detail');
   detail.querySelector('.close').onclick = closeDetail;
   overlay.onclick = (e) => {

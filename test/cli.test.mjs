@@ -118,9 +118,11 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = contractText();
   assert.match(contract, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(contract, /Read the\s+complete output through the `CHANGELEDGER CONTEXT END` line/);
+  assert.match(contract, /Capture the first invocation completely in one pass/);
+  assert.match(contract, /Never request a preview, summary\s+or voluntary line, byte or token cap/);
+  assert.match(contract, /new\s+human message alone does not trigger a reload/i);
   assert.match(contract, /follow the\s+current mode/);
-  assert.match(contract, /Stop and re-run\s+the command directly, without pipes or filters/);
+  assert.match(contract, /exceptional recovery/i);
   assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
   assert.match(contract, /direct request such\s+as “create the change” is authorization/);
   assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
@@ -145,23 +147,25 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
   assert.match(contract, /Inspect the\s+worktree/);
   assert.match(contract, /unrelated changes exist/);
-  assert.match(
-    contract,
-    /Commit the approved change documentation before touching implementation code/,
-  );
-  assert.match(contract, /Implement one change at a time/);
-  assert.match(contract, /Commit a completed unit before continuing/);
+  assert.match(contract, /baseline commit of the approved change\s+document before code/);
+  assert.match(contract, /Implement one\s+change at a\s+time/);
+  assert.match(contract, /Commit completed units/);
   assert.match(
     contract,
     /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
   );
   assert.match(
     contract,
-    /After `pass`, commit the confirmed correction[\s\S]*before asking for\s+human validation/,
+    /After `pass`, commit the confirmed correction[\s\S]*before human validation/,
   );
   assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
   assert.match(contract, /do not start another task or change\s+while a correction waits/i);
   assert.match(contract, /If shared files make a combined commit\s+unavoidable/);
+  assert.match(contract, /approved.*in-progress.*baseline commit/i);
+  assert.match(contract, /Do not create a dedicated commit for a\s+lifecycle-only transition/);
+  assert.match(contract, /coalesce it with the nearest meaningful commit/i);
+  assert.match(contract, /handoff[\s\S]*one consolidated\s+checkpoint/i);
+  assert.match(contract, /one final closure commit[\s\S]*graduation/i);
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
@@ -170,7 +174,8 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /in-progress → in-validation → done/);
   assert.match(contract, /human accepted the complete result/);
   assert.match(contract, /agent never accepts on the human's behalf/i);
-  assert.match(contract, /`done` and `discarded`\s+never reopen/);
+  assert.match(contract, /`discarded` never reopens/);
+  assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });
 
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {

@@ -15,6 +15,7 @@ import {
   list,
   log,
   owner,
+  reopen,
   review,
   show,
   status,
@@ -300,12 +301,127 @@ test('171002 CR1: review pass moves to validation and marks the delegation', () 
 
 test('171002 CR2: human validation pass closes the complete change', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   reach(id, root, 'in-review');
   review(id, 'pass', {}, root);
   validation(id, 'pass', {}, root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'done');
   assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
+});
+
+test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent changes without writing', () => {
+  for (const defect of ['task', 'log']) {
+    const { root, file, id } = repoWithChange();
+    if (defect === 'log') task(id, 'done', 1, '', root);
+    reach(id, root, 'in-review');
+    review(id, 'pass', {}, root);
+    if (defect === 'log') {
+      fs.writeFileSync(
+        file,
+        fs
+          .readFileSync(file, 'utf8')
+          .replace('## Log\n', '## Log\n\n- **2026-06-13T12:30:00Z** — status: draft → approved\n'),
+      );
+    }
+    const before = fs.readFileSync(file, 'utf8');
+    assert.throws(
+      () => validation(id, 'pass', {}, root),
+      defect === 'task' ? /1 task\(s\) are not done/ : /Log line .*reconstructed status/,
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
+});
+
+test('150231 CR6: human acceptance ignores an unrelated unparseable change', () => {
+  const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'not frontmatter\n');
+
+  assert.doesNotThrow(() => validation(id, 'pass', {}, root));
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+function acceptedChange() {
+  const result = repoWithChange();
+  task(result.id, 'done', 1, '', result.root);
+  reach(result.id, result.root, 'in-review');
+  review(result.id, 'pass', {}, result.root);
+  validation(result.id, 'pass', {}, result.root);
+  return result;
+}
+
+test('150232 CR1/CR2/CR5: human reopens provisional done with a required reason', () => {
+  const { root, file, id } = acceptedChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => reopen(id, '', root), /requires a reason/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  reopen(id, 'complete original acceptance', root);
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /done → in-progress \(human reopened\)/,
+  );
+  assert.throws(() => validation(id, 'pass', {}, root), /requires status in-validation/);
+});
+
+test('150232 CR3: durable closure boundaries reject reopening without writes', () => {
+  for (const boundary of ['reviewed', 'graduated', 'archived', 'released']) {
+    const { root, file, id } = acceptedChange();
+    let text = fs.readFileSync(file, 'utf8');
+    if (boundary === 'reviewed')
+      text = text.replace('depends_on: []', 'depends_on: []\nreviewed: true');
+    if (boundary === 'graduated') text += '\n- **2026-06-13T13:00:00Z** — graduation skipped\n';
+    if (boundary === 'archived')
+      text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
+    fs.writeFileSync(file, text);
+    if (boundary === 'released') {
+      const dir = path.join(root, '.changeledger', 'releases');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, '1.0.0.yml'),
+        `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+      );
+    }
+    const before = fs.readFileSync(file, 'utf8');
+    assert.throws(() => reopen(id, 'late', root), /cannot reopen/);
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
+});
+
+test('150232 CR3: release publication wins a deterministic race with reopen', async () => {
+  const { root, file, id } = acceptedChange();
+  const before = fs.readFileSync(file, 'utf8');
+  const releasesDir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(releasesDir, { recursive: true });
+  const lock = path.join(releasesDir, '..history.lock');
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, created: new Date().toISOString() }));
+  const moduleUrl = new URL('../src/commands/agent.mjs', import.meta.url).href;
+  const script = `import { reopen } from ${JSON.stringify(moduleUrl)}; reopen(process.argv[1], 'race', process.argv[2]);`;
+  let settled = false;
+  const attempt = execFileAsync(process.execPath, ['--input-type=module', '-e', script, id, root]);
+  attempt.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+
+  await delay(100);
+  assert.equal(settled, false, 'reopen must wait for the release-history lock');
+  fs.writeFileSync(
+    path.join(releasesDir, '1.0.0.yml'),
+    `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  fs.unlinkSync(lock);
+
+  await assert.rejects(attempt, /cannot reopen: change belongs to a recorded release/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
@@ -450,6 +566,7 @@ test('210508 CR2: discard sets the terminal status and logs the reason', () => {
 
 test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   status(id, 'approved', root);
   status(id, 'in-progress', root);
   // Drive the feature through review and human validation to test terminal done.

@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-06-28T17:15:04Z
+updated: 2026-07-03T23:21:51Z
 tags: [ viewer ]
 ---
 
@@ -12,6 +12,8 @@ tags: [ viewer ]
 > Graduado del change 20260627-111219 (persistencia del estado del viewer).
 > Graduado del change 20260627-215619 (navegación entre specs por enlaces).
 > Graduado del change 20260628-113924 (editor amigable y migración de config).
+> Actualizado por el change 20260703-150228 (layout y ancho configurables del detalle).
+> Actualizado por el change 20260703-220013 (ancho responsive y wrapping del board).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -39,7 +41,13 @@ dependiente, y los ciclos reales siguen terminando en un SVG finito.
 Los estados se filtran desde un menú compacto de selección múltiple. `Clear`
 restablece tanto los statuses como la visibilidad `Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las siete columnas
-normales. Table conserva ID, título, type, status y progreso en una línea, centra
+normales. Cada columna usa un ancho responsive entre 190 px y 400 px que garantiza al
+menos seis visibles sin scroll desde 1280 px; en vez de comprimirse para que
+las siete quepan, `.board` ofrece scroll horizontal para la restante. Título,
+id y owner de la card envuelven
+tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
+card; por debajo de 680 px las columnas siguen apilándose a ancho completo.
+Table conserva ID, título, type, status y progreso en una línea, centra
 verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
 badge delineado distinto del type sólido. Los details presentan la validación
 humana como una única acción pendiente (controles deshabilitados durante el
@@ -47,6 +55,16 @@ request y cierre al éxito), usan controles de cierre consistentes y convierten
 cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
 el bloque inicial de procedencia `Graduado del change …` se agrupa en un historial
 colapsable sin reinterpretar otros blockquotes ni relajar la sanitización.
+
+Changes y specs comparten preferencias globales de presentación del detalle.
+En escritorio se puede alternar sin cerrar entre panel lateral y modal flotante,
+y elegir `Compact` (720 px), `Wide` (960 px, default) o `Full` (1280 px), siempre
+limitados al viewport seguro. El modal se centra con altura acotada y scroll
+interno; el panel conserva el contexto visual detrás. Los controles son botones
+con grupos y estado `aria-pressed`, y cambiar un preset no reconstruye el detalle
+ni pierde su scroll. Hasta 680 px ambos modos convergen temporalmente en pantalla
+completa sin sobrescribir la preferencia de escritorio. Tablas, código y Mermaid
+mantienen overflow interno en vez de ampliar la página.
 
 Los tests del visor ejercitan el `createRequestListener` en memoria para validar
 status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
@@ -90,7 +108,8 @@ desregistro y errores usan dialogs/toasts propios accesibles; no dependen de
 `alert`, `confirm` ni `prompt` del navegador.
 
 El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
-sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden y filtros de
+sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden, layout/ancho
+del detalle y filtros de
 cada proyecto. La restauración hidrata el shell antes de iniciar los fetches y
 normaliza proyectos o valores que ya no existen; cada proyecto mantiene sus
 propios filtros. Un storage ausente, corrupto, bloqueado o sin cuota nunca impide

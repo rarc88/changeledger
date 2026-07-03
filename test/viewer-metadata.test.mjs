@@ -14,6 +14,8 @@ globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
 const {
   boardStatuses,
+  applyDetailPresentation,
+  bindDetailPresentation,
   bindProjectViewActions,
   card,
   closeStatusMenuOnOutsideClick,
@@ -26,6 +28,9 @@ const {
   projectMutation,
   projectsViewTemplate,
   requestUnregisterConfirmation,
+  bindReopenAction,
+  reopenPanel,
+  detailPresentationControls,
   restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
@@ -490,6 +495,124 @@ test('005437 CR2: opening another validation panel clears the previous form erro
   assert.equal(host.querySelector('.validation-error').hidden, true);
   assert.equal(host.querySelector('.validation-error').textContent, '');
   assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
+});
+
+test('150232 CR-retry: reopen and validation panels never share a grid container class', () => {
+  // Regression: reopenPanel() (2 children) once reused .validation-controls,
+  // whose 3-track grid template is owned by validationPanel() (3 children).
+  // Sharing the class silently breaks whichever panel's child count doesn't
+  // match the other's track count.
+  const validation = parse(validationPanel());
+  const validationControls = validation.querySelector('.validation-controls');
+  assert.equal(validationControls.children.length, 3);
+  assert.equal(validation.querySelector('.reopen-controls'), null);
+
+  const reopen = parse(reopenPanel('done'));
+  const reopenControls = reopen.querySelector('.reopen-controls');
+  assert.equal(reopenControls.children.length, 2);
+  assert.equal(reopen.querySelector('.validation-controls'), null);
+});
+
+test('150232 CR4: only a done change exposes an accessible reopen action', () => {
+  const done = parse(reopenPanel('done'));
+  assert.equal(
+    done.querySelector('label[for="reopen-reason"]')?.textContent,
+    'Reason for reopening',
+  );
+  assert.ok(done.querySelector('[data-reopen]'));
+  assert.equal(done.querySelector('.validation-error').getAttribute('role'), 'alert');
+
+  assert.equal(parse(reopenPanel('discarded')).querySelector('[data-reopen]'), null);
+  assert.equal(parse(reopenPanel('in-progress')).querySelector('[data-reopen]'), null);
+});
+
+test('150232 CR4: reopen requires a reason and preserves the form on request failure', async () => {
+  const host = parse(reopenPanel('done'));
+  document.body.append(host);
+  const input = host.querySelector('[data-reopen-reason]');
+  let requestedReason;
+  let successes = 0;
+  bindReopenAction({
+    root: host,
+    request: async (reason) => {
+      requestedReason = reason;
+      return { ok: false, json: async () => ({ error: 'Reopen rejected' }) };
+    },
+    onSuccess: async () => {
+      successes++;
+    },
+  });
+
+  assert.equal(await host.querySelector('[data-reopen]').onclick(), false);
+  assert.equal(requestedReason, undefined);
+  assert.equal(
+    host.querySelector('.validation-error').textContent,
+    'A reopening reason is required.',
+  );
+  assert.equal(document.activeElement, input);
+
+  input.value = 'Acceptance evidence was incomplete';
+  assert.equal(await host.querySelector('[data-reopen]').onclick(), false);
+  assert.equal(requestedReason, 'Acceptance evidence was incomplete');
+  assert.equal(successes, 0);
+  assert.equal(input.value, 'Acceptance evidence was incomplete');
+  assert.equal(host.querySelector('.validation-error').textContent, 'Reopen rejected');
+  assert.ok([...host.querySelectorAll('button, input')].every((control) => !control.disabled));
+  host.remove();
+});
+
+test('150232 CR4: successful reopen sends the reason and keeps completion in caller control', async () => {
+  const host = parse(reopenPanel('done'));
+  host.querySelector('[data-reopen-reason]').value = 'Production validation found a regression';
+  let requestedReason;
+  let successes = 0;
+  bindReopenAction({
+    root: host,
+    request: async (reason) => {
+      requestedReason = reason;
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+    onSuccess: async () => {
+      successes++;
+    },
+  });
+
+  assert.equal(await host.querySelector('[data-reopen]').onclick(), true);
+  assert.equal(requestedReason, 'Production validation found a regression');
+  assert.equal(successes, 1);
+});
+
+test('150228 CR1/CR2/CR6: detail controls expose and apply accessible layout presets', () => {
+  const host = document.createElement('div');
+  host.innerHTML = '<div id="overlay"><article id="detail"></article></div>';
+  const detail = host.querySelector('#detail');
+  render(detailPresentationControls('side', 'wide'), detail);
+  const layout = detail.querySelector('[role="group"][aria-label="Layout"]');
+  const width = detail.querySelector('[role="group"][aria-label="Width"]');
+  assert.ok(layout);
+  assert.ok(width);
+  assert.equal(
+    detail.querySelector('[data-detail-value="side"]').getAttribute('aria-pressed'),
+    'true',
+  );
+  assert.equal(
+    detail.querySelector('[data-detail-value="wide"]').getAttribute('aria-pressed'),
+    'true',
+  );
+
+  bindDetailPresentation(host);
+  detail.querySelector('[data-detail-value="floating"]').click();
+  detail.querySelector('[data-detail-value="full"]').click();
+  applyDetailPresentation(host);
+
+  assert.equal(host.querySelector('#overlay').dataset.detailMode, 'floating');
+  assert.equal(detail.dataset.detailSize, 'full');
+  assert.equal(appState.detailMode, 'floating');
+  assert.equal(appState.detailSize, 'full');
+  assert.equal(
+    detail.querySelector('[data-detail-value="floating"]').getAttribute('aria-pressed'),
+    'true',
+  );
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {

@@ -3,8 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
+import { parseChange } from '../change.mjs';
 import { checkRepo } from '../check.mjs';
-import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
+import {
+  reopen as applyReopen,
+  status as applyStatusCmd,
+  validation as applyValidation,
+} from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
   buildMigration,
@@ -14,7 +19,7 @@ import {
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
-import { loadRepo, loadRepoWithConfig } from '../repo.mjs';
+import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Serializes a loaded repo into the flat shape the UI consumes.
@@ -115,10 +120,12 @@ export function changeStatus(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const change = loadRepo(proj.path).changes.find((c) => String(c.frontmatter.id) === String(id));
-    if (!change) return { code: 404, body: { error: `no change with id "${id}"` } };
-    current = change.frontmatter.status;
+    const { file } = resolveChange(proj.path, id);
+    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
   } catch (e) {
+    if (/^No change with id /.test(e.message)) {
+      return { code: 404, body: { error: `no change with id "${id}"` } };
+    }
     return { code: 400, body: { error: e.message } };
   }
   try {
@@ -128,11 +135,14 @@ export function changeStatus(projects, { project, id, status, reason }) {
       applyValidation(id, 'pass', {}, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
       applyValidation(id, 'fail', { reason }, proj.path);
+    } else if (current === 'done' && status === 'in-progress') {
+      applyReopen(id, reason, proj.path);
     } else {
       return {
         code: 403,
         body: {
-          error: 'the viewer only allows draft → approved and in-validation → done|in-progress',
+          error:
+            'the viewer only allows draft → approved, in-validation → done|in-progress, and eligible done → in-progress',
         },
       };
     }

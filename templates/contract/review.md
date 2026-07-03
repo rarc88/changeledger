@@ -21,6 +21,11 @@ Record exactly one verdict:
 - `changeledger review <id> fail --block "<reason>"` — correction requires scope
   or product judgment; move to `blocked` for the human.
 
+A review verdict alone needs no commit. A pass leaves `in-validation` for
+closure unless it confirms uncommitted correction; then correction, tests and
+ledger form a commit. Retry keeps the diff isolated. Handoff may use the
+implementation contract's checkpoint.
+
 After `fail --retry`, the correction remains uncommitted until another fresh
 reviewer passes it. After the transition, run `changeledger context <id>` before
 modifying implementation. After pass, commit correction + ledger before asking

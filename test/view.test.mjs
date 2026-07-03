@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { review, status } from '../src/commands/agent.mjs';
+import { review, status, validation } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -528,6 +528,80 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
   const parsed = parseChange(fs.readFileSync(rejectedFile, 'utf8'));
   assert.equal(parsed.frontmatter.status, 'in-progress');
   assert.match(parsed.stages.find((s) => s.key === 'log').body, /manual scenario failed/);
+});
+
+test('150231 CR2: viewer reports an incomplete acceptance and preserves validation state', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending\n'),
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  const before = fs.readFileSync(file, 'utf8');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'done' });
+
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /1 task\(s\) are not done/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'done' });
+
+  assert.equal(result.code, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
+  const { projects, current } = resolveProjects(root, false);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.equal(changeStatus(projects, { project: current, id, status: 'in-progress' }).code, 400);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  const result = changeStatus(projects, {
+    project: current,
+    id,
+    status: 'in-progress',
+    reason: 'finish original scope',
+  });
+  assert.equal(result.code, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
 });
 
 test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {
@@ -1236,7 +1310,7 @@ test('225212 CR4: view accepts "." combined with a port', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
-  const server = await view(['.', '0'], root);
+  const server = await view(['.', '0'], root, { openBrowser: false });
   try {
     assert.equal(typeof server.address().port, 'number');
   } finally {

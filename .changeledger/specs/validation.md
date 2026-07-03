@@ -1,6 +1,6 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-06-27T21:50:56Z
+updated: 2026-07-03T23:21:32Z
 tags: [ validation ]
 ---
 
@@ -10,6 +10,7 @@ tags: [ validation ]
 > Graduado del change 20260616-162014 (validación de criterios referenciados por tareas).
 > Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
 > Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
+> Actualizado por el change 20260703-150231 (gate scoped de integridad antes de cierre y graduación).
 
 `check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
@@ -36,6 +37,15 @@ evidencia de verificación dentro del sufijo reservado, `check.mjs` emite un
 diagnóstico específico para distinguir contrato mal escrito de criterio ausente.
 El parser de etapas reconoce `##` solo fuera de fenced code blocks, por lo que
 los ejemplos Markdown dentro de fences no crean etapas espurias ni duplicadas.
+
+Un change `done` con tareas `todo` o `blocked` es inválido: `check` informa como
+error el número de tareas incompletas. `checkSelectedChange` reutiliza exactamente
+la validación scoped para evaluar tanto el archivo actual como un candidato aún
+no escrito; sólo sus errores bloquean, no sus warnings ni hallazgos de otros
+changes. La aceptación humana valida primero el candidato con la transición
+`validation → done`, y los modos de graduación validan el `done` seleccionado
+antes de tocar change o spec. Estas rutas resuelven y parsean únicamente el
+archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
 
 Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
 cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia

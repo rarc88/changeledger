@@ -128,14 +128,14 @@ test('CR6: duplicate ids are an error', () => {
   assert.ok(msgs(run([a, b]).errors).some((m) => /duplicate id/.test(m)));
 });
 
-test('CR7: done with unfinished tasks is a warning, not an error', () => {
+test('150231 CR1: done with unfinished tasks is an error', () => {
   const c = change({
     frontmatter: { status: 'done' },
     tasks: [{ state: 'done', resolvedAt: '2026-06-13T12:01:00Z' }, { state: 'todo' }],
   });
   const { errors, warnings } = run([c]);
-  assert.deepEqual(errors, []);
-  assert.ok(msgs(warnings).some((m) => /not done/.test(m)));
+  assert.ok(msgs(errors).some((m) => /1 task\(s\) are not done/.test(m)));
+  assert.ok(!msgs(warnings).some((m) => /not done/.test(m)));
 });
 
 test('id not matching filename is an error', () => {
@@ -1296,6 +1296,24 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     msgs(covResult(mismatch).errors).some((m) =>
       /Log reconstructs status "approved" but frontmatter says "done"/.test(m),
     ),
+  );
+});
+
+test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
+  const text = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T13:00:00Z** — status: done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:30:00Z** — validation → done (human accepted)',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
+    [],
   );
 });
 

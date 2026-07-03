@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-01T23:21:38Z
+updated: 2026-07-03T23:21:51Z
 tags: [ lifecycle ]
 ---
 
@@ -17,6 +17,9 @@ tags: [ lifecycle ]
 > Graduado del change 20260616-212322 (archivado masivo de graduados).
 > Graduado del change 20260626-160038 (política económica de delegación).
 > Graduado del change 20260630-225210 (validación secuencial del Log).
+> Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
+> Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
+> Actualizado por el change 20260703-220014 (parada de validación local por change).
 
 ```mermaid
 stateDiagram-v2
@@ -31,6 +34,7 @@ stateDiagram-v2
     in_review --> blocked: fail --block
     in_validation --> done: humano acepta (viewer)
     in_validation --> in_progress: humano rechaza con motivo
+    done --> in_progress: humano reabre antes del cierre durable
     blocked --> in_progress
     draft --> discarded: changeledger discard "razón"
     approved --> discarded
@@ -84,9 +88,29 @@ el CLI rechaza saltos, regresiones y no-ops
 (`change is already "X"`), y el gate (`in-progress → in-validation` bajo
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
 validación por enum. `changeledger status done` se rechaza por separado porque solo el
-veredicto humano puede cerrar. `done` y `discarded` son terminales y nunca se reabren. El
-visor añade la política de actor: permite únicamente las transiciones humanas
-`draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
+veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
+`in-progress` únicamente por acción humana con motivo mientras siga sin
+graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra
+esa ventana. Después de cualquiera de esas fronteras no se reabre. El
+visor añade la política de actor: permite `draft → approved`, `in-validation →
+done|in-progress` y la reapertura elegible `done → in-progress`; rechazo y
+reapertura exigen motivo.
+Antes de aceptar, construye en memoria la única transición `validation → done
+(human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
+inconsistencia del Log rechazan la operación antes de escribir, conservando el
+archivo en `in-validation`; warnings del seleccionado y errores ajenos no
+bloquean.
+
+**Reapertura provisional.** El viewer ofrece `Reopen` sólo en `done`; exige una
+razón y registra `status: done → in-progress (human reopened): <reason>`. El
+change repite review cuando corresponde y siempre validación humana. La acción
+sirve para completar o corregir el alcance original; cualquier expansión
+observable requiere un change nuevo. `reviewed: true`, una marca real de
+graduación/skip, `archived: true` o pertenencia a un release registrado son
+fronteras irreversibles comprobadas antes de escribir.
+La comprobación de releases y la mutación comparten el lock de historial de
+releases; así ningún manifest puede incorporar el `done` entre el preflight y la
+escritura de la reapertura.
 
 **Veredicto (`changeledger review`, en `agent.review()`).** `pass` → `in-validation`;
 `fail --retry`
@@ -94,6 +118,20 @@ visor añade la política de actor: permite únicamente las transiciones humanas
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
+
+**Parada de validación local.** `in-validation` detiene solo ese change: el
+humano decide, el agente nunca acepta en su nombre. No es una pausa global de
+la cola. El agente puede empezar el siguiente change `approved` cuya cadena
+`depends_on`, directa o transitiva, no llegue a ese ni a ningún otro change en
+`in-validation`; `changeledger context <id>` ya resuelve el status de cada
+dependencia directa en una línea, así que la cadena transitiva se recorre
+consultándola de un salto en otro sin un comando nuevo. Si la dependencia
+bloqueante existe, el agente la nombra y no empieza ese candidato. Si todos los
+`approved` restantes están bloqueados así, el agente se detiene por completo:
+no inventa trabajo ni toca los resultados ya entregados mientras espera. El
+change seleccionado sigue las reglas normales de rama, baseline, commits y
+aislamiento de correcciones; solo uno está en implementación activa por
+worktree, aunque otro ya entregado siga esperando validación humana.
 
 **Triage de fricción y autorización.** Antes de entregar al humano un resultado
 completado o bloqueado, el agente clasifica la fricción ya descubierta. Si es
@@ -105,6 +143,19 @@ allí: no crea un chore. Si es independiente, propone al humano tipo, título y
 motivo y espera autorización antes de crear el `draft`. Lo demasiado vago se
 menciona sin crear archivos. Al alcanzar `done`, comparte además una retrospectiva
 breve del ciclo; `discarded` no implica un ciclo de implementación completado.
+
+**Fronteras de commit.** Git conserva evidencia significativa y el Log conserva
+la granularidad temporal. Al iniciar, `approved → in-progress` se commitea como
+baseline con el documento aprobado antes del código. Cada unidad de
+implementación agrupa código, tests y verdad del ledger relacionada; la
+transición a `in-review` puede acompañar la última unidad. Un movimiento que solo
+cambia status y Log no exige commit propio: se agrupa con el commit sustantivo
+más cercano. Tras aceptación, `done`, graduación o skip y la edición durable de
+spec forman un único commit final de cierre. Un handoff real entre sesión,
+agente o worktree puede persistir todo el estado pendiente en un único
+checkpoint justificado, nunca en un commit por transición. Las correcciones no
+confirmadas tras review o rechazo humano conservan las reglas de aislamiento del
+worktree hasta superar su gate.
 
 ## Intención y ejecución
 
@@ -152,6 +203,10 @@ o registra un skip (bug/chore sin verdad persistente). La finalización con
 una spec. "Graduado a spec" sigue siendo derivable de la marca `graduado a spec`
 del Log — `reviewed` solo registra que la pregunta quedó zanjada. `check` valida
 que `reviewed`, si está, sea booleano; no avisa de pendientes (es bajo demanda).
+Los tres modos que escriben (`--new`, `--into`, `--skip`) ejecutan primero el
+mismo check scoped del change `done`. Si existen tareas incompletas o errores de
+secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
+marker de graduación o fijar `reviewed: true`.
 
 `changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
 conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y

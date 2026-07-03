@@ -20,7 +20,8 @@ export const CANONICAL_STATUSES = [
 // absent and therefore rejected. `in-review` is optional by type;
 // `in-validation` is the universal human gate before done. Review or validation
 // may route back to in-progress, while review may also block. `discarded` is a
-// terminal tombstone reachable only before either closing gate.
+// terminal tombstone reachable only before either closing gate. `done` has one
+// policy-gated human reopen edge; generic agent commands do not own it.
 const TRANSITIONS = {
   draft: ['approved', 'discarded'],
   approved: ['in-progress', 'discarded'],
@@ -28,7 +29,7 @@ const TRANSITIONS = {
   'in-review': ['in-validation', 'in-progress', 'blocked'],
   'in-validation': ['done', 'in-progress'],
   blocked: ['in-progress', 'discarded'],
-  done: [],
+  done: ['in-progress'],
   discarded: [],
 };
 

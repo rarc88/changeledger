@@ -24,7 +24,7 @@ test('CR10: init installs a fail-closed bootstrap without link or gitignore entr
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /changeledger context/);
   assert.match(agents, /run `changeledger context` directly/);
-  assert.match(agents, /restore\/install ChangeLedger; do not proceed from memory/);
+  assert.match(agents, /restore\/install ChangeLedger; do not\s+>?\s*proceed from memory/);
   assert.doesNotMatch(agents, /\.changeledger\/AGENTS\.md/);
   assert.deepEqual(checkContract(dir), []);
 });
@@ -58,8 +58,10 @@ test('213931 CR3: bootstrap verifies completeness through the END sentinel', () 
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /through the `CHANGELEDGER CONTEXT END` line/);
-  assert.match(agents, /If that\s+>?\s*line is missing, the output was truncated/);
-  assert.match(agents, /re-run the command\s+>?\s*directly, without pipes or filters/);
+  assert.match(agents, /first invocation[\s\S]*retain complete stdout/i);
+  assert.match(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
+  assert.match(agents, /output budget[\s\S]*whole response/i);
+  assert.match(agents, /exceptional recovery/i);
 });
 
 test('CR10/CR12: reference refresh is idempotent and stale references fail check', () => {

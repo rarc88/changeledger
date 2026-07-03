@@ -6,11 +6,13 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 <!-- changeledger -->
 > [!IMPORTANT]
 > This repo uses **ChangeLedger**. Immediately after reading this file — before
-> planning, investigating, or acting — run `changeledger context` directly and
-> read its complete output through the `CHANGELEDGER CONTEXT END` line. If that
-> line is missing, the output was truncated: stop and re-run the command
-> directly, without pipes or filters. If the command is unavailable, stop and
-> restore/install ChangeLedger; do not proceed from memory.
+> planning, investigating, or acting — run `changeledger context` directly.
+> On the first invocation, retain complete stdout through the `CHANGELEDGER CONTEXT END` line:
+> no pipes, filters, summaries, previews or voluntary output limits. If the tool
+> exposes an output budget, reserve enough for the whole response. A missing END
+> after that is exceptional recovery: stop and re-run with a larger capture. If
+> the command is unavailable, stop and restore/install ChangeLedger; do not
+> proceed from memory.
 >
 > Do not create or modify files without an authorized change; the core context
 > defines the workflow, the task contexts, and the narrow operational exception.

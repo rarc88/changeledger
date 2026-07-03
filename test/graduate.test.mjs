@@ -34,9 +34,23 @@ created: 2026-06-13T12:00:00Z
 depends_on: []
 ---
 
+## Request
+
+Login OAuth.
+
+## Investigation
+
+Current behavior.
+
+## Proposal
+
+OAuth integration.
+
 ## Specification
 
 El sistema soporta login OAuth.
+
+## Plan
 
 ## Log
 
@@ -194,10 +208,44 @@ function writeChange(root, id, status, extra = '') {
   const file = path.join(root, '.changeledger', 'changes', `${id}-y.md`);
   fs.writeFileSync(
     file,
-    `---\nid: "${id}"\ntitle: Y\ntype: feature\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Log\n`,
+    `---\nid: "${id}"\ntitle: Y\ntype: feature\nstatus: ${status}\ncreated: 2026-01-01T00:00:00Z\ndepends_on: []\n${extra}---\n\n## Request\n\nY.\n\n## Investigation\n\nCurrent.\n\n## Proposal\n\nSelected.\n\n## Specification\n\nY.\n\n## Plan\n\n## Log\n`,
   );
   return file;
 }
+
+test('150231 CR4/CR5: every graduation mode preflights closure integrity without writes', () => {
+  for (const mode of ['new', 'into', 'skip']) {
+    const { root, file, id } = repo();
+    fs.writeFileSync(
+      file,
+      fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] unfinished\n'),
+    );
+    const changeBefore = fs.readFileSync(file, 'utf8');
+    let specFile;
+    if (mode === 'into') specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nStable.\n');
+    const specBefore = specFile ? fs.readFileSync(specFile, 'utf8') : null;
+
+    assert.throws(() => {
+      if (mode === 'new') scaffoldSpec(id, 'blocked', root);
+      else if (mode === 'into') graduate(id, 'architecture', root, { into: true });
+      else skipGraduation(id, 'none', root);
+    }, /1 task\(s\) are not done/);
+    assert.equal(fs.readFileSync(file, 'utf8'), changeBefore);
+    assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs', 'blocked.md')), false);
+    if (specFile) assert.equal(fs.readFileSync(specFile, 'utf8'), specBefore);
+  }
+});
+
+test('150231 CR6: graduation preflight is scoped to the selected change', () => {
+  const { root, file, id } = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'unparseable.md'),
+    'not a frontmatter block\n',
+  );
+
+  assert.doesNotThrow(() => skipGraduation(id, 'no durable truth', root));
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
+});
 
 test('CR3: graduate --into marks the change reviewed after scaffold refinement', () => {
   const { root, file, id } = repo();

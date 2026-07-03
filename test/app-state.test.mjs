@@ -28,6 +28,8 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.currentProject, null);
   assert.deepEqual(state.projectsList, []);
   assert.equal(state.globalMode, false);
+  assert.equal(state.detailMode, 'side');
+  assert.equal(state.detailSize, 'wide');
   assert.equal(state.filters.type, 'all');
   assert.equal(state.filters.owner, 'all');
   assert.equal(state.filters.showArchived, false);
@@ -160,6 +162,7 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   first.setSortKey('progress');
   first.setSortKey('progress');
   first.toggleGlobalMode();
+  first.setDetailPresentation('floating', 'full');
 
   const second = await freshState();
   assert.equal(second.restoreViewerState(store), true);
@@ -174,11 +177,39 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   assert.equal(second.state.filters.showDiscarded, true);
   assert.equal(second.state.sortKey, 'progress');
   assert.equal(second.state.sortDir, -1);
+  assert.equal(second.state.detailMode, 'floating');
+  assert.equal(second.state.detailSize, 'full');
 
   const saved = store.value(second.VIEWER_STATE_KEY);
   assert.ok(!saved.includes('token'));
   assert.ok(!saved.includes('config.yml'));
   assert.ok(!saved.includes('/repos/'));
+});
+
+test('150228 CR3/CR5: detail presentation persists safely and invalid values use defaults', async () => {
+  const first = await freshState();
+  const store = memoryStorage();
+  first.restoreViewerState(store);
+  assert.deepEqual(first.setDetailPresentation('floating', 'compact'), {
+    mode: 'floating',
+    size: 'compact',
+  });
+  const second = await freshState();
+  assert.equal(second.restoreViewerState(store), true);
+  assert.equal(second.state.detailMode, 'floating');
+  assert.equal(second.state.detailSize, 'compact');
+
+  const invalid = memoryStorage({
+    [second.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      detailMode: 'drawer',
+      detailSize: 'giant',
+    }),
+  });
+  const third = await freshState();
+  assert.equal(third.restoreViewerState(invalid), true);
+  assert.equal(third.state.detailMode, 'side');
+  assert.equal(third.state.detailSize, 'wide');
 });
 
 test('111219 CR3: project selection preserves independent filters', async () => {

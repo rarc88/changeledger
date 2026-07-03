@@ -5,11 +5,16 @@ reflection. Work is planned and documented before code is written.
 
 ## Read complete context before acting
 
-Running `changeledger context` is discovery, not compliance by itself. Read the
-complete output through the `CHANGELEDGER CONTEXT END` line, then follow the
-current mode. If that line is missing, the output was truncated. Stop and re-run
-the command directly, without pipes or filters, before creating or modifying
-files.
+Running `changeledger context` is discovery, not compliance by itself. Capture the first invocation completely in one pass
+and read through the `CHANGELEDGER CONTEXT END` line, then follow the current mode. Never request a preview, summary
+or voluntary line, byte or token cap; if the tool exposes an output budget,
+reserve enough for the whole response. A missing END after this deliberate full
+capture is exceptional recovery: stop and re-run with a larger capture before
+planning or acting on the partial output.
+
+While the complete core remains available in the active conversation, a new
+human message alone does not trigger a reload. Load only the specialized mode or
+change-id context required by a real task or lifecycle transition.
 
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
@@ -19,12 +24,12 @@ files.
    agent decides how to divide and execute work within that authorized scope.
 3. Capture every authorized change in `.changeledger/changes/`. The document
    wins when code and documentation disagree.
-4. Never implement a `draft`. After approval, work one change at a time on a
-   non-main branch and commit the approved change document before code.
+4. Never implement a `draft`. After approval, implement one change at a time on
+   a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.
 6. For types that require review, use a fresh clean-context reviewer before
    human validation.
-7. Stop at `in-validation`. The agent never accepts on the human's behalf.
+7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may start another approved change unless it or its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
    change, then graduate persistent truth (a new spec is a two-step `--new`
    then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive
@@ -59,6 +64,7 @@ in-progress → in-validation → done               [no review required]
 in-review → in-progress                           [review retry]
 in-review → blocked → in-progress                 [review escalation]
 in-validation → in-progress                       [human rejection]
+done → in-progress                                [human reopen before durable closure]
 (draft | approved | in-progress | blocked) → discarded
 ```
 
@@ -68,15 +74,16 @@ in-validation → in-progress                       [human rejection]
 - `in-review`: independent review required.
 - `in-validation`: stop and wait for human acceptance or rejection.
 - `blocked`: an impediment or decision needs resolution.
-- `done`: terminal; the human accepted the complete result.
+- `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
 
 `changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
-The viewer owns `draft → approved` and `in-validation → done|in-progress`; the
-agent performs the other non-terminal moves. Use
+The viewer owns `draft → approved` and `in-validation → done|in-progress`, plus
+eligible `done → in-progress` with a reason; the agent performs other moves. Use
 `changeledger discard <id> "<reason>"`: the discard reason is required and
-logged, and dependencies remain resolvable. `done` and `discarded` never reopen;
-later reconsideration needs a newly authorized change.
+logged, and dependencies remain resolvable. `discarded` never reopens. A `done`
+change can reopen only to finish its original scope before graduation/skip,
+archive or release; after durable closure, later work needs a new change.
 
 ## Context modes
 
