@@ -110,3 +110,6 @@ change nuevo.
 - **2026-07-03T17:15:52Z** — owner → Roberto Ruiz (auto)
 - **2026-07-03T21:59:59Z** — Reopen quedó limitado al viewer humano y al intervalo previo al cierre durable; las cuatro fronteras fallan sin escribir y el historial usa la última aceptación. Suite focalizada 318/318 y gate completo 529/529.
 - **2026-07-03T21:59:59Z** — status: in-progress → in-review
+- **2026-07-03T22:02:22Z** — review → in-progress (retry): CR3 is not fail-closed against concurrent release recording: reopen snapshots repo.releases before acquiring only the change-file lock, while release recording uses a separate history lock, so a manifest can include the done change before reopen writes in-progress. Coordinate/recheck the release boundary under a shared lock and add a race regression test. Also correct lifecycle.md lines 94-95, which still say the viewer allows only approval and validation transitions and contradict the new reopen transition.
+- **2026-07-03T22:06:24Z** — Corrección de review: reapertura y registro de release comparten el lock de historial; la comprobación de membresía ocurre dentro del lock antes de mutar el change. Spec de ownership actualizado.
+- **2026-07-03T22:06:24Z** — status: in-progress → in-review

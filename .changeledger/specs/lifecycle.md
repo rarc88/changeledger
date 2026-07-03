@@ -91,8 +91,9 @@ veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
 `in-progress` únicamente por acción humana con motivo mientras siga sin
 graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra
 esa ventana. Después de cualquiera de esas fronteras no se reabre. El
-visor añade la política de actor: permite únicamente las transiciones humanas
-`draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
+visor añade la política de actor: permite `draft → approved`, `in-validation →
+done|in-progress` y la reapertura elegible `done → in-progress`; rechazo y
+reapertura exigen motivo.
 Antes de aceptar, construye en memoria la única transición `validation → done
 (human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
 inconsistencia del Log rechazan la operación antes de escribir, conservando el
@@ -106,6 +107,9 @@ sirve para completar o corregir el alcance original; cualquier expansión
 observable requiere un change nuevo. `reviewed: true`, una marca real de
 graduación/skip, `archived: true` o pertenencia a un release registrado son
 fronteras irreversibles comprobadas antes de escribir.
+La comprobación de releases y la mutación comparten el lock de historial de
+releases; así ningún manifest puede incorporar el `done` entre el preflight y la
+escritura de la reapertura.
 
 **Veredicto (`changeledger review`, en `agent.review()`).** `pass` → `in-validation`;
 `fail --retry`

@@ -2,19 +2,21 @@
 // (list/show). Files remain the source of truth; these are optional helpers
 // that inject correct timestamps/markers and validate transitions.
 
+import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic } from '../atomic-write.mjs';
+import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { assertTransition } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
+import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 import { appendLog, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
-  const { config, file } = resolveChange(cwd, id);
-  return { config, file };
+  const { config, file, repoRoot } = resolveChange(cwd, id);
+  return { config, file, repoRoot };
 }
 
 export function status(
@@ -147,29 +149,32 @@ export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
 // skip, archive and release membership are durable boundaries and fail closed.
 export function reopen(id, reason, cwd = process.cwd()) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const { config, file } = locate(cwd, id);
-  const repo = loadRepo(cwd);
-  const released = repo.releases.some((release) =>
-    (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-  );
-  mutateFileAtomic(file, (text) => {
-    const change = { ...parseChange(text), text };
-    const fm = change.frontmatter;
-    if (fm.status !== 'done')
-      throw new Error(`reopen requires status done (current: ${fm.status})`);
-    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
-    if (hasGraduationResolution(change))
-      throw new Error('cannot reopen: graduation is already resolved');
-    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
-    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
-    assertTransition('done', 'in-progress', {
-      type: fm.type,
-      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+  const { config, file, repoRoot } = locate(cwd, id);
+  const releasesDir = resolveReleasesDir(repoRoot);
+  fs.mkdirSync(releasesDir, { recursive: true });
+  return withFileLock(path.join(releasesDir, '.history'), () => {
+    const released = loadRepo(cwd).releases.some((release) =>
+      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
+    );
+    mutateFileAtomic(file, (text) => {
+      const change = { ...parseChange(text), text };
+      const fm = change.frontmatter;
+      if (fm.status !== 'done')
+        throw new Error(`reopen requires status done (current: ${fm.status})`);
+      if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
+      if (hasGraduationResolution(change))
+        throw new Error('cannot reopen: graduation is already resolved');
+      if (fm.archived === true) throw new Error('cannot reopen: change is archived');
+      if (released) throw new Error('cannot reopen: change belongs to a recorded release');
+      assertTransition('done', 'in-progress', {
+        type: fm.type,
+        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+      });
+      text = setStatus(text, 'in-progress');
+      return appendLog(text, nowUtc(), `status: done → in-progress (human reopened): ${reason}`);
     });
-    text = setStatus(text, 'in-progress');
-    return appendLog(text, nowUtc(), `status: done → in-progress (human reopened): ${reason}`);
+    return file;
   });
-  return file;
 }
 
 // name '-' clears the owner.
