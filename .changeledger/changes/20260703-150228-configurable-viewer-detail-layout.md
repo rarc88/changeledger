@@ -2,7 +2,7 @@
 id: "20260703-150228"
 title: Configurar el layout del detalle en el viewer
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-03T15:02:28Z
 depends_on: []
 release_impact: minor
@@ -103,3 +103,10 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 - **2026-07-03T22:14:35Z** — owner → Roberto Ruiz (auto)
 - **2026-07-03T22:23:43Z** — Implementación verificada: 532 pruebas pasan, 157 changes válidos y comprobación manual responsive en 2048×1100, 1280×900 y 680×820.
 - **2026-07-03T22:23:43Z** — status: in-progress → in-review
+- **2026-07-03T22:26:08Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-03T22:29:46Z** — validation → in-progress (human rejected): El scroll del modal esta en modo claro, mientras que todo el view esta en modo oscuro. Aprovechemos para homogeneizar los scroll vertical y horizontal del view, ya que son diferentes. El que mas me gusta es el horizontal.
+- **2026-07-03T22:35:41Z** — Se homogeneizó scroll: color-scheme: dark global evita scrollbar nativo claro; .detail, .detail pre/table y html/body comparten ahora el mismo estilo thin/oscuro que .board (referencia elegida por el humano).
+- **2026-07-03T22:36:05Z** — pnpm verify: 532 pruebas ok, 157 changes válidos.
+- **2026-07-03T22:36:05Z** — status: in-progress → in-review
+- **2026-07-03T22:37:24Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
+- **2026-07-03T22:37:24Z** — status: in-review → in-validation

@@ -23,10 +23,32 @@
   --status-discarded: #9aa0aa;
   --status-muted: #8b929e;
   font-family: "Avenir Next", Avenir, ui-sans-serif, sans-serif;
+  color-scheme: dark;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: #3a414e transparent;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: #3a414e;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
 }
 
 body {
@@ -527,16 +549,31 @@ body {
   padding: 16px;
   overflow-x: auto;
   align-items: flex-start;
+}
+.board,
+.detail,
+.detail pre,
+.detail table {
   scrollbar-width: thin;
   scrollbar-color: #3a414e transparent;
 }
-.board::-webkit-scrollbar {
+.board::-webkit-scrollbar,
+.detail::-webkit-scrollbar,
+.detail pre::-webkit-scrollbar,
+.detail table::-webkit-scrollbar {
+  width: 8px;
   height: 8px;
 }
-.board::-webkit-scrollbar-track {
+.board::-webkit-scrollbar-track,
+.detail::-webkit-scrollbar-track,
+.detail pre::-webkit-scrollbar-track,
+.detail table::-webkit-scrollbar-track {
   background: transparent;
 }
-.board::-webkit-scrollbar-thumb {
+.board::-webkit-scrollbar-thumb,
+.detail::-webkit-scrollbar-thumb,
+.detail pre::-webkit-scrollbar-thumb,
+.detail table::-webkit-scrollbar-thumb {
   background: #3a414e;
   border: 2px solid var(--bg);
   border-radius: 999px;
