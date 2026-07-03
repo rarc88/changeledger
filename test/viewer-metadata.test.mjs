@@ -14,6 +14,8 @@ globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
 const {
   boardStatuses,
+  applyDetailPresentation,
+  bindDetailPresentation,
   bindProjectViewActions,
   card,
   closeStatusMenuOnOutsideClick,
@@ -28,6 +30,7 @@ const {
   requestUnregisterConfirmation,
   bindReopenAction,
   reopenPanel,
+  detailPresentationControls,
   restoreInitialViewerShell,
   resetValidationState,
   runValidationSubmission,
@@ -561,6 +564,39 @@ test('150232 CR4: successful reopen sends the reason and keeps completion in cal
   assert.equal(await host.querySelector('[data-reopen]').onclick(), true);
   assert.equal(requestedReason, 'Production validation found a regression');
   assert.equal(successes, 1);
+});
+
+test('150228 CR1/CR2/CR6: detail controls expose and apply accessible layout presets', () => {
+  const host = document.createElement('div');
+  host.innerHTML = '<div id="overlay"><article id="detail"></article></div>';
+  const detail = host.querySelector('#detail');
+  render(detailPresentationControls('side', 'wide'), detail);
+  const layout = detail.querySelector('[role="group"][aria-label="Layout"]');
+  const width = detail.querySelector('[role="group"][aria-label="Width"]');
+  assert.ok(layout);
+  assert.ok(width);
+  assert.equal(
+    detail.querySelector('[data-detail-value="side"]').getAttribute('aria-pressed'),
+    'true',
+  );
+  assert.equal(
+    detail.querySelector('[data-detail-value="wide"]').getAttribute('aria-pressed'),
+    'true',
+  );
+
+  bindDetailPresentation(host);
+  detail.querySelector('[data-detail-value="floating"]').click();
+  detail.querySelector('[data-detail-value="full"]').click();
+  applyDetailPresentation(host);
+
+  assert.equal(host.querySelector('#overlay').dataset.detailMode, 'floating');
+  assert.equal(detail.dataset.detailSize, 'full');
+  assert.equal(appState.detailMode, 'floating');
+  assert.equal(appState.detailSize, 'full');
+  assert.equal(
+    detail.querySelector('[data-detail-value="floating"]').getAttribute('aria-pressed'),
+    'true',
+  );
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {

@@ -2,7 +2,7 @@
 id: "20260703-150228"
 title: Configurar el layout del detalle en el viewer
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-03T15:02:28Z
 depends_on: []
 release_impact: minor
@@ -86,11 +86,11 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 
 ## Plan
 
-- [ ] Extend `src/viewer/public/app-state.js`; verify: `node --test test/app-state.test.mjs` (CR3, CR5)
-- [ ] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR4, CR6)
-- [ ] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`; verify: `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px (CR1, CR2, CR4, CR5, CR6)
-- [ ] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-150228` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Extend `src/viewer/public/app-state.js`; verify: `node --test test/app-state.test.mjs` (CR3, CR5) — 2026-07-03T22:23:13Z
+- [x] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR4, CR6) — 2026-07-03T22:23:13Z
+- [x] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`; verify: `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px (CR1, CR2, CR4, CR5, CR6) — 2026-07-03T22:23:13Z
+- [x] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-150228` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T22:23:13Z
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:23:43Z
 
 ## Log
 
@@ -101,3 +101,5 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 - **2026-07-03T15:10:11Z** — status: draft → approved
 - **2026-07-03T22:14:35Z** — status: approved → in-progress
 - **2026-07-03T22:14:35Z** — owner → Roberto Ruiz (auto)
+- **2026-07-03T22:23:43Z** — Implementación verificada: 532 pruebas pasan, 157 changes válidos y comprobación manual responsive en 2048×1100, 1280×900 y 680×820.
+- **2026-07-03T22:23:43Z** — status: in-progress → in-review

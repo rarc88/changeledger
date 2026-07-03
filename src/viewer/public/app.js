@@ -19,6 +19,7 @@ import {
   normalizeRepoState,
   restoreViewerState,
   selectProject,
+  setDetailPresentation,
   setOwnerFilter,
   setRepo,
   setSortKey,
@@ -355,6 +356,66 @@ export function bindReopenAction({ root, request, onSuccess }) {
   };
 }
 
+export function detailPresentationControls(mode = 'side', size = 'wide') {
+  const options = (values, selected, attr) =>
+    values.map(
+      ([value, label]) => html`<button
+        type="button"
+        class="detail-option"
+        data-detail-setting=${attr}
+        data-detail-value=${value}
+        aria-pressed=${String(selected === value)}
+      >${label}</button>`,
+    );
+  return html`<div class="detail-presentation" aria-label="Detail presentation">
+    <div class="detail-choice" role="group" aria-label="Layout">
+      ${options(
+        [
+          ['side', 'Side panel'],
+          ['floating', 'Floating modal'],
+        ],
+        mode,
+        'mode',
+      )}
+    </div>
+    <div class="detail-choice" role="group" aria-label="Width">
+      ${options(
+        [
+          ['compact', 'Compact'],
+          ['wide', 'Wide'],
+          ['full', 'Full'],
+        ],
+        size,
+        'size',
+      )}
+    </div>
+  </div>`;
+}
+
+export function applyDetailPresentation(root = document) {
+  const overlay = root.querySelector('#overlay');
+  const detail = root.querySelector('#detail');
+  if (!overlay || !detail) return;
+  overlay.dataset.detailMode = state.detailMode;
+  detail.dataset.detailSize = state.detailSize;
+}
+
+export function bindDetailPresentation(root = document) {
+  root.querySelectorAll('[data-detail-setting]').forEach((button) => {
+    button.onclick = () => {
+      const setting = button.dataset.detailSetting;
+      setDetailPresentation(
+        setting === 'mode' ? button.dataset.detailValue : state.detailMode,
+        setting === 'size' ? button.dataset.detailValue : state.detailSize,
+      );
+      applyDetailPresentation(root);
+      root.querySelectorAll(`[data-detail-setting="${setting}"]`).forEach((option) => {
+        option.setAttribute('aria-pressed', String(option === button));
+      });
+    };
+  });
+}
+
 async function submitValidation(id, status, reason) {
   const root = $('#detail');
   await runValidationSubmission({
@@ -385,6 +446,7 @@ function openDetail(id) {
   litRender(
     html`
     ${closeButton()}
+    ${detailPresentationControls(state.detailMode, state.detailSize)}
     <h1>${c.title}</h1>
     <div class="detail-meta">
       <span class="pill">#${c.id}</span>
@@ -406,6 +468,9 @@ function openDetail(id) {
 
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
+  document.documentElement.classList.add('detail-open');
+  applyDetailPresentation();
+  bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   const accept = $('#detail').querySelector('[data-validation="pass"]');
   if (accept) accept.onclick = () => submitValidation(c.id, 'done');
@@ -494,6 +559,7 @@ async function loadGitRefs(id) {
 
 function closeDetail() {
   $('#overlay').classList.add('hidden');
+  document.documentElement.classList.remove('detail-open');
 }
 
 let diagramLightbox = null;
@@ -640,6 +706,7 @@ function openSpec(s) {
   litRender(
     html`
     ${closeButton()}
+    ${detailPresentationControls(state.detailMode, state.detailSize)}
     <h1>${s.title}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
@@ -651,6 +718,9 @@ function openSpec(s) {
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
+  document.documentElement.classList.add('detail-open');
+  applyDetailPresentation();
+  bindDetailPresentation();
   const detail = $('#detail');
   detail.querySelector('.close').onclick = closeDetail;
   overlay.onclick = (e) => {

@@ -847,21 +847,98 @@ body {
 }
 
 /* Overlay + detail */
+.detail-open {
+  overflow: hidden;
+}
 .overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
   display: flex;
   justify-content: flex-end;
+  align-items: stretch;
   z-index: 20;
 }
 .detail {
-  width: min(720px, 92vw);
+  --detail-width: 960px;
+  position: relative;
+  width: min(var(--detail-width), calc(100vw - 48px));
   height: 100%;
   background: var(--bg);
   border-left: 1px solid var(--line);
   overflow-y: auto;
   padding: 22px 26px 60px;
+  box-shadow: -24px 0 70px rgba(0, 0, 0, 0.28);
+}
+.detail[data-detail-size="compact"] {
+  --detail-width: 720px;
+}
+.detail[data-detail-size="wide"] {
+  --detail-width: 960px;
+}
+.detail[data-detail-size="full"] {
+  --detail-width: 1280px;
+}
+.overlay[data-detail-mode="floating"] {
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+.overlay[data-detail-mode="floating"] .detail {
+  width: min(var(--detail-width), calc(100vw - 56px));
+  height: min(92vh, calc(100vh - 56px));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+}
+.detail-presentation {
+  position: sticky;
+  top: -22px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: fit-content;
+  margin: -22px 48px 20px -6px;
+  padding: 14px 6px 10px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+.detail-choice {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+}
+.detail-option {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.detail-option[aria-pressed="true"] {
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+.detail-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.detail pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.detail table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .detail h1 {
   font-size: 22px;
@@ -1255,7 +1332,32 @@ body {
   }
   .detail {
     width: 100vw;
+    max-width: none;
+    height: 100vh;
+    max-height: none;
     padding: 18px 16px 60px;
+    border: 0;
+    border-radius: 0;
+  }
+  .overlay[data-detail-mode] {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+  .overlay[data-detail-mode] .detail {
+    width: 100vw;
+    height: 100vh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .detail-presentation {
+    top: -18px;
+    margin: -18px 42px 16px -4px;
+    padding-top: 10px;
+  }
+  .detail-option {
+    padding-inline: 7px;
   }
   .grid th,
   .grid td {

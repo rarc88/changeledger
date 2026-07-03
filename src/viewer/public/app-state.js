@@ -2,6 +2,8 @@ export const VIEWER_STATE_KEY = 'changeledger.viewer-state.v1';
 
 const VALID_VIEWS = new Set(['board', 'table', 'graph', 'specs', 'metrics', 'projects']);
 const VALID_SORT_KEYS = new Set(['id', 'title', 'type', 'status', 'progress', 'deps']);
+const VALID_DETAIL_MODES = new Set(['side', 'floating']);
+const VALID_DETAIL_SIZES = new Set(['compact', 'wide', 'full']);
 let storage = null;
 
 const emptyProjectFilters = () => ({
@@ -31,6 +33,8 @@ export const state = {
   projectsList: [],
   localOnly: false,
   globalMode: false,
+  detailMode: 'side',
+  detailSize: 'wide',
 };
 
 function currentProjectFilters() {
@@ -71,6 +75,8 @@ export function serializeViewerState() {
     sortKey: state.sortKey,
     sortDir: state.sortDir,
     projects: state.projectFilters,
+    detailMode: state.detailMode,
+    detailSize: state.detailSize,
   };
 }
 
@@ -99,6 +105,8 @@ export function restoreViewerState(storageLike) {
   if (typeof snapshot.text === 'string') state.filters.text = snapshot.text;
   if (typeof snapshot.sortKey === 'string') state.sortKey = snapshot.sortKey;
   if (snapshot.sortDir === 1 || snapshot.sortDir === -1) state.sortDir = snapshot.sortDir;
+  state.detailMode = VALID_DETAIL_MODES.has(snapshot.detailMode) ? snapshot.detailMode : 'side';
+  state.detailSize = VALID_DETAIL_SIZES.has(snapshot.detailSize) ? snapshot.detailSize : 'wide';
   if (
     snapshot.projects &&
     typeof snapshot.projects === 'object' &&
@@ -223,4 +231,11 @@ export function toggleGlobalMode() {
   state.globalMode = !state.globalMode;
   persistViewerState();
   return state.globalMode;
+}
+
+export function setDetailPresentation(mode, size) {
+  if (VALID_DETAIL_MODES.has(mode)) state.detailMode = mode;
+  if (VALID_DETAIL_SIZES.has(size)) state.detailSize = size;
+  persistViewerState();
+  return { mode: state.detailMode, size: state.detailSize };
 }
