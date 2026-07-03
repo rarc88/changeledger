@@ -1,0 +1,110 @@
+---
+id: "20260703-150232"
+title: Reabrir changes aceptados con cierre pendiente
+type: feature
+status: in-progress
+created: 2026-07-03T15:02:32Z
+depends_on: [ "20260703-150231" ]
+release_impact: minor
+owner: Roberto Ruiz
+---
+
+## Request
+
+Permitir corregir un change aceptado que todavía no ha resuelto su graduación,
+en vez de obligar a crear otro change inmediatamente. Una vez que el cierre se
+vuelve durable, el change no debe poder reabrirse.
+
+## Investigation
+
+El lifecycle actual trata `done` y `discarded` como terminales. La aceptación
+humana mueve a `done`, y solo después el agente gradúa a una spec o registra un
+skip. Entre ambos momentos existe una ventana real en la que puede descubrirse
+un problema, pero hoy no puede devolverse el mismo alcance a `in-progress`.
+
+Usar únicamente “graduado a spec” como frontera sería incompleto. `--skip`
+también resuelve deliberadamente la pregunta de verdad persistente; archivar
+declara cierre operativo; y un manifiesto de release ya publicado referencia el
+change como entrega durable. Reabrir cualquiera de esos casos volvería
+inconsistentes specs, releases o archivo histórico.
+
+`doneAt()` ya usa la última transición a done, pero métricas y validación de Log
+asumen que `done` es terminal. La reapertura requiere modelar explícitamente el
+intervalo provisional, conservar el primer evento en el Log y usar la aceptación
+final para cycle time y throughput. `discarded` sigue siendo un tombstone y no
+participa de esta excepción.
+
+## Proposal
+
+Añadir una acción humana `Reopen` en el viewer para `done` con graduación
+pendiente. Exige motivo y escribe `status: done → in-progress (human reopened):
+<reason>`. La operación falla cerrada si `reviewed: true`, existe una marca real
+de graduación/skip, está archivado o cualquier release registrada contiene el
+ID.
+
+El change vuelve al flujo normal: se actualizan Specification/Plan dentro del
+alcance autorizado, se agregan o reabren tareas y se repiten review y validación
+según el tipo. Una necesidad fuera del objetivo original sigue requiriendo un
+change nuevo.
+
+## Specification
+
+### CR1 — Reapertura humana elegible
+- **Given** un change `done`, no archivado, con `reviewed !== true`, sin marca de graduación o skip y ausente de releases registradas
+- **When** el humano selecciona `Reopen`, escribe un motivo no vacío y confirma
+- **Then** el viewer lo mueve a `in-progress`
+- **And** el Log registra `status: done → in-progress (human reopened): <reason>` con timestamp UTC
+
+### CR2 — Motivo obligatorio y escritura atómica
+- **Given** un change elegible para reapertura
+- **When** el humano omite el motivo o la mutación falla
+- **Then** el viewer muestra el error y mantiene abierto el detalle
+- **And** el archivo permanece byte por byte sin cambios
+
+### CR3 — Fronteras irreversibles
+- **Given** un change `done` con `reviewed: true`, una marca real `graduado a spec` o `graduation skipped`, `archived: true` o presencia en un manifiesto de release
+- **When** se intenta reabrir por API o interfaz
+- **Then** la operación falla con la frontera concreta que lo impide
+- **And** no modifica status, Log, spec ni release
+
+### CR4 — Discarded permanece terminal
+- **Given** un change `discarded`
+- **When** cualquier actor intenta reabrirlo
+- **Then** el lifecycle rechaza la transición
+- **And** una reconsideración exige un change nuevo que conserve la referencia histórica
+
+### CR5 — Repetir los gates normales
+- **Given** un change reabierto a `in-progress`
+- **When** termina la corrección dentro de su alcance original
+- **Then** vuelve a pasar por `in-review` cuando su tipo lo exige y siempre por `in-validation`
+- **And** solo una nueva aceptación humana puede devolverlo a `done`
+
+### CR6 — Log y métricas con reapertura
+- **Given** un change aceptado, reabierto y aceptado de nuevo
+- **When** `changeledger check` y las métricas reconstruyen su historial
+- **Then** la secuencia `in-validation → done → in-progress → ... → done` es válida
+- **And** cycle time y throughput usan la última transición a `done` mientras los intervalos previos permanecen auditables
+
+### CR7 — Alcance no se expande silenciosamente
+- **Given** un problema descubierto después de la aceptación
+- **When** corregirlo requiere comportamiento observable fuera del objetivo autorizado
+- **Then** el contrato exige un change nuevo en lugar de usar `Reopen`
+- **And** la reapertura se reserva para completar o corregir el alcance original aún no cerrado durablemente
+
+## Plan
+
+- [ ] Model conditional `done → in-progress` and its Log event in `src/lifecycle.mjs` and `src/commands/agent.mjs`; verify: `node --test test/lifecycle.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [ ] Enforce graduation, archive and release boundaries in `src/commands/agent.mjs` using loaded repo truth; verify: `node --test test/agent.test.mjs test/release.test.mjs` (CR1, CR3)
+- [ ] Add the human-only reopen API and detail controls in `src/viewer/domain.mjs` and `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [ ] Update lifecycle sequence validation and metrics in `src/check.mjs` and `src/metrics.mjs`; verify: `node --test test/check.test.mjs test/metrics.test.mjs` (CR5, CR6)
+- [ ] Update `templates/contract/core.md`, lifecycle overlays and `.changeledger/specs/lifecycle.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` and `changeledger check 20260703-150232` (CR3, CR4, CR5, CR7)
+- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+
+## Log
+
+- 2026-07-03T15:02:32Z — Se autorizó reabrir solo mientras el cierre siga
+  pendiente; skip, archivo y release se clasificaron como fronteras durables
+  además de la graduación a spec.
+- **2026-07-03T15:12:15Z** — status: draft → approved
+- **2026-07-03T17:15:52Z** — status: approved → in-progress
+- **2026-07-03T17:15:52Z** — owner → Roberto Ruiz (auto)
