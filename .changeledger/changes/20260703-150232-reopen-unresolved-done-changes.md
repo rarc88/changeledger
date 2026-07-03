@@ -116,3 +116,8 @@ change nuevo.
 - **2026-07-03T22:08:48Z** — review → in-progress (retry): The shared .history lock correction is logically sound and pnpm verify passes 529/529, but e2fe7c0 adds no concurrency regression test despite the prior retry explicitly requiring one. Add a deterministic test that races reopen against release init/record and asserts the impossible state (change in-progress while a manifest contains its id) never occurs, including no-write behavior for the losing reopen path.
 - **2026-07-03T22:10:04Z** — Corrección de review: prueba determinista mantiene el lock de historial, demuestra que reopen espera, publica un release y verifica rechazo sin modificar el change. Gate completo 530/530.
 - **2026-07-03T22:10:04Z** — status: in-progress → in-review
+- **2026-07-03T22:14:18Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-03T23:03:22Z** — validation → in-progress (human rejected): El tamaño del input y del botón parecen invertidos.
+- **2026-07-03T23:07:01Z** — Corrección de rechazo: .validation-controls fijaba grid-template-columns: auto minmax(190px,1fr) auto (3 columnas) pero el panel de reopen solo tiene 2 hijos (.rejection-field, button); el input caía en la columna angosta y el botón en la ancha (1fr), invirtiendo el tamaño esperado. Reducido a 2 columnas: minmax(190px,1fr) auto. Verificado en preview: input 731px / botón 117px en desktop (1400px), input y botón full-width apilados en 680px.
+- **2026-07-03T23:07:21Z** — pnpm verify: 534 pruebas ok, 157 changes válidos (check global limpio).
+- **2026-07-03T23:07:22Z** — status: in-progress → in-review

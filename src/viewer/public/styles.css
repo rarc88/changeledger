@@ -725,7 +725,7 @@ body {
 }
 .validation-controls {
   display: grid;
-  grid-template-columns: auto minmax(190px, 1fr) auto;
+  grid-template-columns: minmax(190px, 1fr) auto;
   align-items: end;
   gap: 10px;
   margin-top: 15px;
