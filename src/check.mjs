@@ -1,6 +1,7 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
 // { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
 
+import { parseChange } from './change.mjs';
 import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 
@@ -82,7 +83,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
     if (fm.status === 'done' && tasks.some((t) => t.state !== 'done')) {
       const pending = tasks.filter((t) => t.state !== 'done').length;
-      warn(c, `status is "done" but ${pending} task(s) are not done`);
+      err(c, `status is "done" but ${pending} task(s) are not done`);
     }
     if (fm.status === 'blocked' && tasks.length && !tasks.some((t) => t.state === 'blocked')) {
       warn(c, 'status is "blocked" but no task is marked [!]');
@@ -129,6 +130,30 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
   return { errors, warnings };
+}
+
+// Reuses the scoped validator for a selected change, optionally replacing its
+// in-memory text with a candidate that has not been written yet. Callers gate
+// mutations on errors only; warnings remain informational by contract.
+export function checkSelectedChange(repo, id, candidateText) {
+  let changes = repo.changes;
+  if (candidateText !== undefined) {
+    const index = changes.findIndex((c) => String(c.frontmatter?.id) === String(id));
+    if (index !== -1) {
+      const current = changes[index];
+      const candidate = { ...current, text: candidateText, ...parseChange(candidateText) };
+      changes = changes.with(index, candidate);
+    }
+  }
+  return checkRepo({ ...repo, changes }, { id });
+}
+
+export function assertSelectedChangeValid(repo, id, candidateText) {
+  const { errors } = checkSelectedChange(repo, id, candidateText);
+  if (!errors.length) return;
+  throw new Error(
+    `change ${id} failed scoped validation:\n${errors.map((error) => `- ${error.message}`).join('\n')}`,
+  );
 }
 
 function checkReleases(releases, changesById, err) {

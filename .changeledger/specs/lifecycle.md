@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-03T16:52:42Z
+updated: 2026-07-03T17:06:55Z
 tags: [ lifecycle ]
 ---
 
@@ -17,6 +17,7 @@ tags: [ lifecycle ]
 > Graduado del change 20260616-212322 (archivado masivo de graduados).
 > Graduado del change 20260626-160038 (política económica de delegación).
 > Graduado del change 20260630-225210 (validación secuencial del Log).
+> Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
 
 ```mermaid
 stateDiagram-v2
@@ -87,6 +88,11 @@ validación por enum. `changeledger status done` se rechaza por separado porque 
 veredicto humano puede cerrar. `done` y `discarded` son terminales y nunca se reabren. El
 visor añade la política de actor: permite únicamente las transiciones humanas
 `draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
+Antes de aceptar, construye en memoria la única transición `validation → done
+(human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
+inconsistencia del Log rechazan la operación antes de escribir, conservando el
+archivo en `in-validation`; warnings del seleccionado y errores ajenos no
+bloquean.
 
 **Veredicto (`changeledger review`, en `agent.review()`).** `pass` → `in-validation`;
 `fail --retry`
@@ -165,6 +171,10 @@ o registra un skip (bug/chore sin verdad persistente). La finalización con
 una spec. "Graduado a spec" sigue siendo derivable de la marca `graduado a spec`
 del Log — `reviewed` solo registra que la pregunta quedó zanjada. `check` valida
 que `reviewed`, si está, sea booleano; no avisa de pendientes (es bajo demanda).
+Los tres modos que escriben (`--new`, `--into`, `--skip`) ejecutan primero el
+mismo check scoped del change `done`. Si existen tareas incompletas o errores de
+secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
+marker de graduación o fijar `reviewed: true`.
 
 `changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
 conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y

@@ -530,6 +530,32 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
   assert.match(parsed.stages.find((s) => s.key === 'log').body, /manual scenario failed/);
 });
 
+test('150231 CR2: viewer reports an incomplete acceptance and preserves validation state', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending\n'),
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  const before = fs.readFileSync(file, 'utf8');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'done' });
+
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /1 task\(s\) are not done/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {
   isolatedHome();
   const root = newRepo();

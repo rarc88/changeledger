@@ -2,7 +2,7 @@
 id: "20260703-150231"
 title: Bloquear cierre y graduación inconsistentes
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-03T15:02:31Z
 depends_on: []
 release_impact: patch
@@ -73,11 +73,11 @@ relacionados no deben convertirse accidentalmente en gates.
 
 ## Plan
 
-- [ ] Promote unfinished tasks in `done` to an error and expose reusable selected-change validation in `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR1, CR6)
-- [ ] Guard human acceptance in `src/commands/agent.mjs` and `src/viewer/domain.mjs`; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR2, CR3, CR6)
-- [ ] Add no-write preflight to all paths in `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs` (CR4, CR5, CR6)
-- [ ] Record closure integrity in `.changeledger/specs/lifecycle.md` and `.changeledger/specs/validation.md`; verify: `node bin/changeledger.mjs check 20260703-150231` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Promote unfinished tasks in `done` to an error and expose reusable selected-change validation in `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR1, CR6) — 2026-07-03T17:07:56Z
+- [x] Guard human acceptance in `src/commands/agent.mjs` and `src/viewer/domain.mjs`; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR2, CR3, CR6) — 2026-07-03T17:07:56Z
+- [x] Add no-write preflight to all paths in `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs` (CR4, CR5, CR6) — 2026-07-03T17:07:57Z
+- [x] Record closure integrity in `.changeledger/specs/lifecycle.md` and `.changeledger/specs/validation.md`; verify: `node bin/changeledger.mjs check 20260703-150231` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T17:07:57Z
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T17:08:28Z
 
 ## Log
 
@@ -86,3 +86,5 @@ relacionados no deben convertirse accidentalmente en gates.
 - **2026-07-03T15:12:03Z** — status: draft → approved
 - **2026-07-03T17:02:24Z** — status: approved → in-progress
 - **2026-07-03T17:02:24Z** — owner → Roberto Ruiz (auto)
+- **2026-07-03T17:08:28Z** — El preflight scoped valida el candidato antes de aceptación y los tres modos de graduación antes de cualquier escritura; 201 pruebas focalizadas y 518 pruebas completas pasaron.
+- **2026-07-03T17:08:28Z** — status: in-progress → in-review

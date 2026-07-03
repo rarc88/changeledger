@@ -300,12 +300,36 @@ test('171002 CR1: review pass moves to validation and marks the delegation', () 
 
 test('171002 CR2: human validation pass closes the complete change', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   reach(id, root, 'in-review');
   review(id, 'pass', {}, root);
   validation(id, 'pass', {}, root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'done');
   assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
+});
+
+test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent changes without writing', () => {
+  for (const defect of ['task', 'log']) {
+    const { root, file, id } = repoWithChange();
+    if (defect === 'log') task(id, 'done', 1, '', root);
+    reach(id, root, 'in-review');
+    review(id, 'pass', {}, root);
+    if (defect === 'log') {
+      fs.writeFileSync(
+        file,
+        fs
+          .readFileSync(file, 'utf8')
+          .replace('## Log\n', '## Log\n\n- **2026-06-13T12:30:00Z** — status: draft → approved\n'),
+      );
+    }
+    const before = fs.readFileSync(file, 'utf8');
+    assert.throws(
+      () => validation(id, 'pass', {}, root),
+      defect === 'task' ? /1 task\(s\) are not done/ : /Log line .*reconstructed status/,
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
 });
 
 test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
@@ -450,6 +474,7 @@ test('210508 CR2: discard sets the terminal status and logs the reason', () => {
 
 test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', () => {
   const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
   status(id, 'approved', root);
   status(id, 'in-progress', root);
   // Drive the feature through review and human validation to test terminal done.

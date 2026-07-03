@@ -6,9 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
+import { assertSelectedChangeValid } from '../check.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
-import { resolveChange } from '../repo.mjs';
+import { loadRepo, resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -30,11 +31,17 @@ function requireDone(changeText) {
   return change;
 }
 
+function requireGraduationReady(id, cwd, changeText) {
+  const change = requireDone(changeText);
+  assertSelectedChangeValid(loadRepo(cwd), id, changeText);
+  return change;
+}
+
 export function scaffoldSpec(id, slug, cwd = process.cwd()) {
   const { file: changeFile, specsDir, specName, specFile } = graduationTarget(id, slug, cwd);
+  const change = requireGraduationReady(id, cwd, fs.readFileSync(changeFile, 'utf8'));
   if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
 
-  const change = requireDone(fs.readFileSync(changeFile, 'utf8'));
   const seedStage =
     change.stages.find((stage) => stage.key === 'specification') ??
     change.stages.find((stage) => stage.key === 'proposal');
@@ -66,13 +73,14 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
   const { file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
+  requireGraduationReady(id, cwd, fs.readFileSync(changeFile, 'utf8'));
 
   if (!fs.existsSync(specFile)) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
   }
 
   mutateFileAtomic(changeFile, (changeText) => {
-    requireDone(changeText);
+    requireGraduationReady(id, cwd, changeText);
     const specText = fs.readFileSync(specFile, 'utf8');
     if (specText.includes(SPEC_SCAFFOLD_MARKER)) {
       throw new Error(
@@ -94,9 +102,7 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
   const { file: changeFile } = resolveChange(cwd, id);
   const message = reason ? `graduation skipped: ${reason}` : 'graduation skipped';
   mutateFileAtomic(changeFile, (text) => {
-    const change = parseChange(text);
-    if (change.frontmatter.status !== 'done')
-      throw new Error('only done changes can be graduated/skipped');
+    requireGraduationReady(id, cwd, text);
 
     text = appendLog(text, nowUtc(), message);
     return setReviewed(text, true);

@@ -128,14 +128,14 @@ test('CR6: duplicate ids are an error', () => {
   assert.ok(msgs(run([a, b]).errors).some((m) => /duplicate id/.test(m)));
 });
 
-test('CR7: done with unfinished tasks is a warning, not an error', () => {
+test('150231 CR1: done with unfinished tasks is an error', () => {
   const c = change({
     frontmatter: { status: 'done' },
     tasks: [{ state: 'done', resolvedAt: '2026-06-13T12:01:00Z' }, { state: 'todo' }],
   });
   const { errors, warnings } = run([c]);
-  assert.deepEqual(errors, []);
-  assert.ok(msgs(warnings).some((m) => /not done/.test(m)));
+  assert.ok(msgs(errors).some((m) => /1 task\(s\) are not done/.test(m)));
+  assert.ok(!msgs(warnings).some((m) => /not done/.test(m)));
 });
 
 test('id not matching filename is an error', () => {
