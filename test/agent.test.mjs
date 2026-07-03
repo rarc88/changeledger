@@ -392,6 +392,38 @@ test('150232 CR3: durable closure boundaries reject reopening without writes', (
   }
 });
 
+test('150232 CR3: release publication wins a deterministic race with reopen', async () => {
+  const { root, file, id } = acceptedChange();
+  const before = fs.readFileSync(file, 'utf8');
+  const releasesDir = path.join(root, '.changeledger', 'releases');
+  fs.mkdirSync(releasesDir, { recursive: true });
+  const lock = path.join(releasesDir, '..history.lock');
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, created: new Date().toISOString() }));
+  const moduleUrl = new URL('../src/commands/agent.mjs', import.meta.url).href;
+  const script = `import { reopen } from ${JSON.stringify(moduleUrl)}; reopen(process.argv[1], 'race', process.argv[2]);`;
+  let settled = false;
+  const attempt = execFileAsync(process.execPath, ['--input-type=module', '-e', script, id, root]);
+  attempt.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+
+  await delay(100);
+  assert.equal(settled, false, 'reopen must wait for the release-history lock');
+  fs.writeFileSync(
+    path.join(releasesDir, '1.0.0.yml'),
+    `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+  );
+  fs.unlinkSync(lock);
+
+  await assert.rejects(attempt, /cannot reopen: change belongs to a recorded release/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');
