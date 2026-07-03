@@ -24,12 +24,12 @@ change-id context required by a real task or lifecycle transition.
    agent decides how to divide and execute work within that authorized scope.
 3. Capture every authorized change in `.changeledger/changes/`. The document
    wins when code and documentation disagree.
-4. Never implement a `draft`. After approval, work one change at a time on a
-   non-main branch and commit the approved change document before code.
+4. Never implement a `draft`. After approval, implement one change at a time on
+   a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.
 6. For types that require review, use a fresh clean-context reviewer before
    human validation.
-7. Stop at `in-validation`. The agent never accepts on the human's behalf.
+7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may start another approved change unless it or its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
    change, then graduate persistent truth (a new spec is a two-step `--new`
    then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive

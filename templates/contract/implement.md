@@ -18,7 +18,8 @@ unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
 After `approved → in-progress`, create a baseline commit of the approved change
-document before code. Implement one change at a time.
+document before code. Implement one change at a time, even while another
+already-delivered change waits in `in-validation`.
 
 Commit completed units with their tasks and Log when later work could obscure
 attribution. Do not create a dedicated commit for a lifecycle-only transition.

@@ -260,7 +260,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['core', /Work starts with conversation/],
     ['core', /human explicitly authorizes documentation/],
     ['core', /Never implement a `draft`/],
-    ['core', /Stop at `in-validation`/],
+    // 20260703-220014: the global-sounding "Stop at in-validation" was replaced
+    // with a change-scoped stop that lets the agent pick up independent queued work.
+    ['core', /`in-validation` stops only that change/],
     ['core', /reload `changeledger context <id>`/],
     ['core', /changeledger graduate <id> --skip \[reason\]/],
     ['core', /`discarded` never reopens/],
@@ -467,18 +469,24 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // capture is now normal, sentinel recovery exceptional, and messages do not reload core.
     // 20260703-150232: done finality is replaced with one human-only provisional reopen edge;
     // discarded and graduated/skipped/archived/released closures remain irreversible.
-    'core.md': 'e8b388fd3b41710f7b0e97a918f2cf5bbf937709b65295c140e5a947d86780f3',
+    // 20260703-220014: rule 7 replaced — "Stop at in-validation" (read as a global pause) is
+    // now a change-scoped stop that names the depends_on chain blocking the next candidate.
+    'core.md': '3481a6de5281b31fe762548390c321c238f9c12da6f9366a96d3c8a0ec603b5b',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
-    'implement.md': 'e7cf8ab2ff61bd45068a10a7cff7de9b293118e778ba10003d0895d83306dae4',
+    // 20260703-220014: clarified that "one change at a time" is per-worktree, not
+    // a claim that no other change may sit in in-validation concurrently.
+    'implement.md': 'fe728ddc231e821e73dfaf3288eef0dc118d51676f8edd38541154e5454a88ed',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
     'review.md': 'bee85dbd9fbc6c861d85cd7fbcc2700adb5fe0c13ff8db65eefe86a3a01ab2ff',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
-    'validation.md': '4b9320b2f4f99788560cf3dd203d36e74a5587a52c0f7642f2117f83afe077a1',
+    // 20260703-220014: added that the stop is scoped to this change, names the blocking
+    // depends_on chain and stops entirely only when every candidate is blocked.
+    'validation.md': '8b3e232aa19376ec008d2b8b3d236386961c4adb970e240bdf55275b86e23563',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -766,6 +774,54 @@ test('225213 CR3: change without dependencies emits no dependency block', () => 
   const id = writeRawChange(root, { id: '20260627-150002', status: 'in-progress' });
   const output = buildContext(id, root);
   assert.doesNotMatch(output, /## Dependencies/);
+});
+
+test('220014 CR1/CR4: core and validation scope the stop to one change, not the queue', () => {
+  const root = repo();
+  const validationId = addChange(root, 'in-validation', '20260628-000001');
+  const core = buildContext(undefined, root).replace(/\s+/g, ' ');
+  const validation = buildContext(validationId, root).replace(/\s+/g, ' ');
+  assert.match(core, /`in-validation` stops only that change/);
+  assert.match(core, /may start another approved change unless it or its `depends_on` chain/);
+  assert.match(validation, /This stop is scoped to this change/);
+  assert.match(validation, /stops entirely/);
+  assert.match(validation, /does not invent work or touch delivered\s+results/);
+});
+
+test('220014 CR2/CR3: a direct or transitive dependency on an in-validation change is visible', () => {
+  const root = repo();
+  const blockedByA = writeRawChange(root, {
+    id: '20260628-000010',
+    status: 'in-validation',
+    title: 'A — delivered, awaiting human',
+  });
+  const candidateB = writeRawChange(root, {
+    id: '20260628-000011',
+    status: 'approved',
+    title: 'B — depends on A directly',
+    dependsOn: [blockedByA],
+  });
+  const candidateC = writeRawChange(root, {
+    id: '20260628-000012',
+    status: 'approved',
+    title: 'C — depends on B, transitively on A',
+    dependsOn: [candidateB],
+  });
+
+  // CR2: B's own context surfaces A's in-validation status directly.
+  const outputB = buildContext(candidateB, root);
+  assert.match(
+    outputB,
+    new RegExp(`#${blockedByA} — A — delivered, awaiting human — in-validation`),
+  );
+
+  // CR3: C does not mention A directly, but walking its one declared
+  // dependency (B) exposes the chain C -> B -> A without a new primitive.
+  const outputC = buildContext(candidateC, root);
+  assert.match(outputC, new RegExp(`#${candidateB} — B — depends on A directly — approved`));
+  assert.doesNotMatch(outputC, new RegExp(blockedByA));
+  const outputBAgain = buildContext(candidateB, root);
+  assert.match(outputBAgain, /in-validation/);
 });
 
 test('225213 CR6: every base composition stays within its explicit budget', () => {

@@ -2,7 +2,7 @@
 id: "20260703-220014"
 title: Continuar cambios independientes durante validación
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-03T22:00:14Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -78,8 +78,8 @@ el core local-first y no es necesario para resolver la espera artificial.
 
 ## Plan
 
-- [ ] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5)
+- [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:04Z
+- [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:05Z
 - [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
 
 ## Log
@@ -88,3 +88,5 @@ el core local-first y no es necesario para resolver la espera artificial.
 - **2026-07-03T22:07:21Z** — status: draft → approved
 - **2026-07-03T22:47:31Z** — status: approved → in-progress
 - **2026-07-03T22:47:31Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-03T22:53:50Z** — pnpm verify: 534 pruebas ok (+2 nuevas: 220014 CR1/CR4 y CR2/CR3), 157 changes válidos. Redacción escogida: la parada de in-validation queda scoped a ese change; el chequeo de cadena transitiva reutiliza changeledger context <id> salto a salto, sin comando nuevo.
+- **2026-07-03T22:53:50Z** — status: in-progress → in-review

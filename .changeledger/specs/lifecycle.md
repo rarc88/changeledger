@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-03T17:30:00Z
+updated: 2026-07-03T23:05:00Z
 tags: [ lifecycle ]
 ---
 
@@ -19,6 +19,7 @@ tags: [ lifecycle ]
 > Graduado del change 20260630-225210 (validación secuencial del Log).
 > Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
 > Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
+> Actualizado por el change 20260703-220014 (parada de validación local por change).
 
 ```mermaid
 stateDiagram-v2
@@ -117,6 +118,20 @@ escritura de la reapertura.
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
+
+**Parada de validación local.** `in-validation` detiene solo ese change: el
+humano decide, el agente nunca acepta en su nombre. No es una pausa global de
+la cola. El agente puede empezar el siguiente change `approved` cuya cadena
+`depends_on`, directa o transitiva, no llegue a ese ni a ningún otro change en
+`in-validation`; `changeledger context <id>` ya resuelve el status de cada
+dependencia directa en una línea, así que la cadena transitiva se recorre
+consultándola de un salto en otro sin un comando nuevo. Si la dependencia
+bloqueante existe, el agente la nombra y no empieza ese candidato. Si todos los
+`approved` restantes están bloqueados así, el agente se detiene por completo:
+no inventa trabajo ni toca los resultados ya entregados mientras espera. El
+change seleccionado sigue las reglas normales de rama, baseline, commits y
+aislamiento de correcciones; solo uno está en implementación activa por
+worktree, aunque otro ya entregado siga esperando validación humana.
 
 **Triage de fricción y autorización.** Antes de entregar al humano un resultado
 completado o bloqueado, el agente clasifica la fricción ya descubierta. Si es
