@@ -156,6 +156,17 @@ export function assertSelectedChangeValid(repo, id, candidateText) {
   );
 }
 
+// Validates one already-resolved file without loading or parsing siblings. This
+// is the write-gate path for operations whose scope is exactly one change.
+export function assertChangeTextValid(config, name, text) {
+  const parsed = parseChange(text);
+  const id = parsed.frontmatter.id;
+  assertSelectedChangeValid(
+    { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
+    id,
+  );
+}
+
 function checkReleases(releases, changesById, err) {
   const seenVersions = new Set();
   const releasedChanges = new Map();

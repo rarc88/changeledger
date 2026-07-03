@@ -44,7 +44,8 @@ la validación scoped para evaluar tanto el archivo actual como un candidato aú
 no escrito; sólo sus errores bloquean, no sus warnings ni hallazgos de otros
 changes. La aceptación humana valida primero el candidato con la transición
 `validation → done`, y los modos de graduación validan el `done` seleccionado
-antes de tocar change o spec.
+antes de tocar change o spec. Estas rutas resuelven y parsean únicamente el
+archivo seleccionado; incluso un sibling ilegible queda fuera del gate scoped.
 
 Con `tdd: true`, `approved` e `in-progress` endurecen la Definition of Ready:
 cada `CRn` debe declarar pasos `Given`/`When`/`Then`, y cada tarea que referencia

@@ -5,7 +5,7 @@
 import path from 'node:path';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { assertSelectedChangeValid } from '../check.mjs';
+import { assertChangeTextValid } from '../check.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { assertTransition } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -134,7 +134,7 @@ export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
         ? 'validation → done (human accepted)'
         : `validation → in-progress (human rejected): ${reason}`,
     );
-    if (verdict === 'pass') assertSelectedChangeValid(loadRepo(cwd), id, text);
+    if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
   });
   return file;

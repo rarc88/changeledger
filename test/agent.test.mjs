@@ -332,6 +332,17 @@ test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent change
   }
 });
 
+test('150231 CR6: human acceptance ignores an unrelated unparseable change', () => {
+  const { root, file, id } = repoWithChange();
+  task(id, 'done', 1, '', root);
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'not frontmatter\n');
+
+  assert.doesNotThrow(() => validation(id, 'pass', {}, root));
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
 test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');

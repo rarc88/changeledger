@@ -238,10 +238,9 @@ test('150231 CR4/CR5: every graduation mode preflights closure integrity without
 
 test('150231 CR6: graduation preflight is scoped to the selected change', () => {
   const { root, file, id } = repo();
-  const other = writeChange(root, '20260105-000000', 'done');
   fs.writeFileSync(
-    other,
-    fs.readFileSync(other, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending\n'),
+    path.join(root, '.changeledger', 'changes', 'unparseable.md'),
+    'not a frontmatter block\n',
   );
 
   assert.doesNotThrow(() => skipGraduation(id, 'no durable truth', root));

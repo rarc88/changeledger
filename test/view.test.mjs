@@ -556,6 +556,27 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'done' });
+
+  assert.equal(result.code, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
 test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {
   isolatedHome();
   const root = newRepo();
