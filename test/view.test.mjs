@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import { review, status } from '../src/commands/agent.mjs';
+import { review, status, validation } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -575,6 +575,33 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
 
   assert.equal(result.code, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
+  const { projects, current } = resolveProjects(root, false);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.equal(changeStatus(projects, { project: current, id, status: 'in-progress' }).code, 400);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  const result = changeStatus(projects, {
+    project: current,
+    id,
+    status: 'in-progress',
+    reason: 'finish original scope',
+  });
+  assert.equal(result.code, 200);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-progress');
 });
 
 test('171002 CR2: changeStatus rejects agent-owned or premature moves without writing', () => {

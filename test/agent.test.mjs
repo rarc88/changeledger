@@ -15,6 +15,7 @@ import {
   list,
   log,
   owner,
+  reopen,
   review,
   show,
   status,
@@ -341,6 +342,54 @@ test('150231 CR6: human acceptance ignores an unrelated unparseable change', () 
 
   assert.doesNotThrow(() => validation(id, 'pass', {}, root));
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'done');
+});
+
+function acceptedChange() {
+  const result = repoWithChange();
+  task(result.id, 'done', 1, '', result.root);
+  reach(result.id, result.root, 'in-review');
+  review(result.id, 'pass', {}, result.root);
+  validation(result.id, 'pass', {}, result.root);
+  return result;
+}
+
+test('150232 CR1/CR2/CR5: human reopens provisional done with a required reason', () => {
+  const { root, file, id } = acceptedChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => reopen(id, '', root), /requires a reason/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  reopen(id, 'complete original acceptance', root);
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /done → in-progress \(human reopened\)/,
+  );
+  assert.throws(() => validation(id, 'pass', {}, root), /requires status in-validation/);
+});
+
+test('150232 CR3: durable closure boundaries reject reopening without writes', () => {
+  for (const boundary of ['reviewed', 'graduated', 'archived', 'released']) {
+    const { root, file, id } = acceptedChange();
+    let text = fs.readFileSync(file, 'utf8');
+    if (boundary === 'reviewed')
+      text = text.replace('depends_on: []', 'depends_on: []\nreviewed: true');
+    if (boundary === 'graduated') text += '\n- **2026-06-13T13:00:00Z** — graduation skipped\n';
+    if (boundary === 'archived')
+      text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
+    fs.writeFileSync(file, text);
+    if (boundary === 'released') {
+      const dir = path.join(root, '.changeledger', 'releases');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, '1.0.0.yml'),
+        `version: 1.0.0\ncreated: 2026-06-13T13:00:00Z\nchanges: ["${id}"]\n`,
+      );
+    }
+    const before = fs.readFileSync(file, 'utf8');
+    assert.throws(() => reopen(id, 'late', root), /cannot reopen/);
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
 });
 
 test('171002 CR3: human rejection requires a reason and returns to in-progress', () => {

@@ -1299,6 +1299,24 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 });
 
+test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
+  const text = seqChange('done', [
+    '- **2026-06-13T12:10:00Z** — status: draft → approved',
+    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
+    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T13:00:00Z** — status: done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** — status: in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** — review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:30:00Z** — validation → done (human accepted)',
+  ]);
+  assert.deepEqual(
+    msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
+    [],
+  );
+});
+
 test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
   const legacyReviewClose = seqChange('done', [
     '- **2026-06-13T12:10:00Z** — status: draft → approved',

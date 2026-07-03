@@ -64,6 +64,7 @@ in-progress → in-validation → done               [no review required]
 in-review → in-progress                           [review retry]
 in-review → blocked → in-progress                 [review escalation]
 in-validation → in-progress                       [human rejection]
+done → in-progress                                [human reopen before durable closure]
 (draft | approved | in-progress | blocked) → discarded
 ```
 
@@ -73,15 +74,16 @@ in-validation → in-progress                       [human rejection]
 - `in-review`: independent review required.
 - `in-validation`: stop and wait for human acceptance or rejection.
 - `blocked`: an impediment or decision needs resolution.
-- `done`: terminal; the human accepted the complete result.
+- `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
 
 `changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
-The viewer owns `draft → approved` and `in-validation → done|in-progress`; the
-agent performs the other non-terminal moves. Use
+The viewer owns `draft → approved` and `in-validation → done|in-progress`, plus
+eligible `done → in-progress` with a reason; the agent performs other moves. Use
 `changeledger discard <id> "<reason>"`: the discard reason is required and
-logged, and dependencies remain resolvable. `done` and `discarded` never reopen;
-later reconsideration needs a newly authorized change.
+logged, and dependencies remain resolvable. `discarded` never reopens. A `done`
+change can reopen only to finish its original scope before graduation/skip,
+archive or release; after durable closure, later work needs a new change.
 
 ## Context modes
 

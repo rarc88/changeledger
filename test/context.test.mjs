@@ -263,7 +263,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['core', /Stop at `in-validation`/],
     ['core', /reload `changeledger context <id>`/],
     ['core', /changeledger graduate <id> --skip \[reason\]/],
-    ['core', /`done` and `discarded` never reopen/],
+    ['core', /`discarded` never reopens/],
+    ['core', /A `done` change can reopen only to finish its original scope/],
     ['spec', /changeledger new <type> <slug> "<title>"/],
     ['spec', /One concern per change/],
     ['spec', /unrelated concerns.*separate changes/],
@@ -455,7 +456,8 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260703-150230: existing traceability rules are preserved but their Git
     // boundaries are replaced: baseline first, lifecycle-only moves coalesced,
     // verified corrections remain meaningful, and graduation owns final closure.
-    'close.md': 'db3311fa7d770b6ea1ca1deeb1b5a834034126b511f4b14b91ed7b0644a83738',
+    // 20260703-150232: terminal done is replaced by durable-closure finality.
+    'close.md': '5272578ebf2dbc231890852cd2bf77992e51eb13e7b6b81acb629b2a2ea146fa',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -463,7 +465,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // two-step so graduation is not presented as a settled binary.
     // 20260703-150229: anti-truncation is preserved and strengthened: deliberate one-pass
     // capture is now normal, sentinel recovery exceptional, and messages do not reload core.
-    'core.md': '1407006ace601bbe5312d648feae9485befbaa27d522e234d34a874b62dd1764',
+    // 20260703-150232: done finality is replaced with one human-only provisional reopen edge;
+    // discarded and graduated/skipped/archived/released closures remain irreversible.
+    'core.md': 'e8b388fd3b41710f7b0e97a918f2cf5bbf937709b65295c140e5a947d86780f3',
     'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
@@ -474,7 +478,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
     'review.md': 'bee85dbd9fbc6c861d85cd7fbcc2700adb5fe0c13ff8db65eefe86a3a01ab2ff',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
-    'validation.md': 'b511437a4eb3c83da0afc34ac24ba428489064862d4a7a598453c2c83f365358',
+    'validation.md': '4b9320b2f4f99788560cf3dd203d36e74a5587a52c0f7642f2117f83afe077a1',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs

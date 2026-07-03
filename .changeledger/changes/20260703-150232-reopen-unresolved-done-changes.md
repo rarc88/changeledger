@@ -2,7 +2,7 @@
 id: "20260703-150232"
 title: Reabrir changes aceptados con cierre pendiente
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-03T15:02:32Z
 depends_on: [ "20260703-150231" ]
 release_impact: minor
@@ -93,12 +93,12 @@ change nuevo.
 
 ## Plan
 
-- [ ] Model conditional `done → in-progress` and its Log event in `src/lifecycle.mjs` and `src/commands/agent.mjs`; verify: `node --test test/lifecycle.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Enforce graduation, archive and release boundaries in `src/commands/agent.mjs` using loaded repo truth; verify: `node --test test/agent.test.mjs test/release.test.mjs` (CR1, CR3)
-- [ ] Add the human-only reopen API and detail controls in `src/viewer/domain.mjs` and `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
-- [ ] Update lifecycle sequence validation and metrics in `src/check.mjs` and `src/metrics.mjs`; verify: `node --test test/check.test.mjs test/metrics.test.mjs` (CR5, CR6)
-- [ ] Update `templates/contract/core.md`, lifecycle overlays and `.changeledger/specs/lifecycle.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` and `changeledger check 20260703-150232` (CR3, CR4, CR5, CR7)
-- [ ] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Model conditional `done → in-progress` and its Log event in `src/lifecycle.mjs` and `src/commands/agent.mjs`; verify: `node --test test/lifecycle.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T21:59:28Z
+- [x] Enforce graduation, archive and release boundaries in `src/commands/agent.mjs` using loaded repo truth; verify: `node --test test/agent.test.mjs test/release.test.mjs` (CR1, CR3) — 2026-07-03T21:59:28Z
+- [x] Add the human-only reopen API and detail controls in `src/viewer/domain.mjs` and `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-07-03T21:59:28Z
+- [x] Update lifecycle sequence validation and metrics in `src/check.mjs` and `src/metrics.mjs`; verify: `node --test test/check.test.mjs test/metrics.test.mjs` (CR5, CR6) — 2026-07-03T21:59:28Z
+- [x] Update `templates/contract/core.md`, lifecycle overlays and `.changeledger/specs/lifecycle.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` and `changeledger check 20260703-150232` (CR3, CR4, CR5, CR7) — 2026-07-03T21:59:28Z
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T21:59:59Z
 
 ## Log
 
@@ -108,3 +108,5 @@ change nuevo.
 - **2026-07-03T15:12:15Z** — status: draft → approved
 - **2026-07-03T17:15:52Z** — status: approved → in-progress
 - **2026-07-03T17:15:52Z** — owner → Roberto Ruiz (auto)
+- **2026-07-03T21:59:59Z** — Reopen quedó limitado al viewer humano y al intervalo previo al cierre durable; las cuatro fronteras fallan sin escribir y el historial usa la última aceptación. Suite focalizada 318/318 y gate completo 529/529.
+- **2026-07-03T21:59:59Z** — status: in-progress → in-review

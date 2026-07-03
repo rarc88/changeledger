@@ -6,8 +6,10 @@ mark it done. Ask the human to test the whole change in the viewer.
 Acceptance reaches `done`. Rejection requires a reason and returns the same
 change to `in-progress`; run `changeledger context <id>` before modifying
 implementation, update Specification/Plan as needed and repeat review when
-configured. The agent never accepts on the human's behalf. `done` and `discarded`
-never reopen.
+configured. The agent never accepts on the human's behalf. Before graduation,
+skip, archive or release, the human may reopen `done` with a reason only to
+complete the original authorized scope; broader behavior needs a new change.
+`discarded` never reopens.
 
 The validation transition alone does not require a dedicated commit. After
 acceptance, resolve graduation or skip first; the close overlay then requires one

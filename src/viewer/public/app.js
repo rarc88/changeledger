@@ -312,6 +312,49 @@ export async function runValidationSubmission({ root, request, onSuccess }) {
   return true;
 }
 
+export function reopenPanel(status) {
+  if (status !== 'done') return nothing;
+  return html`<section class="validation-actions" aria-labelledby="reopen-title">
+    <div class="validation-copy">
+      <span class="validation-kicker">Lifecycle correction</span>
+      <h2 id="reopen-title">Reopen completed change</h2>
+      <p>Return this change to active work while preserving why its completion was reconsidered.</p>
+    </div>
+    <div class="validation-controls">
+      <div class="rejection-field">
+        <label for="reopen-reason">Reason for reopening</label>
+        <input
+          id="reopen-reason"
+          data-reopen-reason
+          type="text"
+          placeholder="What requires more work?"
+        />
+        <p class="validation-error" role="alert" hidden></p>
+      </div>
+      <button type="button" class="button button-danger" data-reopen>Reopen change</button>
+    </div>
+  </section>`;
+}
+
+export function bindReopenAction({ root, request, onSuccess }) {
+  const button = root.querySelector('[data-reopen]');
+  if (!button) return;
+  button.onclick = async () => {
+    const input = root.querySelector('[data-reopen-reason]');
+    const reason = input?.value.trim();
+    if (!reason) {
+      showValidationError(root, 'A reopening reason is required.');
+      input?.focus();
+      return false;
+    }
+    return runValidationSubmission({
+      root,
+      request: () => request(reason),
+      onSuccess,
+    });
+  };
+}
+
 async function submitValidation(id, status, reason) {
   const root = $('#detail');
   await runValidationSubmission({
@@ -352,6 +395,7 @@ function openDetail(id) {
       ${deps}
     </div>
     ${c.status === 'in-validation' ? validationPanel() : nothing}
+    ${reopenPanel(c.status)}
     <div class="pipeline">${pipeline}</div>
     ${stages}
     <div id="git-section"></div>`,
@@ -378,6 +422,15 @@ function openDetail(id) {
       submitValidation(c.id, 'in-progress', reason);
     };
   }
+  bindReopenAction({
+    root: $('#detail'),
+    request: (reason) => postStatus(state.currentProject, c.id, 'in-progress', reason),
+    onSuccess: async () => {
+      invalidateCache();
+      await load();
+      openDetail(c.id);
+    },
+  });
   overlay.onclick = (e) => {
     if (e.target === overlay) closeDetail();
   };

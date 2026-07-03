@@ -10,6 +10,12 @@ test('CR1: the happy path is allowed at every step', () => {
   }
 });
 
+test('150232 CR4/CR5: done may re-enter normal flow while discarded remains terminal', () => {
+  assert.equal(canTransition('done', 'in-progress'), true);
+  assert.doesNotThrow(() => assertTransition('done', 'in-progress'));
+  assert.throws(() => assertTransition('discarded', 'in-progress'), /invalid lifecycle transition/);
+});
+
 test('CR2: blocked is a reversible detour from in-progress', () => {
   assert.doesNotThrow(() => assertTransition('in-progress', 'blocked'));
   assert.doesNotThrow(() => assertTransition('blocked', 'in-progress'));
@@ -19,7 +25,6 @@ test('CR3: skips, regressions and self-loops are rejected', () => {
   for (const [from, to] of [
     ['draft', 'done'],
     ['draft', 'in-progress'],
-    ['done', 'in-progress'],
     ['approved', 'draft'],
     ['in-progress', 'in-progress'],
   ]) {

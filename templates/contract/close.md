@@ -53,4 +53,4 @@ Operational inspection and visibility:
 
 Use Mermaid where it communicates persistent relationships better than prose.
 After closure, share a brief retrospective. New work needs a newly authorized
-change; `done` never reopens.
+change; graduated, skipped, archived or released work never reopens.

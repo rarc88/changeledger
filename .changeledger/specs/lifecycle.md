@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-03T17:06:55Z
+updated: 2026-07-03T17:30:00Z
 tags: [ lifecycle ]
 ---
 
@@ -18,6 +18,7 @@ tags: [ lifecycle ]
 > Graduado del change 20260626-160038 (política económica de delegación).
 > Graduado del change 20260630-225210 (validación secuencial del Log).
 > Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
+> Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
 
 ```mermaid
 stateDiagram-v2
@@ -32,6 +33,7 @@ stateDiagram-v2
     in_review --> blocked: fail --block
     in_validation --> done: humano acepta (viewer)
     in_validation --> in_progress: humano rechaza con motivo
+    done --> in_progress: humano reabre antes del cierre durable
     blocked --> in_progress
     draft --> discarded: changeledger discard "razón"
     approved --> discarded
@@ -85,7 +87,10 @@ el CLI rechaza saltos, regresiones y no-ops
 (`change is already "X"`), y el gate (`in-progress → in-validation` bajo
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
 validación por enum. `changeledger status done` se rechaza por separado porque solo el
-veredicto humano puede cerrar. `done` y `discarded` son terminales y nunca se reabren. El
+veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
+`in-progress` únicamente por acción humana con motivo mientras siga sin
+graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra
+esa ventana. Después de cualquiera de esas fronteras no se reabre. El
 visor añade la política de actor: permite únicamente las transiciones humanas
 `draft → approved` e `in-validation → done|in-progress`; el rechazo exige motivo.
 Antes de aceptar, construye en memoria la única transición `validation → done
@@ -93,6 +98,14 @@ Antes de aceptar, construye en memoria la única transición `validation → don
 inconsistencia del Log rechazan la operación antes de escribir, conservando el
 archivo en `in-validation`; warnings del seleccionado y errores ajenos no
 bloquean.
+
+**Reapertura provisional.** El viewer ofrece `Reopen` sólo en `done`; exige una
+razón y registra `status: done → in-progress (human reopened): <reason>`. El
+change repite review cuando corresponde y siempre validación humana. La acción
+sirve para completar o corregir el alcance original; cualquier expansión
+observable requiere un change nuevo. `reviewed: true`, una marca real de
+graduación/skip, `archived: true` o pertenencia a un release registrado son
+fronteras irreversibles comprobadas antes de escribir.
 
 **Veredicto (`changeledger review`, en `agent.review()`).** `pass` → `in-validation`;
 `fail --retry`

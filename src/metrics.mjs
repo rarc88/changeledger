@@ -42,8 +42,8 @@ function transitions(change) {
   return events;
 }
 
-// Time spent in each state: [{ state, ms }]. The final state runs until `now`
-// (or until it reached `done`).
+// Time spent in each state: [{ state, ms }]. A provisional `done` interval is
+// retained in the event stream but excluded from active-state duration.
 export function statusTimeline(change, now) {
   const events = transitions(change);
   if (!events.length) return [];
@@ -53,7 +53,7 @@ export function statusTimeline(change, now) {
     const endIso = events[i + 1]?.at ?? now;
     const end = Date.parse(endIso);
     if (Number.isNaN(start) || Number.isNaN(end)) continue;
-    // `done` is terminal — there is no meaningful dwell time in it.
+    // `done` is outside active work, including a provisional interval before reopen.
     if (events[i].state === 'done') continue;
     segs.push({ state: events[i].state, ms: Math.max(0, end - start) });
   }

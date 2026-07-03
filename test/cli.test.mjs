@@ -174,7 +174,8 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /in-progress → in-validation → done/);
   assert.match(contract, /human accepted the complete result/);
   assert.match(contract, /agent never accepts on the human's behalf/i);
-  assert.match(contract, /`done` and `discarded`\s+never reopen/);
+  assert.match(contract, /`discarded` never reopens/);
+  assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });
 
 test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {

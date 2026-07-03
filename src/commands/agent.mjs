@@ -38,6 +38,9 @@ export function status(
   const autoOwner = newStatus === 'in-progress' ? ownerHandle(path.dirname(file)) : '';
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
+    if (fm.status === 'done' && newStatus === 'in-progress') {
+      throw new Error('only the human-facing viewer can reopen a done change');
+    }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required
     // from the change's type.
@@ -136,6 +139,35 @@ export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
     );
     if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
+  });
+  return file;
+}
+
+// Human-only correction path while `done` is still provisional. Graduation,
+// skip, archive and release membership are durable boundaries and fail closed.
+export function reopen(id, reason, cwd = process.cwd()) {
+  if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
+  const { config, file } = locate(cwd, id);
+  const repo = loadRepo(cwd);
+  const released = repo.releases.some((release) =>
+    (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
+  );
+  mutateFileAtomic(file, (text) => {
+    const change = { ...parseChange(text), text };
+    const fm = change.frontmatter;
+    if (fm.status !== 'done')
+      throw new Error(`reopen requires status done (current: ${fm.status})`);
+    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
+    if (hasGraduationResolution(change))
+      throw new Error('cannot reopen: graduation is already resolved');
+    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
+    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
+    assertTransition('done', 'in-progress', {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    });
+    text = setStatus(text, 'in-progress');
+    return appendLog(text, nowUtc(), `status: done → in-progress (human reopened): ${reason}`);
   });
   return file;
 }

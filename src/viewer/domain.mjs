@@ -5,7 +5,11 @@ import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { checkRepo } from '../check.mjs';
-import { status as applyStatusCmd, validation as applyValidation } from '../commands/agent.mjs';
+import {
+  reopen as applyReopen,
+  status as applyStatusCmd,
+  validation as applyValidation,
+} from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
   buildMigration,
@@ -131,11 +135,14 @@ export function changeStatus(projects, { project, id, status, reason }) {
       applyValidation(id, 'pass', {}, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
       applyValidation(id, 'fail', { reason }, proj.path);
+    } else if (current === 'done' && status === 'in-progress') {
+      applyReopen(id, reason, proj.path);
     } else {
       return {
         code: 403,
         body: {
-          error: 'the viewer only allows draft → approved and in-validation → done|in-progress',
+          error:
+            'the viewer only allows draft → approved, in-validation → done|in-progress, and eligible done → in-progress',
         },
       };
     }

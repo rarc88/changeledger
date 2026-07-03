@@ -185,6 +185,21 @@ test('171002 CR2: human validation is the canonical done transition', () => {
   assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
 });
 
+test('150232 CR6: reopened work uses the last acceptance for cycle time', () => {
+  const c = change({
+    id: 'reopened',
+    created: '2026-06-13T10:00:00Z',
+    status: 'done',
+    logBody: `- **2026-06-13T11:00:00Z** — validation → done (human accepted)
+- **2026-06-13T12:00:00Z** — status: done → in-progress (human reopened): fix
+- **2026-06-13T13:00:00Z** — status: in-progress → in-review
+- **2026-06-13T14:00:00Z** — review → in-validation (delegated subagent, clean context)
+- **2026-06-13T15:00:00Z** — validation → done (human accepted)`,
+  });
+  assert.equal(doneAt(c), '2026-06-13T15:00:00Z');
+  assert.equal(computeMetrics([c]).perChange[0].cycleMs, 5 * HOUR);
+});
+
 test('CR2: blockedMs sums time spent blocked', () => {
   const c = change({
     id: 'c',
