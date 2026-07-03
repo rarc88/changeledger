@@ -2,7 +2,7 @@
 id: "20260703-220013"
 title: Evitar desbordamiento y ampliar columnas del board
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-03T22:00:13Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -70,3 +70,5 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **2026-07-03T22:46:20Z** — Fix es puramente CSS (markup de card sin cambios); no hay comportamiento JS que testear con node --test. Verificación: overflow-wrap:anywhere en card-title/card-id/owner probado inyectando un token de 90 chars sin espacios (no desborda la card), .column crece 320-400px con scroll horizontal en vez de comprimirse (2048px/1280px), y el layout móvil (680px) sigue apilando sin overflow horizontal.
 - **2026-07-03T22:46:40Z** — pnpm verify: 532 pruebas ok, 157 changes válidos.
 - **2026-07-03T22:46:45Z** — status: in-progress → in-review
+- **2026-07-03T22:48:25Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
+- **2026-07-03T22:48:25Z** — status: in-review → in-validation
