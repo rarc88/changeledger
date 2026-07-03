@@ -7,6 +7,7 @@ created: 2026-07-03T22:00:13Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -81,3 +82,4 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 - **2026-07-03T23:12:40Z** — status: in-review → in-validation
 - **2026-07-03T23:15:27Z** — validation → done (human accepted)
 - **2026-07-03T23:21:51Z** — graduado a spec `viewer.md`
+- **2026-07-03T23:22:53Z** — archived

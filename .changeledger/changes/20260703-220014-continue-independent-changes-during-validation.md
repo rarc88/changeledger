@@ -7,6 +7,7 @@ created: 2026-07-03T22:00:14Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -95,3 +96,4 @@ el core local-first y no es necesario para resolver la espera artificial.
 - **2026-07-03T22:55:48Z** — status: in-review → in-validation
 - **2026-07-03T22:56:28Z** — validation → done (human accepted)
 - **2026-07-03T23:21:51Z** — graduado a spec `lifecycle.md`
+- **2026-07-03T23:22:53Z** — archived

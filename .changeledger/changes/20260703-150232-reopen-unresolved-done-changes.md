@@ -8,6 +8,7 @@ depends_on: [ "20260703-150231" ]
 release_impact: minor
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -127,3 +128,4 @@ change nuevo.
 - **2026-07-03T23:17:39Z** — status: in-review → in-validation
 - **2026-07-03T23:18:01Z** — validation → done (human accepted)
 - **2026-07-03T23:21:40Z** — graduado a spec `lifecycle.md`
+- **2026-07-03T23:22:53Z** — archived

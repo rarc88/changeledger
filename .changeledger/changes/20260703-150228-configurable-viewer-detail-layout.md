@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -113,3 +114,4 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 - **2026-07-03T22:37:24Z** — status: in-review → in-validation
 - **2026-07-03T22:43:07Z** — validation → done (human accepted)
 - **2026-07-03T23:21:10Z** — graduado a spec `viewer.md`
+- **2026-07-03T23:22:53Z** — archived

@@ -8,6 +8,7 @@ depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -96,3 +97,4 @@ relacionados no deben convertirse accidentalmente en gates.
 - **2026-07-03T22:43:18Z** — validation → done (human accepted)
 - **2026-07-03T23:21:32Z** — graduado a spec `lifecycle.md`
 - **2026-07-03T23:21:32Z** — graduado a spec `validation.md`
+- **2026-07-03T23:22:53Z** — archived

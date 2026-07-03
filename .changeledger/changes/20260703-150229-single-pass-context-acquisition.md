@@ -8,6 +8,7 @@ depends_on: []
 release_impact: patch
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -89,3 +90,4 @@ repita mientras el resultado completo continúe en contexto.
 - **2026-07-03T17:01:59Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-03T22:43:11Z** — validation → done (human accepted)
 - **2026-07-03T23:21:20Z** — graduado a spec `contract-discovery.md`
+- **2026-07-03T23:22:53Z** — archived

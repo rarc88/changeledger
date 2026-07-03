@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -102,3 +103,4 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 - **2026-07-03T16:50:49Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-03T16:51:39Z** — validation → done (human accepted)
 - **2026-07-03T16:52:42Z** — graduado a spec `lifecycle.md`
+- **2026-07-03T23:22:53Z** — archived
