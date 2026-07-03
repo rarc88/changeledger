@@ -2,11 +2,12 @@
 id: "20260703-150230"
 title: Commits por evidencia significativa del change
 type: feature
-status: in-review
+status: done
 created: 2026-07-03T15:02:30Z
 depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -98,3 +99,6 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 - **2026-07-03T15:17:07Z** — owner → Roberto Ruiz (auto)
 - **2026-07-03T16:48:29Z** — Implementado: commits por evidencia significativa, transiciones coalescidas, cierre consolidado y checkpoint único de handoff; tests contractuales y pnpm verify pasan (3 warnings preexistentes de lint).
 - **2026-07-03T16:48:33Z** — status: in-progress → in-review
+- **2026-07-03T16:50:49Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-03T16:51:39Z** — validation → done (human accepted)
+- **2026-07-03T16:52:42Z** — graduado a spec `lifecycle.md`
