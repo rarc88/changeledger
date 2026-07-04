@@ -2,7 +2,7 @@
 id: "20260704-103715"
 title: Barra de herramientas fija en el detalle
 type: feature
-status: in-review
+status: done
 created: 2026-07-04T10:37:15Z
 depends_on: []
 release_impact: minor
@@ -39,6 +39,13 @@ El comportamiento persistente definido en `viewer.md` exige que cambiar modo o
 ancho no reconstruya el detalle ni pierda la posición de lectura. Reiniciar el
 scroll al abrir otro documento es compatible con esa garantía: el reset ocurre
 en una navegación de documento, no al ajustar su presentación.
+
+La primera entrega ató la fila apilada de la navegación a un `@media` de
+viewport, por lo que el preset `Compact` (720 px de `--detail-width`) seguía
+mostrando el pipeline con scroll horizontal en pantallas anchas: el ancho
+disponible es el del panel `.detail`, no el de la ventana. Con `container-type:
+inline-size` en `.detail`, un `@container` reacciona al ancho real del panel y
+cubre viewport estrecho y preset `Compact` con la misma regla.
 
 ## Proposal
 
@@ -86,11 +93,11 @@ navegación que ya existe.
 - **Then** contiene los controles de layout, ancho y cierre
 - **And** no renderiza una zona de navegación vacía
 
-### CR4 — Adaptación a viewport estrecho
-- **Given** un detalle abierto en un viewport de hasta 680 px
+### CR4 — Adaptación a panel estrecho
+- **Given** un detalle abierto cuyo panel no tiene ancho suficiente para presentación, navegación y cierre en una fila, ya sea por viewport estrecho o por el preset `Compact`
 - **When** la toolbar contiene todas las etapas de un change
 - **Then** layout, ancho y cierre permanecen visibles en la zona fija
-- **And** la navegación ocupa una fila con scroll horizontal propio sin ensanchar el viewport ni cubrir el contenido
+- **And** la navegación pasa a su propia fila con scroll horizontal propio sin ensanchar el viewport ni cubrir el contenido
 
 ### CR5 — Cada documento comienza arriba
 - **Given** el detalle desplazado verticalmente en un change o spec
@@ -104,7 +111,8 @@ navegación que ya existe.
 - [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5) — 2026-07-04T10:57:36Z
 - [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4) — 2026-07-04T10:57:36Z
 - [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5) — 2026-07-04T10:57:36Z
-- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-04T10:59:14Z
+- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-04T11:23:31Z
+- [x] Corregir CR4 en `src/viewer/public/styles.css` con `container-type: inline-size` en `.detail` y un `@container` que apile la navegación por ancho de panel, no de viewport, cubriendo el preset `Compact`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual en `Compact` a 1280 px (CR4) — 2026-07-04T11:23:41Z
 
 ## Log
 
@@ -116,3 +124,9 @@ navegación que ya existe.
 - **2026-07-04T10:57:36Z** — Toolbar y reset verificados con tests y manualmente a 1280 px, 680 px y 375 px; la prueba real detectó y corrigió scroll anchoring y navegación pendiente.
 - **2026-07-04T10:59:14Z** — Quality gate completo: Biome validó 64 archivos, 539/539 pruebas pasaron y 159 changes resultaron válidos.
 - **2026-07-04T10:59:14Z** — status: in-progress → in-review
+- **2026-07-04T11:01:55Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-04T11:12:40Z** — validation → in-progress (human rejected): Cuando configuro el modal en modo "Compact" la navegación se hace scrollable y no es una buena experiencia, debería pasar a la segunda linea cuando no tiene espacio.
+- **2026-07-04T11:23:47Z** — Corrección tras rechazo humano: CR4 usaba @media de viewport; el preset Compact (720px) seguía scrolleando el pipeline en pantallas anchas. Se cambió a container-type: inline-size en .detail + @container, verificado con tests y manualmente en Compact a 1280px/1400px (nav apila) y Wide (nav en línea).
+- **2026-07-04T11:24:14Z** — status: in-progress → in-review
+- **2026-07-04T11:26:02Z** — review → in-validation (delegated subagent, clean context): CR4 fix confirmed — container query matches Compact (668px content) not Wide/Full; 56/56 + 539/539 tests pass; check clean.
+- **2026-07-04T11:33:51Z** — validation → done (human accepted)

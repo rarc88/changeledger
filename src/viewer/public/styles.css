@@ -910,6 +910,7 @@ body {
 }
 .detail {
   --detail-width: 960px;
+  container-type: inline-size;
   position: relative;
   width: min(var(--detail-width), calc(100vw - 48px));
   height: 100%;
@@ -1420,10 +1421,25 @@ body {
   }
   .detail-toolbar {
     top: -18px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
     margin: -18px -16px 16px;
     padding: 10px 16px 8px;
+  }
+  .detail-option {
+    padding-inline: 7px;
+  }
+  .grid th,
+  .grid td {
+    padding: 8px 8px;
+  }
+}
+
+/* Detail toolbar stacks its stage navigation onto its own row whenever the
+   detail panel itself lacks room, independent of the surrounding viewport —
+   this also covers the "Compact" width preset, not just narrow screens. */
+@container (max-width: 680px) {
+  .detail-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
   }
   .detail-toolbar-close {
     grid-column: 2;
@@ -1435,13 +1451,6 @@ body {
   }
   .stage {
     scroll-margin-top: 126px;
-  }
-  .detail-option {
-    padding-inline: 7px;
-  }
-  .grid th,
-  .grid td {
-    padding: 8px 8px;
   }
 }
 

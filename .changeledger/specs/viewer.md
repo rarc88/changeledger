@@ -67,10 +67,12 @@ completa sin sobrescribir la preferencia de escritorio. Tablas, código y Mermai
 mantienen overflow interno en vez de ampliar la página.
 
 El detalle reúne presentación, cierre y, para changes, navegación de etapas en
-una única toolbar fija al borde superior de su scroll interno. En viewports
-estrechos los controles esenciales permanecen visibles y la navegación ocupa
-una fila con overflow horizontal; los specs omiten esa fila porque no tienen el
-pipeline de etapas. Los destinos compensan la altura de la toolbar. Abrir otro
+una única toolbar fija al borde superior de su scroll interno. Cuando el ancho
+del propio panel no alcanza para todo en una fila —incluido el preset
+`Compact`, sin depender del viewport— los controles esenciales permanecen
+visibles y la navegación pasa a su propia fila con overflow horizontal; los
+specs omiten esa fila porque no tienen el pipeline de etapas. Los destinos
+compensan la altura de la toolbar. Abrir otro
 change o spec —incluidos dependencias y enlaces entre specs— cancela cualquier
 desplazamiento pendiente y comienza en la parte superior, mientras cambiar sólo
 el modo o el ancho conserva la posición de lectura actual.
