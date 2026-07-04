@@ -21,7 +21,8 @@ owns, what it returns and how the result integrates.
 - Verification may be delegated when it catches risk without merely repeating
   the implementer's work.
 - Configured review is special: a fresh clean-context subagent is a correctness
-  requirement, not an optimization.
+  requirement, not an optimization — and read-only: it reports, the
+  orchestrator alone records the verdict.
 
 ## Do not over-shard
 

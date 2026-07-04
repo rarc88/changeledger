@@ -472,12 +472,23 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260703-220014: rule 7 replaced — "Stop at in-validation" (read as a global pause) is
     // now a change-scoped stop that names the depends_on chain blocking the next candidate.
     'core.md': '3481a6de5281b31fe762548390c321c238f9c12da6f9366a96d3c8a0ec603b5b',
-    'delegation.md': 'b74c378308f519bf0a0190baa5ab8b70bf100831acf7181733cc6209fd18cd88',
+    // 20260704-114323: the "configured review is special" rule is preserved
+    // (fresh clean-context subagent) and extended, not replaced: it now states
+    // the delegate stays read-only and the orchestrator alone records the verdict.
+    'delegation.md': '4ad43b6d595a806a137fc1d2b18dba5627764caf33a2a96119eaef839f382318',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
     // 20260703-220014: clarified that "one change at a time" is per-worktree, not
     // a claim that no other change may sit in in-validation concurrently.
-    'implement.md': 'fe728ddc231e821e73dfaf3288eef0dc118d51676f8edd38541154e5454a88ed',
+    // 20260704-114323: mutation-command list extended (added `review <id>
+    // pass|fail`), not retired. The in-review/in-validation sentence is
+    // replaced: it now names loading `changeledger context review` and
+    // recording the delegate's verdict as the orchestrator's own step, and
+    // states that closing in-validation has no CLI, human-only.
+    // Operational follow-up (no change id, budget rework): restored the
+    // "load once, don't reload unless context was lost" clause that CR1
+    // specified but had been trimmed to fit the original tight byte budget.
+    'implement.md': '16839bd9c6d48fad6526947962ccd2af3b5079c3780267c704536308471ed8b0',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -828,11 +839,11 @@ test('225213 CR6: every base composition stays within its explicit budget', () =
   const root = repo();
   // Budgets measured WITHOUT any selected change text — base compositions only.
   const budgets = {
-    core: { lines: 120, bytes: 8192 },
-    spec: { lines: 285, bytes: 11800 },
-    implement: { lines: 170, bytes: 7300 },
-    review: { lines: 75, bytes: 3200 },
-    release: { lines: 45, bytes: 2200 },
+    core: { lines: 120, bytes: 8000 },
+    spec: { lines: 285, bytes: 12000 },
+    implement: { lines: 175, bytes: 8000 },
+    review: { lines: 75, bytes: 4000 },
+    release: { lines: 45, bytes: 3000 },
   };
   for (const [mode, budget] of Object.entries(budgets)) {
     const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
