@@ -916,6 +916,7 @@ body {
   background: var(--bg);
   border-left: 1px solid var(--line);
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 22px 26px 60px;
   box-shadow: -24px 0 70px rgba(0, 0, 0, 0.28);
 }
@@ -940,18 +941,25 @@ body {
   border-radius: 16px;
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
 }
-.detail-presentation {
+.detail-toolbar {
   position: sticky;
   top: -22px;
   z-index: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: -22px -26px 20px;
+  padding: 14px 26px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+.detail-presentation {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   width: fit-content;
-  margin: -22px 48px 20px -6px;
-  padding: 14px 6px 10px;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(14px);
 }
 .detail-choice {
   display: inline-flex;
@@ -1035,19 +1043,27 @@ body {
   outline-offset: 3px;
 }
 .close {
-  position: absolute;
-  top: 16px;
-  right: 22px;
+  justify-self: end;
+}
+.detail-toolbar-close {
+  grid-column: 3;
 }
 
 .pipeline {
   display: flex;
-  flex-wrap: wrap;
+  min-width: 0;
+  flex-wrap: nowrap;
   gap: 6px;
-  margin: 16px 0;
+  margin: 0;
+  padding: 3px 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 .stage-chip {
+  flex: 0 0 auto;
   font-size: 12px;
+  font-family: inherit;
   padding: 5px 11px;
   border-radius: 999px;
   background: var(--panel);
@@ -1063,6 +1079,7 @@ body {
 .stage {
   border-top: 1px solid var(--line);
   padding-top: 14px;
+  scroll-margin-top: 72px;
   margin-top: 18px;
 }
 .stage h2 {
@@ -1401,10 +1418,23 @@ body {
     border: 0;
     border-radius: 0;
   }
-  .detail-presentation {
+  .detail-toolbar {
     top: -18px;
-    margin: -18px 42px 16px -4px;
-    padding-top: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin: -18px -16px 16px;
+    padding: 10px 16px 8px;
+  }
+  .detail-toolbar-close {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .pipeline {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .stage {
+    scroll-margin-top: 126px;
   }
   .detail-option {
     padding-inline: 7px;

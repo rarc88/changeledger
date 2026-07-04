@@ -1042,6 +1042,28 @@ test('20260627-215619 CR1: handleSpecBodyClick intercepta enlace .md relativo y 
   assert.deepEqual(calledWith, ['data-model.md']);
 });
 
+test('20260704-103715 CR5: resetDetailScroll starts each opened document at the top', async () => {
+  const { resetDetailScroll } = await freshApp();
+  let scrollOptions;
+  let afterLayout;
+  const detail = {
+    scrollTop: 420,
+    scrollTo(options) {
+      scrollOptions = options;
+    },
+  };
+
+  resetDetailScroll(detail, (callback) => {
+    afterLayout = callback;
+  });
+
+  assert.deepEqual(scrollOptions, { top: 0, left: 0, behavior: 'instant' });
+  assert.equal(detail.scrollTop, 0);
+  detail.scrollTop = 610.5;
+  afterLayout();
+  assert.equal(detail.scrollTop, 0);
+});
+
 // 20260628-113924: Form editor and config migration in the viewer
 
 test('113924 CR3: readProjectConfigStructured returns config object and schema metadata', () => {

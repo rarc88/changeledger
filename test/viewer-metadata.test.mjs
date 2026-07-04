@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { test } from 'node:test';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
@@ -30,9 +31,11 @@ const {
   requestUnregisterConfirmation,
   bindReopenAction,
   reopenPanel,
+  detailToolbar,
   detailPresentationControls,
   restoreInitialViewerShell,
   resetValidationState,
+  scrollToStage,
   runValidationSubmission,
   setConfirmImpl,
   setPromptImpl,
@@ -613,6 +616,50 @@ test('150228 CR1/CR2/CR6: detail controls expose and apply accessible layout pre
     detail.querySelector('[data-detail-value="floating"]').getAttribute('aria-pressed'),
     'true',
   );
+});
+
+test('20260704-103715 CR1/CR2/CR3: detail toolbar groups persistent actions and optional stage navigation', () => {
+  const change = parse(
+    detailToolbar('floating', 'wide', [
+      { key: 'request', heading: 'Request' },
+      { key: 'investigation', heading: 'Investigation' },
+      { key: 'plan', heading: 'Plan' },
+    ]),
+  );
+  const toolbar = change.querySelector('.detail-toolbar');
+  assert.ok(toolbar);
+  assert.ok(toolbar.querySelector('.detail-presentation'));
+  assert.ok(toolbar.querySelector('.close'));
+  assert.equal(toolbar.querySelector('.pipeline').getAttribute('aria-label'), 'Change sections');
+  assert.deepEqual(
+    [...toolbar.querySelectorAll('[data-go]')].map((button) => button.textContent),
+    ['Request', 'Investigation', 'Plan'],
+  );
+
+  const spec = parse(detailToolbar('side', 'compact'));
+  assert.ok(spec.querySelector('.detail-toolbar .detail-presentation'));
+  assert.ok(spec.querySelector('.detail-toolbar .close'));
+  assert.equal(spec.querySelector('.pipeline'), null);
+});
+
+test('20260704-103715 CR2/CR5: stage navigation cannot keep moving a replacement document', () => {
+  let options;
+  scrollToStage({
+    scrollIntoView(value) {
+      options = value;
+    },
+  });
+
+  assert.deepEqual(options, { behavior: 'auto', block: 'start' });
+});
+
+test('20260704-103715 CR1/CR2/CR4/CR5: detail CSS keeps the toolbar fixed and disables scroll anchoring', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+
+  assert.match(css, /\.detail\s*\{[^}]*overflow-anchor:\s*none/s);
+  assert.match(css, /\.detail-toolbar\s*\{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.pipeline\s*\{[^}]*overflow-x:\s*auto/s);
+  assert.match(css, /\.stage\s*\{[^}]*scroll-margin-top:/s);
 });
 
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {

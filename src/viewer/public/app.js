@@ -37,7 +37,7 @@ import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
   card,
-  closeButton,
+  detailToolbar,
   sortIndicator,
   specBody,
   stageBlock,
@@ -51,6 +51,8 @@ export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
 export {
   card,
+  detailPresentationControls,
+  detailToolbar,
   sortIndicator,
   stageBlock,
   statusSummary,
@@ -356,42 +358,6 @@ export function bindReopenAction({ root, request, onSuccess }) {
   };
 }
 
-export function detailPresentationControls(mode = 'side', size = 'wide') {
-  const options = (values, selected, attr) =>
-    values.map(
-      ([value, label]) => html`<button
-        type="button"
-        class="detail-option"
-        data-detail-setting=${attr}
-        data-detail-value=${value}
-        aria-pressed=${String(selected === value)}
-      >${label}</button>`,
-    );
-  return html`<div class="detail-presentation" aria-label="Detail presentation">
-    <div class="detail-choice" role="group" aria-label="Layout">
-      ${options(
-        [
-          ['side', 'Side panel'],
-          ['floating', 'Floating modal'],
-        ],
-        mode,
-        'mode',
-      )}
-    </div>
-    <div class="detail-choice" role="group" aria-label="Width">
-      ${options(
-        [
-          ['compact', 'Compact'],
-          ['wide', 'Wide'],
-          ['full', 'Full'],
-        ],
-        size,
-        'size',
-      )}
-    </div>
-  </div>`;
-}
-
 export function applyDetailPresentation(root = document) {
   const overlay = root.querySelector('#overlay');
   const detail = root.querySelector('#detail');
@@ -429,6 +395,28 @@ async function submitValidation(id, status, reason) {
   });
 }
 
+export function resetDetailScroll(
+  detail,
+  schedule = globalThis.requestAnimationFrame?.bind(globalThis),
+) {
+  const reset = () => {
+    detail.scrollTo?.({ top: 0, left: 0, behavior: 'instant' });
+    detail.scrollTop = 0;
+  };
+  reset();
+  schedule?.(reset);
+}
+
+export function scrollToStage(stage) {
+  stage.scrollIntoView({ behavior: 'auto', block: 'start' });
+}
+
+function renderOpenedDetail(content) {
+  const detail = $('#detail');
+  litRender(content, detail);
+  resetDetailScroll(detail);
+}
+
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
@@ -438,15 +426,11 @@ function openDetail(id) {
       ? html`<span class="pill ext" data-extdep=${d} style="cursor:pointer">depends on ${d}</span>`
       : html`<span class="pill" data-dep=${d} style="cursor:pointer">depends on #${d}</span>`;
   });
-  const pipeline = c.stages.map(
-    (s) => html`<span class="stage-chip" data-go=${`stage-${s.key}`}>${s.heading}</span>`,
-  );
   const stages = c.stages.map((s) => stageBlock(c, s));
 
-  litRender(
+  renderOpenedDetail(
     html`
-    ${closeButton()}
-    ${detailPresentationControls(state.detailMode, state.detailSize)}
+    ${detailToolbar(state.detailMode, state.detailSize, c.stages)}
     <h1>${c.title}</h1>
     <div class="detail-meta">
       <span class="pill">#${c.id}</span>
@@ -458,10 +442,8 @@ function openDetail(id) {
     </div>
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
-    <div class="pipeline">${pipeline}</div>
     ${stages}
     <div id="git-section"></div>`,
-    $('#detail'),
   );
 
   resetValidationState($('#detail'));
@@ -502,8 +484,7 @@ function openDetail(id) {
   $('#detail')
     .querySelectorAll('[data-go]')
     .forEach((el) => {
-      el.onclick = () =>
-        $(`#${el.dataset.go}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.onclick = () => scrollToStage($(`#${el.dataset.go}`));
     });
   $('#detail')
     .querySelectorAll('[data-dep]')
@@ -703,10 +684,9 @@ function renderSpecs() {
 }
 
 function openSpec(s) {
-  litRender(
+  renderOpenedDetail(
     html`
-    ${closeButton()}
-    ${detailPresentationControls(state.detailMode, state.detailSize)}
+    ${detailToolbar(state.detailMode, state.detailSize)}
     <h1>${s.title}</h1>
     <div class="detail-meta">
       <span class="pill">spec</span>
@@ -714,7 +694,6 @@ function openSpec(s) {
       ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
     </div>
     ${specBody(s.body)}`,
-    $('#detail'),
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');

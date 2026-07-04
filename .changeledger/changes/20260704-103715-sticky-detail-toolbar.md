@@ -2,7 +2,7 @@
 id: "20260704-103715"
 title: Barra de herramientas fija en el detalle
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-04T10:37:15Z
 depends_on: []
 release_impact: minor
@@ -100,11 +100,11 @@ navegación que ya existe.
 
 ## Plan
 
-- [ ] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
-- [ ] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5)
-- [ ] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4)
-- [ ] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+- [x] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-07-04T10:57:36Z
+- [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5) — 2026-07-04T10:57:36Z
+- [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4) — 2026-07-04T10:57:36Z
+- [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5) — 2026-07-04T10:57:36Z
+- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-04T10:59:14Z
 
 ## Log
 
@@ -113,3 +113,6 @@ navegación que ya existe.
 - **2026-07-04T10:40:52Z** — status: draft → approved
 - **2026-07-04T10:41:46Z** — status: approved → in-progress
 - **2026-07-04T10:41:46Z** — owner → Roberto Ruiz (auto)
+- **2026-07-04T10:57:36Z** — Toolbar y reset verificados con tests y manualmente a 1280 px, 680 px y 375 px; la prueba real detectó y corrigió scroll anchoring y navegación pendiente.
+- **2026-07-04T10:59:14Z** — Quality gate completo: Biome validó 64 archivos, 539/539 pruebas pasaron y 159 changes resultaron válidos.
+- **2026-07-04T10:59:14Z** — status: in-progress → in-review
