@@ -36,6 +36,58 @@ export function closeButton(label = 'Close detail', extraClass = '') {
   </button>`;
 }
 
+export function detailPresentationControls(mode = 'side', size = 'wide') {
+  const options = (values, selected, attr) =>
+    values.map(
+      ([value, label]) => html`<button
+        type="button"
+        class="detail-option"
+        data-detail-setting=${attr}
+        data-detail-value=${value}
+        aria-pressed=${String(selected === value)}
+      >${label}</button>`,
+    );
+  return html`<div class="detail-presentation" aria-label="Detail presentation">
+    <div class="detail-choice" role="group" aria-label="Layout">
+      ${options(
+        [
+          ['side', 'Side panel'],
+          ['floating', 'Floating modal'],
+        ],
+        mode,
+        'mode',
+      )}
+    </div>
+    <div class="detail-choice" role="group" aria-label="Width">
+      ${options(
+        [
+          ['compact', 'Compact'],
+          ['wide', 'Wide'],
+          ['full', 'Full'],
+        ],
+        size,
+        'size',
+      )}
+    </div>
+  </div>`;
+}
+
+export function detailToolbar(mode = 'side', size = 'wide', stages = []) {
+  const navigation = stages.length
+    ? html`<nav class="pipeline" aria-label="Change sections">
+      ${stages.map(
+        (stage) =>
+          html`<button type="button" class="stage-chip" data-go=${`stage-${stage.key}`}>${stage.heading}</button>`,
+      )}
+    </nav>`
+    : nothing;
+  return html`<div class="detail-toolbar" aria-label="Detail tools">
+    ${detailPresentationControls(mode, size)}
+    ${navigation}
+    ${closeButton('Close detail', 'detail-toolbar-close')}
+  </div>`;
+}
+
 export function validationPanel() {
   return html`<section class="validation-actions" aria-labelledby="validation-title">
     <div class="validation-copy">

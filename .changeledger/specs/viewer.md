@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-03T23:21:51Z
+updated: 2026-07-04T11:35:33Z
 tags: [ viewer ]
 ---
 
@@ -65,6 +65,17 @@ con grupos y estado `aria-pressed`, y cambiar un preset no reconstruye el detall
 ni pierde su scroll. Hasta 680 px ambos modos convergen temporalmente en pantalla
 completa sin sobrescribir la preferencia de escritorio. Tablas, código y Mermaid
 mantienen overflow interno en vez de ampliar la página.
+
+El detalle reúne presentación, cierre y, para changes, navegación de etapas en
+una única toolbar fija al borde superior de su scroll interno. Cuando el ancho
+del propio panel no alcanza para todo en una fila —incluido el preset
+`Compact`, sin depender del viewport— los controles esenciales permanecen
+visibles y la navegación pasa a su propia fila con overflow horizontal; los
+specs omiten esa fila porque no tienen el pipeline de etapas. Los destinos
+compensan la altura de la toolbar. Abrir otro
+change o spec —incluidos dependencias y enlaces entre specs— cancela cualquier
+desplazamiento pendiente y comienza en la parte superior, mientras cambiar sólo
+el modo o el ancho conserva la posición de lectura actual.
 
 Los tests del visor ejercitan el `createRequestListener` en memoria para validar
 status, headers, tokens, body limits, endpoints JSON y assets sin abrir sockets
