@@ -51,10 +51,16 @@ Useful mutation commands:
 - `changeledger task <id> done|block <n> [reason]`
 - `changeledger log <id> "<message>"`
 - `changeledger owner <id> <name|->`
+- `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 
 When implementation and every task are complete, move to `in-review` if the
-type requires independent review; otherwise move to `in-validation` and stop.
+type requires independent review, loading `changeledger context review`
+once first — it stays valid for the rest of the cycle, do not reload it just
+to record the verdict unless context was lost (compaction, a new session) —
+and recording the delegate's verdict yourself with `review <id> pass|fail`
+(never `log`+`status`). Otherwise move to `in-validation` and stop — its
+closing has no CLI, only the human does it.
 
 ## Correction isolation
 
