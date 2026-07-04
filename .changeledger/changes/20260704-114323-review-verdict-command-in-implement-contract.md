@@ -2,10 +2,12 @@
 id: "20260704-114323"
 title: Comando de veredicto de revisión ausente en el contrato de implementación
 type: bug
-status: in-review
+status: done
 created: 2026-07-04T11:43:23Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -90,4 +92,8 @@ escritura que el comando dedicado hace de forma atómica.
 - **2026-07-04T13:18:33Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-04T14:17:09Z** — Presupuesto explícito de bytes/líneas de 'implement' insuficiente para CR1/CR2 (margen original de 4 bytes). Ajustado junto con spec/review/release/core a múltiplos de 1000 (core 8000, spec 12000, implement 8000, review 4000, release 3000) tras discusión sobre presupuestos de contexto. Restaurada en implement.md la cláusula de CR1 sobre no recargar context review salvo pérdida de contexto, que había quedado recortada por presupuesto en un primer intento. Snapshots de delegation.md e implement.md en test/context.test.mjs actualizados con clasificación de reglas.
 - **2026-07-04T14:17:19Z** — status: in-progress → in-review
+- **2026-07-04T14:19:50Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-04T14:20:02Z** — validation → done (human accepted)
+- **2026-07-04T14:20:36Z** — graduation skipped: La verdad durable ya vive en templates/contract/implement.md y delegation.md, editados directamente por este change; no hay un spec de convención separado que actualizar.
+- **2026-07-04T14:20:42Z** — archived
 
