@@ -7,6 +7,8 @@ created: 2026-07-04T10:37:15Z
 depends_on: []
 release_impact: minor
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -130,3 +132,5 @@ navegación que ya existe.
 - **2026-07-04T11:24:14Z** — status: in-progress → in-review
 - **2026-07-04T11:26:02Z** — review → in-validation (delegated subagent, clean context): CR4 fix confirmed — container query matches Compact (668px content) not Wide/Full; 56/56 + 539/539 tests pass; check clean.
 - **2026-07-04T11:33:51Z** — validation → done (human accepted)
+- **2026-07-04T11:35:33Z** — graduado a spec `viewer.md`
+- **2026-07-04T11:36:03Z** — archived

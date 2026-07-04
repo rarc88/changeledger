@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-03T23:21:51Z
+updated: 2026-07-04T11:35:33Z
 tags: [ viewer ]
 ---
 
