@@ -20,24 +20,29 @@ tags: []
 Choose exactly one explicit graduation mode. A positional slug without a mode
 is an error, so words such as `skip` or `skip-*` can never silently become specs.
 
-- For a new spec, run `changeledger graduate <id> <spec-slug> --new`. This creates
-  a seed from the change's Specification or Proposal but leaves graduation
-  pending. Rewrite it as concise durable current truth and remove the explicit
-  scaffold marker. Then run `changeledger graduate <id> <spec-slug> --into` to
-  finalize it. `--into` refuses an unrefined marked scaffold.
-- For an existing spec, the agent edits its body first, then runs
+For a new spec, follow this ordered recipe — `--new` alone does not finish it:
+
+1. `changeledger graduate <id> <spec-slug> --new` creates a seed from the
+   change's Specification or Proposal but leaves graduation pending; it does not
+   set `reviewed: true`.
+2. Rewrite the seed as concise durable current truth and remove the explicit
+   scaffold marker.
+3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`
+   refuses an unrefined marked scaffold and sets `reviewed: true`.
+
+Alternatives to the two-step:
+
+- For an existing spec, edit its body first, then run
   `changeledger graduate <id> <spec-slug> --into`. It refreshes `updated`, records
-  the link and does not overwrite the body.
+  the link, does not overwrite the body and sets `reviewed: true`.
 - `changeledger graduate <id> --skip [reason]` records that no persistent truth
-  changed.
+  changed and sets `reviewed: true`.
 - `changeledger graduate --pending` lists accepted changes whose decision is
   unresolved.
 
-Finalization with `--into` and skip both set `reviewed: true` on the change;
-`--new` does not. The boolean means the persistent-truth question was settled,
-not necessarily that a spec was created.
-The graduation link remains derivable from the Log marker `graduado a spec`,
-which carries the spec link, rather than from the boolean flag.
+`reviewed: true` means the persistent-truth question was settled, not necessarily
+that a spec was created. The graduation link remains derivable from the Log
+marker `graduado a spec`, which carries the spec link, rather than from the flag.
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
 pending `in-review → in-validation → done` ledger updates with the graduation

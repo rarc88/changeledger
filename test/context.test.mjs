@@ -459,7 +459,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // boundaries are replaced: baseline first, lifecycle-only moves coalesced,
     // verified corrections remain meaningful, and graduation owns final closure.
     // 20260703-150232: terminal done is replaced by durable-closure finality.
-    'close.md': '5272578ebf2dbc231890852cd2bf77992e51eb13e7b6b81acb629b2a2ea146fa',
+    // 20260705-134704: the graduation bullets are replaced by a numbered new-spec
+    // recipe with the reviewed:true nuance integrated per step; existing-spec and
+    // skip stay as explicit alternatives. Rules preserved, none retired.
+    'close.md': 'a53a3fe1a28f55492a305c366f0cfafa90718af1552883e7e1bc2bcf04b3a16a',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -471,7 +474,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // discarded and graduated/skipped/archived/released closures remain irreversible.
     // 20260703-220014: rule 7 replaced — "Stop at in-validation" (read as a global pause) is
     // now a change-scoped stop that names the depends_on chain blocking the next candidate.
-    'core.md': '3481a6de5281b31fe762548390c321c238f9c12da6f9366a96d3c8a0ec603b5b',
+    // 20260705-134704: rule 8 trimmed — the --new/--into two-step parenthetical is removed and
+    // deferred to the close overlay, which owns the full graduation recipe. Rule preserved.
+    'core.md': '0d3fbcd8a4d843280a1dcc1c411b5d5cca3608f64893383118abda9f17732783',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -938,6 +943,36 @@ test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement',
   assert.doesNotMatch(core, /`changeledger status <id> in-review`.*`changeledger review <id> pass/);
 });
 
+test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close overlay', () => {
+  const root = repo();
+  const norm = (s) => s.replace(/\s+/g, ' ');
+  const doneId = addChange(root, 'done', '20260705-200000');
+  const close = norm(buildContext(doneId, root));
+  const core = norm(buildContext(undefined, root));
+
+  // CR1: close carries a numbered recipe for a new spec, in order.
+  assert.match(
+    close,
+    /1\..*`changeledger graduate <id> <spec-slug> --new`.*2\..*remove the explicit scaffold marker.*3\..*`changeledger graduate <id> <spec-slug> --into`/,
+  );
+  assert.match(close, /--new`.*leaves graduation pending/);
+  assert.match(close, /`--into` refuses an unrefined marked scaffold/);
+  // Existing-spec and skip remain explicit alternatives.
+  assert.match(close, /For an existing spec/);
+  assert.match(close, /changeledger graduate <id> --skip \[reason\]/);
+
+  // CR3: the reviewed:true nuance sits with the recipe steps.
+  assert.match(close, /sets `reviewed: true`/);
+
+  // CR2: core keeps only the trigger; no two-step procedure summary.
+  assert.match(core, /reload `changeledger context <id>`/);
+  assert.match(
+    core,
+    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
+  );
+  assert.doesNotMatch(core, /a new spec is a two-step/);
+});
+
 test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
   const root = repo();
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
@@ -946,7 +981,12 @@ test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
     core,
     /Each delegation prompt states at least ownership, expected output and integration criterion; the task context carries the full prompt contract/,
   );
-  // CR2: graduation is not presented as a settled binary — --new alone leaves it pending.
-  assert.match(core, /a new spec is a two-step `--new` then `--into`/);
+  // CR2: graduation is not a settled binary — core offers graduate OR skip and
+  // defers the --new/--into two-step to the close overlay (20260705-134704).
+  assert.match(
+    core,
+    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
+  );
+  assert.doesNotMatch(core, /a new spec is a two-step/);
   assert.ok(core.length > 0);
 });

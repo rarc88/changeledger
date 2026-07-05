@@ -2,7 +2,7 @@
 id: "20260705-134704"
 title: La graduación en dos pasos se describe en tres sitios divergentes
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-05T13:47:04Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -101,11 +101,13 @@ se reduce ligeramente al abreviar la regla 8, lo que además da holgura a
 
 ## Plan
 
-- [ ] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-05T14:13:02Z
+- [x] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR4) — 2026-07-05T14:13:02Z
+- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support) — 2026-07-05T14:13:02Z
 
 ## Log
 - **2026-07-05T13:57:41Z** — status: draft → approved
 - **2026-07-05T14:09:09Z** — status: approved → in-progress
 - **2026-07-05T14:09:09Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-05T14:13:02Z** — Receta numerada de graduacion en close.md (new-spec en 3 pasos, reviewed:true por paso, existing-spec y skip como alternativas). Regla 8 de core.md recortada: sin el parentesis --new/--into, apunta al close overlay. Actualizados tests context/230608/cli(221849) y snapshots core/close. Budgets core 120/8000 intactos. 541 tests verdes.
+- **2026-07-05T14:13:02Z** — status: in-progress → in-review

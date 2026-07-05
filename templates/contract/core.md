@@ -31,9 +31,9 @@ change-id context required by a real task or lifecycle transition.
    human validation.
 7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may start another approved change unless it or its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
-   change, then graduate persistent truth (a new spec is a two-step `--new`
-   then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive
-   only after that decision.
+   change, then graduate persistent truth or run `changeledger graduate <id>
+   --skip [reason]`; archive only after that decision. The close overlay owns
+   the full graduation recipe.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
