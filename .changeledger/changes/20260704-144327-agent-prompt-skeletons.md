@@ -2,7 +2,7 @@
 id: "20260704-144327"
 title: Esqueletos de prompt portables por rol para delegar subagentes
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-04T14:43:27Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -170,11 +170,11 @@ herramienta/harness.
 
 ## Plan
 
-- [ ] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1, CR2)
-- [ ] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol; verify: `node --test test/agent-prompt.test.mjs` (CR3, CR4)
-- [ ] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`; verify: `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos) (CR5)
-- [ ] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete; verify: `node --test test/agent-prompt.test.mjs` (CR6)
-- [ ] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+- [x] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1, CR2) — 2026-07-05T14:24:08Z
+- [x] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol; verify: `node --test test/agent-prompt.test.mjs` (CR3, CR4) — 2026-07-05T14:24:08Z
+- [x] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`; verify: `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos) (CR5) — 2026-07-05T14:24:08Z
+- [x] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete; verify: `node --test test/agent-prompt.test.mjs` (CR6) — 2026-07-05T14:24:08Z
+- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-05T14:24:08Z
 
 ## Log
 
@@ -184,3 +184,5 @@ herramienta/harness.
 - **2026-07-05T13:57:37Z** — status: draft → approved
 - **2026-07-05T14:16:24Z** — status: approved → in-progress
 - **2026-07-05T14:16:24Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-05T14:24:08Z** — Comando agent-prompt <role> anadido (investigation|implementation|review), sirve esqueletos estaticos del paquete via stdout con delimitadores propios; funciona fuera de repo; rol desconocido sale con codigo !=0. Framing/version extraidos a src/framing.mjs compartido con context (salida byte-identica). 3 plantillas en templates/contract/agent-prompts/ con contrato completo de delegacion, limites por efectos, retorno y carga de contexto por rol. Puntero en core.md (reempaquetado para no exceder 120 lineas), sin duplicar en delegation. Test de npm pack confirma inclusion portable. 548 tests verdes.
+- **2026-07-05T14:24:08Z** — status: in-progress → in-review

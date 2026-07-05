@@ -48,12 +48,12 @@ Files are the source of truth and may be edited directly. CLI helpers are
 optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
 
-Delegate only with a clear boundary and benefit. Each delegation prompt states
-at least ownership, expected output and integration criterion; the task context
-carries the full prompt contract. Coding agents must know
-they share the codebase and must not revert others' work. Do not over-shard or
-overlap write surfaces without an explicit integration plan. Size the model to
-the task's difficulty and risk.
+Delegate only with a clear boundary and benefit. Each delegation prompt states at least
+ownership, expected output and integration criterion; the task context carries the full
+prompt contract. Get a complete role skeleton to fill in with `changeledger agent-prompt
+<role>` (investigation | implementation | review). Coding agents must know they share the
+codebase and must not revert others' work. Do not over-shard or overlap write surfaces
+without an explicit integration plan. Size the model to the task's difficulty and risk.
 
 ## Lifecycle
 

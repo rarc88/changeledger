@@ -13,6 +13,7 @@ import {
   status,
   task,
 } from '../src/commands/agent.mjs';
+import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { context } from '../src/commands/context.mjs';
 import {
@@ -178,6 +179,25 @@ program
     ].join('\n'),
   )
   .action(action((input) => context(input)));
+
+program
+  .command('agent-prompt')
+  .description('print a portable delegation prompt skeleton for a role')
+  .argument('<role>', 'investigation | implementation | review')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
+      'outside a ChangeLedger repo — the skeletons ship inside the package.',
+      '',
+      'Examples:',
+      '  changeledger agent-prompt investigation',
+      '  changeledger agent-prompt implementation',
+      '  changeledger agent-prompt review',
+    ].join('\n'),
+  )
+  .action(action((role) => agentPrompt(role)));
 
 program
   .command('status')

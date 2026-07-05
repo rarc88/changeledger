@@ -476,7 +476,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // now a change-scoped stop that names the depends_on chain blocking the next candidate.
     // 20260705-134704: rule 8 trimmed — the --new/--into two-step parenthetical is removed and
     // deferred to the close overlay, which owns the full graduation recipe. Rule preserved.
-    'core.md': '0d3fbcd8a4d843280a1dcc1c411b5d5cca3608f64893383118abda9f17732783',
+    // 20260704-144327: the minimum delegation rule gains a pointer to `changeledger
+    // agent-prompt <role>` for the full role skeleton; content stays on demand.
+    'core.md': '1124b84ce4b008a0a26e1309e8b84e81e31271821887e9ad3c806a1287059a56',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -971,6 +973,26 @@ test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close o
     /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
   );
   assert.doesNotMatch(core, /a new spec is a two-step/);
+});
+
+test('144327 CR5: core discovers agent-prompt before a draft exists, within budget', () => {
+  const root = repo();
+  const core = buildContext(undefined, root);
+  const norm = core.replace(/\s+/g, ' ');
+  // The minimum delegation rule points at the on-demand skeleton command.
+  assert.match(
+    norm,
+    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review\)/,
+  );
+  // The skeleton bodies are NOT inlined into the core, and the pointer is not
+  // duplicated into the delegation fragment.
+  assert.doesNotMatch(core, /Delegation skeleton — role:/);
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const delegation = fs.readFileSync(new URL('delegation.md', contractDir), 'utf8');
+  assert.doesNotMatch(delegation, /changeledger agent-prompt/);
+  // Budget holds at the current values without another emergency adjustment.
+  assert.ok(core.split('\n').length <= 120);
+  assert.ok(Buffer.byteLength(core, 'utf8') <= 8000);
 });
 
 test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
