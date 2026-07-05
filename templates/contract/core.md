@@ -57,17 +57,6 @@ without an explicit integration plan. Size the model to the task's difficulty an
 
 ## Lifecycle
 
-```text
-draft → approved → in-progress
-in-progress → in-review → in-validation → done
-in-progress → in-validation → done
-in-review → in-progress
-in-review → blocked → in-progress
-in-validation → in-progress
-done → in-progress
-(draft | approved | in-progress | blocked) → discarded
-```
-
 - `draft`: documentation awaiting human approval; no implementation.
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
@@ -82,15 +71,12 @@ Who owns each transition and how it is performed:
 | Transition | Owner | Mechanism |
 |---|---|---|
 | draft → approved | human | viewer |
-| approved → in-progress | agent | `changeledger status` |
-| in-progress → in-review | agent | `changeledger status` |
+| approved → in-progress; blocked → in-progress; in-progress → in-review | agent | `changeledger status` |
 | in-progress → in-validation (no review) | agent | `changeledger status` |
 | in-review → in-validation | orchestrator | `changeledger review <id> pass` |
 | in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
 | in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
-| blocked → in-progress | agent | `changeledger status` |
-| in-validation → done | human | viewer |
-| in-validation → in-progress | human | viewer |
+| in-validation → done; in-validation → in-progress | human | viewer |
 | done → in-progress (pending closure) | human | viewer, with reason |
 | draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
 
