@@ -488,12 +488,19 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // Operational follow-up (no change id, budget rework): restored the
     // "load once, don't reload unless context was lost" clause that CR1
     // specified but had been trimmed to fit the original tight byte budget.
-    'implement.md': '16839bd9c6d48fad6526947962ccd2af3b5079c3780267c704536308471ed8b0',
+    // 20260705-134702: the review-gate paragraph is replaced by a numbered
+    // 1..5 ordered recipe (tasks → status in-review → load review context →
+    // delegate read-only reviewer → orchestrator records verdict); every rule
+    // is preserved, none retired.
+    'implement.md': '5c9ccfd32dcb829ec0213090bfd70529b5db4fe4face082787cbde60f9f8aeda',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
-    'review.md': 'bee85dbd9fbc6c861d85cd7fbcc2700adb5fe0c13ff8db65eefe86a3a01ab2ff',
+    // 20260705-134702: "Record exactly one verdict" now names the orchestrator
+    // as the recorder and the read-only reviewer as reporter-only; the verdict
+    // commands are preserved, the recipe is not duplicated here.
+    'review.md': '9212a928f08a133503e6dbf247633c56e03a83e13066118b817ea5d5e517cafb',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
@@ -903,6 +910,32 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   assert.match(implement, /# Implementing an Approved Change/);
   assert.match(implement, /Tick\s+tasks as they become true/);
   assert.match(implement, /# Handoff Triage/);
+});
+
+test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
+  const root = repo();
+  const norm = (s) => s.replace(/\s+/g, ' ');
+  const implement = norm(buildContext('implement', root));
+  const review = norm(buildContext('review', root));
+  const core = norm(buildContext(undefined, root));
+
+  // CR1: implement carries a numbered 1..5 recipe in order.
+  assert.match(implement, /move to `in-review` if the type requires independent review/);
+  assert.match(
+    implement,
+    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*`changeledger context review` once.*4\..*read-only reviewer.*5\..*`changeledger review <id> pass\|fail`/,
+  );
+  assert.match(implement, /never `log`\+`status`/);
+  assert.match(implement, /do not reload it to record the verdict unless context was lost/);
+  assert.match(implement, /Otherwise move to `in-validation` and stop/);
+
+  // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
+  assert.match(review, /orchestrator records exactly one verdict/);
+  assert.match(review, /reports.*never runs the verdict command/i);
+  assert.doesNotMatch(review, /1\..*2\..*3\..*4\..*5\./);
+
+  // CR2: the ordered recipe is owned by implement, not core or delegation.
+  assert.doesNotMatch(core, /`changeledger status <id> in-review`.*`changeledger review <id> pass/);
 });
 
 test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {

@@ -54,13 +54,15 @@ Useful mutation commands:
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 
-When implementation and every task are complete, move to `in-review` if the
-type requires independent review, loading `changeledger context review`
-once first — it stays valid for the rest of the cycle, do not reload it just
-to record the verdict unless context was lost (compaction, a new session) —
-and recording the delegate's verdict yourself with `review <id> pass|fail`
-(never `log`+`status`). Otherwise move to `in-validation` and stop — its
-closing has no CLI, only the human does it.
+When implementation and every task are complete, move to `in-review` if the type
+requires independent review by running this ordered gate — do not reconstruct it from memory:
+1. Confirm every Plan task is complete and its verification passes.
+2. `changeledger status <id> in-review`.
+3. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
+4. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
+5. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
+
+Otherwise move to `in-validation` and stop — its closing has no CLI, only the human does it.
 
 ## Correction isolation
 
