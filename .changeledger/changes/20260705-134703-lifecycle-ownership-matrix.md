@@ -2,7 +2,7 @@
 id: "20260705-134703"
 title: Matriz de ownership de transiciones del lifecycle
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-05T13:47:03Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -117,11 +117,13 @@ contexto, no el README.
 
 ## Plan
 
-- [ ] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership; verify: `node --test test/context.test.mjs` (CR1, CR2)
-- [ ] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes; verify: `node --test test/context.test.mjs` (CR3)
-- [ ] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership; verify: `node --test test/context.test.mjs` (CR1, CR2) — 2026-07-05T14:42:14Z
+- [x] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes; verify: `node --test test/context.test.mjs` (CR3) — 2026-07-05T14:42:14Z
+- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support) — 2026-07-05T14:42:14Z
 
 ## Log
 - **2026-07-05T13:57:40Z** — status: draft → approved
 - **2026-07-05T14:36:22Z** — status: approved → in-progress
 - **2026-07-05T14:36:22Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-05T14:42:14Z** — Matriz transicion->propietario->mecanismo (12 filas) reemplaza el parrafo de ownership en core.md; diagrama de lifecycle queda solo topologia (anotaciones entre corchetes eliminadas, expresadas por la matriz); reglas no-ownership sobreviven como nota. Presupuesto de lineas del core elevado 120->134 (composicion medida exacta) manteniendo bytes 8000 (real 7076); actualizadas 8 aserciones de linea, el snapshot de core.md y la asercion viewer-owns de 234939. 549 tests verdes.
+- **2026-07-05T14:42:14Z** — status: in-progress → in-review

@@ -59,12 +59,12 @@ without an explicit integration plan. Size the model to the task's difficulty an
 
 ```text
 draft → approved → in-progress
-in-progress → in-review → in-validation → done   [review required]
-in-progress → in-validation → done               [no review required]
-in-review → in-progress                           [review retry]
-in-review → blocked → in-progress                 [review escalation]
-in-validation → in-progress                       [human rejection]
-done → in-progress                                [human reopen before durable closure]
+in-progress → in-review → in-validation → done
+in-progress → in-validation → done
+in-review → in-progress
+in-review → blocked → in-progress
+in-validation → in-progress
+done → in-progress
 (draft | approved | in-progress | blocked) → discarded
 ```
 
@@ -77,13 +77,27 @@ done → in-progress                                [human reopen before durable
 - `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
 
-`changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
-The viewer owns `draft → approved` and `in-validation → done|in-progress`, plus
-eligible `done → in-progress` with a reason; the agent performs other moves. Use
-`changeledger discard <id> "<reason>"`: the discard reason is required and
-logged, and dependencies remain resolvable. `discarded` never reopens. A `done`
-change can reopen only to finish its original scope before graduation/skip,
-archive or release; after durable closure, later work needs a new change.
+Who owns each transition and how it is performed:
+
+| Transition | Owner | Mechanism |
+|---|---|---|
+| draft → approved | human | viewer |
+| approved → in-progress | agent | `changeledger status` |
+| in-progress → in-review | agent | `changeledger status` |
+| in-progress → in-validation (no review) | agent | `changeledger status` |
+| in-review → in-validation | orchestrator | `changeledger review <id> pass` |
+| in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
+| in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
+| blocked → in-progress | agent | `changeledger status` |
+| in-validation → done | human | viewer |
+| in-validation → in-progress | human | viewer |
+| done → in-progress (pending closure) | human | viewer, with reason |
+| draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
+
+`changeledger status <id> <status>` performs the agent-owned moves and does not accept `done` or `discarded`.
+The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
+A `done` change can reopen only to finish its original scope before graduation/skip, archive or release;
+after durable closure, later work needs a new change.
 
 ## Context modes
 
