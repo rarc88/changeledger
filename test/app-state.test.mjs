@@ -18,6 +18,24 @@ function memoryStorage(initial = {}) {
   };
 }
 
+test('105206 CR3: legacy single filters restore as sets and serialize arrays', async () => {
+  const { VIEWER_STATE_KEY, restoreViewerState, serializeViewerState, state } = await freshState();
+  const storage = memoryStorage({
+    [VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentProject: 'p',
+      projects: { p: { type: 'feature', owner: 'ana', statuses: [] } },
+    }),
+  });
+  assert.equal(restoreViewerState(storage), true);
+  assert.deepEqual([...state.filters.types], ['feature']);
+  assert.deepEqual([...state.filters.owners], ['ana']);
+  const saved = serializeViewerState().projects.p;
+  assert.deepEqual(saved.types, ['feature']);
+  assert.deepEqual(saved.owners, ['ana']);
+  assert.equal(saved.includeUnassigned, false);
+});
+
 test('231428: initial state has correct defaults', async () => {
   const { state } = await freshState();
   assert.equal(state.repo, null);

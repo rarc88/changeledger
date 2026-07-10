@@ -7,8 +7,9 @@ const VALID_DETAIL_SIZES = new Set(['compact', 'wide', 'full']);
 let storage = null;
 
 const emptyProjectFilters = () => ({
-  type: 'all',
-  owner: 'all',
+  types: [],
+  owners: [],
+  includeUnassigned: false,
   statuses: [],
   showArchived: false,
   showDiscarded: false,
@@ -21,6 +22,9 @@ export const state = {
     text: '',
     type: 'all',
     owner: 'all',
+    types: new Set(),
+    owners: new Set(),
+    includeUnassigned: false,
     statuses: new Set(),
     showArchived: false,
     showDiscarded: false,
@@ -39,8 +43,9 @@ export const state = {
 
 function currentProjectFilters() {
   return {
-    type: state.filters.type,
-    owner: state.filters.owner,
+    types: [...state.filters.types],
+    owners: [...state.filters.owners],
+    includeUnassigned: state.filters.includeUnassigned,
     statuses: [...state.filters.statuses],
     showArchived: state.filters.showArchived,
     showDiscarded: state.filters.showDiscarded,
@@ -53,8 +58,23 @@ function saveCurrentProjectFilters() {
 
 function applyProjectFilters(id) {
   const filters = state.projectFilters[id] ?? emptyProjectFilters();
-  state.filters.type = typeof filters.type === 'string' ? filters.type : 'all';
-  state.filters.owner = typeof filters.owner === 'string' ? filters.owner : 'all';
+  state.filters.types = new Set(
+    Array.isArray(filters.types)
+      ? filters.types.filter((value) => typeof value === 'string')
+      : typeof filters.type === 'string' && filters.type !== 'all'
+        ? [filters.type]
+        : [],
+  );
+  state.filters.type = state.filters.types.size === 1 ? [...state.filters.types][0] : 'all';
+  state.filters.owners = new Set(
+    Array.isArray(filters.owners)
+      ? filters.owners.filter((value) => typeof value === 'string')
+      : typeof filters.owner === 'string' && filters.owner !== 'all'
+        ? [filters.owner]
+        : [],
+  );
+  state.filters.owner = state.filters.owners.size === 1 ? [...state.filters.owners][0] : 'all';
+  state.filters.includeUnassigned = filters.includeUnassigned === true;
   state.filters.statuses = new Set(
     Array.isArray(filters.statuses)
       ? filters.statuses.filter((value) => typeof value === 'string')
@@ -144,9 +164,13 @@ export function normalizeRepoState(repo) {
   }
   if (state.sortDir !== 1 && state.sortDir !== -1) state.sortDir = 1;
   if (!repo.types.includes(state.filters.type)) state.filters.type = 'all';
+  state.filters.types = new Set(
+    [...state.filters.types].filter((type) => repo.types.includes(type)),
+  );
   const owners = new Set(repo.changes.map((change) => change.owner).filter(Boolean));
   if (state.filters.owner !== 'all' && !owners.has(state.filters.owner))
     state.filters.owner = 'all';
+  state.filters.owners = new Set([...state.filters.owners].filter((owner) => owners.has(owner)));
   const statuses = new Set(repo.statuses);
   state.filters.statuses = new Set(
     [...state.filters.statuses].filter((status) => statuses.has(status)),
@@ -168,13 +192,45 @@ export function setTextFilter(text) {
   persistViewerState();
 }
 
+export function toggleTypeFilter(type) {
+  if (state.filters.types.has(type)) state.filters.types.delete(type);
+  else state.filters.types.add(type);
+  state.filters.type = state.filters.types.size === 1 ? [...state.filters.types][0] : 'all';
+  persistViewerState();
+}
+
 export function setTypeFilter(type) {
+  state.filters.types = new Set(type === 'all' ? [] : [type]);
   state.filters.type = type;
   persistViewerState();
 }
 
+export function toggleOwnerFilter(owner) {
+  if (state.filters.owners.has(owner)) state.filters.owners.delete(owner);
+  else state.filters.owners.add(owner);
+  state.filters.owner = state.filters.owners.size === 1 ? [...state.filters.owners][0] : 'all';
+  persistViewerState();
+}
+
 export function setOwnerFilter(owner) {
+  state.filters.owners = new Set(owner === 'all' ? [] : [owner]);
   state.filters.owner = owner;
+  persistViewerState();
+}
+
+export function toggleUnassignedOwner() {
+  state.filters.includeUnassigned = !state.filters.includeUnassigned;
+  persistViewerState();
+}
+
+export function clearTypeFilters() {
+  state.filters.types.clear();
+  persistViewerState();
+}
+
+export function clearOwnerFilters() {
+  state.filters.owners.clear();
+  state.filters.includeUnassigned = false;
   persistViewerState();
 }
 

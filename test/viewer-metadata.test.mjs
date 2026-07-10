@@ -19,6 +19,7 @@ const {
   bindDetailPresentation,
   bindProjectViewActions,
   card,
+  choiceFilterSummary,
   closeStatusMenuOnOutsideClick,
   collectFormPatch,
   createDiagramLightbox,
@@ -376,6 +377,31 @@ test('125850 CR1: compact status summary reports all, one, or a count', () => {
   assert.equal(statusSummary(new Set()), 'All statuses');
   assert.equal(statusSummary(new Set(['in-validation'])), 'In validation');
   assert.equal(statusSummary(new Set(['draft', 'done'])), '2 statuses');
+});
+
+test('105206 CR2/CR4: owner summary names an unassigned-only selection', () => {
+  assert.equal(choiceFilterSummary('Owner', new Set(), true), 'Unassigned');
+  assert.equal(choiceFilterSummary('Owner', new Set(['ana'])), 'ana');
+  assert.equal(choiceFilterSummary('Owner', new Set(['ana']), true), '2 selected');
+});
+
+test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sentinel', () => {
+  const filters = {
+    text: '',
+    types: new Set(['feature', 'bug']),
+    owners: new Set(['ana']),
+    includeUnassigned: true,
+    statuses: new Set(),
+    showArchived: false,
+    showDiscarded: false,
+  };
+  assert.equal(isVisible({ ...baseChange(), type: 'feature', owner: 'ana' }, filters), true);
+  assert.equal(isVisible({ ...baseChange(), type: 'bug', owner: null }, filters), true);
+  assert.equal(isVisible({ ...baseChange(), type: 'chore', owner: 'ana' }, filters), false);
+  assert.equal(
+    isVisible({ ...baseChange(), type: 'feature', owner: '__unassigned__' }, filters),
+    false,
+  );
 });
 
 test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {

@@ -2,7 +2,7 @@
 id: "20260710-105206"
 title: El visor limita type y owner a una sola selección
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-10T10:52:06Z
 depends_on: []
 owner: Roberto Ruiz
@@ -68,12 +68,18 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 
 ## Plan
 
-- [ ] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
-- [ ] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3)
-- [ ] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4)
-- [ ] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4)
+- [x] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-07-10T17:16:45Z
+- [x] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3) — 2026-07-10T17:16:46Z
+- [x] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4) — 2026-07-10T17:16:46Z
+- [x] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4) — 2026-07-10T17:25:41Z
 
 ## Log
 - **2026-07-10T12:03:54Z** — status: draft → approved
 - **2026-07-10T14:30:25Z** — status: approved → in-progress
 - **2026-07-10T14:30:25Z** — owner → Roberto Ruiz (auto)
+- **2026-07-10T17:16:57Z** — status: in-progress → in-review
+- **2026-07-10T17:18:03Z** — review → in-progress (retry): Faltan pruebas específicas y el resumen de Owner no representa Unassigned seleccionado.
+- **2026-07-10T17:18:49Z** — status: in-progress → in-review
+- **2026-07-10T17:20:03Z** — review → in-progress (retry): El resumen no cuenta Unassigned combinado y faltan pruebas de migración/semántica.
+- **2026-07-10T17:24:01Z** — status: in-progress → in-review
+- **2026-07-10T17:25:41Z** — review → in-validation (delegated subagent, clean context)
