@@ -39,6 +39,39 @@ antes de medir los contextos efectivos y sus márgenes.
 
 ## Specification
 
+### CR1 — Presupuesto con una sola fuente ejecutable
+- **Given** las composiciones de contexto y sus tests
+- **When** se consulta el presupuesto de un core, pack, overlay o capsule de agente
+- **Then** existe una sola tabla versionada en `templates/contract/budgets.yml`
+- **And** `test/context.test.mjs` carga esa tabla en vez de repetir cifras
+- **And** `contract-discovery.md` explica el modelo y enlaza la tabla sin copiar sus números
+
+### CR2 — Objetivo y límite duro explícitos
+- **Given** la tabla de presupuestos
+- **When** se mide una composición base sin el change seleccionado
+- **Then** cada entrada declara `target` y `hard` para líneas y bytes
+- **And** la suite falla al exceder el hard cap y avisa al superar el target
+- **And** los targets/hard caps iniciales son: core 125/7500 y 140/9000; spec 280/12000 y 310/13500; implement 185/8500 y 205/10000; review 70/3500 y 85/4500; release 45/2500 y 60/3500
+
+### CR3 — Overlays y capsules cubiertos sin cargar detalle ajeno
+- **Given** los overlays de lifecycle y los tres `agent-context`
+- **When** se ejecutan sus mediciones base
+- **Then** los overlays conservan sus límites actuales como target y tienen un hard cap con holgura de 20% redondeada
+- **And** investigation, implementation y review de agente tienen target 45 líneas/2000 bytes y hard cap 60/3000
+- **And** las mediciones excluyen el cuerpo del change seleccionado, que pertenece a la tarea, no al contexto base
+
+### CR4 — No se compacta semántica para satisfacer una cifra accidental
+- **Given** una adición necesaria a una regla transversal o a un contexto especializado
+- **When** supera su target pero no el hard cap
+- **Then** el test informa la desviación sin obligar a borrar contenido
+- **And** el cambio debe justificar en su Log si eleva target o hard cap
+- **And** el core conserva sólo orientación transversal y los detalles específicos siguen en su pack o capsule de audiencia
+
 ## Plan
+
+- [ ] Añadir `templates/contract/budgets.yml`, actualizar `contract-discovery.md` y cubrir su carga/forma en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1)
+- [ ] Actualizar `templates/contract/budgets.yml` y `test/context.test.mjs` para aplicar target (diagnóstico) y hard cap (fallo) a los cinco contextos base; verify: `node --test test/context.test.mjs` (CR2, CR4)
+- [ ] Actualizar `templates/contract/budgets.yml`, `test/context.test.mjs` y `test/agent-context.test.mjs` para medir overlays y capsules sin change seleccionado; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR3, CR4)
+- [ ] Revisar `templates/contract/core.md` y ejecutar el gate completo para confirmar que detalle específico no entró al core; verify: `pnpm verify` (support)
 
 ## Log
