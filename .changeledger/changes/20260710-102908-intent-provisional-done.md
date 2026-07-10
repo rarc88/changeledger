@@ -2,7 +2,7 @@
 id: "20260710-102908"
 title: INTENT contradice el cierre provisional de un change done
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-10T10:29:08Z
 depends_on: [ "20260710-105205" ]
 owner: raruiz-hiberuscom
@@ -50,15 +50,19 @@ change nuevo y no alterar la semántica del CLI.
 ### CR3 — Sin cambio de comportamiento adicional
 - **Given** el cambio de intención
 - **When** se revisan los archivos fuera de `INTENT.md` y el documento de cambio
-- **Then** no se alteran CLI, viewer, lifecycle, tests ni el contrato operativo
+- **Then** no se alteran CLI, viewer, lifecycle ni el contrato operativo, salvo `test/intent.test.mjs` que verifica esta intención
 - **And** la verdad persistente de lifecycle sigue perteneciendo a `lifecycle.md`
 
 ## Plan
 
-- [ ] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`; verify: `node --test test/intent.test.mjs` (CR1, CR2)
-- [ ] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3)
+- [x] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`; verify: `node --test test/intent.test.mjs` (CR1, CR2) — 2026-07-10T17:27:52Z
+- [x] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3) — 2026-07-10T17:27:52Z
 
 ## Log
 - **2026-07-10T12:02:45Z** — status: draft → approved
 - **2026-07-10T17:26:36Z** — status: approved → in-progress
 - **2026-07-10T17:26:36Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-10T17:27:52Z** — status: in-progress → in-review
+- **2026-07-10T17:28:47Z** — review → in-progress (retry): INTENT decía aceptación definitiva y la CR3 contradice su test documental.
+- **2026-07-10T17:29:08Z** — status: in-progress → in-review
+- **2026-07-10T17:30:41Z** — review → in-validation (delegated subagent, clean context)
