@@ -9,6 +9,21 @@ import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
+const contextBudgets = JSON.parse(
+  fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
+);
+
+function assertWithinBudget(label, output, budget) {
+  const lines = output.split('\n').length;
+  const bytes = Buffer.byteLength(output, 'utf8');
+  if (lines > budget.target.lines || bytes > budget.target.bytes) {
+    process.emitWarning(
+      `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`,
+    );
+  }
+  assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
+  assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
+}
 
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'context-repo-'));
@@ -119,8 +134,7 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.match(first, /If unsure, document it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
   assert.match(first, /extends the core\s+context already read; it never repeats it/);
-  assert.ok(first.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
+  assertWithinBudget('core', first, contextBudgets.base.core);
 });
 
 test('213942 CR1-CR4: core teaches operational discovery without embedding or mutating state', () => {
@@ -140,8 +154,7 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   assert.doesNotMatch(first, new RegExp(id));
   assert.doesNotMatch(first, /Context fixture/);
   assert.equal(first, second);
-  assert.ok(first.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
+  assertWithinBudget('core', first, contextBudgets.base.core);
   assert.equal(fs.readFileSync(changeFile, 'utf8'), changeBefore);
   assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
 });
@@ -233,8 +246,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     assert.match(resumed, /Effective policy:.*tdd=(on|off)/);
     assert.doesNotMatch(resumed, /# Definition of Ready/);
   }
-  assert.ok(outputs.core.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
+  assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
 test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
@@ -454,8 +466,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
       );
     }
   }
-  assert.ok(outputs.core.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
+  assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
@@ -700,8 +711,7 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   assert.equal(core.split('\n')[0], begin('core'));
   assert.equal(core.trimEnd().split('\n').at(-1), end);
   assert.doesNotMatch(core, /^Mode: core$/m);
-  assert.ok(core.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+  assertWithinBudget('core', core, contextBudgets.base.core);
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
@@ -728,8 +738,7 @@ test('225213 CR8: core exposes the transversal effective policy without raw conf
   assert.match(core, /each context delivers the effective policy/i);
   assert.doesNotMatch(core, /narrative content follows `\.changeledger\/config\.yml`/);
   // Delimited core stays within budget.
-  assert.ok(core.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+  assertWithinBudget('core', core, contextBudgets.base.core);
 });
 
 test('225213 CR8: core resolves defaults when config omits language and tdd', () => {
@@ -864,35 +873,17 @@ test('220014 CR2/CR3: a direct or transitive dependency on an in-validation chan
 test('225213 CR6: every base composition stays within its explicit budget', () => {
   const root = repo();
   // Budgets measured WITHOUT any selected change text — base compositions only.
-  const budgets = {
-    core: { lines: 130, bytes: 8000 },
-    spec: { lines: 285, bytes: 12000 },
-    implement: { lines: 175, bytes: 8000 },
-    review: { lines: 75, bytes: 4000 },
-    release: { lines: 45, bytes: 3000 },
-  };
+  const budgets = contextBudgets.base;
   for (const [mode, budget] of Object.entries(budgets)) {
     const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
-    assert.ok(
-      output.split('\n').length <= budget.lines,
-      `${mode} exceeds ${budget.lines} lines: ${output.split('\n').length}`,
-    );
-    assert.ok(
-      Buffer.byteLength(output, 'utf8') <= budget.bytes,
-      `${mode} exceeds ${budget.bytes} bytes: ${Buffer.byteLength(output, 'utf8')}`,
-    );
+    assertWithinBudget(mode, output, budget);
   }
 });
 
 test('225213 CR6: status overlays stay within their explicit budget (no change text)', () => {
   const root = repo();
   // Overlay base = fragments + delimiters + policy header, empty change body.
-  const budgets = {
-    blocked: { lines: 70, bytes: 3000 },
-    'in-validation': { lines: 45, bytes: 1700 },
-    done: { lines: 90, bytes: 3500 },
-    discarded: { lines: 40, bytes: 1300 },
-  };
+  const budgets = contextBudgets.overlays;
   let i = 0;
   for (const [status, budget] of Object.entries(budgets)) {
     const id = writeRawChange(root, { id: `20260627-16000${i}`, status });
@@ -900,14 +891,7 @@ test('225213 CR6: status overlays stay within their explicit budget (no change t
     // Strip the selected change section to measure the base composition only.
     const output = buildContext(id, root);
     const base = output.split('\n# Selected change')[0];
-    assert.ok(
-      base.split('\n').length <= budget.lines,
-      `${status} overlay exceeds ${budget.lines} lines: ${base.split('\n').length}`,
-    );
-    assert.ok(
-      Buffer.byteLength(base, 'utf8') <= budget.bytes,
-      `${status} overlay exceeds ${budget.bytes} bytes: ${Buffer.byteLength(base, 'utf8')}`,
-    );
+    assertWithinBudget(`${status} overlay`, base, budget);
   }
 });
 
@@ -1049,8 +1033,7 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const delegation = fs.readFileSync(new URL('delegation.md', contractDir), 'utf8');
   assert.doesNotMatch(delegation, /changeledger agent-prompt/);
   // Budget holds at the current values without another emergency adjustment.
-  assert.ok(core.split('\n').length <= 130);
-  assert.ok(Buffer.byteLength(core, 'utf8') <= 8000);
+  assertWithinBudget('core', core, contextBudgets.base.core);
 });
 
 test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {

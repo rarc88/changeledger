@@ -66,9 +66,8 @@ modo por id, cada dependencia local de `depends_on` se resume como
 conservan como referencias sin resolución local.
 
 Toda composición base (sin el change seleccionado, cuya longitud pertenece al
-trabajo) tiene presupuesto explícito en tests: core 120 líneas/8192 bytes; spec
-285/11800; implement 170/7300; review 75/3200; release 45/2200; overlays
-blocked 70/3000, validation 45/1700, close 90/3500, discarded 40/1300. Los
+trabajo) tiene objetivos y límites duros en la única tabla ejecutable
+`templates/contract/budgets.yml`; los tests la cargan directamente. Los
 contextos posteriores amplían el core y fallan cerrado por instrucción si el
 agente aún no lo leyó completo.
 

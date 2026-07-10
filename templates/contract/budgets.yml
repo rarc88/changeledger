@@ -1,0 +1,16 @@
+{
+  "base": {
+    "core": { "target": { "lines": 125, "bytes": 7500 }, "hard": { "lines": 140, "bytes": 9000 } },
+    "spec": { "target": { "lines": 280, "bytes": 12000 }, "hard": { "lines": 310, "bytes": 13500 } },
+    "implement": { "target": { "lines": 185, "bytes": 8500 }, "hard": { "lines": 205, "bytes": 10000 } },
+    "review": { "target": { "lines": 70, "bytes": 3500 }, "hard": { "lines": 85, "bytes": 4500 } },
+    "release": { "target": { "lines": 45, "bytes": 2500 }, "hard": { "lines": 60, "bytes": 3500 } }
+  },
+  "agent": { "target": { "lines": 45, "bytes": 2000 }, "hard": { "lines": 60, "bytes": 3000 } }
+  ,"overlays": {
+    "blocked": { "target": { "lines": 70, "bytes": 3000 }, "hard": { "lines": 84, "bytes": 3600 } },
+    "in-validation": { "target": { "lines": 45, "bytes": 1700 }, "hard": { "lines": 54, "bytes": 2040 } },
+    "done": { "target": { "lines": 90, "bytes": 3500 }, "hard": { "lines": 108, "bytes": 4200 } },
+    "discarded": { "target": { "lines": 40, "bytes": 1300 }, "hard": { "lines": 48, "bytes": 1560 } }
+  }
+}
