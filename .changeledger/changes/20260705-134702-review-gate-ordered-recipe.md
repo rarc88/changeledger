@@ -2,10 +2,11 @@
 id: "20260705-134702"
 title: El gate de revisión carece de receta ordenada única
 type: bug
-status: in-review
+status: done
 created: 2026-07-05T13:47:02Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -107,3 +108,6 @@ esqueleto de review referencia el checklist, no la secuencia del gate.
 - **2026-07-05T14:00:10Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-05T14:06:25Z** — Receta numerada de 5 pasos en implement.md (reemplaza el parrafo denso), review.md nombra al orquestador como sujeto del veredicto. Snapshots de implement/review actualizados; presupuestos 175/8000 y 75/4000 intactos. 540 tests verdes.
 - **2026-07-05T14:06:25Z** — status: in-progress → in-review
+- **2026-07-05T14:08:46Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:48:17Z** — validation → done (human accepted)
+- **2026-07-10T10:27:39Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
