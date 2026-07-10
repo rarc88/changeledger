@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-10T17:13:14Z
+updated: 2026-07-10T20:19:47Z
 tags: [ lifecycle ]
 ---
 
@@ -79,6 +79,13 @@ verificaciones acotadas.
 (`feature`, `bug`, `refactor` por defecto). `chore` y `audit` saltan únicamente
 la revisión: van `in-progress → in-validation`. Todo tipo pasa por validación
 humana antes de `done`; así `done` siempre significa resultado aceptado.
+
+**Ownership operacional.** El core compuesto publica una única matriz de
+transición → propietario → mecanismo. Distingue las decisiones humanas
+(`draft → approved`, aceptación en `in-validation`), los movimientos del
+agente, los tres veredictos que registra el orquestador mediante
+`changeledger review`, y el descarte con razón; evita que esa autoridad se
+infiera de prosa o de un diagrama paralelo.
 
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
 es la **única autoridad**, compartida por `changeledger status` y el visor.

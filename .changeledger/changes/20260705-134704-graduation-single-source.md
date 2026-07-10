@@ -7,6 +7,7 @@ created: 2026-07-05T13:47:04Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -115,3 +116,4 @@ se reduce ligeramente al abreviar la regla 8, lo que además da holgura a
 - **2026-07-05T14:16:03Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-05T16:48:28Z** — validation → done (human accepted)
 - **2026-07-10T10:28:22Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
+- **2026-07-10T20:18:08Z** — archived

@@ -2,10 +2,12 @@
 id: "20260710-102907"
 title: Los presupuestos de contexto no tienen una fuente de verdad coherente
 type: bug
-status: in-validation
+status: done
 created: 2026-07-10T10:29:07Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -85,3 +87,6 @@ antes de medir los contextos efectivos y sus márgenes.
 - **2026-07-10T17:42:55Z** — review → in-progress (retry): Capsules no cargan tabla y los targets no emiten diagnóstico.
 - **2026-07-10T17:47:55Z** — status: in-progress → in-review
 - **2026-07-10T17:49:29Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:13Z** — validation → done (human accepted)
+- **2026-07-10T20:19:47Z** — graduado a spec `contract-discovery.md`
+- **2026-07-10T20:19:48Z** — archived

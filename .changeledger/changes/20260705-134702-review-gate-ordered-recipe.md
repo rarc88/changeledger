@@ -7,6 +7,7 @@ created: 2026-07-05T13:47:02Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -111,3 +112,4 @@ esqueleto de review referencia el checklist, no la secuencia del gate.
 - **2026-07-05T14:08:46Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-05T16:48:17Z** — validation → done (human accepted)
 - **2026-07-10T10:27:39Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
+- **2026-07-10T20:18:08Z** — archived

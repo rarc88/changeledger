@@ -2,10 +2,12 @@
 id: "20260705-134703"
 title: Matriz de ownership de transiciones del lifecycle
 type: feature
-status: in-validation
+status: done
 created: 2026-07-05T13:47:03Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -135,3 +137,6 @@ agentes consumen el contexto, no el README.
 - **2026-07-05T16:59:53Z** — Corrección tras rechazo humano: la matriz queda como única representación del lifecycle; agrupa transiciones con actor/mecanismo idénticos, conserva separados los tres veredictos de review y elimina el diagrama paralelo. Core medido en 120 líneas/6674 bytes frente a techo redondo 130/8000. pnpm verify verde con 549 tests.
 - **2026-07-05T16:59:53Z** — status: in-progress → in-review
 - **2026-07-05T17:02:27Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:11Z** — validation → done (human accepted)
+- **2026-07-10T20:19:47Z** — graduado a spec `lifecycle.md`
+- **2026-07-10T20:19:48Z** — archived

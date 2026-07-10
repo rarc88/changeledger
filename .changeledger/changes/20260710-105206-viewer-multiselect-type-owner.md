@@ -2,10 +2,12 @@
 id: "20260710-105206"
 title: El visor limita type y owner a una sola selección
 type: feature
-status: in-validation
+status: done
 created: 2026-07-10T10:52:06Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -86,3 +88,6 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 - **2026-07-10T17:58:07Z** — validation → in-progress (agent rejected): Type y Owner deben reutilizar el patrón completo de Status: iconos y cierre al hacer clic fuera.
 - **2026-07-10T18:38:07Z** — status: in-progress → in-review
 - **2026-07-10T18:40:11Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:16Z** — validation → done (human accepted)
+- **2026-07-10T20:19:47Z** — graduado a spec `viewer.md`
+- **2026-07-10T20:19:48Z** — archived

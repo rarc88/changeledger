@@ -2,10 +2,12 @@
 id: "20260710-102908"
 title: INTENT contradice el cierre provisional de un change done
 type: bug
-status: in-validation
+status: done
 created: 2026-07-10T10:29:08Z
 depends_on: [ "20260710-105205" ]
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -66,3 +68,6 @@ change nuevo y no alterar la semántica del CLI.
 - **2026-07-10T17:28:47Z** — review → in-progress (retry): INTENT decía aceptación definitiva y la CR3 contradice su test documental.
 - **2026-07-10T17:29:08Z** — status: in-progress → in-review
 - **2026-07-10T17:30:41Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:14Z** — validation → done (human accepted)
+- **2026-07-10T20:19:47Z** — graduation skipped: La corrección alinea INTENT.md con la verdad de lifecycle ya existente; no crea un spec adicional.
+- **2026-07-10T20:19:48Z** — archived

@@ -2,10 +2,12 @@
 id: "20260704-144327"
 title: Esqueletos de prompt portables por rol para delegar subagentes
 type: feature
-status: in-validation
+status: done
 created: 2026-07-04T14:43:27Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -254,3 +256,6 @@ completo: reduce autoridad por prosa, pero no reduce contexto ni ambigüedad.
 - **2026-07-10T10:22:14Z** — Gate completo recuperado: pnpm verify verde (555 tests, lint y changeledger check). Se desbloquea la tarea de quality gate.
 - **2026-07-10T10:22:14Z** — status: in-progress → in-review
 - **2026-07-10T10:25:22Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:09Z** — validation → done (human accepted)
+- **2026-07-10T20:19:47Z** — graduado a spec `contract-discovery.md`
+- **2026-07-10T20:19:48Z** — archived

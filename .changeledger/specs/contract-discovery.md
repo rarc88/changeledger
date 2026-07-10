@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-03T23:21:20Z
+updated: 2026-07-10T20:19:47Z
 tags: [ contract ]
 ---
 
@@ -56,6 +56,13 @@ La composición especializada es explícita:
   guía general de delegación);
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
+
+La delegación portable separa el contrato del orquestador del de sus hojas:
+`changeledger agent-prompt <role>` entrega un esqueleto para investigación,
+implementación o review, y el delegado identificado carga únicamente
+`changeledger agent-context <role> [change-id]`. Las cápsulas delimitan su
+responsabilidad y autoridad; investigation y review son de solo lectura y no
+reciben comandos de lifecycle.
 
 Cada composición de modo o id incluye una cabecera determinista **Effective
 policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,

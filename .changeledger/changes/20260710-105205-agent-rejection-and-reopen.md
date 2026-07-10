@@ -7,6 +7,7 @@ created: 2026-07-10T10:52:05Z
 depends_on: []
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -93,3 +94,4 @@ las dos transiciones positivas permanezcan human-only.
 - **2026-07-10T14:29:48Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-10T17:11:40Z** — validation → done (human accepted)
 - **2026-07-10T17:13:14Z** — graduado a spec `lifecycle.md`
+- **2026-07-10T20:18:08Z** — archived
