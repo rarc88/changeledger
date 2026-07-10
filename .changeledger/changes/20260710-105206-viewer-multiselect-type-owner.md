@@ -39,6 +39,37 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 
 ## Specification
 
+### CR1 — Selección múltiple de tipos
+- **Given** un repo con varios tipos configurados
+- **When** el usuario marca uno o más tipos en el popover Type
+- **Then** board, table y graph muestran changes de cualquiera de los tipos marcados
+- **And** ninguna marca equivale a todos los tipos y Clear restaura esa condición
+
+### CR2 — Selección múltiple de owners e inexistencia de owner
+- **Given** changes con owners distintos y al menos uno sin owner
+- **When** el usuario marca owners y/o `Unassigned` en el popover Owner
+- **Then** se muestran changes de cualquiera de esos owners y los sin owner cuando corresponda
+- **And** `Unassigned` se representa como un booleano separado, nunca como un nombre sentinela
+- **And** el control sigue visible aunque todos los changes carezcan de owner
+
+### CR3 — Composición de filtros y estado persistido
+- **Given** filtros de texto, type, owner, status y visibilidad activos
+- **When** se calcula visibilidad o se cambia/restaura proyecto
+- **Then** cada conjunto usa OR internamente y los filtros distintos usan AND
+- **And** la selección se persiste por proyecto como arrays de type/owner más `includeUnassigned`
+- **And** snapshots v1 con `type` u `owner` de selección única se restauran como una selección equivalente
+
+### CR4 — Interfaz equivalente y accesible
+- **Given** los filtros Type, Owner y Status
+- **When** se navegan con teclado o lector de pantalla
+- **Then** Type y Owner usan el mismo patrón de `details`, resumen, checkboxes etiquetados y acción Clear que Status
+- **And** el resumen informa All, una selección o el número de selecciones sin ocultar la opción Unassigned
+
 ## Plan
+
+- [ ] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [ ] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3)
+- [ ] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4)
+- [ ] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4)
 
 ## Log
