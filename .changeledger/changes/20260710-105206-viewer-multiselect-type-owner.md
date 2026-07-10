@@ -83,3 +83,6 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 - **2026-07-10T17:20:03Z** — review → in-progress (retry): El resumen no cuenta Unassigned combinado y faltan pruebas de migración/semántica.
 - **2026-07-10T17:24:01Z** — status: in-progress → in-review
 - **2026-07-10T17:25:41Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T17:58:07Z** — validation → in-progress (agent rejected): Type y Owner deben reutilizar el patrón completo de Status: iconos y cierre al hacer clic fuera.
+- **2026-07-10T18:38:07Z** — status: in-progress → in-review
+- **2026-07-10T18:40:11Z** — review → in-validation (delegated subagent, clean context)
