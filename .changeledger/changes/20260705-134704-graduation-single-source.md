@@ -2,10 +2,11 @@
 id: "20260705-134704"
 title: La graduación en dos pasos se describe en tres sitios divergentes
 type: bug
-status: in-review
+status: done
 created: 2026-07-05T13:47:04Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -111,3 +112,6 @@ se reduce ligeramente al abreviar la regla 8, lo que además da holgura a
 - **2026-07-05T14:09:09Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-05T14:13:02Z** — Receta numerada de graduacion en close.md (new-spec en 3 pasos, reviewed:true por paso, existing-spec y skip como alternativas). Regla 8 de core.md recortada: sin el parentesis --new/--into, apunta al close overlay. Actualizados tests context/230608/cli(221849) y snapshots core/close. Budgets core 120/8000 intactos. 541 tests verdes.
 - **2026-07-05T14:13:02Z** — status: in-progress → in-review
+- **2026-07-05T14:16:03Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:48:28Z** — validation → done (human accepted)
+- **2026-07-10T10:28:22Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
