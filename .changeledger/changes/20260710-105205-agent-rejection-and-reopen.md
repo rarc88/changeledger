@@ -2,9 +2,10 @@
 id: "20260710-105205"
 title: El agente no puede rechazar validaciones ni reabrir changes provisionales
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-10T10:52:05Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -78,3 +79,6 @@ las dos transiciones positivas permanezcan human-only.
 - [ ] Ejecutar revisión independiente y el gate completo; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-10T12:03:39Z** — status: draft → approved
+- **2026-07-10T14:14:44Z** — status: approved → in-progress
+- **2026-07-10T14:14:44Z** — owner → Roberto Ruiz (auto)
