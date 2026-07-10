@@ -4,10 +4,26 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
+const contextBudgets = JSON.parse(
+  fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
+);
+
+function assertWithinBudget(label, output, budget) {
+  const lines = output.split('\n').length;
+  const bytes = Buffer.byteLength(output, 'utf8');
+  if (lines > budget.target.lines || bytes > budget.target.bytes) {
+    process.emitWarning(
+      `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`,
+    );
+  }
+  assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
+  assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
+}
 
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'context-repo-'));
@@ -118,8 +134,7 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.match(first, /If unsure, document it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
   assert.match(first, /extends the core\s+context already read; it never repeats it/);
-  assert.ok(first.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
+  assertWithinBudget('core', first, contextBudgets.base.core);
 });
 
 test('213942 CR1-CR4: core teaches operational discovery without embedding or mutating state', () => {
@@ -139,8 +154,7 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   assert.doesNotMatch(first, new RegExp(id));
   assert.doesNotMatch(first, /Context fixture/);
   assert.equal(first, second);
-  assert.ok(first.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(first, 'utf8') <= 8192);
+  assertWithinBudget('core', first, contextBudgets.base.core);
   assert.equal(fs.readFileSync(changeFile, 'utf8'), changeBefore);
   assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
 });
@@ -155,6 +169,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     spec: buildContext('spec', root),
     implement: buildContext('implement', root),
     review: buildContext(reviewId, root),
+    reviewDelegate: buildAgentContext('review', reviewId, root),
     blocked: buildContext(blockedId, root),
     validation: buildContext(validationId, root),
   };
@@ -183,8 +198,8 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
       'implement',
       /After human acceptance, graduate or record a skip and include correction plus ledger in the final closure commit/,
     ],
-    ['review', /Deep security, SAST and lint belong to dedicated tools/],
-    ['review', /ChangeLedger does not reimplement them/],
+    ['reviewDelegate', /Deep security, SAST and lint belong to dedicated tools/],
+    ['reviewDelegate', /ChangeLedger does not reimplement them/],
     ['review', /run `changeledger context <id>` before modifying implementation/],
     ['blocked', /run `changeledger context <id>` before modifying implementation/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
@@ -231,8 +246,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     assert.match(resumed, /Effective policy:.*tdd=(on|off)/);
     assert.doesNotMatch(resumed, /# Definition of Ready/);
   }
-  assert.ok(outputs.core.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
+  assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
 test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
@@ -241,11 +255,13 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   const blockedId = addChange(root, 'blocked', '20260629-230011');
   const validationId = addChange(root, 'in-validation', '20260629-230012');
   const discardedId = addChange(root, 'discarded', '20260629-230013');
+  const reviewId = addChange(root, 'in-review', '20260629-230014');
   const outputs = {
     core: buildContext(undefined, root),
     spec: buildContext('spec', root),
     implement: buildContext('implement', root),
     review: buildContext('review', root),
+    reviewDelegate: buildAgentContext('review', reviewId, root),
     blocked: buildContext(blockedId, root),
     validation: buildContext(validationId, root),
     discarded: buildContext(discardedId, root),
@@ -349,11 +365,11 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['implement', /Request and Investigation may split independent codebase questions/],
     ['implement', /Implementation may split only when write sets are disjoint/],
     ['implement', /Configured review is special: a fresh clean-context subagent/],
-    ['review', /do not trust the implementer's summary/],
+    ['reviewDelegate', /do not trust the implementer's summary/],
     ['review', /model sized to the review difficulty/],
-    ['review', /every `CRn`, every Plan task, tests, the actual diff/],
-    ['review', /absence of TODO\/FIXME, dead code or unrelated residue/],
-    ['review', /ChangeLedger does not reimplement them/],
+    ['reviewDelegate', /every `CRn`, every Plan task, tests, the actual diff/],
+    ['reviewDelegate', /absence of TODO\/FIXME, dead code or unrelated residue/],
+    ['reviewDelegate', /ChangeLedger does not reimplement them/],
     ['review', /changeledger review <id> pass/],
     ['review', /changeledger review <id> fail --retry "<reason>"/],
     ['review', /changeledger review <id> fail --block "<reason>"/],
@@ -408,7 +424,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ],
     ['release', /Do not create a change only to group those routine steps/],
     ['core', /discard reason is required and logged/],
-    ['core', /viewer owns `draft → approved` and `in-validation → done\|in-progress`/],
+    // 20260705-134703: ownership prose replaced by a transition→owner→mechanism matrix.
+    ['core', /draft → approved \| human \| viewer/],
+    ['core', /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/],
   ];
 
   for (const [context, pattern] of expected) {
@@ -448,8 +466,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
       );
     }
   }
-  assert.ok(outputs.core.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(outputs.core, 'utf8') <= 8192);
+  assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
@@ -459,7 +476,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // boundaries are replaced: baseline first, lifecycle-only moves coalesced,
     // verified corrections remain meaningful, and graduation owns final closure.
     // 20260703-150232: terminal done is replaced by durable-closure finality.
-    'close.md': '5272578ebf2dbc231890852cd2bf77992e51eb13e7b6b81acb629b2a2ea146fa',
+    // 20260705-134704: the graduation bullets are replaced by a numbered new-spec
+    // recipe with the reviewed:true nuance integrated per step; existing-spec and
+    // skip stay as explicit alternatives. Rules preserved, none retired.
+    'close.md': 'a53a3fe1a28f55492a305c366f0cfafa90718af1552883e7e1bc2bcf04b3a16a',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -467,11 +487,20 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // two-step so graduation is not presented as a settled binary.
     // 20260703-150229: anti-truncation is preserved and strengthened: deliberate one-pass
     // capture is now normal, sentinel recovery exceptional, and messages do not reload core.
-    // 20260703-150232: done finality is replaced with one human-only provisional reopen edge;
-    // discarded and graduated/skipped/archived/released closures remain irreversible.
+    // 20260703-150232: done finality is replaced with one provisional reopen edge;
+    // 20260710-105205 gives that correction to agent or human while durable closures remain irreversible.
     // 20260703-220014: rule 7 replaced — "Stop at in-validation" (read as a global pause) is
     // now a change-scoped stop that names the depends_on chain blocking the next candidate.
-    'core.md': '3481a6de5281b31fe762548390c321c238f9c12da6f9366a96d3c8a0ec603b5b',
+    // 20260705-134704: rule 8 trimmed — the --new/--into two-step parenthetical is removed and
+    // deferred to the close overlay, which owns the full graduation recipe. Rule preserved.
+    // 20260704-144327: the minimum delegation rule gains a pointer to `changeledger
+    // agent-prompt <role>` for the full role skeleton; content stays on demand.
+    // 20260705-134703 correction after human validation: the matrix now owns
+    // topology as well as owner/mechanism; the parallel text diagram is retired,
+    // equivalent status/viewer rows are grouped, and non-ownership rules remain.
+    // 20260710-105205: acceptance remains human-only; rejection and provisional
+    // reopening are replaced with explicit agent-or-human commands and actors.
+    'core.md': 'af94f01cbd60039c3d62ab0f16e137ffb782a08ed39e68da9d5b6dea57d3f333',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -484,20 +513,28 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // pass|fail`), not retired. The in-review/in-validation sentence is
     // replaced: it now names loading `changeledger context review` and
     // recording the delegate's verdict as the orchestrator's own step, and
-    // states that closing in-validation has no CLI, human-only.
+    // states that acceptance remains human-only while correction can be agent-owned.
     // Operational follow-up (no change id, budget rework): restored the
     // "load once, don't reload unless context was lost" clause that CR1
     // specified but had been trimmed to fit the original tight byte budget.
-    'implement.md': '16839bd9c6d48fad6526947962ccd2af3b5079c3780267c704536308471ed8b0',
+    // 20260705-134702: the review-gate paragraph is replaced by a numbered
+    // 1..5 ordered recipe (tasks → status in-review → load review context →
+    // delegate read-only reviewer → orchestrator records verdict); every rule
+    // is preserved, none retired.
+    'implement.md': 'be3d9354df39db412eb188ba9c60df18b4e3c6eb47ee2c332e30f18161b48bc8',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
-    'review.md': 'bee85dbd9fbc6c861d85cd7fbcc2700adb5fe0c13ff8db65eefe86a3a01ab2ff',
+    // 20260705-134702: "Record exactly one verdict" names the orchestrator as recorder.
+    // 20260704-144327 correction: the delegate checklist/tool boundary moves to the
+    // self-contained review capsule; this fragment keeps orchestration and verdicts
+    // and points to that single checklist owner. Rules moved, none retired.
+    'review.md': 'c6d652977ed75b402f344df80416e4c5e8575a28363cd87a31150e3c1dc3aefb',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
-    'validation.md': '8b3e232aa19376ec008d2b8b3d236386961c4adb970e240bdf55275b86e23563',
+    'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -674,8 +711,7 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   assert.equal(core.split('\n')[0], begin('core'));
   assert.equal(core.trimEnd().split('\n').at(-1), end);
   assert.doesNotMatch(core, /^Mode: core$/m);
-  assert.ok(core.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+  assertWithinBudget('core', core, contextBudgets.base.core);
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
@@ -702,8 +738,7 @@ test('225213 CR8: core exposes the transversal effective policy without raw conf
   assert.match(core, /each context delivers the effective policy/i);
   assert.doesNotMatch(core, /narrative content follows `\.changeledger\/config\.yml`/);
   // Delimited core stays within budget.
-  assert.ok(core.split('\n').length <= 120);
-  assert.ok(Buffer.byteLength(core, 'utf8') <= 8192);
+  assertWithinBudget('core', core, contextBudgets.base.core);
 });
 
 test('225213 CR8: core resolves defaults when config omits language and tdd', () => {
@@ -793,7 +828,7 @@ test('220014 CR1/CR4: core and validation scope the stop to one change, not the 
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
   const validation = buildContext(validationId, root).replace(/\s+/g, ' ');
   assert.match(core, /`in-validation` stops only that change/);
-  assert.match(core, /may start another approved change unless it or its `depends_on` chain/);
+  assert.match(core, /start another approved change unless its `depends_on` chain/);
   assert.match(validation, /This stop is scoped to this change/);
   assert.match(validation, /stops entirely/);
   assert.match(validation, /does not invent work or touch delivered\s+results/);
@@ -838,35 +873,17 @@ test('220014 CR2/CR3: a direct or transitive dependency on an in-validation chan
 test('225213 CR6: every base composition stays within its explicit budget', () => {
   const root = repo();
   // Budgets measured WITHOUT any selected change text — base compositions only.
-  const budgets = {
-    core: { lines: 120, bytes: 8000 },
-    spec: { lines: 285, bytes: 12000 },
-    implement: { lines: 175, bytes: 8000 },
-    review: { lines: 75, bytes: 4000 },
-    release: { lines: 45, bytes: 3000 },
-  };
+  const budgets = contextBudgets.base;
   for (const [mode, budget] of Object.entries(budgets)) {
     const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
-    assert.ok(
-      output.split('\n').length <= budget.lines,
-      `${mode} exceeds ${budget.lines} lines: ${output.split('\n').length}`,
-    );
-    assert.ok(
-      Buffer.byteLength(output, 'utf8') <= budget.bytes,
-      `${mode} exceeds ${budget.bytes} bytes: ${Buffer.byteLength(output, 'utf8')}`,
-    );
+    assertWithinBudget(mode, output, budget);
   }
 });
 
 test('225213 CR6: status overlays stay within their explicit budget (no change text)', () => {
   const root = repo();
   // Overlay base = fragments + delimiters + policy header, empty change body.
-  const budgets = {
-    blocked: { lines: 70, bytes: 3000 },
-    'in-validation': { lines: 45, bytes: 1700 },
-    done: { lines: 90, bytes: 3500 },
-    discarded: { lines: 40, bytes: 1300 },
-  };
+  const budgets = contextBudgets.overlays;
   let i = 0;
   for (const [status, budget] of Object.entries(budgets)) {
     const id = writeRawChange(root, { id: `20260627-16000${i}`, status });
@@ -874,25 +891,25 @@ test('225213 CR6: status overlays stay within their explicit budget (no change t
     // Strip the selected change section to measure the base composition only.
     const output = buildContext(id, root);
     const base = output.split('\n# Selected change')[0];
-    assert.ok(
-      base.split('\n').length <= budget.lines,
-      `${status} overlay exceeds ${budget.lines} lines: ${base.split('\n').length}`,
-    );
-    assert.ok(
-      Buffer.byteLength(base, 'utf8') <= budget.bytes,
-      `${status} overlay exceeds ${budget.bytes} bytes: ${Buffer.byteLength(base, 'utf8')}`,
-    );
+    assertWithinBudget(`${status} overlay`, base, budget);
   }
 });
 
 test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rules', () => {
   const root = repo();
+  const reviewId = addChange(root, 'in-review', '20260705-120010');
   const review = buildContext('review', root);
-  // Review keeps independence, review surface, verdict mechanics and handoff.
+  const delegate = buildAgentContext('review', reviewId, root);
+  // Orchestrator review keeps independence, verdict mechanics and handoff.
   assert.match(review, /# Independent Review/);
-  assert.match(review, /do not trust the implementer's summary/);
+  assert.match(review, /agent-context review <id>/);
   assert.match(review, /changeledger review <id> pass/);
   assert.match(review, /# Handoff Triage/);
+  // The delegated capsule owns the inspection surface and read-only boundary.
+  assert.match(delegate, /do not trust the implementer's summary/);
+  assert.match(delegate, /every `CRn`, every Plan task, tests, the actual diff/);
+  assert.match(delegate, /read-only/);
+  assert.doesNotMatch(delegate, /changeledger review <id> pass/);
   // Review no longer carries the general delegation guide the reviewer does not need.
   assert.doesNotMatch(review, /# Economical Delegation/);
   assert.doesNotMatch(review, /Do not over-shard/);
@@ -905,6 +922,120 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   assert.match(implement, /# Handoff Triage/);
 });
 
+test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
+  const root = repo();
+  const norm = (s) => s.replace(/\s+/g, ' ');
+  const implement = norm(buildContext('implement', root));
+  const review = norm(buildContext('review', root));
+  const core = norm(buildContext(undefined, root));
+
+  // CR1: implement carries a numbered 1..5 recipe in order.
+  assert.match(implement, /move to `in-review` if the type requires independent review/);
+  assert.match(
+    implement,
+    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*`changeledger context review` once.*4\..*read-only reviewer.*5\..*`changeledger review <id> pass\|fail`/,
+  );
+  assert.match(implement, /never `log`\+`status`/);
+  assert.match(implement, /do not reload it to record the verdict unless context was lost/);
+  assert.match(
+    implement,
+    /`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail/,
+  );
+
+  // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
+  assert.match(review, /orchestrator records exactly one verdict/);
+  assert.match(review, /reports.*never runs the verdict command/i);
+  assert.doesNotMatch(review, /1\..*2\..*3\..*4\..*5\./);
+
+  // CR2: the ordered recipe is owned by implement, not core or delegation.
+  assert.doesNotMatch(core, /`changeledger status <id> in-review`.*`changeledger review <id> pass/);
+});
+
+test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close overlay', () => {
+  const root = repo();
+  const norm = (s) => s.replace(/\s+/g, ' ');
+  const doneId = addChange(root, 'done', '20260705-200000');
+  const close = norm(buildContext(doneId, root));
+  const core = norm(buildContext(undefined, root));
+
+  // CR1: close carries a numbered recipe for a new spec, in order.
+  assert.match(
+    close,
+    /1\..*`changeledger graduate <id> <spec-slug> --new`.*2\..*remove the explicit scaffold marker.*3\..*`changeledger graduate <id> <spec-slug> --into`/,
+  );
+  assert.match(close, /--new`.*leaves graduation pending/);
+  assert.match(close, /`--into` refuses an unrefined marked scaffold/);
+  // Existing-spec and skip remain explicit alternatives.
+  assert.match(close, /For an existing spec/);
+  assert.match(close, /changeledger graduate <id> --skip \[reason\]/);
+
+  // CR3: the reviewed:true nuance sits with the recipe steps.
+  assert.match(close, /sets `reviewed: true`/);
+
+  // CR2: core keeps only the trigger; no two-step procedure summary.
+  assert.match(core, /reload `changeledger context <id>`/);
+  assert.match(
+    core,
+    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
+  );
+  assert.doesNotMatch(core, /a new spec is a two-step/);
+});
+
+test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', () => {
+  const root = repo();
+  const core = buildContext(undefined, root);
+  const norm = core.replace(/\s+/g, ' ');
+
+  // CR1: a matrix with transition / owner / mechanism columns covers every arc.
+  assert.match(norm, /\| Transition \| Owner \| Mechanism \|/);
+  const rows = [
+    /draft → approved \| human \| viewer/,
+    /approved → in-progress; blocked → in-progress; in-progress → in-review \| agent \| `changeledger status`/,
+    /in-progress → in-validation \(no review\) \| agent \| `changeledger status`/,
+    /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/,
+    /in-review → in-progress \| orchestrator \| `changeledger review <id> fail --retry`/,
+    /in-review → blocked \| orchestrator \| `changeledger review <id> fail --block`/,
+    /in-validation → done \| human \| viewer/,
+    /in-validation → in-progress \| agent or human \| `changeledger validation <id> fail "<reason>"` or viewer/,
+    /done → in-progress \(pending closure\) \| agent or human \| `changeledger reopen <id> "<reason>"` or viewer/,
+    /→ discarded \| agent \(authorized\) \| `changeledger discard <id> "<reason>"`/,
+  ];
+  for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
+
+  assert.doesNotMatch(core, /human acceptance or rejection/);
+
+  // CR1: status never owns done or discarded.
+  assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);
+  assert.doesNotMatch(norm, /discarded \| agent \| `changeledger status`/);
+
+  // CR2: ownership prose and the parallel topology diagram are both gone.
+  assert.doesNotMatch(norm, /The viewer owns `draft → approved`/);
+  assert.doesNotMatch(core, /draft → approved → in-progress/);
+  // CR2: non-ownership rules survive as a note.
+  assert.match(norm, /discard reason is required and logged/);
+  assert.match(norm, /`discarded` never reopens/);
+  assert.match(norm, /A `done` change can reopen only to finish its original scope/);
+});
+
+test('144327 CR5: core discovers agent-prompt before a draft exists, within budget', () => {
+  const root = repo();
+  const core = buildContext(undefined, root);
+  const norm = core.replace(/\s+/g, ' ');
+  // The minimum delegation rule points at the on-demand skeleton command.
+  assert.match(
+    norm,
+    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review\)/,
+  );
+  // The skeleton bodies are NOT inlined into the core, and the pointer is not
+  // duplicated into the delegation fragment.
+  assert.doesNotMatch(core, /Delegation skeleton — role:/);
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const delegation = fs.readFileSync(new URL('delegation.md', contractDir), 'utf8');
+  assert.doesNotMatch(delegation, /changeledger agent-prompt/);
+  // Budget holds at the current values without another emergency adjustment.
+  assertWithinBudget('core', core, contextBudgets.base.core);
+});
+
 test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
   const root = repo();
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
@@ -913,7 +1044,12 @@ test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
     core,
     /Each delegation prompt states at least ownership, expected output and integration criterion; the task context carries the full prompt contract/,
   );
-  // CR2: graduation is not presented as a settled binary — --new alone leaves it pending.
-  assert.match(core, /a new spec is a two-step `--new` then `--into`/);
+  // CR2: graduation is not a settled binary — core offers graduate OR skip and
+  // defers the --new/--into two-step to the close overlay (20260705-134704).
+  assert.match(
+    core,
+    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
+  );
+  assert.doesNotMatch(core, /a new spec is a two-step/);
   assert.ok(core.length > 0);
 });

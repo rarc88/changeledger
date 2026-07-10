@@ -8,11 +8,15 @@ import {
   list,
   log,
   owner,
+  reopen,
   review,
   show,
   status,
   task,
+  validation,
 } from '../src/commands/agent.mjs';
+import { agentContext } from '../src/commands/agent-context.mjs';
+import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { context } from '../src/commands/context.mjs';
 import {
@@ -34,9 +38,10 @@ const { version } = createRequire(import.meta.url)('../package.json');
 
 const USAGE = `ChangeLedger (changeledger)
 
-Run \`changeledger context\` first in any repo — it is the mandatory bootstrap.
+Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
+prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | context
+  changeledger init | register | new | view | check | context | agent-context
   changeledger status | discard | review | owner | archive | unarchive
   changeledger log | task | list | show | graduate | config | release
 
@@ -62,7 +67,7 @@ program
   .helpOption('-h, --help', 'display help for command')
   .addHelpText(
     'after',
-    '\nRun `changeledger context` first in any repo — it is the mandatory bootstrap.\n' +
+    '\nRun `changeledger context` first unless a ChangeLedger delegation prompt tells your role to use `agent-context`.\n' +
       "Run `changeledger <command> --help` for that command's syntax, values and examples.",
   );
 
@@ -180,6 +185,47 @@ program
   .action(action((input) => context(input)));
 
 program
+  .command('agent-prompt')
+  .description('print a portable delegation prompt skeleton for a role')
+  .argument('<role>', 'investigation | implementation | review')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
+      'outside a ChangeLedger repo — the skeletons ship inside the package.',
+      '',
+      'Examples:',
+      '  changeledger agent-prompt investigation',
+      '  changeledger agent-prompt implementation',
+      '  changeledger agent-prompt review',
+    ].join('\n'),
+  )
+  .action(action((role) => agentPrompt(role)));
+
+program
+  .command('agent-context')
+  .description('print a self-contained minimal context for a delegated role')
+  .argument('<role>', 'investigation | implementation | review')
+  .argument('[change-id]', 'optional for investigation; required for implementation and review')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Use only when a delegation prompt emitted by `changeledger agent-prompt`',
+      'identifies you as that role. This replaces the normal core bootstrap for',
+      'the delegated leaf; normal agents still run `changeledger context` first.',
+      '',
+      'Examples:',
+      '  changeledger agent-context investigation',
+      '  changeledger agent-context investigation <id>',
+      '  changeledger agent-context implementation <id>',
+      '  changeledger agent-context review <id>',
+    ].join('\n'),
+  )
+  .action(action((role, changeId) => agentContext(role, changeId)));
+
+program
   .command('status')
   .description("move a change's lifecycle status (agent-owned, non-terminal moves only)")
   .argument('<id>')
@@ -192,7 +238,7 @@ program
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard, and human validation in the viewer to reach done.',
+      'to discard. Only human validation in the viewer can reach done.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
@@ -201,8 +247,38 @@ program
   )
   .action(
     action((id, st) => {
-      status(id, st);
+      status(id, st, process.cwd(), { actor: 'agent' });
       console.log(`#${id} → ${st}`);
+    }),
+  );
+
+program
+  .command('validation')
+  .description('reject an in-validation change; accepting it remains human-only')
+  .argument('<id>')
+  .argument('<verdict>', 'fail')
+  .argument('<reason...>')
+  .action(
+    action((id, verdict, reasonParts) => {
+      if (verdict !== 'fail')
+        throw new Error(
+          'validation only accepts fail; human validation in the viewer accepts changes',
+        );
+      const reason = reasonParts.join(' ').trim();
+      validation(id, 'fail', { reason, actor: 'agent' });
+      console.log(`#${id} validation fail`);
+    }),
+  );
+
+program
+  .command('reopen')
+  .description('reopen a provisional done change with a reason')
+  .argument('<id>')
+  .argument('<reason...>')
+  .action(
+    action((id, reasonParts) => {
+      reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
+      console.log(`#${id} → in-progress`);
     }),
   );
 

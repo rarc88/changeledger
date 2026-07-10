@@ -1,7 +1,7 @@
 // The change lifecycle as an explicit, testable graph — the single authority on
 // which status moves are legal. Shared by the CLI (`changeledger status`) and the viewer
 // so both decide validity the same way. The viewer layers an extra human-only
-// policy on top (approval plus final acceptance/rejection); it never relaxes
+// policy on top (approval plus final acceptance); it never relaxes
 // this graph.
 
 export const CANONICAL_STATUSES = [
@@ -21,7 +21,7 @@ export const CANONICAL_STATUSES = [
 // `in-validation` is the universal human gate before done. Review or validation
 // may route back to in-progress, while review may also block. `discarded` is a
 // terminal tombstone reachable only before either closing gate. `done` has one
-// policy-gated human reopen edge; generic agent commands do not own it.
+// policy-gated provisional reopen edge; generic status commands do not own it.
 const TRANSITIONS = {
   draft: ['approved', 'discarded'],
   approved: ['in-progress', 'discarded'],

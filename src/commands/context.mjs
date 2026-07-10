@@ -2,12 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findChangeledgerDir, loadConfig } from '../config.mjs';
-import { contractTemplatesDir, packageRoot } from '../paths.mjs';
+import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
+import { contractTemplatesDir } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 
-const VERSION = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).version;
-const END_DELIMITER =
-  '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
+const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
 const MODE_CONTEXT = {
   implement: ['implement', 'delegation', 'handoff'],
@@ -34,7 +33,7 @@ function fragment(name) {
 
 function beginDelimiter(mode, changeId) {
   const change = changeId ? ` — change: #${changeId}` : '';
-  return `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode}${change} — v${VERSION} =====`;
+  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}`);
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
@@ -54,7 +53,7 @@ function effectiveTdd(config) {
 
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved.
-function transversalPolicy(config) {
+export function transversalPolicy(config) {
   return `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
 }
 

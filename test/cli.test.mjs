@@ -109,10 +109,10 @@ test('221849: installed CLI reference names actors and dedicated terminal action
   const contract = contractText();
   assert.match(
     contract,
-    /`changeledger status <id> <status>`[\s\S]*does not accept `done` or `discarded`/,
+    /`changeledger status <id> <status>`[\s\S]*does not accept `approved`, `done`, `discarded` or reopening/,
   );
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
-  assert.match(contract, /the agent edits its body first, then runs/);
+  assert.match(contract, /For an existing spec, edit its body first, then run/);
 });
 
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
@@ -170,8 +170,10 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
   const contract = contractText();
-  assert.match(contract, /in-progress → in-review → in-validation → done/);
-  assert.match(contract, /in-progress → in-validation → done/);
+  assert.match(contract, /in-progress → in-review.*`changeledger status`/);
+  assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
+  assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
+  assert.match(contract, /in-validation → done.*human.*viewer/);
   assert.match(contract, /human accepted the complete result/);
   assert.match(contract, /agent never accepts on the human's behalf/i);
   assert.match(contract, /`discarded` never reopens/);

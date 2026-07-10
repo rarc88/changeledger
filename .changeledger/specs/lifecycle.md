@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-03T23:21:51Z
+updated: 2026-07-10T20:19:47Z
 tags: [ lifecycle ]
 ---
 
@@ -33,8 +33,8 @@ stateDiagram-v2
     in_review --> in_progress: fail --retry
     in_review --> blocked: fail --block
     in_validation --> done: humano acepta (viewer)
-    in_validation --> in_progress: humano rechaza con motivo
-    done --> in_progress: humano reabre antes del cierre durable
+    in_validation --> in_progress: agente o humano rechaza con motivo
+    done --> in_progress: agente o humano reabre antes del cierre durable
     blocked --> in_progress
     draft --> discarded: changeledger discard "razón"
     approved --> discarded
@@ -80,6 +80,13 @@ verificaciones acotadas.
 la revisión: van `in-progress → in-validation`. Todo tipo pasa por validación
 humana antes de `done`; así `done` siempre significa resultado aceptado.
 
+**Ownership operacional.** El core compuesto publica una única matriz de
+transición → propietario → mecanismo. Distingue las decisiones humanas
+(`draft → approved`, aceptación en `in-validation`), los movimientos del
+agente, los tres veredictos que registra el orquestador mediante
+`changeledger review`, y el descarte con razón; evita que esa autoridad se
+infiera de prosa o de un diagrama paralelo.
+
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
 es la **única autoridad**, compartida por `changeledger status` y el visor.
 `lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
@@ -89,12 +96,14 @@ el CLI rechaza saltos, regresiones y no-ops
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
 validación por enum. `changeledger status done` se rechaza por separado porque solo el
 veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
-`in-progress` únicamente por acción humana con motivo mientras siga sin
+`in-progress` por acción humana o del agente con motivo mientras siga sin
 graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra
 esa ventana. Después de cualquiera de esas fronteras no se reabre. El
 visor añade la política de actor: permite `draft → approved`, `in-validation →
 done|in-progress` y la reapertura elegible `done → in-progress`; rechazo y
-reapertura exigen motivo.
+reapertura exigen motivo. El CLI permite al agente rechazar con `changeledger
+validation <id> fail "<razón>"` y reabrir con `changeledger reopen <id>
+"<razón>"`, pero no aprobar un draft ni aceptar una validación.
 Antes de aceptar, construye en memoria la única transición `validation → done
 (human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
 inconsistencia del Log rechazan la operación antes de escribir, conservando el
@@ -103,7 +112,8 @@ bloquean.
 
 **Reapertura provisional.** El viewer ofrece `Reopen` sólo en `done`; exige una
 razón y registra `status: done → in-progress (human reopened): <reason>`. El
-change repite review cuando corresponde y siempre validación humana. La acción
+comando del agente registra `agent reopened` con las mismas fronteras. El change
+repite review cuando corresponde y siempre validación humana. La acción
 sirve para completar o corregir el alcance original; cualquier expansión
 observable requiere un change nuevo. `reviewed: true`, una marca real de
 graduación/skip, `archived: true` o pertenencia a un release registrado son

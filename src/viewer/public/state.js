@@ -22,8 +22,12 @@ function haystack(c) {
 // predicate so the rule is testable.
 export function isVisible(c, f) {
   if (!passesTombstones(c, f)) return false;
-  if (f.type !== 'all' && c.type !== f.type) return false;
-  if (f.owner !== 'all' && c.owner !== f.owner) return false;
+  const types = f.types ?? new Set(f.type && f.type !== 'all' ? [f.type] : []);
+  const owners = f.owners ?? new Set(f.owner && f.owner !== 'all' ? [f.owner] : []);
+  if (types.size && !types.has(c.type)) return false;
+  if (owners.size || f.includeUnassigned) {
+    if (c.owner ? !owners.has(c.owner) : !f.includeUnassigned) return false;
+  }
   if (f.statuses.size && !f.statuses.has(c.status)) return false;
   const q = f.text.toLowerCase();
   if (!q) return true;

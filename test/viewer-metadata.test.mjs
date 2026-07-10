@@ -19,7 +19,8 @@ const {
   bindDetailPresentation,
   bindProjectViewActions,
   card,
-  closeStatusMenuOnOutsideClick,
+  choiceFilterSummary,
+  closeFilterMenusOnOutsideClick,
   collectFormPatch,
   createDiagramLightbox,
   cssIdent,
@@ -378,6 +379,31 @@ test('125850 CR1: compact status summary reports all, one, or a count', () => {
   assert.equal(statusSummary(new Set(['draft', 'done'])), '2 statuses');
 });
 
+test('105206 CR2/CR4: owner summary names an unassigned-only selection', () => {
+  assert.equal(choiceFilterSummary('Owner', new Set(), true), 'Unassigned');
+  assert.equal(choiceFilterSummary('Owner', new Set(['ana'])), 'ana');
+  assert.equal(choiceFilterSummary('Owner', new Set(['ana']), true), '2 selected');
+});
+
+test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sentinel', () => {
+  const filters = {
+    text: '',
+    types: new Set(['feature', 'bug']),
+    owners: new Set(['ana']),
+    includeUnassigned: true,
+    statuses: new Set(),
+    showArchived: false,
+    showDiscarded: false,
+  };
+  assert.equal(isVisible({ ...baseChange(), type: 'feature', owner: 'ana' }, filters), true);
+  assert.equal(isVisible({ ...baseChange(), type: 'bug', owner: null }, filters), true);
+  assert.equal(isVisible({ ...baseChange(), type: 'chore', owner: 'ana' }, filters), false);
+  assert.equal(
+    isVisible({ ...baseChange(), type: 'feature', owner: '__unassigned__' }, filters),
+    false,
+  );
+});
+
 test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {
   const body = `# Architecture
 
@@ -698,16 +724,28 @@ test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape,
   fixture.remove();
 });
 
-test('125850 CR9: status menu closes only for an outside pointer target', () => {
-  const menu = document.createElement('details');
+test('105206 CR4: every filter menu closes only for an outside pointer target', () => {
+  const typeMenu = document.createElement('details');
+  const ownerMenu = document.createElement('details');
+  const statusMenu = document.createElement('details');
   const inside = document.createElement('button');
   const outside = document.createElement('button');
-  menu.append(inside);
-  menu.open = true;
-  assert.equal(closeStatusMenuOnOutsideClick(menu, inside), false);
-  assert.equal(menu.open, true);
-  assert.equal(closeStatusMenuOnOutsideClick(menu, outside), true);
-  assert.equal(menu.open, false);
+  typeMenu.append(inside);
+  typeMenu.open = true;
+  ownerMenu.open = true;
+  statusMenu.open = true;
+
+  assert.equal(closeFilterMenusOnOutsideClick([typeMenu, ownerMenu, statusMenu], inside), true);
+  assert.equal(typeMenu.open, true);
+  assert.equal(ownerMenu.open, false);
+  assert.equal(statusMenu.open, false);
+
+  ownerMenu.open = true;
+  statusMenu.open = true;
+  assert.equal(closeFilterMenusOnOutsideClick([typeMenu, ownerMenu, statusMenu], outside), true);
+  assert.equal(typeMenu.open, false);
+  assert.equal(ownerMenu.open, false);
+  assert.equal(statusMenu.open, false);
 });
 
 test('125850 CR9: sort indicator is a bounded SVG icon', () => {

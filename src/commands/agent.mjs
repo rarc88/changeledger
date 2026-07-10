@@ -23,7 +23,7 @@ export function status(
   id,
   newStatus,
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle } = {},
+  { ownerHandle = defaultOwnerHandle, actor = 'human' } = {},
 ) {
   const { config, file } = locate(cwd, id);
   if (newStatus === 'discarded') {
@@ -34,6 +34,9 @@ export function status(
   if (newStatus === 'done') {
     throw new Error('to complete a change use human validation in the viewer');
   }
+  if (newStatus === 'approved' && actor !== 'human') {
+    throw new Error('only the human-facing viewer can approve a draft change');
+  }
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
@@ -41,7 +44,7 @@ export function status(
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
-      throw new Error('only the human-facing viewer can reopen a done change');
+      throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
     }
     // Validate the move before any in-memory mutation, so an illegal transition
     // leaves the file byte-for-byte unchanged. The review gate reads review_required
@@ -110,7 +113,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 
 // Records the human verdict for the complete change. This is intentionally
 // separate from `status`: only the human-facing viewer may close a change.
-export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
+export function validation(id, verdict, { reason, actor = 'human' } = {}, cwd = process.cwd()) {
   const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
@@ -137,7 +140,7 @@ export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
       nowUtc(),
       verdict === 'pass'
         ? 'validation → done (human accepted)'
-        : `validation → in-progress (human rejected): ${reason}`,
+        : `validation → in-progress (${actor} rejected): ${reason}`,
     );
     if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
@@ -145,9 +148,9 @@ export function validation(id, verdict, { reason } = {}, cwd = process.cwd()) {
   return file;
 }
 
-// Human-only correction path while `done` is still provisional. Graduation,
+// Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
-export function reopen(id, reason, cwd = process.cwd()) {
+export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
   const { config, file, repoRoot } = locate(cwd, id);
   const releasesDir = resolveReleasesDir(repoRoot);
@@ -171,7 +174,7 @@ export function reopen(id, reason, cwd = process.cwd()) {
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       });
       text = setStatus(text, 'in-progress');
-      return appendLog(text, nowUtc(), `status: done → in-progress (human reopened): ${reason}`);
+      return appendLog(text, nowUtc(), `status: done → in-progress (${actor} reopened): ${reason}`);
     });
     return file;
   });

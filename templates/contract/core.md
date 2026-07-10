@@ -29,11 +29,11 @@ change-id context required by a real task or lifecycle transition.
 5. Keep lifecycle, tasks, ownership and Log current while working.
 6. For types that require review, use a fresh clean-context reviewer before
    human validation.
-7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may start another approved change unless it or its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
+7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may reject with a reason and start another approved change unless its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
-   change, then graduate persistent truth (a new spec is a two-step `--new`
-   then `--into`) or run `changeledger graduate <id> --skip [reason]`; archive
-   only after that decision.
+   change, then graduate persistent truth or run `changeledger graduate <id>
+   --skip [reason]`; archive only after that decision. The close overlay owns
+   the full graduation recipe.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
@@ -48,42 +48,43 @@ Files are the source of truth and may be edited directly. CLI helpers are
 optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
 
-Delegate only with a clear boundary and benefit. Each delegation prompt states
-at least ownership, expected output and integration criterion; the task context
-carries the full prompt contract. Coding agents must know
-they share the codebase and must not revert others' work. Do not over-shard or
-overlap write surfaces without an explicit integration plan. Size the model to
-the task's difficulty and risk.
+Delegate only with a clear boundary and benefit. Each delegation prompt states at least
+ownership, expected output and integration criterion; the task context carries the full
+prompt contract. Get a complete role skeleton to fill in with `changeledger agent-prompt
+<role>` (investigation | implementation | review). Coding agents must know they share the
+codebase and must not revert others' work. Do not over-shard or overlap write surfaces
+without an explicit integration plan. Size the model to the task's difficulty and risk.
 
 ## Lifecycle
-
-```text
-draft → approved → in-progress
-in-progress → in-review → in-validation → done   [review required]
-in-progress → in-validation → done               [no review required]
-in-review → in-progress                           [review retry]
-in-review → blocked → in-progress                 [review escalation]
-in-validation → in-progress                       [human rejection]
-done → in-progress                                [human reopen before durable closure]
-(draft | approved | in-progress | blocked) → discarded
-```
 
 - `draft`: documentation awaiting human approval; no implementation.
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
 - `in-review`: independent review required.
-- `in-validation`: stop and wait for human acceptance or rejection.
+- `in-validation`: stop for human acceptance or a reasoned rejection.
 - `blocked`: an impediment or decision needs resolution.
 - `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
 
-`changeledger status <id> <status>` enforces agent-owned transitions and does not accept `done` or `discarded`.
-The viewer owns `draft → approved` and `in-validation → done|in-progress`, plus
-eligible `done → in-progress` with a reason; the agent performs other moves. Use
-`changeledger discard <id> "<reason>"`: the discard reason is required and
-logged, and dependencies remain resolvable. `discarded` never reopens. A `done`
-change can reopen only to finish its original scope before graduation/skip,
-archive or release; after durable closure, later work needs a new change.
+Who owns each transition and how it is performed:
+
+| Transition | Owner | Mechanism |
+|---|---|---|
+| draft → approved | human | viewer |
+| approved → in-progress; blocked → in-progress; in-progress → in-review | agent | `changeledger status` |
+| in-progress → in-validation (no review) | agent | `changeledger status` |
+| in-review → in-validation | orchestrator | `changeledger review <id> pass` |
+| in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
+| in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
+| in-validation → done | human | viewer |
+| in-validation → in-progress | agent or human | `changeledger validation <id> fail "<reason>"` or viewer |
+| done → in-progress (pending closure) | agent or human | `changeledger reopen <id> "<reason>"` or viewer |
+| draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
+
+`changeledger status <id> <status>` performs the agent-owned moves and does not accept `approved`, `done`, `discarded` or reopening.
+The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
+A `done` change can reopen only to finish its original scope before graduation/skip, archive or release;
+after durable closure, later work needs a new change.
 
 ## Context modes
 

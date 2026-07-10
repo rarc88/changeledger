@@ -61,7 +61,7 @@ En ambos casos el objetivo es el mismo: no ensuciar el historial con intentos fa
 
 ### 8. Cierre y graduación
 
-Un change que llega a `done` nunca se reabre. Después de la aceptación humana, si el trabajo modificó algo permanente en cómo funciona el sistema, el agente actualiza los documentos de verdad persistente del repositorio. Si no cambió nada estructural, registra esa decisión. Un change `discarded` también es terminal, pero representa trabajo decidido en contra, no un ciclo completado.
+`done` significa que el humano aceptó el resultado, pero sigue siendo provisional hasta resolver su graduación o skip y cruzar una frontera durable. Con motivo, el agente o el humano pueden devolverlo a `in-progress` sólo para completar el alcance ya autorizado; graduación/skip, archivo o release lo vuelven irreversible. Después de la aceptación humana, si el trabajo modificó algo permanente, el agente actualiza la verdad persistente; si no, registra esa decisión. `discarded` es terminal desde el principio.
 
 ### 9. Trazabilidad como hábito
 
@@ -71,7 +71,7 @@ Un change que llega a `done` nunca se reabre. Después de la aceptación humana,
 
 ### 10. Retrospectiva al final de cada ciclo
 
-Cuando un change llega a `done`, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas.
+Cuando un change llega a `done`, el agente hace un análisis breve: ¿hubo fricciones en el proceso? ¿Algo fue confuso, repetitivo o podría hacerse mejor? Las observaciones se comparten con el humano como propuestas. El humano sigue siendo quien aprueba un draft y acepta el resultado en validación; el cierre definitivo requiere la frontera durable.
 
 Además, cuando entrega al humano un resultado completado o bloqueado, clasifica cualquier fricción ya descubierta para decidir si pertenece al trabajo actual, es un paso operacional, merece proponerse como trabajo independiente o todavía es demasiado vaga. Este triage no exige esperar al cierre del change.
 
@@ -82,7 +82,7 @@ Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano
 ## Reglas generales
 
 - **Un change activo puede crecer** con trabajo necesario para cumplir su objetivo autorizado. Si lo nuevo amplía materialmente el comportamiento observable, aunque esté relacionado, el humano debe autorizar la ampliación antes de incorporarla. Si es independiente, se propone otro change.
-- **Un change cerrado es terminal.** Lo que se quiera hacer después es un change nuevo.
+- **Un change con cierre durable es terminal.** Antes de graduación/skip, archive o release, `done` puede reabrirse con razón sólo para su alcance original; lo posterior o más amplio requiere un change nuevo.
 - **El humano decide en los momentos clave**: qué alcance se autoriza, si un borrador se aprueba, si una ampliación material se incorpora y si el resultado final es aceptable.
 - **El agente decide en la ejecución dentro del alcance autorizado**: cómo dividir el trabajo, cuándo commitear y qué tamaño de subagente usar para la revisión.
 

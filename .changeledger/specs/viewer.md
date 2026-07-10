@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-04T11:35:33Z
+updated: 2026-07-10T20:19:47Z
 tags: [ viewer ]
 ---
 
@@ -23,10 +23,13 @@ body y exige una credencial efímera por proceso (inyectada en la página y
 enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
 permite que **el humano** apruebe un change `draft` arrastrando su card y acepte o
-rechace con motivo un change `in-validation` desde su detalle; el resto del ciclo
-lo conduce el agente. La UI rinde board (kanban), table, graph
+rechace con motivo un change `in-validation` desde su detalle, además de reabrir
+uno provisional. El agente puede rechazar o reabrir también desde el CLI; sólo
+la aprobación y aceptación permanecen humanas. La UI rinde board (kanban), table, graph
 (`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
-owner) y render de markdown + mermaid. El cliente está dividido en módulos
+owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
+multiselección; owner incluye `Unassigned` como booleano independiente de los
+nombres para no colisionar con un owner real. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
 único de Markdown sanitizado), `view-parts.js` (templates reutilizables),

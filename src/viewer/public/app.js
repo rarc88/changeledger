@@ -13,24 +13,27 @@ import {
   searchAllProjects,
 } from './api.js';
 import {
+  clearOwnerFilters,
   clearStatusFilters,
+  clearTypeFilters,
   initializeProjects,
   invalidateCache,
   normalizeRepoState,
   restoreViewerState,
   selectProject,
   setDetailPresentation,
-  setOwnerFilter,
   setRepo,
   setSortKey,
   setTextFilter,
-  setTypeFilter,
   setView,
   state,
   toggleGlobalMode,
+  toggleOwnerFilter,
   toggleShowArchived,
   toggleShowDiscarded,
   toggleStatusFilter,
+  toggleTypeFilter,
+  toggleUnassignedOwner,
 } from './app-state.js';
 import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -115,25 +118,72 @@ export function showNoProjects(root = document) {
 
 // Rebuilt on each project load (types/statuses can differ per project).
 function hydrateFilters() {
-  litRender(
-    html`<option value="all">All types</option>
-      ${state.repo.types.map((t) => html`<option value=${t}>${t}</option>`)}`,
-    $('#type-filter'),
-  );
-  $('#type-filter').value = state.filters.type;
   $('#lang').textContent = state.repo.language;
-
   const owners = [...new Set(state.repo.changes.map((c) => c.owner).filter(Boolean))].sort();
-  litRender(
-    html`<option value="all">All owners</option>
-      ${owners.map((o) => html`<option value=${o}>${o}</option>`)}`,
-    $('#owner-filter'),
+  renderChoiceFilter(
+    $('#type-filter'),
+    'Type',
+    state.repo.types,
+    state.filters.types,
+    toggleTypeFilter,
+    clearTypeFilters,
   );
-  if (state.filters.owner !== 'all' && !owners.includes(state.filters.owner)) setOwnerFilter('all');
-  $('#owner-filter').value = state.filters.owner;
-  $('#owner-filter').style.display = owners.length ? '' : 'none';
-
+  renderChoiceFilter(
+    $('#owner-filter'),
+    'Owner',
+    owners,
+    state.filters.owners,
+    toggleOwnerFilter,
+    clearOwnerFilters,
+    true,
+  );
   renderStatusFilter();
+}
+
+export function choiceFilterSummary(label, selected, includeUnassigned = false) {
+  const count = selected.size + Number(includeUnassigned);
+  if (count === 1 && includeUnassigned) return 'Unassigned';
+  return count
+    ? count === 1
+      ? [...selected][0]
+      : `${count} selected`
+    : `All ${label.toLowerCase()}s`;
+}
+
+function renderChoiceFilter(host, label, choices, selected, toggle, clear, owners = false) {
+  const summary = choiceFilterSummary(label, selected, owners && state.filters.includeUnassigned);
+  litRender(
+    html`<details class="filter-menu">
+      <summary class="filter-trigger">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
+        <span>${summary}</span>
+        <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path></svg>
+      </summary>
+      <div class="filter-popover">
+        <div class="filter-heading"><span>${label}</span><button type="button" data-clear>Clear</button></div>
+        <div class="filter-options">
+          ${choices.map((choice) => html`<label class="check-option"><input type="checkbox" data-choice=${choice} .checked=${selected.has(choice)} /><span class="check-box" aria-hidden="true"></span><span>${choice}</span></label>`)}
+          ${owners ? html`<label class="check-option"><input type="checkbox" data-unassigned .checked=${state.filters.includeUnassigned} /><span class="check-box" aria-hidden="true"></span><span>Unassigned</span></label>` : nothing}
+        </div>
+      </div>
+    </details>`,
+    host,
+  );
+  host.querySelectorAll('[data-choice]').forEach((input) => {
+    input.onchange = () => {
+      toggle(input.dataset.choice);
+      render();
+    };
+  });
+  if (owners)
+    host.querySelector('[data-unassigned]').onchange = () => {
+      toggleUnassignedOwner();
+      render();
+    };
+  host.querySelector('[data-clear]').onclick = () => {
+    clear();
+    render();
+  };
 }
 
 function renderStatusFilter() {
@@ -1556,16 +1606,13 @@ function bootstrap() {
     if (active) enterGlobal();
     else activateView(state.currentView);
   };
-  $('#type-filter').onchange = (e) => {
-    setTypeFilter(e.target.value);
-    render();
-  };
-  $('#owner-filter').onchange = (e) => {
-    setOwnerFilter(e.target.value);
-    render();
-  };
   document.addEventListener('pointerdown', (event) => {
-    closeStatusMenuOnOutsideClick($('#status-filter .filter-menu'), event.target);
+    closeFilterMenusOnOutsideClick(
+      ['#type-filter', '#owner-filter', '#status-filter'].map((selector) =>
+        $(`${selector} .filter-menu`),
+      ),
+      event.target,
+    );
   });
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
@@ -1594,10 +1641,12 @@ function bootstrap() {
   setInterval(load, 5000);
 }
 
-export function closeStatusMenuOnOutsideClick(menu, target) {
-  if (!menu?.open || menu.contains(target)) return false;
-  menu.open = false;
-  return true;
+export function closeFilterMenusOnOutsideClick(menus, target) {
+  return menus.reduce((closed, menu) => {
+    if (!menu?.open || menu.contains(target)) return closed;
+    menu.open = false;
+    return true;
+  }, false);
 }
 
 // Only a real browser page with the app shell bootstraps; importing the module

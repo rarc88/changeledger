@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-03T23:21:20Z
+updated: 2026-07-10T20:19:47Z
 tags: [ contract ]
 ---
 
@@ -57,6 +57,13 @@ La composición especializada es explícita:
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
 
+La delegación portable separa el contrato del orquestador del de sus hojas:
+`changeledger agent-prompt <role>` entrega un esqueleto para investigación,
+implementación o review, y el delegado identificado carga únicamente
+`changeledger agent-context <role> [change-id]`. Las cápsulas delimitan su
+responsabilidad y autoridad; investigation y review son de solo lectura y no
+reciben comandos de lifecycle.
+
 Cada composición de modo o id incluye una cabecera determinista **Effective
 policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
 `tdd`; en modo por id además `review_required` y stages del tipo), de modo que
@@ -66,9 +73,8 @@ modo por id, cada dependencia local de `depends_on` se resume como
 conservan como referencias sin resolución local.
 
 Toda composición base (sin el change seleccionado, cuya longitud pertenece al
-trabajo) tiene presupuesto explícito en tests: core 120 líneas/8192 bytes; spec
-285/11800; implement 170/7300; review 75/3200; release 45/2200; overlays
-blocked 70/3000, validation 45/1700, close 90/3500, discarded 40/1300. Los
+trabajo) tiene objetivos y límites duros en la única tabla ejecutable
+`templates/contract/budgets.yml`; los tests la cargan directamente. Los
 contextos posteriores amplían el core y fallan cerrado por instrucción si el
 agente aún no lo leyó completo.
 

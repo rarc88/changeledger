@@ -2,17 +2,15 @@
 
 Review-required work must be checked by a fresh subagent with clean context and
 a model sized to the review difficulty. Independence is correctness, not an
-optimization; do not trust the implementer's summary.
+optimization.
 
-Inspect the selected change, every `CRn`, every Plan task, tests, the actual diff
-and absence of TODO/FIXME, dead code or unrelated residue. Confirm tasks are
-true rather than merely checked off and that implementation did not drift from
-the approved document.
+Get the bounded prompt with `changeledger agent-prompt review`; the delegate
+then loads `changeledger agent-context review <id>`. That self-contained capsule
+owns the inspection checklist, read-only boundary and evidence contract. Do not
+copy its checklist into this orchestrator context.
 
-Deep security, SAST and lint belong to dedicated tools. The reviewer may run
-them and record their evidence; ChangeLedger does not reimplement them.
-
-Record exactly one verdict:
+The orchestrator records exactly one verdict; the read-only reviewer reports its
+finding but never runs the verdict command:
 
 - `changeledger review <id> pass` — criteria and Plan pass; move to
   `in-validation`.

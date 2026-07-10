@@ -64,6 +64,20 @@ test('213931 CR3: bootstrap verifies completeness through the END sentinel', () 
   assert.match(agents, /exceptional recovery/i);
 });
 
+test('144327 CR9: bootstrap permits only the role-matched delegated capsule instead of core', () => {
+  const dir = root();
+  init(dir);
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.match(agents, /normal agent[\s\S]*run `changeledger context`/i);
+  assert.match(
+    agents,
+    /prompt (?:was )?emitted by `changeledger agent-prompt <role>`[\s\S]*`changeledger agent-context <role> \[change-id\]`/i,
+  );
+  assert.match(agents, /role in the\s+>?\s*prompt and command must match/i);
+  assert.match(agents, /CHANGELEDGER (?:AGENT )?CONTEXT END/);
+  assert.doesNotMatch(agents, /any delegate may skip/i);
+});
+
 test('CR10/CR12: reference refresh is idempotent and stale references fail check', () => {
   const dir = root();
   init(dir);

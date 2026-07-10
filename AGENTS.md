@@ -6,8 +6,12 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 <!-- changeledger -->
 > [!IMPORTANT]
 > This repo uses **ChangeLedger**. Immediately after reading this file — before
-> planning, investigating, or acting — run `changeledger context` directly.
-> On the first invocation, retain complete stdout through the `CHANGELEDGER CONTEXT END` line:
+> planning, investigating, or acting — a normal agent must run `changeledger context` directly.
+> Only a delegated leaf whose prompt was emitted by `changeledger agent-prompt <role>`
+> runs `changeledger agent-context <role> [change-id]` instead; the role in the
+> prompt and command must match. No other agent may skip the core context.
+> On the first invocation, retain complete stdout through the `CHANGELEDGER CONTEXT END` line,
+> or the `CHANGELEDGER AGENT CONTEXT END` line for that delegated path:
 > no pipes, filters, summaries, previews or voluntary output limits. If the tool
 > exposes an output budget, reserve enough for the whole response. A missing END
 > after that is exceptional recovery: stop and re-run with a larger capture. If

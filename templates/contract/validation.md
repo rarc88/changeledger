@@ -13,7 +13,7 @@ Acceptance reaches `done`. Rejection requires a reason and returns the same
 change to `in-progress`; run `changeledger context <id>` before modifying
 implementation, update Specification/Plan as needed and repeat review when
 configured. The agent never accepts on the human's behalf. Before graduation,
-skip, archive or release, the human may reopen `done` with a reason only to
+skip, archive or release, agent/human may reopen `done` with reason only to
 complete the original authorized scope; broader behavior needs a new change.
 `discarded` never reopens.
 
