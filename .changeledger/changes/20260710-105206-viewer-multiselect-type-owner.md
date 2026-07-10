@@ -2,9 +2,10 @@
 id: "20260710-105206"
 title: El visor limita type y owner a una sola selección
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-10T10:52:06Z
 depends_on: []
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -73,3 +74,6 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 - [ ] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4)
 
 ## Log
+- **2026-07-10T12:03:54Z** — status: draft → approved
+- **2026-07-10T14:30:25Z** — status: approved → in-progress
+- **2026-07-10T14:30:25Z** — owner → Roberto Ruiz (auto)
