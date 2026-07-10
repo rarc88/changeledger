@@ -53,7 +53,7 @@ function effectiveTdd(config) {
 
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved.
-function transversalPolicy(config) {
+export function transversalPolicy(config) {
   return `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
 }
 

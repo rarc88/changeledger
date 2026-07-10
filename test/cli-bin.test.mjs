@@ -242,6 +242,7 @@ test('225212 CR5: root --help offers a concise index without a divergent manual 
     occurrences.length <= 1,
     'graduate should not appear in both a Commander table and a manual table',
   );
+  assert.match(out, /context.*unless.*delegation prompt.*agent-context/is);
 });
 
 // CR6: every public command and subcommand's help exits 0, shows Usage, matrix.
@@ -253,6 +254,8 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
     ['view'],
     ['check'],
     ['context'],
+    ['agent-prompt'],
+    ['agent-context'],
     ['status'],
     ['discard'],
     ['review'],

@@ -137,11 +137,15 @@ The contract ships as task-focused fragments and is compiled on demand:
 changeledger context                    # minimal non-negotiable core
 changeledger context <change-id>        # lifecycle-aware rules + selected change
 changeledger context review             # explicit task mode
+changeledger agent-prompt <role>         # portable delegation skeleton
+changeledger agent-context <role> [id]  # self-contained context for that delegate
 ```
 
 `init` places a small fail-closed bootstrap in the project-owned `AGENTS.md`;
 there is no linked or copied contract under `.changeledger/`. Run
-`changeledger register` after upgrading to refresh that bootstrap.
+`changeledger register` after upgrading to refresh that bootstrap. Normal agents
+load `context`; a delegated leaf identified by `agent-prompt` loads only its
+matching `agent-context`, without the orchestrator core.
 
 ### Upgrading an existing repo's configuration
 

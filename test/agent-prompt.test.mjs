@@ -108,22 +108,26 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
 
 test('CR4: each role loads available context without inventing a change', () => {
   for (const role of ROLES) {
-    assert.match(prose(role), /obey the target repository's own agent bootstrap/i, `${role}`);
+    assert.match(
+      prose(role),
+      new RegExp(`changeledger agent-context ${role}`),
+      `${role} must load its delegated capsule`,
+    );
+    assert.doesNotMatch(prose(role), /changeledger context(?: |`)/, `${role} must skip core`);
   }
   for (const role of ['implementation', 'review']) {
     assert.match(
       prose(role),
-      /changeledger context \{\{change_id\}\}/,
-      `${role} must load id context`,
+      new RegExp(`changeledger agent-context ${role} \\{\\{change_id\\}\\}`),
+      `${role} must load its id capsule`,
     );
   }
-  // Review references the checklist from context instead of duplicating it.
-  assert.match(prose('review'), /checklist that context gives you/i);
-  assert.match(prose('review'), /do not work from a copy pasted here/i);
+  // Review references the checklist from its capsule instead of duplicating it.
+  assert.match(prose('review'), /checklist that agent-context gives you/i);
   // Investigation admits there may be no change id yet.
   const inv = prose('investigation');
   assert.match(inv, /There may be no change yet: work without a change id/i);
-  assert.match(inv, /Only if the orchestrator supplies one/i);
+  assert.match(inv, /If the optional id below is empty, omit it/i);
 });
 
 test('CR6: the skeletons ship in the publishable package', async () => {
@@ -135,6 +139,10 @@ test('CR6: the skeletons ship in the publishable package', async () => {
     assert.ok(
       entries.includes(`templates/contract/agent-prompts/${role}.md`),
       `package missing ${role} skeleton`,
+    );
+    assert.ok(
+      entries.includes(`templates/contract/agent-contexts/${role}.md`),
+      `package missing ${role} capsule`,
     );
   }
 });

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 
@@ -155,6 +156,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     spec: buildContext('spec', root),
     implement: buildContext('implement', root),
     review: buildContext(reviewId, root),
+    reviewDelegate: buildAgentContext('review', reviewId, root),
     blocked: buildContext(blockedId, root),
     validation: buildContext(validationId, root),
   };
@@ -183,8 +185,8 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
       'implement',
       /After human acceptance, graduate or record a skip and include correction plus ledger in the final closure commit/,
     ],
-    ['review', /Deep security, SAST and lint belong to dedicated tools/],
-    ['review', /ChangeLedger does not reimplement them/],
+    ['reviewDelegate', /Deep security, SAST and lint belong to dedicated tools/],
+    ['reviewDelegate', /ChangeLedger does not reimplement them/],
     ['review', /run `changeledger context <id>` before modifying implementation/],
     ['blocked', /run `changeledger context <id>` before modifying implementation/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
@@ -241,11 +243,13 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   const blockedId = addChange(root, 'blocked', '20260629-230011');
   const validationId = addChange(root, 'in-validation', '20260629-230012');
   const discardedId = addChange(root, 'discarded', '20260629-230013');
+  const reviewId = addChange(root, 'in-review', '20260629-230014');
   const outputs = {
     core: buildContext(undefined, root),
     spec: buildContext('spec', root),
     implement: buildContext('implement', root),
     review: buildContext('review', root),
+    reviewDelegate: buildAgentContext('review', reviewId, root),
     blocked: buildContext(blockedId, root),
     validation: buildContext(validationId, root),
     discarded: buildContext(discardedId, root),
@@ -349,11 +353,11 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['implement', /Request and Investigation may split independent codebase questions/],
     ['implement', /Implementation may split only when write sets are disjoint/],
     ['implement', /Configured review is special: a fresh clean-context subagent/],
-    ['review', /do not trust the implementer's summary/],
+    ['reviewDelegate', /do not trust the implementer's summary/],
     ['review', /model sized to the review difficulty/],
-    ['review', /every `CRn`, every Plan task, tests, the actual diff/],
-    ['review', /absence of TODO\/FIXME, dead code or unrelated residue/],
-    ['review', /ChangeLedger does not reimplement them/],
+    ['reviewDelegate', /every `CRn`, every Plan task, tests, the actual diff/],
+    ['reviewDelegate', /absence of TODO\/FIXME, dead code or unrelated residue/],
+    ['reviewDelegate', /ChangeLedger does not reimplement them/],
     ['review', /changeledger review <id> pass/],
     ['review', /changeledger review <id> fail --retry "<reason>"/],
     ['review', /changeledger review <id> fail --block "<reason>"/],
@@ -509,10 +513,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
-    // 20260705-134702: "Record exactly one verdict" now names the orchestrator
-    // as the recorder and the read-only reviewer as reporter-only; the verdict
-    // commands are preserved, the recipe is not duplicated here.
-    'review.md': '9212a928f08a133503e6dbf247633c56e03a83e13066118b817ea5d5e517cafb',
+    // 20260705-134702: "Record exactly one verdict" names the orchestrator as recorder.
+    // 20260704-144327 correction: the delegate checklist/tool boundary moves to the
+    // self-contained review capsule; this fragment keeps orchestration and verdicts
+    // and points to that single checklist owner. Rules moved, none retired.
+    'review.md': 'c6d652977ed75b402f344df80416e4c5e8575a28363cd87a31150e3c1dc3aefb',
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
@@ -906,12 +911,19 @@ test('225213 CR6: status overlays stay within their explicit budget (no change t
 
 test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rules', () => {
   const root = repo();
+  const reviewId = addChange(root, 'in-review', '20260705-120010');
   const review = buildContext('review', root);
-  // Review keeps independence, review surface, verdict mechanics and handoff.
+  const delegate = buildAgentContext('review', reviewId, root);
+  // Orchestrator review keeps independence, verdict mechanics and handoff.
   assert.match(review, /# Independent Review/);
-  assert.match(review, /do not trust the implementer's summary/);
+  assert.match(review, /agent-context review <id>/);
   assert.match(review, /changeledger review <id> pass/);
   assert.match(review, /# Handoff Triage/);
+  // The delegated capsule owns the inspection surface and read-only boundary.
+  assert.match(delegate, /do not trust the implementer's summary/);
+  assert.match(delegate, /every `CRn`, every Plan task, tests, the actual diff/);
+  assert.match(delegate, /read-only/);
+  assert.doesNotMatch(delegate, /changeledger review <id> pass/);
   // Review no longer carries the general delegation guide the reviewer does not need.
   assert.doesNotMatch(review, /# Economical Delegation/);
   assert.doesNotMatch(review, /Do not over-shard/);

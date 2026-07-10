@@ -3,7 +3,7 @@ import path from 'node:path';
 import { packageRoot } from './paths.mjs';
 
 // Single source of the installed version and the anti-truncation sentinels, so
-// `context` and `agent-prompt` frame their output identically and never diverge
+// `context`, `agent-prompt` and `agent-context` share framing and never diverge
 // through independent copies.
 export const VERSION = JSON.parse(
   fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),

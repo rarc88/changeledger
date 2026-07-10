@@ -16,10 +16,11 @@ analysis).
 Question you own: {{question}} (the single question or area to investigate;
 state it concretely).
 
-First, obey the target repository's own agent bootstrap (for a ChangeLedger repo,
-run `changeledger context` and read it completely before acting). There may be no
-change yet: work without a change id. Only if the orchestrator supplies one below,
-also run `changeledger context {{change_id}}` for the selected change.
+Your prompt identifies you as a ChangeLedger delegate. As your only ChangeLedger
+load, run `changeledger agent-context investigation {{change_id}}` and read it
+through its END sentinel; do not load the orchestrator core. There may be no
+change yet: work without a change id. If the optional id below is empty, omit it
+from the command.
 
 Optional selected change: {{change_id}} (leave empty when investigating before a
 change exists).

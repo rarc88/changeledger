@@ -13,10 +13,10 @@ Why this is delegated: {{reason}} (why a separate agent, e.g. a disjoint write
 set that parallelizes safely, a sufficient cheaper model for well-specified
 execution).
 
-First, obey the target repository's own agent bootstrap (for a ChangeLedger repo,
-run `changeledger context` and read it completely), then run
-`changeledger context {{change_id}}` to load the inferred pack and the selected
-change with its acceptance criteria and Plan. Follow that Specification exactly.
+Your prompt identifies you as a ChangeLedger delegate. As your only ChangeLedger
+load, run `changeledger agent-context implementation {{change_id}}` and read it
+through its END sentinel; do not load the orchestrator core. It supplies the
+selected change with its acceptance criteria and Plan.
 
 Files you own: {{files}} (the only paths you may modify).
 

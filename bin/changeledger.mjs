@@ -13,6 +13,7 @@ import {
   status,
   task,
 } from '../src/commands/agent.mjs';
+import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { context } from '../src/commands/context.mjs';
@@ -35,9 +36,10 @@ const { version } = createRequire(import.meta.url)('../package.json');
 
 const USAGE = `ChangeLedger (changeledger)
 
-Run \`changeledger context\` first in any repo — it is the mandatory bootstrap.
+Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
+prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | context
+  changeledger init | register | new | view | check | context | agent-context
   changeledger status | discard | review | owner | archive | unarchive
   changeledger log | task | list | show | graduate | config | release
 
@@ -63,7 +65,7 @@ program
   .helpOption('-h, --help', 'display help for command')
   .addHelpText(
     'after',
-    '\nRun `changeledger context` first in any repo — it is the mandatory bootstrap.\n' +
+    '\nRun `changeledger context` first unless a ChangeLedger delegation prompt tells your role to use `agent-context`.\n' +
       "Run `changeledger <command> --help` for that command's syntax, values and examples.",
   );
 
@@ -198,6 +200,28 @@ program
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
+
+program
+  .command('agent-context')
+  .description('print a self-contained minimal context for a delegated role')
+  .argument('<role>', 'investigation | implementation | review')
+  .argument('[change-id]', 'optional for investigation; required for implementation and review')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Use only when a delegation prompt emitted by `changeledger agent-prompt`',
+      'identifies you as that role. This replaces the normal core bootstrap for',
+      'the delegated leaf; normal agents still run `changeledger context` first.',
+      '',
+      'Examples:',
+      '  changeledger agent-context investigation',
+      '  changeledger agent-context investigation <id>',
+      '  changeledger agent-context implementation <id>',
+      '  changeledger agent-context review <id>',
+    ].join('\n'),
+  )
+  .action(action((role, changeId) => agentContext(role, changeId)));
 
 program
   .command('status')
