@@ -45,6 +45,36 @@ las dos transiciones positivas permanezcan human-only.
 
 ## Specification
 
+### CR1 — Rechazo de validación desde el agente
+- **Given** un change `in-validation` y una razón no vacía
+- **When** el agente ejecuta `changeledger validation <id> fail "<razón>"`
+- **Then** el change pasa a `in-progress` y el Log registra `validation → in-progress (agent rejected): <razón>`
+- **And** razón vacía, veredicto distinto de `fail` o estado distinto de `in-validation` fallan sin escribir
+
+### CR2 — Reapertura provisional desde el agente
+- **Given** un change `done` sin `reviewed`, sin resolución de graduación, sin archive y fuera de releases
+- **When** el agente ejecuta `changeledger reopen <id> "<razón>"`
+- **Then** el change pasa a `in-progress` y el Log registra `status: done → in-progress (agent reopened): <razón>`
+- **And** los cuatro límites durables, una razón vacía o cualquier otro status fallan sin escribir
+
+### CR3 — Aceptación sigue siendo exclusivamente humana
+- **Given** los comandos que expone el CLI al agente
+- **When** intenta aprobar un draft o aceptar `in-validation → done`
+- **Then** no existe una ruta de CLI que complete esas transiciones
+- **And** el viewer mantiene aprobación, aceptación, rechazo y reapertura, registrando `human` para sus dos movimientos correctivos
+
+### CR4 — Contrato, ayuda y verdad durable coherentes
+- **Given** el contrato generado, la ayuda del CLI y las specs de lifecycle/viewer
+- **When** describen ownership de transiciones
+- **Then** sólo `draft → approved` e `in-validation → done` figuran como human-only
+- **And** rechazo y reapertura admiten agente o humano con razón, sin alterar el grafo ni permitir ampliar el alcance original
+
 ## Plan
+
+- [ ] Escribir pruebas rojas en `test/agent.test.mjs` y `test/cli-bin.test.mjs` para `src/commands/agent.mjs`/`bin/changeledger.mjs`: `validation ... fail`, errores sin escritura y Log de actor; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (CR1, CR3)
+- [ ] Escribir pruebas rojas en `test/agent.test.mjs` y `test/viewer-domain.test.mjs` para `src/commands/agent.mjs`: `reopen`, fronteras durables y Logs diferenciados; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs` (CR2, CR3)
+- [ ] Exponer comandos en `bin/changeledger.mjs` y parametrizar actor en `src/commands/agent.mjs`/`src/viewer/domain.mjs` sin duplicar guards; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3)
+- [ ] Actualizar `templates/contract/core.md`, `templates/contract/validation.md` y specs `.changeledger/specs/lifecycle.md`/`viewer.md`; verify: `node --test test/context.test.mjs && changeledger check 20260710-105205` (CR4)
+- [ ] Ejecutar revisión independiente y el gate completo; verify: `pnpm verify` (support)
 
 ## Log
