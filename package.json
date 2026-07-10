@@ -1,6 +1,6 @@
 {
   "name": "changeledger",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Turn conversations into buildable changes.",
   "type": "module",
   "bin": {
