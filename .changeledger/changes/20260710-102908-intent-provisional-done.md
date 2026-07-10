@@ -2,9 +2,10 @@
 id: "20260710-102908"
 title: INTENT contradice el cierre provisional de un change done
 type: bug
-status: draft
+status: in-progress
 created: 2026-07-10T10:29:08Z
-depends_on: ["20260710-105205"]
+depends_on: [ "20260710-105205" ]
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -58,3 +59,6 @@ change nuevo y no alterar la semántica del CLI.
 - [ ] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3)
 
 ## Log
+- **2026-07-10T12:02:45Z** — status: draft → approved
+- **2026-07-10T17:26:36Z** — status: approved → in-progress
+- **2026-07-10T17:26:36Z** — owner → raruiz-hiberuscom (auto)
