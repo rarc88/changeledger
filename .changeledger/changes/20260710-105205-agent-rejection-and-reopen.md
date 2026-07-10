@@ -2,10 +2,11 @@
 id: "20260710-105205"
 title: El agente no puede rechazar validaciones ni reabrir changes provisionales
 type: feature
-status: in-validation
+status: done
 created: 2026-07-10T10:52:05Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -90,3 +91,5 @@ las dos transiciones positivas permanezcan human-only.
 - **2026-07-10T14:28:04Z** — review → in-progress (retry): Quedaban una expectativa de ayuda CLI y un comentario de mantenimiento con la reapertura human-only.
 - **2026-07-10T14:28:29Z** — status: in-progress → in-review
 - **2026-07-10T14:29:48Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-10T17:11:40Z** — validation → done (human accepted)
+- **2026-07-10T17:13:14Z** — graduado a spec `lifecycle.md`
