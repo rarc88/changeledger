@@ -8,10 +8,12 @@ import {
   list,
   log,
   owner,
+  reopen,
   review,
   show,
   status,
   task,
+  validation,
 } from '../src/commands/agent.mjs';
 import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
@@ -236,7 +238,7 @@ program
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard, and human validation in the viewer to reach done.',
+      'to discard. Only human validation in the viewer can reach done.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
@@ -245,8 +247,38 @@ program
   )
   .action(
     action((id, st) => {
-      status(id, st);
+      status(id, st, process.cwd(), { actor: 'agent' });
       console.log(`#${id} → ${st}`);
+    }),
+  );
+
+program
+  .command('validation')
+  .description('reject an in-validation change; accepting it remains human-only')
+  .argument('<id>')
+  .argument('<verdict>', 'fail')
+  .argument('<reason...>')
+  .action(
+    action((id, verdict, reasonParts) => {
+      if (verdict !== 'fail')
+        throw new Error(
+          'validation only accepts fail; human validation in the viewer accepts changes',
+        );
+      const reason = reasonParts.join(' ').trim();
+      validation(id, 'fail', { reason, actor: 'agent' });
+      console.log(`#${id} validation fail`);
+    }),
+  );
+
+program
+  .command('reopen')
+  .description('reopen a provisional done change with a reason')
+  .argument('<id>')
+  .argument('<reason...>')
+  .action(
+    action((id, reasonParts) => {
+      reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
+      console.log(`#${id} → in-progress`);
     }),
   );
 

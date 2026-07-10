@@ -476,8 +476,8 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // two-step so graduation is not presented as a settled binary.
     // 20260703-150229: anti-truncation is preserved and strengthened: deliberate one-pass
     // capture is now normal, sentinel recovery exceptional, and messages do not reload core.
-    // 20260703-150232: done finality is replaced with one human-only provisional reopen edge;
-    // discarded and graduated/skipped/archived/released closures remain irreversible.
+    // 20260703-150232: done finality is replaced with one provisional reopen edge;
+    // 20260710-105205 gives that correction to agent or human while durable closures remain irreversible.
     // 20260703-220014: rule 7 replaced — "Stop at in-validation" (read as a global pause) is
     // now a change-scoped stop that names the depends_on chain blocking the next candidate.
     // 20260705-134704: rule 8 trimmed — the --new/--into two-step parenthetical is removed and
@@ -487,7 +487,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260705-134703 correction after human validation: the matrix now owns
     // topology as well as owner/mechanism; the parallel text diagram is retired,
     // equivalent status/viewer rows are grouped, and non-ownership rules remain.
-    'core.md': '73c63ed9a226f8e4afc292e1f4b3ab705bf7036fb24c043ebf9c7a848ad81108',
+    // 20260710-105205: acceptance remains human-only; rejection and provisional
+    // reopening are replaced with explicit agent-or-human commands and actors.
+    'core.md': 'af94f01cbd60039c3d62ab0f16e137ffb782a08ed39e68da9d5b6dea57d3f333',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -500,7 +502,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // pass|fail`), not retired. The in-review/in-validation sentence is
     // replaced: it now names loading `changeledger context review` and
     // recording the delegate's verdict as the orchestrator's own step, and
-    // states that closing in-validation has no CLI, human-only.
+    // states that acceptance remains human-only while correction can be agent-owned.
     // Operational follow-up (no change id, budget rework): restored the
     // "load once, don't reload unless context was lost" clause that CR1
     // specified but had been trimmed to fit the original tight byte budget.
@@ -508,7 +510,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 1..5 ordered recipe (tasks → status in-review → load review context →
     // delegate read-only reviewer → orchestrator records verdict); every rule
     // is preserved, none retired.
-    'implement.md': '5c9ccfd32dcb829ec0213090bfd70529b5db4fe4face082787cbde60f9f8aeda',
+    'implement.md': 'be3d9354df39db412eb188ba9c60df18b4e3c6eb47ee2c332e30f18161b48bc8',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -521,7 +523,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
-    'validation.md': '8b3e232aa19376ec008d2b8b3d236386961c4adb970e240bdf55275b86e23563',
+    'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -817,7 +819,7 @@ test('220014 CR1/CR4: core and validation scope the stop to one change, not the 
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
   const validation = buildContext(validationId, root).replace(/\s+/g, ' ');
   assert.match(core, /`in-validation` stops only that change/);
-  assert.match(core, /may start another approved change unless it or its `depends_on` chain/);
+  assert.match(core, /start another approved change unless its `depends_on` chain/);
   assert.match(validation, /This stop is scoped to this change/);
   assert.match(validation, /stops entirely/);
   assert.match(validation, /does not invent work or touch delivered\s+results/);
@@ -951,7 +953,10 @@ test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement',
   );
   assert.match(implement, /never `log`\+`status`/);
   assert.match(implement, /do not reload it to record the verdict unless context was lost/);
-  assert.match(implement, /Otherwise move to `in-validation` and stop/);
+  assert.match(
+    implement,
+    /`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail/,
+  );
 
   // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
   assert.match(review, /orchestrator records exactly one verdict/);
@@ -1006,11 +1011,14 @@ test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', ()
     /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/,
     /in-review → in-progress \| orchestrator \| `changeledger review <id> fail --retry`/,
     /in-review → blocked \| orchestrator \| `changeledger review <id> fail --block`/,
-    /in-validation → done; in-validation → in-progress \| human \| viewer/,
-    /done → in-progress \(pending closure\) \| human \| viewer, with reason/,
+    /in-validation → done \| human \| viewer/,
+    /in-validation → in-progress \| agent or human \| `changeledger validation <id> fail "<reason>"` or viewer/,
+    /done → in-progress \(pending closure\) \| agent or human \| `changeledger reopen <id> "<reason>"` or viewer/,
     /→ discarded \| agent \(authorized\) \| `changeledger discard <id> "<reason>"`/,
   ];
   for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
+
+  assert.doesNotMatch(core, /human acceptance or rejection/);
 
   // CR1: status never owns done or discarded.
   assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);

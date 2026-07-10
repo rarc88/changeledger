@@ -62,7 +62,7 @@ requires independent review by running this ordered gate — do not reconstruct 
 4. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
 5. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
 
-Otherwise move to `in-validation` and stop — its closing has no CLI, only the human does it.
+`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail "<reason>"`.
 
 ## Correction isolation
 
@@ -73,7 +73,7 @@ worktree is its isolation boundary. After `pass`, commit the confirmed correctio
 tests and ledger before human validation; this is meaningful correction evidence,
 not a status-only commit.
 
-After human rejection (`in-validation → in-progress`), run
+After a rejection (`in-validation → in-progress`), run
 `changeledger context <id>` before modifying implementation; keep the correction
 uncommitted until the human confirms it fixes the reported failure. Do not start
 another task or change while a correction waits; iterate on

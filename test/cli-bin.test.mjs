@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { validation } from '../src/commands/agent.mjs';
+import { status, validation } from '../src/commands/agent.mjs';
 
 const bin = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -78,6 +78,26 @@ test('CR1: changeledger graduate --help shows every explicit mode, exit 0', () =
   assert.match(out, /--into/);
   assert.match(out, /--skip/);
   assert.match(out, /--pending/);
+});
+
+test('105205 CR1/CR2: CLI lets an agent reject or reopen but not accept', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
+  status(id, 'approved', root);
+  for (const next of ['in-progress', 'in-validation'])
+    assert.equal(runIn(root, env, 'status', id, next).code, 0);
+  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 1);
+  assert.equal(runIn(root, env, 'validation', id, 'fail', 'needs work').code, 0);
+  for (const status of ['in-validation'])
+    assert.equal(runIn(root, env, 'status', id, status).code, 0);
+  validation(id, 'pass', {}, root);
+  assert.equal(runIn(root, env, 'reopen', id, 'needs original correction').code, 0);
 });
 
 test('191857 CR1: graduate without a mode rejects skip-like slugs without writing', () => {
@@ -380,7 +400,8 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
-  for (const s of ['approved', 'in-progress', 'in-review']) {
+  status(id, 'approved', root);
+  for (const s of ['in-progress', 'in-review']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
   }
   assert.equal(runIn(root, env, 'review', id, 'fail', '--block', 'spec is ambiguous').code, 0);
@@ -496,7 +517,8 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   // chore: no review gate, but human validation is still required.
-  for (const s of ['approved', 'in-progress', 'in-validation']) {
+  status(id, 'approved', root);
+  for (const s of ['in-progress', 'in-validation']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
   }
   validation(id, 'pass', {}, root);

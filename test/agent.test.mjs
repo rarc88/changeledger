@@ -310,6 +310,22 @@ test('171002 CR2: human validation pass closes the complete change', () => {
   assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
 });
 
+test('105205 CR1: agent rejection requires a reason and records its actor', () => {
+  const { root, file, id } = repoWithChange();
+  reach(id, root, 'in-review');
+  review(id, 'pass', {}, root);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => validation(id, 'fail', { actor: 'agent' }, root), /requires a reason/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  validation(id, 'fail', { reason: 'fails on device', actor: 'agent' }, root);
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /agent rejected\): fails on device/,
+  );
+});
+
 test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent changes without writing', () => {
   for (const defect of ['task', 'log']) {
     const { root, file, id } = repoWithChange();
@@ -366,6 +382,20 @@ test('150232 CR1/CR2/CR5: human reopens provisional done with a required reason'
     /done → in-progress \(human reopened\)/,
   );
   assert.throws(() => validation(id, 'pass', {}, root), /requires status in-validation/);
+});
+
+test('105205 CR2: agent reopens only a provisional done change and records its actor', () => {
+  const { root, file, id } = acceptedChange();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => reopen(id, '', root, { actor: 'agent' }), /requires a reason/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  reopen(id, 'complete original scope', root, { actor: 'agent' });
+  const parsed = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(parsed.frontmatter.status, 'in-progress');
+  assert.match(
+    parsed.stages.find((s) => s.key === 'log').body,
+    /agent reopened\): complete original scope/,
+  );
 });
 
 test('150232 CR3: durable closure boundaries reject reopening without writes', () => {

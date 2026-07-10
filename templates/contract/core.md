@@ -29,7 +29,7 @@ change-id context required by a real task or lifecycle transition.
 5. Keep lifecycle, tasks, ownership and Log current while working.
 6. For types that require review, use a fresh clean-context reviewer before
    human validation.
-7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may start another approved change unless it or its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
+7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may reject with a reason and start another approved change unless its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
    change, then graduate persistent truth or run `changeledger graduate <id>
    --skip [reason]`; archive only after that decision. The close overlay owns
@@ -61,7 +61,7 @@ without an explicit integration plan. Size the model to the task's difficulty an
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
 - `in-review`: independent review required.
-- `in-validation`: stop and wait for human acceptance or rejection.
+- `in-validation`: stop for human acceptance or a reasoned rejection.
 - `blocked`: an impediment or decision needs resolution.
 - `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
@@ -76,11 +76,12 @@ Who owns each transition and how it is performed:
 | in-review → in-validation | orchestrator | `changeledger review <id> pass` |
 | in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
 | in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
-| in-validation → done; in-validation → in-progress | human | viewer |
-| done → in-progress (pending closure) | human | viewer, with reason |
+| in-validation → done | human | viewer |
+| in-validation → in-progress | agent or human | `changeledger validation <id> fail "<reason>"` or viewer |
+| done → in-progress (pending closure) | agent or human | `changeledger reopen <id> "<reason>"` or viewer |
 | draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
 
-`changeledger status <id> <status>` performs the agent-owned moves and does not accept `done` or `discarded`.
+`changeledger status <id> <status>` performs the agent-owned moves and does not accept `approved`, `done`, `discarded` or reopening.
 The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
 A `done` change can reopen only to finish its original scope before graduation/skip, archive or release;
 after durable closure, later work needs a new change.

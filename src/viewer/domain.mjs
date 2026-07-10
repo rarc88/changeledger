@@ -130,7 +130,7 @@ export function changeStatus(projects, { project, id, status, reason }) {
   }
   try {
     if (current === 'draft' && status === 'approved') {
-      applyStatusCmd(id, status, proj.path);
+      applyStatusCmd(id, status, proj.path, { actor: 'human' });
     } else if (current === 'in-validation' && status === 'done') {
       applyValidation(id, 'pass', {}, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
