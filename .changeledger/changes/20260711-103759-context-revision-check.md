@@ -2,10 +2,11 @@
 id: "20260711-103759"
 title: Verificación de vigencia del contexto por revisión
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-11T10:37:59Z
 depends_on: [ "20260711-103803" ]
 release_impact: minor
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -94,3 +95,5 @@ Superficie compartida: el texto del bootstrap se edita también en
 
 ## Log
 - **2026-07-11T10:47:26Z** — status: draft → approved
+- **2026-07-11T11:06:49Z** — status: approved → in-progress
+- **2026-07-11T11:06:49Z** — owner → raruiz-hiberuscom (auto)
