@@ -2,7 +2,7 @@
 id: "20260711-160444"
 title: Test CLI del wiring de context --have
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-07-11T16:04:44Z
 depends_on: [ "20260711-103759" ]
 owner: raruiz-hiberuscom
@@ -22,3 +22,5 @@ siguiendo el patrón existente. Solo tests, reversible, sin superficie nueva.
 - **2026-07-11T16:12:29Z** — status: draft → approved
 - **2026-07-11T16:23:00Z** — status: approved → in-progress
 - **2026-07-11T16:23:00Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:29:43Z** — Integrada implementación delegada (d8c2ec1): regresión CLI del wiring de --have (unchanged con rev vigente, salida completa con rev obsoleto) en test/cli-bin.test.mjs. pnpm verify 608/608. Fricción: changeledger commit salió 1 sin diagnóstico en el worktree del delegado.
+- **2026-07-11T16:29:44Z** — status: in-progress → in-validation
