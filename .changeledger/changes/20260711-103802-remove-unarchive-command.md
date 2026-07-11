@@ -2,11 +2,12 @@
 id: "20260711-103802"
 title: Retirar el comando unarchive sin uso
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-11T10:38:02Z
 depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -50,3 +51,5 @@ Alternativas descartadas:
 - **2026-07-11T11:01:33Z** — Implementación delegada integrada en change/20260711-batch-optimizations (commit ab5dc28); pnpm verify 562/562 en la rama del delegado.
 - **2026-07-11T11:16:22Z** — status: in-progress → in-review
 - **2026-07-11T11:19:54Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:34Z** — validation → done (human accepted)
+- **2026-07-11T15:45:50Z** — graduation skipped: retirada de comando muerto; ningún spec documentaba unarchive y la reversión manual ya estaba descrita
