@@ -7,6 +7,7 @@ created: 2026-07-11T16:04:44Z
 depends_on: [ "20260711-103759" ]
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -27,3 +28,4 @@ siguiendo el patrón existente. Solo tests, reversible, sin superficie nueva.
 - **2026-07-11T16:29:44Z** — status: in-progress → in-validation
 - **2026-07-11T21:39:48Z** — validation → done (human accepted)
 - **2026-07-11T21:53:44Z** — graduation skipped: cobertura de tests del wiring, sin verdad persistente nueva
+- **2026-07-11T21:54:25Z** — archived

@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -131,3 +132,4 @@ Alternativas descartadas:
 - **2026-07-11T21:00:45Z** — Review independiente (contexto limpio) PASS sobre CR6: grid 2×2 verificado en navegador a 1400px y 1000px, SVG estirado al panel, sin regresiones CR1–CR5 (suite 631/631). Corrección permanece sin commitear hasta confirmación humana.
 - **2026-07-11T21:39:41Z** — validation → done (human accepted)
 - **2026-07-11T21:51:56Z** — graduado a spec `viewer.md`
+- **2026-07-11T21:54:25Z** — archived

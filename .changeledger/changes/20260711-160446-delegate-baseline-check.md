@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -83,3 +84,4 @@ falla cerrado; añadir superficie duplicaría el detector.
 - **2026-07-11T16:34:25Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:37:34Z** — validation → done (human accepted)
 - **2026-07-11T21:51:13Z** — graduado a spec `lifecycle.md`
+- **2026-07-11T21:54:25Z** — archived

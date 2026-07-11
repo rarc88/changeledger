@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -99,3 +100,4 @@ Alternativas descartadas:
 - **2026-07-11T16:45:57Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:39:38Z** — validation → done (human accepted)
 - **2026-07-11T21:51:56Z** — graduado a spec `viewer.md`
+- **2026-07-11T21:54:25Z** — archived

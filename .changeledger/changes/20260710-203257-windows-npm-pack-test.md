@@ -7,6 +7,7 @@ created: 2026-07-10T20:32:57Z
 depends_on: []
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -55,3 +56,4 @@ ni en los assets del paquete.
 - **2026-07-11T15:56:34Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:39:33Z** — validation → done (human accepted)
 - **2026-07-11T21:53:44Z** — graduation skipped: fix de infraestructura de tests multiplataforma, sin verdad persistente nueva
+- **2026-07-11T21:54:25Z** — archived

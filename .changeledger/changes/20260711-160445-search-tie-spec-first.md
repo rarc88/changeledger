@@ -7,6 +7,7 @@ created: 2026-07-11T16:04:45Z
 depends_on: [ "20260711-103758" ]
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -27,3 +28,4 @@ regresión del empate en `test/search.test.mjs`. Un solo concern, reversible.
 - **2026-07-11T16:30:18Z** — status: in-progress → in-validation
 - **2026-07-11T21:39:51Z** — validation → done (human accepted)
 - **2026-07-11T21:52:41Z** — graduado a spec `architecture.md`
+- **2026-07-11T21:54:25Z** — archived
