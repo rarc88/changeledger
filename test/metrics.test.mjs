@@ -233,3 +233,77 @@ test('CR3: byType reports closed count and avg cycle per type', () => {
   assert.equal(feat.avgCycleMs, 5 * HOUR);
   assert.equal(bug.avgCycleMs, 2 * HOUR);
 });
+
+// 20260711-155721: friction metrics — review retries, validation wait, cycle
+// percentiles and per-owner breakdown.
+
+test('155721 CR3: p50/p85 cycle time percentiles alongside avg/median', () => {
+  const changes = [
+    change({ id: 'a', created: '2026-06-13T10:00:00Z', logBody: DONE_LOG('2026-06-13T12:00:00Z') }), // 2h
+    change({ id: 'b', created: '2026-06-13T10:00:00Z', logBody: DONE_LOG('2026-06-13T14:00:00Z') }), // 4h
+    change({ id: 'c', created: '2026-06-14T10:00:00Z', logBody: DONE_LOG('2026-06-14T11:00:00Z') }), // 1h
+  ];
+  const m = computeMetrics(changes);
+  assert.equal(m.p50CycleMs, 2 * HOUR);
+  assert.equal(m.p85CycleMs, 4 * HOUR);
+  assert.equal(m.avgCycleMs, Math.round(((2 + 4 + 1) * HOUR) / 3));
+  assert.equal(m.medianCycleMs, 2 * HOUR);
+});
+
+test('155721 CR3: reviewRetries counts fail --retry verdicts, validationWaitMs is the mean in-validation wait', () => {
+  const c = change({
+    id: 'x',
+    created: '2026-07-01T10:00:00Z',
+    logBody: `- **2026-07-01T10:00:00Z** — status: draft → approved
+- **2026-07-01T10:00:00Z** — status: approved → in-progress
+- **2026-07-01T11:00:00Z** — status: in-progress → in-review
+- **2026-07-01T12:00:00Z** — review → in-progress (retry): reason1
+- **2026-07-01T13:00:00Z** — status: in-progress → in-review
+- **2026-07-01T14:00:00Z** — review → in-progress (retry): reason2
+- **2026-07-01T15:00:00Z** — status: in-progress → in-review
+- **2026-07-01T16:00:00Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-01T20:00:00Z** — validation → done (human accepted)`,
+  });
+  const m = computeMetrics([c]);
+  assert.equal(m.reviewRetries, 2);
+  assert.equal(m.validationWaitMs, 4 * HOUR);
+});
+
+test('155721 CR3: reviewRetries ignores review→blocked and validation→in-progress verdicts', () => {
+  const c = change({
+    id: 'y',
+    created: '2026-07-01T10:00:00Z',
+    status: 'blocked',
+    logBody: `- **2026-07-01T11:00:00Z** — status: in-progress → in-review
+- **2026-07-01T12:00:00Z** — review → blocked: spec is ambiguous`,
+  });
+  const m = computeMetrics([c], { now: '2026-07-01T12:00:00Z' });
+  assert.equal(m.reviewRetries, 0);
+});
+
+test('155721 CR3: byOwner mirrors byType, unassigned changes group together', () => {
+  const a = change({ id: 'a', created: '2026-06-13T10:00:00Z', logBody: FULL_LOG });
+  a.frontmatter.owner = 'alice';
+  const b = change({
+    id: 'b',
+    created: '2026-06-13T10:00:00Z',
+    logBody: '- **2026-06-13T12:00:00Z** — status: in-progress → done',
+  });
+  const m = computeMetrics([a, b], { now: '2026-06-13T20:00:00Z' });
+  const alice = m.byOwner.find((o) => o.owner === 'alice');
+  const unassigned = m.byOwner.find((o) => o.owner === 'unassigned');
+  assert.equal(alice.closed, 1);
+  assert.equal(alice.avgCycleMs, 5 * HOUR);
+  assert.equal(unassigned.closed, 1);
+  assert.equal(unassigned.avgCycleMs, 2 * HOUR);
+});
+
+test('155721 CR5: empty input yields zero metrics, no NaN/Infinity', () => {
+  const m = computeMetrics([]);
+  assert.equal(m.count, 0);
+  assert.equal(m.p50CycleMs, 0);
+  assert.equal(m.p85CycleMs, 0);
+  assert.equal(m.validationWaitMs, 0);
+  assert.equal(m.reviewRetries, 0);
+  assert.deepEqual(m.byOwner, []);
+});

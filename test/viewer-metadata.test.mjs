@@ -56,7 +56,9 @@ const { state: appState } = await import('../src/viewer/public/app-state.js');
 const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
-const { graphSvg, specsListHtml } = await import('../src/viewer/public/view-renderers.js');
+const { graphSvg, metricsHtml, specsListHtml } = await import(
+  '../src/viewer/public/view-renderers.js'
+);
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -72,6 +74,7 @@ const parse = (html) => {
   return host;
 };
 const XSS = '"><img src=x onerror=alert(1)>';
+const HOUR = 3600000;
 
 const baseChange = () => ({
   id: '20260613-120000',
@@ -840,6 +843,122 @@ test('162104 CR3: simple graph still places dependents after dependencies', () =
     ]),
   );
   assert.ok(nodeX(host, 'B') > nodeX(host, 'A'));
+});
+
+// 20260711-155721 — metricsHtml: KPI cards, hand-rolled throughput SVG,
+// common-scale time-in-status bars, and the explicit empty state.
+
+test('155721 CR5: zero visible changes render an explicit empty state, no NaN/Infinity', () => {
+  const host = parse(metricsHtml({}, 0));
+  assert.ok(host.querySelector('.empty'));
+  assert.equal(host.querySelector('.metrics-cards'), null);
+  assert.doesNotMatch(host.innerHTML, /NaN|Infinity/);
+});
+
+test('155721 CR4/CR5: KPI cards render all seven values without NaN even with no closed changes', () => {
+  const metrics = {
+    count: 0,
+    p50CycleMs: 0,
+    p85CycleMs: 0,
+    blockedMs: 0,
+    validationWaitMs: 0,
+    reviewRetries: 0,
+    wip: { 'in-progress': 2 },
+    aging: [],
+    throughput: [],
+    timeInStatus: [],
+    byType: [],
+    byOwner: [],
+  };
+  const host = parse(metricsHtml(metrics, 2));
+  const cards = host.querySelectorAll('.metric-card');
+  assert.equal(cards.length, 7);
+  assert.doesNotMatch(host.innerHTML, /NaN|Infinity/);
+  assert.match(host.querySelector('.metrics-cards').textContent, /WIP/);
+});
+
+test('155721 CR4: throughput renders an svg with one bar, a date label and a numeric value per day', () => {
+  const metrics = {
+    count: 2,
+    p50CycleMs: HOUR,
+    p85CycleMs: HOUR,
+    blockedMs: 0,
+    validationWaitMs: 0,
+    reviewRetries: 0,
+    wip: {},
+    aging: [],
+    throughput: [
+      { date: '2026-07-01', count: 1 },
+      { date: '2026-07-02', count: 3 },
+    ],
+    timeInStatus: [],
+    byType: [],
+    byOwner: [],
+  };
+  const host = parse(metricsHtml(metrics, 2));
+  const svgEl = host.querySelector('svg.throughput-svg');
+  assert.ok(svgEl, 'renders a throughput svg');
+  assert.equal(svgEl.querySelectorAll('.tp-bar').length, 2);
+  const values = [...svgEl.querySelectorAll('.tp-value')].map((n) => n.textContent);
+  assert.deepEqual(values, ['1', '3']);
+  const dates = [...svgEl.querySelectorAll('.tp-date')].map((n) => n.textContent);
+  assert.deepEqual(dates, ['2026-07-01', '2026-07-02']);
+  assert.doesNotMatch(svgEl.outerHTML, /NaN|Infinity/);
+});
+
+test('155721 CR4: time-in-status bars share one common scale across states', () => {
+  const metrics = {
+    count: 1,
+    p50CycleMs: HOUR,
+    p85CycleMs: HOUR,
+    blockedMs: 0,
+    validationWaitMs: 0,
+    reviewRetries: 0,
+    wip: {},
+    aging: [],
+    throughput: [],
+    timeInStatus: [
+      { state: 'in-progress', totalMs: 4 * HOUR, avgMs: 4 * HOUR },
+      { state: 'in-review', totalMs: 2 * HOUR, avgMs: 2 * HOUR },
+    ],
+    byType: [],
+    byOwner: [],
+  };
+  const host = parse(metricsHtml(metrics, 1));
+  const bars = [...host.querySelectorAll('.bar-row .bar')];
+  assert.equal(bars.length, 2);
+  const widths = bars.map((b) => Number.parseFloat(b.style.width));
+  // Same max (4h) drives both widths, so in-review is exactly half of in-progress.
+  assert.equal(widths[0], 100);
+  assert.equal(widths[1], 50);
+  const values = [...host.querySelectorAll('.bar-row .mono')].map((n) => n.textContent);
+  assert.deepEqual(values, ['4.0 h', '2.0 h']);
+});
+
+test('155721 CR3/CR4: byType and byOwner render as separate tables with visible values', () => {
+  const metrics = {
+    count: 2,
+    p50CycleMs: HOUR,
+    p85CycleMs: HOUR,
+    blockedMs: 0,
+    validationWaitMs: 0,
+    reviewRetries: 0,
+    wip: {},
+    aging: [],
+    throughput: [],
+    timeInStatus: [],
+    byType: [{ type: 'bug', closed: 2, avgCycleMs: 3 * HOUR }],
+    byOwner: [
+      { owner: 'alice', closed: 1, avgCycleMs: 2 * HOUR },
+      { owner: 'unassigned', closed: 1, avgCycleMs: 4 * HOUR },
+    ],
+  };
+  const host = parse(metricsHtml(metrics, 2));
+  const tables = host.querySelectorAll('table.grid');
+  assert.equal(tables.length, 2);
+  assert.match(tables[0].textContent, /bug/);
+  assert.match(tables[1].textContent, /alice/);
+  assert.match(tables[1].textContent, /Unassigned/);
 });
 
 // 20260628-113924 UI tests

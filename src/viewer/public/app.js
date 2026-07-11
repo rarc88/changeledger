@@ -799,8 +799,32 @@ export function handleSpecBodyClick(event, _openSpecByName) {
 
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
 
-function renderMetrics() {
-  litRender(metricsHtml(state.repo.metrics || {}), $('#metrics'));
+// The shared metrics module is dynamic-imported once and cached: the client
+// computes metrics itself, over the filtered set, instead of duplicating
+// `computeMetrics` (20260711-155721 CR2). Served read-only from the CLI's own
+// `src/metrics.mjs` by the router.
+let sharedMetricsModule;
+function loadMetricsModule() {
+  sharedMetricsModule ??= import('/shared/metrics.mjs');
+  return sharedMetricsModule;
+}
+
+// `computeMetrics` speaks the CLI's native change shape (`{ frontmatter,
+// stages }`); `state.repo.changes` is already flattened for board/table
+// rendering. Adapt back rather than reshaping the shared module's contract,
+// which the server also relies on unchanged.
+function toMetricsChange(c) {
+  return {
+    frontmatter: { id: c.id, type: c.type, status: c.status, owner: c.owner, created: c.created },
+    stages: c.stages,
+  };
+}
+
+async function renderMetrics() {
+  const changes = visibleChanges();
+  const { computeMetrics } = await loadMetricsModule();
+  const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
+  litRender(metricsHtml(metrics, changes.length), $('#metrics'));
 }
 
 export function syncViewerShell(root = document, renderContent = true) {
