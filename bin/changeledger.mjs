@@ -29,6 +29,7 @@ import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
+import { runSearch } from '../src/commands/search.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
@@ -43,7 +44,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | context | agent-context
   changeledger status | discard | review | owner | archive | unarchive
-  changeledger log | task | list | show | graduate | config | release
+  changeledger log | task | list | show | search | graduate | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -464,6 +465,32 @@ program
       else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
     }),
   );
+
+program
+  .command('search')
+  .description('deterministic lexical search over changes (incl. archived) and specs')
+  .argument('<query...>', 'search terms')
+  .option('--limit <n>', 'max results (default 10)')
+  .option(
+    '--type <type>',
+    'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
+  )
+  .option(
+    '--status <status>',
+    'filter by a change status configured in .changeledger/config.yml (statuses:); excludes specs',
+  )
+  .option('--json', 'print JSON')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger search wallet',
+      '  changeledger search wallet --type bug --status done',
+      '  changeledger search "app check" --json',
+    ].join('\n'),
+  )
+  .action(action((queryParts, options) => runSearch(queryParts, options)));
 
 program
   .command('graduate')
