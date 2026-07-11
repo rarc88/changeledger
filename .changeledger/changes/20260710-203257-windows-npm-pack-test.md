@@ -2,9 +2,10 @@
 id: "20260710-203257"
 title: El test del paquete falla al invocar npm en Windows
 type: bug
-status: approved
+status: in-validation
 created: 2026-07-10T20:32:57Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -39,10 +40,15 @@ ni en los assets del paquete.
 
 ## Plan
 
-- [ ] Añadir en `test/agent-prompt.test.mjs` una regresión de plataforma para el empaquetado de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
-- [ ] Ajustar la invocación de `execFile` en `test/agent-prompt.test.mjs` para el artefacto de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
-- [ ] Conservar en `test/agent-prompt.test.mjs` las aserciones de los assets bajo `templates/contract/agent-prompts/` y `templates/contract/agent-contexts/`; verify: `node --test test/agent-prompt.test.mjs` (CR2)
-- [ ] Ejecutar el gate completo y confirmar la matriz Windows en CI; verify: `pnpm verify` (support)
+- [x] Añadir en `test/agent-prompt.test.mjs` una regresión de plataforma para el empaquetado de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1) — 2026-07-11T15:54:36Z
+- [x] Ajustar la invocación de `execFile` en `test/agent-prompt.test.mjs` para el artefacto de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1) — 2026-07-11T15:54:36Z
+- [x] Conservar en `test/agent-prompt.test.mjs` las aserciones de los assets bajo `templates/contract/agent-prompts/` y `templates/contract/agent-contexts/`; verify: `node --test test/agent-prompt.test.mjs` (CR2) — 2026-07-11T15:54:36Z
+- [x] Ejecutar el gate completo y confirmar la matriz Windows en CI; verify: `pnpm verify` (support) — 2026-07-11T15:54:36Z
 
 ## Log
 - **2026-07-11T10:47:22Z** — status: draft → approved
+- **2026-07-11T15:50:11Z** — status: approved → in-progress
+- **2026-07-11T15:50:11Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T15:54:36Z** — Integrada implementación delegada (278f46d): npmCommand(platform) selecciona npm.cmd en win32 con shell:true, invocación directa intacta en el resto; regresión de plataforma añadida; aserciones de assets conservadas. pnpm verify 603/603.
+- **2026-07-11T15:54:36Z** — status: in-progress → in-review
+- **2026-07-11T15:56:34Z** — review → in-validation (delegated subagent, clean context)

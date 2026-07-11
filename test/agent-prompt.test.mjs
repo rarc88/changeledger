@@ -13,6 +13,13 @@ const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
 const ROLES = ['investigation', 'implementation', 'review'];
 
+// npm ships as the `npm.cmd` shim on Windows; execFile does not resolve
+// shims through PATH the way a shell would, so the command must be
+// selected per platform to avoid `spawn npm ENOENT` in CI.
+function npmCommand(platform) {
+  return platform === 'win32' ? 'npm.cmd' : 'npm';
+}
+
 function skeleton(role) {
   return fs.readFileSync(path.join(contractTemplatesDir, 'agent-prompts', `${role}.md`), 'utf8');
 }
@@ -130,10 +137,21 @@ test('CR4: each role loads available context without inventing a change', () => 
   assert.match(inv, /If the optional id below is empty, omit it/i);
 });
 
+test('CR1: npm command selection picks the Windows shim only on win32', () => {
+  assert.equal(npmCommand('win32'), 'npm.cmd');
+  assert.equal(npmCommand('linux'), 'npm');
+  assert.equal(npmCommand('darwin'), 'npm');
+});
+
 test('CR6: the skeletons ship in the publishable package', async () => {
-  const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], {
-    cwd: path.resolve('.'),
-  });
+  const { stdout } = await execFileAsync(
+    npmCommand(process.platform),
+    ['pack', '--dry-run', '--json'],
+    {
+      cwd: path.resolve('.'),
+      shell: process.platform === 'win32',
+    },
+  );
   const entries = JSON.parse(stdout)[0].files.map((f) => f.path);
   for (const role of ROLES) {
     assert.ok(
