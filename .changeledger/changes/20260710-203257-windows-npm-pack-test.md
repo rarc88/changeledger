@@ -2,9 +2,10 @@
 id: "20260710-203257"
 title: El test del paquete falla al invocar npm en Windows
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-10T20:32:57Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -46,3 +47,5 @@ ni en los assets del paquete.
 
 ## Log
 - **2026-07-11T10:47:22Z** — status: draft → approved
+- **2026-07-11T15:50:11Z** — status: approved → in-progress
+- **2026-07-11T15:50:11Z** — owner → raruiz-hiberuscom (auto)
