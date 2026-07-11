@@ -894,6 +894,29 @@ body {
   font-size: 13px;
   border-bottom: 1px solid var(--line);
 }
+.muted {
+  color: var(--muted);
+}
+.throughput-svg {
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+.tp-rect {
+  fill: var(--accent, #4a9eff);
+}
+.tp-value {
+  font-size: 11px;
+  fill: var(--text);
+}
+.tp-date {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.tp-axis {
+  stroke: var(--line);
+  stroke-width: 1;
+}
 
 /* Overlay + detail */
 .detail-open {
