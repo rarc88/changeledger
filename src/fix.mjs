@@ -89,7 +89,12 @@ function fixTaskLine(rawLine, declaredCR, lineNo) {
     applied.push(`line ${lineNo}: reordered verify suffix before (${crBlock.trim()})`);
   }
 
-  if ((state === 'done' || state === 'blocked') && !rest.includes(' — ')) {
+  // The resolution suffix is the LAST separator: a description may legitimately
+  // contain an em dash, so only a hyphen sitting after every em dash is a defect.
+  if (
+    (state === 'done' || state === 'blocked') &&
+    rest.lastIndexOf(' - ') > rest.lastIndexOf(' — ')
+  ) {
     const hyphenIdx = rest.lastIndexOf(' - ');
     if (hyphenIdx !== -1) {
       rest = `${rest.slice(0, hyphenIdx)} — ${rest.slice(hyphenIdx + 3)}`;

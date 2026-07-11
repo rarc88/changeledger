@@ -100,6 +100,28 @@ test('CR3: a second run is idempotent and reports nothing to fix', () => {
   assert.ok(out.lines.some((l) => l.includes('nothing to fix')));
 });
 
+test('CR1 regression: an em dash inside the description does not hide a hyphen resolution suffix', () => {
+  const { root, file, id } = repo(
+    '- [x] Update src/baz.mjs — with a note (CR1) - 2026-01-01T12:00:00Z',
+  );
+  const out = output();
+  const code = fix([id], root, out);
+  assert.equal(code, 0);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.ok(text.includes('- [x] Update src/baz.mjs — with a note (CR1) — 2026-01-01T12:00:00Z'));
+  assert.ok(out.lines.some((l) => l.includes('resolution suffix hyphen normalized to em dash')));
+});
+
+test('CR1 regression: a valid em-dash suffix after a hyphenated description stays untouched', () => {
+  const line = '- [x] Update src/a-b.mjs - narrow case (CR1) — 2026-01-01T12:00:00Z';
+  const { root, file, id } = repo(line);
+  const out = output();
+  const code = fix([id], root, out);
+  assert.equal(code, 0);
+  assert.ok(fs.readFileSync(file, 'utf8').includes(line), 'valid suffix line must not be modified');
+  assert.ok(out.lines.some((l) => l.includes('nothing to fix')));
+});
+
 test('CR4: a task referencing an unknown criterion is left untouched and flagged', () => {
   const line = '- [ ] Update src/bar.mjs (CR9) — verify: pnpm test';
   const { root, file, id } = repo(line);
