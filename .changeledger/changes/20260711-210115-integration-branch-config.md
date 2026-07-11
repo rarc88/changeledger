@@ -2,11 +2,13 @@
 id: "20260711-210115"
 title: La rama de integración se declara en config
 type: feature
-status: in-validation
+status: done
 created: 2026-07-11T21:01:15Z
 depends_on: [ "20260711-160446" ]
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -96,3 +98,6 @@ Alternativas descartadas:
 - **2026-07-11T22:17:14Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T22:17:14Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con evidencia e2e en repos scratch (base declarada vs auto-detección, base explícita gana, fail-fast en valores malformados, policy line exacta, preservación en visor). Sin residuos vs baseline; verify 651/651.
 - **2026-07-11T22:18:43Z** — Dogfooding: este repo declara git.integration_branch: dev en su config; Effective policy lo expone y check --commits lintea dev..HEAD por defecto.
+- **2026-07-11T22:22:59Z** — validation → done (human accepted)
+- **2026-07-11T22:24:25Z** — graduado a spec `git-traceability.md`
+- **2026-07-11T22:24:27Z** — archived

@@ -1,6 +1,6 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-11T21:53:18Z
+updated: 2026-07-11T22:24:25Z
 tags: [ git ]
 ---
 
@@ -9,6 +9,7 @@ tags: [ git ]
 > Graduado del change 20260617-161309 (workflow git para trazabilidad).
 > Actualizado por el change 20260711-103757 (contrato de commits ejecutable: helper y lint).
 > Actualizado por el change 20260711-204419 (diagnóstico de fallos de commit).
+> Actualizado por el change 20260711-210115 (rama de integración configurable).
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
 convención de commit `[#<id>]`: lista los commits que lo referencian y las
@@ -30,6 +31,13 @@ captura stderr/stdout de git y los incluye en el error lanzado — un commit
 fallido (hook, nada staged, identidad ausente) siempre expone su diagnóstico en
 vez de un exit 1 opaco.
 
+La clave opcional `git.integration_branch` declara la base y el destino de las
+ramas de change. Cuando existe, `check --commits` la usa como base por defecto
+(una base posicional explícita conserva precedencia) y `changeledger context`
+la publica como `integration_branch=<rama>` en la política efectiva. Cuando no
+existe, se conserva la autodetección de base mediante `origin/HEAD`, `main` o
+`master`. El editor de configuración del visor preserva la clave.
+
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
 revisan el worktree antes de empezar; commitean la documentación aprobada antes
@@ -39,6 +47,9 @@ superficie podría volver ambigua la atribución. Los cambios no relacionados no
 se incluyen silenciosamente. Si archivos compartidos vuelven inevitable un
 commit combinado, se declara como excepción y se nombran los changes que
 comparten la superficie.
+
+Cuando se declara una rama de integración, las ramas de change parten de ella y
+el resultado se integra de vuelta en ella; `main` queda reservado para releases.
 
 Una corrección candidata nacida de un `review fail --retry` queda sin commit y
 aislada hasta que otro revisor de contexto limpio la confirme. Tras el `pass`, se
