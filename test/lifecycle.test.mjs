@@ -58,6 +58,14 @@ test('171002 CR5: a non-review_required type goes from in-progress to validation
   assert.throws(() => assertTransition('in-progress', 'done'), /invalid lifecycle transition/);
 });
 
+// 20260711-103756 CR2: the `quick` lane has no review gate — same shape as any
+// other non-review_required type, proven explicitly for `quick`.
+test('103756 CR2: a quick change goes from in-progress to validation without review', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-validation', { type: 'quick', reviewRequired: false }),
+  );
+});
+
 test('CR5: in-review is only reachable from in-progress', () => {
   assert.throws(
     () => assertTransition('approved', 'in-review'),
