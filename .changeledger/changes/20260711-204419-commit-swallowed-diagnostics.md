@@ -2,7 +2,7 @@
 id: "20260711-204419"
 title: changeledger commit falla con exit 1 sin diagnóstico
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-11T20:44:19Z
 depends_on: [ "20260711-103757" ]
 release_impact: patch
@@ -56,11 +56,13 @@ fallo del commit debe explicar por qué falló.
 
 ## Plan
 
-- [ ] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error; verify: `node --test test/commit.test.mjs` (CR1)
-- [ ] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas; verify: `node --test test/commit.test.mjs test/git.test.mjs` (CR1, CR2, CR3)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error; verify: `node --test test/commit.test.mjs` (CR1) — 2026-07-11T21:16:05Z
+- [x] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas; verify: `node --test test/commit.test.mjs test/git.test.mjs` (CR1, CR2, CR3) — 2026-07-11T21:16:05Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T21:16:05Z
 
 ## Log
 - **2026-07-11T21:05:24Z** — status: draft → approved
 - **2026-07-11T21:08:42Z** — status: approved → in-progress
 - **2026-07-11T21:08:42Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T21:16:05Z** — Integrada implementación delegada (bf039f4): mutatingRun captura stderr/stdout en fallo solo para el camino de commit; defaultRun y consultas tolerantes intactos. TDD red-green; pnpm verify 633/633. Verificación end-to-end: commit sin staged sale exit 1 mostrando el diagnóstico del hook y de git.
+- **2026-07-11T21:16:05Z** — status: in-progress → in-review
