@@ -6,6 +6,8 @@ status: done
 created: 2026-07-10T20:17:03Z
 depends_on: []
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -68,3 +70,5 @@ orquestador o al humano sin exponer comandos de mutación ni cambiar el estado.
 - **2026-07-11T16:02:03Z** — status: in-progress → in-review
 - **2026-07-11T16:09:16Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:39:30Z** — validation → done (human accepted)
+- **2026-07-11T21:51:13Z** — graduado a spec `lifecycle.md`
+- **2026-07-11T21:54:25Z** — archived
