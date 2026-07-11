@@ -386,7 +386,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger graduate <id> <spec-slug> --into/],
     ['close', /changeledger graduate <id> --skip \[reason\]/],
     ['close', /changeledger graduate --pending/],
-    ['close', /changeledger archive <id>.*changeledger unarchive <id>/],
+    ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
     ['close', /graduation link remains derivable from the Log marker/],
     ['close', /`graduado a spec`/],
@@ -479,7 +479,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260705-134704: the graduation bullets are replaced by a numbered new-spec
     // recipe with the reviewed:true nuance integrated per step; existing-spec and
     // skip stay as explicit alternatives. Rules preserved, none retired.
-    'close.md': 'a53a3fe1a28f55492a305c366f0cfafa90718af1552883e7e1bc2bcf04b3a16a',
+    // 20260711-103802: the archive/unarchive bullet is replaced — unarchive was
+    // retired as unused CLI surface; reversal is now documented as a manual
+    // `archived: false` frontmatter edit. Rule preserved, not retired.
+    'close.md': '0c633b556933b36a3110de98313323f346d63d4eec61ba48806168640366544a',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now

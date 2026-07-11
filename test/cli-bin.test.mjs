@@ -281,7 +281,6 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
     ['review'],
     ['owner'],
     ['archive'],
-    ['unarchive'],
     ['log'],
     ['task'],
     ['list'],

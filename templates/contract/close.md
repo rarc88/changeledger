@@ -54,7 +54,7 @@ Operational inspection and visibility:
 
 - `changeledger list [--status S] [--type T] [--json]`
 - `changeledger show <id> [--json]`
-- `changeledger archive <id>` / `changeledger unarchive <id>`
+- `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
 
 Use Mermaid where it communicates persistent relationships better than prose.
 After closure, share a brief retrospective. New work needs a newly authorized
