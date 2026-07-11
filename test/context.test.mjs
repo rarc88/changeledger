@@ -500,7 +500,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // equivalent status/viewer rows are grouped, and non-ownership rules remain.
     // 20260710-105205: acceptance remains human-only; rejection and provisional
     // reopening are replaced with explicit agent-or-human commands and actors.
-    'core.md': 'af94f01cbd60039c3d62ab0f16e137ffb782a08ed39e68da9d5b6dea57d3f333',
+    // 20260711-103758: additive — Operational discovery gains one bullet
+    // pointing at `changeledger search`. Every existing rule preserved, none
+    // retired or replaced.
+    'core.md': '08b36a4a3d318e35801cfc07028e3a7e5963407646ca0625a688647663885386',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -531,7 +534,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // self-contained review capsule; this fragment keeps orchestration and verdicts
     // and points to that single checklist owner. Rules moved, none retired.
     'review.md': 'c6d652977ed75b402f344df80416e4c5e8575a28363cd87a31150e3c1dc3aefb',
-    'spec.md': '5117dfeddb1cc89ebc912876101ed80c4988ed18ea428bcc2ef41df8a390afe8',
+    // 20260711-103758: additive — a mandate to run `changeledger search` before
+    // writing Investigation, plus the command's line in Authoring helpers.
+    // Every existing rule preserved, none retired or replaced.
+    'spec.md': 'c9c65374b38d61b595b358ccd0ee6479aa3d5b901bd32c896cbe71df7955c4fd',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',

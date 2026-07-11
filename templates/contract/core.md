@@ -108,6 +108,7 @@ Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
 - `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
+- `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
 Structure is always English. Each context delivers the effective policy that
