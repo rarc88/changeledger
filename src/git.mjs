@@ -37,6 +37,27 @@ export function defaultRun(args, cwd) {
   });
 }
 
+// Run variant for mutating git commands (e.g. `commit`), where git's stderr is
+// the only clue to a failure (failed hook, nothing staged, missing identity,
+// lock). Pipes stderr and, on failure, throws an Error whose message includes
+// the captured diagnostic. Query paths keep `defaultRun` and degrade silently.
+export function mutatingRun(args, cwd) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    const detail = [e.stderr, e.stdout]
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean)
+      .join('\n');
+    throw new Error(detail ? `${e.message}\n${detail}` : e.message, { cause: e });
+  }
+}
+
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {
