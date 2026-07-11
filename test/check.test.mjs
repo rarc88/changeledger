@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
+import { check } from '../src/commands/check.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -1338,4 +1343,87 @@ test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
     msgs(covResult(legacyDirectClose).errors).filter((m) => /Log/.test(m)),
     [],
   );
+});
+
+// --- check --commits (20260711-103757): commit-message lint over a git range ---
+
+// This suite may itself run inside this repo's own pre-commit hook, which
+// exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
+// inherited, every git call below would silently operate on the outer repo
+// instead of the scratch fixture — strip them so tests are hook-safe.
+const GIT_FIXTURE_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete GIT_FIXTURE_ENV[key];
+}
+
+function gitFixture() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-commits-'));
+  const git = (args) =>
+    execFileSync('git', args, { cwd: root, env: GIT_FIXTURE_ENV, encoding: 'utf8' });
+  git(['init', '-q', '-b', 'main']);
+  git(['config', 'user.email', 'test@example.com']);
+  git(['config', 'user.name', 'Test']);
+  git(['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'README.md'), 'x\n');
+  git(['add', 'README.md']);
+  git(['commit', '-q', '-m', 'chore: base [#20260101-000000]']);
+  return { root, git };
+}
+
+function captureOutput() {
+  const calls = [];
+  return { calls, log: (m) => calls.push(m), warn: () => {}, error: () => {} };
+}
+
+test('CR5: check --commits reports only the commit missing the marker', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): with marker [#20260711-000001]']);
+  fs.writeFileSync(path.join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'feat(x): missing marker']);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, new RegExp(sha));
+  assert.match(parsed.errors[0].message, /missing \[#id\] marker/);
+});
+
+test('CR6: merges and chore(release) prep are exempt from the lint', () => {
+  const { root, git } = gitFixture();
+  const base = git(['rev-parse', 'HEAD']).trim();
+
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): with marker [#20260711-000001]']);
+
+  git(['checkout', '-q', 'main']);
+  fs.writeFileSync(path.join(root, 'c.txt'), 'c\n');
+  git(['add', 'c.txt']);
+  git(['commit', '-q', '-m', 'chore(release): prepare ChangeLedger 1.0.0']);
+
+  git(['merge', '-q', '--no-ff', '-m', 'Merge feature', 'feature']);
+
+  const out = captureOutput();
+  const code = check(['--commits', base, '--json'], root, out);
+
+  assert.equal(code, 0);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.deepEqual(parsed.errors, []);
 });
