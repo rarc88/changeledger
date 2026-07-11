@@ -2,7 +2,7 @@
 id: "20260711-155721"
 title: Metrics filtradas y con visualización de valor
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-11T15:57:21Z
 depends_on: []
 release_impact: minor
@@ -113,3 +113,4 @@ Alternativas descartadas:
 - **2026-07-11T16:22:27Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T16:46:31Z** — Integrada implementación delegada (4 commits): p50/p85, validationWaitMs, reviewRetries y byOwner en computeMetrics; /shared/* con allowlist y contención; metricsHtml con 7 KPI cards, throughputSvg propio, barras de escala común y tablas; renderMetrics filtra con isVisible y computa con el módulo servido. CRs verificados en navegador por el implementador. pnpm verify 620/620.
 - **2026-07-11T16:46:31Z** — status: in-progress → in-review
+- **2026-07-11T16:58:23Z** — review → in-validation (delegated subagent, clean context)
