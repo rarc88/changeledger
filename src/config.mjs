@@ -69,6 +69,19 @@ function isInside(root, target) {
   return target === root || target.startsWith(root + path.sep);
 }
 
+// Optional declared integration branch: change branches start from it and
+// merge back into it. Absent means the caller keeps its current auto-detection
+// (`defaultBaseBranch`); a present but malformed value fails fast instead of
+// silently falling back.
+export function integrationBranch(config) {
+  const value = config?.git?.integration_branch;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error('config "git.integration_branch" must be a non-empty string');
+  }
+  return value.trim();
+}
+
 // Single source of the specs directory: the configured `specs_dir` or the
 // default, always resolved through the containment guard. Shared by `loadRepo`
 // and `graduate` so a graduated spec lands where the repo will later read it.
