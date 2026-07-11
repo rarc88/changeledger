@@ -18,6 +18,7 @@ import {
 import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
+import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import {
   graduate,
@@ -58,6 +59,11 @@ function action(fn) {
       process.exit(1);
     }
   };
+}
+
+// Collects a repeatable option (e.g. `--id`) into an array across invocations.
+function collect(value, previous) {
+  return previous.concat([value]);
 }
 
 program
@@ -136,15 +142,62 @@ program
   .description('validate the repo or one change')
   .argument('[id]')
   .option('--json', 'print JSON')
+  .option(
+    '--commits [base]',
+    'lint commit subjects on <base>..HEAD for the [#id] marker (base auto-detected if omitted)',
+  )
+  .addHelpText(
+    'after',
+    ['', 'Examples:', '  changeledger check --commits', '  changeledger check --commits main'].join(
+      '\n',
+    ),
+  )
   .action((id, options) => {
     try {
-      const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
+      const args = [
+        ...(id ? [id] : []),
+        ...(options.json ? ['--json'] : []),
+        ...(options.commits !== undefined
+          ? ['--commits', ...(typeof options.commits === 'string' ? [options.commits] : [])]
+          : []),
+      ];
       process.exit(check(args));
     } catch (e) {
       console.error(`Error: ${e.message}`);
       process.exit(1);
     }
   });
+
+program
+  .command('commit')
+  .description('compose the canonical [#id] marker and create a git commit')
+  .requiredOption('-m, --message <subject>', 'conventional subject: type(scope): description')
+  .option(
+    '--id <change-id>',
+    'change id to reference (repeatable); auto-resolved from the single in-progress change if omitted',
+    collect,
+    [],
+  )
+  .addHelpText(
+    'after',
+    [
+      '',
+      'When --id is omitted, the single in-progress change is used automatically;',
+      'zero or multiple in-progress changes require --id explicitly. Repeat --id',
+      'for a multi-id subject: each id gets its own bracket ([#A] [#B]).',
+      '',
+      'Examples:',
+      '  changeledger commit -m "feat(cli): add helper"',
+      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
+      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+    ].join('\n'),
+  )
+  .action(
+    action((options) => {
+      const subject = commit({ message: options.message, ids: options.id });
+      console.log(`Committed: ${subject}`);
+    }),
+  );
 
 program
   .command('context')
