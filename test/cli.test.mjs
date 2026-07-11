@@ -359,6 +359,40 @@ test('new uses the English slug for the file and keeps the title as content', ()
   );
 });
 
+// 20260711-103756 CR1: the `quick` lane scaffolds only Request and Log, in
+// that order, with the same frontmatter shape as any other type.
+test('103756 CR1: new scaffolds a quick change with only request and log', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    {
+      type: 'quick',
+      slug: 'fix-copy',
+      title: 'Corregir texto del banner',
+      now: '2026-06-13T15:00:00Z',
+    },
+    root,
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.type, 'quick');
+  assert.equal(c.frontmatter.status, 'draft');
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'log'],
+  );
+});
+
+// 20260711-103756 CR4: the default (unpersonalized) matrix includes `quick`
+// with request+log active and no review gate.
+test('103756 CR4: the default config matrix includes quick with no review gate', () => {
+  const root = tmp();
+  init(root);
+  const dir = findChangeledgerDir(root);
+  const config = loadConfig(dir);
+  assert.deepEqual(config.types.quick.stages, ['request', 'log']);
+  assert.equal(Boolean(config.types.quick.review_required), false);
+});
+
 test('new normalizes the slug to kebab ascii', () => {
   const root = tmp();
   init(root);

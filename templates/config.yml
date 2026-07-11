@@ -23,6 +23,7 @@ release:
     audit: none
     refactor: none
     chore: none
+    quick: patch
 
 # Optional Definition of Ready path/command hints. When present, tasks that
 # reference CRs should name at least one target and one verification matching
@@ -58,3 +59,8 @@ types:
     review_required: true
   chore:
     stages: [request, plan]
+  # Small, reversible, single-concern work with no persistent-truth or public
+  # surface impact. If scope grows mid-execution, discard and recreate under
+  # the correct type — see `changeledger context spec`.
+  quick:
+    stages: [request, log]
