@@ -2,7 +2,7 @@
 id: "20260711-155721"
 title: Metrics filtradas y con visualización de valor
 type: feature
-status: in-validation
+status: done
 created: 2026-07-11T15:57:21Z
 depends_on: []
 release_impact: minor
@@ -96,6 +96,13 @@ Alternativas descartadas:
 - **Then** se muestra un estado vacío explícito
 - **And** ningún KPI muestra `NaN`, `Infinity` ni división por cero
 
+### CR6 — Layout en cuadrantes a ancho completo
+- **Given** el visor a 1200 px o más con datos de métricas
+- **When** se abre la pestaña Metrics
+- **Then** bajo la fila de KPI cards el contenido se organiza en una cuadrícula de 2×2 paneles tipo card (throughput, tiempos por estado, aging+WIP, tablas por tipo/owner) que ocupa el ancho completo del contenedor
+- **And** por debajo de 1100 px la cuadrícula degrada a una sola columna
+- **And** el SVG de throughput se estira al ancho de su panel
+
 ## Plan
 
 - [x] Añadir en `test/metrics.test.mjs` percentiles, espera de validación, retries y desglose por owner para `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3) — 2026-07-11T16:46:30Z
@@ -106,6 +113,8 @@ Alternativas descartadas:
 - [x] Conectar `renderMetrics` de `src/viewer/public/app.js` al predicado de filtros compartido y al módulo servido; verify: manual browser check con filtros activos (CR1) — 2026-07-11T16:46:31Z
 - [x] Estilos de KPI cards y charts en `src/viewer/public/styles.css`; verify: manual browser check (CR4) — 2026-07-11T16:46:31Z
 - [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:46:31Z
+- [x] Añadir en `test/viewer-metadata.test.mjs` la estructura de cuadrantes de `metricsHtml` de `src/viewer/public/view-renderers.js` (grid con 4 paneles); verify: `node --test test/viewer-metadata.test.mjs` (CR6) — 2026-07-11T20:56:34Z
+- [x] Reestructurar `metricsHtml` en `src/viewer/public/view-renderers.js` en paneles y añadir la cuadrícula responsive en `src/viewer/public/styles.css`; verify: manual browser check a 1280 px y 1000 px (CR6) — 2026-07-11T20:56:35Z
 
 ## Log
 - **2026-07-11T16:13:58Z** — status: draft → approved
@@ -114,3 +123,9 @@ Alternativas descartadas:
 - **2026-07-11T16:46:31Z** — Integrada implementación delegada (4 commits): p50/p85, validationWaitMs, reviewRetries y byOwner en computeMetrics; /shared/* con allowlist y contención; metricsHtml con 7 KPI cards, throughputSvg propio, barras de escala común y tablas; renderMetrics filtra con isVisible y computa con el módulo servido. CRs verificados en navegador por el implementador. pnpm verify 620/620.
 - **2026-07-11T16:46:31Z** — status: in-progress → in-review
 - **2026-07-11T16:58:23Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T20:49:48Z** — validation → in-progress (agent rejected): Validación humana: la pantalla apenas se diferencia de la anterior y no aprovecha el espacio; el Request pedía visualmente impactante. Iterar layout en cuadrantes a ancho completo.
+- **2026-07-11T20:52:20Z** — Rechazo en validación: iterar layout. Añadido CR6 (cuadrantes 2×2 a ancho completo) y dos tareas. Corrección compartirá worktree sin commitear con la del quick 20260711-155719 (ficheros disjuntos: view-renderers.js/styles.css vs app.js).
+- **2026-07-11T20:56:35Z** — status: in-progress → in-review
+- **2026-07-11T21:00:45Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:00:45Z** — Review independiente (contexto limpio) PASS sobre CR6: grid 2×2 verificado en navegador a 1400px y 1000px, SVG estirado al panel, sin regresiones CR1–CR5 (suite 631/631). Corrección permanece sin commitear hasta confirmación humana.
+- **2026-07-11T21:39:41Z** — validation → done (human accepted)

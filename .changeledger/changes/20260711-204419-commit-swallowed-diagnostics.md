@@ -2,7 +2,7 @@
 id: "20260711-204419"
 title: changeledger commit falla con exit 1 sin diagnóstico
 type: bug
-status: in-validation
+status: done
 created: 2026-07-11T20:44:19Z
 depends_on: [ "20260711-103757" ]
 release_impact: patch
@@ -68,3 +68,4 @@ fallo del commit debe explicar por qué falló.
 - **2026-07-11T21:16:05Z** — status: in-progress → in-review
 - **2026-07-11T21:21:54Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:21:54Z** — Review independiente (contexto limpio) PASS: CR1-CR3 con evidencia e2e en repo scratch; defaultRun intacto byte a byte; suite 633/633. Observaciones menores no bloqueantes: diagnóstico duplicado stderr+stdout en fallo de hook (cosmético) y labels CR sin desambiguar en test/git.test.mjs.
+- **2026-07-11T21:39:56Z** — validation → done (human accepted)

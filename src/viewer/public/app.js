@@ -169,15 +169,24 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     </details>`,
     host,
   );
+  const syncSummary = () => {
+    host.querySelector('[data-choice-summary]').textContent = choiceFilterSummary(
+      label,
+      selected,
+      owners && state.filters.includeUnassigned,
+    );
+  };
   host.querySelectorAll('[data-choice]').forEach((input) => {
     input.onchange = () => {
       toggle(input.dataset.choice);
+      syncSummary();
       render();
     };
   });
   if (owners)
     host.querySelector('[data-unassigned]').onchange = () => {
       toggleUnassignedOwner();
+      syncSummary();
       render();
     };
   host.querySelector('[data-clear]').onclick = () => {
@@ -185,11 +194,7 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     host.querySelectorAll('[data-choice], [data-unassigned]').forEach((input) => {
       input.checked = false;
     });
-    host.querySelector('[data-choice-summary]').textContent = choiceFilterSummary(
-      label,
-      selected,
-      owners && state.filters.includeUnassigned,
-    );
+    syncSummary();
     render();
   };
 }

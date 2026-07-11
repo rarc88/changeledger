@@ -2,7 +2,7 @@
 id: "20260711-162556"
 title: migrate no propaga el tipo quick a repos schema 1
 type: bug
-status: in-validation
+status: done
 created: 2026-07-11T16:25:56Z
 depends_on: [ "20260711-103756" ]
 release_impact: minor
@@ -73,3 +73,4 @@ nueva solo la reciben los repos creados con `init`. Reportado por el humano el
 - **2026-07-11T21:25:29Z** — status: in-progress → in-review
 - **2026-07-11T21:33:28Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:33:29Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con e2e adversarial sobre configs scratch (schema 0/1/1-custom/2/3), red-green verificado revirtiendo src a baseline, verify 638/638. Caveat acotado aceptado: re-serialización normaliza estilo flow con padding en regiones no tocadas (preexistente, este change lo mejora).
+- **2026-07-11T21:39:53Z** — validation → done (human accepted)
