@@ -2,7 +2,7 @@
 id: "20260711-103759"
 title: Verificación de vigencia del contexto por revisión
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-11T10:37:59Z
 depends_on: [ "20260711-103803" ]
 release_impact: minor
@@ -99,3 +99,4 @@ Superficie compartida: el texto del bootstrap se edita también en
 - **2026-07-11T11:06:49Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T11:25:58Z** — Integrada implementación delegada (6a7c240, 57b90a7, 5b1c2fc): rev de contenido en la línea BEGIN, --have con respuesta corta unchanged, documentación en core.md y bootstrap (BOOTSTRAP_VERSION 1→2, ejercitando la migración de #20260711-103803). pnpm verify 600/600.
 - **2026-07-11T11:25:58Z** — status: in-progress → in-review
+- **2026-07-11T11:29:41Z** — review → in-validation (delegated subagent, clean context)
