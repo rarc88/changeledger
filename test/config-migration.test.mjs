@@ -32,13 +32,15 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-test('225637 CR1: schema 2 gains an inert git section at schema 3', () => {
+test('225637 CR1: schema 2 gains a documented blank integration branch at schema 3', () => {
   const result = buildMigration(SCHEMA_2_CONFIG);
   assert.ok(result);
   assert.equal(result.fromVersion, 2);
   assert.match(result.yaml, /^schema_version: 3$/m);
-  assert.match(result.yaml, /^git: \{\}$/m);
-  assert.doesNotMatch(result.yaml, /integration_branch:/);
+  assert.match(
+    result.yaml,
+    /# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\s*$/m,
+  );
   assert.deepEqual(result.changes, ['updated schema_version: 2 → 3', 'added git section']);
 });
 
@@ -103,6 +105,11 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   assert.match(configText, /^schema_version: 3$/m);
   const config = loadConfig(path.join(root, '.changeledger'));
   assert.equal(config.schema_version, 3);
+  assert.match(
+    configText,
+    /# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\s*$/m,
+  );
+  assert.equal(config.git.integration_branch, null);
 });
 
 // CR2 — check and register warn about schema 0, don't mutate
@@ -553,7 +560,7 @@ project_name: myrepo
   assert.ok(result);
   const { yaml: migrated, changes } = result;
 
-  const expected = `${customized.replace('schema_version: 1', 'schema_version: 3')}git: {}\n`;
+  const expected = `${customized.replace('schema_version: 1', 'schema_version: 3')}# Git integration: change branches start from and merge into this branch\ngit:\n  integration_branch:\n`;
   assert.equal(migrated, expected, 'schema version and the inert git section may change');
   assert.equal(
     changes.length,

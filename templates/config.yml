@@ -35,10 +35,9 @@ release:
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 
-# Git integration. When declared, change branches start from and merge into the
-# integration branch; when absent, ChangeLedger keeps its base auto-detection.
+# Git integration: change branches start from and merge into this branch
 git:
-  # integration_branch: dev
+  integration_branch:
 
 # Valid lifecycle statuses (order = progress)
 statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]

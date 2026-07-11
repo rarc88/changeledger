@@ -1148,7 +1148,7 @@ test('210115 CR4: saving without touching git.integration_branch preserves it', 
   const original = fs.readFileSync(configFile, 'utf8');
   fs.writeFileSync(
     configFile,
-    original.replace('  # integration_branch: dev', '  integration_branch: dev'),
+    original.replace('  integration_branch:', '  integration_branch: dev'),
   );
 
   const { body } = readProjectConfigStructured(projects, current);
@@ -1174,7 +1174,7 @@ test('225637 CR5: clearing integration branch preserves sibling git keys', () =>
   const original = fs.readFileSync(configFile, 'utf8');
   fs.writeFileSync(
     configFile,
-    original.replace('  # integration_branch: dev', '  integration_branch: dev\n  custom: keep'),
+    original.replace('  integration_branch:', '  integration_branch: dev\n  custom: keep'),
   );
   const { body } = readProjectConfigStructured(projects, current);
   const result = patchProjectConfig(projects, {

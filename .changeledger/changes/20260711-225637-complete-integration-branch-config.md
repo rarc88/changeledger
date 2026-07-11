@@ -40,7 +40,8 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 ### CR1 — Schema v3 incorpora la sección Git sin inventar una rama
 - **Given** una configuración válida con `schema_version: 2` y sin clave `git`
 - **When** se ejecuta `changeledger config migrate`
-- **Then** queda en `schema_version: 3` con una sección `git` válida y sin `integration_branch` efectiva
+- **Then** queda en `schema_version: 3` con el comentario `# Git integration: change branches start from and merge into this branch` y `git.integration_branch` vacío
+- **And** el valor vacío no declara una rama efectiva y conserva la autodetección
 - **And** el resumen declara exactamente la actualización de schema y la sección añadida
 
 ### CR2 — La migración preserva configuraciones Git existentes
@@ -52,7 +53,7 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 ### CR3 — Los repos nuevos documentan la opción
 - **Given** un repositorio inicializado con la plantilla vigente
 - **When** se inspecciona `.changeledger/config.yml`
-- **Then** usa schema v3 e incluye la sección Git con `integration_branch` documentada como opcional
+- **Then** usa schema v3 e incluye el comentario Git y `integration_branch:` vacío
 - **And** no activa por defecto una rama concreta
 
 ### CR4 — El formulario edita la rama de integración
@@ -87,3 +88,9 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-11T23:05:50Z** — Implementación TDD completa: schema v3 añade sección git inerte, plantilla documenta integration_branch opcional, formulario edita/elimina la rama preservando claves hermanas; pnpm verify 655/655 y 189 changes válidos.
 - **2026-07-11T23:05:50Z** — status: in-progress → in-review
 - **2026-07-11T23:07:43Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T23:16:23Z** — validation → in-progress (agent rejected): La migración genera git: {}; debe insertar una sección documentada con integration_branch: vacío para que sea visible y editable.
+- **2026-07-11T23:16:23Z** — Corrección solicitada: migración y plantilla deben materializar el comentario Git y la clave vacía; `null` mantiene la autodetección existente.
+- **2026-07-11T23:16:23Z** — Alcance afinado por el humano: no se repara `git: {}` en schema 3 porque la única instalación afectada fue revertida; la corrección aplica a nuevas migraciones v2 → v3 y a la plantilla.
+- **2026-07-11T23:21:12Z** — Corrección candidata confirmada: v2→v3 y la plantilla generan comentario Git + integration_branch vacío; sin reparación intra-schema. pnpm verify 658/658 y 189 changes válidos.
+- **2026-07-11T23:21:12Z** — status: in-progress → in-review
+- **2026-07-11T23:22:13Z** — review → in-validation (delegated subagent, clean context)

@@ -169,9 +169,21 @@ function migrateToV2(doc, config, changes) {
 // Existing git settings and comments remain byte-for-byte owned by the source doc.
 function migrateToV3(doc, config, changes) {
   if (!Object.hasOwn(config, 'git')) {
-    doc.set('git', {});
+    setBlankGitSection(doc);
     changes.push('added git section');
   }
+}
+
+function setBlankGitSection(doc) {
+  const gitNode = parseDocument('git:\n  integration_branch:\n').get('git', true);
+  doc.set('git', gitNode);
+  const gitPair = doc.contents.items.find(
+    (pair) => pair.key?.value === 'git' || pair.key === 'git',
+  );
+  if (!gitPair) return;
+  if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
+  gitPair.key.commentBefore =
+    ' Git integration: change branches start from and merge into this branch';
 }
 
 // Apply migration to a file (or dry-run). Returns summary string.
