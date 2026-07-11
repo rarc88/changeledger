@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-10T20:19:47Z
+updated: 2026-07-11T21:51:56Z
 tags: [ viewer ]
 ---
 
@@ -14,6 +14,9 @@ tags: [ viewer ]
 > Graduado del change 20260628-113924 (editor amigable y migración de config).
 > Actualizado por el change 20260703-150228 (layout y ancho configurables del detalle).
 > Actualizado por el change 20260703-220013 (ancho responsive y wrapping del board).
+> Actualizado por el change 20260711-155720 (Specs en grid rico a ancho completo).
+> Actualizado por el change 20260711-155721 (Metrics filtradas, throughput SVG y cuadrantes).
+> Actualizado por el change 20260711-155722 (Projects a ancho completo con scroll por panel).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -59,6 +62,27 @@ cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
 el bloque inicial de procedencia `Graduado del change …` se agrupa en un historial
 colapsable sin reinterpretar otros blockquotes ni relajar la sanitización.
 
+La pestaña **Specs** dispone las cards en un grid responsive a ancho completo
+(al menos 3 columnas desde 1280 px, una columna bajo 680 px), ordenadas por
+`updated` descendente. Cada card muestra título, fecha, tags y un extracto en
+texto plano del primer párrafo de prosa del cuerpo — salta el historial de
+graduación, headings, blockquotes y fences, y elimina la sintaxis Markdown
+inline —, insertado siempre como texto, nunca como HTML interpretable. La
+búsqueda global y el click para abrir el detalle se conservan.
+
+La pestaña **Metrics** respeta los filtros globales (type, status, owner,
+búsqueda) y comparte una única implementación de cálculo: el cliente importa
+`src/metrics.mjs` servido por una ruta de solo lectura con la contención de
+assets existente, sin reimplementar `computeMetrics`. Los KPI incluyen closed,
+cycle p50/p85, WIP, tiempo bloqueado, espera media de validación y retries de
+review. Bajo la fila de KPI cards el contenido se organiza en una cuadrícula
+2×2 de paneles tipo card a ancho completo — throughput como SVG propio con
+barra, fecha y valor por día; tiempos medios por estado con barras a escala
+común y valor visible; aging + WIP; tablas por tipo y por owner — que degrada a
+una sola columna bajo 1100 px; el SVG de throughput se estira al ancho de su
+panel. Sin changes visibles muestra un estado vacío explícito, sin `NaN`,
+`Infinity` ni divisiones por cero.
+
 Changes y specs comparten preferencias globales de presentación del detalle.
 En escritorio se puede alternar sin cerrar entre panel lateral y modal flotante,
 y elegir `Compact` (720 px), `Wide` (960 px, default) o `Full` (1280 px), siempre
@@ -90,7 +114,10 @@ La pestaña **Projects** administra el registro local desde el propio visor:
 muestra id, nombre, ruta y salud; permite reparar una ruta movida solo cuando el
 `project_id` coincide, y desregistrar una entrada sin eliminar archivos del
 repositorio. En modo `--local` conserva la lectura/edición del proyecto actual,
-pero oculta las mutaciones del registro global.
+pero oculta las mutaciones del registro global. `.projects-shell` ocupa el ancho
+completo del contenedor; el listado de proyectos y el panel de configuración
+mantienen scroll independiente por panel, y bajo el breakpoint estrecho se
+apilan en una columna recuperando un único scroll vertical.
 
 Para proyectos vivos, `.changeledger/config.yml` es la autoridad del nombre. El
 nombre guardado en `.registry.json` solo sirve como fallback cuando la ruta ya no
@@ -114,7 +141,8 @@ valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de 
 escritura atómica.
 
 Un config antiguo muestra **Migration required** y permite previsualizar el resumen
-`0 → 1`, los cambios y el YAML candidato antes de una aplicación confirmada. CLI y
+`N → M` (con la versión de origen real detectada), los cambios y el YAML candidato
+antes de una aplicación confirmada. CLI y
 viewer comparten el mismo motor de migración. Un schema futuro es estrictamente de
 solo lectura tanto en UI como en endpoints Raw/Form. Cambiar de modo, recargar o
 seleccionar otro proyecto con ediciones locales exige confirmación. Confirmaciones,

@@ -2,11 +2,13 @@
 id: "20260711-155720"
 title: Pantalla Specs con grid rico a ancho completo
 type: feature
-status: in-validation
+status: done
 created: 2026-07-11T15:57:20Z
 depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -96,3 +98,6 @@ Alternativas descartadas:
 - **2026-07-11T16:35:36Z** — Integrada implementación delegada (57e3ce1): grid auto-fill minmax(320px,1fr) con breakpoint 680px, specExcerpt en texto plano saltando el historial de graduación, sortSpecsByUpdated compartido con renderSpecs para mantener el índice de click. CRs verificados en navegador por el implementador. pnpm verify 610/610.
 - **2026-07-11T16:35:36Z** — status: in-progress → in-review
 - **2026-07-11T16:45:57Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:39:38Z** — validation → done (human accepted)
+- **2026-07-11T21:51:56Z** — graduado a spec `viewer.md`
+- **2026-07-11T21:54:25Z** — archived

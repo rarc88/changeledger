@@ -8,6 +8,7 @@ depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -53,3 +54,4 @@ Alternativas descartadas:
 - **2026-07-11T11:19:54Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T11:37:34Z** — validation → done (human accepted)
 - **2026-07-11T15:45:50Z** — graduation skipped: retirada de comando muerto; ningún spec documentaba unarchive y la reversión manual ya estaba descrita
+- **2026-07-11T21:54:25Z** — archived

@@ -1104,7 +1104,7 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 1);
+  assert.equal(result.body.supported, 2);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -1137,6 +1137,30 @@ test('113924 CR4: patchProjectConfig only changes patched field, preserves comme
   assert.match(after, /# my note/);
   // Ensure nothing else changed
   assert.doesNotMatch(after, /language: en/);
+});
+
+test('210115 CR4: saving without touching git.integration_branch preserves it', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(configFile, `${original}\ngit:\n  integration_branch: dev\n`);
+
+  const { body } = readProjectConfigStructured(projects, current);
+  assert.equal(body.config.git.integration_branch, 'dev');
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { language: 'fr' },
+  });
+
+  assert.equal(result.code, 200, result.body?.error);
+  const after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /language: fr/);
+  assert.match(after, /integration_branch: dev/);
 });
 
 test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
@@ -1195,7 +1219,7 @@ test('113924 CR6 atomic: applyConfigMigration revision check and write are atomi
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   // A stale revision is checked while mutateFileAtomic holds the file lock.
   const staleResult = applyConfigMigration(projects, { project: current, revision: 'stale' });
@@ -1226,13 +1250,13 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
   // Downgrade to schema 0
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
   const result = previewConfigMigration(projects, current);
   assert.equal(result.code, 200);
-  assert.ok(result.body.yaml.includes('schema_version: 1'));
+  assert.ok(result.body.yaml.includes('schema_version: 2'));
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
 });
@@ -1253,14 +1277,14 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
   const result = applyConfigMigration(projects, { project: current, revision: body.revision });
   assert.equal(result.code, 200);
   assert.ok(result.body.ok);
-  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 1'));
+  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 2'));
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
     project: current,
@@ -1276,7 +1300,7 @@ test('113924 CR9: read never triggers migration implicitly', () => {
   const { projects, current } = resolveProjects(root, false);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
@@ -1296,7 +1320,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: 1/, 'schema_version: 2');
+    .replace(/schema_version: \d+/, 'schema_version: 3');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -1316,7 +1340,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: 1/, 'schema_version: 2');
+    .replace(/schema_version: \d+/, 'schema_version: 3');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -1327,7 +1351,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 2 is newer than supported schema 1/);
+  assert.match(direct.body.error, /config schema 3 is newer than supported schema 2/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1342,7 +1366,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 2 is newer than supported schema 1/);
+  assert.match(response.body, /config schema 3 is newer than supported schema 2/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -1366,4 +1390,46 @@ test('225212 CR4: view accepts "." combined with a port', async () => {
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+// 20260711-162556 CR4 — schema 1 repos get the 1 → 2 migration offered in the viewer
+test('162556 CR4: previewConfigMigration offers 1 → 2 with the quick additions', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  // Downgrade to schema 1: pre-quick template state
+  const schema1 = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^schema_version: \d+$/m, 'schema_version: 1')
+    .replace(/^ {4}quick: patch\n/m, '')
+    .replace(/^ {2}quick:\n {4}stages: \[.*\]\n/m, '');
+  fs.writeFileSync(configFile, schema1);
+  assert.doesNotMatch(schema1, /quick/, 'fixture must not contain quick');
+
+  const structured = readProjectConfigStructured(projects, current);
+  assert.equal(structured.body.schemaVersion, 1);
+  assert.equal(structured.body.supported, 2);
+
+  const preview = previewConfigMigration(projects, current);
+  assert.equal(preview.code, 200);
+  assert.match(preview.body.summary, /Config migration 1 → 2/);
+  assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
+  assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
+  assert.match(preview.body.yaml, /^schema_version: 2$/m);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
+
+  // Apply lands the additions and becomes terminal
+  const applied = applyConfigMigration(projects, {
+    project: current,
+    revision: structured.body.revision,
+  });
+  assert.equal(applied.code, 200);
+  const after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /^schema_version: 2$/m);
+  assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
+  assert.match(after, /quick: patch/);
+  const again = previewConfigMigration(projects, current);
+  assert.equal(again.body.already_current, true);
 });

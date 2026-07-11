@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-11T15:45:49Z
+updated: 2026-07-11T21:51:13Z
 tags: [ lifecycle ]
 ---
 
@@ -21,6 +21,8 @@ tags: [ lifecycle ]
 > Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
 > Actualizado por el change 20260703-220014 (parada de validación local por change).
 > Actualizado por el change 20260711-103756 (carril quick para trabajo pequeño trazable).
+> Actualizado por el change 20260710-201703 (rol audit read-only en validación).
+> Actualizado por el change 20260711-160446 (baseline declarado y verificado en delegaciones que escriben).
 
 ```mermaid
 stateDiagram-v2
@@ -63,13 +65,22 @@ auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que e
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
 
+**Auditoría post-review.** Un change en `in-validation` admite una inspección
+delegada estrictamente read-only: `changeledger agent-context audit <id>` entrega
+una cápsula autocontenida con el change, sus criterios y una frontera explícita
+de no mutación (archivos, Git, ledger). El delegado devuelve hallazgos y
+evidencia, nunca un veredicto que mueva el lifecycle, y la operación no cambia el
+status ni añade entradas al Log. El contexto `review` conserva su restricción a
+`in-review` y su receta de veredicto única.
+
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo
 realmente independiente o aporta revisión de contexto limpio. La delegación no es
 un requisito universal ni un mecanismo prescrito por ChangeLedger: el agente
 principal decide según el harness disponible. Sí es una decisión auditable: cada
 delegación debe tener motivo, ownership o pregunta clara, salida esperada y
-criterio de integración. El contrato desaconseja sobrefragmentar (por archivo,
+criterio de integración; los roles que escriben declaran además el baseline
+esperado (rama o commit) que el delegado verifica antes de tocar su worktree. El contrato desaconseja sobrefragmentar (por archivo,
 por línea o por edición mecánica diminuta), exige disjunción para trabajo en
 paralelo y pide ajustar el modelo a la dificultad: modelos fuertes para
 ambigüedad, arquitectura, seguridad o revisiones difíciles; modelos suficientes y

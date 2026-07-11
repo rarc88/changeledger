@@ -8,6 +8,7 @@ depends_on: [ "20260711-103803" ]
 release_impact: minor
 owner: raruiz-hiberuscom
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -103,3 +104,4 @@ Superficie compartida: el texto del bootstrap se edita también en
 - **2026-07-11T11:29:41Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T11:37:30Z** — validation → done (human accepted)
 - **2026-07-11T15:45:50Z** — graduado a spec `contract-discovery.md`
+- **2026-07-11T21:54:25Z** — archived

@@ -1495,3 +1495,61 @@ test('CR6: merges and chore(release) prep are exempt from the lint', () => {
   const parsed = JSON.parse(out.calls.at(-1));
   assert.deepEqual(parsed.errors, []);
 });
+
+// --- check --commits base from config (20260711-210115 CR1) ---
+
+test('210115 CR1: configured git.integration_branch is the default lint base', () => {
+  const { root, git } = gitFixture();
+  // A marker-less commit below `dev` must stay outside the linted range.
+  fs.writeFileSync(path.join(root, 'pre.txt'), 'pre\n');
+  git(['add', 'pre.txt']);
+  git(['commit', '-q', '-m', 'feat(x): historical commit without marker']);
+  git(['branch', 'dev']);
+
+  fs.mkdirSync(path.join(root, '.changeledger'));
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'git:\n  integration_branch: dev\n',
+  );
+
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): missing marker on branch']);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits'], root, out);
+
+  assert.equal(code, 1);
+  assert.ok(
+    out.calls.some((line) => line.includes('commits dev..HEAD')),
+    out.calls.join('\n'),
+  );
+  const errOut = captureOutput();
+  const jsonCode = check(['--commits', '--json'], root, errOut);
+  assert.equal(jsonCode, 1);
+  const parsed = JSON.parse(errOut.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, new RegExp(sha));
+});
+
+test('210115 CR1: without the key the base stays the current auto-detection', () => {
+  const { root, git } = gitFixture();
+  fs.mkdirSync(path.join(root, '.changeledger'));
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'language: en\n');
+
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): with marker [#20260711-000001]']);
+
+  const out = captureOutput();
+  const code = check(['--commits'], root, out);
+
+  assert.equal(code, 0);
+  assert.ok(
+    out.calls.some((line) => line.includes('commits main..HEAD')),
+    out.calls.join('\n'),
+  );
+});
