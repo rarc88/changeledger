@@ -509,7 +509,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103758: additive — Operational discovery gains one bullet
     // pointing at `changeledger search`. Every existing rule preserved, none
     // retired or replaced.
-    'core.md': '193971daf3421b5bf7a1ee36402995d655952e2e44a8f40bea5e6feec3f166d6',
+    // 20260711-103759: additive — a new paragraph in "Read complete context
+    // before acting" documents `--have <rev>` as a post-compaction revision
+    // check. Every existing rule preserved, none retired or replaced.
+    'core.md': '3ec5f398ff4d74531c2bf24b55f583e4cc705be5e57cfe028af2e1e8e1eb88e1',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -654,9 +657,11 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     assert.match(output, /# Selected change/);
     const mode = output.match(/^===== CHANGELEDGER CONTEXT BEGIN — mode: ([^—]+?)(?: —|$)/)?.[1];
     assert.ok(mode, `missing BEGIN mode for ${status}`);
-    assert.equal(
+    assert.match(
       output.split('\n')[0],
-      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} =====`,
+      new RegExp(
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} — rev:[0-9a-f]{12} =====$`,
+      ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
@@ -683,9 +688,11 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, /This incremental context extends the complete core context already read/);
     assert.match(output, /one-pass full-capture rule applies here/i);
     assert.match(output, /a partial view is invalid/i);
-    assert.equal(
+    assert.match(
       output.split('\n')[0],
-      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====`,
+      new RegExp(
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — rev:[0-9a-f]{12} =====$`,
+      ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
@@ -722,26 +729,80 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   const { version } = JSON.parse(
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
-  const begin = (label) => `===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} =====`;
+  const begin = (label) =>
+    new RegExp(
+      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — rev:[0-9a-f]{12} =====$`,
+    );
   const end =
     '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
 
   const core = buildContext(undefined, root);
-  assert.equal(core.split('\n')[0], begin('core'));
+  assert.match(core.split('\n')[0], begin('core'));
   assert.equal(core.trimEnd().split('\n').at(-1), end);
   assert.doesNotMatch(core, /^Mode: core$/m);
   assertWithinBudget('core', core, contextBudgets.base.core);
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
-    assert.equal(output.split('\n')[0], begin(mode));
+    assert.match(output.split('\n')[0], begin(mode));
     assert.equal(output.trimEnd().split('\n').at(-1), end);
     assert.doesNotMatch(output, /^Mode: /m);
   }
 
   const byId = buildContext(id, root);
-  assert.equal(byId.split('\n')[0], begin(`implement — change: #${id}`));
+  assert.match(byId.split('\n')[0], begin(`implement — change: #${id}`));
   assert.equal(byId.trimEnd().split('\n').at(-1), end);
+});
+
+// 20260711-103759: `rev:<12 hex>` lets an agent verify a retained capture is
+// still current without reprinting the contract.
+function extractRev(output) {
+  return output.split('\n')[0].match(/rev:([0-9a-f]{12})/)?.[1];
+}
+
+test('103759 CR1: the core rev is stable across repeated invocations', () => {
+  const root = repo();
+  const first = buildContext(undefined, root);
+  const second = buildContext(undefined, root);
+  const firstRev = extractRev(first);
+  assert.match(firstRev, /^[0-9a-f]{12}$/);
+  assert.equal(firstRev, extractRev(second));
+});
+
+test('103759 CR2: the rev changes when the effective policy changes', () => {
+  const root = repo();
+  const before = extractRev(buildContext(undefined, root));
+  setConfig(root, [[/^language: en$/m, 'language: es']]);
+  const after = extractRev(buildContext(undefined, root));
+  assert.notEqual(before, after);
+});
+
+test('103759 CR3: --have with the current rev returns a short unchanged confirmation', () => {
+  const root = repo();
+  const full = buildContext(undefined, root);
+  const rev = extractRev(full);
+  const short = buildContext(undefined, root, { have: rev });
+  assert.match(short.split('\n')[0], /— unchanged =====$/);
+  assert.match(short, new RegExp(`rev:${rev}`));
+  assert.match(short, /unchanged/);
+  assert.doesNotMatch(short, /# ChangeLedger — Core Contract/);
+  assert.equal(
+    short.trimEnd().split('\n').at(-1),
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+  );
+  assert.ok(short.length < full.length);
+});
+
+test('103759 CR4: --have with a stale or invented rev returns the full normal output', () => {
+  const root = repo();
+  const full = buildContext(undefined, root);
+  const output = buildContext(undefined, root, { have: 'deadbeefcafe' });
+  assert.equal(output, full);
+  assert.match(output, /# ChangeLedger — Core Contract/);
+  assert.equal(
+    output.trimEnd().split('\n').at(-1),
+    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+  );
 });
 
 test('225213 CR8: core exposes the transversal effective policy without raw config', () => {
