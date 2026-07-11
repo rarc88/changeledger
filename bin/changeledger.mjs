@@ -266,7 +266,7 @@ program
 program
   .command('agent-prompt')
   .description('print a portable delegation prompt skeleton for a role')
-  .argument('<role>', 'investigation | implementation | review')
+  .argument('<role>', 'investigation | implementation | review | audit')
   .addHelpText(
     'after',
     [
@@ -274,10 +274,14 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
+      '`audit` is a read-only inspection of a change already in `in-validation`,',
+      'after review already passed; it never issues a verdict or moves the change.',
+      '',
       'Examples:',
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
+      '  changeledger agent-prompt audit',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -285,8 +289,11 @@ program
 program
   .command('agent-context')
   .description('print a self-contained minimal context for a delegated role')
-  .argument('<role>', 'investigation | implementation | review')
-  .argument('[change-id]', 'optional for investigation; required for implementation and review')
+  .argument('<role>', 'investigation | implementation | review | audit')
+  .argument(
+    '[change-id]',
+    'optional for investigation; required for implementation, review and audit',
+  )
   .addHelpText(
     'after',
     [
@@ -295,11 +302,15 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
+      '`audit` requires a change in `in-validation`; it is read-only inspection',
+      'after review already passed, and never issues a verdict or moves the change.',
+      '',
       'Examples:',
       '  changeledger agent-context investigation',
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
+      '  changeledger agent-context audit <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));
