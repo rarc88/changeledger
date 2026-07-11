@@ -16,10 +16,21 @@ function formatLabel(hit) {
   return hit.kind === 'spec' ? hit.ref : `${hit.ref} ${hit.status} ${hit.type}`;
 }
 
+// A non-numeric or <1 `--limit` used to degrade silently to "no matches"
+// (see change 20260711-160443); fail fast with a clear error instead.
+function parseLimit(limitStr) {
+  if (limitStr === undefined) return undefined;
+  const n = Number(limitStr);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`--limit must be a whole number >= 1, got "${limitStr}"`);
+  }
+  return n;
+}
+
 // CLI entry point: prints text or `--json`, and `no matches` when nothing scores.
 export function runSearch(queryParts, options = {}, cwd = process.cwd()) {
   const query = queryParts.join(' ').trim();
-  const limit = options.limit !== undefined ? Number(options.limit) : undefined;
+  const limit = parseLimit(options.limit);
   const hits = search(query, { limit, type: options.type, status: options.status }, cwd);
 
   if (options.json) {

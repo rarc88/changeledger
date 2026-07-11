@@ -291,3 +291,33 @@ test('buildCorpus reduces changes and specs to scorable documents', () => {
   assert.ok(corpus.some((d) => d.ref === '#20260101-000001'));
   assert.ok(corpus.some((d) => d.ref === 'spec:wallet-notes'));
 });
+
+test('a non-numeric --limit fails fast instead of silently returning no matches', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: 'abc' }, root), /--limit/);
+});
+
+test('a --limit below 1 fails fast', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: '0' }, root), /--limit/);
+  assert.throws(() => runSearch(['wallet'], { limit: '-1' }, root), /--limit/);
+});
+
+test('a fractional --limit fails fast', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: '1.5' }, root), /--limit/);
+});
+
+test('a valid --limit still narrows the results as before', () => {
+  const root = repoWithFixtures();
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (msg) => logs.push(msg);
+  try {
+    runSearch(['wallet'], { limit: '1', json: true }, root);
+  } finally {
+    console.log = originalLog;
+  }
+  const parsed = JSON.parse(logs.join('\n'));
+  assert.equal(parsed.length, 1);
+});
