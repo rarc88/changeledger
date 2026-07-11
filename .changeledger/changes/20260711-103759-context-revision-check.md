@@ -2,7 +2,7 @@
 id: "20260711-103759"
 title: Verificación de vigencia del contexto por revisión
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T10:37:59Z
 depends_on: [ "20260711-103803" ]
 release_impact: minor
@@ -87,13 +87,15 @@ Superficie compartida: el texto del bootstrap se edita también en
 
 ## Plan
 
-- [ ] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`; verify: `node --test test/framing.test.mjs` (CR1, CR2)
-- [ ] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed; verify: `pnpm test` (CR3, CR4)
-- [ ] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`; verify: `pnpm test` (CR5)
-- [ ] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register` (support)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`; verify: `node --test test/framing.test.mjs` (CR1, CR2) — 2026-07-11T11:25:58Z
+- [x] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed; verify: `pnpm test` (CR3, CR4) — 2026-07-11T11:25:58Z
+- [x] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`; verify: `pnpm test` (CR5) — 2026-07-11T11:25:58Z
+- [x] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register` (support) — 2026-07-11T11:25:58Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:25:58Z
 
 ## Log
 - **2026-07-11T10:47:26Z** — status: draft → approved
 - **2026-07-11T11:06:49Z** — status: approved → in-progress
 - **2026-07-11T11:06:49Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T11:25:58Z** — Integrada implementación delegada (6a7c240, 57b90a7, 5b1c2fc): rev de contenido en la línea BEGIN, --have con respuesta corta unchanged, documentación en core.md y bootstrap (BOOTSTRAP_VERSION 1→2, ejercitando la migración de #20260711-103803). pnpm verify 600/600.
+- **2026-07-11T11:25:58Z** — status: in-progress → in-review
