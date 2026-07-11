@@ -38,12 +38,13 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests (support)
-- [ ] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs` (support)
-- [ ] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo (support)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests (support) — 2026-07-11T11:01:32Z
+- [x] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs` (support) — 2026-07-11T11:01:32Z
+- [x] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo (support) — 2026-07-11T11:01:33Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:01:33Z
 
 ## Log
 - **2026-07-11T10:47:27Z** — status: draft → approved
 - **2026-07-11T10:53:20Z** — status: approved → in-progress
 - **2026-07-11T10:53:20Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T11:01:33Z** — Implementación delegada integrada en change/20260711-batch-optimizations (commit ab5dc28); pnpm verify 562/562 en la rama del delegado.
