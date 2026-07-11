@@ -95,3 +95,4 @@ Alternativas descartadas:
 - **2026-07-11T22:12:03Z** — status: in-progress → in-review
 - **2026-07-11T22:17:14Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T22:17:14Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con evidencia e2e en repos scratch (base declarada vs auto-detección, base explícita gana, fail-fast en valores malformados, policy line exacta, preservación en visor). Sin residuos vs baseline; verify 651/651.
+- **2026-07-11T22:18:43Z** — Dogfooding: este repo declara git.integration_branch: dev en su config; Effective policy lo expone y check --commits lintea dev..HEAD por defecto.
