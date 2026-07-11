@@ -275,6 +275,62 @@ test('CR6 — searchDocuments breaks score ties by ref descending', () => {
   );
 });
 
+test('on an equal score, a spec sorts before a change (specs are current truth)', () => {
+  const docs = [
+    {
+      ref: '#1',
+      kind: 'change',
+      title: 'x',
+      status: 'done',
+      type: 'bug',
+      headings: '',
+      body: 'echo',
+    },
+    {
+      ref: 'spec:echo-notes',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+  ];
+  const hits = searchDocuments(docs, 'echo');
+  assert.deepEqual(
+    hits.map((h) => h.ref),
+    ['spec:echo-notes', '#1'],
+  );
+});
+
+test('among tied specs, the existing ref-descending tie-break still applies', () => {
+  const docs = [
+    {
+      ref: 'spec:a',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+    {
+      ref: 'spec:b',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+  ];
+  const hits = searchDocuments(docs, 'echo');
+  assert.deepEqual(
+    hits.map((h) => h.ref),
+    ['spec:b', 'spec:a'],
+  );
+});
+
 test('CR7 — the spec context mandates changeledger search before Investigation', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-search-ctx-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
@@ -290,4 +346,34 @@ test('buildCorpus reduces changes and specs to scorable documents', () => {
   const corpus = buildCorpus({ changes, specs });
   assert.ok(corpus.some((d) => d.ref === '#20260101-000001'));
   assert.ok(corpus.some((d) => d.ref === 'spec:wallet-notes'));
+});
+
+test('a non-numeric --limit fails fast instead of silently returning no matches', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: 'abc' }, root), /--limit/);
+});
+
+test('a --limit below 1 fails fast', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: '0' }, root), /--limit/);
+  assert.throws(() => runSearch(['wallet'], { limit: '-1' }, root), /--limit/);
+});
+
+test('a fractional --limit fails fast', () => {
+  const root = repoWithFixtures();
+  assert.throws(() => runSearch(['wallet'], { limit: '1.5' }, root), /--limit/);
+});
+
+test('a valid --limit still narrows the results as before', () => {
+  const root = repoWithFixtures();
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (msg) => logs.push(msg);
+  try {
+    runSearch(['wallet'], { limit: '1', json: true }, root);
+  } finally {
+    console.log = originalLog;
+  }
+  const parsed = JSON.parse(logs.join('\n'));
+  assert.equal(parsed.length, 1);
 });
