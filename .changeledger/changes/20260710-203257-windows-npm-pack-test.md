@@ -1,0 +1,48 @@
+---
+id: "20260710-203257"
+title: El test del paquete falla al invocar npm en Windows
+type: bug
+status: approved
+created: 2026-07-10T20:32:57Z
+depends_on: []
+---
+
+## Request
+
+Hacer que la comprobación del artefacto publicable de `agent-prompt` funcione
+en el job Windows de CI, igual que en Linux y macOS.
+
+## Investigation
+
+`test/agent-prompt.test.mjs` ejecuta `execFile('npm', ['pack', '--dry-run',
+'--json'])`. En Windows, `npm` se distribuye como el shim `npm.cmd` y
+`execFile` no lo resuelve por el shell; el proceso falla con `spawn npm ENOENT`
+antes de ejecutar el empaquetado. La matriz de CI sí instala Node, pnpm y npm:
+el defecto está en la selección del ejecutable desde el test, no en el workflow
+ni en los assets del paquete.
+
+## Specification
+
+### CR1 — El test usa el ejecutable npm correcto por plataforma
+- **Given** la prueba de `npm pack --dry-run --json` del artefacto publicable
+- **When** se ejecuta en Windows
+- **Then** invoca `npm.cmd` y no falla por `ENOENT`
+- **And** en plataformas no Windows conserva la invocación directa de `npm`
+
+### CR2 — La comprobación de contenido se conserva
+- **Given** que el comando de empaquetado termina correctamente en cualquier
+  sistema de la matriz
+- **When** se inspecciona su JSON de salida
+- **Then** el test sigue exigiendo los tres esqueletos y las tres cápsulas bajo
+  `templates/contract/`
+- **And** no se relaja ni se omite la prueba de artefacto publicable
+
+## Plan
+
+- [ ] Añadir en `test/agent-prompt.test.mjs` una regresión de plataforma para el empaquetado de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+- [ ] Ajustar la invocación de `execFile` en `test/agent-prompt.test.mjs` para el artefacto de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+- [ ] Conservar en `test/agent-prompt.test.mjs` las aserciones de los assets bajo `templates/contract/agent-prompts/` y `templates/contract/agent-contexts/`; verify: `node --test test/agent-prompt.test.mjs` (CR2)
+- [ ] Ejecutar el gate completo y confirmar la matriz Windows en CI; verify: `pnpm verify` (support)
+
+## Log
+- **2026-07-11T10:47:22Z** — status: draft → approved
