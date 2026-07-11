@@ -2,7 +2,7 @@
 id: "20260711-225638"
 title: Mover marcadores múltiples al cuerpo del commit
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T22:56:38Z
 depends_on: [ "20260711-103757" ]
 release_impact: minor
@@ -85,11 +85,11 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad; verify: `node --test test/commit.test.mjs` (CR1, CR2)
-- [ ] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR3, CR4)
-- [ ] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`; verify: `node --test test/git.test.mjs test/view.test.mjs` (CR5)
-- [ ] Actualizar `templates/contract/implement.md` y `.changeledger/specs/git-traceability.md` tras aceptación; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] Ejecutar `pnpm verify` después de los ciclos red-green (support)
+- [x] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad; verify: `node --test test/commit.test.mjs` (CR1, CR2) — 2026-07-11T23:11:30Z
+- [x] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR3, CR4) — 2026-07-11T23:11:30Z
+- [x] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`; verify: `node --test test/git.test.mjs test/view.test.mjs` (CR5) — 2026-07-11T23:11:31Z
+- [x] Actualizar `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4) — 2026-07-11T23:11:31Z
+- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support) — 2026-07-11T23:11:31Z
 
 ## Log
 
@@ -97,3 +97,5 @@ Alternativas descartadas:
 - **2026-07-11T23:00:13Z** — status: draft → approved
 - **2026-07-11T23:07:57Z** — status: approved → in-progress
 - **2026-07-11T23:07:57Z** — owner → Test (auto)
+- **2026-07-11T23:11:36Z** — Implementación TDD completa: un id permanece en subject; múltiples ids usan cuerpo ChangeLedger canónico; lint valida ambas formas y reporta formatos ambiguos; gitRefs conserva lookup con subject limpio. pnpm verify 658/658 y 189 changes válidos.
+- **2026-07-11T23:11:36Z** — status: in-progress → in-review

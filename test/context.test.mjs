@@ -559,7 +559,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // when the config declares `git.integration_branch`, change branches are
     // created from it and integrated into it, with `main` reserved for
     // releases. Every existing rule preserved, none retired or replaced.
-    'implement.md': 'e173c7022941f8f4ca51750afdfbac21fb7c691dc8e1993cd60b1cd1b6749402',
+    // 20260711-225638: the multi-id placement rule is replaced, not retired:
+    // one id remains in the subject, while two or more use the canonical
+    // `ChangeLedger: [#A] [#B]` body line. Helper and lint enforcement remain.
+    'implement.md': 'e058e03f0fc08dd930b5d650b3f5c8d48fba545863c0f7bae10a3529dc2ad7e2',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',

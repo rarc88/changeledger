@@ -126,3 +126,20 @@ test('CR2: mutatingRun returns stdout on success', () => {
   const out = mutatingRun(['rev-parse', '--is-inside-work-tree'], root);
   assert.equal(out.trim(), 'true');
 });
+
+test('225638 CR5: gitRefs finds a body marker and returns the clean subject', () => {
+  const root = scratchGitRepo();
+  mutatingRun(['config', 'user.email', 'test@example.com'], root);
+  mutatingRun(['config', 'user.name', 'Test'], root);
+  mutatingRun(['config', 'commit.gpgsign', 'false'], root);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  mutatingRun(['add', 'a.txt'], root);
+  mutatingRun(
+    ['commit', '-m', 'docs(context): checkpoint', '-m', `ChangeLedger: [#${ID}] [#B]`],
+    root,
+  );
+
+  const refs = gitRefs(root, ID);
+  assert.equal(refs.commits.length, 1);
+  assert.equal(refs.commits[0].subject, 'docs(context): checkpoint');
+});

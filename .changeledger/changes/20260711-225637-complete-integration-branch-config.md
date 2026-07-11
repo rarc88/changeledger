@@ -2,7 +2,7 @@
 id: "20260711-225637"
 title: Completar migración y formulario de la rama de integración
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-11T22:56:37Z
 depends_on: [ "20260711-210115", "20260628-113219", "20260628-113924" ]
 release_impact: patch
@@ -86,3 +86,4 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-11T23:00:54Z** — owner → Test (auto)
 - **2026-07-11T23:05:50Z** — Implementación TDD completa: schema v3 añade sección git inerte, plantilla documenta integration_branch opcional, formulario edita/elimina la rama preservando claves hermanas; pnpm verify 655/655 y 189 changes válidos.
 - **2026-07-11T23:05:50Z** — status: in-progress → in-review
+- **2026-07-11T23:07:43Z** — review → in-validation (delegated subagent, clean context)
