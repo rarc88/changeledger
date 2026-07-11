@@ -7,7 +7,7 @@ import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { buildMigration } from '../src/config-migration.mjs';
+import { applyMigration, buildMigration } from '../src/config-migration.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
@@ -52,14 +52,14 @@ project_id: "abc123"
 project_name: myrepo
 `;
 
-// CR1 — init seeds schema_version: 1
-test('113219 CR1: init creates config with schema_version: 1', () => {
+// CR1 — init seeds the current schema version
+test('113219 CR1: init creates config with the current schema_version', () => {
   const root = tmp();
   init(root);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  assert.match(configText, /^schema_version: 1$/m);
+  assert.match(configText, /^schema_version: 2$/m);
   const config = loadConfig(path.join(root, '.changeledger'));
-  assert.equal(config.schema_version, 1);
+  assert.equal(config.schema_version, 2);
 });
 
 // CR2 — check and register warn about schema 0, don't mutate
@@ -68,7 +68,7 @@ test('113219 CR2: check warns on schema 0 with actionable message and does not m
   init(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   // Downgrade to schema 0
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
@@ -90,7 +90,7 @@ test('113219 CR2: register warns on schema 0 and does not modify config', () => 
   const root = tmp();
   init(root);
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const text = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
@@ -119,8 +119,8 @@ test('113219 CR3: buildMigration returns candidate YAML without writing', () => 
 
   assert.ok(result, 'should produce a migration result for schema 0');
   assert.ok(
-    result.yaml.includes('schema_version: 1'),
-    'candidate YAML must include schema_version: 1',
+    result.yaml.includes('schema_version: 2'),
+    'candidate YAML must include schema_version: 2',
   );
   assert.equal(
     fs.readFileSync(configFile, 'utf8'),
@@ -137,7 +137,7 @@ test('113219 CR4: migration adds required fields and removes id_digits', () => {
   assert.ok(result);
   const { yaml: migrated } = result;
 
-  assert.match(migrated, /^schema_version: 1/m);
+  assert.match(migrated, /^schema_version: 2/m);
   assert.match(migrated, /tdd: true/);
   assert.match(migrated, /in-review/);
   assert.match(migrated, /in-validation/);
@@ -278,7 +278,7 @@ project_name: myrepo
     1,
     'no duplicate schema_version',
   );
-  assert.match(migrated, /^schema_version: 1/m);
+  assert.match(migrated, /^schema_version: 2/m);
   // Idempotent
   assert.equal(buildMigration(migrated), null);
 });
@@ -289,15 +289,15 @@ test('113219 CR8: invalid YAML throws with explanation', () => {
 });
 
 test('113219 CR8: future schema throws with explanation and does not write', () => {
-  const futureConfig = `schema_version: 2\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
+  const futureConfig = `schema_version: 3\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
   assert.throws(
     () => buildMigration(futureConfig),
-    /config schema 2 is newer than supported schema 1/,
+    /config schema 3 is newer than supported schema 2/,
   );
 });
 
-// CR9 — historical SpecLedger fixtures all converge to schema 1
-test('113219 CR9: all historical fixture generations converge to schema 1', () => {
+// CR9 — historical SpecLedger fixtures all converge to the current schema
+test('113219 CR9: all historical fixture generations converge to the current schema', () => {
   const fixtures = [
     // Minimal SpecLedger initial template (5 statuses, .sl paths, id_digits)
     SPECLEDGER_CONFIG,
@@ -317,10 +317,10 @@ test('113219 CR9: all historical fixture generations converge to schema 1', () =
     );
     const migrated = result ? result.yaml : fixture;
     const _config = JSON.parse(JSON.stringify({}));
-    // Verify schema_version: 1 in output
+    // Verify schema_version: 2 in output
     assert.match(
       migrated,
-      /schema_version: 1/,
+      /schema_version: 2/,
       `fixture did not converge: ${fixture.slice(0, 80)}`,
     );
     // Verify idempotent
@@ -415,4 +415,166 @@ project_name: legacy
   );
   assert.match(migrated, /changeledger context spec/);
   assert.doesNotMatch(migrated, /Spec Ledger|\bsl check\b|AGENTS\.md §/);
+});
+
+// 20260711-162556 — migration 1 → 2 propagates the quick type to schema 1 repos
+
+// Schema 1 config as produced by the previous template (no quick type)
+const SCHEMA1_CONFIG = `\
+schema_version: 1
+language: en
+tdd: true
+release:
+  impacts:
+    feature: minor
+    bug: patch
+    audit: none
+    refactor: none
+    chore: none
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+  bug:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+
+// CR1 — migration 1 → 2 adds quick
+test('162556 CR1: schema 1 without quick gains quick type and impact at schema 2', () => {
+  const result = buildMigration(SCHEMA1_CONFIG);
+  assert.ok(result, 'schema 1 must produce a migration to schema 2');
+  const { yaml: migrated, changes } = result;
+
+  assert.match(migrated, /^schema_version: 2$/m);
+  // quick type with stages [request, log]
+  assert.match(migrated, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
+  // no review_required inside the quick block
+  const quickBlock = migrated.slice(migrated.indexOf('quick:'));
+  const quickTypeBlock = quickBlock.slice(0, quickBlock.search(/\n\S/) + 1 || undefined);
+  assert.doesNotMatch(quickTypeBlock, /review_required/);
+  // release impact
+  assert.match(migrated, /quick: patch/);
+  // summary lists both additions
+  assert.ok(
+    changes.some((c) => c.includes('types.quick')),
+    `changes must list the quick type addition, got: ${JSON.stringify(changes)}`,
+  );
+  assert.ok(
+    changes.some((c) => c.includes('release.impacts.quick: patch')),
+    `changes must list the quick impact addition, got: ${JSON.stringify(changes)}`,
+  );
+});
+
+test('162556 CR1: applyMigration summary reports 1 → 2 for schema 1 configs', () => {
+  const configFile = `${os.tmpdir()}/cl-162556-summary-${process.pid}.yml`;
+  fs.writeFileSync(configFile, SCHEMA1_CONFIG);
+  const summary = applyMigration(configFile, { dryRun: true });
+  assert.match(summary, /Config migration 1 → 2/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG, 'dry run must not write');
+  fs.rmSync(configFile, { force: true });
+});
+
+// CR2 — custom quick type and impacts preserved byte for byte
+test('162556 CR2: existing custom quick type and impacts stay intact; only schema_version changes', () => {
+  const customized = `\
+schema_version: 1
+language: en
+tdd: true
+release:
+  impacts:
+    feature: minor
+    quick: minor
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+  # my own quick flavour
+  quick:
+    stages: [request, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+  const result = buildMigration(customized);
+  assert.ok(result);
+  const { yaml: migrated, changes } = result;
+
+  const expected = customized.replace('schema_version: 1', 'schema_version: 2');
+  assert.equal(migrated, expected, 'only schema_version may change');
+  assert.equal(
+    changes.length,
+    1,
+    `only the schema_version change expected, got: ${JSON.stringify(changes)}`,
+  );
+  assert.match(changes[0], /schema_version/);
+});
+
+// CR3 — idempotency and version boundary
+test('162556 CR3: schema 2 config needs no migration and file is untouched', () => {
+  const result = buildMigration(SCHEMA1_CONFIG);
+  assert.ok(result);
+  assert.equal(buildMigration(result.yaml), null, '1 → 2 output must be terminal');
+
+  const configFile = `${os.tmpdir()}/cl-162556-idem-${process.pid}.yml`;
+  fs.writeFileSync(configFile, result.yaml);
+  const before = fs.statSync(configFile).mtimeMs;
+  const summary = applyMigration(configFile);
+  assert.match(summary, /already at schema 2/);
+  assert.equal(fs.statSync(configFile).mtimeMs, before, 'no rewrite when already current');
+  fs.rmSync(configFile, { force: true });
+});
+
+test('162556 CR3: schema newer than 2 fails closed', () => {
+  assert.throws(
+    () => buildMigration('schema_version: 3\nlanguage: en\n'),
+    /config schema 3 is newer than supported schema 2/,
+  );
+});
+
+// CR1/CR9 continuity — schema 0 configs also converge with quick included
+test('162556 CR1: schema 0 migration lands at 2 and includes quick', () => {
+  const result = buildMigration(SPECLEDGER_CONFIG);
+  assert.ok(result);
+  assert.match(result.yaml, /^schema_version: 2$/m);
+  assert.match(result.yaml, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
+  assert.match(result.yaml, /quick: patch/);
+  assert.equal(buildMigration(result.yaml), null);
+});
+
+// CR4 — check detects schema 1 as outdated and points at the migration
+test('162556 CR4: check warns on schema 1 with the migrate command and does not modify config', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const schema1 = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^schema_version: \d+$/m, 'schema_version: 1')
+    .replace(/^ {4}quick: patch\n/m, '')
+    .replace(/^ {2}quick:\n {4}stages: \[.*\]\n/m, '');
+  fs.writeFileSync(configFile, schema1);
+  const before = fs.readFileSync(configFile, 'utf8');
+
+  const out = silentOutput();
+  check([], root, out);
+
+  assert.ok(
+    out.messages.warn.some((m) => m.includes('config schema 1 is outdated')),
+    `expected schema 1 warning, got: ${JSON.stringify(out.messages.warn)}`,
+  );
+  assert.ok(
+    out.messages.warn.some((m) => m.includes('changeledger config migrate --dry-run')),
+    'warning should include the actionable command',
+  );
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'check must not modify config.yml');
 });

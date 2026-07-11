@@ -497,14 +497,14 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   // Downgrade to schema 0 by removing schema_version
   const configFile = path.join(root, '.changeledger', 'config.yml');
-  const original = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: 1\n/m, '');
+  const original = fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+\n/m, '');
   fs.writeFileSync(configFile, original);
   const before = fs.readFileSync(configFile, 'utf8');
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 1 \(dry run\)/);
-  assert.match(out, /schema_version: 1/);
+  assert.match(out, /Config migration 0 → 2 \(dry run\)/);
+  assert.match(out, /schema_version: 2/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
 
@@ -515,7 +515,7 @@ test('113219 CLI CR7: config migrate is idempotent', () => {
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  // Already at schema 1 — should be no-op
+  // Already at the current schema — should be no-op
   const { code, out } = runIn(root, env, 'config', 'migrate');
   assert.equal(code, 0);
   assert.match(out, /already at schema/i);
