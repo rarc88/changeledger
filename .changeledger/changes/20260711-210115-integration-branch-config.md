@@ -2,7 +2,7 @@
 id: "20260711-210115"
 title: La rama de integración se declara en config
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-11T21:01:15Z
 depends_on: [ "20260711-160446" ]
 release_impact: minor
@@ -93,3 +93,5 @@ Alternativas descartadas:
 - **2026-07-11T21:56:31Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T22:12:03Z** — Integrada implementación delegada (8f4b532..b483512): integrationBranch() en config, check --commits usa la rama declarada como base, Effective policy la expone, implement.md instruye partir/integrar en ella (main solo release), test de preservación en el visor (ya pasaba: el patch AST conserva claves). TDD red-green por CR; pnpm verify 651/651.
 - **2026-07-11T22:12:03Z** — status: in-progress → in-review
+- **2026-07-11T22:17:14Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T22:17:14Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con evidencia e2e en repos scratch (base declarada vs auto-detección, base explícita gana, fail-fast en valores malformados, policy line exacta, preservación en visor). Sin residuos vs baseline; verify 651/651.
