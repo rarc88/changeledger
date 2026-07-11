@@ -2,7 +2,7 @@
 id: "20260711-155721"
 title: Metrics filtradas y con visualización de valor
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T15:57:21Z
 depends_on: []
 release_impact: minor
@@ -98,16 +98,18 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Añadir en `test/metrics.test.mjs` percentiles, espera de validación, retries y desglose por owner para `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3)
-- [ ] Implementar esas métricas en `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3)
-- [ ] Servir el módulo compartido en `src/viewer/server/router.mjs` con test de ruta y contención en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR2)
-- [ ] Añadir en `test/viewer-metadata.test.mjs` cobertura de `metricsHtml` de `src/viewer/public/view-renderers.js`: SVG de throughput, barras con escala común y estado vacío; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
-- [ ] Reescribir `metricsHtml` en `src/viewer/public/view-renderers.js` con KPI cards, SVG y tablas; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
-- [ ] Conectar `renderMetrics` de `src/viewer/public/app.js` al predicado de filtros compartido y al módulo servido; verify: manual browser check con filtros activos (CR1)
-- [ ] Estilos de KPI cards y charts en `src/viewer/public/styles.css`; verify: manual browser check (CR4)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Añadir en `test/metrics.test.mjs` percentiles, espera de validación, retries y desglose por owner para `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3) — 2026-07-11T16:46:30Z
+- [x] Implementar esas métricas en `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3) — 2026-07-11T16:46:30Z
+- [x] Servir el módulo compartido en `src/viewer/server/router.mjs` con test de ruta y contención en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR2) — 2026-07-11T16:46:30Z
+- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `metricsHtml` de `src/viewer/public/view-renderers.js`: SVG de throughput, barras con escala común y estado vacío; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5) — 2026-07-11T16:46:31Z
+- [x] Reescribir `metricsHtml` en `src/viewer/public/view-renderers.js` con KPI cards, SVG y tablas; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5) — 2026-07-11T16:46:31Z
+- [x] Conectar `renderMetrics` de `src/viewer/public/app.js` al predicado de filtros compartido y al módulo servido; verify: manual browser check con filtros activos (CR1) — 2026-07-11T16:46:31Z
+- [x] Estilos de KPI cards y charts en `src/viewer/public/styles.css`; verify: manual browser check (CR4) — 2026-07-11T16:46:31Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:46:31Z
 
 ## Log
 - **2026-07-11T16:13:58Z** — status: draft → approved
 - **2026-07-11T16:22:27Z** — status: approved → in-progress
 - **2026-07-11T16:22:27Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:46:31Z** — Integrada implementación delegada (4 commits): p50/p85, validationWaitMs, reviewRetries y byOwner en computeMetrics; /shared/* con allowlist y contención; metricsHtml con 7 KPI cards, throughputSvg propio, barras de escala común y tablas; renderMetrics filtra con isVisible y computa con el módulo servido. CRs verificados en navegador por el implementador. pnpm verify 620/620.
+- **2026-07-11T16:46:31Z** — status: in-progress → in-review
