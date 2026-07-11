@@ -91,6 +91,10 @@ and `[#id]` commit marker as any other type, skipping only `in-review`. If
 scope grows mid-execution beyond that eligibility, discard the change and
 recreate it under the correct type instead of continuing under `quick`.
 
+Before writing Investigation, run `changeledger search <terms from the request>`
+and record anything relevant as `depends_on` or a mention — do not rediscover
+work another change or spec already covers.
+
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.
 
@@ -163,6 +167,7 @@ title, stage prose, scenario content and task descriptions.
 - `changeledger check [id]` — validate one change or the repository.
 - `changeledger list [--status S] [--type T] [--json]` — inspect/filter changes.
 - `changeledger show <id> [--json]` — inspect one resolved change.
+- `changeledger search <terms...> [--type T] [--status S] [--json]` — find related changes and specs by content.
 - `changeledger owner <id> <name|->` — set or clear responsibility.
 
 Run `changeledger <command> --help` for exact options; the commands support the

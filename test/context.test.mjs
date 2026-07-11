@@ -506,7 +506,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103756: the operational-exception sentence gains a pointer to the
     // new `quick` type for small, reversible, single-concern observable work.
     // Existing rules preserved, none retired.
-    'core.md': '51ff2d5a856f325d7559b98ab5eea959c4200434fdf0d73685943f14297dc8d5',
+    // 20260711-103758: additive — Operational discovery gains one bullet
+    // pointing at `changeledger search`. Every existing rule preserved, none
+    // retired or replaced.
+    'core.md': '193971daf3421b5bf7a1ee36402995d655952e2e44a8f40bea5e6feec3f166d6',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -540,7 +543,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103756: the type enum and activation matrix gain the `quick`
     // row, plus a new paragraph documenting its eligibility and the
     // discard-and-recreate rule for scope growth. Existing rules preserved.
-    'spec.md': '198b14fdafec7085babe55f41fbb4f7a7047dca01e61d80bcd0b885422b3890c',
+    // 20260711-103758: additive — a mandate to run `changeledger search` before
+    // writing Investigation, plus the command's line in Authoring helpers.
+    // Every existing rule preserved, none retired or replaced.
+    'spec.md': '60794e9c56c85fe86a34b7613c7aa1cdd2e1bc5feef3a45dc559100ffb29448f',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',
