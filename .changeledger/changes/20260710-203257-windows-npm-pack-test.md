@@ -2,7 +2,7 @@
 id: "20260710-203257"
 title: El test del paquete falla al invocar npm en Windows
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-10T20:32:57Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -51,3 +51,4 @@ ni en los assets del paquete.
 - **2026-07-11T15:50:11Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T15:54:36Z** — Integrada implementación delegada (278f46d): npmCommand(platform) selecciona npm.cmd en win32 con shell:true, invocación directa intacta en el resto; regresión de plataforma añadida; aserciones de assets conservadas. pnpm verify 603/603.
 - **2026-07-11T15:54:36Z** — status: in-progress → in-review
+- **2026-07-11T15:56:34Z** — review → in-validation (delegated subagent, clean context)
