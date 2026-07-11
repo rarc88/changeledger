@@ -1139,6 +1139,30 @@ test('113924 CR4: patchProjectConfig only changes patched field, preserves comme
   assert.doesNotMatch(after, /language: en/);
 });
 
+test('210115 CR4: saving without touching git.integration_branch preserves it', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(configFile, `${original}\ngit:\n  integration_branch: dev\n`);
+
+  const { body } = readProjectConfigStructured(projects, current);
+  assert.equal(body.config.git.integration_branch, 'dev');
+
+  const result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { language: 'fr' },
+  });
+
+  assert.equal(result.code, 200, result.body?.error);
+  const after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /language: fr/);
+  assert.match(after, /integration_branch: dev/);
+});
+
 test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
   isolatedHome();
   const root = newRepo();
