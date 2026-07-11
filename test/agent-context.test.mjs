@@ -170,6 +170,89 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
   );
 });
 
+test('201703 CR1: audit context is allowed only for in-validation and is framed, read-only', () => {
+  const root = repo();
+  const id = '20260705-120008';
+  const selected = addChange(root, 'in-validation', id);
+  const out = buildAgentContext('audit', id, root);
+  assert.equal(
+    out.split('\n')[0],
+    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: audit — change: #${id} — v${VERSION} =====`,
+  );
+  assert.equal(
+    out.trimEnd().split('\n').at(-1),
+    '===== CHANGELEDGER AGENT CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+  );
+  assert.match(out, /self-contained delegated context/i);
+  assert.match(out, /do not run `changeledger context`/i);
+  assert.match(out, /read-only/i);
+  assert.match(out, /do not modify files, do not change Git state, do not mutate the\s+ledger/i);
+  assert.match(out, /do not\s+change status/i);
+  assert.match(out, /do not add\s+Log entries/i);
+  assert.match(out, /# Selected change[\s\S]*Do the delegated work/);
+  assert.ok(out.includes(selected.trim()));
+});
+
+test('201703 CR2: audit never asks for a verdict or a lifecycle command', () => {
+  const root = repo();
+  const id = '20260705-120009';
+  addChange(root, 'in-validation', id);
+  const out = buildAgentContext('audit', id, root);
+  const base = out.split('\n# Selected change')[0];
+  assert.match(base, /findings and evidence/i);
+  assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
+  assert.doesNotMatch(base, /pass, fail-retry|fail-block/i);
+  assert.doesNotMatch(
+    base,
+    /changeledger (status|task|log|review|graduate|archive|unarchive|validation)/,
+  );
+});
+
+test('201703 CR1/CR2: audit requires in-validation and requires a change id; review keeps its own guard', () => {
+  const root = repo();
+  const approved = '20260705-120010';
+  const inReview = '20260705-120011';
+  const inValidation = '20260705-120012';
+  addChange(root, 'approved', approved);
+  addChange(root, 'in-review', inReview);
+  addChange(root, 'in-validation', inValidation);
+
+  assert.doesNotThrow(() => buildAgentContext('audit', inValidation, root));
+  assert.throws(
+    () => buildAgentContext('audit', inReview, root),
+    /role audit requires change status in-validation; got in-review/,
+  );
+  assert.throws(
+    () => buildAgentContext('audit', approved, root),
+    /role audit requires change status in-validation; got approved/,
+  );
+  assert.throws(
+    () => buildAgentContext('audit', undefined, root),
+    /role audit requires a change id/,
+  );
+  // review keeps its current in-review-only guard and verdict recipe untouched.
+  assert.doesNotThrow(() => buildAgentContext('review', inReview, root));
+  assert.throws(
+    () => buildAgentContext('review', inValidation, root),
+    /role review requires change status in-review; got in-validation/,
+  );
+  const reviewOut = buildAgentContext('review', inReview, root);
+  assert.match(reviewOut, /pass, fail-retry|fail-block/i);
+});
+
+test('201703 CR3: audit capsule fits the shared agent budget and lists in the CLI role set', () => {
+  const root = repo();
+  const id = '20260705-120013';
+  addChange(root, 'in-validation', id);
+  const out = buildAgentContext('audit', id, root);
+  const base = out.split('\n# Selected change')[0];
+  assertWithinBudget('audit capsule', base, agentBudget);
+  assert.throws(
+    () => buildAgentContext('scaffolding', undefined, root),
+    /valid roles: investigation, implementation, review, audit/,
+  );
+});
+
 test('144327 CR7: agent-context is wired through the CLI', async () => {
   const root = repo();
   const { stdout } = await execFileAsync(

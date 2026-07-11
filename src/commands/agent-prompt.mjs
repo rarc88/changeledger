@@ -5,7 +5,7 @@ import { contractTemplatesDir } from '../paths.mjs';
 
 // Portable role skeletons ship inside the package, so this command works even
 // outside an initialized ChangeLedger repo — it never reads project config.
-const ROLES = ['investigation', 'implementation', 'review'];
+const ROLES = ['investigation', 'implementation', 'review', 'audit'];
 
 export function buildAgentPrompt(role) {
   if (!ROLES.includes(role)) {

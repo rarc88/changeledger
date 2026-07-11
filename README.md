@@ -147,6 +147,11 @@ there is no linked or copied contract under `.changeledger/`. Run
 load `context`; a delegated leaf identified by `agent-prompt` loads only its
 matching `agent-context`, without the orchestrator core.
 
+Roles are `investigation`, `implementation`, `review` and `audit`. `audit` is a
+read-only inspection of a change already in `in-validation` — after review has
+already passed — for a human or orchestrator to consult before accepting or
+rejecting it; it never moves the change or records a verdict.
+
 ### Upgrading an existing repo's configuration
 
 Repos created before ChangeLedger 0.6 may have an older configuration schema.

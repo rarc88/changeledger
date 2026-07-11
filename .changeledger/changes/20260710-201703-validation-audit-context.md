@@ -2,9 +2,10 @@
 id: "20260710-201703"
 title: Permitir auditorías read-only de changes en validación
 type: bug
-status: approved
+status: in-validation
 created: 2026-07-10T20:17:03Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -53,11 +54,16 @@ orquestador o al humano sin exponer comandos de mutación ni cambiar el estado.
 
 ## Plan
 
-- [ ] Añadir en `test/agent-context.test.mjs` pruebas de la cápsula de auditoría y sus guards para `src/commands/agent-context.mjs`; verify: `node --test test/agent-context.test.mjs` (CR1)
-- [ ] Implementar la cápsula de auditoría en `src/commands/agent-context.mjs` y `templates/contract/agent-contexts/audit.md`; verify: `node --test test/agent-context.test.mjs` (CR1)
-- [ ] Preservar la restricción de `review` en `src/commands/agent-context.mjs` y cubrirla en `test/agent-context.test.mjs`; verify: `node --test test/agent-context.test.mjs` (CR2)
-- [ ] Exponer la auditoría en `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/audit.md` y `README.md`; verify: `node --test test/agent-prompt.test.mjs test/cli-bin.test.mjs` (CR3)
-- [ ] Ejecutar el gate completo tras actualizar `templates/contract/core.md`; verify: `pnpm verify` (support)
+- [x] Añadir en `test/agent-context.test.mjs` pruebas de la cápsula de auditoría y sus guards para `src/commands/agent-context.mjs`; verify: `node --test test/agent-context.test.mjs` (CR1) — 2026-07-11T16:02:02Z
+- [x] Implementar la cápsula de auditoría en `src/commands/agent-context.mjs` y `templates/contract/agent-contexts/audit.md`; verify: `node --test test/agent-context.test.mjs` (CR1) — 2026-07-11T16:02:02Z
+- [x] Preservar la restricción de `review` en `src/commands/agent-context.mjs` y cubrirla en `test/agent-context.test.mjs`; verify: `node --test test/agent-context.test.mjs` (CR2) — 2026-07-11T16:02:02Z
+- [x] Exponer la auditoría en `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/audit.md` y `README.md`; verify: `node --test test/agent-prompt.test.mjs test/cli-bin.test.mjs` (CR3) — 2026-07-11T16:02:02Z
+- [x] Ejecutar el gate completo tras actualizar `templates/contract/core.md`; verify: `pnpm verify` (support) — 2026-07-11T16:02:02Z
 
 ## Log
 - **2026-07-11T10:47:16Z** — status: draft → approved
+- **2026-07-11T15:50:29Z** — status: approved → in-progress
+- **2026-07-11T15:50:29Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:02:03Z** — Integrada implementación delegada (1f2c807..84feac9): rol audit read-only restringido a in-validation, cápsula y skeleton nuevos, guard de review intacto, empaquetado a 4 roles; snapshot de core.md reclasificado. pnpm verify 606/606.
+- **2026-07-11T16:02:03Z** — status: in-progress → in-review
+- **2026-07-11T16:09:16Z** — review → in-validation (delegated subagent, clean context)

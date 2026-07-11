@@ -512,7 +512,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103759: additive — a new paragraph in "Read complete context
     // before acting" documents `--have <rev>` as a post-compaction revision
     // check. Every existing rule preserved, none retired or replaced.
-    'core.md': '3ec5f398ff4d74531c2bf24b55f583e4cc705be5e57cfe028af2e1e8e1eb88e1',
+    // 20260710-201703: additive — the role skeleton pointer in "Files and
+    // delegation" gains the new read-only `audit` role for changes already in
+    // `in-validation`. Every existing rule preserved, none retired or replaced.
+    'core.md': 'f4b39e6c217ad46dc38a6eb5f4ac50cd689eb347a457df0ab7ce6fac818284b6',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1104,7 +1107,7 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   // The minimum delegation rule points at the on-demand skeleton command.
   assert.match(
     norm,
-    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review\)/,
+    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review \| audit\)/,
   );
   // The skeleton bodies are NOT inlined into the core, and the pointer is not
   // duplicated into the delegation fragment.

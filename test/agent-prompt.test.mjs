@@ -11,7 +11,7 @@ import { contractTemplatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const ROLES = ['investigation', 'implementation', 'review'];
+const ROLES = ['investigation', 'implementation', 'review', 'audit'];
 
 // npm ships as the `npm.cmd` shim on Windows; execFile does not resolve
 // shims through PATH the way a shell would, so the command must be
@@ -57,13 +57,13 @@ test('CR1: agent-prompt works outside an initialized repo (static package asset)
 test('CR2: an unknown role fails with a non-zero exit listing the valid roles', async () => {
   assert.throws(
     () => buildAgentPrompt('scaffolding'),
-    /valid roles: investigation, implementation, review/,
+    /valid roles: investigation, implementation, review, audit/,
   );
   await assert.rejects(
     execFileAsync(process.execPath, [bin, 'agent-prompt', 'scaffolding']),
     (err) => {
       assert.notEqual(err.code, 0);
-      assert.match(err.stderr, /investigation, implementation, review/);
+      assert.match(err.stderr, /investigation, implementation, review, audit/);
       return true;
     },
   );
@@ -88,8 +88,8 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
     assert.match(body, /Return to the orchestrator/, `${role} missing return contract`);
   }
 
-  // Investigation and review forbid any write, by effect — no tool names.
-  for (const role of ['investigation', 'review']) {
+  // Investigation, review and audit forbid any write, by effect — no tool names.
+  for (const role of ['investigation', 'review', 'audit']) {
     const body = prose(role);
     assert.match(body, /do not modify any file/i, `${role} must forbid file writes`);
     assert.match(body, /do not change Git state/i, `${role} must forbid git writes`);
@@ -122,7 +122,7 @@ test('CR4: each role loads available context without inventing a change', () => 
     );
     assert.doesNotMatch(prose(role), /changeledger context(?: |`)/, `${role} must skip core`);
   }
-  for (const role of ['implementation', 'review']) {
+  for (const role of ['implementation', 'review', 'audit']) {
     assert.match(
       prose(role),
       new RegExp(`changeledger agent-context ${role} \\{\\{change_id\\}\\}`),
@@ -135,6 +135,9 @@ test('CR4: each role loads available context without inventing a change', () => 
   const inv = prose('investigation');
   assert.match(inv, /There may be no change yet: work without a change id/i);
   assert.match(inv, /If the optional id below is empty, omit it/i);
+  // Audit never issues a verdict — the review gate already ran.
+  const audit = prose('audit');
+  assert.match(audit, /never issues a verdict|do not issue a verdict/i);
 });
 
 test('CR1: npm command selection picks the Windows shim only on win32', () => {
