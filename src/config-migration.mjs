@@ -4,7 +4,7 @@ import { parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 1;
+export const SUPPORTED_SCHEMA_VERSION = 2;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -59,13 +59,33 @@ export function buildMigration(originalText) {
 
   const changes = [];
 
-  // schema_version: 1 — remove any existing value, then prepend to appear first
-  if (Object.hasOwn(config, 'schema_version')) {
-    doc.delete('schema_version');
+  // schema_version — update in place when the key exists at version >= 1 (keeps
+  // its comment and position); otherwise remove any explicit 0 and prepend so
+  // the key appears first.
+  if (Object.hasOwn(config, 'schema_version') && current >= 1) {
+    doc.set('schema_version', SUPPORTED_SCHEMA_VERSION);
+    changes.push(`updated schema_version: ${current} → ${SUPPORTED_SCHEMA_VERSION}`);
+  } else {
+    if (Object.hasOwn(config, 'schema_version')) {
+      doc.delete('schema_version');
+    }
+    doc.contents.items.unshift(doc.createPair('schema_version', SUPPORTED_SCHEMA_VERSION));
+    changes.push(`added schema_version: ${SUPPORTED_SCHEMA_VERSION}`);
   }
-  doc.contents.items.unshift(doc.createPair('schema_version', 1));
-  changes.push('added schema_version: 1');
 
+  if (current < 1) {
+    migrateToV1(doc, config, changes);
+  }
+  migrateToV2(doc, config, changes);
+
+  // No line wrapping and no flow padding: keeps untouched flow sequences
+  // (statuses, stages) byte-identical to their common written form.
+  const yaml = doc.toString({ lineWidth: 0, flowCollectionPadding: false });
+  return { yaml, changes, fromVersion: current };
+}
+
+// 0 → 1: structural additions and managed-comment refresh.
+function migrateToV1(doc, config, changes) {
   // tdd: true if absent
   if (!Object.hasOwn(config, 'tdd')) {
     doc.set('tdd', true);
@@ -125,8 +145,23 @@ export function buildMigration(originalText) {
   const templateComments = loadTemplateComments();
   const commentChanges = refreshManagedComments(doc, templateComments);
   changes.push(...commentChanges);
+}
 
-  return { yaml: doc.toString(), changes };
+// 1 → 2: additive quick type. Existing custom `quick` definitions and impacts
+// are never touched.
+function migrateToV2(doc, config, changes) {
+  const configTypes = config.types ?? {};
+  if (!Object.hasOwn(configTypes, 'quick')) {
+    const stagesNode = doc.createNode(['request', 'log']);
+    stagesNode.flow = true;
+    doc.setIn(['types', 'quick', 'stages'], stagesNode);
+    changes.push('added types.quick with stages: [request, log]');
+  }
+  const currentImpacts = config.release?.impacts ?? {};
+  if (!Object.hasOwn(currentImpacts, 'quick')) {
+    doc.setIn(['release', 'impacts', 'quick'], 'patch');
+    changes.push('added release.impacts.quick: patch');
+  }
 }
 
 // Apply migration to a file (or dry-run). Returns summary string.
@@ -145,8 +180,8 @@ export function applyMigration(configFile, { dryRun = false } = {}) {
   }
 
   const header = dryRun
-    ? `Config migration 0 → ${SUPPORTED_SCHEMA_VERSION} (dry run)`
-    : `Config migration 0 → ${SUPPORTED_SCHEMA_VERSION}`;
+    ? `Config migration ${result.fromVersion} → ${SUPPORTED_SCHEMA_VERSION} (dry run)`
+    : `Config migration ${result.fromVersion} → ${SUPPORTED_SCHEMA_VERSION}`;
 
   const summary = [header, ...result.changes.map((c) => `  - ${c}`)].join('\n');
 

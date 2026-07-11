@@ -2,7 +2,7 @@
 // delegates to `git commit`, instead of relying on agents to remember the
 // convention documented in prose (templates/contract/implement.md).
 
-import { defaultRun } from '../git.mjs';
+import { mutatingRun } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 
 const SUBJECT_RE = /^[a-zA-Z]+\([^()]+\):\s+\S.*/;
@@ -10,7 +10,7 @@ const SUBJECT_RE = /^[a-zA-Z]+\([^()]+\):\s+\S.*/;
 // Validates the subject, resolves the change id(s) to append, and creates the
 // commit. Never invokes git unless the subject and id resolution both succeed
 // — no partial/incorrect commit is ever created. Returns the final subject.
-export function commit({ message, ids = [] } = {}, cwd = process.cwd(), run = defaultRun) {
+export function commit({ message, ids = [] } = {}, cwd = process.cwd(), run = mutatingRun) {
   if (!message || !SUBJECT_RE.test(message)) {
     throw new Error(
       `Subject must follow the conventional form "type(scope): description", got: "${message ?? ''}"`,

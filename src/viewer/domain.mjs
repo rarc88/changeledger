@@ -407,7 +407,7 @@ export function previewConfigMigration(projects, id, rev) {
   return {
     code: 200,
     body: {
-      summary: `Config migration 0 → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
+      summary: `Config migration ${migrationResult.fromVersion} → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
       changes: migrationResult.changes,
       yaml: migrationResult.yaml,
     },

@@ -3,7 +3,7 @@
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
-schema_version: 1
+schema_version: 2
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
 language: es
@@ -46,20 +46,10 @@ changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
 
 # Valid lifecycle statuses (order = progress)
-statuses:
-  [
-    draft,
-    approved,
-    in-progress,
-    in-review,
-    in-validation,
-    blocked,
-    done,
-    discarded
-  ]
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
 
 # Canonical stages (## headings in the change body)
-stages: [ request, investigation, proposal, specification, plan, log ]
+stages: [request, investigation, proposal, specification, plan, log]
 
 # Active stages per type. The viewer shows only these.
 # `review_required: true` makes the change pass through `in-review` (an
@@ -67,20 +57,20 @@ stages: [ request, investigation, proposal, specification, plan, log ]
 # `changeledger context implement` and `changeledger context review`.
 types:
   feature:
-    stages: [ request, investigation, proposal, specification, plan, log ]
+    stages: [request, investigation, proposal, specification, plan, log]
     review_required: true
   bug:
-    stages: [ request, investigation, specification, plan, log ]
+    stages: [request, investigation, specification, plan, log]
     review_required: true
   audit:
-    stages: [ request, investigation, log ]
+    stages: [request, investigation, log]
   refactor:
-    stages: [ request, proposal, plan, log ]
+    stages: [request, proposal, plan, log]
     review_required: true
   chore:
-    stages: [ request, plan ]
+    stages: [request, plan]
   quick:
-    stages: [ request, log ]
+    stages: [request, log]
 
 # Project identity (stable; the global registry maps it to a path)
 project_id: "304c473ce5"
