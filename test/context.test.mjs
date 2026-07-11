@@ -555,7 +555,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // separate-brackets multi-id shape, that ledger meta-commits carry the
     // marker like any other commit, and the new `changeledger commit` /
     // `changeledger check --commits` helpers that enforce it.
-    'implement.md': '0ecb40f31dd43afa6da36ba6f895f4e12938adf077165d32d7c642798b90dadd',
+    // 20260711-210115: additive — the work-branch rule gains one sentence:
+    // when the config declares `git.integration_branch`, change branches are
+    // created from it and integrated into it, with `main` reserved for
+    // releases. Every existing rule preserved, none retired or replaced.
+    'implement.md': 'e173c7022941f8f4ca51750afdfbac21fb7c691dc8e1993cd60b1cd1b6749402',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -594,6 +598,17 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
       `${file} changed: classify every affected rule as preserved, replaced or retired; update this reviewed snapshot only intentionally`,
     );
   }
+});
+
+test('210115 CR3: implement instructs branching from the declared integration branch', () => {
+  const root = repo();
+  const output = buildContext('implement', root);
+  const normalized = output.replace(/\s+/g, ' ');
+  assert.match(
+    normalized,
+    /When the config declares `git\.integration_branch`, create change branches from it and integrate the finished result into it; `main` stays reserved for releases\./,
+  );
+  assertWithinBudget('implement', output, contextBudgets.base.implement);
 });
 
 test('215632 CR1-CR3: release context treats routine delivery as operational work', () => {
@@ -871,8 +886,8 @@ test('210115 CR2: effective policy exposes the declared integration branch', () 
 test('210115 CR2: effective policy omits integration_branch when undeclared', () => {
   const root = repo();
   const output = buildContext('implement', root);
-  assert.match(output, /Effective policy: language=en — tdd=on/);
-  assert.doesNotMatch(output, /integration_branch/);
+  const policyLine = output.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.equal(policyLine, 'Effective policy: language=en — tdd=on');
 });
 
 test('225213 CR2: change-id context shows type-specific effective policy', () => {

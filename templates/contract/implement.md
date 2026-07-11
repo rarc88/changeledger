@@ -13,7 +13,9 @@ current throughout execution.
 ## Git protects traceability
 
 Never implement approved changes on `main`, `master`, or `dev`; create or switch
-to a work branch or ask the human before continuing. Inspect the worktree first. If
+to a work branch or ask the human before continuing. When the config declares
+`git.integration_branch`, create change branches from it and integrate the
+finished result into it; `main` stays reserved for releases. Inspect the worktree first. If
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
