@@ -257,6 +257,51 @@ test('CR2: clean text does not false-positive', () => {
   );
 });
 
+test('CR5: an auto-fixable defect hints at changeledger fix', () => {
+  const text = [
+    '---\nid: x\n---',
+    '## Specification',
+    '',
+    '### CR1 — x',
+    '',
+    '- **Given** a',
+    '- **When** b',
+    '- **Then** c',
+    '',
+    '## Plan',
+    '',
+    '- [ ] Update src/foo.mjs (CR1) — verify: pnpm test',
+    '',
+  ].join('\n');
+  const c = change({ text, frontmatter: { id: '20260613-120099' } });
+  const { warnings } = run([c]);
+  assert.ok(msgs(warnings).some((m) => /run: changeledger fix 20260613-120099/.test(m)));
+});
+
+test('CR5: a document with no auto-fixable defect gets no hint', () => {
+  const text = [
+    '---\nid: x\n---',
+    '## Specification',
+    '',
+    '### CR1 — x',
+    '',
+    '- **Given** a',
+    '- **When** b',
+    '- **Then** c',
+    '',
+    '## Plan',
+    '',
+    '- [ ] Update src/foo.mjs; verify: pnpm test (CR1)',
+    '',
+  ].join('\n');
+  const c = change({ text });
+  const { warnings } = run([c]);
+  assert.deepEqual(
+    msgs(warnings).filter((m) => /run: changeledger fix/.test(m)),
+    [],
+  );
+});
+
 test('CR1: an external cross-project dep is not a missing-change error', () => {
   const c = change({ frontmatter: { depends_on: ['other:20260101-000000'] } });
   assert.deepEqual(
