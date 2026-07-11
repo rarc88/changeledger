@@ -2,6 +2,7 @@
 // { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
 
 import { parseChange } from './change.mjs';
+import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 
@@ -32,6 +33,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     const fm = c.frontmatter ?? {};
 
     checkConflictMarkers(c, err);
+    checkAutoFixable(c, fm, warn);
 
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
@@ -316,6 +318,16 @@ function* graduationMarkers(change) {
 // `<` and `>` never appear in normal markdown; `=` could be a setext H1
 // underline, but ChangeLedger uses ATX headings, so this is safe in practice.
 const CONFLICT = /^(<{7}|={7}|>{7})(\s|$)/;
+
+// Hints at `changeledger fix` rather than duplicating its repair rules: reuses
+// the same pure detector so the two commands can never disagree about what
+// counts as auto-fixable.
+function checkAutoFixable(c, fm, warn) {
+  if (typeof c.text !== 'string') return;
+  if (hasFixableDefects(c.text)) {
+    warn(c, `auto-fixable format defect(s) found; run: changeledger fix ${fm.id ?? ''}`.trimEnd());
+  }
+}
 
 function checkConflictMarkers(c, err) {
   if (typeof c.text !== 'string') return;

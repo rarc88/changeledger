@@ -1,6 +1,6 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-07-03T23:21:32Z
+updated: 2026-07-11T15:45:50Z
 tags: [ validation ]
 ---
 
@@ -11,6 +11,7 @@ tags: [ validation ]
 > Graduado del change 20260616-162050 (headings dentro de fenced code blocks).
 > Graduado del change 20260616-162104 (profundidad del grafo con ramas aisladas).
 > Actualizado por el change 20260703-150231 (gate scoped de integridad antes de cierre y graduación).
+> Actualizado por el change 20260711-103800 (normalización mecánica de formatos frágiles).
 
 `check.mjs` es puro (sin IO) y valida changes y, en modo repo completo, también
 la capa de specs y sus enlaces: marcadores de conflicto de merge, etapas
@@ -63,3 +64,13 @@ configurado o por defecto, junto con los `target_patterns` y
 debe existir en `## Specification`; un `(CR999)` huérfano es un error en cambios
 listos para implementar. En `draft`, esos mismos huecos son warnings para no
 bloquear la autoría temprana; con `tdd:false` no se evalúan.
+
+**Normalización mecánica (`changeledger fix`).** `src/fix.mjs` es puro
+(texto → fixes, sin IO) y repara solo defectos de formato inequívocos de las
+tareas del Plan: sufijo `verify:` dentro del sufijo reservado, guión simple en
+lugar de raya en el sufijo de resolución (decidido comparando la posición del
+último ` - ` contra el último ` — `, para no tocar descripciones con rayas
+legítimas), timestamps casi-ISO y marcadores de checkbox no canónicos. Soporta
+`--dry-run`, es idempotente y deja lo ambiguo (p.ej. referencia a un CR
+inexistente) intacto, listándolo como `requires manual fix`. `check` sugiere
+`changeledger fix` cuando detecta defectos reparables (`hasFixableDefects`).

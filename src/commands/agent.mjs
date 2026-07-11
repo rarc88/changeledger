@@ -212,11 +212,11 @@ export function discard(id, reason, cwd = process.cwd()) {
   return file;
 }
 
-export function archive(id, on, cwd = process.cwd()) {
+export function archive(id, cwd = process.cwd()) {
   const { file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
-    text = setArchived(text, on);
-    return appendLog(text, nowUtc(), on ? 'archived' : 'unarchived');
+    text = setArchived(text, true);
+    return appendLog(text, nowUtc(), 'archived');
   });
   return file;
 }

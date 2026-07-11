@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findChangeledgerDir, loadConfig } from '../config.mjs';
-import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
+import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 
@@ -31,9 +31,16 @@ function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();
 }
 
-function beginDelimiter(mode, changeId) {
+function beginDelimiter(mode, changeId, rev, extra = '') {
   const change = changeId ? ` — change: #${changeId}` : '';
-  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}`);
+  const revPart = rev ? ` — rev:${rev}` : '';
+  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}${revPart}${extra}`);
+}
+
+// Short confirmation body returned by `--have` when the caller's retained
+// revision still matches: no contract text, just the framed confirmation.
+function unchangedBody(rev) {
+  return `Context unchanged since rev:${rev}. Skip reload; continue with the retained capture.`;
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
@@ -88,7 +95,11 @@ function dependencyBlock(dependsOn, cwd) {
   return `## Dependencies\n\n${lines.join('\n')}`;
 }
 
-function compose(mode, fragments, options = {}) {
+// Composes the body (everything between the BEGIN and END lines), derives its
+// `rev` from that body alone — never from the framing lines that quote it —
+// then returns both the rev and the full rendered text so callers can decide
+// whether a `--have` match makes the full body unnecessary.
+function composeResult(mode, fragments, options = {}) {
   const {
     changeText,
     incremental = true,
@@ -96,14 +107,15 @@ function compose(mode, fragments, options = {}) {
     policy = undefined,
     dependencies = undefined,
   } = options;
-  const sections = [beginDelimiter(mode, changeId)];
-  if (incremental) sections.push(INCREMENTAL_NOTICE);
-  if (policy) sections.push(policy);
-  sections.push(...fragments.map(fragment));
-  if (dependencies) sections.push(dependencies);
-  if (changeText) sections.push('---\n\n# Selected change\n', changeText.trim());
-  sections.push(END_DELIMITER);
-  return `${sections.join('\n\n')}\n`;
+  const body = [];
+  if (incremental) body.push(INCREMENTAL_NOTICE);
+  if (policy) body.push(policy);
+  body.push(...fragments.map(fragment));
+  if (dependencies) body.push(dependencies);
+  if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
+  const rev = contentRev(body.join('\n\n'));
+  const sections = [beginDelimiter(mode, changeId, rev), ...body, END_DELIMITER];
+  return { mode, changeId, rev, text: `${sections.join('\n\n')}\n` };
 }
 
 function requireRepo(cwd) {
@@ -112,14 +124,15 @@ function requireRepo(cwd) {
   return dir;
 }
 
-export function buildContext(input, cwd = process.cwd()) {
-  const changeledgerDir = requireRepo(cwd);
-  const config = loadConfig(changeledgerDir);
+function composeInput(input, cwd, config) {
   if (!input) {
-    return compose('core', ['core'], { incremental: false, policy: transversalPolicy(config) });
+    return composeResult('core', ['core'], {
+      incremental: false,
+      policy: transversalPolicy(config),
+    });
   }
   if (MODES.includes(input)) {
-    return compose(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
+    return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
   }
 
   let resolved;
@@ -135,7 +148,7 @@ export function buildContext(input, cwd = process.cwd()) {
   const { id, status, type, depends_on: dependsOn } = parseChange(text).frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return compose(selected.mode, selected.fragments, {
+  return composeResult(selected.mode, selected.fragments, {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(config, type),
@@ -143,6 +156,24 @@ export function buildContext(input, cwd = process.cwd()) {
   });
 }
 
-export function context(input, cwd = process.cwd(), output = console.log) {
-  output(buildContext(input, cwd).trimEnd());
+// `options.have` names a previously captured `rev`. A match returns a short
+// framed `unchanged` confirmation instead of the full contract body; any
+// mismatch (stale or invented) falls back to the complete normal output.
+export function buildContext(input, cwd = process.cwd(), options = {}) {
+  const changeledgerDir = requireRepo(cwd);
+  const config = loadConfig(changeledgerDir);
+  const result = composeInput(input, cwd, config);
+  if (options.have && options.have === result.rev) {
+    const sections = [
+      beginDelimiter(result.mode, result.changeId, result.rev, ' — unchanged'),
+      unchangedBody(result.rev),
+      END_DELIMITER,
+    ];
+    return `${sections.join('\n\n')}\n`;
+  }
+  return result.text;
+}
+
+export function context(input, options = {}, cwd = process.cwd(), output = console.log) {
+  output(buildContext(input, cwd, options).trimEnd());
 }

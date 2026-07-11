@@ -3,7 +3,7 @@
 This is the ChangeLedger repo itself. It dogfoods its own format: changes live
 under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
-<!-- changeledger -->
+<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->
 > [!IMPORTANT]
 > This repo uses **ChangeLedger**. Immediately after reading this file — before
 > planning, investigating, or acting — a normal agent must run `changeledger context` directly.
@@ -20,6 +20,10 @@ under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 >
 > Do not create or modify files without an authorized change; the core context
 > defines the workflow, the task contexts, and the narrow operational exception.
+> After a compaction, verify a retained capture with `changeledger context
+> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in
+> full; a mismatch still returns the complete output.
+<!-- CHANGELEDGER BOOTSTRAP END -->
 
 The canonical ChangeLedger contract is split into task-focused fragments under
 [`templates/contract/`](templates/contract/). The deterministic

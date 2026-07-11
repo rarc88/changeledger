@@ -16,6 +16,11 @@ While the complete core remains available in the active conversation, a new
 human message alone does not trigger a reload. Load only the specialized mode or
 change-id context required by a real task or lifecycle transition.
 
+Every BEGIN line carries `rev:<hash>`. After a compaction, retest a retained
+capture with `changeledger context [mode] --have <rev>` before recapturing it in
+full: a match returns a short `unchanged` confirmation, a mismatch returns the
+complete output, and the very first capture of a session is always full.
+
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
    to document faithfully **and** the human explicitly authorizes documentation. A direct request such
@@ -38,7 +43,9 @@ change-id context required by a real task or lifecycle transition.
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
 reversible edit with no persistent truth or observable behavior change should be
-done directly. If unsure, document it in ChangeLedger.
+done directly. If unsure, document it in ChangeLedger. For small, reversible,
+single-concern work with observable behavior, use the `quick` type instead of
+bypassing documentation — see `changeledger context spec`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 
@@ -108,6 +115,7 @@ Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
 - `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
+- `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
 Structure is always English. Each context delivers the effective policy that

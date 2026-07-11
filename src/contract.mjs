@@ -4,7 +4,7 @@ import path from 'node:path';
 import { writeFileAtomic } from './atomic-write.mjs';
 
 const CONTRACT_FILES = ['AGENTS.md', 'CLAUDE.md'];
-const MARKER = '<!-- changeledger -->';
+const LEGACY_MARKER = '<!-- changeledger -->';
 const LEGACY_ENTRY = '.changeledger/AGENTS.md';
 // Exact SHA-256 digests of every historical templates/AGENTS.md payload. A
 // regular file is removed only when it is byte-identical to a contract version
@@ -34,8 +34,16 @@ const LEGACY_CONTRACT_HASHES = new Set([
   '99a42380f3835e1f706b986b86e58e33f12d68de4a69d94eb50845e790e05f71',
 ]);
 
-export const REFERENCE = `${MARKER}
-> [!IMPORTANT]
+// Bootstrap block format version. Independent of the package version: bump
+// only when the delimited block's shape or required content changes in a way
+// that must be detected and re-registered in consuming repos.
+export const BOOTSTRAP_VERSION = 2;
+
+const BEGIN_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/;
+const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
+const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->`;
+
+export const REFERENCE = `> [!IMPORTANT]
 > This repo uses **ChangeLedger**. Immediately after reading this file — before
 > planning, investigating, or acting — a normal agent must run \`changeledger context\` directly.
 > Only a delegated leaf whose prompt was emitted by \`changeledger agent-prompt <role>\`
@@ -51,7 +59,14 @@ export const REFERENCE = `${MARKER}
 >
 > Do not create or modify files without an authorized change; the core context
 > defines the workflow, the task contexts, and the narrow operational exception.
+> After a compaction, verify a retained capture with \`changeledger context
+> [mode] --have <rev>\` (the BEGIN line's \`rev:\`) instead of recapturing in
+> full; a mismatch still returns the complete output.
 `;
+
+function bootstrapBlock(version = BOOTSTRAP_VERSION) {
+  return `${beginMarker(version)}\n${REFERENCE}${END_MARKER}\n`;
+}
 
 export const contractLink = (changeledgerDir) => path.join(changeledgerDir, 'AGENTS.md');
 export const rootContract = (repoRoot) => path.join(repoRoot, 'AGENTS.md');
@@ -64,28 +79,66 @@ function isPlainFile(file) {
   }
 }
 
-function replaceReference(text) {
-  const start = text.indexOf(MARKER);
-  if (start === -1) return `${text}${text.endsWith('\n') ? '' : '\n'}\n${REFERENCE}`;
+function insertBlock(text) {
+  const sep = text.length === 0 || text.endsWith('\n') ? '' : '\n';
+  const gap = text.length === 0 ? '' : '\n';
+  return `${text}${sep}${gap}${bootstrapBlock()}`;
+}
+
+// Migrate the legacy `<!-- changeledger -->` marker and its contiguous
+// blockquote to the delimited format.
+function migrateLegacy(text, start) {
   const tail = text.slice(start).split('\n');
   let consumed = 1;
   while (consumed < tail.length && tail[consumed].startsWith('>')) consumed += 1;
   const before = text.slice(0, start);
   const after = tail.slice(consumed).join('\n').replace(/^\n+/, '');
-  return `${before}${REFERENCE}${after ? `\n${after}` : ''}`;
+  return `${before}${bootstrapBlock()}${after ? `\n${after}` : ''}`;
 }
 
-// Add or replace the managed bootstrap block in project-owned agent files.
+// Replace only the interior of an existing BEGIN/END block, preserving
+// everything outside the delimiters byte-for-byte.
+function replaceDelimited(text, beginIndex, version) {
+  const endIndex = text.indexOf(END_MARKER, beginIndex);
+  if (endIndex === -1) {
+    throw new Error(
+      'Malformed ChangeLedger bootstrap: found a BEGIN marker without a matching END marker',
+    );
+  }
+  const before = text.slice(0, beginIndex);
+  const after = text.slice(endIndex + END_MARKER.length).replace(/^\n/, '');
+  const newText = `${before}${bootstrapBlock()}${after}`;
+  const status =
+    version < BOOTSTRAP_VERSION ? 'updated' : newText === text ? 'unchanged' : 'replaced';
+  return { text: newText, status, fromVersion: version };
+}
+
+// Compute the delimited bootstrap block for `text`, inserting it, replacing
+// it, or migrating the legacy marker as needed.
+export function applyBootstrap(text) {
+  const beginMatch = BEGIN_RE.exec(text);
+  if (beginMatch) {
+    return replaceDelimited(text, beginMatch.index, Number(beginMatch[1]));
+  }
+  const legacyIndex = text.indexOf(LEGACY_MARKER);
+  if (legacyIndex !== -1) {
+    return { text: migrateLegacy(text, legacyIndex), status: 'migrated' };
+  }
+  return { text: insertBlock(text), status: 'inserted' };
+}
+
+// Add, replace, or migrate the managed bootstrap block in project-owned agent
+// files. Returns the files touched with the transition applied to each.
 export function ensureReference(repoRoot) {
   const touched = [];
   for (const name of CONTRACT_FILES) {
     const file = path.join(repoRoot, name);
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
-    const updated = replaceReference(text);
-    if (updated === text) continue;
+    const { text: updated, status, fromVersion } = applyBootstrap(text);
+    if (status === 'unchanged') continue;
     writeFileAtomic(file, updated);
-    touched.push(name);
+    touched.push({ name, status, fromVersion });
   }
   return touched;
 }
@@ -138,9 +191,10 @@ export function checkContract(repoRoot) {
     const file = path.join(repoRoot, name);
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
-    if (!text.includes(MARKER)) {
+    const { status } = applyBootstrap(text);
+    if (status === 'inserted') {
       errors.push(`${name} has no ChangeLedger reference — run \`changeledger register\``);
-    } else if (!text.includes(REFERENCE.trim())) {
+    } else if (status !== 'unchanged') {
       errors.push(`${name} has an outdated ChangeLedger reference — run \`changeledger register\``);
     }
   }

@@ -265,7 +265,8 @@ test('reference refresh is idempotent and does not add a legacy gitignore entry'
   registerRepo(root);
   registerRepo(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
-  assert.equal(text.match(/<!-- changeledger -->/g).length, 1);
+  assert.equal(text.match(/CHANGELEDGER BOOTSTRAP BEGIN/g).length, 1);
+  assert.equal(text.match(/CHANGELEDGER BOOTSTRAP END/g).length, 1);
   assert.equal(fs.existsSync(path.join(root, '.gitignore')), false);
 });
 
@@ -275,7 +276,7 @@ test('reference covers CLAUDE.md when present, as a GitHub alert (CR1)', () => {
   init(root);
   const claude = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
   assert.match(claude, /# Claude rules/);
-  assert.match(claude, /<!-- changeledger -->/);
+  assert.match(claude, /CHANGELEDGER BOOTSTRAP BEGIN/);
   assert.match(claude, /> \[!IMPORTANT\]/);
 });
 
@@ -287,7 +288,8 @@ test('reference skips a symlinked contract file', () => {
   assert.equal(fs.lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), true);
   // Only one reference total (in the AGENTS.md target), not doubled via the link.
   assert.equal(
-    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/<!-- changeledger -->/g).length,
+    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/CHANGELEDGER BOOTSTRAP BEGIN/g)
+      .length,
     1,
   );
 });
@@ -357,6 +359,40 @@ test('new uses the English slug for the file and keeps the title as content', ()
     c.stages.map((s) => s.key),
     ['request', 'investigation', 'specification', 'plan', 'log'],
   );
+});
+
+// 20260711-103756 CR1: the `quick` lane scaffolds only Request and Log, in
+// that order, with the same frontmatter shape as any other type.
+test('103756 CR1: new scaffolds a quick change with only request and log', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    {
+      type: 'quick',
+      slug: 'fix-copy',
+      title: 'Corregir texto del banner',
+      now: '2026-06-13T15:00:00Z',
+    },
+    root,
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.type, 'quick');
+  assert.equal(c.frontmatter.status, 'draft');
+  assert.deepEqual(
+    c.stages.map((s) => s.key),
+    ['request', 'log'],
+  );
+});
+
+// 20260711-103756 CR4: the default (unpersonalized) matrix includes `quick`
+// with request+log active and no review gate.
+test('103756 CR4: the default config matrix includes quick with no review gate', () => {
+  const root = tmp();
+  init(root);
+  const dir = findChangeledgerDir(root);
+  const config = loadConfig(dir);
+  assert.deepEqual(config.types.quick.stages, ['request', 'log']);
+  assert.equal(Boolean(config.types.quick.review_required), false);
 });
 
 test('new normalizes the slug to kebab ascii', () => {

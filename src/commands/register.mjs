@@ -33,7 +33,15 @@ export function registerRepo(cwd = process.cwd(), output = console) {
 
   removeLegacyContract(changeledgerDir);
   removeLegacyGitignore(repoRoot);
-  if (fs.existsSync(rootContract(repoRoot))) ensureReference(repoRoot);
+  if (fs.existsSync(rootContract(repoRoot))) {
+    for (const { name, status } of ensureReference(repoRoot)) {
+      if (status === 'updated') {
+        output.warn(
+          `warn  ${name}: ChangeLedger bootstrap was outdated; updated to the current version`,
+        );
+      }
+    }
+  }
 
   register({ id: config.project_id, name, path: repoRoot });
   return { id: config.project_id, name, path: repoRoot };

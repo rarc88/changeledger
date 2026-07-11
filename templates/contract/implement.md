@@ -35,7 +35,16 @@ Commit messages use the canonical shape:
 feat(scope): description [#20260629-234939]
 ```
 
-Use the actual change id and the appropriate conventional type. If shared files make a combined commit
+Use the actual change id and the appropriate conventional type. Referencing more
+than one change is separate brackets, one per id (`[#A] [#B]`) — never a comma
+list inside one bracket. Ledger meta-commits (status, review, log, archive)
+carry the marker like any other commit; only merge commits and `chore(release)`
+prep are exempt. `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
+composes and creates the commit for you: it resolves the single `in-progress`
+change automatically when `--id` is omitted, and fails without committing if
+that is ambiguous or the subject isn't conventional. `changeledger check
+--commits [<base>]` lints `<base>..HEAD` for the marker with the same
+exemptions — run it before requesting review. If shared files make a combined commit
 unavoidable, record it in Log or the handoff and name every change sharing the
 surface.
 
@@ -53,6 +62,7 @@ Useful mutation commands:
 - `changeledger owner <id> <name|->`
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
+- `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
 
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:

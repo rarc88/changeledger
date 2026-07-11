@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-10T20:19:47Z
+updated: 2026-07-11T15:45:49Z
 tags: [ lifecycle ]
 ---
 
@@ -20,6 +20,7 @@ tags: [ lifecycle ]
 > Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
 > Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
 > Actualizado por el change 20260703-220014 (parada de validación local por change).
+> Actualizado por el change 20260711-103756 (carril quick para trabajo pequeño trazable).
 
 ```mermaid
 stateDiagram-v2
@@ -76,9 +77,20 @@ baratos para exploración localizada, inventarios, edición mecánica, tests y
 verificaciones acotadas.
 
 **Activación por tipo.** `config.yml` marca `review_required: true` por tipo
-(`feature`, `bug`, `refactor` por defecto). `chore` y `audit` saltan únicamente
-la revisión: van `in-progress → in-validation`. Todo tipo pasa por validación
-humana antes de `done`; así `done` siempre significa resultado aceptado.
+(`feature`, `bug`, `refactor` por defecto). `chore`, `audit` y `quick` saltan
+únicamente la revisión: van `in-progress → in-validation`. Todo tipo pasa por
+validación humana antes de `done`; así `done` siempre significa resultado
+aceptado.
+
+**Carril `quick`.** Tipo oficial para trabajo pequeño trazable que antes acababa
+en bypass silencioso: un solo concern, reversible, sin ampliar superficie
+pública ni verdad persistente (`specs/`). Stages activos solo `## Request` y
+`## Log` (documento objetivo ~10-15 líneas), sin Specification, Plan ni review
+gate, pero con el ciclo corto completo (`draft → approved` humano →
+`in-progress → in-validation → done`) y las mismas reglas de rama y marcador
+`[#id]`. Si el alcance crece durante la ejecución, se descarta y se recrea con
+el tipo correcto. Su graduación es siempre `--skip`: por elegibilidad no
+produce verdad persistente.
 
 **Ownership operacional.** El core compuesto publica una única matriz de
 transición → propietario → mecanismo. Distingue las decisiones humanas

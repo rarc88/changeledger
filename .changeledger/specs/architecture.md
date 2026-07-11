@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-06-28T21:49:06Z
+updated: 2026-07-11T15:45:49Z
 tags: [ architecture, cli, viewer ]
 ---
 
@@ -12,6 +12,7 @@ tags: [ architecture, cli, viewer ]
 > Graduado del change 20260628-113218 (versión instalada desde el CLI).
 > Graduado del change 20260628-113219 (schema y migración segura de configuración).
 > Graduado del change 20260628-213942 (descubrimiento operativo desde el contexto inicial).
+> Actualizado por el change 20260711-103758 (búsqueda determinista sobre changes y specs).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en
@@ -72,6 +73,13 @@ archivos, orienta a consultar trabajo autorizado con `changeledger list --status
 approved` y decisiones de cierre pendientes con `changeledger graduate --pending`.
 La orientación es estática: no ejecuta esas consultas ni incorpora estado efímero
 al contexto determinista.
+
+`changeledger search <términos...>` completa ese descubrimiento con búsqueda
+léxica determinista sobre changes (incluidos archivados) y specs: scoring
+título×3 / headings+CR×2 / cuerpo×1, normalización a minúsculas sin acentos y
+desempate estable por ref descendente. Sin embeddings ni servicios externos,
+coherente con el núcleo local-first. El contrato de autoría ordena ejecutarla
+antes de investigar desde cero para reutilizar decisiones ya registradas.
 
 ## Specs de dominio
 

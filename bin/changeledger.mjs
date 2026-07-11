@@ -18,7 +18,9 @@ import {
 import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
+import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
+import { fix } from '../src/commands/fix.mjs';
 import {
   graduate,
   pendingGraduation,
@@ -29,6 +31,7 @@ import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
+import { runSearch } from '../src/commands/search.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
@@ -41,9 +44,9 @@ const USAGE = `ChangeLedger (changeledger)
 Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | context | agent-context
-  changeledger status | discard | review | owner | archive | unarchive
-  changeledger log | task | list | show | graduate | config | release
+  changeledger init | register | new | view | check | fix | context | agent-context
+  changeledger commit | status | discard | review | owner | archive
+  changeledger log | task | list | show | search | graduate | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -58,6 +61,11 @@ function action(fn) {
       process.exit(1);
     }
   };
+}
+
+// Collects a repeatable option (e.g. `--id`) into an array across invocations.
+function collect(value, previous) {
+  return previous.concat([value]);
 }
 
 program
@@ -136,9 +144,25 @@ program
   .description('validate the repo or one change')
   .argument('[id]')
   .option('--json', 'print JSON')
+  .option(
+    '--commits [base]',
+    'lint commit subjects on <base>..HEAD for the [#id] marker (base auto-detected if omitted)',
+  )
+  .addHelpText(
+    'after',
+    ['', 'Examples:', '  changeledger check --commits', '  changeledger check --commits main'].join(
+      '\n',
+    ),
+  )
   .action((id, options) => {
     try {
-      const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
+      const args = [
+        ...(id ? [id] : []),
+        ...(options.json ? ['--json'] : []),
+        ...(options.commits !== undefined
+          ? ['--commits', ...(typeof options.commits === 'string' ? [options.commits] : [])]
+          : []),
+      ];
       process.exit(check(args));
     } catch (e) {
       console.error(`Error: ${e.message}`);
@@ -147,11 +171,61 @@ program
   });
 
 program
+  .command('fix')
+  .description('repair mechanical, unambiguous format defects (or one change)')
+  .argument('[id]')
+  .option('--dry-run', 'print the proposed diff without writing')
+  .action((id, options) => {
+    try {
+      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
+      process.exit(fix(args));
+    } catch (e) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('commit')
+  .description('compose the canonical [#id] marker and create a git commit')
+  .requiredOption('-m, --message <subject>', 'conventional subject: type(scope): description')
+  .option(
+    '--id <change-id>',
+    'change id to reference (repeatable); auto-resolved from the single in-progress change if omitted',
+    collect,
+    [],
+  )
+  .addHelpText(
+    'after',
+    [
+      '',
+      'When --id is omitted, the single in-progress change is used automatically;',
+      'zero or multiple in-progress changes require --id explicitly. Repeat --id',
+      'for a multi-id subject: each id gets its own bracket ([#A] [#B]).',
+      '',
+      'Examples:',
+      '  changeledger commit -m "feat(cli): add helper"',
+      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
+      '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+    ].join('\n'),
+  )
+  .action(
+    action((options) => {
+      const subject = commit({ message: options.message, ids: options.id });
+      console.log(`Committed: ${subject}`);
+    }),
+  );
+
+program
   .command('context')
   .description('print deterministic task context')
   .argument(
     '[mode-or-change-id]',
     'spec|implement|review|release, or a change id (pack inferred from its status)',
+  )
+  .option(
+    '--have <rev>',
+    'skip the full reload when this matches the current rev (short `unchanged` confirmation instead)',
   )
   .addHelpText(
     'after',
@@ -173,6 +247,10 @@ program
       'are inferred the same way from the change id; they are not modes you pass',
       'explicitly.',
       '',
+      'Each BEGIN line carries `rev:<hash>`. After a compaction, pass the rev your',
+      'retained capture carried as `--have <rev>`: a match prints a short confirmation',
+      'instead of reloading the full body; a mismatch prints the complete output.',
+      '',
       'Examples:',
       '  changeledger context',
       '  changeledger context spec',
@@ -180,9 +258,10 @@ program
       '  changeledger context review',
       '  changeledger context release',
       '  changeledger context 20260630-225212',
+      '  changeledger context --have 0123456789ab',
     ].join('\n'),
   )
-  .action(action((input) => context(input)));
+  .action(action((input, options) => context(input, { have: options.have })));
 
 program
   .command('agent-prompt')
@@ -356,6 +435,8 @@ program
       '  changeledger archive <id>',
       '  changeledger archive --graduated',
       '  changeledger archive --graduated --dry-run',
+      '',
+      'To reverse an archive, edit `archived: false` in the change frontmatter directly.',
     ].join('\n'),
   )
   .action(
@@ -371,19 +452,8 @@ program
       }
       if (options.dryRun) throw new Error('--dry-run requires --graduated');
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id, true);
+      archive(id);
       console.log(`#${id} archived`);
-    }),
-  );
-
-program
-  .command('unarchive')
-  .description('show a change in the viewer')
-  .argument('<id>')
-  .action(
-    action((id) => {
-      archive(id, false);
-      console.log(`#${id} unarchived`);
     }),
   );
 
@@ -464,6 +534,32 @@ program
       else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
     }),
   );
+
+program
+  .command('search')
+  .description('deterministic lexical search over changes (incl. archived) and specs')
+  .argument('<query...>', 'search terms')
+  .option('--limit <n>', 'max results (default 10)')
+  .option(
+    '--type <type>',
+    'filter by a change type configured in .changeledger/config.yml (types:); excludes specs',
+  )
+  .option(
+    '--status <status>',
+    'filter by a change status configured in .changeledger/config.yml (statuses:); excludes specs',
+  )
+  .option('--json', 'print JSON')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger search wallet',
+      '  changeledger search wallet --type bug --status done',
+      '  changeledger search "app check" --json',
+    ].join('\n'),
+  )
+  .action(action((queryParts, options) => runSearch(queryParts, options)));
 
 program
   .command('graduate')

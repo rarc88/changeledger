@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-10T20:19:47Z
+updated: 2026-07-11T15:45:50Z
 tags: [ contract ]
 ---
 
@@ -19,6 +19,8 @@ tags: [ contract ]
 > Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
 > Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
 > Actualizado por el change 20260703-150229 (adquisición completa en una sola pasada y recarga sólo por transición real).
+> Actualizado por el change 20260711-103759 (revisión de contenido `rev:` y verificación `--have`).
+> Actualizado por el change 20260711-103803 (bootstrap con delimitadores versionados BEGIN/END).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -89,6 +91,17 @@ Mientras el core completo siga disponible en la conversación activa, un nuevo
 mensaje humano por sí solo no provoca otra carga. Sólo una transición real de
 tarea o lifecycle solicita el modo o change id especializado que corresponda.
 
+**Vigencia por revisión.** Toda línea BEGIN incluye `rev:<hash>` (12 hex,
+derivado del contenido compuesto del modo con la config efectiva, excluyendo el
+framing para evitar autorreferencia). La versión del paquete no basta como
+prueba de vigencia porque el texto efectivo depende también de la config del
+repo. Tras una compactación, un agente que conserve el `rev` de su captura
+verifica con `changeledger context [mode] --have <rev>`: coincidencia →
+bloque corto framed que confirma `unchanged` con el mismo `rev` (exit 0, sin
+cuerpo); discrepancia → la salida completa normal. La primera captura de una
+sesión sigue siendo siempre completa y sin filtros; la mejora distingue
+"captura perdida" (recapturar) de "captura resumida cuya fuente no cambió".
+
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
 packs ajenos; snapshots SHA-256 normalizados de todos los fragmentos hacen
@@ -98,15 +111,26 @@ de actualizar el snapshot.
 
 ## Bootstrap y migración
 
-`init` exige el `AGENTS.md` raíz y añade una caja de alerta con marcador
-`<!-- changeledger -->` a `AGENTS.md` y, cuando existe como archivo regular,
-`CLAUDE.md`. El bootstrap mantiene un único punto de entrada:
+`init` exige el `AGENTS.md` raíz y añade una caja de alerta delimitada a
+`AGENTS.md` y, cuando existe como archivo regular, `CLAUDE.md`. El bloque vive
+entre `<!-- CHANGELEDGER BOOTSTRAP BEGIN v<n> -->` y
+`<!-- CHANGELEDGER BOOTSTRAP END -->`, donde `<n>` es la versión del formato del
+bootstrap (`BOOTSTRAP_VERSION` en `src/contract.mjs`, independiente de la
+versión del paquete): comentarios HTML visibles para agentes que leen el texto
+crudo e invisibles en el render. `register` inserta el bloque completo si no
+existe, reemplaza solo el interior cuando encuentra BEGIN/END (idempotente,
+contenido externo byte a byte intacto), migra el marcador legacy
+`<!-- changeledger -->` con su blockquote contiguo al formato delimitado y,
+cuando la versión del marcador es anterior a la vigente, actualiza el bloque
+informando de la desactualización. El bootstrap mantiene un único punto de
+entrada:
 `changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
 —antes de planificar, investigar o actuar— y conservar stdout completo desde esa
 primera ejecución hasta la línea `CHANGELEDGER CONTEXT END`, sin previews ni
 límites voluntarios. La completitud se verifica por centinela: toda
 salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode>
-[— change: #<id>] — v<version> =====` y cierra con una línea END autodetectora;
+[— change: #<id>] — v<version> — rev:<hash> =====` y cierra con una línea END
+autodetectora;
 si falta pese a la captura completa, la salida llegó truncada y hay que detenerse
 y re-ejecutar con mayor capacidad como recuperación excepcional.
 Falla cerrado si el CLI no está disponible. El bloque incluye además la regla
