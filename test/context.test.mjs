@@ -861,6 +861,20 @@ test('225213 CR2: mode packs show the effective policy affecting the task', () =
   assert.match(buildContext('review', root), /Effective policy: language=es/);
 });
 
+test('210115 CR2: effective policy exposes the declared integration branch', () => {
+  const root = repo();
+  setConfig(root, [[/^tdd: true$/m, 'tdd: true\n\ngit:\n  integration_branch: dev']]);
+  const output = buildContext('implement', root);
+  assert.match(output, /Effective policy: language=en — tdd=on — integration_branch=dev/);
+});
+
+test('210115 CR2: effective policy omits integration_branch when undeclared', () => {
+  const root = repo();
+  const output = buildContext('implement', root);
+  assert.match(output, /Effective policy: language=en — tdd=on/);
+  assert.doesNotMatch(output, /integration_branch/);
+});
+
 test('225213 CR2: change-id context shows type-specific effective policy', () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);
