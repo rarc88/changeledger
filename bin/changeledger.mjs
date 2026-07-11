@@ -19,6 +19,7 @@ import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { context } from '../src/commands/context.mjs';
+import { fix } from '../src/commands/fix.mjs';
 import {
   graduate,
   pendingGraduation,
@@ -41,7 +42,7 @@ const USAGE = `ChangeLedger (changeledger)
 Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | context | agent-context
+  changeledger init | register | new | view | check | fix | context | agent-context
   changeledger status | discard | review | owner | archive | unarchive
   changeledger log | task | list | show | graduate | config | release
 
@@ -140,6 +141,21 @@ program
     try {
       const args = [...(id ? [id] : []), ...(options.json ? ['--json'] : [])];
       process.exit(check(args));
+    } catch (e) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('fix')
+  .description('repair mechanical, unambiguous format defects (or one change)')
+  .argument('[id]')
+  .option('--dry-run', 'print the proposed diff without writing')
+  .action((id, options) => {
+    try {
+      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
+      process.exit(fix(args));
     } catch (e) {
       console.error(`Error: ${e.message}`);
       process.exit(1);
