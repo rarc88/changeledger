@@ -961,6 +961,30 @@ test('155721 CR3/CR4: byType and byOwner render as separate tables with visible 
   assert.match(tables[1].textContent, /Unassigned/);
 });
 
+test('155721 CR6: below the KPI cards the content is a grid of four titled panels', () => {
+  const metrics = {
+    count: 1,
+    p50CycleMs: HOUR,
+    p85CycleMs: HOUR,
+    blockedMs: 0,
+    validationWaitMs: 0,
+    reviewRetries: 0,
+    wip: { 'in-progress': 1 },
+    aging: [{ id: '20260701-000001', ms: HOUR }],
+    throughput: [{ date: '2026-07-01', count: 1 }],
+    timeInStatus: [{ state: 'in-progress', totalMs: HOUR, avgMs: HOUR }],
+    byType: [{ type: 'bug', closed: 1, avgCycleMs: HOUR }],
+    byOwner: [{ owner: 'alice', closed: 1, avgCycleMs: HOUR }],
+  };
+  const host = parse(metricsHtml(metrics, 1));
+  const grid = host.querySelector('.metrics-grid');
+  assert.ok(grid, 'renders the quadrant grid');
+  const panels = grid.querySelectorAll('.metrics-panel');
+  assert.equal(panels.length, 4);
+  for (const panel of panels) assert.ok(panel.querySelector('.metrics-h'));
+  assert.ok(panels[0].querySelector('svg.throughput-svg'), 'throughput lives in the first panel');
+});
+
 // 20260628-113924 UI tests
 
 // Future schema: Raw tab only, save button absent, textarea readonly

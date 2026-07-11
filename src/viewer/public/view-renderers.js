@@ -279,15 +279,25 @@ export function metricsHtml(metrics = {}, totalChanges = 0) {
 
   return html`
     <div class="metrics-cards">${cards}</div>
-    ${wipChips.length ? html`<div class="detail-meta">${wipChips}</div>` : nothing}
-    <h3 class="metrics-h">Throughput (closed per day)</h3>
-    ${throughputSvg(metrics.throughput || [])}
-    <h3 class="metrics-h">Avg time in status (lead time per stage)</h3>
-    <div>${leadBars}</div>
-    <h3 class="metrics-h">Aging — in progress</h3>
-    ${agingRows}
-    <h3 class="metrics-h">By type</h3>
-    ${typeRows}
-    <h3 class="metrics-h">By owner</h3>
-    ${ownerRows}`;
+    <div class="metrics-grid">
+      <section class="metrics-panel">
+        <h3 class="metrics-h">Throughput (closed per day)</h3>
+        ${throughputSvg(metrics.throughput || [])}
+      </section>
+      <section class="metrics-panel">
+        <h3 class="metrics-h">Avg time in status (lead time per stage)</h3>
+        <div>${leadBars}</div>
+      </section>
+      <section class="metrics-panel">
+        <h3 class="metrics-h">Aging — in progress</h3>
+        ${wipChips.length ? html`<div class="detail-meta">${wipChips}</div>` : nothing}
+        ${agingRows}
+      </section>
+      <section class="metrics-panel">
+        <h3 class="metrics-h">By type</h3>
+        ${typeRows}
+        <h3 class="metrics-h">By owner</h3>
+        ${ownerRows}
+      </section>
+    </div>`;
 }
