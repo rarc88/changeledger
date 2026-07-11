@@ -126,8 +126,10 @@ function buildSnippet(doc, terms) {
 }
 
 // Scores and ranks `docs` (as produced by `buildCorpus`) against `query`.
-// Ties break by `ref` descending so the same repo state always yields the
-// same byte-for-byte output.
+// On an equal score, a spec sorts before a change — specs are the current
+// persistent truth, so that's what an agent should read first. Among equals
+// of the same kind, ties break by `ref` descending so the same repo state
+// always yields the same byte-for-byte output.
 export function searchDocuments(docs, query, { limit = 10, type, status } = {}) {
   const terms = tokenize(query);
   if (!terms.length) return [];
@@ -151,6 +153,7 @@ export function searchDocuments(docs, query, { limit = 10, type, status } = {}) 
 
   hits.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
+    if (a.kind !== b.kind) return a.kind === 'spec' ? -1 : 1;
     if (a.ref === b.ref) return 0;
     return a.ref < b.ref ? 1 : -1;
   });

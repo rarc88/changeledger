@@ -655,6 +655,34 @@ test('231424 CR2: unknown vendor route returns 404 and does not escape the allow
   assert.equal(res.status, 404);
 });
 
+test('155721 CR2: the shared metrics module is served verbatim over /shared/metrics.mjs', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const res = await memoryRequest(root, { path: '/shared/metrics.mjs' });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['content-type'], 'text/javascript; charset=utf-8');
+  const onDisk = fs.readFileSync(path.join(publicDir, '..', '..', 'metrics.mjs'), 'utf8');
+  assert.equal(res.body, onDisk);
+  assert.match(res.body, /export function computeMetrics/);
+});
+
+test("155721 CR2: the shared module's own relative import is reachable at the same prefix", async () => {
+  isolatedHome();
+  const root = newRepo();
+  const res = await memoryRequest(root, { path: '/shared/lifecycle.mjs' });
+  assert.equal(res.status, 200);
+  assert.match(res.body, /export function parseLogEvent/);
+});
+
+test('155721 CR2: only the allowlisted shared modules are served, no arbitrary src/ file', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const outside = await memoryRequest(root, { path: '/shared/repo.mjs' });
+  assert.equal(outside.status, 404);
+  const traversal = await memoryRequest(root, { path: '/shared/..%2Fpackage.json' });
+  assert.equal(traversal.status, 404);
+});
+
 test('local mode returns only the current repo', () => {
   isolatedHome();
   newRepo();

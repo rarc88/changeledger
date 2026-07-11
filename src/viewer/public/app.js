@@ -48,7 +48,7 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, metricsHtml, specsListHtml } from './view-renderers.js';
+import { graphSvg, metricsHtml, sortSpecsByUpdated, specsListHtml } from './view-renderers.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -156,7 +156,7 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     html`<details class="filter-menu">
       <summary class="filter-trigger">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
-        <span>${summary}</span>
+        <span data-choice-summary>${summary}</span>
         <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path></svg>
       </summary>
       <div class="filter-popover">
@@ -182,6 +182,14 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     };
   host.querySelector('[data-clear]').onclick = () => {
     clear();
+    host.querySelectorAll('[data-choice], [data-unassigned]').forEach((input) => {
+      input.checked = false;
+    });
+    host.querySelector('[data-choice-summary]').textContent = choiceFilterSummary(
+      label,
+      selected,
+      owners && state.filters.includeUnassigned,
+    );
     render();
   };
 }
@@ -722,8 +730,10 @@ function sortVal(c, key) {
 /* Specs view */
 function renderSpecs() {
   const q = state.filters.text.toLowerCase();
-  const specs = (state.repo.specs || []).filter(
-    (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
+  const specs = sortSpecsByUpdated(
+    (state.repo.specs || []).filter(
+      (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
+    ),
   );
   litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
   $('#specs')
@@ -789,8 +799,32 @@ export function handleSpecBodyClick(event, _openSpecByName) {
 
 const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
 
-function renderMetrics() {
-  litRender(metricsHtml(state.repo.metrics || {}), $('#metrics'));
+// The shared metrics module is dynamic-imported once and cached: the client
+// computes metrics itself, over the filtered set, instead of duplicating
+// `computeMetrics` (20260711-155721 CR2). Served read-only from the CLI's own
+// `src/metrics.mjs` by the router.
+let sharedMetricsModule;
+function loadMetricsModule() {
+  sharedMetricsModule ??= import('/shared/metrics.mjs');
+  return sharedMetricsModule;
+}
+
+// `computeMetrics` speaks the CLI's native change shape (`{ frontmatter,
+// stages }`); `state.repo.changes` is already flattened for board/table
+// rendering. Adapt back rather than reshaping the shared module's contract,
+// which the server also relies on unchanged.
+function toMetricsChange(c) {
+  return {
+    frontmatter: { id: c.id, type: c.type, status: c.status, owner: c.owner, created: c.created },
+    stages: c.stages,
+  };
+}
+
+async function renderMetrics() {
+  const changes = visibleChanges();
+  const { computeMetrics } = await loadMetricsModule();
+  const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
+  litRender(metricsHtml(metrics, changes.length), $('#metrics'));
 }
 
 export function syncViewerShell(root = document, renderContent = true) {
@@ -1639,6 +1673,17 @@ function bootstrap() {
 
   loadProjects();
   setInterval(load, 5000);
+
+  // The topbar wraps to multiple rows at content-dependent widths, so the
+  // CSS fallback constant cannot bound the projects panels; track the real
+  // rendered height instead.
+  const topbar = document.querySelector('.topbar');
+  if (topbar && typeof ResizeObserver === 'function') {
+    const syncHeaderHeight = () =>
+      document.documentElement.style.setProperty('--header-height', `${topbar.offsetHeight}px`);
+    new ResizeObserver(syncHeaderHeight).observe(topbar);
+    syncHeaderHeight();
+  }
 }
 
 export function closeFilterMenusOnOutsideClick(menus, target) {
