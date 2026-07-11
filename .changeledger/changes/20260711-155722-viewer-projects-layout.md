@@ -2,7 +2,7 @@
 id: "20260711-155722"
 title: Projects a ancho completo con scroll por panel
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-11T15:57:22Z
 depends_on: []
 release_impact: minor
@@ -80,3 +80,7 @@ Alternativas descartadas:
 - **2026-07-11T16:22:44Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T16:33:26Z** — Integrada implementación delegada (9b8b828): altura acotada por --header-height, overflow-y por panel, sin tope de 1500px, breakpoint 900px con scroll de página. CRs verificados en navegador por el implementador (scroll independiente, 1564px de shell a 1600px, apilado a 700px). pnpm verify 607/607.
 - **2026-07-11T16:33:26Z** — status: in-progress → in-review
+- **2026-07-11T16:39:33Z** — review → in-progress (retry): El alto fijo --header-height:55px no cubre el topbar envuelto a dos filas (94.5px reales) en la banda ~1000-1280px: el shell desborda el viewport 20-40px y rompe la garantía de CR1; derivar la altura del layout real en vez de una constante
+- **2026-07-11T16:45:22Z** — Corrección confirmada por re-review de contexto limpio: ResizeObserver en bootstrap() sincroniza --header-height con el alto real del topbar (95px envuelto verificado a 1000/1150px, sin overflow); CSS queda como fallback. Divergencia del Plan justificada: derivar la altura real exige JS.
+- **2026-07-11T16:45:22Z** — status: in-progress → in-review
+- **2026-07-11T16:45:22Z** — review → in-validation (delegated subagent, clean context)

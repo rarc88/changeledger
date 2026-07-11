@@ -22,7 +22,7 @@
   --status-done: #3fb950;
   --status-discarded: #9aa0aa;
   --status-muted: #8b929e;
-  /* measured rendered height of .topbar (10px 14px padding + button row + border) */
+  /* fallback only: app.js keeps this synced to the real .topbar height */
   --header-height: 55px;
   font-family: "Avenir Next", Avenir, ui-sans-serif, sans-serif;
   color-scheme: dark;
