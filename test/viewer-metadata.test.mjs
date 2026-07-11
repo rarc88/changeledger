@@ -98,7 +98,12 @@ test('111218 CR1/CR2: projects view renders health, exact YAML text and safe met
         { id: 'bbb222', name: 'beta', path: '/gone/beta', alive: false },
       ],
       'aaa111',
-      { content: 'language: es\n# <script>alert(1)</script>', revision: 'rev' },
+      {
+        content: 'language: es\n# <script>alert(1)</script>',
+        revision: 'rev',
+        schemaVersion: 0,
+        supported: 2,
+      },
       false,
     ),
   );
@@ -196,7 +201,7 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
       'aaa111',
-      { content: 'project_name: alpha', revision: 'rev' },
+      { content: 'project_name: alpha', revision: 'rev', schemaVersion: 0, supported: 2 },
       false,
     ),
   );
