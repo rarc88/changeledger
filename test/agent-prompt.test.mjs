@@ -111,6 +111,10 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
   assert.match(impl, /do not revert or overwrite anyone else's work/i);
   assert.match(impl, /report it instead of resolving it silently/i);
   assert.match(impl, /Do not mutate the ledger/i);
+  // 20260711-160446: a baseline that fails to resolve is a stop, not a
+  // recovery-from-memory or another-base fallback.
+  assert.match(impl, /does not resolve the change.*stop and report instead of proceeding/i);
+  assert.match(impl, /never reconstruct.*from memory.*never continue from another base/i);
 });
 
 test('CR4: each role loads available context without inventing a change', () => {

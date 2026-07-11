@@ -18,6 +18,10 @@ load, run `changeledger agent-context implementation {{change_id}}` and read it
 through its END sentinel; do not load the orchestrator core. It supplies the
 selected change with its acceptance criteria and Plan.
 
+If that command does not resolve the change, or the working tree does not
+contain its document, stop and report instead of proceeding: never reconstruct
+the change from memory, and never continue from another base.
+
 Files you own: {{files}} (the only paths you may modify).
 
 Boundaries — expressed by effect, not by tool name: modify only the files under
