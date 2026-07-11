@@ -265,7 +265,8 @@ test('reference refresh is idempotent and does not add a legacy gitignore entry'
   registerRepo(root);
   registerRepo(root);
   const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
-  assert.equal(text.match(/<!-- changeledger -->/g).length, 1);
+  assert.equal(text.match(/CHANGELEDGER BOOTSTRAP BEGIN/g).length, 1);
+  assert.equal(text.match(/CHANGELEDGER BOOTSTRAP END/g).length, 1);
   assert.equal(fs.existsSync(path.join(root, '.gitignore')), false);
 });
 
@@ -275,7 +276,7 @@ test('reference covers CLAUDE.md when present, as a GitHub alert (CR1)', () => {
   init(root);
   const claude = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
   assert.match(claude, /# Claude rules/);
-  assert.match(claude, /<!-- changeledger -->/);
+  assert.match(claude, /CHANGELEDGER BOOTSTRAP BEGIN/);
   assert.match(claude, /> \[!IMPORTANT\]/);
 });
 
@@ -287,7 +288,8 @@ test('reference skips a symlinked contract file', () => {
   assert.equal(fs.lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), true);
   // Only one reference total (in the AGENTS.md target), not doubled via the link.
   assert.equal(
-    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/<!-- changeledger -->/g).length,
+    fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/CHANGELEDGER BOOTSTRAP BEGIN/g)
+      .length,
     1,
   );
 });

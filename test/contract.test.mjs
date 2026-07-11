@@ -84,7 +84,8 @@ test('CR10/CR12: reference refresh is idempotent and stale references fail check
   registerRepo(dir);
   registerRepo(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.equal(agents.match(/<!-- changeledger -->/g).length, 1);
+  assert.equal(agents.match(/CHANGELEDGER BOOTSTRAP BEGIN v\d+/g).length, 1);
+  assert.equal(agents.match(/CHANGELEDGER BOOTSTRAP END/g).length, 1);
   assert.ok(agents.includes(REFERENCE.trim()));
 
   fs.writeFileSync(
