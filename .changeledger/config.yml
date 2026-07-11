@@ -22,6 +22,7 @@ release:
     audit: none
     refactor: none
     chore: none
+    quick: patch
 
 # Repo-specific Definition of Ready hints. A Plan task that references CRs should
 # name at least one target and one verification matching these patterns.
@@ -39,6 +40,7 @@ readiness:
     - "pnpm test"
     - "node --test"
     - "node bin/changeledger.mjs check"
+    - "verify:"
 
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
@@ -77,6 +79,8 @@ types:
     review_required: true
   chore:
     stages: [ request, plan ]
+  quick:
+    stages: [ request, log ]
 
 # Project identity (stable; the global registry maps it to a path)
 project_id: "304c473ce5"
