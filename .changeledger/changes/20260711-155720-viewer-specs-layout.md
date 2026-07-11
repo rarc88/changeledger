@@ -7,6 +7,7 @@ created: 2026-07-11T15:57:20Z
 depends_on: []
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -97,3 +98,4 @@ Alternativas descartadas:
 - **2026-07-11T16:35:36Z** — status: in-progress → in-review
 - **2026-07-11T16:45:57Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:39:38Z** — validation → done (human accepted)
+- **2026-07-11T21:51:56Z** — graduado a spec `viewer.md`
