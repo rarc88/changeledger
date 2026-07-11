@@ -2,10 +2,11 @@
 id: "20260711-210115"
 title: La rama de integración se declara en config
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-11T21:01:15Z
 depends_on: [ "20260711-160446" ]
 release_impact: minor
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -88,3 +89,5 @@ Alternativas descartadas:
 
 ## Log
 - **2026-07-11T21:05:26Z** — status: draft → approved
+- **2026-07-11T21:56:31Z** — status: approved → in-progress
+- **2026-07-11T21:56:31Z** — owner → raruiz-hiberuscom (auto)
