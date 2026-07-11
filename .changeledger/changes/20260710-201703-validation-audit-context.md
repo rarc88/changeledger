@@ -2,9 +2,10 @@
 id: "20260710-201703"
 title: Permitir auditorías read-only de changes en validación
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-10T20:17:03Z
 depends_on: []
+owner: raruiz-hiberuscom
 ---
 
 ## Request
@@ -61,3 +62,5 @@ orquestador o al humano sin exponer comandos de mutación ni cambiar el estado.
 
 ## Log
 - **2026-07-11T10:47:16Z** — status: draft → approved
+- **2026-07-11T15:50:29Z** — status: approved → in-progress
+- **2026-07-11T15:50:29Z** — owner → raruiz-hiberuscom (auto)
