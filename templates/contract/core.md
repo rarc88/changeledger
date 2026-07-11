@@ -58,9 +58,11 @@ transitions and task markers.
 Delegate only with a clear boundary and benefit. Each delegation prompt states at least
 ownership, expected output and integration criterion; the task context carries the full
 prompt contract. Get a complete role skeleton to fill in with `changeledger agent-prompt
-<role>` (investigation | implementation | review). Coding agents must know they share the
-codebase and must not revert others' work. Do not over-shard or overlap write surfaces
-without an explicit integration plan. Size the model to the task's difficulty and risk.
+<role>` (investigation | implementation | review | audit). Coding agents must know they
+share the codebase and must not revert others' work. Do not over-shard or overlap write
+surfaces without an explicit integration plan. Size the model to the task's difficulty
+and risk. `audit` is a read-only post-review inspection of a change already in
+`in-validation`; it never issues a verdict or moves the change.
 
 ## Lifecycle
 
