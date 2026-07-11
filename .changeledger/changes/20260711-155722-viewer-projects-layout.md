@@ -2,7 +2,7 @@
 id: "20260711-155722"
 title: Projects a ancho completo con scroll por panel
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T15:57:22Z
 depends_on: []
 release_impact: minor
@@ -68,13 +68,15 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`; verify: manual browser check con una config más alta que el viewport (CR1)
-- [ ] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`; verify: manual browser check a 1600 px (CR2)
-- [ ] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`; verify: manual browser check a 680 px (CR3)
-- [ ] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde (support)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`; verify: manual browser check con una config más alta que el viewport (CR1) — 2026-07-11T16:33:24Z
+- [x] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`; verify: manual browser check a 1600 px (CR2) — 2026-07-11T16:33:25Z
+- [x] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`; verify: manual browser check a 680 px (CR3) — 2026-07-11T16:33:25Z
+- [x] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde (support) — 2026-07-11T16:33:25Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:33:26Z
 
 ## Log
 - **2026-07-11T16:13:59Z** — status: draft → approved
 - **2026-07-11T16:22:44Z** — status: approved → in-progress
 - **2026-07-11T16:22:44Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:33:26Z** — Integrada implementación delegada (9b8b828): altura acotada por --header-height, overflow-y por panel, sin tope de 1500px, breakpoint 900px con scroll de página. CRs verificados en navegador por el implementador (scroll independiente, 1564px de shell a 1600px, apilado a 700px). pnpm verify 607/607.
+- **2026-07-11T16:33:26Z** — status: in-progress → in-review
