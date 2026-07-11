@@ -2,7 +2,7 @@
 id: "20260711-103756"
 title: Carril rápido para trabajo pequeño trazable
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T10:37:56Z
 depends_on: []
 release_impact: minor
@@ -104,3 +104,4 @@ Alternativas descartadas:
 - **2026-07-11T10:52:15Z** — status: approved → in-progress
 - **2026-07-11T10:52:15Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T11:05:48Z** — Integrada implementación delegada (1a18fe4..a921f3b). Divergencia registrada: la matriz por defecto vive en templates/config.yml, no en src/config.mjs; new/check/lifecycle ya eran genéricos y solo requirieron tests. Añadido release.impacts.quick=patch. Snapshots de core.md/spec.md actualizados. pnpm verify 567/567.
+- **2026-07-11T11:16:21Z** — status: in-progress → in-review

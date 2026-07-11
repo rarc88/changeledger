@@ -2,7 +2,7 @@
 id: "20260711-103803"
 title: Delimitadores explícitos en el bloque bootstrap
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T10:38:03Z
 depends_on: []
 release_impact: minor
@@ -87,3 +87,4 @@ Alternativas descartadas:
 - **2026-07-11T10:53:36Z** — status: approved → in-progress
 - **2026-07-11T10:53:36Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T11:06:32Z** — Integrada implementación delegada (1944632, b765b26): applyBootstrap con insert/replace idempotente/migración legacy, BOOTSTRAP_VERSION=1, aviso de desactualización en register; AGENTS.md regenerado solo en el bloque delimitado; tests legacy de contract/cli actualizados al nuevo marcador. pnpm verify verde.
+- **2026-07-11T11:16:22Z** — status: in-progress → in-review

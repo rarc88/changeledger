@@ -2,7 +2,7 @@
 id: "20260711-103757"
 title: "Contrato de commits ejecutable: helper y lint"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T10:37:57Z
 depends_on: []
 release_impact: minor
@@ -108,3 +108,4 @@ Alternativas descartadas:
 - **2026-07-11T10:52:32Z** — status: approved → in-progress
 - **2026-07-11T10:52:32Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-11T11:15:09Z** — Integrada implementación delegada (948a245..aa7c980): comando commit, check --commits con exenciones, contrato multi-id canónico en implement.md. Hallazgo raíz: git.mjs sanea GIT_DIR/GIT_WORK_TREE para hooks anidados. En integración se añadió commit al USAGE (omisión del delegado) y se resolvió el bloque de subcomandos contra fix. pnpm verify verde.
+- **2026-07-11T11:16:21Z** — status: in-progress → in-review
