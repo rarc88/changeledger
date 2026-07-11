@@ -102,6 +102,19 @@ test('CR3: multiple --id produce separate brackets', () => {
   assert.equal(lastSubject(root), 'feat(x): y [#A] [#B]');
 });
 
+test('CR1 (20260711-204419): a git commit failure surfaces git stderr in the error', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  // nothing staged — git commit will fail with a diagnostic on its output
+
+  assert.throws(
+    () => commit({ message: 'fix(x): algo' }, root),
+    (e) => /nothing (added )?to commit|no changes added/i.test(e.message),
+    'error message must carry the git diagnostic, not just "Command failed"',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
 test('CR4: a non-conventional subject creates no commit', () => {
   const root = gitRepo();
   stageFile(root, 'a.txt', 'x');

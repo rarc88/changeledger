@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, ownerHandle } from '../src/git.mjs';
+import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -83,4 +87,42 @@ test('CR4: ownerHandle is empty when neither is available', () => {
     throw new Error('nope');
   };
   assert.equal(ownerHandle('/x', boom, boom), '');
+});
+
+// --- mutatingRun (git run variant that surfaces stderr on failure) ---
+
+// Hook-safety: strip the repo-location vars git exports inside hooks so the
+// scratch repo below is the real target (same rationale as commit.test.mjs).
+function scratchGitRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-git-'));
+  const env = { ...process.env };
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  execFileSync('git', ['init', '-q'], { cwd: root, env, encoding: 'utf8' });
+  return root;
+}
+
+test('CR1: mutatingRun includes git stderr in the thrown error', () => {
+  const root = scratchGitRepo();
+  assert.throws(
+    () => mutatingRun(['rev-parse', '--verify', 'refs/heads/definitely-missing'], root),
+    (e) =>
+      /fatal:.*definitely-missing/i.test(e.message) || /needed a single revision/i.test(e.message),
+    'error must carry the git stderr diagnostic',
+  );
+});
+
+test('CR2: mutatingRun returns stdout on success', () => {
+  const root = scratchGitRepo();
+  const out = mutatingRun(['rev-parse', '--is-inside-work-tree'], root);
+  assert.equal(out.trim(), 'true');
 });
