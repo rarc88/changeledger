@@ -7,6 +7,7 @@ created: 2026-07-11T20:44:19Z
 depends_on: [ "20260711-103757" ]
 release_impact: patch
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -69,3 +70,4 @@ fallo del commit debe explicar por qué falló.
 - **2026-07-11T21:21:54Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:21:54Z** — Review independiente (contexto limpio) PASS: CR1-CR3 con evidencia e2e en repo scratch; defaultRun intacto byte a byte; suite 633/633. Observaciones menores no bloqueantes: diagnóstico duplicado stderr+stdout en fallo de hook (cosmético) y labels CR sin desambiguar en test/git.test.mjs.
 - **2026-07-11T21:39:56Z** — validation → done (human accepted)
+- **2026-07-11T21:53:18Z** — graduado a spec `git-traceability.md`

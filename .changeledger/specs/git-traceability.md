@@ -1,6 +1,6 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-11T15:45:49Z
+updated: 2026-07-11T21:53:18Z
 tags: [ git ]
 ---
 
@@ -8,6 +8,7 @@ tags: [ git ]
 
 > Graduado del change 20260617-161309 (workflow git para trazabilidad).
 > Actualizado por el change 20260711-103757 (contrato de commits ejecutable: helper y lint).
+> Actualizado por el change 20260711-204419 (diagnóstico de fallos de commit).
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
 convención de commit `[#<id>]`: lista los commits que lo referencian y las
@@ -22,7 +23,12 @@ conventional-commit del subject antes de delegar en `git commit`. `changeledger
 check --commits [base]` lintea un rango de commits exigiendo el marcador
 `[#id]`; exime merges y `chore(release)`. El runner de `git.mjs` sanea
 `GIT_DIR`/`GIT_WORK_TREE` del entorno heredado para que hooks anidados no
-redirijan comandos git al repo equivocado.
+redirijan comandos git al repo equivocado. `git.mjs` distingue dos perfiles de
+ejecución: las consultas tolerantes (`defaultRun`) degradan en silencio a vacío,
+mientras el camino mutador de `changeledger commit` usa `mutatingRun`, que
+captura stderr/stdout de git y los incluye en el error lanzado — un commit
+fallido (hook, nada staged, identidad ausente) siempre expone su diagnóstico en
+vez de un exit 1 opaco.
 
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
