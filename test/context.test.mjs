@@ -521,7 +521,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 1..5 ordered recipe (tasks → status in-review → load review context →
     // delegate read-only reviewer → orchestrator records verdict); every rule
     // is preserved, none retired.
-    'implement.md': 'be3d9354df39db412eb188ba9c60df18b4e3c6eb47ee2c332e30f18161b48bc8',
+    // 20260711-103757: extended, not retired — documents the canonical
+    // separate-brackets multi-id shape, that ledger meta-commits carry the
+    // marker like any other commit, and the new `changeledger commit` /
+    // `changeledger check --commits` helpers that enforce it.
+    'implement.md': '0ecb40f31dd43afa6da36ba6f895f4e12938adf077165d32d7c642798b90dadd',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
