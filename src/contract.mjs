@@ -37,7 +37,7 @@ const LEGACY_CONTRACT_HASHES = new Set([
 // Bootstrap block format version. Independent of the package version: bump
 // only when the delimited block's shape or required content changes in a way
 // that must be detected and re-registered in consuming repos.
-export const BOOTSTRAP_VERSION = 1;
+export const BOOTSTRAP_VERSION = 2;
 
 const BEGIN_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/;
 const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
@@ -59,6 +59,9 @@ export const REFERENCE = `> [!IMPORTANT]
 >
 > Do not create or modify files without an authorized change; the core context
 > defines the workflow, the task contexts, and the narrow operational exception.
+> After a compaction, verify a retained capture with \`changeledger context
+> [mode] --have <rev>\` (the BEGIN line's \`rev:\`) instead of recapturing in
+> full; a mismatch still returns the complete output.
 `;
 
 function bootstrapBlock(version = BOOTSTRAP_VERSION) {
