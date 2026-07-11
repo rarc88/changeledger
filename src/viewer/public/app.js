@@ -1095,6 +1095,14 @@ function formEditorTemplate(config) {
     </fieldset>
 
     <fieldset class="config-group">
+      <legend>Git</legend>
+      <label>Integration branch
+        <input name="integration_branch" .value=${cfg.git?.integration_branch ?? ''} placeholder="Auto-detect" />
+      </label>
+      <p class="config-note">Change branches start from and merge into this branch. Leave empty to auto-detect.</p>
+    </fieldset>
+
+    <fieldset class="config-group">
       <legend>Lifecycle statuses</legend>
       <label>Status order (one per line)
         <textarea name="statuses" rows="8">${allStatuses.join('\n')}</textarea>
@@ -1338,6 +1346,13 @@ export function collectFormPatch(formEl, currentConfig) {
   }
   if (els.specs_dir && els.specs_dir.value !== (currentConfig.specs_dir ?? '.changeledger/specs')) {
     patch.specs_dir = els.specs_dir.value;
+  }
+  if (els.integration_branch) {
+    const currentBranch = currentConfig.git?.integration_branch ?? '';
+    const proposedBranch = els.integration_branch.value.trim();
+    if (proposedBranch !== currentBranch) {
+      patch.git = { integration_branch: proposedBranch || null };
+    }
   }
 
   const statuses = listFromControl(els.statuses);

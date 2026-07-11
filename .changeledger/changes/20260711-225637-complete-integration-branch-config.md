@@ -2,7 +2,7 @@
 id: "20260711-225637"
 title: Completar migración y formulario de la rama de integración
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-11T22:56:37Z
 depends_on: [ "20260711-210115", "20260628-113219", "20260628-113924" ]
 release_impact: patch
@@ -73,10 +73,10 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 
 ## Plan
 
-- [ ] Añadir migración v2 → v3 y actualizar `templates/config.yml`; verify: `node --test test/config-migration.test.mjs test/cli.test.mjs` (CR1, CR2, CR3)
-- [ ] Añadir el campo Git a `formEditorTemplate()` y `collectFormPatch()` en `src/viewer/public/app.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
-- [ ] Verificar patch anidado y migración compartida en `src/viewer/domain.mjs`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6)
-- [ ] Ejecutar `pnpm verify` después de los ciclos red-green (support)
+- [x] Añadir migración v2 → v3 y actualizar `templates/config.yml`; verify: `node --test test/config-migration.test.mjs test/cli.test.mjs` (CR1, CR2, CR3) — 2026-07-11T23:04:41Z
+- [x] Añadir el campo Git a `formEditorTemplate()` y `collectFormPatch()` en `src/viewer/public/app.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5) — 2026-07-11T23:04:41Z
+- [x] Verificar patch anidado y migración compartida en `src/viewer/domain.mjs`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6) — 2026-07-11T23:04:42Z
+- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support) — 2026-07-11T23:05:49Z
 
 ## Log
 
@@ -84,3 +84,5 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-11T22:59:28Z** — status: draft → approved
 - **2026-07-11T23:00:54Z** — status: approved → in-progress
 - **2026-07-11T23:00:54Z** — owner → Test (auto)
+- **2026-07-11T23:05:50Z** — Implementación TDD completa: schema v3 añade sección git inerte, plantilla documenta integration_branch opcional, formulario edita/elimina la rama preservando claves hermanas; pnpm verify 655/655 y 189 changes válidos.
+- **2026-07-11T23:05:50Z** — status: in-progress → in-review

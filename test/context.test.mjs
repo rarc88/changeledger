@@ -878,7 +878,7 @@ test('225213 CR2: mode packs show the effective policy affecting the task', () =
 
 test('210115 CR2: effective policy exposes the declared integration branch', () => {
   const root = repo();
-  setConfig(root, [[/^tdd: true$/m, 'tdd: true\n\ngit:\n  integration_branch: dev']]);
+  setConfig(root, [[/^ {2}# integration_branch: dev$/m, '  integration_branch: dev']]);
   const output = buildContext('implement', root);
   assert.match(output, /Effective policy: language=en — tdd=on — integration_branch=dev/);
 });
