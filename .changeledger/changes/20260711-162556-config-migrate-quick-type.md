@@ -7,6 +7,7 @@ created: 2026-07-11T16:25:56Z
 depends_on: [ "20260711-103756" ]
 release_impact: minor
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -74,3 +75,4 @@ nueva solo la reciben los repos creados con `init`. Reportado por el humano el
 - **2026-07-11T21:33:28Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-11T21:33:29Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con e2e adversarial sobre configs scratch (schema 0/1/1-custom/2/3), red-green verificado revirtiendo src a baseline, verify 638/638. Caveat acotado aceptado: re-serialización normaliza estilo flow con padding en regiones no tocadas (preexistente, este change lo mejora).
 - **2026-07-11T21:39:53Z** — validation → done (human accepted)
+- **2026-07-11T21:52:41Z** — graduado a spec `architecture.md`

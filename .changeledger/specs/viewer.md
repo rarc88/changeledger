@@ -141,7 +141,8 @@ valores canónicos ausentes, repos no cargables y revisiones obsoletas antes de 
 escritura atómica.
 
 Un config antiguo muestra **Migration required** y permite previsualizar el resumen
-`0 → 1`, los cambios y el YAML candidato antes de una aplicación confirmada. CLI y
+`N → M` (con la versión de origen real detectada), los cambios y el YAML candidato
+antes de una aplicación confirmada. CLI y
 viewer comparten el mismo motor de migración. Un schema futuro es estrictamente de
 solo lectura tanto en UI como en endpoints Raw/Form. Cambiar de modo, recargar o
 seleccionar otro proyecto con ediciones locales exige confirmación. Confirmaciones,
