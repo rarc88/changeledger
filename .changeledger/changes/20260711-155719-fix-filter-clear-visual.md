@@ -6,6 +6,7 @@ status: done
 created: 2026-07-11T15:57:19Z
 depends_on: [ "20260710-105206" ]
 owner: raruiz-hiberuscom
+reviewed: true
 ---
 
 ## Request
@@ -38,3 +39,4 @@ choice y de `Unassigned`.
 - **2026-07-11T20:52:20Z** — Rechazo en validación: extendido Request al onchange (mismo concern). Corrección sin commitear en app.js; comparte worktree con la iteración de 20260711-155721 (ficheros disjuntos).
 - **2026-07-11T20:56:35Z** — status: in-progress → in-validation
 - **2026-07-11T21:39:35Z** — validation → done (human accepted)
+- **2026-07-11T21:53:44Z** — graduation skipped: quick: bugfix visual del viewer sin verdad persistente
