@@ -275,6 +275,62 @@ test('CR6 — searchDocuments breaks score ties by ref descending', () => {
   );
 });
 
+test('on an equal score, a spec sorts before a change (specs are current truth)', () => {
+  const docs = [
+    {
+      ref: '#1',
+      kind: 'change',
+      title: 'x',
+      status: 'done',
+      type: 'bug',
+      headings: '',
+      body: 'echo',
+    },
+    {
+      ref: 'spec:echo-notes',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+  ];
+  const hits = searchDocuments(docs, 'echo');
+  assert.deepEqual(
+    hits.map((h) => h.ref),
+    ['spec:echo-notes', '#1'],
+  );
+});
+
+test('among tied specs, the existing ref-descending tie-break still applies', () => {
+  const docs = [
+    {
+      ref: 'spec:a',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+    {
+      ref: 'spec:b',
+      kind: 'spec',
+      title: 'x',
+      status: undefined,
+      type: undefined,
+      headings: '',
+      body: 'echo',
+    },
+  ];
+  const hits = searchDocuments(docs, 'echo');
+  assert.deepEqual(
+    hits.map((h) => h.ref),
+    ['spec:b', 'spec:a'],
+  );
+});
+
 test('CR7 — the spec context mandates changeledger search before Investigation', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-search-ctx-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
