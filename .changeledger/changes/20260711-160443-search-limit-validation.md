@@ -2,7 +2,7 @@
 id: "20260711-160443"
 title: search valida --limit no numérico en vez de callar
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-07-11T16:04:43Z
 depends_on: [ "20260711-103758" ]
 owner: raruiz-hiberuscom
@@ -21,3 +21,5 @@ con regresión en `test/search.test.mjs`. Un solo concern, reversible.
 - **2026-07-11T16:12:22Z** — status: draft → approved
 - **2026-07-11T16:23:34Z** — status: approved → in-progress
 - **2026-07-11T16:23:34Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:30:18Z** — Integrada implementación delegada (197cd48): parseLimit rechaza --limit no entero o <1 con error claro y exit 1; 4 regresiones. pnpm verify 613/613.
+- **2026-07-11T16:30:18Z** — status: in-progress → in-validation
