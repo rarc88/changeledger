@@ -16,6 +16,11 @@ While the complete core remains available in the active conversation, a new
 human message alone does not trigger a reload. Load only the specialized mode or
 change-id context required by a real task or lifecycle transition.
 
+Every BEGIN line carries `rev:<hash>`. After a compaction, retest a retained
+capture with `changeledger context [mode] --have <rev>` before recapturing it in
+full: a match returns a short `unchanged` confirmation, a mismatch returns the
+complete output, and the very first capture of a session is always full.
+
 1. Work starts with conversation. Read-only investigation may clarify a request,
    but create no change or implementation artifact until there is enough clarity
    to document faithfully **and** the human explicitly authorizes documentation. A direct request such
