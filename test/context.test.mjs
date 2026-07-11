@@ -191,6 +191,17 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     ],
     ['spec', /Proposal includes the chosen solution, discarded alternatives and scenarios/],
     ['spec', /use a Mermaid block and keep its text as the source/],
+    // 20260711-160446: the delegation prompt contract requires the expected
+    // baseline (branch or commit) for roles that write, in both packs that
+    // compose delegation.md.
+    [
+      'spec',
+      /for roles that write, the expected baseline \(branch or commit\) the delegate must verify/,
+    ],
+    [
+      'implement',
+      /for roles that write, the expected baseline \(branch or commit\) the delegate must verify/,
+    ],
     ['implement', /ask the human whether to stash, commit, ignore or include them/],
     ['implement', /keep the correction uncommitted until the human confirms it/],
     ['implement', /Do not start another task or change while a correction waits/],
@@ -519,7 +530,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
-    'delegation.md': '4ad43b6d595a806a137fc1d2b18dba5627764caf33a2a96119eaef839f382318',
+    // 20260711-160446: additive — the delegation prompt contract gains one
+    // more required element, the expected baseline (branch or commit) a
+    // writing delegate must verify. Every existing rule preserved, none
+    // retired or replaced.
+    'delegation.md': 'a1faba8da42f18f5ca12c0fd5514fa4b96b1e8fceefac67c4b84e3490f3c0fb5',
     'discarded.md': '6ef24e465b9aea0f160606ba7a2bc849a5e98f1c747f0fd8814b80786955b590',
     'handoff.md': '2275f8b6ac415c7f132b5cd324dd5556a5948332131d59a0893f20c46e26f330',
     // 20260703-220014: clarified that "one change at a time" is per-worktree, not
