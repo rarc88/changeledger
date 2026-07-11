@@ -42,7 +42,7 @@ Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | context | agent-context
-  changeledger status | discard | review | owner | archive | unarchive
+  changeledger status | discard | review | owner | archive
   changeledger log | task | list | show | graduate | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
@@ -356,6 +356,8 @@ program
       '  changeledger archive <id>',
       '  changeledger archive --graduated',
       '  changeledger archive --graduated --dry-run',
+      '',
+      'To reverse an archive, edit `archived: false` in the change frontmatter directly.',
     ].join('\n'),
   )
   .action(
@@ -371,19 +373,8 @@ program
       }
       if (options.dryRun) throw new Error('--dry-run requires --graduated');
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id, true);
+      archive(id);
       console.log(`#${id} archived`);
-    }),
-  );
-
-program
-  .command('unarchive')
-  .description('show a change in the viewer')
-  .argument('<id>')
-  .action(
-    action((id) => {
-      archive(id, false);
-      console.log(`#${id} unarchived`);
     }),
   );
 

@@ -124,12 +124,10 @@ test('status to in-progress tolerates a missing owner handle', () => {
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
-test('archive sets and clears the archived flag', () => {
+test('archive sets the archived flag', () => {
   const { root, file, id } = repoWithChange();
-  archive(id, true, root);
+  archive(id, root);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.archived, true);
-  archive(id, false, root);
-  assert.equal('archived' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
 function repoWithArchiveCandidates() {
