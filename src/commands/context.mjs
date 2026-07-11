@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findChangeledgerDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
 import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
@@ -59,9 +59,12 @@ function effectiveTdd(config) {
 }
 
 // The transversal policy line every composition anchors on: effective language
-// and tdd with defaults already resolved.
+// and tdd with defaults already resolved. The integration branch appears only
+// when declared — absence means the repo keeps branch auto-detection.
 export function transversalPolicy(config) {
-  return `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
+  const base = `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
+  const branch = integrationBranch(config);
+  return branch ? `${base} — integration_branch=${branch}` : base;
 }
 
 // Type-specific policy for change-id contexts: adds review requirement and the

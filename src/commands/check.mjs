@@ -1,8 +1,19 @@
 import { checkRepo } from '../check.mjs';
+import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
+
+// Declared integration branch, when a ChangeLedger repo (and the key) exists.
+// Outside a repo the lint still works on plain git, so absence is undefined,
+// not an error; a malformed declared value still fails fast in
+// `integrationBranch`.
+function configuredIntegrationBranch(cwd) {
+  const changeledgerDir = findChangeledgerDir(cwd);
+  if (!changeledgerDir) return undefined;
+  return integrationBranch(loadConfig(changeledgerDir));
+}
 
 // Lints `base..HEAD` for the canonical `[#id]` commit marker (merges and
 // `chore(release)` prep are exempt) — no ChangeLedger repo required, just git.
@@ -13,7 +24,7 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
   let resolvedBase;
   let violations;
   try {
-    resolvedBase = base ?? defaultBaseBranch(cwd);
+    resolvedBase = base ?? configuredIntegrationBranch(cwd) ?? defaultBaseBranch(cwd);
     violations = lintCommitRange(cwd, `${resolvedBase}..HEAD`);
   } catch (e) {
     if (json)
