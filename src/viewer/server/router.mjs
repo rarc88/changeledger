@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { gitRefs } from '../../git.mjs';
-import { publicDir } from '../../paths.mjs';
+import { packageRoot, publicDir } from '../../paths.mjs';
 import { loadRepoAsync } from '../../repo.mjs';
 import {
   applyConfigMigration,
@@ -49,9 +49,20 @@ function vendorFile(route) {
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
 };
+
+// The pure metrics module is shared verbatim between the CLI and the browser:
+// the client dynamic-imports it so filtered metrics reuse the exact same
+// computation as the server payload (no reimplementation). `lifecycle.mjs` is
+// its only relative import, so both must be reachable under the same route
+// prefix for the browser's module resolution to find it. Neither file is
+// under `publicDir`; this is a narrow, explicit allowlist rather than opening
+// up the rest of `src/` the way `publicDir` static assets are.
+const SHARED_MODULES_DIR = path.join(packageRoot, 'src');
+const SHARED_MODULES = new Set(['metrics.mjs', 'lifecycle.mjs']);
 
 // Defensive headers for a local-only UI: never sniff types, never cache, and
 // forbid embedding in a frame (clickjacking).
@@ -215,6 +226,13 @@ export function createRequestListener(cwd, localOnly, token) {
         return;
       }
 
+      if (route.startsWith('/shared/')) {
+        const shared = sharedModuleFile(route);
+        if (shared) send(res, 200, MIME['.mjs'], fs.readFileSync(shared));
+        else send(res, 404, 'text/plain', 'Not found');
+        return;
+      }
+
       const vendor = vendorFile(route);
       if (vendor) {
         if (fs.existsSync(vendor)) send(res, 200, MIME['.js'], fs.readFileSync(vendor));
@@ -239,7 +257,10 @@ export function createRequestListener(cwd, localOnly, token) {
   };
 }
 
-export function staticFile(route) {
+// Resolves `route` to a file under `root`, refusing anything that decodes,
+// resolves, or (post-symlink) realpaths outside of it. Shared by the public
+// static assets and the narrower shared-module allowlist below.
+function assetFile(root, route) {
   let decoded;
   try {
     decoded = decodeURIComponent(route);
@@ -249,14 +270,27 @@ export function staticFile(route) {
   if (decoded.includes('\0')) return null;
 
   const rel = decoded.replace(/^\/+/, '');
-  const file = path.resolve(publicDir, rel);
-  if (!isInsidePath(publicDir, file)) return null;
+  const file = path.resolve(root, rel);
+  if (!isInsidePath(root, file)) return null;
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return null;
 
-  const realPublic = fs.realpathSync(publicDir);
+  const realRoot = fs.realpathSync(root);
   const realFile = fs.realpathSync(file);
-  if (!isInsidePath(realPublic, realFile)) return null;
+  if (!isInsidePath(realRoot, realFile)) return null;
   return file;
+}
+
+export function staticFile(route) {
+  return assetFile(publicDir, route);
+}
+
+// Serves only the whitelisted shared modules — never arbitrary files under
+// `src/` — even though containment is checked the same way as public assets.
+export function sharedModuleFile(route) {
+  if (!route.startsWith('/shared/')) return null;
+  const name = route.slice('/shared/'.length);
+  if (!SHARED_MODULES.has(name)) return null;
+  return assetFile(SHARED_MODULES_DIR, `/${name}`);
 }
 
 function isInsidePath(root, target) {
