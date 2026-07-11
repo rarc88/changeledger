@@ -1131,6 +1131,29 @@ test('CR2: a Log section is allowed on a type that does not scaffold it (chore)'
   );
 });
 
+// 20260711-103756 CR3: the `quick` lane scaffolds only request+log — check
+// must accept it with no diagnostics for the deactivated stages.
+test('103756 CR3: a valid quick change with only request and log passes clean', () => {
+  const cfg = { ...config, types: { ...config.types, quick: { stages: ['request', 'log'] } } };
+  const c = {
+    name: '20260613-120000-x.md',
+    frontmatter: {
+      id: '20260613-120000',
+      title: 'X',
+      type: 'quick',
+      status: 'in-progress',
+      created: '2026-06-13T12:00:00Z',
+      depends_on: [],
+    },
+    stages: [{ key: 'request' }, { key: 'log' }],
+    tasks: [],
+    criteria: [],
+  };
+  const { errors, warnings } = checkRepo({ config: cfg, changes: [c] });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
 // 20260615-210508 — a discarded change is valid and stays dependency-resolvable.
 test('210508 CR5: a discarded change passes check', () => {
   const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };

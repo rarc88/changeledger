@@ -38,7 +38,9 @@ change-id context required by a real task or lifecycle transition.
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
 reversible edit with no persistent truth or observable behavior change should be
-done directly. If unsure, document it in ChangeLedger.
+done directly. If unsure, document it in ChangeLedger. For small, reversible,
+single-concern work with observable behavior, use the `quick` type instead of
+bypassing documentation — see `changeledger context spec`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 

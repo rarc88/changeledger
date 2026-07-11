@@ -38,7 +38,7 @@ headings. Required and optional frontmatter:
 ---
 id: "20260613-134548"
 title: Short, clear title
-type: feature                  # feature | bug | audit | refactor | chore
+type: feature                  # feature | bug | audit | refactor | chore | quick
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
@@ -78,10 +78,18 @@ Default activation matrix:
 | audit | ✓ | ✓ | — | — | — | ✓ |
 | refactor | ✓ | — | ✓ | — | ✓ | ✓ |
 | chore | ✓ | — | — | — | ✓ | — |
+| quick | ✓ | — | — | — | — | ✓ |
 
 The configured matrix is authoritative. For bugs, Investigation contains the
 root cause; for audits, it is the core analysis. Proposal includes the chosen
 solution, discarded alternatives and scenarios.
+
+`quick` is a lighter lane for small, reversible, single-concern work that does
+not expand public surface or persistent truth (`specs/`): document only
+Request and Log, ~10-15 lines. It keeps the same human `draft → approved` gate
+and `[#id]` commit marker as any other type, skipping only `in-review`. If
+scope grows mid-execution beyond that eligibility, discard the change and
+recreate it under the correct type instead of continuing under `quick`.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.
