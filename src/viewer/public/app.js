@@ -859,7 +859,6 @@ let configMode = 'form'; // 'form' | 'raw'
 let configDirty = false; // true when form/raw has unsaved edits
 let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
 
-const SUPPORTED_SCHEMA_VERSION = 1;
 // Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
 // _confirmImpl is replaceable in tests (JSDOM lacks showModal).
 let _confirmImpl = null;
@@ -963,8 +962,9 @@ function configSectionTemplate(config, mode, preview) {
   }
 
   const schema = config.schemaVersion ?? 0;
-  const futureSch = schema > SUPPORTED_SCHEMA_VERSION;
-  const outdated = schema < SUPPORTED_SCHEMA_VERSION;
+  const supported = config.supported;
+  const futureSch = schema > supported;
+  const outdated = schema < supported;
 
   return html`<div class="config-section">
     ${
@@ -998,7 +998,7 @@ function configSectionTemplate(config, mode, preview) {
         : outdated
           ? html`<div class="config-migration-card">
               <h3>Migration required</h3>
-              <p>Config schema ${schema} is outdated. Preview and apply the migration to schema ${SUPPORTED_SCHEMA_VERSION} to enable the Form editor.</p>
+              <p>Config schema ${schema} is outdated. Preview and apply the migration to schema ${supported} to enable the Form editor.</p>
               ${
                 preview?.already_current
                   ? html`<p class="config-migration-ok">Migration already applied.</p>`
@@ -1241,7 +1241,7 @@ async function openManagedProject(id, { reload = false } = {}) {
     const structured = await getProjectConfigStructured(id);
     managedConfig = { id, ...structured };
     // Default to form for current schema, raw for future schema
-    if (structured.schemaVersion > SUPPORTED_SCHEMA_VERSION) {
+    if (structured.schemaVersion > structured.supported) {
       configMode = 'raw';
     } else {
       configMode = 'form';
