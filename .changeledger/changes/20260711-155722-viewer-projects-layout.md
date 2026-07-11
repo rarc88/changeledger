@@ -2,7 +2,7 @@
 id: "20260711-155722"
 title: Projects a ancho completo con scroll por panel
 type: feature
-status: in-validation
+status: done
 created: 2026-07-11T15:57:22Z
 depends_on: []
 release_impact: minor
@@ -84,3 +84,4 @@ Alternativas descartadas:
 - **2026-07-11T16:45:22Z** — Corrección confirmada por re-review de contexto limpio: ResizeObserver en bootstrap() sincroniza --header-height con el alto real del topbar (95px envuelto verificado a 1000/1150px, sin overflow); CSS queda como fallback. Divergencia del Plan justificada: derivar la altura real exige JS.
 - **2026-07-11T16:45:22Z** — status: in-progress → in-review
 - **2026-07-11T16:45:22Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:39:43Z** — validation → done (human accepted)

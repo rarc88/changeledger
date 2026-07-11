@@ -2,7 +2,7 @@
 id: "20260710-201703"
 title: Permitir auditorías read-only de changes en validación
 type: bug
-status: in-validation
+status: done
 created: 2026-07-10T20:17:03Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -67,3 +67,4 @@ orquestador o al humano sin exponer comandos de mutación ni cambiar el estado.
 - **2026-07-11T16:02:03Z** — Integrada implementación delegada (1f2c807..84feac9): rol audit read-only restringido a in-validation, cápsula y skeleton nuevos, guard de review intacto, empaquetado a 4 roles; snapshot de core.md reclasificado. pnpm verify 606/606.
 - **2026-07-11T16:02:03Z** — status: in-progress → in-review
 - **2026-07-11T16:09:16Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:39:30Z** — validation → done (human accepted)
