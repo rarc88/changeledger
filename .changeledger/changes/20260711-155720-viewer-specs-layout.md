@@ -2,7 +2,7 @@
 id: "20260711-155720"
 title: Pantalla Specs con grid rico a ancho completo
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-11T15:57:20Z
 depends_on: []
 release_impact: minor
@@ -83,13 +83,15 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Añadir en `test/viewer-metadata.test.mjs` cobertura de `specsListHtml` de `src/viewer/public/view-renderers.js`: extracto plano, orden por updated y escape del contenido; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3)
-- [ ] Implementar extracto y orden en `specsListHtml` de `src/viewer/public/view-renderers.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3)
-- [ ] Reemplazar el layout de `.specs-view`/`.spec-card` por grid responsive en `src/viewer/public/styles.css`; verify: manual browser check a 1280 px y 680 px (CR1)
-- [ ] Verificar búsqueda y apertura de detalle en `renderSpecs` de `src/viewer/public/app.js`; verify: manual browser check (CR4)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `specsListHtml` de `src/viewer/public/view-renderers.js`: extracto plano, orden por updated y escape del contenido; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3) — 2026-07-11T16:35:35Z
+- [x] Implementar extracto y orden en `specsListHtml` de `src/viewer/public/view-renderers.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3) — 2026-07-11T16:35:35Z
+- [x] Reemplazar el layout de `.specs-view`/`.spec-card` por grid responsive en `src/viewer/public/styles.css`; verify: manual browser check a 1280 px y 680 px (CR1) — 2026-07-11T16:35:36Z
+- [x] Verificar búsqueda y apertura de detalle en `renderSpecs` de `src/viewer/public/app.js`; verify: manual browser check (CR4) — 2026-07-11T16:35:36Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:35:36Z
 
 ## Log
 - **2026-07-11T16:13:57Z** — status: draft → approved
 - **2026-07-11T16:22:10Z** — status: approved → in-progress
 - **2026-07-11T16:22:10Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T16:35:36Z** — Integrada implementación delegada (57e3ce1): grid auto-fill minmax(320px,1fr) con breakpoint 680px, specExcerpt en texto plano saltando el historial de graduación, sortSpecsByUpdated compartido con renderSpecs para mantener el índice de click. CRs verificados en navegador por el implementador. pnpm verify 610/610.
+- **2026-07-11T16:35:36Z** — status: in-progress → in-review
