@@ -2,7 +2,7 @@
 id: "20260711-162556"
 title: migrate no propaga el tipo quick a repos schema 1
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-11T16:25:56Z
 depends_on: [ "20260711-103756" ]
 release_impact: minor
@@ -60,12 +60,14 @@ nueva solo la reciben los repos creados con `init`. Reportado por el humano el
 
 ## Plan
 
-- [ ] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs` (CR1, CR2, CR3)
-- [ ] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`; verify: `node --test test/config-migration.test.mjs` (CR1, CR3)
-- [ ] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR4)
-- [ ] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs` (CR1, CR2, CR3) — 2026-07-11T21:25:29Z
+- [x] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`; verify: `node --test test/config-migration.test.mjs` (CR1, CR3) — 2026-07-11T21:25:29Z
+- [x] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR4) — 2026-07-11T21:25:29Z
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T21:25:29Z
 
 ## Log
 - **2026-07-11T21:05:23Z** — status: draft → approved
 - **2026-07-11T21:08:41Z** — status: approved → in-progress
 - **2026-07-11T21:08:41Z** — owner → raruiz-hiberuscom (auto)
+- **2026-07-11T21:25:29Z** — Integrada implementación delegada (e1f8f30, 3712162): schema 2 con migración 1→2 aditiva (quick + impacts.quick), idempotente, byte-intacta para config custom, falla cerrado en schema 3; viewer usa el schema del payload en vez del duplicado hardcodeado. Nota: el delegado tocó src/viewer/domain.mjs y src/viewer/public/app.js más allá del ownership declarado, reportado y justificado por CR4 (región disjunta de la corrección pendiente de 20260711-155719). pnpm verify 638/638.
+- **2026-07-11T21:25:29Z** — status: in-progress → in-review
