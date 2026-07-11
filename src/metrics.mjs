@@ -70,6 +70,29 @@ function avg(nums) {
   return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : 0;
 }
 
+// Nearest-rank percentile over an ascending-sorted array; 0 for an empty input
+// so callers never divide by zero or render NaN.
+function percentile(sorted, p) {
+  if (!sorted.length) return 0;
+  const rank = Math.min(sorted.length, Math.max(1, Math.ceil((p / 100) * sorted.length)));
+  return sorted[rank - 1];
+}
+
+// Count of `review → in-progress` verdicts (the `fail --retry` outcome) — the
+// same event grammar as lifecycle transitions, filtered to the implicit
+// review-verdict shape so an explicit `status:` move or a validation verdict
+// isn't miscounted as a retry.
+function reviewRetryCount(change) {
+  let count = 0;
+  for (const line of logBody(change).split('\n')) {
+    const event = parseLogEvent(line);
+    if (event && !event.explicit && event.from === 'in-review' && event.to === 'in-progress') {
+      count++;
+    }
+  }
+  return count;
+}
+
 export function computeMetrics(changes = [], { now } = {}) {
   const nowIso = now ?? '9999-12-31T23:59:59Z';
 
@@ -80,11 +103,16 @@ export function computeMetrics(changes = [], { now } = {}) {
   const aging = [];
   let blockedMs = 0;
   const byType = new Map(); // type → { closed, cycles:[] }
+  const byOwner = new Map(); // owner → { closed, cycles:[] }
+  let reviewRetries = 0;
 
   for (const c of changes) {
     const status = c.frontmatter?.status;
     const type = c.frontmatter?.type ?? 'unknown';
+    const owner = c.frontmatter?.owner || 'unassigned';
     const created = c.frontmatter?.created;
+
+    reviewRetries += reviewRetryCount(c);
 
     if (ACTIVE.includes(status)) wip[status] = (wip[status] ?? 0) + 1;
 
@@ -114,6 +142,11 @@ export function computeMetrics(changes = [], { now } = {}) {
         bt.closed += 1;
         bt.cycles.push(cycleMs);
         byType.set(type, bt);
+
+        const bo = byOwner.get(owner) ?? { closed: 0, cycles: [] };
+        bo.closed += 1;
+        bo.cycles.push(cycleMs);
+        byOwner.set(owner, bo);
       }
     }
   }
@@ -130,17 +163,26 @@ export function computeMetrics(changes = [], { now } = {}) {
   const byTypeArr = [...byType.entries()]
     .map(([type, v]) => ({ type, closed: v.closed, avgCycleMs: avg(v.cycles) }))
     .sort((a, b) => b.closed - a.closed);
+  const byOwnerArr = [...byOwner.entries()]
+    .map(([owner, v]) => ({ owner, closed: v.closed, avgCycleMs: avg(v.cycles) }))
+    .sort((a, b) => b.closed - a.closed);
+  const validationWaitMs = timeInStatus.find((t) => t.state === 'in-validation')?.avgMs ?? 0;
 
   return {
     count: perChange.length,
     avgCycleMs: avg(cycles),
     medianCycleMs: median(cycles),
+    p50CycleMs: percentile(cycles, 50),
+    p85CycleMs: percentile(cycles, 85),
     perChange,
     throughput,
     timeInStatus,
     wip,
     aging: aging.sort((a, b) => b.ms - a.ms),
     blockedMs,
+    validationWaitMs,
+    reviewRetries,
     byType: byTypeArr,
+    byOwner: byOwnerArr,
   };
 }
