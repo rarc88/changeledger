@@ -156,7 +156,7 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     html`<details class="filter-menu">
       <summary class="filter-trigger">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
-        <span>${summary}</span>
+        <span data-choice-summary>${summary}</span>
         <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path></svg>
       </summary>
       <div class="filter-popover">
@@ -182,6 +182,14 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     };
   host.querySelector('[data-clear]').onclick = () => {
     clear();
+    host.querySelectorAll('[data-choice], [data-unassigned]').forEach((input) => {
+      input.checked = false;
+    });
+    host.querySelector('[data-choice-summary]').textContent = choiceFilterSummary(
+      label,
+      selected,
+      owners && state.filters.includeUnassigned,
+    );
     render();
   };
 }
