@@ -1334,10 +1334,10 @@ body {
 /* Specs view */
 .specs-view {
   padding: 16px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 10px;
-  max-width: 760px;
+  align-items: start;
 }
 .spec-card {
   background: var(--panel);
@@ -1352,6 +1352,21 @@ body {
 .spec-title {
   font-weight: 600;
   margin-bottom: 6px;
+}
+.spec-excerpt {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+@media (max-width: 680px) {
+  .specs-view {
+    grid-template-columns: 1fr;
+  }
 }
 .empty {
   color: var(--muted);

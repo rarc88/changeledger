@@ -56,7 +56,7 @@ const { state: appState } = await import('../src/viewer/public/app-state.js');
 const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
-const { graphSvg } = await import('../src/viewer/public/view-renderers.js');
+const { graphSvg, specsListHtml } = await import('../src/viewer/public/view-renderers.js');
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -1193,6 +1193,64 @@ test('113924: requestUnregisterConfirmation uses showPrompt when no ask override
   const result = await requestUnregisterConfirmation({ name: 'alpha' });
   setPromptImpl(null);
   assert.equal(result, 'alpha');
+});
+
+// 20260711-155720 specs grid: excerpt, order, safe interpolation
+const spec = (overrides) => ({
+  title: 'Spec',
+  updated: '2026-07-01T00:00:00Z',
+  tags: [],
+  body: '# Spec\n\nSome prose here.',
+  ...overrides,
+});
+
+test('155720 CR2: card shows a plain-text excerpt of the first prose paragraph, skipping graduation history', () => {
+  const host = parse(
+    specsListHtml(
+      [
+        spec({
+          body: `# Architecture
+
+> Graduado del change 20260613-120000 (first).
+> Graduado del change 20260613-120001 (second).
+
+ChangeLedger separa **almacén** (fuente de verdad) de \`presentación\` [ver detalle](x).
+
+## Componentes`,
+        }),
+      ],
+      (d) => d,
+    ),
+  );
+  const excerpt = host.querySelector('.spec-excerpt');
+  assert.ok(excerpt);
+  assert.equal(
+    excerpt.textContent,
+    'ChangeLedger separa almacén (fuente de verdad) de presentación ver detalle.',
+  );
+});
+
+test('155720 CR2: excerpt is inserted as text, never interpretable HTML', () => {
+  const host = parse(specsListHtml([spec({ body: `# T\n\n${XSS} some prose` })], (d) => d));
+  assert.equal(host.querySelector('img'), null);
+  assert.match(host.querySelector('.spec-excerpt').textContent, /some prose/);
+});
+
+test('155720 CR3: cards are ordered by updated descending', () => {
+  const host = parse(
+    specsListHtml(
+      [
+        spec({ title: 'Oldest', updated: '2026-01-01T00:00:00Z' }),
+        spec({ title: 'Newest', updated: '2026-07-01T00:00:00Z' }),
+        spec({ title: 'Middle', updated: '2026-04-01T00:00:00Z' }),
+      ],
+      (d) => d,
+    ),
+  );
+  assert.deepEqual(
+    [...host.querySelectorAll('.spec-title')].map((el) => el.textContent),
+    ['Newest', 'Middle', 'Oldest'],
+  );
 });
 
 test('113924: requestUnregisterConfirmation still accepts legacy ask override', () => {

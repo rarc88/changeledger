@@ -1,7 +1,48 @@
 import { cssIdent } from './security.js';
 import { html, nothing, svg } from './templates.js';
+import { splitGraduationHistory } from './view-parts.js';
 
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+// Plain-text excerpt for spec cards: strips the leading graduation-history
+// blockquote, picks the first prose paragraph (skipping headings, remaining
+// blockquotes and code fences) and removes inline Markdown syntax. The result
+// is interpolated as text (lit-html), never as HTML.
+function firstProseParagraph(text) {
+  const paragraphs = String(text ?? '').split(/\n\s*\n/);
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+    if (!trimmed) continue;
+    if (/^#{1,6}\s/.test(trimmed)) continue;
+    if (/^>/.test(trimmed)) continue;
+    if (/^```/.test(trimmed)) continue;
+    return trimmed;
+  }
+  return '';
+}
+
+function stripMarkdown(text) {
+  return text
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function specExcerpt(body, maxLen = 160) {
+  const { after } = splitGraduationHistory(body);
+  return clip(stripMarkdown(firstProseParagraph(after)), maxLen);
+}
+
+// Most recently updated truth first.
+export function sortSpecsByUpdated(specs) {
+  const time = (s) => Date.parse(s?.updated || '') || 0;
+  return [...specs].sort((a, b) => time(b) - time(a));
+}
 
 export function graphSvg(changes) {
   if (!changes.length) {
@@ -79,17 +120,19 @@ export function graphSvg(changes) {
 }
 
 export function specsListHtml(specs, fmtDateTime) {
-  return specs.length
-    ? specs.map(
-        (s, i) => html`<div class="spec-card" data-i=${i}>
-          <div class="spec-title">${s.title}</div>
-          <div class="card-meta">
-            <span title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
-            ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
-          </div>
-        </div>`,
-      )
-    : html`<p class="empty">No specs yet. Truth graduates here as changes complete.</p>`;
+  if (!specs.length) {
+    return html`<p class="empty">No specs yet. Truth graduates here as changes complete.</p>`;
+  }
+  return sortSpecsByUpdated(specs).map(
+    (s, i) => html`<div class="spec-card" data-i=${i}>
+      <div class="spec-title">${s.title}</div>
+      <div class="card-meta">
+        <span title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
+        ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
+      </div>
+      <p class="spec-excerpt">${specExcerpt(s.body)}</p>
+    </div>`,
+  );
 }
 
 export function fmtDuration(ms) {

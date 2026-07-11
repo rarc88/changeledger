@@ -48,7 +48,7 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, metricsHtml, specsListHtml } from './view-renderers.js';
+import { graphSvg, metricsHtml, sortSpecsByUpdated, specsListHtml } from './view-renderers.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -730,8 +730,10 @@ function sortVal(c, key) {
 /* Specs view */
 function renderSpecs() {
   const q = state.filters.text.toLowerCase();
-  const specs = (state.repo.specs || []).filter(
-    (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
+  const specs = sortSpecsByUpdated(
+    (state.repo.specs || []).filter(
+      (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
+    ),
   );
   litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
   $('#specs')
