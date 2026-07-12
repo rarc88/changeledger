@@ -2,11 +2,13 @@
 id: "20260711-225637"
 title: Completar migración y formulario de la rama de integración
 type: bug
-status: in-validation
+status: done
 created: 2026-07-11T22:56:37Z
 depends_on: [ "20260711-210115", "20260628-113219", "20260628-113924" ]
 release_impact: patch
 owner: Test
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -98,3 +100,6 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-12T10:24:23Z** — Corrección candidata: la migración inserta una línea en blanco antes del bloque Git; pnpm verify 658/658 y 189 changes válidos.
 - **2026-07-12T10:24:23Z** — status: in-progress → in-review
 - **2026-07-12T10:26:11Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-12T10:47:18Z** — validation → done (human accepted)
+- **2026-07-12T10:49:19Z** — graduado a spec `git-traceability.md`
+- **2026-07-12T10:49:19Z** — archived

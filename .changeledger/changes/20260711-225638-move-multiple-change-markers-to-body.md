@@ -2,11 +2,13 @@
 id: "20260711-225638"
 title: Mover marcadores múltiples al cuerpo del commit
 type: feature
-status: in-review
+status: done
 created: 2026-07-11T22:56:38Z
 depends_on: [ "20260711-103757" ]
 release_impact: minor
 owner: Test
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -99,3 +101,7 @@ Alternativas descartadas:
 - **2026-07-11T23:07:57Z** — owner → Test (auto)
 - **2026-07-11T23:11:36Z** — Implementación TDD completa: un id permanece en subject; múltiples ids usan cuerpo ChangeLedger canónico; lint valida ambas formas y reporta formatos ambiguos; gitRefs conserva lookup con subject limpio. pnpm verify 658/658 y 189 changes válidos.
 - **2026-07-11T23:11:36Z** — status: in-progress → in-review
+- **2026-07-11T23:13:54Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-12T10:47:20Z** — validation → done (human accepted)
+- **2026-07-12T10:49:41Z** — graduado a spec `git-traceability.md`
+- **2026-07-12T10:49:41Z** — archived
