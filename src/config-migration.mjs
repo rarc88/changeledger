@@ -182,6 +182,7 @@ function setBlankGitSection(doc) {
   );
   if (!gitPair) return;
   if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
+  gitPair.key.spaceBefore = true;
   gitPair.key.commentBefore =
     ' Git integration: change branches start from and merge into this branch';
 }

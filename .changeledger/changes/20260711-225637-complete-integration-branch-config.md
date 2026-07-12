@@ -40,7 +40,7 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 ### CR1 — Schema v3 incorpora la sección Git sin inventar una rama
 - **Given** una configuración válida con `schema_version: 2` y sin clave `git`
 - **When** se ejecuta `changeledger config migrate`
-- **Then** queda en `schema_version: 3` con el comentario `# Git integration: change branches start from and merge into this branch` y `git.integration_branch` vacío
+- **Then** queda en `schema_version: 3` con una línea en blanco antes del comentario `# Git integration: change branches start from and merge into this branch` y `git.integration_branch` vacío
 - **And** el valor vacío no declara una rama efectiva y conserva la autodetección
 - **And** el resumen declara exactamente la actualización de schema y la sección añadida
 
@@ -53,7 +53,7 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 ### CR3 — Los repos nuevos documentan la opción
 - **Given** un repositorio inicializado con la plantilla vigente
 - **When** se inspecciona `.changeledger/config.yml`
-- **Then** usa schema v3 e incluye el comentario Git y `integration_branch:` vacío
+- **Then** usa schema v3 e incluye, como bloque separado por una línea en blanco, el comentario Git y `integration_branch:` vacío
 - **And** no activa por defecto una rama concreta
 
 ### CR4 — El formulario edita la rama de integración
@@ -94,3 +94,7 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-11T23:21:12Z** — Corrección candidata confirmada: v2→v3 y la plantilla generan comentario Git + integration_branch vacío; sin reparación intra-schema. pnpm verify 658/658 y 189 changes válidos.
 - **2026-07-11T23:21:12Z** — status: in-progress → in-review
 - **2026-07-11T23:22:13Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-12T10:23:03Z** — validation → in-progress (agent rejected): El bloque Git migrado debe incluir una línea en blanco antes del comentario para no quedar pegado al bloque anterior.
+- **2026-07-12T10:24:23Z** — Corrección candidata: la migración inserta una línea en blanco antes del bloque Git; pnpm verify 658/658 y 189 changes válidos.
+- **2026-07-12T10:24:23Z** — status: in-progress → in-review
+- **2026-07-12T10:26:11Z** — review → in-validation (delegated subagent, clean context)
