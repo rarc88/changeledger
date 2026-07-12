@@ -4,7 +4,7 @@ import { parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 2;
+export const SUPPORTED_SCHEMA_VERSION = 3;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -76,7 +76,8 @@ export function buildMigration(originalText) {
   if (current < 1) {
     migrateToV1(doc, config, changes);
   }
-  migrateToV2(doc, config, changes);
+  if (current < 2) migrateToV2(doc, config, changes);
+  if (current < 3) migrateToV3(doc, config, changes);
 
   // No line wrapping and no flow padding: keeps untouched flow sequences
   // (statuses, stages) byte-identical to their common written form.
@@ -162,6 +163,28 @@ function migrateToV2(doc, config, changes) {
     doc.setIn(['release', 'impacts', 'quick'], 'patch');
     changes.push('added release.impacts.quick: patch');
   }
+}
+
+// 2 → 3: expose Git integration without inventing a repository-specific branch.
+// Existing git settings and comments remain byte-for-byte owned by the source doc.
+function migrateToV3(doc, config, changes) {
+  if (!Object.hasOwn(config, 'git')) {
+    setBlankGitSection(doc);
+    changes.push('added git section');
+  }
+}
+
+function setBlankGitSection(doc) {
+  const gitNode = parseDocument('git:\n  integration_branch:\n').get('git', true);
+  doc.set('git', gitNode);
+  const gitPair = doc.contents.items.find(
+    (pair) => pair.key?.value === 'git' || pair.key === 'git',
+  );
+  if (!gitPair) return;
+  if (typeof gitPair.key === 'string') gitPair.key = doc.createNode(gitPair.key);
+  gitPair.key.spaceBefore = true;
+  gitPair.key.commentBefore =
+    ' Git integration: change branches start from and merge into this branch';
 }
 
 // Apply migration to a file (or dry-run). Returns summary string.

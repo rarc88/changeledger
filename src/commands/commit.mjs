@@ -33,7 +33,12 @@ export function commit({ message, ids = [] } = {}, cwd = process.cwd(), run = mu
     resolvedIds = [active[0].frontmatter.id];
   }
 
-  const subject = `${message} ${resolvedIds.map((id) => `[#${id}]`).join(' ')}`;
-  run(['commit', '-m', subject], repo.repoRoot);
+  const markers = resolvedIds.map((id) => `[#${id}]`).join(' ');
+  const multiple = resolvedIds.length > 1;
+  const subject = multiple ? message : `${message} ${markers}`;
+  const args = multiple
+    ? ['commit', '-m', subject, '-m', `ChangeLedger: ${markers}`]
+    : ['commit', '-m', subject];
+  run(args, repo.repoRoot);
   return subject;
 }

@@ -1496,6 +1496,39 @@ test('CR6: merges and chore(release) prep are exempt from the lint', () => {
   assert.deepEqual(parsed.errors, []);
 });
 
+test('225638 CR3: check --commits accepts canonical multi-change markers in the body', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'docs(context): checkpoint', '-m', 'ChangeLedger: [#A] [#B]']);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('225638 CR4: check --commits rejects multi-change subjects and malformed body lines', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'docs(context): old shape [#A] [#B]']);
+  fs.writeFileSync(path.join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'docs(context): malformed body', '-m', 'ChangeLedger: [#A], [#B]']);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const errors = JSON.parse(out.calls.at(-1))
+    .errors.map((error) => error.message)
+    .join('\n');
+  assert.match(errors, /multiple \[#id\] markers.*body/);
+  assert.match(errors, /malformed ChangeLedger body/);
+});
+
 // --- check --commits base from config (20260711-210115 CR1) ---
 
 test('210115 CR1: configured git.integration_branch is the default lint base', () => {

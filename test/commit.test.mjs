@@ -68,6 +68,10 @@ function lastSubject(root) {
   return git(root, ['log', '-1', '--pretty=%s']).trim();
 }
 
+function lastBody(root) {
+  return git(root, ['log', '-1', '--pretty=%b']).trim();
+}
+
 test('CR1: a single in-progress change auto-resolves the marker', () => {
   const root = gitRepo();
   writeChange(root, '20260711-000001', 'in-progress');
@@ -92,14 +96,15 @@ test('CR2: ambiguity without --id creates no commit and lists candidates', () =>
   assert.equal(commitCount(root), 0);
 });
 
-test('CR3: multiple --id produce separate brackets', () => {
+test('225638 CR2: multiple --id keep a clean subject and put markers in the body', () => {
   const root = gitRepo();
   stageFile(root, 'a.txt', 'x');
 
   const subject = commit({ message: 'feat(x): y', ids: ['A', 'B'] }, root);
 
-  assert.equal(subject, 'feat(x): y [#A] [#B]');
-  assert.equal(lastSubject(root), 'feat(x): y [#A] [#B]');
+  assert.equal(subject, 'feat(x): y');
+  assert.equal(lastSubject(root), 'feat(x): y');
+  assert.equal(lastBody(root), 'ChangeLedger: [#A] [#B]');
 });
 
 test('CR1 (20260711-204419): a git commit failure surfaces git stderr in the error', () => {
