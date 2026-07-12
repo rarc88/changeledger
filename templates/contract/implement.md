@@ -37,15 +37,17 @@ Commit messages use the canonical shape:
 feat(scope): description [#20260629-234939]
 ```
 
-Use the actual change id and the appropriate conventional type. Referencing more
-than one change is separate brackets, one per id (`[#A] [#B]`) — never a comma
-list inside one bracket. Ledger meta-commits (status, review, log, archive)
-carry the marker like any other commit; only merge commits and `chore(release)`
-prep are exempt. `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
-composes and creates the commit for you: it resolves the single `in-progress`
-change automatically when `--id` is omitted, and fails without committing if
-that is ambiguous or the subject isn't conventional. `changeledger check
---commits [<base>]` lints `<base>..HEAD` for the marker with the same
+Use the actual change id and the appropriate conventional type. One change keeps
+its marker at the end of the subject. Referencing more than one change keeps the
+subject clean and puts separate brackets in one canonical body line:
+`ChangeLedger: [#A] [#B]` — never a comma list in one bracket. Ledger
+meta-commits (status, review, log, archive) carry markers like any other commit;
+only merge commits and `chore(release)` prep are exempt. `changeledger commit -m
+"<type>(<scope>): <desc>" [--id <id>]...` composes and creates the commit for
+you: it resolves the single `in-progress` change automatically when `--id` is
+omitted, and fails without committing if that is ambiguous or the subject isn't
+conventional. `changeledger check --commits [<base>]` lints `<base>..HEAD` for
+either canonical marker placement with the same
 exemptions — run it before requesting review. If shared files make a combined commit
 unavoidable, record it in Log or the handoff and name every change sharing the
 surface.

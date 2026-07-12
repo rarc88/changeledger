@@ -468,6 +468,7 @@ const PATCH_ALLOWED = new Set([
   'readiness',
   'types',
   'release',
+  'git',
 ]);
 
 const CANONICAL_STATUSES_REQUIRED = new Set([
@@ -500,6 +501,8 @@ function applyPatch(doc, patch, currentConfig) {
       applyReleasePatch(doc, value);
     } else if (key === 'readiness') {
       applyReadinessPatch(doc, value);
+    } else if (key === 'git') {
+      applyGitPatch(doc, value);
     } else if (key === 'statuses') {
       applyRequiredListPatch(doc, 'statuses', value, CANONICAL_STATUSES_REQUIRED);
     } else if (key === 'stages') {
@@ -552,5 +555,14 @@ function applyReadinessPatch(doc, readinessPatch) {
   }
   if (Array.isArray(readinessPatch.verification_patterns)) {
     doc.setIn(['readiness', 'verification_patterns'], readinessPatch.verification_patterns);
+  }
+}
+
+function applyGitPatch(doc, gitPatch) {
+  if (!gitPatch || typeof gitPatch !== 'object') return;
+  if (typeof gitPatch.integration_branch === 'string' && gitPatch.integration_branch.trim()) {
+    doc.setIn(['git', 'integration_branch'], gitPatch.integration_branch.trim());
+  } else if (gitPatch.integration_branch === null) {
+    doc.deleteIn(['git', 'integration_branch']);
   }
 }

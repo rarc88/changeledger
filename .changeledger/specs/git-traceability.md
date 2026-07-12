@@ -1,6 +1,6 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-11T22:24:25Z
+updated: 2026-07-12T10:49:41Z
 tags: [ git ]
 ---
 
@@ -10,6 +10,8 @@ tags: [ git ]
 > Actualizado por el change 20260711-103757 (contrato de commits ejecutable: helper y lint).
 > Actualizado por el change 20260711-204419 (diagnóstico de fallos de commit).
 > Actualizado por el change 20260711-210115 (rama de integración configurable).
+> Actualizado por el change 20260711-225637 (migración y edición de la rama de integración).
+> Actualizado por el change 20260711-225638 (marcadores múltiples en el cuerpo del commit).
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
 convención de commit `[#<id>]`: lista los commits que lo referencian y las
@@ -18,11 +20,14 @@ endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 **Git**. El lookup de PR (red/`gh`) queda fuera del visor local.
 
 **Contrato de commits ejecutable.** `changeledger commit -m "<subject>"
-[--id <id>...]` compone el sufijo canónico `[#id]` (varios ids → `[#A] [#B]`),
-resuelve el único change `in-progress` cuando se omite `--id` y valida la forma
-conventional-commit del subject antes de delegar en `git commit`. `changeledger
-check --commits [base]` lintea un rango de commits exigiendo el marcador
-`[#id]`; exime merges y `chore(release)`. El runner de `git.mjs` sanea
+[--id <id>...]` deja un único `[#id]` al final del subject. Con varios ids
+mantiene el subject limpio y escribe una línea canónica en el cuerpo:
+`ChangeLedger: [#A] [#B]`. Resuelve el único change `in-progress` cuando se
+omite `--id` y valida la forma conventional-commit antes de delegar en Git.
+`changeledger check --commits [base]` acepta exclusivamente esas dos formas y
+reporta la causa concreta de marcadores ausentes, ambiguos o mal formados;
+exime merges y `chore(release)`. `gitRefs()` busca en el mensaje completo y
+presenta el subject limpio. El runner de `git.mjs` sanea
 `GIT_DIR`/`GIT_WORK_TREE` del entorno heredado para que hooks anidados no
 redirijan comandos git al repo equivocado. `git.mjs` distingue dos perfiles de
 ejecución: las consultas tolerantes (`defaultRun`) degradan en silencio a vacío,
@@ -36,7 +41,14 @@ ramas de change. Cuando existe, `check --commits` la usa como base por defecto
 (una base posicional explícita conserva precedencia) y `changeledger context`
 la publica como `integration_branch=<rama>` en la política efectiva. Cuando no
 existe, se conserva la autodetección de base mediante `origin/HEAD`, `main` o
-`master`. El editor de configuración del visor preserva la clave.
+`master`.
+
+El schema 3 distribuye esta capacidad a configuraciones existentes y repos
+nuevos. La migración v2 → v3 y la plantilla crean un bloque Git separado y
+documentado con `integration_branch:` vacío, que conserva la autodetección. El
+formulario estructurado del viewer permite declarar, cambiar o vaciar la rama;
+al eliminarla preserva las demás claves bajo `git`. Preview y aplicación usan el
+mismo motor de migración.
 
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en `main`, `master` ni `dev`;

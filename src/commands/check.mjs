@@ -41,7 +41,7 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
 
   const errors = violations.map((v) => ({
     file: '(commits)',
-    message: `${v.sha} missing [#id] marker: "${v.subject}"`,
+    message: `${v.sha} ${v.reason}: "${v.subject}"`,
   }));
 
   if (json) {

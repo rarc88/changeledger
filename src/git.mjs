@@ -5,6 +5,7 @@
 import { execFileSync } from 'node:child_process';
 
 const SEP = String.fromCharCode(31); // ASCII unit separator — safe field delimiter
+const RECORD_SEP = String.fromCharCode(30);
 
 // Repo-location env vars git itself exports while running a hook (e.g. this
 // project's own pre-commit). Left inherited, a child `git` call would silently
@@ -111,34 +112,51 @@ export function defaultBaseBranch(repoRoot, run = defaultRun) {
   );
 }
 
-// Commits in `range` (e.g. `main..HEAD`): sha, subject and whether each is a
-// merge (more than one parent) — the git metadata `check --commits` lints.
+// Commits in `range` (e.g. `main..HEAD`): sha, subject, body and whether each is
+// a merge (more than one parent) — the git metadata `check --commits` lints.
 export function commitsInRange(repoRoot, range, run = defaultRun) {
   let out;
   try {
-    out = run(['log', range, `--pretty=format:%H${SEP}%P${SEP}%s`], repoRoot);
+    out = run(['log', range, `--pretty=format:%H${SEP}%P${SEP}%s${SEP}%b${RECORD_SEP}`], repoRoot);
   } catch (e) {
     throw new Error(`git log failed for range "${range}": ${e.message}`);
   }
   return out
-    .split('\n')
+    .split(RECORD_SEP)
+    .map((record) => record.trim())
     .filter(Boolean)
-    .map((line) => {
-      const [sha, parents, subject] = line.split(SEP);
+    .map((record) => {
+      const [sha, parents, subject, body = ''] = record.split(SEP);
       return {
         sha,
         subject,
+        body: body.trim(),
         isMerge: parents.trim().split(/\s+/).filter(Boolean).length > 1,
       };
     });
 }
 
-// A well-formed marker is one or more `[#id]` groups, each separated by a
-// single space, terminating the subject — the canonical multi-id shape is
-// separate brackets (`[#A] [#B]`), never a comma list in one bracket.
-const MARKER_RE = /(\[#[^\]\s]+\])(\s\[#[^\]\s]+\])*$/;
+const MARKER_RE = /\[#[^\]\s]+\]$/;
+const ANY_MARKER_RE = /\[#[^\]\s]+\]/g;
+const MULTI_BODY_RE = /^ChangeLedger: (\[#[^\]\s]+\])( \[#[^\]\s]+\])+$/;
+
 export function hasCommitMarker(subject) {
   return MARKER_RE.test(subject.trim());
+}
+
+function commitMarkerViolation({ subject, body }) {
+  const subjectMarkers = subject.match(ANY_MARKER_RE) ?? [];
+  const trimmedBody = body.trim();
+  const hasBodyLabel = trimmedBody.includes('ChangeLedger:');
+  const validMultiBody = MULTI_BODY_RE.test(trimmedBody);
+
+  if (subjectMarkers.length > 1) return 'multiple [#id] markers must be in the body';
+  if (hasBodyLabel && !validMultiBody) return 'malformed ChangeLedger body';
+  if (subjectMarkers.length === 1 && hasCommitMarker(subject) && !hasBodyLabel) return null;
+  if (subjectMarkers.length === 0 && validMultiBody) return null;
+  if (subjectMarkers.length === 1 && validMultiBody)
+    return 'ambiguous [#id] markers in both subject and body';
+  return 'missing [#id] marker';
 }
 
 // Lints `range`: every non-merge commit must carry a well-formed `[#id]`
@@ -150,8 +168,8 @@ export function lintCommitRange(repoRoot, range, run = defaultRun) {
   for (const c of commits) {
     if (c.isMerge) continue;
     if (/^chore\(release\):/.test(c.subject)) continue;
-    if (!hasCommitMarker(c.subject))
-      violations.push({ sha: c.sha.slice(0, 7), subject: c.subject });
+    const reason = commitMarkerViolation(c);
+    if (reason) violations.push({ sha: c.sha.slice(0, 7), subject: c.subject, reason });
   }
   return violations;
 }

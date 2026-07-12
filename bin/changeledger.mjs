@@ -201,7 +201,7 @@ program
       '',
       'When --id is omitted, the single in-progress change is used automatically;',
       'zero or multiple in-progress changes require --id explicitly. Repeat --id',
-      'for a multi-id subject: each id gets its own bracket ([#A] [#B]).',
+      'for a multi-id commit: the clean subject gets a ChangeLedger: [#A] [#B] body.',
       '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
