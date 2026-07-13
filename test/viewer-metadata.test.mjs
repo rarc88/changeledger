@@ -32,6 +32,8 @@ const {
   requestUnregisterConfirmation,
   bindReopenAction,
   reopenPanel,
+  renderChoiceFilter,
+  renderStatusFilter,
   detailToolbar,
   detailPresentationControls,
   restoreInitialViewerShell,
@@ -1449,4 +1451,51 @@ test('113924: requestUnregisterConfirmation still accepts legacy ask override', 
   assert.equal(answer, 'alpha');
   assert.match(message, /Type "alpha"/);
   assert.match(message, /No repository files will be deleted/);
+});
+
+test('124934: clearing a choice filter preserves Lit markers for the next render', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = '<div id="type-filter"></div><section id="board"></section>';
+  document.body.append(fixture);
+  const selected = new Set(['bug']);
+  appState.repo = { changes: [], statuses: ['draft'] };
+  appState.currentView = 'board';
+
+  try {
+    const renderFilter = () =>
+      renderChoiceFilter(
+        fixture.querySelector('#type-filter'),
+        'Type',
+        ['bug', 'feature'],
+        selected,
+        () => {},
+        () => selected.clear(),
+      );
+    renderFilter();
+    fixture.querySelector('[data-clear]').click();
+
+    assert.doesNotThrow(renderFilter);
+    assert.equal(fixture.querySelector('[data-choice-summary]').textContent, 'All types');
+  } finally {
+    fixture.remove();
+  }
+});
+
+test('124934: clearing statuses preserves Lit markers for the next render', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = '<div id="status-filter"></div><section id="board"></section>';
+  document.body.append(fixture);
+  appState.repo = { changes: [], statuses: ['draft', 'approved'] };
+  appState.filters.statuses = new Set(['draft']);
+  appState.currentView = 'board';
+
+  try {
+    renderStatusFilter();
+    fixture.querySelector('[data-clear-status]').click();
+
+    assert.doesNotThrow(renderStatusFilter);
+    assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'All statuses');
+  } finally {
+    fixture.remove();
+  }
 });
