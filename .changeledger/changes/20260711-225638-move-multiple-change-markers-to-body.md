@@ -6,9 +6,9 @@ status: done
 created: 2026-07-11T22:56:38Z
 depends_on: [ "20260711-103757" ]
 release_impact: minor
-owner: Test
 reviewed: true
 archived: true
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -105,3 +105,4 @@ Alternativas descartadas:
 - **2026-07-12T10:47:20Z** — validation → done (human accepted)
 - **2026-07-12T10:49:41Z** — graduado a spec `git-traceability.md`
 - **2026-07-12T10:49:41Z** — archived
+- **2026-07-13T13:19:23Z** — owner → Roberto Ruiz
