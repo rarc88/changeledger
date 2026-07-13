@@ -127,6 +127,34 @@ test('CR2: mutatingRun returns stdout on success', () => {
   assert.equal(out.trim(), 'true');
 });
 
+test('131022: mutatingRun ignores inherited hook locations when writing config', () => {
+  const host = scratchGitRepo();
+  const fixture = scratchGitRepo();
+  const inherited = {
+    GIT_DIR: process.env.GIT_DIR,
+    GIT_WORK_TREE: process.env.GIT_WORK_TREE,
+    GIT_INDEX_FILE: process.env.GIT_INDEX_FILE,
+  };
+  process.env.GIT_DIR = path.join(host, '.git');
+  process.env.GIT_WORK_TREE = host;
+  process.env.GIT_INDEX_FILE = path.join(host, '.git', 'index');
+
+  try {
+    mutatingRun(['config', 'user.name', 'Fixture User'], fixture);
+  } finally {
+    for (const [key, value] of Object.entries(inherited)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+
+  assert.equal(
+    mutatingRun(['config', '--local', '--get', 'user.name'], fixture).trim(),
+    'Fixture User',
+  );
+  assert.throws(() => mutatingRun(['config', '--local', '--get', 'user.name'], host));
+});
+
 test('225638 CR5: gitRefs finds a body marker and returns the clean subject', () => {
   const root = scratchGitRepo();
   mutatingRun(['config', 'user.email', 'test@example.com'], root);

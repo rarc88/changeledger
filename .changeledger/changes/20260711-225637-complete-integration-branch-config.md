@@ -6,9 +6,9 @@ status: done
 created: 2026-07-11T22:56:37Z
 depends_on: [ "20260711-210115", "20260628-113219", "20260628-113924" ]
 release_impact: patch
-owner: Test
 reviewed: true
 archived: true
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -103,3 +103,4 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 - **2026-07-12T10:47:18Z** — validation → done (human accepted)
 - **2026-07-12T10:49:19Z** — graduado a spec `git-traceability.md`
 - **2026-07-12T10:49:19Z** — archived
+- **2026-07-13T13:19:23Z** — owner → Roberto Ruiz
