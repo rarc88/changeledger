@@ -2,7 +2,7 @@
 id: "20260713-124934"
 title: Evitar corrupción del render al actualizar filtros
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-07-13T12:49:34Z
 depends_on: []
 owner: Test
@@ -29,3 +29,5 @@ renderizarlo con valores distintos antes de aplicar la corrección.
 - **2026-07-13T12:50:31Z** — status: draft → approved
 - **2026-07-13T12:51:10Z** — status: approved → in-progress
 - **2026-07-13T12:51:10Z** — owner → Test (auto)
+- **2026-07-13T12:54:54Z** — TDD completado: dos regresiones reprodujeron el fallo antes de reemplazar mutaciones directas del DOM por reconciliación de Lit; pnpm verify pasó con 660 pruebas.
+- **2026-07-13T12:54:54Z** — status: in-progress → in-validation
