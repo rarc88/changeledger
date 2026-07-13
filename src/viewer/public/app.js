@@ -150,7 +150,7 @@ export function choiceFilterSummary(label, selected, includeUnassigned = false) 
     : `All ${label.toLowerCase()}s`;
 }
 
-function renderChoiceFilter(host, label, choices, selected, toggle, clear, owners = false) {
+export function renderChoiceFilter(host, label, choices, selected, toggle, clear, owners = false) {
   const summary = choiceFilterSummary(label, selected, owners && state.filters.includeUnassigned);
   litRender(
     html`<details class="filter-menu">
@@ -169,37 +169,29 @@ function renderChoiceFilter(host, label, choices, selected, toggle, clear, owner
     </details>`,
     host,
   );
-  const syncSummary = () => {
-    host.querySelector('[data-choice-summary]').textContent = choiceFilterSummary(
-      label,
-      selected,
-      owners && state.filters.includeUnassigned,
-    );
-  };
+  const syncFilter = () =>
+    renderChoiceFilter(host, label, choices, selected, toggle, clear, owners);
   host.querySelectorAll('[data-choice]').forEach((input) => {
     input.onchange = () => {
       toggle(input.dataset.choice);
-      syncSummary();
+      syncFilter();
       render();
     };
   });
   if (owners)
     host.querySelector('[data-unassigned]').onchange = () => {
       toggleUnassignedOwner();
-      syncSummary();
+      syncFilter();
       render();
     };
   host.querySelector('[data-clear]').onclick = () => {
     clear();
-    host.querySelectorAll('[data-choice], [data-unassigned]').forEach((input) => {
-      input.checked = false;
-    });
-    syncSummary();
+    syncFilter();
     render();
   };
 }
 
-function renderStatusFilter() {
+export function renderStatusFilter() {
   const sf = $('#status-filter');
   litRender(
     html`<details class="filter-menu">
@@ -239,24 +231,23 @@ function renderStatusFilter() {
   sf.querySelectorAll('[data-status]').forEach((input) => {
     input.onchange = () => {
       toggleStatusFilter(input.dataset.status);
-      sf.querySelector('[data-status-summary]').textContent = statusSummary(state.filters.statuses);
+      renderStatusFilter();
       render();
     };
   });
   sf.querySelector('[data-clear-status]').onclick = () => {
     clearStatusFilters();
-    sf.querySelectorAll('[data-status], [data-visibility]').forEach((input) => {
-      input.checked = false;
-    });
-    sf.querySelector('[data-status-summary]').textContent = statusSummary(state.filters.statuses);
+    renderStatusFilter();
     render();
   };
   sf.querySelector('[data-visibility="archived"]').onchange = () => {
     toggleShowArchived();
+    renderStatusFilter();
     render();
   };
   sf.querySelector('[data-visibility="discarded"]').onchange = () => {
     toggleShowDiscarded();
+    renderStatusFilter();
     render();
   };
 }
