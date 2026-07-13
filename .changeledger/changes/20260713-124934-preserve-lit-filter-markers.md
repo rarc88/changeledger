@@ -5,7 +5,7 @@ type: quick
 status: in-validation
 created: 2026-07-13T12:49:34Z
 depends_on: []
-owner: Test
+owner: Roberto Ruiz
 ---
 
 ## Request
@@ -31,3 +31,4 @@ renderizarlo con valores distintos antes de aplicar la corrección.
 - **2026-07-13T12:51:10Z** — owner → Test (auto)
 - **2026-07-13T12:54:54Z** — TDD completado: dos regresiones reprodujeron el fallo antes de reemplazar mutaciones directas del DOM por reconciliación de Lit; pnpm verify pasó con 660 pruebas.
 - **2026-07-13T12:54:54Z** — status: in-progress → in-validation
+- **2026-07-13T13:21:24Z** — owner → Roberto Ruiz
