@@ -2,10 +2,12 @@
 id: "20260713-131022"
 title: Evitar que las pruebas contaminen la identidad Git
 type: quick
-status: in-validation
+status: done
 created: 2026-07-13T13:10:22Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
+archived: true
 ---
 
 ## Request
@@ -35,3 +37,6 @@ ChangeLedger en tiempo de ejecución, sin identidades literales en automatizaci�
 - **2026-07-13T13:18:13Z** — owner → Roberto Ruiz (auto)
 - **2026-07-13T13:20:23Z** — Regresión añadida con host y fixture temporales; pnpm verify pasó con 659 pruebas. La reparación consultó gh primero y, al fallar su token, usó dinámicamente git config user.name para corregir dos owners visibles en dev.
 - **2026-07-13T13:20:24Z** — status: in-progress → in-validation
+- **2026-07-13T13:36:26Z** — validation → done (human accepted)
+- **2026-07-13T13:36:46Z** — graduation skipped: Regresión y reparación operativa sin nueva verdad persistente
+- **2026-07-13T13:36:47Z** — archived
