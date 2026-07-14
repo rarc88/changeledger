@@ -7,6 +7,7 @@ created: 2026-07-14T15:03:00Z
 depends_on: []
 owner: Roberto Ruiz
 reviewed: true
+archived: true
 ---
 
 ## Request
@@ -98,3 +99,4 @@ introdujeron los delimitadores y la comprobación estricta que ahora se refina.
 - **2026-07-14T15:18:35Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-14T15:25:25Z** — validation → done (human accepted)
 - **2026-07-14T15:26:23Z** — graduado a spec `contract-discovery.md`
+- **2026-07-14T15:29:26Z** — archived
