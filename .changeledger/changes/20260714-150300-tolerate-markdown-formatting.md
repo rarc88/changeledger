@@ -2,7 +2,7 @@
 id: "20260714-150300"
 title: Tolerar formateo Markdown en el bootstrap
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-14T15:03:00Z
 depends_on: []
 owner: Roberto Ruiz
@@ -78,11 +78,11 @@ introdujeron los delimitadores y la comprobación estricta que ahora se refina.
 
 ## Plan
 
-- [ ] Añadir fixtures y tests fallidos de reflujo en `test/contract.test.mjs`, luego implementar en `src/contract.mjs` la equivalencia estrecha del blockquote para `checkContract`; verify: `node --test test/contract.test.mjs` (CR1)
-- [ ] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar `src/contract.mjs` para que `ensureReference` preserve bloques equivalentes en `AGENTS.md`/`CLAUDE.md` sin impedir el registro; verify: `node --test test/register.test.mjs` (CR2)
-- [ ] Añadir regresiones de contenido, párrafo, estructura y versión en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier equivalencia más amplia que el reflujo permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR3, CR4)
-- [ ] Ejecutar `changeledger register` para refrescar el registro del propio repo sólo si el bloque canónico cambia y comprobar idempotencia; verify: `git diff --check && node bin/changeledger.mjs check` (support)
-- [ ] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+- [x] Añadir fixtures y tests fallidos de reflujo en `test/contract.test.mjs`, luego implementar en `src/contract.mjs` la equivalencia estrecha del blockquote para `checkContract`; verify: `node --test test/contract.test.mjs` (CR1) — 2026-07-14T15:09:16Z
+- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar `src/contract.mjs` para que `ensureReference` preserve bloques equivalentes en `AGENTS.md`/`CLAUDE.md` sin impedir el registro; verify: `node --test test/register.test.mjs` (CR2) — 2026-07-14T15:09:16Z
+- [x] Añadir regresiones de contenido, párrafo, estructura y versión en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier equivalencia más amplia que el reflujo permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR3, CR4) — 2026-07-14T15:09:16Z
+- [x] Ejecutar `changeledger register` para refrescar el registro del propio repo sólo si el bloque canónico cambia y comprobar idempotencia; verify: `git diff --check && node bin/changeledger.mjs check` (support) — 2026-07-14T15:09:41Z
+- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support) — 2026-07-14T15:12:21Z
 
 ## Log
 
@@ -90,3 +90,7 @@ introdujeron los delimitadores y la comprobación estricta que ahora se refina.
 - **2026-07-14T15:05:04Z** — status: draft → approved
 - **2026-07-14T15:05:51Z** — status: approved → in-progress
 - **2026-07-14T15:05:51Z** — owner → Roberto Ruiz (auto)
+- **2026-07-14T15:09:16Z** — Implementada equivalencia estrecha del blockquote: check acepta sólo reflujo y prefijo > equivalente; register preserva AGENTS.md/CLAUDE.md; mutaciones semánticas, estructura inválida y versiones antiguas siguen fallando cerrado. Tests enfocados y Biome verdes.
+- **2026-07-14T15:12:22Z** — Puerta completa verde: Biome, 665 tests y changeledger check (192 changes). El primer intento detectó formato pendiente en tests; se aplicó Biome y la repetición pasó completa.
+- **2026-07-14T15:14:06Z** — Regresión adicional confirma que la equivalencia no tolera cambios fuera del blockquote: perder el salto posterior a END sigue marcando la referencia como obsoleta. Puerta completa repetida: 665 tests y 192 changes verdes.
+- **2026-07-14T15:14:06Z** — status: in-progress → in-review
