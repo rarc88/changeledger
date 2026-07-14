@@ -2,10 +2,11 @@
 id: "20260714-150300"
 title: Tolerar formateo Markdown en el bootstrap
 type: bug
-status: in-review
+status: done
 created: 2026-07-14T15:03:00Z
 depends_on: []
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -94,3 +95,6 @@ introdujeron los delimitadores y la comprobación estricta que ahora se refina.
 - **2026-07-14T15:12:22Z** — Puerta completa verde: Biome, 665 tests y changeledger check (192 changes). El primer intento detectó formato pendiente en tests; se aplicó Biome y la repetición pasó completa.
 - **2026-07-14T15:14:06Z** — Regresión adicional confirma que la equivalencia no tolera cambios fuera del blockquote: perder el salto posterior a END sigue marcando la referencia como obsoleta. Puerta completa repetida: 665 tests y 192 changes verdes.
 - **2026-07-14T15:14:06Z** — status: in-progress → in-review
+- **2026-07-14T15:18:35Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-14T15:25:25Z** — validation → done (human accepted)
+- **2026-07-14T15:26:23Z** — graduado a spec `contract-discovery.md`
