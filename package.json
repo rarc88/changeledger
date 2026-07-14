@@ -42,7 +42,7 @@
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@10.31.0",
+  "packageManager": "pnpm@11.13.0",
   "exports": {
     "./package.json": "./package.json"
   },
