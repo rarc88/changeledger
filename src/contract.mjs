@@ -96,6 +96,34 @@ function migrateLegacy(text, start) {
   return `${before}${bootstrapBlock()}${after ? `\n${after}` : ''}`;
 }
 
+function normalizeBlockquote(reference) {
+  if (!reference.endsWith('\n')) return null;
+  const paragraphs = [];
+  let paragraph = [];
+  for (const line of reference.slice(0, -1).split('\n')) {
+    const match = /^> ?(.*)$/.exec(line);
+    if (!match) return null;
+    if (match[1] === '') {
+      paragraphs.push(paragraph.join(' '));
+      paragraph = [];
+    } else {
+      paragraph.push(match[1]);
+    }
+  }
+  paragraphs.push(paragraph.join(' '));
+  return paragraphs;
+}
+
+function hasEquivalentReference(text, beginIndex, endIndex, version) {
+  if (version !== BOOTSTRAP_VERSION) return false;
+  const contentStart = beginIndex + beginMarker(version).length;
+  if (text[contentStart] !== '\n') return false;
+  if (text[endIndex + END_MARKER.length] !== '\n') return false;
+  const actual = normalizeBlockquote(text.slice(contentStart + 1, endIndex));
+  const expected = normalizeBlockquote(REFERENCE);
+  return actual !== null && JSON.stringify(actual) === JSON.stringify(expected);
+}
+
 // Replace only the interior of an existing BEGIN/END block, preserving
 // everything outside the delimiters byte-for-byte.
 function replaceDelimited(text, beginIndex, version) {
@@ -109,7 +137,13 @@ function replaceDelimited(text, beginIndex, version) {
   const after = text.slice(endIndex + END_MARKER.length).replace(/^\n/, '');
   const newText = `${before}${bootstrapBlock()}${after}`;
   const status =
-    version < BOOTSTRAP_VERSION ? 'updated' : newText === text ? 'unchanged' : 'replaced';
+    version < BOOTSTRAP_VERSION
+      ? 'updated'
+      : newText === text
+        ? 'unchanged'
+        : hasEquivalentReference(text, beginIndex, endIndex, version)
+          ? 'equivalent'
+          : 'replaced';
   return { text: newText, status, fromVersion: version };
 }
 
@@ -136,7 +170,7 @@ export function ensureReference(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     const { text: updated, status, fromVersion } = applyBootstrap(text);
-    if (status === 'unchanged') continue;
+    if (status === 'unchanged' || status === 'equivalent') continue;
     writeFileAtomic(file, updated);
     touched.push({ name, status, fromVersion });
   }
@@ -194,7 +228,7 @@ export function checkContract(repoRoot) {
     const { status } = applyBootstrap(text);
     if (status === 'inserted') {
       errors.push(`${name} has no ChangeLedger reference — run \`changeledger register\``);
-    } else if (status !== 'unchanged') {
+    } else if (status !== 'unchanged' && status !== 'equivalent') {
       errors.push(`${name} has an outdated ChangeLedger reference — run \`changeledger register\``);
     }
   }

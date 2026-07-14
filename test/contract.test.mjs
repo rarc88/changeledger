@@ -16,6 +16,13 @@ function root() {
   return dir;
 }
 
+function reflowBootstrap(text) {
+  return text.replace(
+    '> This repo uses **ChangeLedger**. Immediately after reading this file — before\n> planning, investigating, or acting — a normal agent must run `changeledger context` directly.',
+    '>This repo uses **ChangeLedger**. Immediately after reading this file —\n> before planning, investigating, or acting — a normal agent must run\n>`changeledger context` directly.',
+  );
+}
+
 test('CR10: init installs a fail-closed bootstrap without link or gitignore entry', () => {
   const dir = root();
   init(dir);
@@ -113,6 +120,53 @@ test('213931 CR7: the pre-sentinel managed block fails check until re-register',
   assert.match(checkContract(dir).join('\n'), /outdated ChangeLedger reference/);
   registerRepo(dir);
   assert.deepEqual(checkContract(dir), []);
+});
+
+test('150300 CR1: check accepts equivalent blockquote reflow', () => {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  const canonical = fs.readFileSync(file, 'utf8');
+  const reformatted = reflowBootstrap(canonical);
+  assert.notEqual(reformatted, canonical);
+
+  fs.writeFileSync(file, reformatted);
+
+  assert.deepEqual(checkContract(dir), []);
+});
+
+test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
+  const mutations = [
+    (text) =>
+      text.replace('run `changeledger context` directly', 'run `changeledger check` directly'),
+    (text) => text.replace('This repo uses **ChangeLedger**.', 'This  repo uses **ChangeLedger**.'),
+    (text) => text.replace('> planning, investigating', '>\n> planning, investigating'),
+    (text) => text.replace('> planning, investigating', 'planning, investigating'),
+    (text) => text.trimEnd(),
+  ];
+
+  for (const mutate of mutations) {
+    const dir = root();
+    init(dir);
+    const file = path.join(dir, 'AGENTS.md');
+    const canonical = fs.readFileSync(file, 'utf8');
+    const changed = mutate(canonical);
+    assert.notEqual(changed, canonical);
+    fs.writeFileSync(file, changed);
+
+    assert.deepEqual(checkContract(dir), [
+      'AGENTS.md has an outdated ChangeLedger reference — run `changeledger register`',
+    ]);
+  }
+
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, 'utf8').replace('<!-- CHANGELEDGER BOOTSTRAP END -->', ''),
+  );
+  assert.throws(() => checkContract(dir), /BEGIN marker without a matching END marker/);
 });
 
 test('CR11: register removes a legacy symlink and exact gitignore entry', () => {
