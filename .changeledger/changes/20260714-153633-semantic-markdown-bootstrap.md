@@ -2,10 +2,11 @@
 id: "20260714-153633"
 title: Comparar semánticamente el bootstrap Markdown
 type: bug
-status: in-review
+status: done
 created: 2026-07-14T15:36:33Z
 depends_on: [ "20260714-150300" ]
 owner: Roberto Ruiz
+reviewed: true
 ---
 
 ## Request
@@ -109,3 +110,6 @@ verdad persistente afectada continúa siendo `contract-discovery`.
 - **2026-07-14T15:56:28Z** — Puerta completa verde: Biome, 669 tests y 194 changes válidos.
 - **2026-07-14T15:58:39Z** — Reforzada la proyección para fallar cerrado ante tipos de token no modelados; puerta completa repetida: Biome, 669 tests y 194 changes válidos.
 - **2026-07-14T15:58:51Z** — status: in-progress → in-review
+- **2026-07-14T16:03:01Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-14T16:07:04Z** — validation → done (human accepted)
+- **2026-07-14T16:08:14Z** — graduado a spec `contract-discovery.md`

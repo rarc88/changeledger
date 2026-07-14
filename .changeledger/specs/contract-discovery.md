@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-14T15:26:23Z
+updated: 2026-07-14T16:08:14Z
 tags: [ contract ]
 ---
 
@@ -122,13 +122,18 @@ existe, reemplaza solo el interior cuando encuentra BEGIN/END (idempotente,
 contenido externo byte a byte intacto), migra el marcador legacy
 `<!-- changeledger -->` con su blockquote contiguo al formato delimitado y,
 cuando la versión del marcador es anterior a la vigente, actualiza el bloque
-informando de la desactualización. Si la versión es vigente y el contenido sólo
-difiere por el reflujo de saltos blandos dentro de los mismos párrafos del
-blockquote o por el espacio opcional tras `>`, `register` lo considera
-equivalente y preserva el archivo byte a byte sin avisar. Esta equivalencia no
-normaliza palabras, espacios internos, código inline, orden, límites de párrafo
-ni estructura de los delimitadores: cualquier diferencia de ese tipo restaura
-el bloque canónico. El bootstrap mantiene un único punto de entrada:
+informando de la desactualización. Si la versión es vigente, el contenido
+administrado se compara mediante una proyección del árbol Markdown producido
+por `marked`: debe existir un único `blockquote`, se ignoran sólo el padding
+exterior y los campos de representación, y los saltos blandos de texto se
+normalizan sin exigir que cada línea física lleve `>`. Por tanto, reflujo,
+continuaciones lazy de CommonMark y marcadores equivalentes como `**strong**` y
+`__strong__` se preservan byte a byte sin aviso. La proyección conserva tipos de
+token, anidamiento, orden y valores significativos —incluido código inline— y
+falla cerrado ante tokens no modelados, contenido fuera del blockquote,
+cambios de párrafo o delimitadores ausentes, duplicados, desordenados o unidos
+a texto. Cualquier diferencia semántica restaura el bloque canónico. El
+bootstrap mantiene un único punto de entrada:
 `changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
 —antes de planificar, investigar o actuar— y conservar stdout completo desde esa
 primera ejecución hasta la línea `CHANGELEDGER CONTEXT END`, sin previews ni
@@ -160,6 +165,6 @@ desconocido se preserva y la migración falla con un mensaje accionable. De
 `.gitignore` sólo se retira la línea literal `.changeledger/AGENTS.md`.
 
 `changeledger check` exige el bootstrap vigente, no sólo el marker. Acepta la
-misma equivalencia de reflujo estrecha que `register`; una referencia ausente,
-semánticamente distinta, estructuralmente inválida, con versión obsoleta o que
-aún apunte al artefacto legacy es un error de discovery.
+misma equivalencia semántica por árbol Markdown que `register`; una referencia
+ausente, semánticamente distinta, estructuralmente inválida, con versión
+obsoleta o que aún apunte al artefacto legacy es un error de discovery.
