@@ -65,6 +65,15 @@ auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que e
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
 
+El estado revisado es el estado entregable: tras mover a `in-review`, el agente
+anfitrión aplica el formatter local y ejecuta los gates completos antes de
+delegar. Como el veredicto vuelve a mutar status y Log, antes del commit o del
+handoff reaplica el formatter y repite los checks afectados, incluido
+`changeledger check`. Los tipos sin review hacen lo mismo después de su
+transición directa a `in-validation`. El núcleo no ejecuta hooks, formatters ni
+comandos externos configurables como efecto lateral; esos gates pertenecen al
+repositorio anfitrión.
+
 **Auditoría post-review.** Un change en `in-validation` admite una inspección
 delegada estrictamente read-only: `changeledger agent-context audit <id>` entrega
 una cápsula autocontenida con el change, sus criterios y una frontera explícita

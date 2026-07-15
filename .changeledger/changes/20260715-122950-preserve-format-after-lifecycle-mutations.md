@@ -2,7 +2,7 @@
 id: "20260715-122950"
 title: Preservar formato tras mutaciones del lifecycle
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-15T12:29:50Z
 depends_on: [ "20260616-151230", "20260616-174430" ]
 owner: raruiz-hiberuscom
@@ -96,13 +96,13 @@ formatter local sin convertirlo en una dependencia de ChangeLedger.
 
 ## Plan
 
-- [ ] Actualizar src/writer.mjs y test/writer.test.mjs con el ciclo TDD para que `status` preserve byte-for-byte el YAML válido ajeno mediante su token CST; verify: node --test test/writer.test.mjs (CR1, CR4)
-- [ ] Escribir en `test/writer.test.mjs` los fallos de inserción, actualización y borrado de campos opcionales; implementar en `src/writer.mjs` parches de parejas raíz dirigidos por AST/CST sin reserializar regiones ajenas; verify: `node --test test/writer.test.mjs` (CR2, CR4)
-- [ ] Escribir en `test/writer.test.mjs` el fallo de preservación de `tags` y comentarios al actualizar una spec; adaptar `setSpecUpdated` en `src/writer.mjs` al reemplazo acotado; verify: `node --test test/writer.test.mjs` (CR3, CR4)
-- [ ] Añadir en `test/agent.test.mjs` regresiones integradas de `status` y `review` sobre frontmatter con estilo no canónico válido; verify: `node --test test/agent.test.mjs` (support)
-- [ ] Actualizar `templates/contract/implement.md`, `templates/contract/review.md` y `templates/contract/validation.md` con los gates posteriores a transición y veredicto; cubrir la composición del contexto en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR5, CR6, CR7)
-- [ ] Alinear `.changeledger/specs/data-model.md` y `.changeledger/specs/lifecycle.md` con la preservación textual dirigida por parser y la responsabilidad de gates posterior a mutaciones; verify: `changeledger check 20260715-122950` (CR1, CR5, CR6, CR7)
-- [ ] Ejecutar `pnpm verify` y confirmar que el repositorio completo permanece verde (support)
+- [x] Actualizar src/writer.mjs y test/writer.test.mjs con el ciclo TDD para que `status` preserve byte-for-byte el YAML válido ajeno mediante su token CST; verify: node --test test/writer.test.mjs (CR1, CR4) — 2026-07-15T13:12:21Z
+- [x] Escribir en `test/writer.test.mjs` los fallos de inserción, actualización y borrado de campos opcionales; implementar en `src/writer.mjs` parches de parejas raíz dirigidos por AST/CST sin reserializar regiones ajenas; verify: `node --test test/writer.test.mjs` (CR2, CR4) — 2026-07-15T13:12:22Z
+- [x] Escribir en `test/writer.test.mjs` el fallo de preservación de `tags` y comentarios al actualizar una spec; adaptar `setSpecUpdated` en `src/writer.mjs` al reemplazo acotado; verify: `node --test test/writer.test.mjs` (CR3, CR4) — 2026-07-15T13:12:22Z
+- [x] Añadir en `test/agent.test.mjs` regresiones integradas de `status` y `review` sobre frontmatter con estilo no canónico válido; verify: `node --test test/agent.test.mjs` (support) — 2026-07-15T13:12:22Z
+- [x] Actualizar `templates/contract/implement.md`, `templates/contract/review.md` y `templates/contract/validation.md` con los gates posteriores a transición y veredicto; cubrir la composición del contexto en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR5, CR6, CR7) — 2026-07-15T13:12:22Z
+- [x] Alinear `.changeledger/specs/data-model.md` y `.changeledger/specs/lifecycle.md` con la preservación textual dirigida por parser y la responsabilidad de gates posterior a mutaciones; verify: `changeledger check 20260715-122950` (CR1, CR5, CR6, CR7) — 2026-07-15T13:12:22Z
+- [x] Ejecutar `pnpm verify` y confirmar que el repositorio completo permanece verde (support) — 2026-07-15T13:13:52Z
 
 ## Log
 
@@ -111,3 +111,6 @@ formatter local sin convertirlo en una dependencia de ChangeLedger.
 - **2026-07-15T13:06:38Z** — status: approved → in-progress
 - **2026-07-15T13:06:38Z** — owner → raruiz-hiberuscom (auto)
 - **2026-07-15T13:06:39Z** — Implementation started on codex/resolve-approved-changes after #20260715-124113 reached in-validation.
+- **2026-07-15T13:12:23Z** — TDD complete: writer preservation tests failed under full YAML reserialization, then passed with parser-directed source-range patches; integrated agent/context suites pass (104 tests).
+- **2026-07-15T13:13:52Z** — Full quality gate passed outside sandbox: Biome, 679/679 tests, and ChangeLedger check.
+- **2026-07-15T13:13:52Z** — status: in-progress → in-review

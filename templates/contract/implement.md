@@ -72,9 +72,16 @@ When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
 1. Confirm every Plan task is complete and its verification passes.
 2. `changeledger status <id> in-review`.
-3. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
-4. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
-5. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
+3. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
+4. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
+5. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
+6. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
+7. After that mutation, apply the formatter again and repeat affected checks,
+   including `changeledger check`, before commit or human validation.
+
+Types without `review_required` move directly to `in-validation`, then apply the
+same post-transition formatter and affected-check gate. The host owns these
+commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
 `in-validation`: human accepts; agent rejects with `changeledger validation <id> fail "<reason>"`.
 

@@ -562,7 +562,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-225638: the multi-id placement rule is replaced, not retired:
     // one id remains in the subject, while two or more use the canonical
     // `ChangeLedger: [#A] [#B]` body line. Helper and lint enforcement remain.
-    'implement.md': 'e058e03f0fc08dd930b5d650b3f5c8d48fba545863c0f7bae10a3529dc2ad7e2',
+    // 20260715-122950: the ordered review recipe is extended with formatter and
+    // check gates after lifecycle mutations; host ownership is explicit. Existing
+    // review, verdict and validation rules are preserved, none retired.
+    'implement.md': '93878b96dabcb8a35853d977a11cf200bb04248703789cb872425be353e24c88',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -571,7 +574,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260704-144327 correction: the delegate checklist/tool boundary moves to the
     // self-contained review capsule; this fragment keeps orchestration and verdicts
     // and points to that single checklist owner. Rules moved, none retired.
-    'review.md': 'c6d652977ed75b402f344df80416e4c5e8575a28363cd87a31150e3c1dc3aefb',
+    // 20260715-122950: additive post-verdict formatter/check gate; existing
+    // independent-review and verdict rules are preserved, none retired.
+    'review.md': '2c4413030668a069c595a567178f87e111520efab07dfead0aa31f0398acf687',
     // 20260711-103756: the type enum and activation matrix gain the `quick`
     // row, plus a new paragraph documenting its eligibility and the
     // discard-and-recreate rule for scope growth. Existing rules preserved.
@@ -581,7 +586,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'spec.md': '60794e9c56c85fe86a34b7613c7aa1cdd2e1bc5feef3a45dc559100ffb29448f',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
-    'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',
+    // 20260715-122950: additive final-mutation gate for reviewed and direct
+    // validation paths; human-only acceptance rules are preserved, none retired.
+    'validation.md': 'ff2493227276dc4a150f037876eedcb29cfedd0151869cd61d199837f86b5e14',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -1052,18 +1059,19 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   assert.match(implement, /# Handoff Triage/);
 });
 
-test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
+test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
   const root = repo();
+  const validationId = addChange(root, 'in-validation', '20260715-122950');
   const norm = (s) => s.replace(/\s+/g, ' ');
   const implement = norm(buildContext('implement', root));
   const review = norm(buildContext('review', root));
   const core = norm(buildContext(undefined, root));
 
-  // CR1: implement carries a numbered 1..5 recipe in order.
+  // CR1: implement carries the complete ordered recipe, including post-mutation gates.
   assert.match(implement, /move to `in-review` if the type requires independent review/);
   assert.match(
     implement,
-    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*`changeledger context review` once.*4\..*read-only reviewer.*5\..*`changeledger review <id> pass\|fail`/,
+    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*formatter.*full gates.*4\..*`changeledger context review` once.*5\..*read-only reviewer.*6\..*`changeledger review <id> pass\|fail`.*7\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
   assert.match(implement, /do not reload it to record the verdict unless context was lost/);
@@ -1071,6 +1079,16 @@ test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement',
     implement,
     /`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail/,
   );
+  assert.match(
+    implement,
+    /without `review_required`.*post-transition formatter.*affected-check gate/,
+  );
+  assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
+  assert.match(
+    buildContext(validationId, root),
+    /final lifecycle\s+mutation[\s\S]*`changeledger check`/,
+  );
+  assert.match(implement, /mutations never run configurable hooks or external formatters/);
 
   // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
   assert.match(review, /orchestrator records exactly one verdict/);

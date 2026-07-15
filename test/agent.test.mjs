@@ -297,6 +297,20 @@ test('171002 CR1: review pass moves to validation and marks the delegation', () 
   );
 });
 
+test('122950 support: status and review preserve non-canonical valid YAML style', () => {
+  const { root, file, id } = repoWithChange();
+  const styled = fs
+    .readFileSync(file, 'utf8')
+    .replace('title: X', "title: 'X'")
+    .replace('depends_on: []', 'depends_on: [] # keep compact');
+  fs.writeFileSync(file, styled);
+
+  reach(id, root, 'in-review');
+  assert.match(fs.readFileSync(file, 'utf8'), /title: 'X'.*depends_on: \[\] # keep compact/s);
+  review(id, 'pass', {}, root);
+  assert.match(fs.readFileSync(file, 'utf8'), /title: 'X'.*depends_on: \[\] # keep compact/s);
+});
+
 test('171002 CR2: human validation pass closes the complete change', () => {
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);

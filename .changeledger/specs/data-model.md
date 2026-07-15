@@ -44,8 +44,13 @@ estructurales mantienen la misma política en changes y specs.
 ## Escritura atómica
 
 Las mutaciones de frontmatter en `writer.mjs` preservan el formato textual del
-documento, pero fallan explícitamente si no encuentran la línea ancla que deben
-editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
+documento: el parser YAML identifica de forma estructural la pareja raíz y sus
+rangos fuente, y el writer parchea solo el valor o la pareja objetivo sin
+reserializar las regiones ajenas. Las inserciones opcionales se colocan después
+de `depends_on`; comentarios, quoting, colecciones flow, escalares multilineales,
+mappings anidados y cuerpo permanecen byte-for-byte intactos. El writer falla
+explícitamente ante YAML inválido, claves duplicadas o si no encuentra la pareja
+ancla que debe editar o usar para insertar (`status`, `depends_on`, `updated`). Así una orden
 del CLI no puede aparentar éxito cuando el frontmatter está parcialmente roto.
 Las escrituras que reemplazan documentos o estado local pasan por
 `writeFileAtomic`: escriben a un temporal en el mismo directorio, sincronizan el
