@@ -112,7 +112,12 @@ de actualizar el snapshot.
 ## Bootstrap y migración
 
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta delimitada a
-`AGENTS.md` y, cuando existe como archivo regular, `CLAUDE.md`. El bloque vive
+`AGENTS.md`. Cuando existe un `CLAUDE.md` regular, el discovery queda satisfecho
+por un bloque directo o por el import relativo `@AGENTS.md` recomendado por
+Claude Code; `init` y `register` preservan byte a byte ese puente en vez de
+duplicar el bootstrap. Solo el `CLAUDE.md` raíz admite esta delegación estrecha:
+otros destinos, rutas parciales o imports externos no sustituyen el contrato
+canónico, y un bloque directo presente sigue validándose y actualizándose. El bloque vive
 entre `<!-- CHANGELEDGER BOOTSTRAP BEGIN v<n> -->` y
 `<!-- CHANGELEDGER BOOTSTRAP END -->`, donde `<n>` es la versión del formato del
 bootstrap (`BOOTSTRAP_VERSION` en `src/contract.mjs`, independiente de la

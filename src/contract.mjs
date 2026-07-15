@@ -5,6 +5,7 @@ import { marked } from 'marked';
 import { writeFileAtomic } from './atomic-write.mjs';
 
 const CONTRACT_FILES = ['AGENTS.md', 'CLAUDE.md'];
+const CLAUDE_AGENTS_IMPORT = /(^|[\s(])@AGENTS\.md(?=$|[\s),;:!?]|\.(?:$|\s))/m;
 const LEGACY_MARKER = '<!-- changeledger -->';
 const LEGACY_ENTRY = '.changeledger/AGENTS.md';
 // Exact SHA-256 digests of every historical templates/AGENTS.md payload. A
@@ -192,6 +193,10 @@ export function applyBootstrap(text) {
   return { text: insertBlock(text), status: 'inserted' };
 }
 
+function delegatesToCanonicalAgents(name, text, bootstrapStatus) {
+  return name === 'CLAUDE.md' && bootstrapStatus === 'inserted' && CLAUDE_AGENTS_IMPORT.test(text);
+}
+
 // Add, replace, or migrate the managed bootstrap block in project-owned agent
 // files. Returns the files touched with the transition applied to each.
 export function ensureReference(repoRoot) {
@@ -201,6 +206,7 @@ export function ensureReference(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     const { text: updated, status, fromVersion } = applyBootstrap(text);
+    if (delegatesToCanonicalAgents(name, text, status)) continue;
     if (status === 'unchanged' || status === 'equivalent') continue;
     writeFileAtomic(file, updated);
     touched.push({ name, status, fromVersion });
@@ -257,6 +263,7 @@ export function checkContract(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     const { status } = applyBootstrap(text);
+    if (delegatesToCanonicalAgents(name, text, status)) continue;
     if (status === 'inserted') {
       errors.push(`${name} has no ChangeLedger reference — run \`changeledger register\``);
     } else if (status !== 'unchanged' && status !== 'equivalent') {

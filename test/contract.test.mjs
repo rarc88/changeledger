@@ -172,6 +172,78 @@ test('153633 CR3: check accepts different Markdown syntax with the same token tr
   assert.deepEqual(checkContract(dir), []);
 });
 
+test('124113 CR1: CLAUDE.md may import the canonical AGENTS.md bootstrap', () => {
+  for (const claude of ['@AGENTS.md\n', '# Claude\n\nFollow @AGENTS.md for shared rules.\n']) {
+    const dir = root();
+    init(dir);
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), claude);
+
+    assert.deepEqual(checkContract(dir), []);
+  }
+});
+
+test('124113 CR2: register preserves an imported CLAUDE.md byte-for-byte', () => {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'CLAUDE.md');
+  const claude = '# Claude-specific rules\n\n@AGENTS.md\n\nKeep this text.\n';
+  fs.writeFileSync(file, claude);
+
+  registerRepo(dir);
+
+  assert.equal(fs.readFileSync(file, 'utf8'), claude);
+});
+
+test('124113 CR3: an import does not hide an invalid canonical AGENTS.md', () => {
+  const dir = root();
+  init(dir);
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '@AGENTS.md\n');
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Project rules without bootstrap\n');
+
+  assert.deepEqual(checkContract(dir), [
+    'AGENTS.md has no ChangeLedger reference — run `changeledger register`',
+  ]);
+});
+
+test('124113 CR4: other paths and partial tokens are not canonical imports', () => {
+  const invalid = [
+    'AGENTS.md\n',
+    '@docs/AGENTS.md\n',
+    '@../AGENTS.md\n',
+    '@/repo/AGENTS.md\n',
+    '@AGENTS.md.bak\n',
+  ];
+  for (const claude of invalid) {
+    const dir = root();
+    init(dir);
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), claude);
+
+    assert.deepEqual(checkContract(dir), [
+      'CLAUDE.md has no ChangeLedger reference — run `changeledger register`',
+    ]);
+  }
+});
+
+test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () => {
+  const dir = root();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules\n');
+  init(dir);
+  const file = path.join(dir, 'CLAUDE.md');
+  const stale = fs
+    .readFileSync(file, 'utf8')
+    .replace(
+      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->',
+      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->',
+    );
+  fs.writeFileSync(file, `@AGENTS.md\n\n${stale}`);
+
+  assert.deepEqual(checkContract(dir), [
+    'CLAUDE.md has an outdated ChangeLedger reference — run `changeledger register`',
+  ]);
+  registerRepo(dir);
+  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /BOOTSTRAP BEGIN v0/);
+});
+
 test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
   const mutations = [
     (text) =>
