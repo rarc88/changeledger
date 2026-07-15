@@ -2,7 +2,7 @@
 id: "20260715-124113"
 title: Reconocer bootstrap importado desde CLAUDE.md
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-15T12:41:13Z
 depends_on: [ "20260614-151759", "20260714-153633" ]
 owner: Roberto Ruiz
@@ -108,3 +108,4 @@ debilitar la obligación de mantener el bootstrap canónico en `AGENTS.md`.
 - **2026-07-15T12:58:30Z** — TDD red-green: 3 regresiones iniciales fallaron; detector acotado acepta @AGENTS.md standalone/en prose, rechaza destinos/sufijos, preserva register byte a byte y no oculta bloques directos obsoletos. test/contract 21/21 y check repo verdes.
 - **2026-07-15T13:00:27Z** — Full quality gate passed: pnpm verify (Biome, 674 tests, ChangeLedger check).
 - **2026-07-15T13:00:32Z** — status: in-progress → in-review
+- **2026-07-15T13:05:28Z** — review → in-validation (delegated subagent, clean context)
