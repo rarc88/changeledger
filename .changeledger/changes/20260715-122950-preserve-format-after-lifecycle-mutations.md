@@ -2,7 +2,7 @@
 id: "20260715-122950"
 title: Preservar formato tras mutaciones del lifecycle
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-15T12:29:50Z
 depends_on: [ "20260616-151230", "20260616-174430" ]
 owner: raruiz-hiberuscom
@@ -114,3 +114,4 @@ formatter local sin convertirlo en una dependencia de ChangeLedger.
 - **2026-07-15T13:12:23Z** — TDD complete: writer preservation tests failed under full YAML reserialization, then passed with parser-directed source-range patches; integrated agent/context suites pass (104 tests).
 - **2026-07-15T13:13:52Z** — Full quality gate passed outside sandbox: Biome, 679/679 tests, and ChangeLedger check.
 - **2026-07-15T13:13:52Z** — status: in-progress → in-review
+- **2026-07-15T13:19:14Z** — review → in-validation (delegated subagent, clean context)
