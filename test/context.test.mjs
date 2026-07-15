@@ -597,7 +597,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // validation paths; human-only acceptance rules are preserved, none retired.
     // 20260715-125139: viewer-only wording is replaced by viewer or explicit
     // conversation decisions; human ownership and non-inference are preserved.
-    'validation.md': '89a7f50068f7aa758408c681a4eb10d7352f7c76c809e78120fa52b564a2b1b0',
+    // Review correction restored Specification/Plan updates, wider-scope change
+    // creation, host-only gates and lifecycle/graduation closure evidence.
+    'validation.md': 'f4b3e879e1c95cefa0c20e4da9960d1532383fb4f90aff480b382d4bbe49eec7',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs

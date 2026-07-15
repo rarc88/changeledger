@@ -254,6 +254,10 @@ test('225212 CR3: changeledger status -h documents status domain and terminal mo
   assert.equal(code, 0);
   assert.match(out, /\.changeledger\/config\.yml/);
   assert.match(out, /changeledger discard/);
+  assert.match(out, /changeledger approve/);
+  assert.match(out, /changeledger validation <id> pass/);
+  assert.doesNotMatch(out, /e\.g\.[^\n]*approved/);
+  assert.doesNotMatch(out, /Only human validation in the viewer/);
   assert.doesNotMatch(out, /status .*\bdone\|discarded\b/);
 });
 

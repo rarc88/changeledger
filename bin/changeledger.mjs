@@ -322,14 +322,15 @@ program
   .argument('<id>')
   .argument(
     '<status>',
-    'a status configured in .changeledger/config.yml (statuses:), e.g. approved, in-progress, in-review, blocked',
+    'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
   )
   .addHelpText(
     'after',
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard. Only human validation in the viewer can reach done.',
+      'to discard. Human-owned moves use the viewer, `changeledger approve <id>`,',
+      'or `changeledger validation <id> pass` after an explicit human prompt.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
