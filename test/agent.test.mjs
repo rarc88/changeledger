@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import {
+  approve,
   archive,
   archiveGraduated,
   discard,
@@ -51,6 +52,23 @@ test('status moves the lifecycle and logs the transition', () => {
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'approved');
   assert.match(c.stages.find((s) => s.key === 'log').body, /draft → approved/);
+});
+
+test('125139 CR1/CR7: conversational approval is attributed without changing viewer semantics', () => {
+  const conversational = repoWithChange();
+  approve(conversational.id, conversational.root);
+  const conversationalLog = parseChange(fs.readFileSync(conversational.file, 'utf8')).stages.find(
+    (stage) => stage.key === 'log',
+  ).body;
+  assert.match(conversationalLog, /draft → approved \(human via conversation\)/);
+
+  const viewer = repoWithChange();
+  status(viewer.id, 'approved', viewer.root, { actor: 'human' });
+  const viewerLog = parseChange(fs.readFileSync(viewer.file, 'utf8')).stages.find(
+    (stage) => stage.key === 'log',
+  ).body;
+  assert.match(viewerLog, /status: draft → approved/);
+  assert.doesNotMatch(viewerLog, /via conversation/);
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -320,6 +338,34 @@ test('171002 CR2: human validation pass closes the complete change', () => {
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'done');
   assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
+});
+
+test('125139 CR3/CR5/CR6: conversation channel attributes human validation decisions', () => {
+  const accepted = repoWithChange();
+  task(accepted.id, 'done', 1, '', accepted.root);
+  reach(accepted.id, accepted.root, 'in-review');
+  review(accepted.id, 'pass', {}, accepted.root);
+  validation(accepted.id, 'pass', { channel: 'conversation' }, accepted.root);
+  assert.match(
+    parseChange(fs.readFileSync(accepted.file, 'utf8')).stages.find((stage) => stage.key === 'log')
+      .body,
+    /validation → done \(human accepted via conversation\)/,
+  );
+
+  const rejected = repoWithChange();
+  reach(rejected.id, rejected.root, 'in-review');
+  review(rejected.id, 'pass', {}, rejected.root);
+  validation(
+    rejected.id,
+    'fail',
+    { reason: 'Falla en dispositivo', actor: 'human', channel: 'conversation' },
+    rejected.root,
+  );
+  assert.match(
+    parseChange(fs.readFileSync(rejected.file, 'utf8')).stages.find((stage) => stage.key === 'log')
+      .body,
+    /human rejected via conversation\): Falla en dispositivo/,
+  );
 });
 
 test('105205 CR1: agent rejection requires a reason and records its actor', () => {

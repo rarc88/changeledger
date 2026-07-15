@@ -80,7 +80,7 @@ test('CR1: changeledger graduate --help shows every explicit mode, exit 0', () =
   assert.match(out, /--pending/);
 });
 
-test('105205 CR1/CR2: CLI lets an agent reject or reopen but not accept', () => {
+test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
   const env = { ...process.env, CHANGELEDGER_HOME: home };
@@ -89,15 +89,60 @@ test('105205 CR1/CR2: CLI lets an agent reject or reopen but not accept', () => 
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
-  status(id, 'approved', root);
+  assert.equal(runIn(root, env, 'approve', id).code, 0);
   for (const next of ['in-progress', 'in-validation'])
     assert.equal(runIn(root, env, 'status', id, next).code, 0);
-  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 1);
-  assert.equal(runIn(root, env, 'validation', id, 'fail', 'needs work').code, 0);
+  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 0);
+  assert.match(
+    fs.readFileSync(
+      path.join(
+        root,
+        '.changeledger',
+        'changes',
+        fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+      ),
+      'utf8',
+    ),
+    /human accepted via conversation/,
+  );
+  assert.equal(runIn(root, env, 'reopen', id, 'needs original correction').code, 0);
   for (const status of ['in-validation'])
     assert.equal(runIn(root, env, 'status', id, status).code, 0);
-  validation(id, 'pass', {}, root);
-  assert.equal(runIn(root, env, 'reopen', id, 'needs original correction').code, 0);
+  assert.equal(runIn(root, env, 'validation', id, 'fail', '--human', 'needs work').code, 0);
+  assert.match(runIn(root, env, 'show', id, '--json').out, /human rejected via conversation/);
+  assert.equal(runIn(root, env, 'status', id, 'in-validation').code, 0);
+  assert.equal(runIn(root, env, 'validation', id, 'fail', 'agent reason').code, 0);
+  assert.match(runIn(root, env, 'show', id, '--json').out, /agent rejected/);
+});
+
+test('125139 CR4/CR6/CR8: decision commands fail closed and explain human authority', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-decision-cli-'));
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const file = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+  );
+
+  const draft = fs.readFileSync(file, 'utf8');
+  assert.equal(runIn(root, env, 'validation', id, 'pass').code, 1);
+  assert.equal(fs.readFileSync(file, 'utf8'), draft);
+  assert.equal(runIn(root, env, 'validation', id, 'fail').code, 1);
+  assert.equal(runIn(root, env, 'validation', id, 'fail', '--human').code, 1);
+  assert.equal(fs.readFileSync(file, 'utf8'), draft);
+
+  for (const command of ['approve', 'validation']) {
+    const help = run(command, '--help');
+    assert.equal(help.code, 0);
+    assert.match(help.out, /explicit human|human decision/i);
+    assert.match(help.out, /conversation/i);
+  }
 });
 
 test('191857 CR1: graduate without a mode rejects skip-like slugs without writing', () => {
@@ -277,6 +322,7 @@ test('225212 CR6: help matrix — every command and subcommand documents Usage o
     ['agent-prompt'],
     ['agent-context'],
     ['status'],
+    ['approve'],
     ['discard'],
     ['review'],
     ['owner'],

@@ -28,6 +28,9 @@ changes and create them only after explicit human authorization. Work necessary
 for an already authorized objective stays in that change's Specification, Plan
 and Log. If related work materially expands observable scope, obtain explicit
 human authorization; independent work belongs in a separate change.
+Approval in conversation must explicitly identify the draft and order approval;
+praise, a request to continue, or the agent's recommendation does not authorize
+`changeledger approve`.
 
 ## Change document
 

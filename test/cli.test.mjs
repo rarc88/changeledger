@@ -109,7 +109,7 @@ test('221849: installed CLI reference names actors and dedicated terminal action
   const contract = contractText();
   assert.match(
     contract,
-    /`changeledger status <id> <status>`[\s\S]*does not accept `approved`, `done`, `discarded` or reopening/,
+    /`changeledger status <id> <status>`[\s\S]*does not accept\s+`approved`, `done`, `discarded` or reopening/,
   );
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
   assert.match(contract, /For an existing spec, edit its body first, then run/);

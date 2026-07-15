@@ -2,6 +2,7 @@
 import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import {
+  approve,
   archive,
   archiveGraduated,
   discard,
@@ -45,8 +46,8 @@ Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | fix | context | agent-context
-  changeledger commit | status | discard | review | owner | archive
-  changeledger log | task | list | show | search | graduate | config | release
+  changeledger commit | status | approve | validation | discard | review | owner
+  changeledger archive | log | task | list | show | search | graduate | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -343,20 +344,65 @@ program
   );
 
 program
-  .command('validation')
-  .description('reject an in-validation change; accepting it remains human-only')
+  .command('approve')
+  .description('transmit an explicit human decision to approve a draft via conversation')
   .argument('<id>')
-  .argument('<verdict>', 'fail')
-  .argument('<reason...>')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Human-owned: run only after an explicit human message identifies this change',
+      'and orders approval. Praise, permission to continue, or agent inference is not approval.',
+      '',
+      'Example:',
+      '  changeledger approve <id>',
+    ].join('\n'),
+  )
   .action(
-    action((id, verdict, reasonParts) => {
-      if (verdict !== 'fail')
-        throw new Error(
-          'validation only accepts fail; human validation in the viewer accepts changes',
-        );
-      const reason = reasonParts.join(' ').trim();
-      validation(id, 'fail', { reason, actor: 'agent' });
-      console.log(`#${id} validation fail`);
+    action((id) => {
+      approve(id);
+      console.log(`#${id} → approved (human via conversation)`);
+    }),
+  );
+
+program
+  .command('validation')
+  .description('transmit an explicit human validation decision, or reject as the agent')
+  .argument('<id>')
+  .argument('<verdict>', 'pass|fail')
+  .argument('[reason...]')
+  .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
+  .addHelpText(
+    'after',
+    [
+      '',
+      '`pass` and `fail --human` are human-owned: run only after an explicit human',
+      'decision in the conversation. Never infer acceptance or rejection.',
+      'Plain `fail` remains an agent-owned rejection and always requires a reason.',
+      '',
+      'Examples:',
+      '  changeledger validation <id> pass',
+      '  changeledger validation <id> fail "<reason>"',
+      '  changeledger validation <id> fail --human "<reason>"',
+    ].join('\n'),
+  )
+  .action(
+    action((id, verdict, reasonParts, options) => {
+      const reason = (reasonParts ?? []).join(' ').trim();
+      if (verdict === 'pass') {
+        if (reason) throw new Error('validation pass does not accept a reason');
+        if (options.human) throw new Error('validation pass is already human-owned; omit --human');
+        validation(id, 'pass', { actor: 'human', channel: 'conversation' });
+      } else if (verdict === 'fail') {
+        validation(id, 'fail', {
+          reason,
+          actor: options.human ? 'human' : 'agent',
+          channel: options.human ? 'conversation' : 'agent',
+        });
+      } else {
+        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
+      }
+      console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
     }),
   );
 

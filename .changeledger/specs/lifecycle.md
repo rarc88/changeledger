@@ -27,7 +27,7 @@ tags: [ lifecycle ]
 ```mermaid
 stateDiagram-v2
     [*] --> draft
-    draft --> approved: humano aprueba (viewer)
+    draft --> approved: humano aprueba (viewer o conversación)
     approved --> in_progress
     in_progress --> in_review: review_required
     in_progress --> in_validation: si NO review_required
@@ -35,7 +35,7 @@ stateDiagram-v2
     in_review --> in_validation: review pass
     in_review --> in_progress: fail --retry
     in_review --> blocked: fail --block
-    in_validation --> done: humano acepta (viewer)
+    in_validation --> done: humano acepta (viewer o conversación)
     in_validation --> in_progress: agente o humano rechaza con motivo
     done --> in_progress: agente o humano reabre antes del cierre durable
     blocked --> in_progress
@@ -119,6 +119,14 @@ agente, los tres veredictos que registra el orquestador mediante
 `changeledger review`, y el descarte con razón; evita que esa autoridad se
 infiera de prosa o de un diagrama paralelo.
 
+Las decisiones human-owned admiten dos superficies confiadas: el viewer y una
+instrucción explícita en la conversación activa que identifique inequívocamente
+el change y el veredicto. El agente transmite esta última con `changeledger
+approve <id>`, `changeledger validation <id> pass` o, para rechazo con razón,
+`changeledger validation <id> fail --human "<razón>"`. Elogios, “continúa”,
+silencio o una recomendación del agente no autorizan estos comandos. No se
+persisten conversaciones ni se añaden tokens de confirmación.
+
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
 es la **única autoridad**, compartida por `changeledger status` y el visor.
 `lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
@@ -135,12 +143,19 @@ visor añade la política de actor: permite `draft → approved`, `in-validation
 done|in-progress` y la reapertura elegible `done → in-progress`; rechazo y
 reapertura exigen motivo. El CLI permite al agente rechazar con `changeledger
 validation <id> fail "<razón>"` y reabrir con `changeledger reopen <id>
-"<razón>"`, pero no aprobar un draft ni aceptar una validación.
+"<razón>"`; los verbos conversacionales positivos y `--human` solo transmiten
+una decisión humana explícita y reutilizan los mismos guards del viewer.
 Antes de aceptar, construye en memoria la única transición `validation → done
 (human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
 inconsistencia del Log rechazan la operación antes de escribir, conservando el
 archivo en `in-validation`; warnings del seleccionado y errores ajenos no
 bloquean.
+
+El Log distingue el canal conversacional con `status: draft → approved (human
+via conversation)`, `validation → done (human accepted via conversation)` y
+`validation → in-progress (human rejected via conversation): <reason>`. El
+viewer conserva sus eventos históricos sin el sufijo de canal y el rechazo
+agent-owned conserva `(agent rejected)`.
 
 **Reapertura provisional.** El viewer ofrece `Reopen` sólo en `done`; exige una
 razón y registra `status: done → in-progress (human reopened): <reason>`. El

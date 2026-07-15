@@ -417,6 +417,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['blocked', /block otherwise-ready human validation/],
     ['blocked', /When a change reaches `done`, also share a brief retrospective/],
     ['validation', /The agent never accepts on the human's behalf/],
+    ['validation', /`changeledger validation <id> pass`/],
+    ['validation', /fail --human "<reason>"/],
+    ['validation', /Never infer a decision from praise/],
     ['validation', /Do not modify the result or mark it done/],
     ['validation', /Rejection requires a reason and returns the same change to `in-progress`/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
@@ -436,7 +439,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['release', /Do not create a change only to group those routine steps/],
     ['core', /discard reason is required and logged/],
     // 20260705-134703: ownership prose replaced by a transition→owner→mechanism matrix.
-    ['core', /draft → approved \| human \| viewer/],
+    ['core', /draft → approved \| human \| viewer or `changeledger approve <id>`/],
     ['core', /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/],
   ];
 
@@ -526,7 +529,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260710-201703: additive — the role skeleton pointer in "Files and
     // delegation" gains the new read-only `audit` role for changes already in
     // `in-validation`. Every existing rule preserved, none retired or replaced.
-    'core.md': 'f4b39e6c217ad46dc38a6eb5f4ac50cd689eb347a457df0ab7ce6fac818284b6',
+    // 20260715-125139: human decisions gain viewer-or-conversation mechanisms;
+    // the ownership boundary is preserved and strengthened against inference.
+    'core.md': '43f50b4ec8fe5a88b1e67e979dedb85a9b47ab68bae251fd6a86a7e9b8e02748',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -583,12 +588,16 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103758: additive — a mandate to run `changeledger search` before
     // writing Investigation, plus the command's line in Authoring helpers.
     // Every existing rule preserved, none retired or replaced.
-    'spec.md': '60794e9c56c85fe86a34b7613c7aa1cdd2e1bc5feef3a45dc559100ffb29448f',
+    // 20260715-125139: additive explicit-prompt requirement for conversational
+    // draft approval; existing authoring authorization rules are preserved.
+    'spec.md': 'ed63bc958cc186ec346c422988a4ad727f9fd198328d583ad8bce735d9d2daeb',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
     // validation paths; human-only acceptance rules are preserved, none retired.
-    'validation.md': 'ff2493227276dc4a150f037876eedcb29cfedd0151869cd61d199837f86b5e14',
+    // 20260715-125139: viewer-only wording is replaced by viewer or explicit
+    // conversation decisions; human ownership and non-inference are preserved.
+    'validation.md': '89a7f50068f7aa758408c681a4eb10d7352f7c76c809e78120fa52b564a2b1b0',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -1137,20 +1146,21 @@ test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', ()
   // CR1: a matrix with transition / owner / mechanism columns covers every arc.
   assert.match(norm, /\| Transition \| Owner \| Mechanism \|/);
   const rows = [
-    /draft → approved \| human \| viewer/,
+    /draft → approved \| human \| viewer or `changeledger approve <id>` after an explicit prompt/,
     /approved → in-progress; blocked → in-progress; in-progress → in-review \| agent \| `changeledger status`/,
     /in-progress → in-validation \(no review\) \| agent \| `changeledger status`/,
     /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/,
     /in-review → in-progress \| orchestrator \| `changeledger review <id> fail --retry`/,
     /in-review → blocked \| orchestrator \| `changeledger review <id> fail --block`/,
-    /in-validation → done \| human \| viewer/,
-    /in-validation → in-progress \| agent or human \| `changeledger validation <id> fail "<reason>"` or viewer/,
+    /in-validation → done \| human \| viewer or `changeledger validation <id> pass` after an explicit prompt/,
+    /in-validation → in-progress \| agent or human \| viewer; agent `validation <id> fail "<reason>"`; human prompt adds `--human`/,
     /done → in-progress \(pending closure\) \| agent or human \| `changeledger reopen <id> "<reason>"` or viewer/,
     /→ discarded \| agent \(authorized\) \| `changeledger discard <id> "<reason>"`/,
   ];
   for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
 
   assert.doesNotMatch(core, /human acceptance or rejection/);
+  assert.match(norm, /praise, “continue”, or agent inference is not a decision/);
 
   // CR1: status never owns done or discarded.
   assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);
