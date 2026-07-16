@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-11T21:51:13Z
+updated: 2026-07-16T13:39:27Z
 tags: [ lifecycle ]
 ---
 
@@ -254,8 +254,8 @@ fallback a `git config user.name` si `gh` falta o no está autenticado; tolerant
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o registra un skip (bug/chore sin verdad persistente). La finalización con
 `--into` y el skip fijan `reviewed: true` (`writer.setReviewed`);
-`changeledger graduate --pending` (`pendingGraduation`) lista los `done` con
-`reviewed !== true`. `changeledger graduate <id> --skip [razón]`
+`changeledger list --pending graduation` lista los `done` con `reviewed !==
+true`. `changeledger graduate <id> --skip [razón]`
 (`skipGraduation`, solo en `done`) deja `graduation skipped` en el Log sin crear
 una spec. "Graduado a spec" sigue siendo derivable de la marca `graduado a spec`
 del Log — `reviewed` solo registra que la pregunta quedó zanjada. `check` valida
@@ -265,16 +265,15 @@ mismo check scoped del change `done`. Si existen tareas incompletas o errores de
 secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
 marker de graduación o fijar `reviewed: true`.
 
-`changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
-conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
-con resolución de graduación en `## Log` (`graduado a spec` o `graduation
-skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
-masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
-`archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
-sin reviewed ni cambios ya archivados.
+`changeledger list --pending archive` previsualiza los changes `done`,
+`reviewed: true`, no archivados y con resolución de graduación en `## Log`
+(`graduado a spec` o `graduation skipped`). `changeledger archive --graduated`
+archiva exactamente ese conjunto: escribe `archived: true` más una entrada
+`archived` en el Log; no toca estados activos, bloqueados, descartados, changes
+sin reviewed ni changes ya archivados.
 
-La intención es siempre explícita y los modos `--new`, `--into`, `--skip` y
-`--pending` son mutuamente excluyentes. Un slug posicional sin modo falla sin
+La intención es siempre explícita y los modos `--new`, `--into` y `--skip` son
+mutuamente excluyentes. Un slug posicional sin modo falla sin
 escribir, por lo que `skip` o `skip-*` nunca pueden convertirse accidentalmente
 en nombres de spec.
 

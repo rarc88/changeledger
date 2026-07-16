@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-14T15:36:33Z
 depends_on: [ "20260714-150300" ]
+archived: true
 owner: Roberto Ruiz
 reviewed: true
 ---
@@ -113,3 +114,4 @@ verdad persistente afectada continúa siendo `contract-discovery`.
 - **2026-07-14T16:03:01Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-14T16:07:04Z** — validation → done (human accepted)
 - **2026-07-14T16:08:14Z** — graduado a spec `contract-discovery.md`
+- **2026-07-16T13:39:36Z** — archived

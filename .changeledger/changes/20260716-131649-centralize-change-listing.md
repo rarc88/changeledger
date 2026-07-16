@@ -2,9 +2,11 @@
 id: "20260716-131649"
 title: Centralizar las consultas de changes en list
 type: feature
-status: in-validation
+status: done
 created: 2026-07-16T13:16:49Z
 depends_on: []
+archived: true
+reviewed: true
 owner: Roberto Ruiz
 
 ---
@@ -167,3 +169,6 @@ Alternativas descartadas:
 - **2026-07-16T13:19:40Z** — owner → Roberto Ruiz (auto)
 - **2026-07-16T13:28:55Z** — status: in-progress → in-review
 - **2026-07-16T13:31:42Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-16T13:37:34Z** — validation → done (human accepted)
+- **2026-07-16T13:39:27Z** — graduado a spec `lifecycle.md`
+- **2026-07-16T13:39:36Z** — archived

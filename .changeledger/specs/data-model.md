@@ -1,6 +1,6 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-06-27T21:50:56Z
+updated: 2026-07-16T13:39:26Z
 tags: [ data-model ]
 ---
 

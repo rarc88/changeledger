@@ -2,9 +2,11 @@
 id: "20260715-122950"
 title: Preservar formato tras mutaciones del lifecycle
 type: bug
-status: in-validation
+status: done
 created: 2026-07-15T12:29:50Z
 depends_on: [ "20260616-151230", "20260616-174430" ]
+archived: true
+reviewed: true
 owner: raruiz-hiberuscom
 ---
 
@@ -115,3 +117,6 @@ formatter local sin convertirlo en una dependencia de ChangeLedger.
 - **2026-07-15T13:13:52Z** — Full quality gate passed outside sandbox: Biome, 679/679 tests, and ChangeLedger check.
 - **2026-07-15T13:13:52Z** — status: in-progress → in-review
 - **2026-07-15T13:19:14Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-16T13:37:29Z** — validation → done (human accepted)
+- **2026-07-16T13:39:26Z** — graduado a spec `data-model.md`
+- **2026-07-16T13:39:36Z** — archived

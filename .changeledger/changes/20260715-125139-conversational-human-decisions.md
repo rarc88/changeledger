@@ -2,9 +2,11 @@
 id: "20260715-125139"
 title: Permitir decisiones humanas explícitas por conversación
 type: feature
-status: in-validation
+status: done
 created: 2026-07-15T12:51:39Z
 depends_on: [ "20260619-171002", "20260705-134703", "20260710-105205" ]
+archived: true
+reviewed: true
 owner: Roberto Ruiz
 
 ---
@@ -149,3 +151,6 @@ validation → in-progress (human rejected via conversation): <razón>
 - **2026-07-15T13:44:27Z** — Corrección tras review FAIL: prueba roja para status --help; ayuda alineada con approve/validation pass; reglas históricas de validation restauradas sin exceder el límite duro. Suites focalizadas 195/195.
 - **2026-07-15T13:44:28Z** — status: in-progress → in-review
 - **2026-07-15T13:50:57Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-16T13:37:32Z** — validation → done (human accepted)
+- **2026-07-16T13:39:26Z** — graduado a spec `lifecycle.md`
+- **2026-07-16T13:39:36Z** — archived
