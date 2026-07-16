@@ -71,13 +71,14 @@ function doneRepo() {
   return { root, env, id: item.id, changeFile };
 }
 
-test('CR1: changeledger graduate --help shows every explicit mode, exit 0', () => {
+test('131649 CR8: graduate help contains only mutation modes and points to list', () => {
   const { code, out } = run('graduate', '--help');
   assert.equal(code, 0);
   assert.match(out, /--new/);
   assert.match(out, /--into/);
   assert.match(out, /--skip/);
-  assert.match(out, /--pending/);
+  assert.doesNotMatch(out, /^\s+--pending\b/m);
+  assert.match(out, /changeledger list --pending graduation/);
 });
 
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
@@ -171,7 +172,7 @@ test('191857 CR2/CR3: --new scaffolds pending truth and --into finalizes it', ()
     JSON.parse(runIn(root, env, 'show', id, '--json').out).frontmatter.reviewed,
     undefined,
   );
-  assert.match(runIn(root, env, 'graduate', '--pending').out, new RegExp(id));
+  assert.match(runIn(root, env, 'list', '--pending', 'graduation').out, new RegExp(id));
 
   const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
   fs.writeFileSync(
@@ -198,8 +199,6 @@ test('191857 CR5: incompatible graduate modes and arguments fail without writing
   const before = fs.readFileSync(changeFile, 'utf8');
   const cases = [
     ['graduate', id, 'auth', '--new', '--into'],
-    ['graduate', id, '--skip', '--pending'],
-    ['graduate', '--pending', id],
     ['graduate', id, 'auth', 'extra', '--into'],
   ];
 
@@ -274,16 +273,36 @@ test('225212 CR3: changeledger owner -h documents that "-" clears the owner', ()
   assert.match(out, /-.*clears?/i);
 });
 
-test('225212 CR3: changeledger archive -h documents --graduated/--dry-run relationship', () => {
+test('131649 CR9: archive help keeps the action and points preview to list', () => {
   const { code, out } = run('archive', '-h');
   assert.equal(code, 0);
-  assert.match(out, /--dry-run.*--graduated|--graduated.*--dry-run/is);
+  assert.match(out, /--graduated/);
+  assert.doesNotMatch(out, /^\s+--dry-run\b/m);
+  assert.match(out, /changeledger list --pending archive/);
 });
 
-test('225212 CR3: changeledger list -h documents status/type come from config', () => {
+test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', () => {
   const { code, out } = run('list', '-h');
   assert.equal(code, 0);
   assert.match(out, /\.changeledger\/config\.yml/);
+  assert.match(out, /--owner/);
+  assert.match(out, /--unowned/);
+  assert.match(out, /--pending.*graduation.*archive/is);
+  assert.match(out, /--archived/);
+  assert.match(out, /--all/);
+});
+
+test('131649 CR4/CR6/CR8-CR10: CLI rejects removed, conflicting and invalid query options', () => {
+  const { root, env } = doneRepo();
+  const cases = [
+    ['graduate', '--pending'],
+    ['archive', '--graduated', '--dry-run'],
+    ['list', '--owner', 'Roberto Ruiz', '--unowned'],
+    ['list', '--archived', '--all'],
+    ['list', '--pending', 'release'],
+  ];
+  for (const args of cases) assert.equal(runIn(root, env, ...args).code, 1, args.join(' '));
+  assert.match(runIn(root, env, 'list', '--pending', 'release').err, /graduation.*archive/);
 });
 
 test('225212 CR4: changeledger view -h shows explicit syntax for view, view . and a port', () => {

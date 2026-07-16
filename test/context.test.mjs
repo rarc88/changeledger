@@ -149,7 +149,10 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   const second = buildContext(undefined, root);
 
   assert.match(first, /`changeledger list --status approved`/);
-  assert.match(first, /`changeledger graduate --pending`/);
+  assert.match(first, /`changeledger list --pending graduation`/);
+  assert.match(first, /`changeledger list --pending archive`/);
+  assert.doesNotMatch(first, /`changeledger graduate --pending`/);
+  assert.doesNotMatch(first, /`changeledger archive --graduated --dry-run`/);
   assert.match(first, /before (scanning|searching) files/i);
   assert.doesNotMatch(first, new RegExp(id));
   assert.doesNotMatch(first, /Context fixture/);
@@ -307,7 +310,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /type: feature.*feature \| bug \| audit \| refactor \| chore/],
     ['spec', /release_impact: minor.*none \| patch \| minor \| major/],
     ['spec', /changeledger owner <id> <name\|->/],
-    ['spec', /changeledger list \[--status S\] \[--type T\] \[--json\]/],
+    ['spec', /changeledger list.*--owner.*--pending/s],
     ['spec', /changeledger show <id> \[--json\]/],
     ['spec', /Use fixed English `##` headings in this order/],
     ['spec', /Default activation matrix/],
@@ -396,7 +399,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger graduate <id> <spec-slug> --new/],
     ['close', /changeledger graduate <id> <spec-slug> --into/],
     ['close', /changeledger graduate <id> --skip \[reason\]/],
-    ['close', /changeledger graduate --pending/],
+    ['close', /changeledger list --pending graduation/],
+    ['close', /changeledger list --pending archive/],
     ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
     ['close', /graduation link remains derivable from the Log marker/],
@@ -496,7 +500,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103802: the archive/unarchive bullet is replaced — unarchive was
     // retired as unused CLI surface; reversal is now documented as a manual
     // `archived: false` frontmatter edit. Rule preserved, not retired.
-    'close.md': '0c633b556933b36a3110de98313323f346d63d4eec61ba48806168640366544a',
+    // 20260716-131649: listing unresolved graduation and archive candidates is
+    // replaced by canonical `list --pending` queries; closure actions remain.
+    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -531,7 +537,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // `in-validation`. Every existing rule preserved, none retired or replaced.
     // 20260715-125139: human decisions gain viewer-or-conversation mechanisms;
     // the ownership boundary is preserved and strengthened against inference.
-    'core.md': '43f50b4ec8fe5a88b1e67e979dedb85a9b47ab68bae251fd6a86a7e9b8e02748',
+    // 20260716-131649: operational discovery replaces the graduate query with
+    // canonical list queries for graduation and archive candidates.
+    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -590,7 +598,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // Every existing rule preserved, none retired or replaced.
     // 20260715-125139: additive explicit-prompt requirement for conversational
     // draft approval; existing authoring authorization rules are preserved.
-    'spec.md': 'ed63bc958cc186ec346c422988a4ad727f9fd198328d583ad8bce735d9d2daeb',
+    // 20260716-131649: the list helper is extended with owner, pending and
+    // archive-visibility filters; existing authoring rules are preserved.
+    'spec.md': '3e114f7b8d181cfab9c382769c0ed492f9089227cf7326400bc93f5646f2cfd8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct

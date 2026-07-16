@@ -4,12 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
-import {
-  graduate,
-  pendingGraduation,
-  scaffoldSpec,
-  skipGraduation,
-} from '../src/commands/graduate.mjs';
+import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -348,15 +343,8 @@ test('185958 CR5 / CR2 / CR3: scaffold then --into happy paths', () => {
 test('CR2: a scaffolded change remains pending graduation', () => {
   const { root, id } = repo();
   scaffoldSpec(id, 'auth', root);
-  assert.ok(pendingGraduation(root).some((change) => change.id === id));
-});
-
-test('pendingGraduation lists only unreviewed done changes (CR4)', () => {
-  const { root } = repo(); // base 20260613-120000 is done, unreviewed
-  writeChange(root, '20260101-000000', 'done', 'reviewed: true\n');
-  writeChange(root, '20260103-000000', 'draft');
-  const ids = pendingGraduation(root).map((c) => c.id);
-  assert.ok(ids.includes('20260613-120000'));
-  assert.ok(!ids.includes('20260101-000000'));
-  assert.ok(!ids.includes('20260103-000000'));
+  assert.equal(
+    loadRepo(root).changes.find((change) => change.frontmatter.id === id).frontmatter.reviewed,
+    undefined,
+  );
 });

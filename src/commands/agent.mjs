@@ -245,18 +245,16 @@ export function archive(id, cwd = process.cwd()) {
   return file;
 }
 
-export function archiveGraduated({ dryRun = false } = {}, cwd = process.cwd()) {
+export function archiveGraduated(cwd = process.cwd()) {
   const { changes } = loadRepo(cwd);
   const selected = changes.filter((c) => isArchivableGraduated(c));
-  if (!dryRun) {
-    for (const c of selected) {
-      mutateFileAtomic(c.file, (text) => {
-        const current = { ...parseChange(text), text };
-        if (!isArchivableGraduated(current)) return undefined;
-        text = setArchived(text, true);
-        return appendLog(text, nowUtc(), 'archived');
-      });
-    }
+  for (const c of selected) {
+    mutateFileAtomic(c.file, (text) => {
+      const current = { ...parseChange(text), text };
+      if (!isArchivableGraduated(current)) return undefined;
+      text = setArchived(text, true);
+      return appendLog(text, nowUtc(), 'archived');
+    });
   }
   return selected.map((c) => ({
     id: c.frontmatter.id,
@@ -297,17 +295,45 @@ export function task(id, action, n, reason, cwd = process.cwd()) {
   return file;
 }
 
-export function list({ status: byStatus, type: byType } = {}, cwd = process.cwd()) {
+export function list(
+  {
+    status: byStatus,
+    type: byType,
+    owner: byOwner,
+    unowned = false,
+    pending,
+    archived = false,
+    all = false,
+  } = {},
+  cwd = process.cwd(),
+) {
+  if (byOwner && unowned) throw new Error('--owner and --unowned are mutually exclusive');
+  if (archived && all) throw new Error('--archived and --all are mutually exclusive');
+  if (pending && !['graduation', 'archive'].includes(pending)) {
+    throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
+  }
+
   return loadRepo(cwd)
-    .changes.map((c) => ({
+    .changes.filter((c) => {
+      const fm = c.frontmatter;
+      if (!all && archived !== (fm.archived === true)) return false;
+      if (byStatus && fm.status !== byStatus) return false;
+      if (byType && fm.type !== byType) return false;
+      if (byOwner && fm.owner !== byOwner) return false;
+      if (unowned && fm.owner != null) return false;
+      if (pending === 'graduation' && !(fm.status === 'done' && fm.reviewed !== true)) return false;
+      if (pending === 'archive' && !isArchivableGraduated(c)) return false;
+      return true;
+    })
+    .map((c) => ({
       id: c.frontmatter.id,
       title: c.frontmatter.title,
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      archived: c.frontmatter.archived === true,
       progress: c.progress,
-    }))
-    .filter((c) => (!byStatus || c.status === byStatus) && (!byType || c.type === byType));
+    }));
 }
 
 export function show(id, cwd = process.cwd()) {

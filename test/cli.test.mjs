@@ -180,7 +180,7 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });
 
-test('212322 CR1/CR5: CLI dry-runs archive --graduated without writing files', async () => {
+test('131649 CR2/CR9: list previews archive --graduated without writing files', async () => {
   const root = tmp();
   init(root);
   const file = path.join(root, '.changeledger', 'changes', '20260613-120001-done.md');
@@ -226,15 +226,10 @@ P
   );
   const before = fs.readFileSync(file, 'utf8');
   const bin = path.resolve('bin/changeledger.mjs');
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [bin, 'archive', '--graduated', '--dry-run'],
-    {
-      cwd: root,
-    },
-  );
-  assert.match(stdout, /#20260613-120001 Done/);
-  assert.match(stdout, /Would archive 1 change\(s\)/);
+  const { stdout } = await execFileAsync(process.execPath, [bin, 'list', '--pending', 'archive'], {
+    cwd: root,
+  });
+  assert.match(stdout, /#20260613-120001\s+Done/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 

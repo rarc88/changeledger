@@ -22,12 +22,7 @@ import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { fix } from '../src/commands/fix.mjs';
-import {
-  graduate,
-  pendingGraduation,
-  scaffoldSpec,
-  skipGraduation,
-} from '../src/commands/graduate.mjs';
+import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -484,7 +479,6 @@ program
   .description('hide a change in the viewer, or archive all graduated done changes')
   .argument('[id]', 'a change id; mutually exclusive with --graduated')
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
-  .option('--dry-run', 'preview --graduated without writing; requires --graduated')
   .addHelpText(
     'after',
     [
@@ -492,7 +486,7 @@ program
       'Examples:',
       '  changeledger archive <id>',
       '  changeledger archive --graduated',
-      '  changeledger archive --graduated --dry-run',
+      '  changeledger list --pending archive   # preview the bulk action',
       '',
       'To reverse an archive, edit `archived: false` in the change frontmatter directly.',
     ].join('\n'),
@@ -501,14 +495,11 @@ program
     action((id, options) => {
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
-        const archived = archiveGraduated({ dryRun: options.dryRun });
+        const archived = archiveGraduated();
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
-        console.log(
-          `${options.dryRun ? 'Would archive' : 'Archived'} ${archived.length} change(s)`,
-        );
+        console.log(`Archived ${archived.length} change(s)`);
         return;
       }
-      if (options.dryRun) throw new Error('--dry-run requires --graduated');
       if (!id) throw new Error('archive requires <id> or --graduated');
       archive(id);
       console.log(`#${id} archived`);
@@ -559,6 +550,11 @@ program
     'filter by a status configured in .changeledger/config.yml (statuses:)',
   )
   .option('--type <type>', 'filter by a type configured in .changeledger/config.yml (types:)')
+  .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
+  .option('--unowned', 'list changes without an owner; incompatible with --owner')
+  .option('--pending <kind>', 'filter pending work (graduation|archive)')
+  .option('--archived', 'list only archived changes; incompatible with --all')
+  .option('--all', 'include archived and non-archived changes; incompatible with --archived')
   .option('--json', 'print JSON')
   .addHelpText(
     'after',
@@ -566,12 +562,25 @@ program
       '',
       'Examples:',
       '  changeledger list --status approved',
+      '  changeledger list --owner "Roberto Ruiz" --status in-validation',
+      '  changeledger list --unowned',
+      '  changeledger list --pending graduation',
+      '  changeledger list --pending archive',
+      '  changeledger list --archived',
       '  changeledger list --type feature --json',
     ].join('\n'),
   )
   .action(
     action((options) => {
-      const items = list({ status: options.status, type: options.type });
+      const items = list({
+        status: options.status,
+        type: options.type,
+        owner: options.owner,
+        unowned: options.unowned,
+        pending: options.pending,
+        archived: options.archived,
+        all: options.all,
+      });
       if (options.json) {
         console.log(JSON.stringify(items, null, 2));
       } else {
@@ -628,7 +637,6 @@ program
   .option('--new', 'create a spec scaffold without resolving graduation')
   .option('--into', 'finalize graduation into an existing refined spec')
   .option('--skip', 'mark graduation reviewed without a spec')
-  .option('--pending', 'list done changes not yet reviewed')
   .addHelpText(
     'after',
     [
@@ -637,25 +645,15 @@ program
       '  changeledger graduate <change-id> <spec-slug> --new',
       '  changeledger graduate <change-id> <spec-slug> --into',
       '  changeledger graduate <change-id> --skip [reason]',
-      '  changeledger graduate --pending',
+      '  changeledger list --pending graduation   # list unresolved decisions',
     ].join('\n'),
   )
   .action(
     action((id, slug, reasonParts, options) => {
-      const modeCount = [options.new, options.into, options.skip, options.pending].filter(
-        Boolean,
-      ).length;
+      const modeCount = [options.new, options.into, options.skip].filter(Boolean).length;
       const modeUsage =
-        'Usage: changeledger graduate requires exactly one mode: --new, --into, --skip, or --pending';
+        'Usage: changeledger graduate requires exactly one mode: --new, --into, or --skip';
       if (modeCount !== 1) throw new Error(modeUsage);
-
-      if (options.pending) {
-        if (id || slug || reasonParts.length) throw new Error(modeUsage);
-        const items = pendingGraduation();
-        if (!items.length) console.log('No changes pending graduation.');
-        for (const c of items) console.log(`#${c.id}  ${c.title}`);
-        return;
-      }
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();

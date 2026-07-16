@@ -2,7 +2,7 @@
 id: "20260716-131649"
 title: Centralizar las consultas de changes en list
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-16T13:16:49Z
 depends_on: []
 owner: Roberto Ruiz
@@ -154,10 +154,10 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Escribir primero tests fallidos en `test/agent.test.mjs`, centralizar después los predicados y filtros en `src/commands/agent.mjs` y retirar `pendingGraduation()` de `src/commands/graduate.mjs`; verify: `node --test test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10)
-- [ ] Escribir primero tests fallidos en `test/cli-bin.test.mjs` y reorganizar después opciones, validación, salida y help en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10)
-- [ ] Actualizar los fragmentos aplicables de `templates/contract/` y la documentación pública; verify: `pnpm test` (CR11)
-- [ ] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Escribir primero tests fallidos en `test/agent.test.mjs`, centralizar después los predicados y filtros en `src/commands/agent.mjs` y retirar `pendingGraduation()` de `src/commands/graduate.mjs`; verify: `node --test test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10) — 2026-07-16T13:26:33Z
+- [x] Escribir primero tests fallidos en `test/cli-bin.test.mjs` y reorganizar después opciones, validación, salida y help en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10) — 2026-07-16T13:26:33Z
+- [x] Actualizar los fragmentos aplicables de `templates/contract/` y la documentación pública; verify: `pnpm test` (CR11) — 2026-07-16T13:26:33Z
+- [x] Ejecutar el gate completo `pnpm verify` (support) — 2026-07-16T13:28:50Z
 
 ## Log
 
@@ -165,3 +165,5 @@ Alternativas descartadas:
 - **2026-07-16T13:18:57Z** — status: draft → approved
 - **2026-07-16T13:19:40Z** — status: approved → in-progress
 - **2026-07-16T13:19:40Z** — owner → Roberto Ruiz (auto)
+- **2026-07-16T13:28:55Z** — status: in-progress → in-review
+- **2026-07-16T13:31:42Z** — review → in-validation (delegated subagent, clean context)

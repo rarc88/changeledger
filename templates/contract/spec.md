@@ -168,7 +168,7 @@ title, stage prose, scenario content and task descriptions.
 
 - `changeledger new <type> <slug> "<title>"` — scaffold a change with an English slug.
 - `changeledger check [id]` — validate one change or the repository.
-- `changeledger list [--status S] [--type T] [--json]` — inspect/filter changes.
+- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]` — inspect/filter changes.
 - `changeledger show <id> [--json]` — inspect one resolved change.
 - `changeledger search <terms...> [--type T] [--status S] [--json]` — find related changes and specs by content.
 - `changeledger owner <id> <name|->` — set or clear responsibility.
