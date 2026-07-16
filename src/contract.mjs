@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { marked } from 'marked';
 import { writeFileAtomic } from './atomic-write.mjs';
 
 const CONTRACT_FILES = ['AGENTS.md', 'CLAUDE.md'];
+const CLAUDE_AGENTS_IMPORT = /(^|[\s(])@AGENTS\.md(?=$|[\s),;:!?]|\.(?:$|\s))/m;
 const LEGACY_MARKER = '<!-- changeledger -->';
 const LEGACY_ENTRY = '.changeledger/AGENTS.md';
 // Exact SHA-256 digests of every historical templates/AGENTS.md payload. A
@@ -39,7 +41,7 @@ const LEGACY_CONTRACT_HASHES = new Set([
 // that must be detected and re-registered in consuming repos.
 export const BOOTSTRAP_VERSION = 2;
 
-const BEGIN_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/;
+const BEGIN_ALL_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/g;
 const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
 const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->`;
 
@@ -96,22 +98,36 @@ function migrateLegacy(text, start) {
   return `${before}${bootstrapBlock()}${after ? `\n${after}` : ''}`;
 }
 
-function normalizeBlockquote(reference) {
-  if (!reference.endsWith('\n')) return null;
-  const paragraphs = [];
-  let paragraph = [];
-  for (const line of reference.slice(0, -1).split('\n')) {
-    const match = /^> ?(.*)$/.exec(line);
-    if (!match) return null;
-    if (match[1] === '') {
-      paragraphs.push(paragraph.join(' '));
-      paragraph = [];
-    } else {
-      paragraph.push(match[1]);
-    }
+const REFERENCE_TOKEN_TYPES = new Set([
+  'blockquote',
+  'paragraph',
+  'space',
+  'text',
+  'strong',
+  'codespan',
+]);
+
+function projectToken(token) {
+  if (!REFERENCE_TOKEN_TYPES.has(token.type)) return null;
+  const projected = { type: token.type };
+  if (Array.isArray(token.tokens)) {
+    projected.tokens = projectTokens(token.tokens);
+    if (projected.tokens === null) return null;
+  } else if (typeof token.text === 'string') {
+    projected.text = token.type === 'text' ? token.text.replace(/\r?\n/g, ' ') : token.text;
   }
-  paragraphs.push(paragraph.join(' '));
-  return paragraphs;
+  return projected;
+}
+
+function projectTokens(tokens) {
+  const projected = tokens.map(projectToken);
+  return projected.includes(null) ? null : projected;
+}
+
+function projectReference(reference) {
+  const tokens = marked.lexer(reference).filter((token) => token.type !== 'space');
+  if (tokens.length !== 1 || tokens[0].type !== 'blockquote') return null;
+  return projectToken(tokens[0]);
 }
 
 function hasEquivalentReference(text, beginIndex, endIndex, version) {
@@ -119,9 +135,13 @@ function hasEquivalentReference(text, beginIndex, endIndex, version) {
   const contentStart = beginIndex + beginMarker(version).length;
   if (text[contentStart] !== '\n') return false;
   if (text[endIndex + END_MARKER.length] !== '\n') return false;
-  const actual = normalizeBlockquote(text.slice(contentStart + 1, endIndex));
-  const expected = normalizeBlockquote(REFERENCE);
+  const actual = projectReference(text.slice(contentStart + 1, endIndex));
+  const expected = projectReference(REFERENCE);
   return actual !== null && JSON.stringify(actual) === JSON.stringify(expected);
+}
+
+function malformedBootstrap(message) {
+  throw new Error(`Malformed ChangeLedger bootstrap: ${message}`);
 }
 
 // Replace only the interior of an existing BEGIN/END block, preserving
@@ -129,10 +149,15 @@ function hasEquivalentReference(text, beginIndex, endIndex, version) {
 function replaceDelimited(text, beginIndex, version) {
   const endIndex = text.indexOf(END_MARKER, beginIndex);
   if (endIndex === -1) {
-    throw new Error(
-      'Malformed ChangeLedger bootstrap: found a BEGIN marker without a matching END marker',
-    );
+    malformedBootstrap('found a BEGIN marker without a matching END marker');
   }
+  const beginEnd = beginIndex + beginMarker(version).length;
+  if (beginIndex > 0 && text[beginIndex - 1] !== '\n')
+    malformedBootstrap('BEGIN marker must occupy its own line');
+  if (text[beginEnd] !== '\n') malformedBootstrap('BEGIN marker must occupy its own line');
+  if (text[endIndex - 1] !== '\n') malformedBootstrap('END marker must occupy its own line');
+  if (text[endIndex + END_MARKER.length] !== '\n')
+    malformedBootstrap('END marker must occupy its own line');
   const before = text.slice(0, beginIndex);
   const after = text.slice(endIndex + END_MARKER.length).replace(/^\n/, '');
   const newText = `${before}${bootstrapBlock()}${after}`;
@@ -150,15 +175,26 @@ function replaceDelimited(text, beginIndex, version) {
 // Compute the delimited bootstrap block for `text`, inserting it, replacing
 // it, or migrating the legacy marker as needed.
 export function applyBootstrap(text) {
-  const beginMatch = BEGIN_RE.exec(text);
+  const beginMatches = [...text.matchAll(BEGIN_ALL_RE)];
+  const endCount = text.split(END_MARKER).length - 1;
+  if (beginMatches.length > 1 || endCount > 1) {
+    malformedBootstrap('expected exactly one BEGIN marker and one END marker');
+  }
+  const beginMatch = beginMatches[0];
   if (beginMatch) {
+    if (endCount !== 1) malformedBootstrap('found a BEGIN marker without a matching END marker');
     return replaceDelimited(text, beginMatch.index, Number(beginMatch[1]));
   }
+  if (endCount !== 0) malformedBootstrap('found an END marker without a matching BEGIN marker');
   const legacyIndex = text.indexOf(LEGACY_MARKER);
   if (legacyIndex !== -1) {
     return { text: migrateLegacy(text, legacyIndex), status: 'migrated' };
   }
   return { text: insertBlock(text), status: 'inserted' };
+}
+
+function delegatesToCanonicalAgents(name, text, bootstrapStatus) {
+  return name === 'CLAUDE.md' && bootstrapStatus === 'inserted' && CLAUDE_AGENTS_IMPORT.test(text);
 }
 
 // Add, replace, or migrate the managed bootstrap block in project-owned agent
@@ -170,6 +206,7 @@ export function ensureReference(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     const { text: updated, status, fromVersion } = applyBootstrap(text);
+    if (delegatesToCanonicalAgents(name, text, status)) continue;
     if (status === 'unchanged' || status === 'equivalent') continue;
     writeFileAtomic(file, updated);
     touched.push({ name, status, fromVersion });
@@ -226,6 +263,7 @@ export function checkContract(repoRoot) {
     if (!isPlainFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
     const { status } = applyBootstrap(text);
+    if (delegatesToCanonicalAgents(name, text, status)) continue;
     if (status === 'inserted') {
       errors.push(`${name} has no ChangeLedger reference — run \`changeledger register\``);
     } else if (status !== 'unchanged' && status !== 'equivalent') {

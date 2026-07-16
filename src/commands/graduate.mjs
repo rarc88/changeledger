@@ -7,7 +7,7 @@ import path from 'node:path';
 import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import { resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -114,22 +114,4 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
     return setReviewed(text, true);
   });
   return changeFile;
-}
-
-// Lists done changes whose graduation has not been reviewed yet.
-export function pendingGraduation(cwd = process.cwd()) {
-  const changeledgerDir = findChangeledgerDir(cwd);
-  if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-  const config = loadConfig(changeledgerDir);
-  const repoRoot = path.dirname(changeledgerDir);
-  const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
-  if (!fs.existsSync(changesDir)) return [];
-
-  return fs
-    .readdirSync(changesDir)
-    .filter((n) => n.endsWith('.md'))
-    .sort()
-    .map((n) => ({ name: n, ...parseChange(fs.readFileSync(path.join(changesDir, n), 'utf8')) }))
-    .filter((c) => c.frontmatter.status === 'done' && c.frontmatter.reviewed !== true)
-    .map((c) => ({ id: c.frontmatter.id, title: c.frontmatter.title, type: c.frontmatter.type }));
 }

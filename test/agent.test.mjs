@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import {
+  approve,
   archive,
   archiveGraduated,
   discard,
@@ -51,6 +52,23 @@ test('status moves the lifecycle and logs the transition', () => {
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'approved');
   assert.match(c.stages.find((s) => s.key === 'log').body, /draft → approved/);
+});
+
+test('125139 CR1/CR7: conversational approval is attributed without changing viewer semantics', () => {
+  const conversational = repoWithChange();
+  approve(conversational.id, conversational.root);
+  const conversationalLog = parseChange(fs.readFileSync(conversational.file, 'utf8')).stages.find(
+    (stage) => stage.key === 'log',
+  ).body;
+  assert.match(conversationalLog, /draft → approved \(human via conversation\)/);
+
+  const viewer = repoWithChange();
+  status(viewer.id, 'approved', viewer.root, { actor: 'human' });
+  const viewerLog = parseChange(fs.readFileSync(viewer.file, 'utf8')).stages.find(
+    (stage) => stage.key === 'log',
+  ).body;
+  assert.match(viewerLog, /status: draft → approved/);
+  assert.doesNotMatch(viewerLog, /via conversation/);
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -135,16 +153,25 @@ function repoWithArchiveCandidates() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
   const changesDir = path.join(root, '.changeledger', 'changes');
-  const write = ({ id, status = 'done', reviewed = true, archived = false, log = '' }) => {
+  const write = ({
+    id,
+    status = 'done',
+    type = 'feature',
+    owner,
+    reviewed = true,
+    archived = false,
+    log = '',
+  }) => {
     const fm = [
       '---',
       `id: "${id}"`,
       'title: Candidate',
-      'type: feature',
+      `type: ${type}`,
       `status: ${status}`,
       'created: 2026-06-13T12:00:00Z',
       ...(reviewed ? ['reviewed: true'] : []),
       ...(archived ? ['archived: true'] : []),
+      ...(owner ? [`owner: ${owner}`] : []),
       'depends_on: []',
       '---',
     ].join('\n');
@@ -156,21 +183,6 @@ function repoWithArchiveCandidates() {
   return { root, write };
 }
 
-test('212322 CR1/CR2: archiveGraduated dry-run lists candidates without writing', () => {
-  const { root, write } = repoWithArchiveCandidates();
-  const graduated = write({
-    id: '20260613-120001',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
-  });
-  const before = fs.readFileSync(graduated, 'utf8');
-  const listed = archiveGraduated({ dryRun: true }, root);
-  assert.deepEqual(
-    listed.map((c) => c.id),
-    ['20260613-120001'],
-  );
-  assert.equal(fs.readFileSync(graduated, 'utf8'), before);
-});
-
 test('212322 CR2: archiveGraduated archives graduated and skipped done changes', () => {
   const { root, write } = repoWithArchiveCandidates();
   const graduated = write({
@@ -181,7 +193,7 @@ test('212322 CR2: archiveGraduated archives graduated and skipped done changes',
     id: '20260613-120002',
     log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
   });
-  const archived = archiveGraduated({}, root);
+  const archived = archiveGraduated(root);
   assert.deepEqual(
     archived.map((c) => c.id),
     ['20260613-120001', '20260613-120002'],
@@ -213,7 +225,7 @@ test('212322 CR3/CR4: archiveGraduated skips active, unreviewed and already arch
   const before = new Map(
     [active, unreviewed, alreadyArchived].map((file) => [file, fs.readFileSync(file, 'utf8')]),
   );
-  assert.deepEqual(archiveGraduated({}, root), []);
+  assert.deepEqual(archiveGraduated(root), []);
   for (const [file, text] of before) assert.equal(fs.readFileSync(file, 'utf8'), text);
 });
 
@@ -222,6 +234,78 @@ test('list filters by status and show returns the change', () => {
   assert.equal(list({ status: 'approved' }, root).length, 0);
   assert.equal(list({ status: 'draft' }, root).length, 1);
   assert.equal(show(id, root).frontmatter.title, 'X');
+});
+
+test('131649 CR1/CR2: list owns graduation and archive pending queries', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  write({ id: '20260613-120001', reviewed: false });
+  write({ id: '20260613-120002' });
+  write({
+    id: '20260613-120003',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `api.md`',
+  });
+  write({
+    id: '20260613-120004',
+    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+  });
+  write({ id: '20260613-120005', status: 'in-validation', reviewed: false });
+  write({
+    id: '20260613-120006',
+    archived: true,
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `old.md`',
+  });
+
+  assert.deepEqual(
+    list({ pending: 'graduation' }, root).map((change) => change.id),
+    ['20260613-120001'],
+  );
+  assert.deepEqual(
+    list({ pending: 'archive' }, root).map((change) => change.id),
+    ['20260613-120003', '20260613-120004'],
+  );
+});
+
+test('131649 CR3-CR5: list combines owner, unowned, status and type filters', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  write({ id: '20260613-120001', owner: 'Roberto Ruiz', status: 'in-validation' });
+  write({ id: '20260613-120002', owner: 'raruiz-hiberuscom', status: 'in-validation' });
+  write({ id: '20260613-120003', status: 'in-validation' });
+  write({ id: '20260613-120004', owner: 'Roberto Ruiz', type: 'bug' });
+
+  assert.deepEqual(
+    list({ owner: 'Roberto Ruiz', status: 'in-validation', type: 'feature' }, root).map(
+      (change) => change.id,
+    ),
+    ['20260613-120001'],
+  );
+  assert.deepEqual(
+    list({ unowned: true }, root).map((change) => change.id),
+    ['20260613-120003'],
+  );
+});
+
+test('131649 CR6/CR7: list hides archives by default and exposes unambiguous visibility', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  write({ id: '20260613-120001' });
+  write({ id: '20260613-120002', archived: true });
+
+  assert.deepEqual(
+    list({}, root).map((change) => change.id),
+    ['20260613-120001'],
+  );
+  assert.deepEqual(
+    list({ archived: true }, root).map((change) => change.id),
+    ['20260613-120002'],
+  );
+  const all = list({ all: true }, root);
+  assert.deepEqual(
+    all.map((change) => change.id),
+    ['20260613-120001', '20260613-120002'],
+  );
+  assert.deepEqual(
+    all.map((change) => change.archived),
+    [false, true],
+  );
 });
 
 // Review gate (change 20260615-150510). repoWithChange() is a `feature`, which
@@ -297,6 +381,20 @@ test('171002 CR1: review pass moves to validation and marks the delegation', () 
   );
 });
 
+test('122950 support: status and review preserve non-canonical valid YAML style', () => {
+  const { root, file, id } = repoWithChange();
+  const styled = fs
+    .readFileSync(file, 'utf8')
+    .replace('title: X', "title: 'X'")
+    .replace('depends_on: []', 'depends_on: [] # keep compact');
+  fs.writeFileSync(file, styled);
+
+  reach(id, root, 'in-review');
+  assert.match(fs.readFileSync(file, 'utf8'), /title: 'X'.*depends_on: \[\] # keep compact/s);
+  review(id, 'pass', {}, root);
+  assert.match(fs.readFileSync(file, 'utf8'), /title: 'X'.*depends_on: \[\] # keep compact/s);
+});
+
 test('171002 CR2: human validation pass closes the complete change', () => {
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
@@ -306,6 +404,34 @@ test('171002 CR2: human validation pass closes the complete change', () => {
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'done');
   assert.match(c.stages.find((s) => s.key === 'log').body, /validation → done \(human accepted\)/);
+});
+
+test('125139 CR3/CR5/CR6: conversation channel attributes human validation decisions', () => {
+  const accepted = repoWithChange();
+  task(accepted.id, 'done', 1, '', accepted.root);
+  reach(accepted.id, accepted.root, 'in-review');
+  review(accepted.id, 'pass', {}, accepted.root);
+  validation(accepted.id, 'pass', { channel: 'conversation' }, accepted.root);
+  assert.match(
+    parseChange(fs.readFileSync(accepted.file, 'utf8')).stages.find((stage) => stage.key === 'log')
+      .body,
+    /validation → done \(human accepted via conversation\)/,
+  );
+
+  const rejected = repoWithChange();
+  reach(rejected.id, rejected.root, 'in-review');
+  review(rejected.id, 'pass', {}, rejected.root);
+  validation(
+    rejected.id,
+    'fail',
+    { reason: 'Falla en dispositivo', actor: 'human', channel: 'conversation' },
+    rejected.root,
+  );
+  assert.match(
+    parseChange(fs.readFileSync(rejected.file, 'utf8')).stages.find((stage) => stage.key === 'log')
+      .body,
+    /human rejected via conversation\): Falla en dispositivo/,
+  );
 });
 
 test('105205 CR1: agent rejection requires a reason and records its actor', () => {

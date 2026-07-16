@@ -28,6 +28,9 @@ changes and create them only after explicit human authorization. Work necessary
 for an already authorized objective stays in that change's Specification, Plan
 and Log. If related work materially expands observable scope, obtain explicit
 human authorization; independent work belongs in a separate change.
+Approval in conversation must explicitly identify the draft and order approval;
+praise, a request to continue, or the agent's recommendation does not authorize
+`changeledger approve`.
 
 ## Change document
 
@@ -165,7 +168,7 @@ title, stage prose, scenario content and task descriptions.
 
 - `changeledger new <type> <slug> "<title>"` — scaffold a change with an English slug.
 - `changeledger check [id]` — validate one change or the repository.
-- `changeledger list [--status S] [--type T] [--json]` — inspect/filter changes.
+- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]` — inspect/filter changes.
 - `changeledger show <id> [--json]` — inspect one resolved change.
 - `changeledger search <terms...> [--type T] [--status S] [--json]` — find related changes and specs by content.
 - `changeledger owner <id> <name|->` — set or clear responsibility.

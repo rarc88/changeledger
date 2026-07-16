@@ -23,6 +23,16 @@ function reflowBootstrap(text) {
   );
 }
 
+function prettierBootstrap(text) {
+  return text
+    .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
+    .replace(
+      "> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+      "[mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+    )
+    .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
+}
+
 test('CR10: init installs a fail-closed bootstrap without link or gitignore entry', () => {
   const dir = root();
   init(dir);
@@ -135,14 +145,116 @@ test('150300 CR1: check accepts equivalent blockquote reflow', () => {
   assert.deepEqual(checkContract(dir), []);
 });
 
+test('153633 CR1/CR3: check accepts the real Prettier lazy-continuation fixture', () => {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  const canonical = fs.readFileSync(file, 'utf8');
+  const reformatted = prettierBootstrap(canonical);
+  assert.notEqual(reformatted, canonical);
+  assert.match(reformatted, /context\n\[mode\] --have/);
+
+  fs.writeFileSync(file, reformatted);
+
+  assert.deepEqual(checkContract(dir), []);
+});
+
+test('153633 CR3: check accepts different Markdown syntax with the same token tree', () => {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  const canonical = fs.readFileSync(file, 'utf8');
+  const equivalent = canonical.replace('**ChangeLedger**', '__ChangeLedger__');
+  assert.notEqual(equivalent, canonical);
+
+  fs.writeFileSync(file, equivalent);
+
+  assert.deepEqual(checkContract(dir), []);
+});
+
+test('124113 CR1: CLAUDE.md may import the canonical AGENTS.md bootstrap', () => {
+  for (const claude of ['@AGENTS.md\n', '# Claude\n\nFollow @AGENTS.md for shared rules.\n']) {
+    const dir = root();
+    init(dir);
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), claude);
+
+    assert.deepEqual(checkContract(dir), []);
+  }
+});
+
+test('124113 CR2: register preserves an imported CLAUDE.md byte-for-byte', () => {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'CLAUDE.md');
+  const claude = '# Claude-specific rules\n\n@AGENTS.md\n\nKeep this text.\n';
+  fs.writeFileSync(file, claude);
+
+  registerRepo(dir);
+
+  assert.equal(fs.readFileSync(file, 'utf8'), claude);
+});
+
+test('124113 CR3: an import does not hide an invalid canonical AGENTS.md', () => {
+  const dir = root();
+  init(dir);
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '@AGENTS.md\n');
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Project rules without bootstrap\n');
+
+  assert.deepEqual(checkContract(dir), [
+    'AGENTS.md has no ChangeLedger reference — run `changeledger register`',
+  ]);
+});
+
+test('124113 CR4: other paths and partial tokens are not canonical imports', () => {
+  const invalid = [
+    'AGENTS.md\n',
+    '@docs/AGENTS.md\n',
+    '@../AGENTS.md\n',
+    '@/repo/AGENTS.md\n',
+    '@AGENTS.md.bak\n',
+  ];
+  for (const claude of invalid) {
+    const dir = root();
+    init(dir);
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), claude);
+
+    assert.deepEqual(checkContract(dir), [
+      'CLAUDE.md has no ChangeLedger reference — run `changeledger register`',
+    ]);
+  }
+});
+
+test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () => {
+  const dir = root();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules\n');
+  init(dir);
+  const file = path.join(dir, 'CLAUDE.md');
+  const stale = fs
+    .readFileSync(file, 'utf8')
+    .replace(
+      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->',
+      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->',
+    );
+  fs.writeFileSync(file, `@AGENTS.md\n\n${stale}`);
+
+  assert.deepEqual(checkContract(dir), [
+    'CLAUDE.md has an outdated ChangeLedger reference — run `changeledger register`',
+  ]);
+  registerRepo(dir);
+  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /BOOTSTRAP BEGIN v0/);
+});
+
 test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
   const mutations = [
     (text) =>
       text.replace('run `changeledger context` directly', 'run `changeledger check` directly'),
     (text) => text.replace('This repo uses **ChangeLedger**.', 'This  repo uses **ChangeLedger**.'),
     (text) => text.replace('> planning, investigating', '>\n> planning, investigating'),
-    (text) => text.replace('> planning, investigating', 'planning, investigating'),
-    (text) => text.trimEnd(),
+    (text) =>
+      text.replace(
+        '> planning, investigating',
+        '>\n\noutside the blockquote\n\n> planning, investigating',
+      ),
   ];
 
   for (const mutate of mutations) {
@@ -162,11 +274,46 @@ test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', 
   const dir = root();
   init(dir);
   const file = path.join(dir, 'AGENTS.md');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').trimEnd());
+  assert.throws(() => checkContract(dir), /END marker must occupy its own line/);
+
+  const missingEndDir = root();
+  init(missingEndDir);
+  const missingEndFile = path.join(missingEndDir, 'AGENTS.md');
   fs.writeFileSync(
-    file,
-    fs.readFileSync(file, 'utf8').replace('<!-- CHANGELEDGER BOOTSTRAP END -->', ''),
+    missingEndFile,
+    fs.readFileSync(missingEndFile, 'utf8').replace('<!-- CHANGELEDGER BOOTSTRAP END -->', ''),
   );
-  assert.throws(() => checkContract(dir), /BEGIN marker without a matching END marker/);
+  assert.throws(() => checkContract(missingEndDir), /BEGIN marker without a matching END marker/);
+});
+
+test('153633 CR4/CR5: check rejects semantic token and delimiter changes', () => {
+  const mutations = [
+    (text) => text.replace('`changeledger context` directly', '`changeledger check` directly'),
+    (text) => text.replace('**ChangeLedger**', '**[ChangeLedger](https://example.com)**'),
+    (text) => `${text}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
+    (text) =>
+      text.replace('<!-- CHANGELEDGER BOOTSTRAP BEGIN', 'prefix <!-- CHANGELEDGER BOOTSTRAP BEGIN'),
+  ];
+
+  for (const mutate of mutations) {
+    const dir = root();
+    init(dir);
+    const file = path.join(dir, 'AGENTS.md');
+    const canonical = fs.readFileSync(file, 'utf8');
+    fs.writeFileSync(file, mutate(canonical));
+
+    let errors;
+    try {
+      errors = checkContract(dir);
+    } catch (error) {
+      assert.match(error.message, /Malformed ChangeLedger bootstrap/);
+      continue;
+    }
+    assert.deepEqual(errors, [
+      'AGENTS.md has an outdated ChangeLedger reference — run `changeledger register`',
+    ]);
+  }
 });
 
 test('CR11: register removes a legacy symlink and exact gitignore entry', () => {

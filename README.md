@@ -82,7 +82,8 @@ changeledger check [id]                   # validate the repository or one chang
 
 ```sh
 changeledger new <type> <slug> <title>    # create a draft change
-changeledger list [--status S] [--type T]
+changeledger list [--status S] [--type T] [--owner NAME|--unowned]
+changeledger list [--pending graduation|archive] [--archived|--all]
 changeledger show <id> [--json]
 changeledger status <id> <status>
 changeledger task <id> done|block <n> [reason]
@@ -100,8 +101,9 @@ changeledger graduate <id> <spec-slug> --new     # create a marked scaffold; rem
 # refine the scaffold and remove its marker
 changeledger graduate <id> <spec-slug> --into    # finalize an existing refined spec
 changeledger graduate <id> --skip [reason]       # record that no spec is needed
-changeledger graduate --pending                  # list unresolved graduation decisions
-changeledger archive --graduated [--dry-run]     # hide resolved changes from the board
+changeledger list --pending graduation           # list unresolved graduation decisions
+changeledger list --pending archive              # preview resolved changes ready to archive
+changeledger archive --graduated                 # hide every listed archive candidate
 ```
 
 Run `changeledger --help` or `changeledger <command> --help` for the complete command reference.

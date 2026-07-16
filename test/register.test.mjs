@@ -26,6 +26,16 @@ function reflowBootstrap(text) {
   );
 }
 
+function prettierBootstrap(text) {
+  return text
+    .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
+    .replace(
+      "> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+      "[mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+    )
+    .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
+}
+
 const noopOutput = { warn: () => {}, log: () => {} };
 
 test('CR1: register inserts the bootstrap wrapped in versioned BEGIN/END delimiters', () => {
@@ -107,6 +117,33 @@ test('150300 CR2: register preserves equivalent reflow in every contract file', 
 
   assert.equal(result.path, dir);
   assert.equal(result.id, 'abc1234567');
+  assert.equal(
+    warnings.some((msg) => /bootstrap was outdated/i.test(msg)),
+    false,
+  );
+  for (const name of files) {
+    assert.equal(fs.readFileSync(path.join(dir, name), 'utf8'), reformatted.get(name));
+  }
+});
+
+test('153633 CR2: register preserves the Prettier fixture in every contract file', () => {
+  const dir = initializedRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules\n');
+  registerRepo(dir, noopOutput);
+
+  const files = ['AGENTS.md', 'CLAUDE.md'];
+  const reformatted = new Map();
+  for (const name of files) {
+    const file = path.join(dir, name);
+    const next = prettierBootstrap(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, next);
+    reformatted.set(name, next);
+  }
+
+  const warnings = [];
+  const result = registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+
+  assert.equal(result.path, dir);
   assert.equal(
     warnings.some((msg) => /bootstrap was outdated/i.test(msg)),
     false,

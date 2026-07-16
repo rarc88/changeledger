@@ -36,6 +36,30 @@ test('setStatus changes only the frontmatter status', () => {
   assert.equal(parseChange(out).frontmatter.status, 'approved');
 });
 
+test('122950 CR1: setStatus preserves every unrelated frontmatter byte', () => {
+  const before = `---
+# identity
+id: "20260613-120000"
+title: 'Own style'
+type: feature
+status: in-progress # lifecycle
+created: 2026-06-13T12:00:00Z
+depends_on: ["A", "B"]
+metadata:
+  status: nested
+note: |
+  status: literal
+---
+
+Body.
+`;
+  const expected = before.replace(
+    'status: in-progress # lifecycle',
+    'status: in-review # lifecycle',
+  );
+  assert.equal(setStatus(before, 'in-review'), expected);
+});
+
 test('setStatus throws when status is missing', () => {
   assert.throws(() => setStatus(DOC.replace(/^status:.*\n/m, ''), 'approved'), /missing status/);
 });
@@ -91,6 +115,38 @@ test('setOwner updates an existing owner', () => {
 test('setOwner with falsy value removes the owner line', () => {
   const out = setOwner(setOwner(DOC, 'ana'), null);
   assert.equal('owner' in parseChange(out).frontmatter, false);
+});
+
+test('122950 CR2: optional fields patch only their root pair', () => {
+  const styled = `---
+id: "20260613-120000"
+title: |
+  Styled
+type: feature
+status: done
+created: 2026-06-13T12:00:00Z
+depends_on: ["A", "B"]
+owner: 'ana' # responsible
+archived: true # cold
+reviewed: true # graduated
+metadata:
+  owner: nested
+---
+
+Body.
+`;
+  assert.equal(setOwner(styled, 'leo'), styled.replace("owner: 'ana'", 'owner: leo'));
+  assert.equal(setArchived(styled, false), styled.replace('archived: true # cold\n', ''));
+  assert.equal(setReviewed(styled, false), styled.replace('reviewed: true # graduated\n', ''));
+
+  const withoutOptional = styled
+    .replace("owner: 'ana' # responsible\n", '')
+    .replace('archived: true # cold\n', '')
+    .replace('reviewed: true # graduated\n', '');
+  assert.equal(
+    setOwner(withoutOptional, 'leo'),
+    withoutOptional.replace('depends_on: ["A", "B"]\n', 'depends_on: ["A", "B"]\nowner: leo\n'),
+  );
 });
 
 test('appendLog creates the Log section when absent', () => {
@@ -161,6 +217,23 @@ test('CR5: setSpecUpdated replaces only the updated line', () => {
   assert.match(out, /# Arch\n\nBody\./);
 });
 
+test('122950 CR3: setSpecUpdated preserves tags, comments and body byte-for-byte', () => {
+  const spec = `---
+title: 'Arch'
+updated: 2020-01-01T00:00:00Z # refreshed on graduation
+tags: [architecture]
+---
+
+# Arch
+
+Body.
+`;
+  assert.equal(
+    setSpecUpdated(spec, '2026-07-15T12:00:00Z'),
+    spec.replace('2020-01-01T00:00:00Z', '2026-07-15T12:00:00Z'),
+  );
+});
+
 test('setSpecUpdated throws when updated is missing', () => {
   const spec = `---\ntitle: Arch\ntags: [architecture]\n---\n\n# Arch\n`;
   assert.throws(() => setSpecUpdated(spec, '2026-06-15T17:30:00Z'), /missing updated/);
@@ -189,4 +262,15 @@ Body.
   assert.match(out, /status: not-frontmatter/);
   assert.match(out, /metadata:\n {2}status: nested/);
   assert.match(out, /## Request\n\nBody\./);
+});
+
+test('122950 CR4: invalid or duplicate root YAML fails without a transform', () => {
+  assert.throws(
+    () => setStatus(DOC.replace('status: draft', 'status: draft\nstatus: approved'), 'done'),
+    /Map keys must be unique/,
+  );
+  assert.throws(
+    () => setStatus(DOC.replace('depends_on: []', 'depends_on: [broken'), 'done'),
+    /flow sequence/i,
+  );
 });

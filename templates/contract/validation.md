@@ -1,24 +1,27 @@
 # Human Validation — Stop
 
-Implementation and required review are complete. Do not modify the result or
-mark it done. Ask the human to test the whole change in the viewer.
+Do not modify the result or mark it done.
+Ask the human to test and decide in the viewer or an explicit conversation message
+that identifies this change and verdict.
 
-This stop is scoped to this change: the agent may start the next approved
-change unless its `depends_on` chain, direct or transitive, reaches this or
-another `in-validation` change. If every remaining approved change is
-blocked, it stops entirely and does not invent work or touch delivered
-results.
+First confirm host formatter and checks affected by the final lifecycle mutation,
+including `changeledger check`; without review, do this after entering `in-validation`.
+These are host commands, never mutation hooks.
 
-Acceptance reaches `done`. Rejection requires a reason and returns the same
-change to `in-progress`; run `changeledger context <id>` before modifying
-implementation, update Specification/Plan as needed and repeat review when
-configured. The agent never accepts on the human's behalf. Before graduation,
-skip, archive or release, agent/human may reopen `done` with reason only to
-complete the original authorized scope; broader behavior needs a new change.
-`discarded` never reopens.
+This stop is scoped to this change: start another approved change unless its
+direct or transitive `depends_on` chain reaches one in `in-validation`. If every
+candidate is blocked, it stops entirely and does not invent work or touch delivered results.
+
+Viewer actions remain available. An explicit conversational decision uses
+`changeledger validation <id> pass` or `changeledger validation <id> fail --human
+"<reason>"`. Never infer a decision from praise, “continue”, silence or agent advice.
+
+Acceptance reaches `done`. Rejection requires a reason and returns the same change
+to `in-progress`; run `changeledger context <id>` before modifying implementation,
+update Specification/Plan as needed and repeat configured review and gates. The agent
+never accepts on the human's behalf. Before durable closure, `done` may reopen with
+reason only for original scope; broader behavior needs a new change. `discarded` never reopens.
 
 The validation transition alone does not require a dedicated commit. After
-acceptance, resolve graduation or skip first; the close overlay then requires one
-final closure commit containing the pending lifecycle Log and graduation truth.
-After rejection, follow correction isolation instead of committing an
-unconfirmed attempt.
+acceptance, graduate or skip, then make the close overlay's final commit containing
+pending lifecycle Log and graduation truth. After rejection, isolate unconfirmed corrections.

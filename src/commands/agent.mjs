@@ -23,7 +23,7 @@ export function status(
   id,
   newStatus,
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle, actor = 'human' } = {},
+  { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer' } = {},
 ) {
   const { config, file } = locate(cwd, id);
   if (newStatus === 'discarded') {
@@ -32,10 +32,12 @@ export function status(
     );
   }
   if (newStatus === 'done') {
-    throw new Error('to complete a change use human validation in the viewer');
+    throw new Error('to complete a change use human validation in the viewer or conversation');
   }
   if (newStatus === 'approved' && actor !== 'human') {
-    throw new Error('only the human-facing viewer can approve a draft change');
+    throw new Error(
+      'only explicit human approval via the viewer or `changeledger approve` can approve',
+    );
   }
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
@@ -54,7 +56,14 @@ export function status(
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, newStatus);
-    text = appendLog(text, nowUtc(), `status: ${fm.status} → ${newStatus}`);
+    const message =
+      actor === 'human' &&
+      channel === 'conversation' &&
+      fm.status === 'draft' &&
+      newStatus === 'approved'
+        ? 'status: draft → approved (human via conversation)'
+        : `status: ${fm.status} → ${newStatus}`;
+    text = appendLog(text, nowUtc(), message);
 
     // Work begins here: assign the owner from the local git identity unless one was
     // set explicitly (see change 20260614-124047).
@@ -65,6 +74,12 @@ export function status(
     return text;
   });
   return file;
+}
+
+// Transmits an explicit human approval received through the host conversation.
+// The lifecycle guard remains owned by status(); this only selects attribution.
+export function approve(id, cwd = process.cwd()) {
+  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation' });
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
@@ -111,9 +126,14 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
   return file;
 }
 
-// Records the human verdict for the complete change. This is intentionally
-// separate from `status`: only the human-facing viewer may close a change.
-export function validation(id, verdict, { reason, actor = 'human' } = {}, cwd = process.cwd()) {
+// Records a validation verdict while keeping the deciding actor and interaction
+// channel explicit. Viewer and conversation share every lifecycle/check guard.
+export function validation(
+  id,
+  verdict,
+  { reason, actor = 'human', channel = 'viewer' } = {},
+  cwd = process.cwd(),
+) {
   const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
@@ -122,7 +142,7 @@ export function validation(id, verdict, { reason, actor = 'human' } = {}, cwd = 
     if (verdict === 'pass') {
       target = 'done';
     } else if (verdict === 'fail') {
-      if (!reason) throw new Error('validation fail requires a reason');
+      if (!String(reason ?? '').trim()) throw new Error('validation fail requires a reason');
       target = 'in-progress';
     } else {
       throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
@@ -139,8 +159,12 @@ export function validation(id, verdict, { reason, actor = 'human' } = {}, cwd = 
       text,
       nowUtc(),
       verdict === 'pass'
-        ? 'validation → done (human accepted)'
-        : `validation → in-progress (${actor} rejected): ${reason}`,
+        ? channel === 'conversation'
+          ? 'validation → done (human accepted via conversation)'
+          : 'validation → done (human accepted)'
+        : channel === 'conversation' && actor === 'human'
+          ? `validation → in-progress (human rejected via conversation): ${reason}`
+          : `validation → in-progress (${actor} rejected): ${reason}`,
     );
     if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
@@ -221,18 +245,16 @@ export function archive(id, cwd = process.cwd()) {
   return file;
 }
 
-export function archiveGraduated({ dryRun = false } = {}, cwd = process.cwd()) {
+export function archiveGraduated(cwd = process.cwd()) {
   const { changes } = loadRepo(cwd);
   const selected = changes.filter((c) => isArchivableGraduated(c));
-  if (!dryRun) {
-    for (const c of selected) {
-      mutateFileAtomic(c.file, (text) => {
-        const current = { ...parseChange(text), text };
-        if (!isArchivableGraduated(current)) return undefined;
-        text = setArchived(text, true);
-        return appendLog(text, nowUtc(), 'archived');
-      });
-    }
+  for (const c of selected) {
+    mutateFileAtomic(c.file, (text) => {
+      const current = { ...parseChange(text), text };
+      if (!isArchivableGraduated(current)) return undefined;
+      text = setArchived(text, true);
+      return appendLog(text, nowUtc(), 'archived');
+    });
   }
   return selected.map((c) => ({
     id: c.frontmatter.id,
@@ -273,17 +295,45 @@ export function task(id, action, n, reason, cwd = process.cwd()) {
   return file;
 }
 
-export function list({ status: byStatus, type: byType } = {}, cwd = process.cwd()) {
+export function list(
+  {
+    status: byStatus,
+    type: byType,
+    owner: byOwner,
+    unowned = false,
+    pending,
+    archived = false,
+    all = false,
+  } = {},
+  cwd = process.cwd(),
+) {
+  if (byOwner && unowned) throw new Error('--owner and --unowned are mutually exclusive');
+  if (archived && all) throw new Error('--archived and --all are mutually exclusive');
+  if (pending && !['graduation', 'archive'].includes(pending)) {
+    throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
+  }
+
   return loadRepo(cwd)
-    .changes.map((c) => ({
+    .changes.filter((c) => {
+      const fm = c.frontmatter;
+      if (!all && archived !== (fm.archived === true)) return false;
+      if (byStatus && fm.status !== byStatus) return false;
+      if (byType && fm.type !== byType) return false;
+      if (byOwner && fm.owner !== byOwner) return false;
+      if (unowned && fm.owner != null) return false;
+      if (pending === 'graduation' && !(fm.status === 'done' && fm.reviewed !== true)) return false;
+      if (pending === 'archive' && !isArchivableGraduated(c)) return false;
+      return true;
+    })
+    .map((c) => ({
       id: c.frontmatter.id,
       title: c.frontmatter.title,
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      archived: c.frontmatter.archived === true,
       progress: c.progress,
-    }))
-    .filter((c) => (!byStatus || c.status === byStatus) && (!byType || c.type === byType));
+    }));
 }
 
 export function show(id, cwd = process.cwd()) {

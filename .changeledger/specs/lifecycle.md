@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-11T21:51:13Z
+updated: 2026-07-16T13:39:27Z
 tags: [ lifecycle ]
 ---
 
@@ -27,7 +27,7 @@ tags: [ lifecycle ]
 ```mermaid
 stateDiagram-v2
     [*] --> draft
-    draft --> approved: humano aprueba (viewer)
+    draft --> approved: humano aprueba (viewer o conversación)
     approved --> in_progress
     in_progress --> in_review: review_required
     in_progress --> in_validation: si NO review_required
@@ -35,7 +35,7 @@ stateDiagram-v2
     in_review --> in_validation: review pass
     in_review --> in_progress: fail --retry
     in_review --> blocked: fail --block
-    in_validation --> done: humano acepta (viewer)
+    in_validation --> done: humano acepta (viewer o conversación)
     in_validation --> in_progress: agente o humano rechaza con motivo
     done --> in_progress: agente o humano reabre antes del cierre durable
     blocked --> in_progress
@@ -64,6 +64,15 @@ cada `CRn` cumplido, sin residuo y Plan realmente hecho. La
 auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que el
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
+
+El estado revisado es el estado entregable: tras mover a `in-review`, el agente
+anfitrión aplica el formatter local y ejecuta los gates completos antes de
+delegar. Como el veredicto vuelve a mutar status y Log, antes del commit o del
+handoff reaplica el formatter y repite los checks afectados, incluido
+`changeledger check`. Los tipos sin review hacen lo mismo después de su
+transición directa a `in-validation`. El núcleo no ejecuta hooks, formatters ni
+comandos externos configurables como efecto lateral; esos gates pertenecen al
+repositorio anfitrión.
 
 **Auditoría post-review.** Un change en `in-validation` admite una inspección
 delegada estrictamente read-only: `changeledger agent-context audit <id>` entrega
@@ -110,6 +119,14 @@ agente, los tres veredictos que registra el orquestador mediante
 `changeledger review`, y el descarte con razón; evita que esa autoridad se
 infiera de prosa o de un diagrama paralelo.
 
+Las decisiones human-owned admiten dos superficies confiadas: el viewer y una
+instrucción explícita en la conversación activa que identifique inequívocamente
+el change y el veredicto. El agente transmite esta última con `changeledger
+approve <id>`, `changeledger validation <id> pass` o, para rechazo con razón,
+`changeledger validation <id> fail --human "<razón>"`. Elogios, “continúa”,
+silencio o una recomendación del agente no autorizan estos comandos. No se
+persisten conversaciones ni se añaden tokens de confirmación.
+
 **Invariantes de transición.** El grafo del ciclo vive en `src/lifecycle.mjs` y
 es la **única autoridad**, compartida por `changeledger status` y el visor.
 `lifecycle.assertTransition(from, to, { type, reviewRequired })` valida el grafo
@@ -126,12 +143,19 @@ visor añade la política de actor: permite `draft → approved`, `in-validation
 done|in-progress` y la reapertura elegible `done → in-progress`; rechazo y
 reapertura exigen motivo. El CLI permite al agente rechazar con `changeledger
 validation <id> fail "<razón>"` y reabrir con `changeledger reopen <id>
-"<razón>"`, pero no aprobar un draft ni aceptar una validación.
+"<razón>"`; los verbos conversacionales positivos y `--human` solo transmiten
+una decisión humana explícita y reutilizan los mismos guards del viewer.
 Antes de aceptar, construye en memoria la única transición `validation → done
 (human accepted)` y ejecuta el check scoped. Tareas incompletas o cualquier
 inconsistencia del Log rechazan la operación antes de escribir, conservando el
 archivo en `in-validation`; warnings del seleccionado y errores ajenos no
 bloquean.
+
+El Log distingue el canal conversacional con `status: draft → approved (human
+via conversation)`, `validation → done (human accepted via conversation)` y
+`validation → in-progress (human rejected via conversation): <reason>`. El
+viewer conserva sus eventos históricos sin el sufijo de canal y el rechazo
+agent-owned conserva `(agent rejected)`.
 
 **Reapertura provisional.** El viewer ofrece `Reopen` sólo en `done`; exige una
 razón y registra `status: done → in-progress (human reopened): <reason>`. El
@@ -230,8 +254,8 @@ fallback a `git config user.name` si `gh` falta o no está autenticado; tolerant
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o registra un skip (bug/chore sin verdad persistente). La finalización con
 `--into` y el skip fijan `reviewed: true` (`writer.setReviewed`);
-`changeledger graduate --pending` (`pendingGraduation`) lista los `done` con
-`reviewed !== true`. `changeledger graduate <id> --skip [razón]`
+`changeledger list --pending graduation` lista los `done` con `reviewed !==
+true`. `changeledger graduate <id> --skip [razón]`
 (`skipGraduation`, solo en `done`) deja `graduation skipped` en el Log sin crear
 una spec. "Graduado a spec" sigue siendo derivable de la marca `graduado a spec`
 del Log — `reviewed` solo registra que la pregunta quedó zanjada. `check` valida
@@ -241,16 +265,15 @@ mismo check scoped del change `done`. Si existen tareas incompletas o errores de
 secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
 marker de graduación o fijar `reviewed: true`.
 
-`changeledger archive --graduated [--dry-run]` limpia el board de forma explícita y
-conservadora: selecciona solo changes `done`, `reviewed: true`, no archivados, y
-con resolución de graduación en `## Log` (`graduado a spec` o `graduation
-skipped`). El dry-run lista los candidatos y total sin escribir. El archivado
-masivo reutiliza el parser del repo y escribe `archived: true` más una entrada
-`archived` en el Log; no toca estados activos, bloqueados, descartados, cambios
-sin reviewed ni cambios ya archivados.
+`changeledger list --pending archive` previsualiza los changes `done`,
+`reviewed: true`, no archivados y con resolución de graduación en `## Log`
+(`graduado a spec` o `graduation skipped`). `changeledger archive --graduated`
+archiva exactamente ese conjunto: escribe `archived: true` más una entrada
+`archived` en el Log; no toca estados activos, bloqueados, descartados, changes
+sin reviewed ni changes ya archivados.
 
-La intención es siempre explícita y los modos `--new`, `--into`, `--skip` y
-`--pending` son mutuamente excluyentes. Un slug posicional sin modo falla sin
+La intención es siempre explícita y los modos `--new`, `--into` y `--skip` son
+mutuamente excluyentes. Un slug posicional sin modo falla sin
 escribir, por lo que `skip` o `skip-*` nunca pueden convertirse accidentalmente
 en nombres de spec.
 

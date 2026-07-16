@@ -37,7 +37,7 @@ Alternatives to the two-step:
   the link, does not overwrite the body and sets `reviewed: true`.
 - `changeledger graduate <id> --skip [reason]` records that no persistent truth
   changed and sets `reviewed: true`.
-- `changeledger graduate --pending` lists accepted changes whose decision is
+- `changeledger list --pending graduation` lists accepted changes whose decision is
   unresolved.
 
 `reviewed: true` means the persistent-truth question was settled, not necessarily
@@ -52,7 +52,8 @@ graduation or skip itself remains the meaningful closure evidence.
 
 Operational inspection and visibility:
 
-- `changeledger list [--status S] [--type T] [--json]`
+- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
+- `changeledger list --pending archive` previews the exact candidates for `changeledger archive --graduated`.
 - `changeledger show <id> [--json]`
 - `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
 
