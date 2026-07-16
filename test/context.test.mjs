@@ -149,7 +149,10 @@ test('213942 CR1-CR4: core teaches operational discovery without embedding or mu
   const second = buildContext(undefined, root);
 
   assert.match(first, /`changeledger list --status approved`/);
-  assert.match(first, /`changeledger graduate --pending`/);
+  assert.match(first, /`changeledger list --pending graduation`/);
+  assert.match(first, /`changeledger list --pending archive`/);
+  assert.doesNotMatch(first, /`changeledger graduate --pending`/);
+  assert.doesNotMatch(first, /`changeledger archive --graduated --dry-run`/);
   assert.match(first, /before (scanning|searching) files/i);
   assert.doesNotMatch(first, new RegExp(id));
   assert.doesNotMatch(first, /Context fixture/);
@@ -307,7 +310,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /type: feature.*feature \| bug \| audit \| refactor \| chore/],
     ['spec', /release_impact: minor.*none \| patch \| minor \| major/],
     ['spec', /changeledger owner <id> <name\|->/],
-    ['spec', /changeledger list \[--status S\] \[--type T\] \[--json\]/],
+    ['spec', /changeledger list.*--owner.*--pending/s],
     ['spec', /changeledger show <id> \[--json\]/],
     ['spec', /Use fixed English `##` headings in this order/],
     ['spec', /Default activation matrix/],
@@ -396,7 +399,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger graduate <id> <spec-slug> --new/],
     ['close', /changeledger graduate <id> <spec-slug> --into/],
     ['close', /changeledger graduate <id> --skip \[reason\]/],
-    ['close', /changeledger graduate --pending/],
+    ['close', /changeledger list --pending graduation/],
+    ['close', /changeledger list --pending archive/],
     ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
     ['close', /graduation link remains derivable from the Log marker/],
@@ -417,6 +421,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['blocked', /block otherwise-ready human validation/],
     ['blocked', /When a change reaches `done`, also share a brief retrospective/],
     ['validation', /The agent never accepts on the human's behalf/],
+    ['validation', /`changeledger validation <id> pass`/],
+    ['validation', /fail --human "<reason>"/],
+    ['validation', /Never infer a decision from praise/],
     ['validation', /Do not modify the result or mark it done/],
     ['validation', /Rejection requires a reason and returns the same change to `in-progress`/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
@@ -436,7 +443,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['release', /Do not create a change only to group those routine steps/],
     ['core', /discard reason is required and logged/],
     // 20260705-134703: ownership prose replaced by a transition→owner→mechanism matrix.
-    ['core', /draft → approved \| human \| viewer/],
+    ['core', /draft → approved \| human \| viewer or `changeledger approve <id>`/],
     ['core', /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/],
   ];
 
@@ -493,7 +500,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-103802: the archive/unarchive bullet is replaced — unarchive was
     // retired as unused CLI surface; reversal is now documented as a manual
     // `archived: false` frontmatter edit. Rule preserved, not retired.
-    'close.md': '0c633b556933b36a3110de98313323f346d63d4eec61ba48806168640366544a',
+    // 20260716-131649: listing unresolved graduation and archive candidates is
+    // replaced by canonical `list --pending` queries; closure actions remain.
+    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -526,7 +535,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260710-201703: additive — the role skeleton pointer in "Files and
     // delegation" gains the new read-only `audit` role for changes already in
     // `in-validation`. Every existing rule preserved, none retired or replaced.
-    'core.md': 'f4b39e6c217ad46dc38a6eb5f4ac50cd689eb347a457df0ab7ce6fac818284b6',
+    // 20260715-125139: human decisions gain viewer-or-conversation mechanisms;
+    // the ownership boundary is preserved and strengthened against inference.
+    // 20260716-131649: operational discovery replaces the graduate query with
+    // canonical list queries for graduation and archive candidates.
+    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -562,7 +575,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260711-225638: the multi-id placement rule is replaced, not retired:
     // one id remains in the subject, while two or more use the canonical
     // `ChangeLedger: [#A] [#B]` body line. Helper and lint enforcement remain.
-    'implement.md': 'e058e03f0fc08dd930b5d650b3f5c8d48fba545863c0f7bae10a3529dc2ad7e2',
+    // 20260715-122950: the ordered review recipe is extended with formatter and
+    // check gates after lifecycle mutations; host ownership is explicit. Existing
+    // review, verdict and validation rules are preserved, none retired.
+    'implement.md': '93878b96dabcb8a35853d977a11cf200bb04248703789cb872425be353e24c88',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -571,17 +587,29 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260704-144327 correction: the delegate checklist/tool boundary moves to the
     // self-contained review capsule; this fragment keeps orchestration and verdicts
     // and points to that single checklist owner. Rules moved, none retired.
-    'review.md': 'c6d652977ed75b402f344df80416e4c5e8575a28363cd87a31150e3c1dc3aefb',
+    // 20260715-122950: additive post-verdict formatter/check gate; existing
+    // independent-review and verdict rules are preserved, none retired.
+    'review.md': '2c4413030668a069c595a567178f87e111520efab07dfead0aa31f0398acf687',
     // 20260711-103756: the type enum and activation matrix gain the `quick`
     // row, plus a new paragraph documenting its eligibility and the
     // discard-and-recreate rule for scope growth. Existing rules preserved.
     // 20260711-103758: additive — a mandate to run `changeledger search` before
     // writing Investigation, plus the command's line in Authoring helpers.
     // Every existing rule preserved, none retired or replaced.
-    'spec.md': '60794e9c56c85fe86a34b7613c7aa1cdd2e1bc5feef3a45dc559100ffb29448f',
+    // 20260715-125139: additive explicit-prompt requirement for conversational
+    // draft approval; existing authoring authorization rules are preserved.
+    // 20260716-131649: the list helper is extended with owner, pending and
+    // archive-visibility filters; existing authoring rules are preserved.
+    'spec.md': '3e114f7b8d181cfab9c382769c0ed492f9089227cf7326400bc93f5646f2cfd8',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
-    'validation.md': 'f2349c8fbb385d816298782d2746a7c92cf8cab7726c88ccbdb53d9731092d98',
+    // 20260715-122950: additive final-mutation gate for reviewed and direct
+    // validation paths; human-only acceptance rules are preserved, none retired.
+    // 20260715-125139: viewer-only wording is replaced by viewer or explicit
+    // conversation decisions; human ownership and non-inference are preserved.
+    // Review correction restored Specification/Plan updates, wider-scope change
+    // creation, host-only gates and lifecycle/graduation closure evidence.
+    'validation.md': 'f4b3e879e1c95cefa0c20e4da9960d1532383fb4f90aff480b382d4bbe49eec7',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
@@ -1052,18 +1080,19 @@ test('225213 CR4/CR5/CR7: review drops general delegation while keeping its rule
   assert.match(implement, /# Handoff Triage/);
 });
 
-test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
+test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by implement', () => {
   const root = repo();
+  const validationId = addChange(root, 'in-validation', '20260715-122950');
   const norm = (s) => s.replace(/\s+/g, ' ');
   const implement = norm(buildContext('implement', root));
   const review = norm(buildContext('review', root));
   const core = norm(buildContext(undefined, root));
 
-  // CR1: implement carries a numbered 1..5 recipe in order.
+  // CR1: implement carries the complete ordered recipe, including post-mutation gates.
   assert.match(implement, /move to `in-review` if the type requires independent review/);
   assert.match(
     implement,
-    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*`changeledger context review` once.*4\..*read-only reviewer.*5\..*`changeledger review <id> pass\|fail`/,
+    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*formatter.*full gates.*4\..*`changeledger context review` once.*5\..*read-only reviewer.*6\..*`changeledger review <id> pass\|fail`.*7\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
   assert.match(implement, /do not reload it to record the verdict unless context was lost/);
@@ -1071,6 +1100,16 @@ test('134702 CR1/CR2: the review gate is one ordered recipe owned by implement',
     implement,
     /`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail/,
   );
+  assert.match(
+    implement,
+    /without `review_required`.*post-transition formatter.*affected-check gate/,
+  );
+  assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
+  assert.match(
+    buildContext(validationId, root),
+    /final lifecycle\s+mutation[\s\S]*`changeledger check`/,
+  );
+  assert.match(implement, /mutations never run configurable hooks or external formatters/);
 
   // CR2: review names the orchestrator as the verdict recorder; recipe not duplicated.
   assert.match(review, /orchestrator records exactly one verdict/);
@@ -1119,20 +1158,21 @@ test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', ()
   // CR1: a matrix with transition / owner / mechanism columns covers every arc.
   assert.match(norm, /\| Transition \| Owner \| Mechanism \|/);
   const rows = [
-    /draft → approved \| human \| viewer/,
+    /draft → approved \| human \| viewer or `changeledger approve <id>` after an explicit prompt/,
     /approved → in-progress; blocked → in-progress; in-progress → in-review \| agent \| `changeledger status`/,
     /in-progress → in-validation \(no review\) \| agent \| `changeledger status`/,
     /in-review → in-validation \| orchestrator \| `changeledger review <id> pass`/,
     /in-review → in-progress \| orchestrator \| `changeledger review <id> fail --retry`/,
     /in-review → blocked \| orchestrator \| `changeledger review <id> fail --block`/,
-    /in-validation → done \| human \| viewer/,
-    /in-validation → in-progress \| agent or human \| `changeledger validation <id> fail "<reason>"` or viewer/,
+    /in-validation → done \| human \| viewer or `changeledger validation <id> pass` after an explicit prompt/,
+    /in-validation → in-progress \| agent or human \| viewer; agent `validation <id> fail "<reason>"`; human prompt adds `--human`/,
     /done → in-progress \(pending closure\) \| agent or human \| `changeledger reopen <id> "<reason>"` or viewer/,
     /→ discarded \| agent \(authorized\) \| `changeledger discard <id> "<reason>"`/,
   ];
   for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
 
   assert.doesNotMatch(core, /human acceptance or rejection/);
+  assert.match(norm, /praise, “continue”, or agent inference is not a decision/);
 
   // CR1: status never owns done or discarded.
   assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);

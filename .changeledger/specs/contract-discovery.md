@@ -1,6 +1,6 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-11T15:45:50Z
+updated: 2026-07-16T13:39:26Z
 tags: [ contract ]
 ---
 
@@ -112,7 +112,12 @@ de actualizar el snapshot.
 ## Bootstrap y migración
 
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta delimitada a
-`AGENTS.md` y, cuando existe como archivo regular, `CLAUDE.md`. El bloque vive
+`AGENTS.md`. Cuando existe un `CLAUDE.md` regular, el discovery queda satisfecho
+por un bloque directo o por el import relativo `@AGENTS.md` recomendado por
+Claude Code; `init` y `register` preservan byte a byte ese puente en vez de
+duplicar el bootstrap. Solo el `CLAUDE.md` raíz admite esta delegación estrecha:
+otros destinos, rutas parciales o imports externos no sustituyen el contrato
+canónico, y un bloque directo presente sigue validándose y actualizándose. El bloque vive
 entre `<!-- CHANGELEDGER BOOTSTRAP BEGIN v<n> -->` y
 `<!-- CHANGELEDGER BOOTSTRAP END -->`, donde `<n>` es la versión del formato del
 bootstrap (`BOOTSTRAP_VERSION` en `src/contract.mjs`, independiente de la
@@ -122,8 +127,18 @@ existe, reemplaza solo el interior cuando encuentra BEGIN/END (idempotente,
 contenido externo byte a byte intacto), migra el marcador legacy
 `<!-- changeledger -->` con su blockquote contiguo al formato delimitado y,
 cuando la versión del marcador es anterior a la vigente, actualiza el bloque
-informando de la desactualización. El bootstrap mantiene un único punto de
-entrada:
+informando de la desactualización. Si la versión es vigente, el contenido
+administrado se compara mediante una proyección del árbol Markdown producido
+por `marked`: debe existir un único `blockquote`, se ignoran sólo el padding
+exterior y los campos de representación, y los saltos blandos de texto se
+normalizan sin exigir que cada línea física lleve `>`. Por tanto, reflujo,
+continuaciones lazy de CommonMark y marcadores equivalentes como `**strong**` y
+`__strong__` se preservan byte a byte sin aviso. La proyección conserva tipos de
+token, anidamiento, orden y valores significativos —incluido código inline— y
+falla cerrado ante tokens no modelados, contenido fuera del blockquote,
+cambios de párrafo o delimitadores ausentes, duplicados, desordenados o unidos
+a texto. Cualquier diferencia semántica restaura el bloque canónico. El
+bootstrap mantiene un único punto de entrada:
 `changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
 —antes de planificar, investigar o actuar— y conservar stdout completo desde esa
 primera ejecución hasta la línea `CHANGELEDGER CONTEXT END`, sin previews ni
@@ -154,5 +169,7 @@ byte a byte con una versión histórica conocida del contrato. Un archivo
 desconocido se preserva y la migración falla con un mensaje accionable. De
 `.gitignore` sólo se retira la línea literal `.changeledger/AGENTS.md`.
 
-`changeledger check` exige el bootstrap vigente, no sólo el marker: una referencia
-ausente o que aún apunte al artefacto legacy es un error de discovery.
+`changeledger check` exige el bootstrap vigente, no sólo el marker. Acepta la
+misma equivalencia semántica por árbol Markdown que `register`; una referencia
+ausente, semánticamente distinta, estructuralmente inválida, con versión
+obsoleta o que aún apunte al artefacto legacy es un error de discovery.

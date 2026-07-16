@@ -2,92 +2,101 @@
 // and are the basis for the `changeledger status`/`log`/`task` mutation commands.
 
 import { parseDocument } from 'yaml';
+import { serializeScalar } from './yaml.mjs';
 
 const FM = /^---\n([\s\S]*?)\n---\n?/;
 
 export function setStatus(text, status) {
-  return mutateFrontmatter(text, (doc) => {
-    setRequired(doc, 'status', status);
+  return mutateFrontmatter(text, (fm, doc) => {
+    return replaceRequiredValue(fm, doc, 'status', status);
   });
 }
 
 // Sets, updates or removes the optional `owner:` frontmatter line. A falsy owner
 // removes it. New lines are placed right after `depends_on`.
 export function setOwner(text, owner) {
-  return mutateFrontmatter(text, (doc) => {
-    doc.delete('owner');
-    if (owner) {
-      requireKey(doc, 'depends_on');
-      doc.set('owner', owner);
-      moveKeyAfter(doc, 'owner', 'depends_on');
-    }
+  return mutateFrontmatter(text, (fm, doc) => {
+    return patchOptionalPair(fm, doc, 'owner', owner || null);
   });
 }
 
 // Sets or removes the optional `archived: true` frontmatter line.
 export function setArchived(text, archived) {
-  return mutateFrontmatter(text, (doc) => {
-    doc.delete('archived');
-    if (archived) {
-      requireKey(doc, 'depends_on');
-      doc.set('archived', true);
-      moveKeyAfter(doc, 'archived', 'depends_on');
-    }
+  return mutateFrontmatter(text, (fm, doc) => {
+    return patchOptionalPair(fm, doc, 'archived', archived ? true : null);
   });
 }
 
 // Sets or removes the optional `reviewed: true` frontmatter line. It marks the
 // graduation question as resolved (graduated to a spec, or deliberately skipped).
 export function setReviewed(text, reviewed) {
-  return mutateFrontmatter(text, (doc) => {
-    doc.delete('reviewed');
-    if (reviewed) {
-      requireKey(doc, 'depends_on');
-      doc.set('reviewed', true);
-      moveKeyAfter(doc, 'reviewed', 'depends_on');
-    }
+  return mutateFrontmatter(text, (fm, doc) => {
+    return patchOptionalPair(fm, doc, 'reviewed', reviewed ? true : null);
   });
 }
 
 // Refreshes a spec's `updated:` frontmatter line, leaving title, tags and body
 // untouched. Used when graduating a change into an existing spec.
 export function setSpecUpdated(text, iso) {
-  return mutateFrontmatter(text, (doc) => {
-    setRequired(doc, 'updated', iso);
+  return mutateFrontmatter(text, (fm, doc) => {
+    return replaceRequiredValue(fm, doc, 'updated', iso);
   });
 }
 
 function mutateFrontmatter(text, mutate) {
   const m = text.match(FM);
   if (!m) throw new Error('missing frontmatter');
-  const doc = parseDocument(m[1], { merge: false, uniqueKeys: true });
+  const doc = parseDocument(m[1], { keepSourceTokens: true, merge: false, uniqueKeys: true });
   if (doc.errors.length) throw doc.errors[0];
   if (!doc.contents || !Array.isArray(doc.contents.items)) {
     throw new Error('frontmatter must be a YAML mapping');
   }
-  mutate(doc);
-  const fm = doc.toString({ lineWidth: 0 });
-  return `---\n${fm.endsWith('\n') ? fm : `${fm}\n`}---\n${text.slice(m[0].length)}`;
+  const fm = mutate(m[1], doc);
+  return `${text.slice(0, 4)}${fm}${text.slice(4 + m[1].length)}`;
 }
 
-function setRequired(doc, key, value) {
-  requireKey(doc, key);
-  doc.set(key, value);
+function replaceRequiredValue(fm, doc, key, value) {
+  const pair = requirePair(doc, key);
+  if (!pair.value?.range) throw new Error(`missing ${key} value in frontmatter`);
+  return replaceRange(fm, pair.value.range[0], pair.value.range[1], serializeScalar(value));
 }
 
-function requireKey(doc, key) {
-  if (!doc.has(key)) throw new Error(`missing ${key} in frontmatter`);
+function patchOptionalPair(fm, doc, key, value) {
+  const pair = findPair(doc, key);
+  if (pair) {
+    if (value == null) return deletePair(fm, pair);
+    if (!pair.value?.range) throw new Error(`missing ${key} value in frontmatter`);
+    return replaceRange(fm, pair.value.range[0], pair.value.range[1], serializeScalar(value));
+  }
+  if (value == null) return fm;
+
+  const anchor = requirePair(doc, 'depends_on');
+  if (!anchor.value?.range) throw new Error('missing depends_on value in frontmatter');
+  const at = anchor.value.range[2];
+  const line = `${key}: ${serializeScalar(value)}\n`;
+  return `${fm.slice(0, at)}${at > 0 && fm[at - 1] === '\n' ? line : `\n${line}`}${fm.slice(at)}`;
 }
 
-function moveKeyAfter(doc, key, after) {
-  const items = doc.contents?.items;
-  if (!Array.isArray(items)) return;
-  const from = items.findIndex((item) => item.key?.value === key);
-  const to = items.findIndex((item) => item.key?.value === after);
-  if (from === -1 || to === -1 || from === to + 1) return;
-  const [item] = items.splice(from, 1);
-  const nextTo = items.findIndex((candidate) => candidate.key?.value === after);
-  items.splice(nextTo + 1, 0, item);
+function findPair(doc, key) {
+  return doc.contents.items.find((item) => item.key?.value === key);
+}
+
+function requirePair(doc, key) {
+  const pair = findPair(doc, key);
+  if (!pair) throw new Error(`missing ${key} in frontmatter`);
+  return pair;
+}
+
+function deletePair(fm, pair) {
+  const start = pair.key.range[0];
+  const valueEnd = pair.value?.range?.[2] ?? pair.key.range[2];
+  const newline = fm.indexOf('\n', valueEnd);
+  const end = fm[valueEnd - 1] === '\n' ? valueEnd : newline === -1 ? fm.length : newline + 1;
+  return replaceRange(fm, start, end, '');
+}
+
+function replaceRange(text, start, end, replacement) {
+  return `${text.slice(0, start)}${replacement}${text.slice(end)}`;
 }
 
 export function appendLog(text, iso, message) {

@@ -2,6 +2,7 @@
 import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import {
+  approve,
   archive,
   archiveGraduated,
   discard,
@@ -21,12 +22,7 @@ import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { fix } from '../src/commands/fix.mjs';
-import {
-  graduate,
-  pendingGraduation,
-  scaffoldSpec,
-  skipGraduation,
-} from '../src/commands/graduate.mjs';
+import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -45,8 +41,8 @@ Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | fix | context | agent-context
-  changeledger commit | status | discard | review | owner | archive
-  changeledger log | task | list | show | search | graduate | config | release
+  changeledger commit | status | approve | validation | discard | review | owner
+  changeledger archive | log | task | list | show | search | graduate | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -321,14 +317,15 @@ program
   .argument('<id>')
   .argument(
     '<status>',
-    'a status configured in .changeledger/config.yml (statuses:), e.g. approved, in-progress, in-review, blocked',
+    'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
   )
   .addHelpText(
     'after',
     [
       '',
       'Terminal moves are not accepted here: use `changeledger discard <id> "<reason>"`',
-      'to discard. Only human validation in the viewer can reach done.',
+      'to discard. Human-owned moves use the viewer, `changeledger approve <id>`,',
+      'or `changeledger validation <id> pass` after an explicit human prompt.',
       '',
       'Examples:',
       '  changeledger status <id> in-progress',
@@ -343,20 +340,65 @@ program
   );
 
 program
-  .command('validation')
-  .description('reject an in-validation change; accepting it remains human-only')
+  .command('approve')
+  .description('transmit an explicit human decision to approve a draft via conversation')
   .argument('<id>')
-  .argument('<verdict>', 'fail')
-  .argument('<reason...>')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Human-owned: run only after an explicit human message identifies this change',
+      'and orders approval. Praise, permission to continue, or agent inference is not approval.',
+      '',
+      'Example:',
+      '  changeledger approve <id>',
+    ].join('\n'),
+  )
   .action(
-    action((id, verdict, reasonParts) => {
-      if (verdict !== 'fail')
-        throw new Error(
-          'validation only accepts fail; human validation in the viewer accepts changes',
-        );
-      const reason = reasonParts.join(' ').trim();
-      validation(id, 'fail', { reason, actor: 'agent' });
-      console.log(`#${id} validation fail`);
+    action((id) => {
+      approve(id);
+      console.log(`#${id} → approved (human via conversation)`);
+    }),
+  );
+
+program
+  .command('validation')
+  .description('transmit an explicit human validation decision, or reject as the agent')
+  .argument('<id>')
+  .argument('<verdict>', 'pass|fail')
+  .argument('[reason...]')
+  .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
+  .addHelpText(
+    'after',
+    [
+      '',
+      '`pass` and `fail --human` are human-owned: run only after an explicit human',
+      'decision in the conversation. Never infer acceptance or rejection.',
+      'Plain `fail` remains an agent-owned rejection and always requires a reason.',
+      '',
+      'Examples:',
+      '  changeledger validation <id> pass',
+      '  changeledger validation <id> fail "<reason>"',
+      '  changeledger validation <id> fail --human "<reason>"',
+    ].join('\n'),
+  )
+  .action(
+    action((id, verdict, reasonParts, options) => {
+      const reason = (reasonParts ?? []).join(' ').trim();
+      if (verdict === 'pass') {
+        if (reason) throw new Error('validation pass does not accept a reason');
+        if (options.human) throw new Error('validation pass is already human-owned; omit --human');
+        validation(id, 'pass', { actor: 'human', channel: 'conversation' });
+      } else if (verdict === 'fail') {
+        validation(id, 'fail', {
+          reason,
+          actor: options.human ? 'human' : 'agent',
+          channel: options.human ? 'conversation' : 'agent',
+        });
+      } else {
+        throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
+      }
+      console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
     }),
   );
 
@@ -437,7 +479,6 @@ program
   .description('hide a change in the viewer, or archive all graduated done changes')
   .argument('[id]', 'a change id; mutually exclusive with --graduated')
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
-  .option('--dry-run', 'preview --graduated without writing; requires --graduated')
   .addHelpText(
     'after',
     [
@@ -445,7 +486,7 @@ program
       'Examples:',
       '  changeledger archive <id>',
       '  changeledger archive --graduated',
-      '  changeledger archive --graduated --dry-run',
+      '  changeledger list --pending archive   # preview the bulk action',
       '',
       'To reverse an archive, edit `archived: false` in the change frontmatter directly.',
     ].join('\n'),
@@ -454,14 +495,11 @@ program
     action((id, options) => {
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
-        const archived = archiveGraduated({ dryRun: options.dryRun });
+        const archived = archiveGraduated();
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
-        console.log(
-          `${options.dryRun ? 'Would archive' : 'Archived'} ${archived.length} change(s)`,
-        );
+        console.log(`Archived ${archived.length} change(s)`);
         return;
       }
-      if (options.dryRun) throw new Error('--dry-run requires --graduated');
       if (!id) throw new Error('archive requires <id> or --graduated');
       archive(id);
       console.log(`#${id} archived`);
@@ -512,6 +550,11 @@ program
     'filter by a status configured in .changeledger/config.yml (statuses:)',
   )
   .option('--type <type>', 'filter by a type configured in .changeledger/config.yml (types:)')
+  .option('--owner <name>', 'filter by exact owner name; incompatible with --unowned')
+  .option('--unowned', 'list changes without an owner; incompatible with --owner')
+  .option('--pending <kind>', 'filter pending work (graduation|archive)')
+  .option('--archived', 'list only archived changes; incompatible with --all')
+  .option('--all', 'include archived and non-archived changes; incompatible with --archived')
   .option('--json', 'print JSON')
   .addHelpText(
     'after',
@@ -519,12 +562,25 @@ program
       '',
       'Examples:',
       '  changeledger list --status approved',
+      '  changeledger list --owner "Roberto Ruiz" --status in-validation',
+      '  changeledger list --unowned',
+      '  changeledger list --pending graduation',
+      '  changeledger list --pending archive',
+      '  changeledger list --archived',
       '  changeledger list --type feature --json',
     ].join('\n'),
   )
   .action(
     action((options) => {
-      const items = list({ status: options.status, type: options.type });
+      const items = list({
+        status: options.status,
+        type: options.type,
+        owner: options.owner,
+        unowned: options.unowned,
+        pending: options.pending,
+        archived: options.archived,
+        all: options.all,
+      });
       if (options.json) {
         console.log(JSON.stringify(items, null, 2));
       } else {
@@ -581,7 +637,6 @@ program
   .option('--new', 'create a spec scaffold without resolving graduation')
   .option('--into', 'finalize graduation into an existing refined spec')
   .option('--skip', 'mark graduation reviewed without a spec')
-  .option('--pending', 'list done changes not yet reviewed')
   .addHelpText(
     'after',
     [
@@ -590,25 +645,15 @@ program
       '  changeledger graduate <change-id> <spec-slug> --new',
       '  changeledger graduate <change-id> <spec-slug> --into',
       '  changeledger graduate <change-id> --skip [reason]',
-      '  changeledger graduate --pending',
+      '  changeledger list --pending graduation   # list unresolved decisions',
     ].join('\n'),
   )
   .action(
     action((id, slug, reasonParts, options) => {
-      const modeCount = [options.new, options.into, options.skip, options.pending].filter(
-        Boolean,
-      ).length;
+      const modeCount = [options.new, options.into, options.skip].filter(Boolean).length;
       const modeUsage =
-        'Usage: changeledger graduate requires exactly one mode: --new, --into, --skip, or --pending';
+        'Usage: changeledger graduate requires exactly one mode: --new, --into, or --skip';
       if (modeCount !== 1) throw new Error(modeUsage);
-
-      if (options.pending) {
-        if (id || slug || reasonParts.length) throw new Error(modeUsage);
-        const items = pendingGraduation();
-        if (!items.length) console.log('No changes pending graduation.');
-        for (const c of items) console.log(`#${c.id}  ${c.title}`);
-        return;
-      }
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();

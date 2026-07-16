@@ -25,8 +25,10 @@ complete output, and the very first capture of a session is always full.
    but create no change or implementation artifact until there is enough clarity
    to document faithfully **and** the human explicitly authorizes documentation. A direct request such
    as “create the change” is authorization; never invent missing requirements.
-2. The human authorizes scope, approves drafts and accepts the final result. The
-   agent decides how to divide and execute work within that authorized scope.
+2. The human authorizes scope, approves drafts and accepts the final result. A
+   decision may come from the viewer or an explicit active conversation message
+   identifying the change and verdict; praise, “continue”, or agent inference is
+   not a decision. The agent executes but never makes human decisions.
 3. Capture every authorized change in `.changeledger/changes/`. The document
    wins when code and documentation disagree.
 4. Never implement a `draft`. After approval, implement one change at a time on
@@ -79,18 +81,20 @@ Who owns each transition and how it is performed:
 
 | Transition | Owner | Mechanism |
 |---|---|---|
-| draft → approved | human | viewer |
+| draft → approved | human | viewer or `changeledger approve <id>` after an explicit prompt |
 | approved → in-progress; blocked → in-progress; in-progress → in-review | agent | `changeledger status` |
 | in-progress → in-validation (no review) | agent | `changeledger status` |
 | in-review → in-validation | orchestrator | `changeledger review <id> pass` |
 | in-review → in-progress | orchestrator | `changeledger review <id> fail --retry` |
 | in-review → blocked | orchestrator | `changeledger review <id> fail --block` |
-| in-validation → done | human | viewer |
-| in-validation → in-progress | agent or human | `changeledger validation <id> fail "<reason>"` or viewer |
+| in-validation → done | human | viewer or `changeledger validation <id> pass` after an explicit prompt |
+| in-validation → in-progress | agent or human | viewer; agent `validation <id> fail "<reason>"`; human prompt adds `--human` |
 | done → in-progress (pending closure) | agent or human | `changeledger reopen <id> "<reason>"` or viewer |
 | draft/approved/in-progress/blocked → discarded | agent (authorized) | `changeledger discard <id> "<reason>"` |
 
-`changeledger status <id> <status>` performs the agent-owned moves and does not accept `approved`, `done`, `discarded` or reopening.
+`changeledger status <id> <status>` performs agent-owned moves and does not accept
+`approved`, `done`, `discarded` or reopening. Conversational decision commands
+are auditable transmitters, never permission to infer a human verdict.
 The discard reason is required and logged, and dependencies remain resolvable; `discarded` never reopens.
 A `done` change can reopen only to finish its original scope before graduation/skip, archive or release;
 after durable closure, later work needs a new change.
@@ -116,7 +120,8 @@ context already read; it never repeats it.
 Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
-- `changeledger graduate --pending`: find accepted changes whose graduation decision is unresolved.
+- `changeledger list --pending graduation`: find accepted changes whose graduation decision is unresolved.
+- `changeledger list --pending archive`: find graduated or skipped changes ready to archive.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.

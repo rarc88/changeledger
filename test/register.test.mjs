@@ -19,6 +19,23 @@ function initializedRepo(agentsBody = '# Project rules\n') {
   return dir;
 }
 
+function reflowBootstrap(text) {
+  return text.replace(
+    '> This repo uses **ChangeLedger**. Immediately after reading this file — before\n> planning, investigating, or acting — a normal agent must run `changeledger context` directly.',
+    '>This repo uses **ChangeLedger**. Immediately after reading this file —\n> before planning, investigating, or acting — a normal agent must run\n>`changeledger context` directly.',
+  );
+}
+
+function prettierBootstrap(text) {
+  return text
+    .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
+    .replace(
+      "> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+      "[mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
+    )
+    .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
+}
+
 const noopOutput = { warn: () => {}, log: () => {} };
 
 test('CR1: register inserts the bootstrap wrapped in versioned BEGIN/END delimiters', () => {
@@ -66,7 +83,7 @@ test('CR3: register migrates the legacy marker and its blockquote without duplic
 
 test('CR4: register updates an outdated bootstrap version and reports it', () => {
   const before = '# Project\n\nprose.\n';
-  const staleBlock = `<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->\n> stale content\n<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
+  const staleBlock = `<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->\n${REFERENCE}<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
   const dir = initializedRepo(`${before}\n${staleBlock}`);
 
   const warnings = [];
@@ -75,6 +92,84 @@ test('CR4: register updates an outdated bootstrap version and reports it', () =>
 
   assert.match(agents, new RegExp(`<!-- CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION} -->`));
   assert.ok(agents.includes(REFERENCE.trim()));
-  assert.doesNotMatch(agents, /stale content/);
+  assert.doesNotMatch(agents, /CHANGELEDGER BOOTSTRAP BEGIN v0/);
   assert.ok(warnings.some((msg) => /outdated/i.test(msg)));
+});
+
+test('150300 CR2: register preserves equivalent reflow in every contract file', () => {
+  const dir = initializedRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules\n');
+  registerRepo(dir, noopOutput);
+
+  const files = ['AGENTS.md', 'CLAUDE.md'];
+  const reformatted = new Map();
+  for (const name of files) {
+    const file = path.join(dir, name);
+    const canonical = fs.readFileSync(file, 'utf8');
+    const next = reflowBootstrap(canonical);
+    assert.notEqual(next, canonical);
+    fs.writeFileSync(file, next);
+    reformatted.set(name, next);
+  }
+
+  const warnings = [];
+  const result = registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+
+  assert.equal(result.path, dir);
+  assert.equal(result.id, 'abc1234567');
+  assert.equal(
+    warnings.some((msg) => /bootstrap was outdated/i.test(msg)),
+    false,
+  );
+  for (const name of files) {
+    assert.equal(fs.readFileSync(path.join(dir, name), 'utf8'), reformatted.get(name));
+  }
+});
+
+test('153633 CR2: register preserves the Prettier fixture in every contract file', () => {
+  const dir = initializedRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules\n');
+  registerRepo(dir, noopOutput);
+
+  const files = ['AGENTS.md', 'CLAUDE.md'];
+  const reformatted = new Map();
+  for (const name of files) {
+    const file = path.join(dir, name);
+    const next = prettierBootstrap(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, next);
+    reformatted.set(name, next);
+  }
+
+  const warnings = [];
+  const result = registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+
+  assert.equal(result.path, dir);
+  assert.equal(
+    warnings.some((msg) => /bootstrap was outdated/i.test(msg)),
+    false,
+  );
+  for (const name of files) {
+    assert.equal(fs.readFileSync(path.join(dir, name), 'utf8'), reformatted.get(name));
+  }
+});
+
+test('150300 CR3: register repairs semantic changes and preserves surrounding bytes', () => {
+  const before = '# Project\n\nprose before.\n';
+  const after = '\nprose after.\n';
+  const dir = initializedRepo(before);
+  registerRepo(dir, noopOutput);
+  const file = path.join(dir, 'AGENTS.md');
+  const canonical = fs.readFileSync(file, 'utf8');
+  fs.writeFileSync(
+    file,
+    `${canonical.replace('run `changeledger context` directly', 'run `changeledger check` directly').trimEnd()}${after}`,
+  );
+
+  registerRepo(dir, noopOutput);
+
+  const repaired = fs.readFileSync(file, 'utf8');
+  assert.ok(repaired.startsWith(before));
+  assert.ok(repaired.endsWith(after));
+  assert.ok(repaired.includes(REFERENCE.trim()));
+  assert.doesNotMatch(repaired, /run `changeledger check` directly/);
 });
