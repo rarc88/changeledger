@@ -53,7 +53,8 @@ graduation or skip itself remains the meaningful closure evidence.
 Operational inspection and visibility:
 
 - `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
-- `changeledger list --pending archive` previews the exact candidates for `changeledger archive --graduated`.
+- `changeledger list --pending graduation --owner NAME` scopes a multi-change request, but every returned id is resolved individually with `graduate --new`, `--into` or `--skip`; graduation is never a bulk mutation.
+- `changeledger list --pending archive [--owner NAME|--unowned]` previews the exact candidates for `changeledger archive --graduated [--owner NAME|--unowned]` when both commands use the same filter. Without a filter, the action keeps its repository-wide behavior.
 - `changeledger show <id> [--json]`
 - `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
 

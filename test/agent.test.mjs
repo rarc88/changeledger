@@ -193,7 +193,7 @@ test('212322 CR2: archiveGraduated archives graduated and skipped done changes',
     id: '20260613-120002',
     log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
   });
-  const archived = archiveGraduated(root);
+  const archived = archiveGraduated({}, root);
   assert.deepEqual(
     archived.map((c) => c.id),
     ['20260613-120001', '20260613-120002'],
@@ -225,8 +225,50 @@ test('212322 CR3/CR4: archiveGraduated skips active, unreviewed and already arch
   const before = new Map(
     [active, unreviewed, alreadyArchived].map((file) => [file, fs.readFileSync(file, 'utf8')]),
   );
-  assert.deepEqual(archiveGraduated(root), []);
+  assert.deepEqual(archiveGraduated({}, root), []);
   for (const [file, text] of before) assert.equal(fs.readFileSync(file, 'utf8'), text);
+});
+
+test('105457 CR1/CR4/CR5: archiveGraduated filters exact owners and matches list preview', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  write({
+    id: '20260613-120001',
+    owner: 'Roberto Ruiz',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `one.md`',
+  });
+  write({
+    id: '20260613-120002',
+    owner: 'Ana',
+    log: '- **2026-06-13T12:00:00Z** — graduado a spec `two.md`',
+  });
+  write({ id: '20260613-120003', owner: 'Roberto Ruiz', reviewed: false });
+
+  const preview = list({ pending: 'archive', owner: 'Roberto Ruiz' }, root).map((c) => c.id);
+  const archived = archiveGraduated({ owner: 'Roberto Ruiz' }, root).map((c) => c.id);
+  assert.deepEqual(archived, preview);
+  assert.deepEqual(archived, ['20260613-120001']);
+  assert.deepEqual(
+    archiveGraduated({}, root).map((c) => c.id),
+    ['20260613-120002'],
+  );
+});
+
+test('105457 CR2/CR4: archiveGraduated filters unowned candidates and matches list preview', () => {
+  const { root, write } = repoWithArchiveCandidates();
+  write({
+    id: '20260613-120001',
+    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+  });
+  write({
+    id: '20260613-120002',
+    owner: 'Ana',
+    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+  });
+
+  const preview = list({ pending: 'archive', unowned: true }, root).map((c) => c.id);
+  const archived = archiveGraduated({ unowned: true }, root).map((c) => c.id);
+  assert.deepEqual(archived, preview);
+  assert.deepEqual(archived, ['20260613-120001']);
 });
 
 test('list filters by status and show returns the change', () => {

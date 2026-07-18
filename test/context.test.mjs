@@ -502,7 +502,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // `archived: false` frontmatter edit. Rule preserved, not retired.
     // 20260716-131649: listing unresolved graduation and archive candidates is
     // replaced by canonical `list --pending` queries; closure actions remain.
-    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
+    // 20260718-105457: the queries gain optional owner scoping; graduation stays
+    // individual and archive preview/action equivalence is preserved per filter.
+    'close.md': 'c627a5a34d3a6f6659223c2610d3d297a66e2b888ce6c23f1e356d7be9bba551',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -539,7 +541,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // the ownership boundary is preserved and strengthened against inference.
     // 20260716-131649: operational discovery replaces the graduate query with
     // canonical list queries for graduation and archive candidates.
-    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
+    // 20260718-105457: those queries add optional owner scoping while keeping
+    // per-change graduation and matching filtered archive semantics explicit.
+    'core.md': '14ba2bdaf590565378f44a54b15e3b4aff6b44ad9b8d1162948b17068dcf7eb2',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.

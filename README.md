@@ -101,9 +101,10 @@ changeledger graduate <id> <spec-slug> --new     # create a marked scaffold; rem
 # refine the scaffold and remove its marker
 changeledger graduate <id> <spec-slug> --into    # finalize an existing refined spec
 changeledger graduate <id> --skip [reason]       # record that no spec is needed
-changeledger list --pending graduation           # list unresolved graduation decisions
-changeledger list --pending archive              # preview resolved changes ready to archive
-changeledger archive --graduated                 # hide every listed archive candidate
+changeledger list --pending graduation --owner "Roberto Ruiz" # select personal decisions; resolve each id
+changeledger list --pending archive --owner "Roberto Ruiz"    # preview the scoped bulk action
+changeledger archive --graduated --owner "Roberto Ruiz"       # archive exactly that owner's candidates
+changeledger archive --graduated                              # without a filter, archive every candidate
 ```
 
 Run `changeledger --help` or `changeledger <command> --help` for the complete command reference.
