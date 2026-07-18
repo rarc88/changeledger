@@ -2,26 +2,10 @@
 title: Discovery del contrato
 updated: 2026-07-16T13:39:26Z
 tags: [ contract ]
-graduated_from: ["20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113"]
 ---
 
 ## Discovery del contrato
-
-> Graduado del change 20260614-151759 (discovery del contrato).
-> Graduado del change 20260616-162027 (registry corrupto falla sin sobrescribir).
-> Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
-> Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
-> Graduado del change 20260627-205033 (contexto dinámico y retiro del symlink).
-> Graduado del change 20260629-155349 (lectura completa del contexto y bootstrap mínimo).
-> Graduado del change 20260629-165838 (prohibición de contexto truncado).
-> Graduado del change 20260629-210543 (contextos específicos incrementales).
-> Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
-> Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
-> Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
-> Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
-> Actualizado por el change 20260703-150229 (adquisición completa en una sola pasada y recarga sólo por transición real).
-> Actualizado por el change 20260711-103759 (revisión de contenido `rev:` y verificación `--have`).
-> Actualizado por el change 20260711-103803 (bootstrap con delimitadores versionados BEGIN/END).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en

@@ -762,7 +762,15 @@ function openSpec(s) {
     if (e.target === overlay) closeDetail();
   };
   detail.onclick = (e) => handleSpecBodyClick(e, (href) => openSpecByName(href, state, openSpec));
+  detail.querySelectorAll('[data-change]').forEach((el) => {
+    el.onclick = () => openChangeById(el.dataset.change);
+  });
   renderExpandableMermaid(detail);
+}
+
+export function openChangeById(id, repoState = state, _openDetail = openDetail) {
+  const found = (repoState.repo?.changes ?? []).find((change) => String(change.id) === String(id));
+  if (found) _openDetail(found.id);
 }
 
 /**

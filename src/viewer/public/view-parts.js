@@ -117,7 +117,10 @@ export function specBody(body, graduatedFrom = []) {
         <span>Graduation history</span>
         <span class="history-count">${entries.length}</span>
       </summary>
-      <ol>${entries.map((id) => html`<li>${id}</li>`)}</ol>
+      <ol>${entries.map(
+        (id) =>
+          html`<li><button type="button" class="history-link" data-change=${id}>#${id}</button></li>`,
+      )}</ol>
     </details>
     ${markdownHtml(body)}
   </div>`;

@@ -53,5 +53,5 @@ real de loopback.
 - **2026-06-17T10:36:10Z** — owner → Roberto Ruiz (auto)
 - **2026-06-17T15:21:31Z** — status: in-progress → in-review
 - **2026-06-17T15:22:33Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T15:22:39Z** — graduado a spec `architecture.md`
+- **2026-06-17T15:22:39Z** — graduado a spec `viewer.md`
 - **2026-06-17T15:23:05Z** — archived

@@ -1226,6 +1226,18 @@ body {
 .graduation-history li {
   padding: 4px 0 4px 3px;
 }
+.history-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.history-link:hover,
+.history-link:focus-visible {
+  text-decoration: underline;
+}
 
 .tasks {
   list-style: none;

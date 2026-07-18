@@ -2,28 +2,10 @@
 title: Ciclo de vida y gate de revisión
 updated: 2026-07-16T13:39:27Z
 tags: [ lifecycle ]
-graduated_from: ["20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649"]
 ---
 
 ## Ciclo de vida y gate de revisión
-
-> Graduado del change 20260614-165720 (revisión de graduación / reviewed).
-> Graduado del change 20260614-182513 (owner desde GitHub login).
-> Graduado del change 20260615-150510 (gate de revisión independiente + invariantes de transición).
-> Graduado del change 20260615-170803 (graduación a spec existente, `changeledger graduate --into`).
-> Graduado del change 20260615-210508 (estado terminal `discarded`).
-> Graduado del change 20260616-212836 (ejemplos de graduación no crean enlaces reales).
-> Graduado del change 20260616-212840 (captura automática de fricciones).
-> Graduado del change 20260616-212319 (archivar no vuelve stale el spec).
-> Graduado del change 20260616-212322 (archivado masivo de graduados).
-> Graduado del change 20260626-160038 (política económica de delegación).
-> Graduado del change 20260630-225210 (validación secuencial del Log).
-> Actualizado por el change 20260703-150231 (integridad scoped de aceptación y graduación).
-> Actualizado por el change 20260703-150232 (reapertura humana antes del cierre durable).
-> Actualizado por el change 20260703-220014 (parada de validación local por change).
-> Actualizado por el change 20260711-103756 (carril quick para trabajo pequeño trazable).
-> Actualizado por el change 20260710-201703 (rol audit read-only en validación).
-> Actualizado por el change 20260711-160446 (baseline declarado y verificado en delegaciones que escriben).
 
 ```mermaid
 stateDiagram-v2

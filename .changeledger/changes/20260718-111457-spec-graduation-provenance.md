@@ -2,7 +2,7 @@
 id: "20260718-111457"
 title: Registrar la procedencia estructurada de las specs
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-18T11:14:57Z
 depends_on: []
 owner: Roberto Ruiz
@@ -44,6 +44,10 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - `related_to` no es adecuado para esta procedencia: expresa afinidad no
   bloqueante entre changes, mientras la graduación es una relación dirigida y
   auditable entre un change y la spec cuya verdad actualizó.
+- El commit `cc1f4ca4` redistribuyó deliberadamente 35 marcadores desde
+  `architecture.md` hacia specs de dominio. Esos destinos curados representan
+  la ubicación actual de la verdad, aunque varios Logs anteriores conserven el
+  destino pre-refactor.
 
 ## Specification
 
@@ -96,14 +100,20 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **And** no buscan `Graduado del change` en el cuerpo Markdown
 - **And** los contextos de cierre documentan `graduated_from` como enlace canónico
 
+### CR9 — Preservar redistribuciones curadas de procedencia
+- **Given** un marcador que un commit auditado redistribuyó desde `architecture.md` hacia una spec de dominio y cuyo Log aún conserva el destino anterior
+- **When** el humano confirma que la redistribución curada es canónica y se ejecuta la migración dogfood
+- **Then** el Log referencia la spec de dominio y su `graduated_from` contiene el change
+- **And** un change que actualizó varias specs puede enlazar bidireccionalmente a cada una sin conservar la frase legacy
+
 ## Plan
 
 - [x] Escribir primero tests del writer y de graduación, añadir `graduated_from: []` al scaffold y actualizarlo idempotentemente en `src/commands/graduate.mjs` y `src/writer.mjs`; verify: `node --test test/graduate.test.mjs test/writer.test.mjs` (CR1, CR2, CR3) — 2026-07-18T11:22:49Z
 - [x] Escribir primero tests bidireccionales y endurecer `checkSpecs()` en `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR4) — 2026-07-18T11:24:51Z
 - [x] Escribir primero fixtures de migración y extender `src/commands/fix.mjs` y `bin/changeledger.mjs` con `fix --graduation-links [--dry-run]`; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR5, CR6, CR7) — 2026-07-18T11:33:22Z
 - [x] Retirar el parser de frases en `src/viewer/public/view-parts.js`, exponer `graduated_from` desde `src/viewer/domain.mjs` y actualizar `templates/contract/close.md`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/context.test.mjs` (CR8) — 2026-07-18T11:35:39Z
-- [x] Migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`; verify: `node bin/changeledger.mjs check` (CR5, CR8) — 2026-07-18T11:35:49Z
-- [ ] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Preservar el mapa curado de `cc1f4ca4`, actualizar los 35 destinos históricos y migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`; verify: `node bin/changeledger.mjs check` (CR5, CR8, CR9) — 2026-07-18T12:04:28Z
+- [x] Ejecutar el gate completo `pnpm verify` (support) — 2026-07-18T11:37:13Z
 
 ## Log
 
@@ -113,3 +123,12 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **2026-07-18T11:20:04Z** — owner → Roberto Ruiz (auto)
 - **2026-07-18T11:25:32Z** — El pre-commit bloqueó el commit del checker bidireccional porque las specs dogfood aún carecen de graduated_from; se integra con el migrador y la migración antes del siguiente commit.
 - **2026-07-18T11:35:00Z** — El dry-run dogfood confirmó que el bloque histórico también contiene `Actualizado por el change`; se incorpora como variante legacy necesaria para migrar toda la procedencia ya registrada.
+- **2026-07-18T11:37:13Z** — status: in-progress → in-review
+- **2026-07-18T11:43:11Z** — review → in-progress (retry): El migrador solo reconoce la historia legacy tras H1; deja 68 marcadores bajo H2, omite la ambigüedad de metrics.md y el dry-run declara falsamente que no hay cambios.
+- **2026-07-18T11:47:24Z** — Corrección de review: el migrador reconoce headings H1-H6; en el dogfood se conservan como procedencia canónica los destinos registrados por los Logs y se retiran 69 frases copiadas a specs temáticas, sin reescribir historia. El historial estructurado ahora navega al change por id.
+- **2026-07-18T11:47:38Z** — status: in-progress → in-review
+- **2026-07-18T11:55:18Z** — review → blocked: El commit cc1f4ca4 redistribuyó deliberadamente 35 marcadores a specs de dominio, mientras los Logs históricos aún apuntan a architecture.md; elegir entre destino histórico y procedencia curada requiere decisión de producto.
+- **2026-07-18T11:57:03Z** — status: blocked → in-progress
+- **2026-07-18T12:04:28Z** — Decisión humana: prevalece la redistribución curada de cc1f4ca4. Se actualizan 34 destinos architecture→spec de dominio y se añade metrics.md al change que graduó lifecycle+metrics; el migrador reconstruye graduated_from desde esos Logs sin frases legacy.
+- **2026-07-18T12:05:13Z** — status: in-progress → in-review
+- **2026-07-18T12:13:49Z** — review → in-validation (delegated subagent, clean context)

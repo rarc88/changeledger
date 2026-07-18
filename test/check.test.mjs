@@ -418,6 +418,34 @@ test('CR2: a spec backlinked to an existing change is not orphan', () => {
   );
 });
 
+test('111457 CR9: one change can link bidirectionally to multiple curated specs', () => {
+  const id = '20260613-120000';
+  const c = change({
+    frontmatter: { id },
+    stages: [
+      { key: 'request' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: [
+          '- **2026-06-13T12:00:00Z** — graduado a spec `lifecycle.md`',
+          '- **2026-06-13T12:00:00Z** — graduado a spec `metrics.md`',
+        ].join('\n'),
+      },
+    ],
+  });
+  const specs = [
+    spec({ name: 'lifecycle.md', frontmatter: { graduated_from: [id] } }),
+    spec({ name: 'metrics.md', frontmatter: { graduated_from: [id] } }),
+  ];
+  const { errors, warnings } = runS([c], specs);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    msgs(warnings).filter((message) => /orphan/.test(message)),
+    [],
+  );
+});
+
 test('CR3: a stale updated is a warning', () => {
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },

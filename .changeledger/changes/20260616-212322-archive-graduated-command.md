@@ -78,5 +78,5 @@ paso explícito.
 - **2026-06-17T10:28:02Z** — review → in-progress (retry): Plan still had open tasks during review
 - **2026-06-17T10:28:25Z** — status: in-progress → in-review
 - **2026-06-17T10:29:31Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:29:36Z** — graduado a spec `architecture.md`
+- **2026-06-17T10:29:36Z** — graduado a spec `lifecycle.md`
 - **2026-06-17T15:23:05Z** — archived

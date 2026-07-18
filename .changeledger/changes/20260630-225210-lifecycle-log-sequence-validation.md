@@ -80,4 +80,5 @@ confirmada.
 - **2026-07-01T22:22:31Z** — review → in-validation (delegated subagent, clean context)
 - **2026-07-01T23:17:56Z** — validation → done (human accepted)
 - **2026-07-01T23:21:38Z** — graduado a spec `lifecycle.md`
+- **2026-07-01T23:21:38Z** — graduado a spec `metrics.md`
 - **2026-07-01T23:23:29Z** — archived

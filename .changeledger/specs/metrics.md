@@ -1,13 +1,11 @@
 ---
 title: Métricas
-updated: 2026-07-01T22:18:32Z
+updated: 2026-07-01T23:21:38Z
 tags: [ metrics ]
+graduated_from: ["20260616-210825", "20260630-225210"]
 ---
 
 ## Métricas
-
-> Graduado del change 20260616-210825 (métricas cuentan cierres por revisión).
-> Graduado del change 20260630-225210 (parser de eventos compartido con check).
 
 `metrics.mjs` deriva, sin IO, métricas de entrega de los timestamps. El cierre
 (`done`) y el paso a cada estado se leen del `## Log` con `parseLogEvent` de

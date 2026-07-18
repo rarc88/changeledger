@@ -151,5 +151,5 @@ flowchart LR
 - **2026-06-14T16:38:33Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T16:45:00Z** — Spec architecture.md actualizada con seccion Definition of Ready (tdd)
 - **2026-06-14T16:45:00Z** — status: in-progress → done
-- **2026-06-14T16:52:30Z** — graduado a spec `architecture.md`
+- **2026-06-14T16:52:30Z** — graduado a spec `readiness.md`
 - **2026-06-15T21:17:56Z** — archived

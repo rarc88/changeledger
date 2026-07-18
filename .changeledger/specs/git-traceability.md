@@ -2,17 +2,10 @@
 title: Trazabilidad git
 updated: 2026-07-12T10:49:41Z
 tags: [ git ]
-graduated_from: ["20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638"]
 ---
 
 ## Trazabilidad git
-
-> Graduado del change 20260617-161309 (workflow git para trazabilidad).
-> Actualizado por el change 20260711-103757 (contrato de commits ejecutable: helper y lint).
-> Actualizado por el change 20260711-204419 (diagnóstico de fallos de commit).
-> Actualizado por el change 20260711-210115 (rama de integración configurable).
-> Actualizado por el change 20260711-225637 (migración y edición de la rama de integración).
-> Actualizado por el change 20260711-225638 (marcadores múltiples en el cuerpo del commit).
 
 `git.mjs` (`gitRefs`, runner inyectable) enlaza un change con git por la
 convención de commit `[#<id>]`: lista los commits que lo referencian y las

@@ -82,5 +82,5 @@ Descartado:
 - **2026-06-14T18:37:16Z** — status: approved → in-progress
 - **2026-06-14T18:37:16Z** — owner → Roberto Ruiz (auto)
 - **2026-06-14T18:39:36Z** — status: in-progress → done
-- **2026-06-14T18:39:36Z** — graduado a spec `architecture.md`
+- **2026-06-14T18:39:36Z** — graduado a spec `lifecycle.md`
 - **2026-06-15T21:17:57Z** — archived

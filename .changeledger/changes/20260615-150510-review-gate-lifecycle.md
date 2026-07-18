@@ -275,5 +275,5 @@ markers fijos en inglés.
 - **2026-06-15T16:07:57Z** — status: in-progress → in-review
 - **2026-06-15T16:11:18Z** — independent review (delegated subagent, clean context): VERDICT pass — 12/12 CRs implemented and tested, no residue, graph sound, pnpm verify green. Two info findings addressed: added bin e2e test for sl review parsing; corrected viewer task note (data-driven, no code change).
 - **2026-06-15T16:11:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T16:12:31Z** — graduado a spec `architecture.md` (gate de revisión + invariantes de transición)
+- **2026-06-15T16:12:31Z** — graduado a spec `lifecycle.md` (gate de revisión + invariantes de transición)
 - **2026-06-15T21:17:58Z** — archived

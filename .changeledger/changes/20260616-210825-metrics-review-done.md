@@ -57,5 +57,5 @@ para 2026-06-16. Además, la primera marca de graduación en
 - **2026-06-16T21:11:57Z** — status: in-progress → in-review
 - **2026-06-16T21:13:39Z** — review clarification: untracked CLAUDE.md preexisted this change and is excluded as user worktree state
 - **2026-06-16T21:14:28Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T21:14:31Z** — graduado a spec `architecture.md`
+- **2026-06-16T21:14:31Z** — graduado a spec `metrics.md`
 - **2026-06-16T21:19:25Z** — archived

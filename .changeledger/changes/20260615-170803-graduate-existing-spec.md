@@ -140,5 +140,5 @@ solo difiere el manejo del archivo del spec.
 - **2026-06-15T17:36:31Z** — status: in-progress → in-review
 - **2026-06-15T17:37:35Z** — independent review (delegated subagent, clean context): VERDICT pass — 6/6 CRs implemented and tested, literal messages match, shared marker+reviewed write, no write on error paths, no residue, pnpm verify green.
 - **2026-06-15T17:37:35Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T17:37:35Z** — graduado a spec `architecture.md`
+- **2026-06-15T17:37:35Z** — graduado a spec `lifecycle.md`
 - **2026-06-15T21:17:58Z** — archived

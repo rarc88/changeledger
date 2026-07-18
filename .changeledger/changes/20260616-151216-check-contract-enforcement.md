@@ -71,5 +71,5 @@ vagos.
 - **2026-06-16T15:25:01Z** — Implemented DoR test-grade and file-reference checks; pnpm verify passed with expected support-task warnings.
 - **2026-06-16T15:25:01Z** — status: in-progress → in-review
 - **2026-06-16T15:26:22Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:26:22Z** — graduado a spec `architecture.md`
+- **2026-06-16T15:26:22Z** — graduado a spec `readiness.md`
 - **2026-06-16T21:19:25Z** — archived

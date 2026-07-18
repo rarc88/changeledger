@@ -26,6 +26,7 @@ const {
   cssIdent,
   esc,
   isVisible,
+  openChangeById,
   passesTombstones,
   projectMutation,
   projectsViewTemplate,
@@ -770,8 +771,25 @@ test('111457 CR8: spec body renders structured graduation ids inside a collapsed
   assert.equal(details.open, false);
   assert.equal(details.querySelector('.history-count').textContent, '2');
   assert.equal(details.querySelectorAll('li').length, 2);
+  assert.equal(details.querySelectorAll('button[data-change]').length, 2);
+  assert.equal(details.querySelector('button').dataset.change, '20260613-120000');
   assert.match(details.textContent, /20260613-120000/);
   assert.match(host.textContent, /Persistent truth/);
+});
+
+test('111457 request: structured graduation history resolves a change for navigation', () => {
+  const found = { id: '20260613-120000', title: 'Origin' };
+  let opened;
+  openChangeById(found.id, { repo: { changes: [found] } }, (id) => {
+    opened = id;
+  });
+  assert.equal(opened, found.id);
+
+  opened = undefined;
+  openChangeById('missing', { repo: { changes: [found] } }, (id) => {
+    opened = id;
+  });
+  assert.equal(opened, undefined);
 });
 
 test('222619 CR1: graph empty state does not render invalid dimensions', () => {

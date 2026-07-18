@@ -112,7 +112,7 @@ updated: 2026-06-14T12:00:00Z
 tags: [architecture]
 ---
 
-# Arch
+## Arch
 
 > Graduado del change 20260614-090000 (first).
 > Actualizado por el change 20260614-100000 (second).
@@ -200,7 +200,7 @@ test('111457 CR5: --graduation-links migrates legacy and Log provenance in order
     /^graduated_from: \["20260614-090000", "20260614-100000", "20260614-110000"\]$/m,
   );
   assert.doesNotMatch(text, /(?:Graduado del|Actualizado por el) change/);
-  assert.match(text, /# Arch\n\nDurable body\.\n$/);
+  assert.match(text, /## Arch\n\nDurable body\.\n$/);
 });
 
 test('111457 CR6: --graduation-links --dry-run prints the exact spec diff without writing', () => {

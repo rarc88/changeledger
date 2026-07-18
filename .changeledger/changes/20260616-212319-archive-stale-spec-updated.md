@@ -57,5 +57,5 @@ no debería obligar a refrescar el spec.
 - **2026-06-17T10:21:35Z** — owner → Roberto Ruiz (auto)
 - **2026-06-17T10:22:59Z** — status: in-progress → in-review
 - **2026-06-17T10:24:01Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:24:05Z** — graduado a spec `architecture.md`
+- **2026-06-17T10:24:05Z** — graduado a spec `lifecycle.md`
 - **2026-06-17T15:23:05Z** — archived

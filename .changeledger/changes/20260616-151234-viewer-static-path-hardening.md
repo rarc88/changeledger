@@ -70,5 +70,5 @@ defensivo por construcción.
 - **2026-06-16T15:31:37Z** — Hardened static asset path resolution; node --test test/view.test.mjs and pnpm verify passed outside sandbox.
 - **2026-06-16T15:31:37Z** — status: in-progress → in-review
 - **2026-06-16T15:34:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:34:36Z** — graduado a spec `architecture.md`
+- **2026-06-16T15:34:36Z** — graduado a spec `viewer.md`
 - **2026-06-16T21:19:25Z** — archived

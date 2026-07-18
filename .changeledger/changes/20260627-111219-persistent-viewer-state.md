@@ -142,5 +142,5 @@ errores.
 - **2026-06-27T19:37:15Z** — status: in-progress → in-review
 - **2026-06-27T19:38:22Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-27T19:43:27Z** — validation → done (human accepted)
-- **2026-06-27T19:44:36Z** — graduado a spec `architecture.md`
+- **2026-06-27T19:44:36Z** — graduado a spec `viewer.md`
 - **2026-06-27T19:44:36Z** — archived

@@ -156,5 +156,5 @@ agentes, porque depende del harness y del coste disponible en cada entorno.
 - **2026-06-26T17:24:20Z** — status: in-progress → in-review
 - **2026-06-26T17:26:00Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-26T17:38:31Z** — validation → done (human accepted)
-- **2026-06-26T17:40:44Z** — graduado a spec `architecture.md`
+- **2026-06-26T17:40:44Z** — graduado a spec `lifecycle.md`
 - **2026-06-26T17:41:22Z** — archived

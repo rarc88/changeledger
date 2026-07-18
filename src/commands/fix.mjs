@@ -159,7 +159,7 @@ function stripLegacyGraduationHistory(text) {
   const lines = text.slice(prefix.length).split('\n');
   let cursor = 0;
   while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  if (/^#\s+/.test(lines[cursor] ?? '')) {
+  if (/^#{1,6}\s+/.test(lines[cursor] ?? '')) {
     cursor += 1;
     while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
   }

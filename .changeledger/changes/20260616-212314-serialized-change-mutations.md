@@ -65,5 +65,5 @@ el patrón read-modify-write sobre el mismo archivo no está serializado.
 - **2026-06-17T15:17:57Z** — review → in-progress (retry): lock metadata write failure can orphan the newly created lock
 - **2026-06-17T15:21:10Z** — status: in-progress → in-review
 - **2026-06-17T15:21:17Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T15:21:24Z** — graduado a spec `architecture.md`
+- **2026-06-17T15:21:24Z** — graduado a spec `data-model.md`
 - **2026-06-17T15:23:05Z** — archived
