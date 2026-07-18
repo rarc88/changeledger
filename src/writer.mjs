@@ -43,6 +43,22 @@ export function setSpecUpdated(text, iso) {
   });
 }
 
+// Records the changes whose accepted truth was graduated into a spec. The list
+// is append-only and idempotent so retrying a completed write cannot duplicate
+// provenance; the Markdown body remains byte-for-byte untouched.
+export function setSpecGraduatedFrom(text, changeId) {
+  return mutateFrontmatter(text, (fm, doc) => {
+    const current = doc.toJS()?.graduated_from;
+    if (current !== undefined && !Array.isArray(current)) {
+      throw new Error('graduated_from must be a list');
+    }
+    const id = String(changeId);
+    const next = (current ?? []).map(String);
+    if (!next.includes(id)) next.push(id);
+    return patchSerializedPair(fm, doc, 'graduated_from', inlineStringList(next), 'tags');
+  });
+}
+
 function mutateFrontmatter(text, mutate) {
   const m = text.match(FM);
   if (!m) throw new Error('missing frontmatter');
@@ -75,6 +91,24 @@ function patchOptionalPair(fm, doc, key, value) {
   const at = anchor.value.range[2];
   const line = `${key}: ${serializeScalar(value)}\n`;
   return `${fm.slice(0, at)}${at > 0 && fm[at - 1] === '\n' ? line : `\n${line}`}${fm.slice(at)}`;
+}
+
+function patchSerializedPair(fm, doc, key, serialized, anchorKey) {
+  const pair = findPair(doc, key);
+  if (pair) {
+    if (!pair.value?.range) throw new Error(`missing ${key} value in frontmatter`);
+    return replaceRange(fm, pair.value.range[0], pair.value.range[1], serialized);
+  }
+  const anchor = requirePair(doc, anchorKey);
+  if (!anchor.value?.range) throw new Error(`missing ${anchorKey} value in frontmatter`);
+  const at = anchor.value.range[2];
+  const before = at > 0 && fm[at - 1] !== '\n' ? '\n' : '';
+  const after = at === fm.length || fm[at] === '\n' ? '' : '\n';
+  return `${fm.slice(0, at)}${before}${key}: ${serialized}${after}${fm.slice(at)}`;
+}
+
+function inlineStringList(values) {
+  return `[${values.map((value) => JSON.stringify(value)).join(', ')}]`;
 }
 
 function findPair(doc, key) {

@@ -6,6 +6,7 @@ import {
   setArchived,
   setOwner,
   setReviewed,
+  setSpecGraduatedFrom,
   setSpecUpdated,
   setStatus,
   setTask,
@@ -237,6 +238,30 @@ Body.
 test('setSpecUpdated throws when updated is missing', () => {
   const spec = `---\ntitle: Arch\ntags: [architecture]\n---\n\n# Arch\n`;
   assert.throws(() => setSpecUpdated(spec, '2026-06-15T17:30:00Z'), /missing updated/);
+});
+
+test('111457 CR1/CR2: setSpecGraduatedFrom appends unique ids and preserves the body', () => {
+  const spec = `---
+title: Arch
+updated: 2020-01-01T00:00:00Z
+tags: [architecture]
+graduated_from: ["20260613-120000"]
+---
+
+# Arch
+
+Body.
+`;
+  const once = setSpecGraduatedFrom(spec, '20260613-130000');
+  const twice = setSpecGraduatedFrom(once, '20260613-130000');
+  assert.match(twice, /^graduated_from: \["20260613-120000", "20260613-130000"\]$/m);
+  assert.equal(twice.slice(twice.indexOf('\n---\n') + 5), '\n# Arch\n\nBody.\n');
+});
+
+test('111457 CR1: setSpecGraduatedFrom creates the field after tags', () => {
+  const spec = `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n\n# Arch\n`;
+  const out = setSpecGraduatedFrom(spec, '20260613-120000');
+  assert.match(out, /tags: \[architecture\]\ngraduated_from: \["20260613-120000"\]\n---/);
 });
 
 test('174430: frontmatter mutations preserve multiline and nested YAML values', () => {

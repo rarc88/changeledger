@@ -11,7 +11,7 @@ import { resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
-import { appendLog, setReviewed, setSpecUpdated } from '../writer.mjs';
+import { appendLog, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
@@ -56,6 +56,7 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
 title: ${serializeScalar(change.frontmatter.title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
+graduated_from: []
 ---
 
 # ${change.frontmatter.title}
@@ -93,9 +94,11 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
         `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
       );
     }
-    writeFileAtomic(specFile, setSpecUpdated(specText, nowUtc()));
+    const timestamp = nowUtc();
+    const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specText, timestamp), id);
+    writeFileAtomic(specFile, updatedSpec);
 
-    let text = appendLog(changeText, nowUtc(), `graduado a spec \`${specName}\``);
+    let text = appendLog(changeText, timestamp, `graduado a spec \`${specName}\``);
     text = setReviewed(text, true);
     return text;
   });

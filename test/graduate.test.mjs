@@ -78,10 +78,13 @@ test('CR1: graduate --into links an existing spec without touching its body', ()
   const { root, file, id } = repo();
   const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
 
+  const beforeBody = parseSpec(fs.readFileSync(specFile, 'utf8')).body;
   graduate(id, 'architecture', root, { into: true });
 
   const after = fs.readFileSync(specFile, 'utf8');
-  assert.match(after, /Cuerpo intacto\./); // body preserved
+  const spec = parseSpec(after);
+  assert.equal(spec.body, beforeBody); // body preserved
+  assert.deepEqual(spec.frontmatter.graduated_from, [id]);
   assert.doesNotMatch(after, /2020-01-01T00:00:00Z/); // updated refreshed
   const change = parseChange(fs.readFileSync(file, 'utf8'));
   assert.match(
@@ -116,6 +119,7 @@ test('CR2: scaffoldSpec creates a seed without resolving graduation', () => {
   const spec = parseSpec(fs.readFileSync(specFile, 'utf8'));
   assert.equal(spec.frontmatter.title, 'Login OAuth');
   assert.deepEqual(spec.frontmatter.tags, ['feature']);
+  assert.deepEqual(spec.frontmatter.graduated_from, []);
   assert.match(spec.body, /soporta login OAuth/);
   assert.match(spec.body, /changeledger:spec-scaffold/);
   assert.match(spec.body, new RegExp(`Scaffold from change ${id}`));
@@ -124,6 +128,20 @@ test('CR2: scaffoldSpec creates a seed without resolving graduation', () => {
   const change = parseChange(fs.readFileSync(file, 'utf8'));
   assert.notEqual(change.frontmatter.reviewed, true);
   assert.doesNotMatch(change.stages.find((s) => s.key === 'log').body, /graduado a spec/);
+});
+
+test('111457 CR2: graduate --into accumulates provenance without duplicate ids', () => {
+  const { root, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo.\n');
+  graduate(id, 'architecture', root, { into: true });
+
+  const secondId = '20260613-130000';
+  writeChange(root, secondId, 'done');
+  graduate(secondId, 'architecture', root, { into: true });
+  graduate(secondId, 'architecture', root, { into: true });
+
+  const spec = parseSpec(fs.readFileSync(specFile, 'utf8'));
+  assert.deepEqual(spec.frontmatter.graduated_from, [id, secondId]);
 });
 
 test('162020 CR1: graduate rejects a slug that normalizes to empty without writing', () => {
