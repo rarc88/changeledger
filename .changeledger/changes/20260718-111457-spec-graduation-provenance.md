@@ -2,9 +2,10 @@
 id: "20260718-111457"
 title: Registrar la procedencia estructurada de las specs
 type: bug
-status: in-validation
+status: done
 created: 2026-07-18T11:14:57Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 
 ---
@@ -132,3 +133,6 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **2026-07-18T12:04:28Z** — Decisión humana: prevalece la redistribución curada de cc1f4ca4. Se actualizan 34 destinos architecture→spec de dominio y se añade metrics.md al change que graduó lifecycle+metrics; el migrador reconstruye graduated_from desde esos Logs sin frases legacy.
 - **2026-07-18T12:05:13Z** — status: in-progress → in-review
 - **2026-07-18T12:13:49Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-18T12:34:50Z** — validation → done (human accepted)
+- **2026-07-18T12:35:18Z** — graduado a spec `data-model.md`
+- **2026-07-18T12:35:18Z** — graduado a spec `viewer.md`
