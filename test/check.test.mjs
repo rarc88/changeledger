@@ -127,6 +127,36 @@ test('CR5: dependency cycle is an error', () => {
   assert.ok(msgs(run([a, b]).errors).some((m) => /dependency cycle/.test(m)));
 });
 
+test('105456 CR1/CR3: related_to is non-blocking and permits external references and cycles', () => {
+  const a = change({
+    frontmatter: {
+      id: '20260613-120000',
+      related_to: ['20260613-130000', 'other:20260101-000000'],
+    },
+  });
+  const b = change({
+    frontmatter: { id: '20260613-130000', related_to: ['20260613-120000'] },
+  });
+  assert.deepEqual(run([a, b]).errors, []);
+});
+
+test('105456 CR2: related_to validates list, local destination and self-reference', () => {
+  const invalidList = change({ frontmatter: { related_to: '20260613-130000' } });
+  assert.ok(msgs(run([invalidList]).errors).includes('related_to must be a list'));
+
+  const missing = change({ frontmatter: { related_to: ['20260613-130000'] } });
+  assert.ok(
+    msgs(run([missing]).errors).includes('related_to references missing change "20260613-130000"'),
+  );
+
+  const self = change({ frontmatter: { related_to: ['20260613-120000'] } });
+  assert.ok(
+    msgs(run([self]).errors).includes(
+      'related_to cannot reference its own change "20260613-120000"',
+    ),
+  );
+});
+
 test('CR6: duplicate ids are an error', () => {
   const a = change();
   const b = change({ name: '20260613-120000-y.md' });

@@ -344,12 +344,15 @@ test('new uses the English slug for the file and keeps the title as content', ()
   );
   assert.equal(path.basename(file), '20260613-150000-token-expiry.md');
 
-  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  const source = fs.readFileSync(file, 'utf8');
+  const c = parseChange(source);
   assert.equal(c.frontmatter.id, '20260613-150000');
   assert.equal(c.frontmatter.title, 'Token expira mal');
   assert.equal(c.frontmatter.type, 'bug');
   assert.equal(c.frontmatter.status, 'draft');
   assert.equal(c.frontmatter.created, '2026-06-13T15:00:00Z');
+  assert.deepEqual(c.frontmatter.related_to, []);
+  assert.match(source, /depends_on: \[\]\nrelated_to: \[\]/);
   assert.deepEqual(
     c.stages.map((s) => s.key),
     ['request', 'investigation', 'specification', 'plan', 'log'],

@@ -43,6 +43,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if (fm.type && !types[fm.type]) err(c, `unknown type "${fm.type}"`);
     if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
+    if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
@@ -123,6 +124,16 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
         id,
         deps.filter((d) => !isExternal(d) && ids.has(d)),
       );
+
+    const relations = Array.isArray(c.frontmatter?.related_to) ? c.frontmatter.related_to : [];
+    for (const raw of relations) {
+      const related = String(raw);
+      if (String(id) === related) {
+        err(c, `related_to cannot reference its own change "${related}"`);
+      } else if (!isExternal(related) && !ids.has(related)) {
+        err(c, `related_to references missing change "${related}"`);
+      }
+    }
   }
 
   const cycle = findCycle(graph);

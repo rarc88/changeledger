@@ -75,9 +75,10 @@ Chosen behavior.
 
 function writeRawChange(
   root,
-  { id, status, type = 'feature', dependsOn = [], title = 'Dep target' },
+  { id, status, type = 'feature', dependsOn = [], relatedTo = [], title = 'Dep target' },
 ) {
   const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
+  const related = relatedTo.length ? `[ ${relatedTo.map((d) => `"${d}"`).join(', ')} ]` : '[]';
   const text = `---
 id: "${id}"
 title: ${title}
@@ -85,6 +86,7 @@ type: ${type}
 status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: ${deps}
+related_to: ${related}
 ---
 
 ## Request
@@ -309,6 +311,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /id: "20260613-134548"/],
     ['spec', /type: feature.*feature \| bug \| audit \| refactor \| chore/],
     ['spec', /release_impact: minor.*none \| patch \| minor \| major/],
+    ['spec', /Use `depends_on` only for execution prerequisites/],
+    ['spec', /Use optional `related_to` for useful context that must not impose execution order/],
     ['spec', /changeledger owner <id> <name\|->/],
     ['spec', /changeledger list.*--owner.*--pending/s],
     ['spec', /changeledger show <id> \[--json\]/],
@@ -605,7 +609,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // draft approval; existing authoring authorization rules are preserved.
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
-    'spec.md': '3e114f7b8d181cfab9c382769c0ed492f9089227cf7326400bc93f5646f2cfd8',
+    // 20260718-105456: additive related_to scaffold and non-blocking semantics;
+    // existing dependency execution rules are preserved.
+    'spec.md': '7d5686ab576bb22347b351c2fe0e1ebcdd8fe68dedb7c54f776969c130bbe491',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -983,6 +989,29 @@ test('225213 CR3: change without dependencies emits no dependency block', () => 
   const id = writeRawChange(root, { id: '20260627-150002', status: 'in-progress' });
   const output = buildContext(id, root);
   assert.doesNotMatch(output, /## Dependencies/);
+});
+
+test('105456 CR4: context resolves outgoing, incoming and external related changes', () => {
+  const root = repo();
+  const a = writeRawChange(root, {
+    id: '20260627-160000',
+    status: 'in-progress',
+    title: 'Selected',
+    relatedTo: ['20260627-160001', 'otherproj:20260101-000000'],
+  });
+  writeRawChange(root, { id: '20260627-160001', status: 'done', title: 'Outgoing target' });
+  writeRawChange(root, {
+    id: '20260627-160002',
+    status: 'approved',
+    title: 'Incoming source',
+    relatedTo: [a],
+  });
+
+  const output = buildContext(a, root);
+  assert.match(output, /## Related changes/);
+  assert.match(output, /outgoing.*#20260627-160001.*Outgoing target.*done/);
+  assert.match(output, /incoming.*#20260627-160002.*Incoming source.*approved/);
+  assert.match(output, /outgoing.*otherproj:20260101-000000.*external reference/);
 });
 
 test('220014 CR1/CR4: core and validation scope the stop to one change, not the queue', () => {

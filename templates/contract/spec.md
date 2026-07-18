@@ -45,10 +45,18 @@ type: feature                  # feature | bug | audit | refactor | chore | quic
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
+related_to: []                 # optional non-blocking discovery links
 owner: ana                     # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---
 ```
+
+Use `depends_on` only for execution prerequisites: dependencies can block
+lifecycle progress and participate in cycle validation. Use optional
+`related_to` for useful context that must not impose execution order or affect
+readiness. Both fields accept local change ids and external `project:id`
+references. Declare a local relation once; ChangeLedger derives its incoming
+backlink when presenting the related changes.
 
 `owner` means responsibility for the change. On `approved → in-progress`, it is
 assigned when absent from the GitHub login (`gh api user --jq .login`), falling

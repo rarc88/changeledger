@@ -1173,14 +1173,14 @@ body {
 .stage-content h3 {
   font-size: 14px;
 }
-.graduation-history {
+.change-references {
   margin: 12px 0 20px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: linear-gradient(120deg, rgba(91, 157, 255, 0.055), transparent 42%), var(--panel);
   overflow: hidden;
 }
-.graduation-history summary {
+.change-references summary {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -1191,21 +1191,21 @@ body {
   font-weight: 650;
   cursor: pointer;
 }
-.graduation-history summary::-webkit-details-marker {
+.change-references summary::-webkit-details-marker {
   display: none;
 }
-.graduation-history summary:hover {
+.change-references summary:hover {
   color: var(--text);
 }
-.history-icon {
+.reference-icon {
   color: var(--accent);
   font-size: 16px;
   transition: transform 0.16s ease;
 }
-.graduation-history[open] .history-icon {
+.change-references[open] .reference-icon {
   transform: rotate(90deg);
 }
-.history-count {
+.reference-count {
   min-width: 22px;
   padding: 1px 6px;
   border-radius: 999px;
@@ -1215,28 +1215,48 @@ body {
   font-family: ui-monospace, monospace;
   font-size: 10px;
 }
-.graduation-history ol {
+.reference-list {
   margin: 0;
-  padding: 4px 18px 14px 42px;
+  padding: 6px;
   border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
 }
-.graduation-history li {
-  padding: 4px 0 4px 3px;
-}
-.history-link {
-  padding: 0;
+.reference-row {
+  display: grid;
+  grid-template-columns: minmax(145px, auto) 1fr;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
   border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
   cursor: pointer;
 }
-.history-link:hover,
-.history-link:focus-visible {
-  text-decoration: underline;
+.reference-row:hover,
+.reference-row:focus-visible {
+  background: var(--panel-2);
+}
+.reference-row.unavailable {
+  color: var(--muted);
+  cursor: default;
+}
+.reference-id {
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+.reference-copy,
+.reference-copy small {
+  display: flex;
+  gap: 8px;
+}
+.reference-copy {
+  flex-direction: column;
+}
+.reference-copy small {
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .tasks {
@@ -1384,6 +1404,12 @@ body {
   stroke-width: 1.5;
   fill: none;
   marker-end: url(#arrow);
+}
+.relation-edge {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 5;
+  opacity: 0.72;
 }
 
 /* Specs view */

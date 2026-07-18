@@ -38,6 +38,7 @@ export function serialize(repo) {
       archived: c.frontmatter.archived === true,
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],
+      related_to: c.frontmatter.related_to ?? [],
       stages: c.stages,
       tasks: c.tasks,
       progress: c.progress,

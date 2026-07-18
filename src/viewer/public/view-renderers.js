@@ -96,6 +96,26 @@ export function graphSvg(changes) {
       return svg`<path class="edge" d=${`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />`;
     });
 
+  const relationKeys = new Set();
+  const relationEdges = changes.flatMap((change) =>
+    (change.related_to || []).flatMap((raw) => {
+      const related = String(raw);
+      if (!pos.has(related)) return [];
+      const key = [String(change.id), related].sort().join('::');
+      if (relationKeys.has(key)) return [];
+      relationKeys.add(key);
+      const from = pos.get(String(change.id));
+      const to = pos.get(related);
+      return svg`<line
+        class="relation-edge"
+        x1=${from.x + W / 2}
+        y1=${from.y + H / 2}
+        x2=${to.x + W / 2}
+        y2=${to.y + H / 2}
+      />`;
+    }),
+  );
+
   const nodes = changes.map((c) => {
     const p = pos.get(String(c.id));
     return svg`<g class="node" data-id=${c.id} transform=${`translate(${p.x},${p.y})`}>
@@ -112,7 +132,7 @@ export function graphSvg(changes) {
           <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted)"></path>
         </marker>
       </defs>
-      ${edges}${nodes}
+      ${edges}${relationEdges}${nodes}
     </svg>`;
 }
 

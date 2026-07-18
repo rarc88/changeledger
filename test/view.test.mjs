@@ -295,6 +295,7 @@ The viewer serializes specs.
   assert.equal(body.specs[0].name, 'viewer.md');
   assert.equal(body.specs[0].title, 'Viewer');
   assert.deepEqual(body.specs[0].graduated_from, [id]);
+  assert.deepEqual(body.changes[0].related_to, []);
   assert.match(body.specs[0].body, /serializes specs/);
 });
 

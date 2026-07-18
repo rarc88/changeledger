@@ -41,6 +41,7 @@ import { html, render as litRender, nothing } from './templates.js';
 import {
   card,
   detailToolbar,
+  referenceDetails,
   sortIndicator,
   specBody,
   stageBlock,
@@ -474,12 +475,15 @@ function renderOpenedDetail(content) {
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
-  const deps = (c.depends_on || []).map((d) => {
-    const ext = String(d).includes(':');
-    return ext
-      ? html`<span class="pill ext" data-extdep=${d} style="cursor:pointer">depends on ${d}</span>`
-      : html`<span class="pill" data-dep=${d} style="cursor:pointer">depends on #${d}</span>`;
-  });
+  const changes = state.repo.changes || [];
+  const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
+  const incoming = changes
+    .filter(
+      (candidate) =>
+        String(candidate.id) !== String(c.id) &&
+        (candidate.related_to || []).some((related) => String(related) === String(c.id)),
+    )
+    .map((candidate) => ({ id: candidate.id, direction: 'incoming' }));
   const stages = c.stages.map((s) => stageBlock(c, s));
 
   renderOpenedDetail(
@@ -492,8 +496,9 @@ function openDetail(id) {
       <span class="pill">${c.status}</span>
       ${c.owner ? html`<span class="pill owner">@${c.owner}</span>` : nothing}
       <span class="pill" title=${c.created || ''}>${fmtDateTime(c.created)}</span>
-      ${deps}
     </div>
+    ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}
+    ${referenceDetails('Related changes', [...outgoing, ...incoming], changes, '↔')}
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
     ${stages}
@@ -541,15 +546,15 @@ function openDetail(id) {
       el.onclick = () => scrollToStage($(`#${el.dataset.go}`));
     });
   $('#detail')
-    .querySelectorAll('[data-dep]')
+    .querySelectorAll('[data-change]')
     .forEach((el) => {
-      el.onclick = () => openDetail(el.dataset.dep);
+      el.onclick = () => openDetail(el.dataset.change);
     });
   $('#detail')
-    .querySelectorAll('[data-extdep]')
+    .querySelectorAll('[data-external]')
     .forEach((el) => {
       el.onclick = () => {
-        const [proj, changeId] = el.dataset.extdep.split(':');
+        const [proj, changeId] = el.dataset.external.split(':');
         gotoChange(proj, changeId);
       };
     });
@@ -749,7 +754,7 @@ function openSpec(s) {
       <span class="pill" title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
       ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
     </div>
-    ${specBody(s.body, s.graduated_from)}`,
+    ${specBody(s.body, s.graduated_from, state.repo.changes || [])}`,
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');
@@ -764,6 +769,12 @@ function openSpec(s) {
   detail.onclick = (e) => handleSpecBodyClick(e, (href) => openSpecByName(href, state, openSpec));
   detail.querySelectorAll('[data-change]').forEach((el) => {
     el.onclick = () => openChangeById(el.dataset.change);
+  });
+  detail.querySelectorAll('[data-external]').forEach((el) => {
+    el.onclick = () => {
+      const [project, changeId] = el.dataset.external.split(':');
+      gotoChange(project, changeId);
+    };
   });
   renderExpandableMermaid(detail);
 }
