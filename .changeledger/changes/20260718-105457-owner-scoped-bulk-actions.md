@@ -2,9 +2,10 @@
 id: "20260718-105457"
 title: Filtrar operaciones masivas por owner
 type: feature
-status: in-validation
+status: done
 created: 2026-07-18T10:54:57Z
 depends_on: []
+reviewed: true
 owner: Roberto Ruiz
 
 ---
@@ -137,3 +138,5 @@ Alternativas descartadas:
 - **2026-07-18T12:24:37Z** — Implementado selector compartido para preview/archive, filtros exactos --owner/--unowned, guardas CLI y contrato de graduación individual; pnpm verify pasa con 687 tests.
 - **2026-07-18T12:24:41Z** — status: in-progress → in-review
 - **2026-07-18T12:29:17Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-18T12:31:55Z** — validation → done (human accepted)
+- **2026-07-18T12:33:08Z** — graduado a spec `lifecycle.md`

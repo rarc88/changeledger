@@ -1,6 +1,6 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-16T13:39:27Z
+updated: 2026-07-18T12:33:08Z
 tags: [ lifecycle ]
 ---
 
@@ -265,12 +265,15 @@ mismo check scoped del change `done`. Si existen tareas incompletas o errores de
 secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
 marker de graduación o fijar `reviewed: true`.
 
-`changeledger list --pending archive` previsualiza los changes `done`,
-`reviewed: true`, no archivados y con resolución de graduación en `## Log`
-(`graduado a spec` o `graduation skipped`). `changeledger archive --graduated`
-archiva exactamente ese conjunto: escribe `archived: true` más una entrada
-`archived` en el Log; no toca estados activos, bloqueados, descartados, changes
-sin reviewed ni changes ya archivados.
+`changeledger list --pending archive [--owner NAME|--unowned]` previsualiza los
+changes `done`, `reviewed: true`, no archivados y con resolución de graduación en
+`## Log` (`graduado a spec` o `graduation skipped`). `changeledger archive
+--graduated` acepta el mismo filtro opcional y archiva exactamente el conjunto
+previsualizado; sin filtro conserva el alcance global. Escribe `archived: true`
+más una entrada `archived` en el Log y no toca estados activos, bloqueados,
+descartados, changes sin reviewed ni changes ya archivados. Una graduación
+múltiple se acota con `list --pending graduation --owner NAME`, pero cada id se
+resuelve individualmente con `--new`, `--into` o `--skip`.
 
 La intención es siempre explícita y los modos `--new`, `--into` y `--skip` son
 mutuamente excluyentes. Un slug posicional sin modo falla sin
