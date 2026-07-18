@@ -2,6 +2,7 @@
 title: Definition of Ready
 updated: 2026-07-01T23:21:38Z
 tags: [ readiness, tdd ]
+graduated_from: ["20260630-225208"]
 ---
 
 ## Definition of Ready (tdd)

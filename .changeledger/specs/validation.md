@@ -2,6 +2,7 @@
 title: Validación (changeledger check)
 updated: 2026-07-11T15:45:50Z
 tags: [ validation ]
+graduated_from: ["20260703-150231", "20260711-103800"]
 ---
 
 ## Validación (`changeledger check`)

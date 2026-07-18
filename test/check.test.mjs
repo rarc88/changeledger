@@ -389,7 +389,7 @@ test('212836 CR3: real graduation markers in Log are still validated', () => {
 });
 
 test('CR1: a spec referencing a missing change is an error', () => {
-  const s = spec({ body: 'Graduado del change 20990101-000000' });
+  const s = spec({ frontmatter: { graduated_from: ['20990101-000000'] } });
   assert.ok(
     msgs(runS([change()], [s]).errors).some((m) => /missing change "20990101-000000"/.test(m)),
   );
@@ -402,8 +402,16 @@ test('CR2: a spec with no link is an orphan warning, not an error', () => {
 });
 
 test('CR2: a spec backlinked to an existing change is not orphan', () => {
-  const c = change({ frontmatter: { id: '20260613-120000' } });
-  const s = spec({ body: 'Graduado del change 20260613-120000' });
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+    ],
+  });
+  const s = spec({ frontmatter: { graduated_from: ['20260613-120000'] } });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /orphan/.test(m)),
     [],
@@ -424,7 +432,12 @@ test('CR3: a stale updated is a warning', () => {
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
 });
 
@@ -446,7 +459,12 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /older than linked change activity/.test(m)),
     [],
@@ -456,6 +474,49 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
 test('CR3: a non-ISO updated is an error', () => {
   const s = spec({ frontmatter: { updated: '2026-06-13' } });
   assert.ok(msgs(runS([change()], [s]).errors).some((m) => /updated not ISO/.test(m)));
+});
+
+test('111457 CR4: graduated_from must be a list', () => {
+  const s = spec({ frontmatter: { graduated_from: '20260613-120000' } });
+  assert.ok(msgs(runS([change()], [s]).errors).includes('graduated_from must be a list'));
+});
+
+test('111457 CR4: a spec must name every change whose Log graduates into it', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+    ],
+  });
+  assert.ok(
+    msgs(runS([c], [spec({ frontmatter: { graduated_from: [] } })]).errors).includes(
+      'spec "arch.md" missing graduated_from "20260613-120000"',
+    ),
+  );
+});
+
+test('111457 CR4: graduated_from must link back to the same spec', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `other.md`' },
+    ],
+  });
+  const specs = [
+    spec({ frontmatter: { graduated_from: ['20260613-120000'] } }),
+    spec({ name: 'other.md', frontmatter: { graduated_from: ['20260613-120000'] } }),
+  ];
+  assert.ok(
+    msgs(runS([c], specs).errors).includes(
+      'graduated_from "20260613-120000" does not link back to spec "arch.md"',
+    ),
+  );
 });
 
 test('CR1: a duplicate stage is an error', () => {

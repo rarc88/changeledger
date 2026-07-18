@@ -2,6 +2,7 @@
 title: Modelo de datos e identidad
 updated: 2026-07-16T13:39:26Z
 tags: [ data-model ]
+graduated_from: ["20260715-122950"]
 ---
 
 ## Modelo de datos

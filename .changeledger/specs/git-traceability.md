@@ -2,6 +2,7 @@
 title: Trazabilidad git
 updated: 2026-07-12T10:49:41Z
 tags: [ git ]
+graduated_from: ["20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638"]
 ---
 
 ## Trazabilidad git

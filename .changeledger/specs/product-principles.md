@@ -2,11 +2,10 @@
 title: Filtros de decisión y no-goals de producto
 updated: 2026-06-28T01:05:07Z
 tags: [product, principles, architecture]
+graduated_from: ["20260627-205034"]
 ---
 
 # Filtros de decisión y no-goals de producto
-
-> Graduado del change 20260627-205034.
 
 La complejidad del core es un presupuesto limitado. Una capacidad nueva debe
 reducir la complejidad total o aportar una mejora real demostrada por el uso; si

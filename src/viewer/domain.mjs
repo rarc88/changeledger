@@ -47,6 +47,7 @@ export function serialize(repo) {
       title: s.frontmatter.title,
       updated: s.frontmatter.updated,
       tags: s.frontmatter.tags ?? [],
+      graduated_from: s.frontmatter.graduated_from ?? [],
       body: s.body,
     })),
   };

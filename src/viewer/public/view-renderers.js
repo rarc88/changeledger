@@ -1,12 +1,10 @@
 import { cssIdent } from './security.js';
 import { html, nothing, svg } from './templates.js';
-import { splitGraduationHistory } from './view-parts.js';
 
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-// Plain-text excerpt for spec cards: strips the leading graduation-history
-// blockquote, picks the first prose paragraph (skipping headings, remaining
-// blockquotes and code fences) and removes inline Markdown syntax. The result
+// Plain-text excerpt for spec cards: picks the first prose paragraph (skipping
+// headings, blockquotes and code fences) and removes inline Markdown syntax. The result
 // is interpolated as text (lit-html), never as HTML.
 function firstProseParagraph(text) {
   const paragraphs = String(text ?? '').split(/\n\s*\n/);
@@ -34,8 +32,7 @@ function stripMarkdown(text) {
 }
 
 export function specExcerpt(body, maxLen = 160) {
-  const { after } = splitGraduationHistory(body);
-  return clip(stripMarkdown(firstProseParagraph(after)), maxLen);
+  return clip(stripMarkdown(firstProseParagraph(body)), maxLen);
 }
 
 // Most recently updated truth first.

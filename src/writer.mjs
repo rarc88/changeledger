@@ -47,16 +47,29 @@ export function setSpecUpdated(text, iso) {
 // is append-only and idempotent so retrying a completed write cannot duplicate
 // provenance; the Markdown body remains byte-for-byte untouched.
 export function setSpecGraduatedFrom(text, changeId) {
+  const current = specGraduatedFrom(text);
+  const id = String(changeId);
+  if (!current.includes(id)) current.push(id);
+  return setSpecGraduatedFromList(text, current);
+}
+
+export function setSpecGraduatedFromList(text, changeIds) {
   return mutateFrontmatter(text, (fm, doc) => {
-    const current = doc.toJS()?.graduated_from;
-    if (current !== undefined && !Array.isArray(current)) {
-      throw new Error('graduated_from must be a list');
-    }
-    const id = String(changeId);
-    const next = (current ?? []).map(String);
-    if (!next.includes(id)) next.push(id);
+    const next = [...new Set(changeIds.map(String))];
     return patchSerializedPair(fm, doc, 'graduated_from', inlineStringList(next), 'tags');
   });
+}
+
+function specGraduatedFrom(text) {
+  const m = text.match(FM);
+  if (!m) throw new Error('missing frontmatter');
+  const doc = parseDocument(m[1], { merge: false, uniqueKeys: true });
+  if (doc.errors.length) throw doc.errors[0];
+  const current = doc.toJS()?.graduated_from;
+  if (current !== undefined && !Array.isArray(current)) {
+    throw new Error('graduated_from must be a list');
+  }
+  return (current ?? []).map(String);
 }
 
 function mutateFrontmatter(text, mutate) {

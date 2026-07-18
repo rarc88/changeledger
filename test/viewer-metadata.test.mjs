@@ -55,7 +55,7 @@ const {
   taskList,
 } = await import('../src/viewer/public/app.js');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
-const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
+const { closeButton, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
 const { graphSvg, metricsHtml, specsListHtml } = await import(
@@ -414,7 +414,7 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
-test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {
+test('111457 CR8: legacy prose is ordinary spec content, not graduation metadata', () => {
   const body = `# Architecture
 
 > Graduado del change 20260613-120000 (first).
@@ -423,16 +423,11 @@ test('125850 CR6: graduation history is separated only from the leading spec pre
 Normal truth.
 
 > A regular quote.`;
-  const split = splitGraduationHistory(body);
-  assert.equal(split.entries.length, 2);
-  assert.match(split.before, /# Architecture/);
-  assert.match(split.after, /Normal truth/);
-  assert.match(split.after, /> A regular quote/);
-});
-
-test('125850 CR6: non-provenance blockquotes remain untouched', () => {
-  const body = '# Architecture\n\n> A regular quote.\n\nTruth.';
-  assert.deepEqual(splitGraduationHistory(body), { before: '', entries: [], after: body });
+  const host = parse(specBody(body, []));
+  assert.equal(host.querySelector('details.graduation-history'), null);
+  assert.match(host.textContent, /Graduado del change 20260613-120000/);
+  assert.match(host.textContent, /Normal truth/);
+  assert.match(host.textContent, /A regular quote/);
 });
 
 test('125850 CR7/CR8: table cells have explicit wrapping roles and a safe status badge', () => {
@@ -766,20 +761,16 @@ test('125850 CR9: sort indicator is a bounded SVG icon', () => {
   assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
 });
 
-test('125850 CR6: spec body renders graduation entries inside a collapsed details list', () => {
+test('111457 CR8: spec body renders structured graduation ids inside a collapsed details list', () => {
   const host = parse(
-    specBody(`# Architecture
-
-> Graduado del change 20260613-120000 (first).
-> Graduado del change 20260613-120001 (second).
-
-Persistent truth.`),
+    specBody('# Architecture\n\nPersistent truth.', ['20260613-120000', '20260613-120001']),
   );
   const details = host.querySelector('details.graduation-history');
   assert.ok(details);
   assert.equal(details.open, false);
   assert.equal(details.querySelector('.history-count').textContent, '2');
   assert.equal(details.querySelectorAll('li').length, 2);
+  assert.match(details.textContent, /20260613-120000/);
   assert.match(host.textContent, /Persistent truth/);
 });
 

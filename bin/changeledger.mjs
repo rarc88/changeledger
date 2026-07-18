@@ -171,9 +171,14 @@ program
   .description('repair mechanical, unambiguous format defects (or one change)')
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
+  .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
   .action((id, options) => {
     try {
-      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
+      const args = [
+        ...(id ? [id] : []),
+        ...(options.dryRun ? ['--dry-run'] : []),
+        ...(options.graduationLinks ? ['--graduation-links'] : []),
+      ];
       process.exit(fix(args));
     } catch (e) {
       console.error(`Error: ${e.message}`);

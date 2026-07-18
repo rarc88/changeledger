@@ -749,7 +749,7 @@ function openSpec(s) {
       <span class="pill" title=${s.updated || ''}>${fmtDateTime(s.updated)}</span>
       ${(s.tags || []).map((t) => html`<span class="pill">${t}</span>`)}
     </div>
-    ${specBody(s.body)}`,
+    ${specBody(s.body, s.graduated_from)}`,
   );
   const overlay = $('#overlay');
   overlay.classList.remove('hidden');

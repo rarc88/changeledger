@@ -403,7 +403,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger list --pending archive/],
     ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
-    ['close', /graduation link remains derivable from the Log marker/],
+    ['close', /`--into` records the same link in both directions/],
+    ['close', /target spec appends the change id to `graduated_from`/],
+    ['close', /changeledger fix --graduation-links/],
     ['close', /`graduado a spec`/],
     ['close', /seed from the change's Specification or Proposal/],
     ['close', /remove the explicit scaffold marker/],
@@ -502,7 +504,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // `archived: false` frontmatter edit. Rule preserved, not retired.
     // 20260716-131649: listing unresolved graduation and archive candidates is
     // replaced by canonical `list --pending` queries; closure actions remain.
-    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
+    // 20260718-111457: the Log-only graduation rule is replaced by the
+    // bidirectional Log + graduated_from invariant and its explicit migration;
+    // the closure modes, reviewed semantics and commit recipe are preserved.
+    'close.md': '6bb4d85138ac861c03ef0d0c7471b506dd51e2e8ac2ab7a30a50083a1743f478',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now

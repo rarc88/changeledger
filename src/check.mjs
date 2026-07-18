@@ -256,14 +256,15 @@ function checkCriteria(c, criteria, err) {
   }
 }
 
-// Validates the spec layer and its links to changes. `graduate` records two
-// markers: in the change Log `graduado a spec \`<file>\``, and in the spec body
-// `Graduado del change <id>`.
+// Validates the spec layer and its bidirectional links to changes. `graduate`
+// records the event in the change Log and the durable provenance in the spec's
+// `graduated_from` frontmatter; neither direction is sufficient on its own.
 function checkSpecs(changes, specs, changeIds, err, warn) {
   const specNames = new Set(specs.map((s) => s.name));
 
   // change → spec links (from each change's Log graduation marker).
-  const incoming = new Set(); // spec names a change graduated to
+  const incomingBySpec = new Map(); // spec name → change ids that graduated to it
+  const destinationsByChange = new Map(); // change id → spec names named by its Log
   const activityBySpec = new Map(); // spec name → latest linked-change activity
   for (const c of changes) {
     for (const m of graduationMarkers(c)) {
@@ -273,7 +274,11 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
         err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
-      incoming.add(specName);
+      const changeId = String(c.frontmatter?.id);
+      if (!incomingBySpec.has(specName)) incomingBySpec.set(specName, new Set());
+      incomingBySpec.get(specName).add(changeId);
+      if (!destinationsByChange.has(changeId)) destinationsByChange.set(changeId, new Set());
+      destinationsByChange.get(changeId).add(specName);
       const prev = activityBySpec.get(specName);
       if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
     }
@@ -283,16 +288,25 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
     const fm = s.frontmatter ?? {};
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
-    // spec → change backlinks.
-    let hasValidBacklink = false;
-    for (const m of String(s.body ?? '').matchAll(/Graduado del change\s+(\d{8}-\d{6})/gi)) {
-      if (changeIds.has(m[1])) hasValidBacklink = true;
-      else err(s, `references a missing change "${m[1]}"`);
+    let graduatedFrom = [];
+    if ('graduated_from' in fm) {
+      if (!Array.isArray(fm.graduated_from)) err(s, 'graduated_from must be a list');
+      else graduatedFrom = fm.graduated_from.map(String);
+    }
+    const listed = new Set(graduatedFrom);
+    for (const changeId of graduatedFrom) {
+      if (!changeIds.has(changeId)) {
+        err(s, `graduated_from references missing change "${changeId}"`);
+      } else if (!destinationsByChange.get(changeId)?.has(s.name)) {
+        err(s, `graduated_from "${changeId}" does not link back to spec "${s.name}"`);
+      }
     }
 
-    if (!incoming.has(s.name) && !hasValidBacklink) {
-      warn(s, 'orphan spec (no change graduated it)');
+    const incoming = incomingBySpec.get(s.name) ?? new Set();
+    for (const changeId of incoming) {
+      if (!listed.has(changeId)) err(s, `spec "${s.name}" missing graduated_from "${changeId}"`);
     }
+    if (!incoming.size) warn(s, 'orphan spec (no change graduated it)');
 
     const activity = activityBySpec.get(s.name);
     if (fm.updated && ISO_UTC.test(fm.updated) && activity && activity > fm.updated) {

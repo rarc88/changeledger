@@ -2,6 +2,7 @@
 title: Política de dependencias
 updated: 2026-07-01T23:21:38Z
 tags: [ dependencies ]
+graduated_from: ["20260630-225211"]
 ---
 
 ## Política de dependencias

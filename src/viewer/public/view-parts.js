@@ -107,43 +107,19 @@ export function validationPanel() {
   </section>`;
 }
 
-export function splitGraduationHistory(body) {
-  const lines = String(body ?? '').split('\n');
-  let cursor = 0;
-  while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  if (/^#\s+/.test(lines[cursor] ?? '')) {
-    cursor += 1;
-    while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  }
-  const start = cursor;
-  const entries = [];
-  while (/^>\s+Graduado del change\s+/.test(lines[cursor] ?? '')) {
-    entries.push(lines[cursor].replace(/^>\s+/, ''));
-    cursor += 1;
-  }
-  if (!entries.length) return { before: '', entries: [], after: String(body ?? '') };
-  while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  return {
-    before: lines.slice(0, start).join('\n').trim(),
-    entries,
-    after: lines.slice(cursor).join('\n'),
-  };
-}
-
-export function specBody(body) {
-  const { before, entries, after } = splitGraduationHistory(body);
-  if (!entries.length) return html`<div class="stage-content">${markdownHtml(after)}</div>`;
+export function specBody(body, graduatedFrom = []) {
+  const entries = Array.isArray(graduatedFrom) ? graduatedFrom : [];
+  if (!entries.length) return html`<div class="stage-content">${markdownHtml(body)}</div>`;
   return html`<div class="stage-content spec-content">
-    ${before ? markdownHtml(before) : nothing}
     <details class="graduation-history">
       <summary>
         <span class="history-icon" aria-hidden="true">↳</span>
         <span>Graduation history</span>
         <span class="history-count">${entries.length}</span>
       </summary>
-      <ol>${entries.map((entry) => html`<li>${entry}</li>`)}</ol>
+      <ol>${entries.map((id) => html`<li>${id}</li>`)}</ol>
     </details>
-    ${markdownHtml(after)}
+    ${markdownHtml(body)}
   </div>`;
 }
 

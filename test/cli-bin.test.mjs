@@ -81,6 +81,13 @@ test('131649 CR8: graduate help contains only mutation modes and points to list'
   assert.match(out, /changeledger list --pending graduation/);
 });
 
+test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', () => {
+  const { code, out } = run('fix', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /--graduation-links/);
+  assert.match(out, /--dry-run/);
+});
+
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));

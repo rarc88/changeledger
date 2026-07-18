@@ -71,7 +71,7 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **Then** `changeledger check` falla respectivamente con `graduated_from must be a list`, `graduated_from references missing change "<id>"`, `spec "<file>" missing graduated_from "<id>"` o `graduated_from "<id>" does not link back to spec "<file>"`
 
 ### CR5 — Migrar marcadores históricos y enlaces ausentes
-- **Given** una spec con blockquotes `Graduado del change A` y `Graduado del change B`, más un change `C` cuyo Log gradúa a esa spec pero sin blockquote
+- **Given** una spec con blockquotes `Graduado del change A` y `Actualizado por el change B`, más un change `C` cuyo Log gradúa a esa spec pero sin blockquote
 - **When** se ejecuta `changeledger fix --graduation-links`
 - **Then** la spec contiene `graduated_from: ["A", "B", "C"]`, ordenado por los timestamps de graduación disponibles
 - **And** elimina los blockquotes históricos que ya fueron representados en el frontmatter
@@ -99,10 +99,10 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 ## Plan
 
 - [x] Escribir primero tests del writer y de graduación, añadir `graduated_from: []` al scaffold y actualizarlo idempotentemente en `src/commands/graduate.mjs` y `src/writer.mjs`; verify: `node --test test/graduate.test.mjs test/writer.test.mjs` (CR1, CR2, CR3) — 2026-07-18T11:22:49Z
-- [ ] Escribir primero tests bidireccionales y endurecer `checkSpecs()` en `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR4)
-- [ ] Escribir primero fixtures de migración y extender `src/commands/fix.mjs` y `bin/changeledger.mjs` con `fix --graduation-links [--dry-run]`; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR5, CR6, CR7)
-- [ ] Retirar el parser de frases en `src/viewer/public/view-parts.js`, exponer `graduated_from` desde `src/viewer/domain.mjs` y actualizar `templates/contract/close.md`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/context.test.mjs` (CR8)
-- [ ] Migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`; verify: `node bin/changeledger.mjs check` (CR5, CR8)
+- [x] Escribir primero tests bidireccionales y endurecer `checkSpecs()` en `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR4) — 2026-07-18T11:24:51Z
+- [x] Escribir primero fixtures de migración y extender `src/commands/fix.mjs` y `bin/changeledger.mjs` con `fix --graduation-links [--dry-run]`; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR5, CR6, CR7) — 2026-07-18T11:33:22Z
+- [x] Retirar el parser de frases en `src/viewer/public/view-parts.js`, exponer `graduated_from` desde `src/viewer/domain.mjs` y actualizar `templates/contract/close.md`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/context.test.mjs` (CR8) — 2026-07-18T11:35:39Z
+- [x] Migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`; verify: `node bin/changeledger.mjs check` (CR5, CR8) — 2026-07-18T11:35:49Z
 - [ ] Ejecutar el gate completo `pnpm verify` (support)
 
 ## Log
@@ -111,3 +111,5 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **2026-07-18T11:18:35Z** — status: draft → approved
 - **2026-07-18T11:20:04Z** — status: approved → in-progress
 - **2026-07-18T11:20:04Z** — owner → Roberto Ruiz (auto)
+- **2026-07-18T11:25:32Z** — El pre-commit bloqueó el commit del checker bidireccional porque las specs dogfood aún carecen de graduated_from; se integra con el migrador y la migración antes del siguiente commit.
+- **2026-07-18T11:35:00Z** — El dry-run dogfood confirmó que el bloque histórico también contiene `Actualizado por el change`; se incorpora como variante legacy necesaria para migrar toda la procedencia ya registrada.
