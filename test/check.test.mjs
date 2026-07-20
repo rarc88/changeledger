@@ -127,6 +127,36 @@ test('CR5: dependency cycle is an error', () => {
   assert.ok(msgs(run([a, b]).errors).some((m) => /dependency cycle/.test(m)));
 });
 
+test('105456 CR1/CR3: related_to is non-blocking and permits external references and cycles', () => {
+  const a = change({
+    frontmatter: {
+      id: '20260613-120000',
+      related_to: ['20260613-130000', 'other:20260101-000000'],
+    },
+  });
+  const b = change({
+    frontmatter: { id: '20260613-130000', related_to: ['20260613-120000'] },
+  });
+  assert.deepEqual(run([a, b]).errors, []);
+});
+
+test('105456 CR2: related_to validates list, local destination and self-reference', () => {
+  const invalidList = change({ frontmatter: { related_to: '20260613-130000' } });
+  assert.ok(msgs(run([invalidList]).errors).includes('related_to must be a list'));
+
+  const missing = change({ frontmatter: { related_to: ['20260613-130000'] } });
+  assert.ok(
+    msgs(run([missing]).errors).includes('related_to references missing change "20260613-130000"'),
+  );
+
+  const self = change({ frontmatter: { related_to: ['20260613-120000'] } });
+  assert.ok(
+    msgs(run([self]).errors).includes(
+      'related_to cannot reference its own change "20260613-120000"',
+    ),
+  );
+});
+
 test('CR6: duplicate ids are an error', () => {
   const a = change();
   const b = change({ name: '20260613-120000-y.md' });
@@ -389,7 +419,7 @@ test('212836 CR3: real graduation markers in Log are still validated', () => {
 });
 
 test('CR1: a spec referencing a missing change is an error', () => {
-  const s = spec({ body: 'Graduado del change 20990101-000000' });
+  const s = spec({ frontmatter: { graduated_from: ['20990101-000000'] } });
   assert.ok(
     msgs(runS([change()], [s]).errors).some((m) => /missing change "20990101-000000"/.test(m)),
   );
@@ -402,10 +432,46 @@ test('CR2: a spec with no link is an orphan warning, not an error', () => {
 });
 
 test('CR2: a spec backlinked to an existing change is not orphan', () => {
-  const c = change({ frontmatter: { id: '20260613-120000' } });
-  const s = spec({ body: 'Graduado del change 20260613-120000' });
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+    ],
+  });
+  const s = spec({ frontmatter: { graduated_from: ['20260613-120000'] } });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /orphan/.test(m)),
+    [],
+  );
+});
+
+test('111457 CR9: one change can link bidirectionally to multiple curated specs', () => {
+  const id = '20260613-120000';
+  const c = change({
+    frontmatter: { id },
+    stages: [
+      { key: 'request' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: [
+          '- **2026-06-13T12:00:00Z** — graduado a spec `lifecycle.md`',
+          '- **2026-06-13T12:00:00Z** — graduado a spec `metrics.md`',
+        ].join('\n'),
+      },
+    ],
+  });
+  const specs = [
+    spec({ name: 'lifecycle.md', frontmatter: { graduated_from: [id] } }),
+    spec({ name: 'metrics.md', frontmatter: { graduated_from: [id] } }),
+  ];
+  const { errors, warnings } = runS([c], specs);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    msgs(warnings).filter((message) => /orphan/.test(message)),
     [],
   );
 });
@@ -424,7 +490,12 @@ test('CR3: a stale updated is a warning', () => {
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
 });
 
@@ -446,7 +517,12 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /older than linked change activity/.test(m)),
     [],
@@ -456,6 +532,49 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
 test('CR3: a non-ISO updated is an error', () => {
   const s = spec({ frontmatter: { updated: '2026-06-13' } });
   assert.ok(msgs(runS([change()], [s]).errors).some((m) => /updated not ISO/.test(m)));
+});
+
+test('111457 CR4: graduated_from must be a list', () => {
+  const s = spec({ frontmatter: { graduated_from: '20260613-120000' } });
+  assert.ok(msgs(runS([change()], [s]).errors).includes('graduated_from must be a list'));
+});
+
+test('111457 CR4: a spec must name every change whose Log graduates into it', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+    ],
+  });
+  assert.ok(
+    msgs(runS([c], [spec({ frontmatter: { graduated_from: [] } })]).errors).includes(
+      'spec "arch.md" missing graduated_from "20260613-120000"',
+    ),
+  );
+});
+
+test('111457 CR4: graduated_from must link back to the same spec', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `other.md`' },
+    ],
+  });
+  const specs = [
+    spec({ frontmatter: { graduated_from: ['20260613-120000'] } }),
+    spec({ name: 'other.md', frontmatter: { graduated_from: ['20260613-120000'] } }),
+  ];
+  assert.ok(
+    msgs(runS([c], specs).errors).includes(
+      'graduated_from "20260613-120000" does not link back to spec "arch.md"',
+    ),
+  );
 });
 
 test('CR1: a duplicate stage is an error', () => {

@@ -72,5 +72,5 @@ tarde.
 - **2026-06-16T15:20:34Z** — Fixed parser interaction by reading task suffixes from the last em dash separator; node --test test/change.test.mjs test/check.test.mjs and sl check passed.
 - **2026-06-16T15:20:34Z** — status: in-progress → in-review
 - **2026-06-16T15:21:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:21:36Z** — graduado a spec `architecture.md`
+- **2026-06-16T15:21:36Z** — graduado a spec `validation.md`
 - **2026-06-16T21:19:25Z** — archived

@@ -62,5 +62,5 @@ Refactorizar solo la presentación del contrato canónico:
 - **2026-06-26T17:47:59Z** — status: in-progress → in-review
 - **2026-06-26T17:52:47Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-26T23:19:02Z** — validation → done (human accepted)
-- **2026-06-26T23:20:45Z** — graduado a spec `architecture.md`
+- **2026-06-26T23:20:45Z** — graduado a spec `contract-discovery.md`
 - **2026-06-26T23:21:11Z** — archived

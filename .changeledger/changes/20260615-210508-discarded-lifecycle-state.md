@@ -121,5 +121,5 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 - **2026-06-15T21:30:55Z** — retry: grafo respeta showDiscarded vía predicado compartido passesTombstones (board/table/graph ya no divergen) (CR6)
 - **2026-06-15T21:31:02Z** — status: in-progress → in-review
 - **2026-06-15T21:33:59Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T21:34:35Z** — graduado a spec `architecture.md`
+- **2026-06-15T21:34:35Z** — graduado a spec `lifecycle.md`
 - **2026-06-16T21:19:24Z** — archived

@@ -95,5 +95,5 @@ obligatorio:
 - **2026-06-17T16:24:47Z** — owner → Roberto Ruiz (auto)
 - **2026-06-17T16:25:47Z** — status: in-progress → in-review
 - **2026-06-17T16:26:30Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T16:26:53Z** — graduado a spec `architecture.md`
+- **2026-06-17T16:26:53Z** — graduado a spec `git-traceability.md`
 - **2026-06-17T16:27:34Z** — archived

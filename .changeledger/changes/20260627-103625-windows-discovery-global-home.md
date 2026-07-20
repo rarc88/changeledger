@@ -71,5 +71,5 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 - **2026-06-27T10:40:39Z** — status: in-progress → in-review
 - **2026-06-27T10:42:02Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-27T10:43:15Z** — validation → done (human accepted)
-- **2026-06-27T10:44:24Z** — graduado a spec `architecture.md`
+- **2026-06-27T10:44:24Z** — graduado a spec `contract-discovery.md`
 - **2026-06-27T10:44:24Z** — archived

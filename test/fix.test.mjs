@@ -67,6 +67,62 @@ function output() {
   };
 }
 
+function graduationRepo({ ambiguous = false } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-fix-graduation-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const specsDir = path.join(root, '.changeledger', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  const events = [
+    ['20260614-090000', '2026-06-14T09:00:00Z'],
+    ['20260614-100000', '2026-06-14T10:00:00Z'],
+    ['20260614-110000', '2026-06-14T11:00:00Z'],
+  ];
+  for (const [id, timestamp] of events) {
+    fs.writeFileSync(
+      path.join(changesDir, `${id}-fixture.md`),
+      `---
+id: "${id}"
+title: Change ${id}
+type: chore
+status: done
+created: ${timestamp}
+depends_on: []
+---
+
+## Request
+
+Fixture.
+
+## Plan
+
+## Log
+
+- **${timestamp}** — graduado a spec \`${ambiguous && id === events[0][0] ? 'other.md' : 'arch.md'}\`
+`,
+    );
+  }
+  const specFile = path.join(specsDir, 'arch.md');
+  fs.writeFileSync(
+    specFile,
+    `---
+title: Arch
+updated: 2026-06-14T12:00:00Z
+tags: [architecture]
+---
+
+## Arch
+
+> Graduado del change 20260614-090000 (first).
+> Actualizado por el change 20260614-100000 (second).
+
+Durable body.
+`,
+  );
+  return { root, specFile };
+}
+
 test('CR1: reorders a misplaced verify suffix before the CR block', () => {
   const { root, file, id } = repo('- [ ] Update src/foo.mjs (CR1) — verify: pnpm test');
   const out = output();
@@ -132,4 +188,38 @@ test('CR4: a task referencing an unknown criterion is left untouched and flagged
   assert.ok(text.includes(line), 'unknown-criterion line must not be modified');
   assert.ok(out.lines.some((l) => l.includes('requires manual fix')));
   assert.ok(out.lines.some((l) => l.includes('CR9')));
+});
+
+test('111457 CR5: --graduation-links migrates legacy and Log provenance in order', () => {
+  const { root, specFile } = graduationRepo();
+  const out = output();
+  assert.equal(fix(['--graduation-links'], root, out), 0);
+  const text = fs.readFileSync(specFile, 'utf8');
+  assert.match(
+    text,
+    /^graduated_from: \["20260614-090000", "20260614-100000", "20260614-110000"\]$/m,
+  );
+  assert.doesNotMatch(text, /(?:Graduado del|Actualizado por el) change/);
+  assert.match(text, /## Arch\n\nDurable body\.\n$/);
+});
+
+test('111457 CR6: --graduation-links --dry-run prints the exact spec diff without writing', () => {
+  const { root, specFile } = graduationRepo();
+  const before = fs.readFileSync(specFile, 'utf8');
+  const out = output();
+  assert.equal(fix(['--graduation-links', '--dry-run'], root, out), 0);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before);
+  assert.ok(out.lines.some((line) => line.includes('--- arch.md (dry run)')));
+  assert.ok(out.lines.some((line) => line.includes('+ graduated_from:')));
+  assert.ok(out.lines.some((line) => line.includes('- > Graduado del change')));
+});
+
+test('111457 CR7: ambiguous legacy provenance fails without modifying any spec', () => {
+  const { root, specFile } = graduationRepo({ ambiguous: true });
+  const before = fs.readFileSync(specFile, 'utf8');
+  const out = output();
+  assert.equal(fix(['--graduation-links'], root, out), 1);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before);
+  assert.ok(out.lines.some((line) => line.includes('arch.md')));
+  assert.ok(out.lines.some((line) => line.includes('20260614-090000')));
 });

@@ -1,22 +1,11 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-11T21:51:56Z
+updated: 2026-07-18T12:35:18Z
 tags: [ viewer ]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457"]
 ---
 
 ## Presentación
-
-> Graduado del change 20260616-151234 (resolución segura de assets estáticos).
-> Graduado del change 20260616-212309 (tests del viewer sin socket local).
-> Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
-> Graduado del change 20260627-111219 (persistencia del estado del viewer).
-> Graduado del change 20260627-215619 (navegación entre specs por enlaces).
-> Graduado del change 20260628-113924 (editor amigable y migración de config).
-> Actualizado por el change 20260703-150228 (layout y ancho configurables del detalle).
-> Actualizado por el change 20260703-220013 (ancho responsive y wrapping del board).
-> Actualizado por el change 20260711-155720 (Specs en grid rico a ancho completo).
-> Actualizado por el change 20260711-155721 (Metrics filtradas, throughput SVG y cuadrantes).
-> Actualizado por el change 20260711-155722 (Projects a ancho completo con scroll por panel).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -59,8 +48,9 @@ badge delineado distinto del type sólido. Los details presentan la validación
 humana como una única acción pendiente (controles deshabilitados durante el
 request y cierre al éxito), usan controles de cierre consistentes y convierten
 cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
-el bloque inicial de procedencia `Graduado del change …` se agrupa en un historial
-colapsable sin reinterpretar otros blockquotes ni relajar la sanitización.
+el frontmatter estructurado `graduated_from` se presenta como un historial
+colapsable cuyos ids abren el change correspondiente, sin reinterpretar el
+cuerpo Markdown ni relajar la sanitización.
 
 La pestaña **Specs** dispone las cards en un grid responsive a ancho completo
 (al menos 3 columnas desde 1280 px, una columna bajo 680 px), ordenadas por

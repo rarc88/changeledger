@@ -2,6 +2,7 @@
 title: Releases portables
 updated: 2026-06-28T22:02:31Z
 tags: [ releases ]
+graduated_from: ["20260628-215632"]
 ---
 
 ## Releases portables

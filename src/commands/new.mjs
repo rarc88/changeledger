@@ -155,6 +155,7 @@ function render({ id, title, type, owner, stages, now }) {
     'status: draft',
     `created: ${now}`,
     'depends_on: []',
+    'related_to: []',
     ...(owner ? [`owner: ${serializeScalar(owner)}`] : []),
     '---',
     '',

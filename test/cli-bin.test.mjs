@@ -81,6 +81,13 @@ test('131649 CR8: graduate help contains only mutation modes and points to list'
   assert.match(out, /changeledger list --pending graduation/);
 });
 
+test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', () => {
+  const { code, out } = run('fix', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /--graduation-links/);
+  assert.match(out, /--dry-run/);
+});
+
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
@@ -277,8 +284,39 @@ test('131649 CR9: archive help keeps the action and points preview to list', () 
   const { code, out } = run('archive', '-h');
   assert.equal(code, 0);
   assert.match(out, /--graduated/);
+  assert.match(out, /--owner <name>/);
+  assert.match(out, /--unowned/);
   assert.doesNotMatch(out, /^\s+--dry-run\b/m);
-  assert.match(out, /changeledger list --pending archive/);
+  assert.match(out, /changeledger list --pending archive --owner "Roberto Ruiz"/);
+  assert.match(out, /changeledger archive --graduated --owner "Roberto Ruiz"/);
+  assert.doesNotMatch(run('release', '-h').out, /--owner/);
+});
+
+test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combinations', () => {
+  const { root, env, id, changeFile } = doneRepo();
+  const candidate = `${fs
+    .readFileSync(changeFile, 'utf8')
+    .replace(
+      'status: done',
+      'status: done\nreviewed: true\nowner: Roberto Ruiz',
+    )}\n## Log\n\n- **2026-07-18T12:00:00Z** — graduation skipped: no durable truth\n`;
+  assert.match(candidate, /graduation skipped: no durable truth/);
+  fs.writeFileSync(changeFile, candidate);
+
+  assert.match(runIn(root, env, 'archive', '--graduated', '--owner', 'Ana').out, /Archived 0/);
+  assert.equal(runIn(root, env, 'show', id, '--json').out.includes('"archived": true'), false);
+  assert.match(
+    runIn(root, env, 'archive', '--graduated', '--owner', 'Roberto Ruiz').out,
+    /Archived 1/,
+  );
+  assert.match(runIn(root, env, 'show', id, '--json').out, /"archived": true/);
+
+  const conflict = runIn(root, env, 'archive', '--graduated', '--owner', 'Ana', '--unowned');
+  assert.equal(conflict.code, 1);
+  assert.match(conflict.err, /--owner and --unowned are mutually exclusive/);
+  const scopedId = runIn(root, env, 'archive', id, '--owner', 'Ana');
+  assert.equal(scopedId.code, 1);
+  assert.match(scopedId.err, /--owner and --unowned require --graduated/);
 });
 
 test('131649 CR3/CR4/CR6/CR10: list help documents its complete filter domain', () => {

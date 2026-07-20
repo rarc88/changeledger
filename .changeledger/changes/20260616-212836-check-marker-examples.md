@@ -59,5 +59,5 @@ integridad change↔spec.
 - **2026-06-17T10:14:56Z** — owner → Roberto Ruiz (auto)
 - **2026-06-17T10:16:20Z** — status: in-progress → in-review
 - **2026-06-17T10:18:05Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:18:10Z** — graduado a spec `architecture.md`
+- **2026-06-17T10:18:10Z** — graduado a spec `lifecycle.md`
 - **2026-06-17T15:23:05Z** — archived

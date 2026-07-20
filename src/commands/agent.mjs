@@ -245,13 +245,30 @@ export function archive(id, cwd = process.cwd()) {
   return file;
 }
 
-export function archiveGraduated(cwd = process.cwd()) {
+function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {
+  if (byOwner !== undefined && unowned) {
+    throw new Error('--owner and --unowned are mutually exclusive');
+  }
+}
+
+function matchesOwner(c, { owner: byOwner, unowned = false } = {}) {
+  if (byOwner !== undefined && c.frontmatter.owner !== byOwner) return false;
+  if (unowned && c.frontmatter.owner != null) return false;
+  return true;
+}
+
+export function selectArchivableGraduated(changes, filters = {}) {
+  assertOwnerFilter(filters);
+  return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
+}
+
+export function archiveGraduated(filters = {}, cwd = process.cwd()) {
   const { changes } = loadRepo(cwd);
-  const selected = changes.filter((c) => isArchivableGraduated(c));
+  const selected = selectArchivableGraduated(changes, filters);
   for (const c of selected) {
     mutateFileAtomic(c.file, (text) => {
       const current = { ...parseChange(text), text };
-      if (!isArchivableGraduated(current)) return undefined;
+      if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) return undefined;
       text = setArchived(text, true);
       return appendLog(text, nowUtc(), 'archived');
     });
@@ -307,22 +324,26 @@ export function list(
   } = {},
   cwd = process.cwd(),
 ) {
-  if (byOwner && unowned) throw new Error('--owner and --unowned are mutually exclusive');
+  assertOwnerFilter({ owner: byOwner, unowned });
   if (archived && all) throw new Error('--archived and --all are mutually exclusive');
   if (pending && !['graduation', 'archive'].includes(pending)) {
     throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
   }
 
-  return loadRepo(cwd)
-    .changes.filter((c) => {
+  let candidates = loadRepo(cwd).changes;
+  if (pending === 'archive') {
+    candidates = selectArchivableGraduated(candidates, { owner: byOwner, unowned });
+  }
+
+  return candidates
+    .filter((c) => {
       const fm = c.frontmatter;
       if (!all && archived !== (fm.archived === true)) return false;
       if (byStatus && fm.status !== byStatus) return false;
       if (byType && fm.type !== byType) return false;
-      if (byOwner && fm.owner !== byOwner) return false;
+      if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
       if (pending === 'graduation' && !(fm.status === 'done' && fm.reviewed !== true)) return false;
-      if (pending === 'archive' && !isArchivableGraduated(c)) return false;
       return true;
     })
     .map((c) => ({

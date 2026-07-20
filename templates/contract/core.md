@@ -120,8 +120,8 @@ context already read; it never repeats it.
 Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
-- `changeledger list --pending graduation`: find accepted changes whose graduation decision is unresolved.
-- `changeledger list --pending archive`: find graduated or skipped changes ready to archive.
+- `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
+- `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.

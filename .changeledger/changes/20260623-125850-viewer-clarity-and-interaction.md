@@ -198,5 +198,5 @@ actual.
 - **2026-06-23T14:31:33Z** — status: in-progress → in-review
 - **2026-06-23T14:32:43Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-23T14:33:36Z** — validation → done (human accepted)
-- **2026-06-23T14:34:36Z** — graduado a spec `architecture.md`
+- **2026-06-23T14:34:36Z** — graduado a spec `viewer.md`
 - **2026-06-23T14:47:35Z** — archived

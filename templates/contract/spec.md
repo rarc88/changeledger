@@ -45,10 +45,18 @@ type: feature                  # feature | bug | audit | refactor | chore | quic
 status: draft                  # lifecycle value
 created: 2026-06-13T13:45:48Z # full ISO 8601 UTC
 depends_on: []                 # change ids or external project:id refs
+related_to: []                 # optional non-blocking discovery links
 owner: ana                     # optional
 release_impact: minor          # optional: none | patch | minor | major
 ---
 ```
+
+Use `depends_on` only for execution prerequisites: dependencies can block
+lifecycle progress and participate in cycle validation. Use optional
+`related_to` for useful context that must not impose execution order or affect
+readiness. Both fields accept local change ids and external `project:id`
+references. Declare a local relation once; ChangeLedger derives its incoming
+backlink when presenting the related changes.
 
 `owner` means responsibility for the change. On `approved → in-progress`, it is
 assigned when absent from the GitHub login (`gh api user --jq .login`), falling
@@ -94,9 +102,12 @@ and `[#id]` commit marker as any other type, skipping only `in-review`. If
 scope grows mid-execution beyond that eligibility, discard the change and
 recreate it under the correct type instead of continuing under `quick`.
 
-Before writing Investigation, run `changeledger search <terms from the request>`
-and record anything relevant as `depends_on` or a mention — do not rediscover
-work another change or spec already covers.
+Before writing Investigation, run `changeledger search <terms from the request>`;
+during Investigation, classify every relevant result from `changeledger search`:
+an execution prerequisite becomes `depends_on`, useful context without execution
+order becomes `related_to`, and unstructured nuance stays a textual mention.
+Declare a local relation once; its incoming backlink is derived. Do not
+rediscover work another change or spec already covers.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.

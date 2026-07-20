@@ -107,43 +107,57 @@ export function validationPanel() {
   </section>`;
 }
 
-export function splitGraduationHistory(body) {
-  const lines = String(body ?? '').split('\n');
-  let cursor = 0;
-  while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  if (/^#\s+/.test(lines[cursor] ?? '')) {
-    cursor += 1;
-    while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  }
-  const start = cursor;
-  const entries = [];
-  while (/^>\s+Graduado del change\s+/.test(lines[cursor] ?? '')) {
-    entries.push(lines[cursor].replace(/^>\s+/, ''));
-    cursor += 1;
-  }
-  if (!entries.length) return { before: '', entries: [], after: String(body ?? '') };
-  while (cursor < lines.length && !lines[cursor].trim()) cursor += 1;
-  return {
-    before: lines.slice(0, start).join('\n').trim(),
-    entries,
-    after: lines.slice(cursor).join('\n'),
-  };
+function resolvedReference(entry, changes) {
+  const id = String(entry?.id ?? entry);
+  const external = id.includes(':');
+  const change = external ? undefined : changes.find((candidate) => String(candidate.id) === id);
+  return { id, external, change, direction: entry?.direction };
 }
 
-export function specBody(body) {
-  const { before, entries, after } = splitGraduationHistory(body);
-  if (!entries.length) return html`<div class="stage-content">${markdownHtml(after)}</div>`;
+export function referenceDetails(label, entries = [], changes = [], icon = '↳') {
+  const refs = entries.map((entry) => resolvedReference(entry, changes));
+  if (!refs.length) return nothing;
+  return html`<details class="change-references">
+    <summary>
+      <span class="reference-icon" aria-hidden="true">${icon}</span>
+      <span>${label}</span>
+      <span class="reference-count">${refs.length}</span>
+    </summary>
+    <div class="reference-list">${refs.map(({ id, external, change, direction }) => {
+      const attrs = external ? { external: id } : change ? { change: id } : {};
+      const content = html`
+        <span class="reference-id">#${id}</span>
+        <span class="reference-copy">
+          <strong>${change?.title ?? (external ? 'External change' : 'Unavailable')}</strong>
+          <small>
+            ${direction ? html`<span>${direction}</span>` : nothing}
+            ${
+              change
+                ? html`<span>${change.type}</span><span>${change.status}</span>${
+                    change.owner ? html`<span>@${change.owner}</span>` : nothing
+                  }`
+                : html`<span>${external ? 'external' : 'unavailable'}</span>`
+            }
+          </small>
+        </span>`;
+      return change || external
+        ? html`<button
+            type="button"
+            class=${`reference-row${external ? ' external' : ''}`}
+            data-change=${attrs.change ?? nothing}
+            data-external=${attrs.external ?? nothing}
+          >${content}</button>`
+        : html`<div class="reference-row unavailable">${content}</div>`;
+    })}</div>
+  </details>`;
+}
+
+export function specBody(body, graduatedFrom = [], changes = []) {
+  const entries = Array.isArray(graduatedFrom) ? graduatedFrom : [];
+  if (!entries.length) return html`<div class="stage-content">${markdownHtml(body)}</div>`;
   return html`<div class="stage-content spec-content">
-    ${before ? markdownHtml(before) : nothing}
-    <details class="graduation-history">
-      <summary>
-        <span class="history-icon" aria-hidden="true">↳</span>
-        <span>Graduation history</span>
-        <span class="history-count">${entries.length}</span>
-      </summary>
-      <ol>${entries.map((entry) => html`<li>${entry}</li>`)}</ol>
-    </details>
-    ${markdownHtml(after)}
+    ${referenceDetails('Graduation history', entries, changes, '↳')}
+    ${markdownHtml(body)}
   </div>`;
 }
 

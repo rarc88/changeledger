@@ -96,5 +96,5 @@ changes aprobados vuelven a ser demasiado ambiguos para implementación TDD.
 - **2026-06-17T10:12:41Z** — status: in-progress → in-review
 - **2026-06-17T10:14:17Z** — review clarification: architecture.md still contains preexisting metrics graduation edits from 20260616-210825; scope for this change is only configurable readiness
 - **2026-06-17T10:14:29Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:14:33Z** — graduado a spec `architecture.md`
+- **2026-06-17T10:14:33Z** — graduado a spec `readiness.md`
 - **2026-06-17T15:23:05Z** — archived

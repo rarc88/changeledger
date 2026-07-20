@@ -1,16 +1,11 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-07-16T13:39:26Z
+updated: 2026-07-18T12:35:18Z
 tags: [ data-model ]
+graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457"]
 ---
 
 ## Modelo de datos
-
-> Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
-> Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
-> Graduado del change 20260616-162020 (normalización compartida de slugs).
-> Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
-> Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
@@ -18,7 +13,7 @@ tags: [ data-model ]
   de vida (ver **Ciclo de vida y gate de revisión**). Tareas en `## Plan` como
   checklist (`[ ]`/`[x]`/`[!]`).
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
-  `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
+  `updated`, `tags`, `graduated_from`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
 - **release**: manifiesto YAML inmutable en `.changeledger/releases/<version>.yml` con
   versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva

@@ -171,9 +171,14 @@ program
   .description('repair mechanical, unambiguous format defects (or one change)')
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
+  .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
   .action((id, options) => {
     try {
-      const args = [...(id ? [id] : []), ...(options.dryRun ? ['--dry-run'] : [])];
+      const args = [
+        ...(id ? [id] : []),
+        ...(options.dryRun ? ['--dry-run'] : []),
+        ...(options.graduationLinks ? ['--graduation-links'] : []),
+      ];
       process.exit(fix(args));
     } catch (e) {
       console.error(`Error: ${e.message}`);
@@ -479,6 +484,8 @@ program
   .description('hide a change in the viewer, or archive all graduated done changes')
   .argument('[id]', 'a change id; mutually exclusive with --graduated')
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
+  .option('--owner <name>', 'with --graduated, filter by exact owner name')
+  .option('--unowned', 'with --graduated, filter changes without an owner')
   .addHelpText(
     'after',
     [
@@ -486,16 +493,23 @@ program
       'Examples:',
       '  changeledger archive <id>',
       '  changeledger archive --graduated',
-      '  changeledger list --pending archive   # preview the bulk action',
+      '  changeledger list --pending archive --owner "Roberto Ruiz"',
+      '  changeledger archive --graduated --owner "Roberto Ruiz"',
       '',
       'To reverse an archive, edit `archived: false` in the change frontmatter directly.',
     ].join('\n'),
   )
   .action(
     action((id, options) => {
+      if (options.owner !== undefined && options.unowned) {
+        throw new Error('--owner and --unowned are mutually exclusive');
+      }
+      if ((options.owner !== undefined || options.unowned) && !options.graduated) {
+        throw new Error('--owner and --unowned require --graduated');
+      }
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
-        const archived = archiveGraduated();
+        const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
         return;

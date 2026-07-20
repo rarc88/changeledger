@@ -4,7 +4,7 @@ import { parseChange } from '../change.mjs';
 import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
 import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
-import { resolveChange } from '../repo.mjs';
+import { loadRepo, resolveChange } from '../repo.mjs';
 
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
@@ -98,6 +98,38 @@ function dependencyBlock(dependsOn, cwd) {
   return `## Dependencies\n\n${lines.join('\n')}`;
 }
 
+function relatedChangeLine(direction, raw, cwd) {
+  const reference = String(raw);
+  if (reference.includes(':')) {
+    return `- ${direction} — #${reference} — external reference (not resolved locally)`;
+  }
+  try {
+    const resolved = resolveChange(cwd, reference);
+    const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+    return `- ${direction} — #${reference} — ${frontmatter.title} — ${frontmatter.status}`;
+  } catch {
+    return `- ${direction} — #${reference} — unresolved local relation`;
+  }
+}
+
+function relatedBlock(id, relatedTo, cwd) {
+  const outgoing = Array.isArray(relatedTo) ? relatedTo : [];
+  const incoming = loadRepo(cwd)
+    .changes.filter(
+      (change) =>
+        String(change.frontmatter?.id) !== String(id) &&
+        Array.isArray(change.frontmatter?.related_to) &&
+        change.frontmatter.related_to.some((target) => String(target) === String(id)),
+    )
+    .map((change) => String(change.frontmatter.id));
+  if (!outgoing.length && !incoming.length) return undefined;
+  const lines = [
+    ...outgoing.map((target) => relatedChangeLine('outgoing', target, cwd)),
+    ...incoming.map((source) => relatedChangeLine('incoming', source, cwd)),
+  ];
+  return `## Related changes\n\n${lines.join('\n')}`;
+}
+
 // Composes the body (everything between the BEGIN and END lines), derives its
 // `rev` from that body alone — never from the framing lines that quote it —
 // then returns both the rev and the full rendered text so callers can decide
@@ -109,12 +141,14 @@ function composeResult(mode, fragments, options = {}) {
     changeId = undefined,
     policy = undefined,
     dependencies = undefined,
+    relations = undefined,
   } = options;
   const body = [];
   if (incremental) body.push(INCREMENTAL_NOTICE);
   if (policy) body.push(policy);
   body.push(...fragments.map(fragment));
   if (dependencies) body.push(dependencies);
+  if (relations) body.push(relations);
   if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
   const rev = contentRev(body.join('\n\n'));
   const sections = [beginDelimiter(mode, changeId, rev), ...body, END_DELIMITER];
@@ -148,7 +182,13 @@ function composeInput(input, cwd, config) {
   }
 
   const text = fs.readFileSync(resolved.file, 'utf8');
-  const { id, status, type, depends_on: dependsOn } = parseChange(text).frontmatter;
+  const {
+    id,
+    status,
+    type,
+    depends_on: dependsOn,
+    related_to: relatedTo,
+  } = parseChange(text).frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
   return composeResult(selected.mode, selected.fragments, {
@@ -156,6 +196,7 @@ function composeInput(input, cwd, config) {
     changeId: id,
     policy: changePolicyBlock(config, type),
     dependencies: dependencyBlock(dependsOn, cwd),
+    relations: relatedBlock(id, relatedTo, cwd),
   });
 }
 

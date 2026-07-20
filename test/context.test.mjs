@@ -75,9 +75,10 @@ Chosen behavior.
 
 function writeRawChange(
   root,
-  { id, status, type = 'feature', dependsOn = [], title = 'Dep target' },
+  { id, status, type = 'feature', dependsOn = [], relatedTo = [], title = 'Dep target' },
 ) {
   const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
+  const related = relatedTo.length ? `[ ${relatedTo.map((d) => `"${d}"`).join(', ')} ]` : '[]';
   const text = `---
 id: "${id}"
 title: ${title}
@@ -85,6 +86,7 @@ type: ${type}
 status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: ${deps}
+related_to: ${related}
 ---
 
 ## Request
@@ -309,6 +311,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /id: "20260613-134548"/],
     ['spec', /type: feature.*feature \| bug \| audit \| refactor \| chore/],
     ['spec', /release_impact: minor.*none \| patch \| minor \| major/],
+    ['spec', /Use `depends_on` only for execution prerequisites/],
+    ['spec', /Use optional `related_to` for useful context that must not impose execution order/],
     ['spec', /changeledger owner <id> <name\|->/],
     ['spec', /changeledger list.*--owner.*--pending/s],
     ['spec', /changeledger show <id> \[--json\]/],
@@ -403,7 +407,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger list --pending archive/],
     ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
-    ['close', /graduation link remains derivable from the Log marker/],
+    ['close', /`--into` records the same link in both directions/],
+    ['close', /target spec appends the change id to `graduated_from`/],
+    ['close', /changeledger fix --graduation-links/],
     ['close', /`graduado a spec`/],
     ['close', /seed from the change's Specification or Proposal/],
     ['close', /remove the explicit scaffold marker/],
@@ -502,7 +508,12 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // `archived: false` frontmatter edit. Rule preserved, not retired.
     // 20260716-131649: listing unresolved graduation and archive candidates is
     // replaced by canonical `list --pending` queries; closure actions remain.
-    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
+    // 20260718-111457: the Log-only graduation rule is replaced by the
+    // bidirectional Log + graduated_from invariant and its explicit migration;
+    // the closure modes, reviewed semantics and commit recipe are preserved.
+    // 20260718-105457: the queries gain optional owner scoping; graduation stays
+    // individual and archive preview/action equivalence is preserved per filter.
+    'close.md': '10960f9878b3011e6f463c7509e6fe2a86382319ac4e36fe3b9c011d5bd288a7',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -539,7 +550,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // the ownership boundary is preserved and strengthened against inference.
     // 20260716-131649: operational discovery replaces the graduate query with
     // canonical list queries for graduation and archive candidates.
-    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
+    // 20260718-105457: those queries add optional owner scoping while keeping
+    // per-change graduation and matching filtered archive semantics explicit.
+    'core.md': '14ba2bdaf590565378f44a54b15e3b4aff6b44ad9b8d1162948b17068dcf7eb2',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -600,7 +613,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // draft approval; existing authoring authorization rules are preserved.
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
-    'spec.md': '3e114f7b8d181cfab9c382769c0ed492f9089227cf7326400bc93f5646f2cfd8',
+    // 20260718-105456: additive related_to scaffold and non-blocking semantics;
+    // correction adds mandatory search-result classification during Investigation;
+    // existing dependency execution and authoring rules are preserved.
+    'spec.md': 'b78aeea566632cfc1d304ce8a93307951fb08fe564656eb0a354c5e818b5d029',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -980,6 +996,29 @@ test('225213 CR3: change without dependencies emits no dependency block', () => 
   assert.doesNotMatch(output, /## Dependencies/);
 });
 
+test('105456 CR4: context resolves outgoing, incoming and external related changes', () => {
+  const root = repo();
+  const a = writeRawChange(root, {
+    id: '20260627-160000',
+    status: 'in-progress',
+    title: 'Selected',
+    relatedTo: ['20260627-160001', 'otherproj:20260101-000000'],
+  });
+  writeRawChange(root, { id: '20260627-160001', status: 'done', title: 'Outgoing target' });
+  writeRawChange(root, {
+    id: '20260627-160002',
+    status: 'approved',
+    title: 'Incoming source',
+    relatedTo: [a],
+  });
+
+  const output = buildContext(a, root);
+  assert.match(output, /## Related changes/);
+  assert.match(output, /outgoing.*#20260627-160001.*Outgoing target.*done/);
+  assert.match(output, /incoming.*#20260627-160002.*Incoming source.*approved/);
+  assert.match(output, /outgoing.*otherproj:20260101-000000.*external reference/);
+});
+
 test('220014 CR1/CR4: core and validation scope the stop to one change, not the queue', () => {
   const root = repo();
   const validationId = addChange(root, 'in-validation', '20260628-000001');
@@ -1236,4 +1275,17 @@ test('103756 CR5: spec context documents the quick lane and its eligibility', ()
   );
   assert.match(spec, /discard the change and\s+recreate it under the correct type/);
   assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
+});
+
+test('105456 CR8 correction: spec context makes agents populate discovered relations', () => {
+  const root = repo();
+  const spec = buildContext('spec', root).replace(/\s+/g, ' ');
+  assert.match(
+    spec,
+    /during Investigation, classify every relevant result from `changeledger search`/,
+  );
+  assert.match(spec, /execution prerequisite.*`depends_on`/);
+  assert.match(spec, /useful context without execution order.*`related_to`/);
+  assert.match(spec, /unstructured nuance.*textual mention/);
+  assert.match(spec, /Declare a local relation once.*incoming backlink is derived/);
 });

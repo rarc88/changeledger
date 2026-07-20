@@ -112,5 +112,5 @@ bloque de criterios.
 - **2026-06-26T12:05:28Z** — status: in-progress → in-review
 - **2026-06-26T12:07:05Z** — review → in-validation (delegated subagent, clean context)
 - **2026-06-26T17:18:49Z** — validation → done (human accepted)
-- **2026-06-26T17:40:44Z** — graduado a spec `architecture.md`
+- **2026-06-26T17:40:44Z** — graduado a spec `readiness.md`
 - **2026-06-26T17:41:22Z** — archived

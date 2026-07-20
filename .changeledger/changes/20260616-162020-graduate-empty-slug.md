@@ -59,5 +59,5 @@ en ingles y crea un artefacto ambiguo.
 - **2026-06-16T16:29:14Z** — owner → Roberto Ruiz (auto)
 - **2026-06-16T16:30:21Z** — status: in-progress → in-review
 - **2026-06-16T16:42:58Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:44:41Z** — graduado a spec `architecture.md`
+- **2026-06-16T16:44:41Z** — graduado a spec `data-model.md`
 - **2026-06-16T21:19:25Z** — archived
