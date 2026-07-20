@@ -102,9 +102,12 @@ and `[#id]` commit marker as any other type, skipping only `in-review`. If
 scope grows mid-execution beyond that eligibility, discard the change and
 recreate it under the correct type instead of continuing under `quick`.
 
-Before writing Investigation, run `changeledger search <terms from the request>`
-and record anything relevant as `depends_on` or a mention — do not rediscover
-work another change or spec already covers.
+Before writing Investigation, run `changeledger search <terms from the request>`;
+during Investigation, classify every relevant result from `changeledger search`:
+an execution prerequisite becomes `depends_on`, useful context without execution
+order becomes `related_to`, and unstructured nuance stays a textual mention.
+Declare a local relation once; its incoming backlink is derived. Do not
+rediscover work another change or spec already covers.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.

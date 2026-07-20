@@ -610,8 +610,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
     // 20260718-105456: additive related_to scaffold and non-blocking semantics;
-    // existing dependency execution rules are preserved.
-    'spec.md': '7d5686ab576bb22347b351c2fe0e1ebcdd8fe68dedb7c54f776969c130bbe491',
+    // correction adds mandatory search-result classification during Investigation;
+    // existing dependency execution and authoring rules are preserved.
+    'spec.md': 'b78aeea566632cfc1d304ce8a93307951fb08fe564656eb0a354c5e818b5d029',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -1270,4 +1271,17 @@ test('103756 CR5: spec context documents the quick lane and its eligibility', ()
   );
   assert.match(spec, /discard the change and\s+recreate it under the correct type/);
   assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
+});
+
+test('105456 CR8 correction: spec context makes agents populate discovered relations', () => {
+  const root = repo();
+  const spec = buildContext('spec', root).replace(/\s+/g, ' ');
+  assert.match(
+    spec,
+    /during Investigation, classify every relevant result from `changeledger search`/,
+  );
+  assert.match(spec, /execution prerequisite.*`depends_on`/);
+  assert.match(spec, /useful context without execution order.*`related_to`/);
+  assert.match(spec, /unstructured nuance.*textual mention/);
+  assert.match(spec, /Declare a local relation once.*incoming backlink is derived/);
 });

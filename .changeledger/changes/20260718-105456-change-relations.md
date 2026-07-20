@@ -45,6 +45,10 @@ conectados sin convertir esa conexión en una dependencia.
 - Una relación duplicada en ambos documentos sería frágil: podría quedar
   asimétrica. El repositorio ya carga todos los changes y puede calcular enlaces
   entrantes sin persistir una segunda copia.
+- La validación en repositorios externos confirmó una brecha de autoría: el
+  scaffold crea `related_to: []`, pero el contrato no obliga a clasificar los
+  resultados de `changeledger search`, por lo que los agentes dejan el campo
+  vacío incluso cuando descubren antecedentes relevantes.
 
 ## Proposal
 
@@ -90,6 +94,11 @@ aristas no dirigidas y discontinuas, distinguibles de las dependencias dirigidas
 
 El scaffold de `changeledger new` incluirá `related_to: []` inmediatamente
 después de `depends_on`, y el contrato explicará cuándo usar cada campo.
+Durante Investigation, el agente clasificará cada resultado relevante de
+`changeledger search`: requisito de ejecución como `depends_on`, contexto útil
+sin orden de ejecución como `related_to`, y matiz no estructurable como mención
+textual. Las relaciones se escribirán en un solo change porque el backlink se
+deriva automáticamente.
 
 Alternativas descartadas:
 
@@ -156,6 +165,8 @@ Alternativas descartadas:
 - **When** se ejecuta `changeledger new feature example "Ejemplo"`
 - **Then** el frontmatter generado contiene `related_to: []` inmediatamente después de `depends_on: []`
 - **And** el contexto de especificación define `related_to` como vínculo no bloqueante y `depends_on` como requisito de ejecución
+- **And** instruye al agente a clasificar cada resultado relevante de `changeledger search` durante Investigation como `depends_on`, `related_to` o mención textual
+- **And** indica que una relación local se declara una sola vez porque el backlink entrante es derivado
 
 ## Plan
 
@@ -165,6 +176,7 @@ Alternativas descartadas:
 - [x] Escribir primero tests del grafo y extender `src/viewer/public/view-renderers.js` y sus estilos; verify: `node --test test/viewer-metadata.test.mjs` (CR5) — 2026-07-18T12:41:34Z
 - [x] Escribir primero tests del scaffold y actualizar `src/commands/new.mjs` y `templates/contract/spec.md`; verify: `node --test test/cli-bin.test.mjs test/context.test.mjs` (CR8) — 2026-07-18T12:44:26Z
 - [x] Ejecutar el gate completo `pnpm verify` (support) — 2026-07-18T12:45:11Z
+- [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral; verify: `node --test test/context.test.mjs` (CR8) — 2026-07-20T10:11:59Z
 
 ## Log
 
@@ -178,3 +190,7 @@ Alternativas descartadas:
 - **2026-07-18T12:45:11Z** — Implementación completa: validación, contexto, componente expandible común, navegación local/externa, grafo relacional, scaffold y contrato; pnpm verify pasó con 700/700 tests y 200 changes válidos.
 - **2026-07-18T12:45:11Z** — status: in-progress → in-review
 - **2026-07-18T12:51:59Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-20T10:10:22Z** — validation → in-progress (agent rejected): El flujo de autoría crea related_to vacío pero no exige clasificar los resultados de search ni poblar relaciones no bloqueantes durante Investigation.
+- **2026-07-20T10:11:59Z** — Corrección de validación: el contexto de autoría ahora exige clasificar cada resultado relevante de search como depends_on, related_to o mención textual, y declara una sola vez las relaciones locales; test focalizado 38/38.
+- **2026-07-20T10:11:59Z** — status: in-progress → in-review
+- **2026-07-20T10:14:31Z** — review → in-validation (delegated subagent, clean context)
