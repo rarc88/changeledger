@@ -177,30 +177,37 @@ que dirija a `changeledger`.
 
 ## Plan
 
-- [x] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test` (CR1, CR2) — 2026-06-26T23:32:26Z
-- [x] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check` (CR3, CR4) — 2026-06-26T23:32:26Z
-- [x] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test` (CR5, CR6) — 2026-06-26T23:32:26Z
-- [x] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test` (CR3, CR6, CR7) — 2026-06-26T23:32:26Z
-- [x] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test` (CR1, CR9) — 2026-06-26T23:32:26Z
-- [x] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run` (CR7, CR8) — 2026-06-26T23:32:27Z
-- [x] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run` (CR2, CR8) — 2026-06-26T23:32:27Z
+- [x] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test` (CR1, CR2)
+  - **Resolved:** `2026-06-26T23:32:26Z`
+- [x] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check` (CR3, CR4)
+  - **Resolved:** `2026-06-26T23:32:26Z`
+- [x] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test` (CR5, CR6)
+  - **Resolved:** `2026-06-26T23:32:26Z`
+- [x] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test` (CR3, CR6, CR7)
+  - **Resolved:** `2026-06-26T23:32:26Z`
+- [x] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test` (CR1, CR9)
+  - **Resolved:** `2026-06-26T23:32:26Z`
+- [x] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run` (CR7, CR8)
+  - **Resolved:** `2026-06-26T23:32:27Z`
+- [x] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run` (CR2, CR8)
+  - **Resolved:** `2026-06-26T23:32:27Z`
 
 ## Log
 
-- **2026-06-24T15:32:36Z** — Cambio autorizado para una migración integral a ChangeLedger; se adopta un corte limpio sin compatibilidad con la identidad anterior.
-- **2026-06-26T23:24:53Z** — status: draft → approved
-- **2026-06-26T23:26:46Z** — status: approved → in-progress
-- **2026-06-26T23:26:46Z** — owner → Roberto Ruiz (auto)
-- **2026-06-26T23:34:00Z** — Se aclaró CR9 para preservar sin reescritura la evidencia histórica exigida por CR4; el corte limpio aplica a superficies operativas y vigentes.
-- **2026-06-26T23:32:27Z** — Migración integral implementada; pnpm verify pasó con 365 pruebas y 121 changes válidos. El tarball changeledger-0.2.0 se instaló en aislamiento y completó help, init y check sin exponer sl.
-- **2026-06-26T23:32:27Z** — status: in-progress → in-review
-- **2026-06-26T23:35:21Z** — review → in-progress (retry): El viewer conserva la marca Spec Ledger y el token runtime __SL_TOKEN__; deben migrarse a ChangeLedger.
-- **2026-06-26T23:36:05Z** — Corregidos los hallazgos de revisión: marca visible del viewer y token runtime migrados completamente a ChangeLedger; pnpm verify vuelve a pasar con 365 pruebas.
-- **2026-06-26T23:36:05Z** — status: in-progress → in-review
-- **2026-06-26T23:39:31Z** — review → in-progress (retry): El contrato publicado conserva Spec Ledger partido por salto de línea y una prueba mantiene el sentinel __sl_xss.
-- **2026-06-26T23:40:27Z** — Corregidos los residuos encontrados en segunda revisión: contrato publicado sin marca partida y sentinel XSS renombrado; se añadió regresión contra Spec\s+Ledger. pnpm verify pasa con 365 pruebas.
-- **2026-06-26T23:40:27Z** — status: in-progress → in-review
-- **2026-06-26T23:42:39Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-27T10:05:16Z** — validation → done (human accepted)
-- **2026-06-27T10:08:06Z** — graduado a spec `architecture.md`
-- **2026-06-27T10:08:06Z** — archived
+- **2026-06-24T15:32:36Z** `[note]` Cambio autorizado para una migración integral a ChangeLedger; se adopta un corte limpio sin compatibilidad con la identidad anterior.
+- **2026-06-26T23:24:53Z** `[status]` draft → approved
+- **2026-06-26T23:26:46Z** `[status]` approved → in-progress
+- **2026-06-26T23:26:46Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-26T23:34:00Z** `[note]` Se aclaró CR9 para preservar sin reescritura la evidencia histórica exigida por CR4; el corte limpio aplica a superficies operativas y vigentes.
+- **2026-06-26T23:32:27Z** `[note]` Migración integral implementada; pnpm verify pasó con 365 pruebas y 121 changes válidos. El tarball changeledger-0.2.0 se instaló en aislamiento y completó help, init y check sin exponer sl.
+- **2026-06-26T23:32:27Z** `[status]` in-progress → in-review
+- **2026-06-26T23:35:21Z** `[review]` in-review → in-progress (retry): El viewer conserva la marca Spec Ledger y el token runtime __SL_TOKEN__; deben migrarse a ChangeLedger.
+- **2026-06-26T23:36:05Z** `[note]` Corregidos los hallazgos de revisión: marca visible del viewer y token runtime migrados completamente a ChangeLedger; pnpm verify vuelve a pasar con 365 pruebas.
+- **2026-06-26T23:36:05Z** `[status]` in-progress → in-review
+- **2026-06-26T23:39:31Z** `[review]` in-review → in-progress (retry): El contrato publicado conserva Spec Ledger partido por salto de línea y una prueba mantiene el sentinel __sl_xss.
+- **2026-06-26T23:40:27Z** `[note]` Corregidos los residuos encontrados en segunda revisión: contrato publicado sin marca partida y sentinel XSS renombrado; se añadió regresión contra Spec\s+Ledger. pnpm verify pasa con 365 pruebas.
+- **2026-06-26T23:40:27Z** `[status]` in-progress → in-review
+- **2026-06-26T23:42:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:05:16Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-27T10:08:06Z** `[graduation]` spec: `architecture.md`
+- **2026-06-27T10:08:06Z** `[archive]` archived

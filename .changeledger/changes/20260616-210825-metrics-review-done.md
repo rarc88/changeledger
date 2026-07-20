@@ -45,17 +45,20 @@ para 2026-06-16. Además, la primera marca de graduación en
 - **Then** esa primera entrada conserva el id parseable y añade contexto humano
 
 ## Plan
-- [x] Ampliar `src/metrics.mjs` para reconocer `review → done` como cierre, cubierto por `test/metrics.test.mjs` (CR1, CR2) — 2026-06-16T21:09:38Z
-- [x] Añadir cobertura en `test/metrics.test.mjs` para cierre por revisión y convivencia con cierres directos en `src/metrics.mjs` (CR1, CR2) — 2026-06-16T21:09:38Z
-- [x] Normalizar la primera marca de graduación de `.sl/specs/architecture.md`, cuyo formato sigue validado por `src/check.mjs` y `test/check.test.mjs` (CR3) — 2026-06-16T21:09:38Z
+- [x] Ampliar `src/metrics.mjs` para reconocer `review → done` como cierre, cubierto por `test/metrics.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-16T21:09:38Z`
+- [x] Añadir cobertura en `test/metrics.test.mjs` para cierre por revisión y convivencia con cierres directos en `src/metrics.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-16T21:09:38Z`
+- [x] Normalizar la primera marca de graduación de `.sl/specs/architecture.md`, cuyo formato sigue validado por `src/check.mjs` y `test/check.test.mjs` (CR3)
+  - **Resolved:** `2026-06-16T21:09:38Z`
 
 ## Log
-- **2026-06-16T21:08:25Z** — Creado desde reporte del usuario: Metrics muestra solo dos cierres del día aunque varios changes terminaron por revisión.
-- **2026-06-16T21:08:47Z** — status: draft → approved
-- **2026-06-16T21:08:50Z** — status: approved → in-progress
-- **2026-06-16T21:08:50Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T21:11:57Z** — status: in-progress → in-review
-- **2026-06-16T21:13:39Z** — review clarification: untracked CLAUDE.md preexisted this change and is excluded as user worktree state
-- **2026-06-16T21:14:28Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T21:14:31Z** — graduado a spec `metrics.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T21:08:25Z** `[note]` Creado desde reporte del usuario: Metrics muestra solo dos cierres del día aunque varios changes terminaron por revisión.
+- **2026-06-16T21:08:47Z** `[status]` draft → approved
+- **2026-06-16T21:08:50Z** `[status]` approved → in-progress
+- **2026-06-16T21:08:50Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T21:11:57Z** `[status]` in-progress → in-review
+- **2026-06-16T21:13:39Z** `[note]` review clarification: untracked CLAUDE.md preexisted this change and is excluded as user worktree state
+- **2026-06-16T21:14:28Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T21:14:31Z** `[graduation]` spec: `metrics.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

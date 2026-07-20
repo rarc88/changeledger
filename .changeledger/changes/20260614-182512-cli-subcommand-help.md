@@ -63,15 +63,19 @@ Descartado:
 
 ## Plan
 
-- [x] Mapa `HELP` por comando en `bin/sl.mjs` + `usage(cmd)` reutilizado por los throws (CR1, CR2, CR3) — 2026-06-14T18:36:00Z
-- [x] Atajo pre-`switch` en `bin/sl.mjs`: `--help`/`-h` + cmd conocido imprime `HELP[cmd]`, exit 0 (CR1, CR2) — 2026-06-14T18:36:00Z
-- [x] `--help`/`-h` global conservado en `bin/sl.mjs` (CR4) — 2026-06-14T18:36:00Z
-- [x] Tests de proceso en `test/cli-bin.test.mjs` (`graduate --help`, `task -h`, `graduate` sin args, `--help` global) (CR1, CR2, CR3, CR4) — 2026-06-14T18:36:00Z
+- [x] Mapa `HELP` por comando en `bin/sl.mjs` + `usage(cmd)` reutilizado por los throws (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-14T18:36:00Z`
+- [x] Atajo pre-`switch` en `bin/sl.mjs`: `--help`/`-h` + cmd conocido imprime `HELP[cmd]`, exit 0 (CR1, CR2)
+  - **Resolved:** `2026-06-14T18:36:00Z`
+- [x] `--help`/`-h` global conservado en `bin/sl.mjs` (CR4)
+  - **Resolved:** `2026-06-14T18:36:00Z`
+- [x] Tests de proceso en `test/cli-bin.test.mjs` (`graduate --help`, `task -h`, `graduate` sin args, `--help` global) (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-14T18:36:00Z`
 
 ## Log
-- **2026-06-14T18:31:06Z** — status: draft → approved
-- **2026-06-14T18:34:57Z** — status: approved → in-progress
-- **2026-06-14T18:34:57Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T18:36:58Z** — status: in-progress → done
-- **2026-06-14T18:36:58Z** — graduation skipped: ayuda CLI; el spec no enumera flags por comando
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T18:31:06Z** `[status]` draft → approved
+- **2026-06-14T18:34:57Z** `[status]` approved → in-progress
+- **2026-06-14T18:34:57Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T18:36:58Z** `[status]` in-progress → done
+- **2026-06-14T18:36:58Z** `[graduation]` skipped: ayuda CLI; el spec no enumera flags por comando
+- **2026-06-15T21:17:57Z** `[archive]` archived

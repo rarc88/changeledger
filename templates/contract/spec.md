@@ -52,15 +52,12 @@ release_impact: minor          # optional: none | patch | minor | major
 ```
 
 Use `depends_on` only for execution prerequisites: dependencies can block
-lifecycle progress and participate in cycle validation. Use optional
-`related_to` for useful context that must not impose execution order or affect
-readiness. Both fields accept local change ids and external `project:id`
-references. Declare a local relation once; ChangeLedger derives its incoming
-backlink when presenting the related changes.
+lifecycle progress and cycles. Use optional `related_to` for useful context that
+must not impose execution order or affect readiness. Both accept local ids and
+external `project:id` refs; declare a local relation once, deriving its backlink.
 
-`owner` means responsibility for the change. On `approved → in-progress`, it is
-assigned when absent from the GitHub login (`gh api user --jq .login`), falling
-back to `git config user.name`. Override or clear it with
+`owner` identifies responsibility. `approved → in-progress` assigns an absent
+owner via `gh api user --jq .login`, then `git config user.name`. Override with
 `changeledger owner <id> <name|->`; absence means unassigned.
 
 Keep each fact in one stage and link to it from the others. Do not let summaries
@@ -95,19 +92,16 @@ The configured matrix is authoritative. For bugs, Investigation contains the
 root cause; for audits, it is the core analysis. Proposal includes the chosen
 solution, discarded alternatives and scenarios.
 
-`quick` is a lighter lane for small, reversible, single-concern work that does
-not expand public surface or persistent truth (`specs/`): document only
-Request and Log, ~10-15 lines. It keeps the same human `draft → approved` gate
-and `[#id]` commit marker as any other type, skipping only `in-review`. If
-scope grows mid-execution beyond that eligibility, discard the change and
-recreate it under the correct type instead of continuing under `quick`.
+`quick` is for small, reversible, single-concern work that adds no public surface
+or persistent truth (`specs/`): only Request and Log, ~10-15 lines. It retains
+the human `draft → approved` gate and `[#id]` marker, skipping only `in-review`.
+If scope outgrows this, discard and recreate it under the correct type.
 
 Before writing Investigation, run `changeledger search <terms from the request>`;
 during Investigation, classify every relevant result from `changeledger search`:
 an execution prerequisite becomes `depends_on`, useful context without execution
-order becomes `related_to`, and unstructured nuance stays a textual mention.
-Declare a local relation once; its incoming backlink is derived. Do not
-rediscover work another change or spec already covers.
+order becomes `related_to`, and unstructured nuance stays a textual mention. Do not rediscover
+work another change or spec already covers.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.
@@ -135,34 +129,34 @@ Markers encode state and the final parenthesized block encodes traceability:
 
 ```markdown
 - [ ] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
-- [x] Update `src/app/foo.ts`; verify: `pnpm test` (CR1) — 2026-06-13T14:20:00Z
-- [!] Update `src/app/foo.ts`; verify: `pnpm test` (CR1) — blocked reason
+- [x] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+  - **Resolved:** `2026-06-13T14:20:00Z`
+- [!] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+  - **Blocked:** blocked reason — arbitrary punctuation is safe
 - [ ] Run the complete test suite after implementation (support)
 ```
 
-For a CR-bearing task, target and verification belong in the description before
-the final `(CRn)` block. Only that final block supplies traceability; mentions of
-`CR1` earlier in the sentence are prose. A task may cover several criteria with
-`(CR1, CR2)`.
+For a CR-bearing task, target and verification precede the final `(CRn)` block; only that block supplies traceability. Any mentions of `CR1` earlier in the sentence are prose, and one task may cover `(CR1, CR2)`.
+Resolution metadata is structural: `[x]` requires one immediate `Resolved` child with a backticked ISO UTC timestamp, `[!]` one immediate `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
 
-The trailing `— ...` suffix is resolution metadata only: an ISO UTC timestamp
-for `[x]` or a required reason for `[!]`. Pending tasks have no suffix. This form
-is invalid:
+Verification must precede the final criteria block; this is invalid:
 
 ```markdown
 - [ ] Update `src/app/foo.ts` (CR1) — verify: `pnpm test`
 ```
 
-The parser removes `— verify: ...` before readiness checks, so the task retains
-CR traceability but appears to have no verification. Write verification before
-the criteria block as shown in the valid examples.
+`(support)` marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks, must be the final parenthesized marker and cannot replace a criterion for observable behaviour.
 
-`(support)` is reserved for operational work that does not directly implement
-observable behaviour: running a test suite, reading before refactoring,
-evaluating blast radius or scaffolding. Support tasks do not require a CR and do
-not run target/verification readiness checks. `(support)` must be the final
-parenthesized marker and is not a substitute for a missing criterion on
-observable behaviour.
+## Log event grammar
+
+Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
+
+```markdown
+- **2026-06-13T14:20:00Z** `[status]` draft → approved
+- **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
+```
+
+Types are `status`, `review`, `validation`, `owner`, `graduation`, `archive` and `note`. Lifecycle commands write their type; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
 
 ## IDs and language
 
@@ -177,12 +171,13 @@ title, stage prose, scenario content and task descriptions.
 
 ## Authoring helpers
 
-- `changeledger new <type> <slug> "<title>"` — scaffold a change with an English slug.
-- `changeledger check [id]` — validate one change or the repository.
-- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]` — inspect/filter changes.
-- `changeledger show <id> [--json]` — inspect one resolved change.
-- `changeledger search <terms...> [--type T] [--status S] [--json]` — find related changes and specs by content.
-- `changeledger owner <id> <name|->` — set or clear responsibility.
+- `changeledger new <type> <slug> "<title>"`
+- `changeledger check [id]`
+- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
+- `changeledger show <id> [--json]`
+- `changeledger search <terms...> [--type T] [--status S] [--json]`
+- `changeledger owner <id> <name|->`
+- `changeledger fix --structured-sections [--dry-run]`
 
 Run `changeledger <command> --help` for exact options; the commands support the
 file contract rather than replacing it.

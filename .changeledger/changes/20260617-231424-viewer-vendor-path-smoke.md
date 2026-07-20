@@ -50,19 +50,24 @@ versiones exactas o empaquetar assets en un paso minimo.
 
 ## Plan
 
-- [x] Agregar tests HTTP en `test/view.test.mjs` para las rutas vendor criticas de `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR1) — 2026-06-18T10:08:49Z
-- [x] Agregar test de 404 allowlist en `test/view.test.mjs` para `/vendor/unknown.js` contra `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR2) — 2026-06-18T10:08:49Z
-- [x] Actualizar `.github/workflows/ci.yml` o un helper de smoke que pruebe vendor de `src/viewer/server/router.mjs` desde el tarball instalado, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3) — 2026-06-18T10:08:49Z
-- [x] Decidir en `package.json` si las dependencias runtime servidas por `src/viewer/server/router.mjs` deben quedar fijadas exactas, verificando con `pnpm verify` (support) — 2026-06-18T10:08:49Z
-- [x] Ejecutar `pnpm verify` como cierre (support) — 2026-06-18T10:08:49Z
+- [x] Agregar tests HTTP en `test/view.test.mjs` para las rutas vendor criticas de `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR1)
+  - **Resolved:** `2026-06-18T10:08:49Z`
+- [x] Agregar test de 404 allowlist en `test/view.test.mjs` para `/vendor/unknown.js` contra `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR2)
+  - **Resolved:** `2026-06-18T10:08:49Z`
+- [x] Actualizar `.github/workflows/ci.yml` o un helper de smoke que pruebe vendor de `src/viewer/server/router.mjs` desde el tarball instalado, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3)
+  - **Resolved:** `2026-06-18T10:08:49Z`
+- [x] Decidir en `package.json` si las dependencias runtime servidas por `src/viewer/server/router.mjs` deben quedar fijadas exactas, verificando con `pnpm verify` (support)
+  - **Resolved:** `2026-06-18T10:08:49Z`
+- [x] Ejecutar `pnpm verify` como cierre (support)
+  - **Resolved:** `2026-06-18T10:08:49Z`
 
 ## Log
 
-- **2026-06-17T23:14:29Z** — creado desde los hallazgos de la auditoria 20260617-225650.
-- **2026-06-18T09:47:06Z** — status: draft → approved
-- **2026-06-18T09:56:48Z** — status: approved → in-progress
-- **2026-06-18T09:56:48Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-18T10:05:52Z** — status: in-progress → in-review
-- **2026-06-18T10:06:02Z** — review → done (delegated subagent, clean context)
-- **2026-06-18T10:06:37Z** — graduation skipped: Test coverage addition; no architectural truth to persist
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-17T23:14:29Z** `[note]` creado desde los hallazgos de la auditoria 20260617-225650.
+- **2026-06-18T09:47:06Z** `[status]` draft → approved
+- **2026-06-18T09:56:48Z** `[status]` approved → in-progress
+- **2026-06-18T09:56:48Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-18T10:05:52Z** `[status]` in-progress → in-review
+- **2026-06-18T10:06:02Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-18T10:06:37Z** `[graduation]` skipped: Test coverage addition; no architectural truth to persist
+- **2026-06-18T10:09:09Z** `[archive]` archived

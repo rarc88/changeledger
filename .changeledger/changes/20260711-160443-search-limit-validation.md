@@ -20,11 +20,11 @@ como hace commander con las opciones desconocidas. Fix en
 con regresión en `test/search.test.mjs`. Un solo concern, reversible.
 
 ## Log
-- **2026-07-11T16:12:22Z** — status: draft → approved
-- **2026-07-11T16:23:34Z** — status: approved → in-progress
-- **2026-07-11T16:23:34Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T16:30:18Z** — Integrada implementación delegada (197cd48): parseLimit rechaza --limit no entero o <1 con error claro y exit 1; 4 regresiones. pnpm verify 613/613.
-- **2026-07-11T16:30:18Z** — status: in-progress → in-validation
-- **2026-07-11T21:39:45Z** — validation → done (human accepted)
-- **2026-07-11T21:53:44Z** — graduation skipped: validación menor de CLI ya cubierta por la verdad de search existente
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T16:12:22Z** `[status]` draft → approved
+- **2026-07-11T16:23:34Z** `[status]` approved → in-progress
+- **2026-07-11T16:23:34Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T16:30:18Z** `[note]` Integrada implementación delegada (197cd48): parseLimit rechaza --limit no entero o <1 con error claro y exit 1; 4 regresiones. pnpm verify 613/613.
+- **2026-07-11T16:30:18Z** `[status]` in-progress → in-validation
+- **2026-07-11T21:39:45Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:53:44Z** `[graduation]` skipped: validación menor de CLI ya cubierta por la verdad de search existente
+- **2026-07-11T21:54:25Z** `[archive]` archived

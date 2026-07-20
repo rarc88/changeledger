@@ -132,29 +132,36 @@ core en los `AGENTS.md` de los repos consumidores:
 
 ## Plan
 
-- [x] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3) — 2026-07-01T21:55:55Z
-- [x] Añadir delimitadores BEGIN/END con modo, change id y versión en `src/commands/context.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5) — 2026-07-01T22:00:59Z
-- [x] Acortar en `templates/contract/core.md` la regla anti-truncado remitiéndola al centinela END; verify: `node --test test/context.test.mjs` (CR6) — 2026-07-01T22:00:59Z
-- [x] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos; verify: `node --test test/context.test.mjs` (CR6) — 2026-07-01T22:00:59Z
-- [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7) — 2026-07-01T21:55:55Z
-- [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support) — 2026-07-01T21:56:16Z
-- [x] Ejecutar el gate completo tras la implementación (support) — 2026-07-01T22:01:27Z
+- [x] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-01T21:55:55Z`
+- [x] Añadir delimitadores BEGIN/END con modo, change id y versión en `src/commands/context.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
+  - **Resolved:** `2026-07-01T22:00:59Z`
+- [x] Acortar en `templates/contract/core.md` la regla anti-truncado remitiéndola al centinela END; verify: `node --test test/context.test.mjs` (CR6)
+  - **Resolved:** `2026-07-01T22:00:59Z`
+- [x] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos; verify: `node --test test/context.test.mjs` (CR6)
+  - **Resolved:** `2026-07-01T22:00:59Z`
+- [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7)
+  - **Resolved:** `2026-07-01T21:55:55Z`
+- [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support)
+  - **Resolved:** `2026-07-01T21:56:16Z`
+- [x] Ejecutar el gate completo tras la implementación (support)
+  - **Resolved:** `2026-07-01T22:01:27Z`
 
 ## Log
 
-- **2026-07-01T21:39:31Z** — Draft creado. Alcance acotado a la capa de entrega del contrato (bootstrap + delimitadores); la señal interna de los packs pertenece a `#20260630-225213`. El humano descartó embeber el core en `AGENTS.md`.
-- **2026-07-01T21:50:24Z** — Añadido a Proposal/Plan el recorte de la regla anti-truncado del core: hoy se repite en tres capas y el centinela END la vuelve redundante; se remite al centinela y se recupera presupuesto (CR6).
-- **2026-07-01T21:51:41Z** — status: draft → approved
-- **2026-07-01T21:53:05Z** — status: approved → in-progress
-- **2026-07-01T21:53:05Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-01T21:55:55Z** — REFERENCE renovado: trigger inmediato, capability card y centinela END; detección de bloque desactualizado cubierta con el bloque anterior literal
-- **2026-07-01T22:01:00Z** — Delimitadores BEGIN/END con versión y change id; core recortado al centinela; presupuesto y todos los modos cubiertos; suite completa verde (483)
-- **2026-07-01T22:01:57Z** — status: in-progress → in-review
-- **2026-07-01T22:03:22Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:00:36Z** — validation → in-progress (human rejected): card redundante con los modos y contradice la válvula operacional del core
-- **2026-07-01T23:03:27Z** — Corrección tras rechazo humano: la card ya no enumera modos (duplicaba el core e invitaba a saltar el contexto base) ni usa 'Never' absoluto; ahora regla dura + puntero al core, que es la única fuente de la excepción operacional. CR2 y Proposal actualizados.
-- **2026-07-01T23:20:06Z** — status: in-progress → in-review
-- **2026-07-01T23:22:09Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:25:36Z** — validation → done (human accepted)
-- **2026-07-01T23:28:15Z** — graduado a spec `contract-discovery.md`
-- **2026-07-01T23:28:35Z** — archived
+- **2026-07-01T21:39:31Z** `[note]` Draft creado. Alcance acotado a la capa de entrega del contrato (bootstrap + delimitadores); la señal interna de los packs pertenece a `#20260630-225213`. El humano descartó embeber el core en `AGENTS.md`.
+- **2026-07-01T21:50:24Z** `[note]` Añadido a Proposal/Plan el recorte de la regla anti-truncado del core: hoy se repite en tres capas y el centinela END la vuelve redundante; se remite al centinela y se recupera presupuesto (CR6).
+- **2026-07-01T21:51:41Z** `[status]` draft → approved
+- **2026-07-01T21:53:05Z** `[status]` approved → in-progress
+- **2026-07-01T21:53:05Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-01T21:55:55Z** `[note]` REFERENCE renovado: trigger inmediato, capability card y centinela END; detección de bloque desactualizado cubierta con el bloque anterior literal
+- **2026-07-01T22:01:00Z** `[note]` Delimitadores BEGIN/END con versión y change id; core recortado al centinela; presupuesto y todos los modos cubiertos; suite completa verde (483)
+- **2026-07-01T22:01:57Z** `[status]` in-progress → in-review
+- **2026-07-01T22:03:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:00:36Z** `[validation]` in-validation → in-progress (human rejected): card redundante con los modos y contradice la válvula operacional del core
+- **2026-07-01T23:03:27Z** `[note]` Corrección tras rechazo humano: la card ya no enumera modos (duplicaba el core e invitaba a saltar el contexto base) ni usa 'Never' absoluto; ahora regla dura + puntero al core, que es la única fuente de la excepción operacional. CR2 y Proposal actualizados.
+- **2026-07-01T23:20:06Z** `[status]` in-progress → in-review
+- **2026-07-01T23:22:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:25:36Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-01T23:28:15Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-01T23:28:35Z** `[archive]` archived

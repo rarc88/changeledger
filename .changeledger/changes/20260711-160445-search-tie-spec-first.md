@@ -21,11 +21,11 @@ el desempate estable actual. Ajuste en el comparador de `src/search.mjs` con
 regresión del empate en `test/search.test.mjs`. Un solo concern, reversible.
 
 ## Log
-- **2026-07-11T16:12:35Z** — status: draft → approved
-- **2026-07-11T16:23:50Z** — status: approved → in-progress
-- **2026-07-11T16:23:50Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T16:30:18Z** — Integrada implementación delegada (b17543c): el comparador prefiere spec sobre change a igual score, desempate estable intacto; 2 regresiones. pnpm verify 613/613.
-- **2026-07-11T16:30:18Z** — status: in-progress → in-validation
-- **2026-07-11T21:39:51Z** — validation → done (human accepted)
-- **2026-07-11T21:52:41Z** — graduado a spec `architecture.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T16:12:35Z** `[status]` draft → approved
+- **2026-07-11T16:23:50Z** `[status]` approved → in-progress
+- **2026-07-11T16:23:50Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T16:30:18Z** `[note]` Integrada implementación delegada (b17543c): el comparador prefiere spec sobre change a igual score, desempate estable intacto; 2 regresiones. pnpm verify 613/613.
+- **2026-07-11T16:30:18Z** `[status]` in-progress → in-validation
+- **2026-07-11T21:39:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:52:41Z** `[graduation]` spec: `architecture.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

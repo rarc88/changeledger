@@ -57,18 +57,23 @@ defensivo por construcción.
 
 ## Plan
 
-- [x] Añadir tests de traversal codificado en `test/view.test.mjs` y helper de resolución estática en `src/commands/view.mjs` (CR1) — 2026-06-16T15:31:36Z
-- [x] Añadir test de directorio hermano con prefijo común en `test/view.test.mjs` y reemplazar la comprobación de prefijo en `src/commands/view.mjs` (CR2) — 2026-06-16T15:31:37Z
-- [x] Añadir/ajustar test de asset válido en `test/view.test.mjs` manteniendo MIME en `src/commands/view.mjs` (CR3) — 2026-06-16T15:31:37Z
-- [x] Ejecutar tests existentes de API/vendor en `test/view.test.mjs` contra `src/commands/view.mjs` sin cambios de comportamiento (CR4) — 2026-06-16T15:31:37Z
-- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` — 2026-06-16T15:31:37Z
+- [x] Añadir tests de traversal codificado en `test/view.test.mjs` y helper de resolución estática en `src/commands/view.mjs` (CR1)
+  - **Resolved:** `2026-06-16T15:31:36Z`
+- [x] Añadir test de directorio hermano con prefijo común en `test/view.test.mjs` y reemplazar la comprobación de prefijo en `src/commands/view.mjs` (CR2)
+  - **Resolved:** `2026-06-16T15:31:37Z`
+- [x] Añadir/ajustar test de asset válido en `test/view.test.mjs` manteniendo MIME en `src/commands/view.mjs` (CR3)
+  - **Resolved:** `2026-06-16T15:31:37Z`
+- [x] Ejecutar tests existentes de API/vendor en `test/view.test.mjs` contra `src/commands/view.mjs` sin cambios de comportamiento (CR4)
+  - **Resolved:** `2026-06-16T15:31:37Z`
+- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
+  - **Resolved:** `2026-06-16T15:31:37Z`
 
 ## Log
-- **2026-06-16T15:15:17Z** — status: draft → approved
-- **2026-06-16T15:30:07Z** — status: approved → in-progress
-- **2026-06-16T15:30:08Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T15:31:37Z** — Hardened static asset path resolution; node --test test/view.test.mjs and pnpm verify passed outside sandbox.
-- **2026-06-16T15:31:37Z** — status: in-progress → in-review
-- **2026-06-16T15:34:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:34:36Z** — graduado a spec `viewer.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T15:15:17Z** `[status]` draft → approved
+- **2026-06-16T15:30:07Z** `[status]` approved → in-progress
+- **2026-06-16T15:30:08Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T15:31:37Z** `[note]` Hardened static asset path resolution; node --test test/view.test.mjs and pnpm verify passed outside sandbox.
+- **2026-06-16T15:31:37Z** `[status]` in-progress → in-review
+- **2026-06-16T15:34:36Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T15:34:36Z** `[graduation]` spec: `viewer.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

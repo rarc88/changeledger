@@ -15,6 +15,7 @@ function repo(planLine) {
   init(root);
   const id = '20260614-090000';
   const file = path.join(root, '.changeledger', 'changes', `${id}-fixture.md`);
+  const legacySeparator = [' ', '—', ' '].join('');
   fs.writeFileSync(
     file,
     `---
@@ -52,7 +53,7 @@ ${planLine}
 
 ## Log
 
-- **2026-06-14T09:00:00Z** — created
+- **2026-06-14T09:00:00Z**${legacySeparator}created
 `,
   );
   return { root, file, id };
@@ -99,7 +100,7 @@ Fixture.
 
 ## Log
 
-- **${timestamp}** — graduado a spec \`${ambiguous && id === events[0][0] ? 'other.md' : 'arch.md'}\`
+- **${timestamp}** \`[graduation]\` spec: \`${ambiguous && id === events[0][0] ? 'other.md' : 'arch.md'}\`
 `,
     );
   }
@@ -188,6 +189,38 @@ test('CR4: a task referencing an unknown criterion is left untouched and flagged
   assert.ok(text.includes(line), 'unknown-criterion line must not be modified');
   assert.ok(out.lines.some((l) => l.includes('requires manual fix')));
   assert.ok(out.lines.some((l) => l.includes('CR9')));
+});
+
+test('125007 CR8: --structured-sections previews and migrates tasks and Log events', () => {
+  const { root, file } = repo(
+    '- [x] Preserve — punctuation | intact (CR1) — 2026-06-14T09:05:00Z\n- [!] Publish (CR1) — waiting upstream',
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const preview = output();
+  assert.equal(fix(['--structured-sections', '--dry-run'], root, preview), 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.ok(preview.lines.some((line) => line.includes('**Resolved:**')));
+  assert.ok(preview.lines.some((line) => line.includes('`[note]` created')));
+
+  assert.equal(fix(['--structured-sections'], root, output()), 0);
+  const migrated = fs.readFileSync(file, 'utf8');
+  assert.match(
+    migrated,
+    /- \[x\] Preserve — punctuation \| intact \(CR1\)\n {2}- \*\*Resolved:\*\* `2026-06-14T09:05:00Z`/,
+  );
+  assert.match(migrated, /- \[!\] Publish \(CR1\)\n {2}- \*\*Blocked:\*\* waiting upstream/);
+  assert.match(migrated, /- \*\*2026-06-14T09:00:00Z\*\* `\[note\]` created/);
+});
+
+test('125007 CR8: ambiguous blocked metadata leaves the whole file untouched', () => {
+  const line = '- [!] Publish — external dependency (CR1) — waiting — platform';
+  const { root, file } = repo(line);
+  const before = fs.readFileSync(file, 'utf8');
+  const out = output();
+  assert.equal(fix(['--structured-sections'], root, out), 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.ok(out.lines.some((entry) => entry.includes('requires manual fix')));
+  assert.ok(out.lines.some((entry) => entry.includes('ambiguous legacy task metadata')));
 });
 
 test('111457 CR5: --graduation-links migrates legacy and Log provenance in order', () => {

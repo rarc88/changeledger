@@ -103,44 +103,52 @@ _Alternativas descartadas:_
 
 ## Plan
 
-- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7) — 2026-06-13T13:30:00Z
-- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1) — 2026-06-13T13:35:00Z
-- [x] Change bootstrap (este documento) como formato vivo — 2026-06-13T13:40:00Z
-- [x] Definir política de idioma (estructura inglés, contenido según `language`) — 2026-06-13T13:45:48Z
-- [x] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2) — 2026-06-13T14:30:00Z
-- [x] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON — 2026-06-13T14:35:00Z
-- [x] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4) — 2026-06-13T14:38:00Z
-- [x] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6) — 2026-06-13T14:40:44Z
+- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7)
+  - **Resolved:** `2026-06-13T13:30:00Z`
+- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1)
+  - **Resolved:** `2026-06-13T13:35:00Z`
+- [x] Change bootstrap (este documento) como formato vivo
+  - **Resolved:** `2026-06-13T13:40:00Z`
+- [x] Definir política de idioma (estructura inglés, contenido según `language`)
+  - **Resolved:** `2026-06-13T13:45:48Z`
+- [x] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2)
+  - **Resolved:** `2026-06-13T14:30:00Z`
+- [x] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON
+  - **Resolved:** `2026-06-13T14:35:00Z`
+- [x] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4)
+  - **Resolved:** `2026-06-13T14:38:00Z`
+- [x] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6)
+  - **Resolved:** `2026-06-13T14:40:44Z`
 
 ## Log
 
-- **2026-06-13T13:00:00Z** — Definido el modelo en conversación inicial.
+- **2026-06-13T13:00:00Z** `[note]` Definido el modelo en conversación inicial.
   Decisiones clave: un archivo por change; etapas opcionales por tipo; tasks como
   checklist; visor como server en vivo; CLI mínimo de 3 comandos; contrato en
   `AGENTS.md`; capa `specs/` diferida.
-- **2026-06-13T13:20:00Z** — Naming: de "Agent Workflow Canon / awc" a
+- **2026-06-13T13:20:00Z** `[note]` Naming: de "Agent Workflow Canon / awc" a
   **Spec Ledger** (comando `sl`). Razón: "Ledger" captura *fuente de verdad
   trackeable*; "Spec" captura SDD. "Agent" descartado por enmarcar como
   tooling-de-agente cuando la verdad es del proyecto y human-first.
-- **2026-06-13T13:45:48Z** — Correcciones de feedback humano: directorio de datos
+- **2026-06-13T13:45:48Z** `[note]` Correcciones de feedback humano: directorio de datos
   `.awc/` → `.sl/`; headings de etapas a inglés fijo (`Request`, `Investigation`,
   `Proposal`, `Specification`, `Plan`, `Log`); añadida política de idioma
   (estructura inglés, contenido según `config.language`); `created` ahora es
   timestamp ISO 8601 UTC completo. `AGENTS.md` reescrito como spec canónica en
   inglés. Historial de los 4 commits iniciales rehecho limpio (sin residuo "awc").
-- **2026-06-13T14:10:00Z** — Contrato: criterios de aceptación ahora en formato
+- **2026-06-13T14:10:00Z** `[note]` Contrato: criterios de aceptación ahora en formato
   G/W/T estructurado fijo (un `### CRn` por escenario, pasos por línea), sin
   inline. Añadida trazabilidad criterio↔tarea (las tareas referencian `(CRn)`).
   TDD parqueado para análisis posterior. Specification de este change migrada al
   nuevo formato.
-- **2026-06-13T14:20:00Z** — Contrato: las tareas `[x]` llevan timestamp de
+- **2026-06-13T14:20:00Z** `[note]` Contrato: las tareas `[x]` llevan timestamp de
   resolución ISO 8601 UTC completo (solo-día no preserva el orden de tareas del
   mismo día). Tareas ya completadas re-estampadas con timestamps reconstruidos
   y ordenados; de aquí en más se registra el momento real.
-- **2026-06-13T14:40:44Z** — Base implementada con TDD (22 tests verde): parser
+- **2026-06-13T14:40:44Z** `[note]` Base implementada con TDD (22 tests verde): parser
   YAML, parser de change, carga de repo, CLI `sl init`/`new`/`view`, server
   `node:http` y visor (kanban, filtros, pipeline de etapas, progreso, grafo
   `depends_on`). CR1–CR7 verificados (incl. visualmente en el visor). `marked`
   vendorizado (MIT). Change cerrado: `in-progress → done`. Próximo: graduar
   verdad a `specs/` e implementar 0002 (`sl check`).
-- **2026-06-15T21:17:53Z** — archived
+- **2026-06-15T21:17:53Z** `[archive]` archived

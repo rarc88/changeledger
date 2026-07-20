@@ -53,15 +53,18 @@ Esto debilita la trazabilidad criterio -> tarea que el contrato promete.
 
 ## Plan
 
-- [x] Añadir tests en `test/check.test.mjs` para `src/check.mjs` con referencias CR inexistentes en tareas de `## Plan` y hacerlos fallar primero (CR1, CR3) — 2026-06-16T16:28:20Z
-- [x] Actualizar `src/check.mjs` y cubrirlo con `test/check.test.mjs` para comparar `task.criteria` contra los criterios declarados y emitir errores por cada referencia desconocida (CR1, CR2, CR3) — 2026-06-16T16:28:24Z
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/check.mjs` con `test/check.test.mjs` y el contrato del repo (CR1, CR2, CR3) — 2026-06-16T16:28:28Z
+- [x] Añadir tests en `test/check.test.mjs` para `src/check.mjs` con referencias CR inexistentes en tareas de `## Plan` y hacerlos fallar primero (CR1, CR3)
+  - **Resolved:** `2026-06-16T16:28:20Z`
+- [x] Actualizar `src/check.mjs` y cubrirlo con `test/check.test.mjs` para comparar `task.criteria` contra los criterios declarados y emitir errores por cada referencia desconocida (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:28:24Z`
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/check.mjs` con `test/check.test.mjs` y el contrato del repo (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:28:28Z`
 
 ## Log
-- **2026-06-16T16:24:48Z** — status: draft → approved
-- **2026-06-16T16:27:49Z** — status: approved → in-progress
-- **2026-06-16T16:27:50Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T16:28:32Z** — status: in-progress → in-review
-- **2026-06-16T16:42:46Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:44:37Z** — graduado a spec `validation.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T16:24:48Z** `[status]` draft → approved
+- **2026-06-16T16:27:49Z** `[status]` approved → in-progress
+- **2026-06-16T16:27:50Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T16:28:32Z** `[status]` in-progress → in-review
+- **2026-06-16T16:42:46Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:37Z** `[graduation]` spec: `validation.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

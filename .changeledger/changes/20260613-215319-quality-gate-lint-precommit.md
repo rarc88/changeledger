@@ -50,18 +50,24 @@ pasen.
 
 ## Plan
 
-- [x] `pnpm add -D @biomejs/biome` + `biome.json` — 2026-06-13T21:56:00Z
-- [x] Scripts `lint`/`test`/`check`/`verify` en `package.json` — 2026-06-13T21:57:00Z
-- [x] Aplicar Biome al código existente (fix/format) hasta verde — 2026-06-13T21:59:00Z
-- [x] `hooks/pre-commit` + `core.hooksPath` — 2026-06-13T22:00:00Z
-- [x] Documentar en README — 2026-06-13T22:01:00Z
-- [x] `.gitignore`: node_modules ya ignorado (sin cambios) — 2026-06-13T22:01:30Z
+- [x] `pnpm add -D @biomejs/biome` + `biome.json`
+  - **Resolved:** `2026-06-13T21:56:00Z`
+- [x] Scripts `lint`/`test`/`check`/`verify` en `package.json`
+  - **Resolved:** `2026-06-13T21:57:00Z`
+- [x] Aplicar Biome al código existente (fix/format) hasta verde
+  - **Resolved:** `2026-06-13T21:59:00Z`
+- [x] `hooks/pre-commit` + `core.hooksPath`
+  - **Resolved:** `2026-06-13T22:00:00Z`
+- [x] Documentar en README
+  - **Resolved:** `2026-06-13T22:01:00Z`
+- [x] `.gitignore`: node_modules ya ignorado (sin cambios)
+  - **Resolved:** `2026-06-13T22:01:30Z`
 
 ## Log
 
-- **2026-06-13T21:53:19Z** — Creado. Aprobado: Biome + pnpm, hook versionado vía
+- **2026-06-13T21:53:19Z** `[note]` Creado. Aprobado: Biome + pnpm, hook versionado vía
   core.hooksPath. Gate = lint + test + check.
-- **2026-06-13T21:54:50Z** — status: approved → in-progress
-- **2026-06-13T21:58:08Z** — status: in-progress → done
-- **2026-06-13T21:58:08Z** — Biome + pnpm, scripts lint/test/check/verify, hook pre-commit vía core.hooksPath. Código formateado a verde. pnpm verify pasa.
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T21:54:50Z** `[status]` approved → in-progress
+- **2026-06-13T21:58:08Z** `[status]` in-progress → done
+- **2026-06-13T21:58:08Z** `[note]` Biome + pnpm, scripts lint/test/check/verify, hook pre-commit vía core.hooksPath. Código formateado a verde. pnpm verify pasa.
+- **2026-06-15T21:17:54Z** `[archive]` archived

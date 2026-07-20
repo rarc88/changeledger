@@ -82,22 +82,28 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir `integration_branch` a la resolución de config en `src/config.mjs` (o módulo equivalente) con test en `test/config.test.mjs`; verify: `node --test test/config.test.mjs` (CR1) — 2026-07-11T22:12:02Z
-- [x] Usarla como base por defecto en `changeledger check --commits` (`src/commands/check.mjs`) con test; verify: `node --test test/check.test.mjs` (CR1) — 2026-07-11T22:12:02Z
-- [x] Exponerla en la Effective policy de `src/commands/context.mjs` con test; verify: `node --test test/context.test.mjs` (CR2) — 2026-07-11T22:12:02Z
-- [x] Añadir la instrucción de base/integración a `templates/contract/implement.md` y reclasificar snapshots/matriz en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3) — 2026-07-11T22:12:02Z
-- [x] Verificar preservación de la clave en el editor de config del visor (`src/viewer/server/router.mjs`/`src/viewer/public/templates.js`); verify: `node --test test/view.test.mjs` (CR4) — 2026-07-11T22:12:03Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T22:12:03Z
+- [x] Añadir `integration_branch` a la resolución de config en `src/config.mjs` (o módulo equivalente) con test en `test/config.test.mjs`; verify: `node --test test/config.test.mjs` (CR1)
+  - **Resolved:** `2026-07-11T22:12:02Z`
+- [x] Usarla como base por defecto en `changeledger check --commits` (`src/commands/check.mjs`) con test; verify: `node --test test/check.test.mjs` (CR1)
+  - **Resolved:** `2026-07-11T22:12:02Z`
+- [x] Exponerla en la Effective policy de `src/commands/context.mjs` con test; verify: `node --test test/context.test.mjs` (CR2)
+  - **Resolved:** `2026-07-11T22:12:02Z`
+- [x] Añadir la instrucción de base/integración a `templates/contract/implement.md` y reclasificar snapshots/matriz en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-11T22:12:02Z`
+- [x] Verificar preservación de la clave en el editor de config del visor (`src/viewer/server/router.mjs`/`src/viewer/public/templates.js`); verify: `node --test test/view.test.mjs` (CR4)
+  - **Resolved:** `2026-07-11T22:12:03Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T22:12:03Z`
 
 ## Log
-- **2026-07-11T21:05:26Z** — status: draft → approved
-- **2026-07-11T21:56:31Z** — status: approved → in-progress
-- **2026-07-11T21:56:31Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T22:12:03Z** — Integrada implementación delegada (8f4b532..b483512): integrationBranch() en config, check --commits usa la rama declarada como base, Effective policy la expone, implement.md instruye partir/integrar en ella (main solo release), test de preservación en el visor (ya pasaba: el patch AST conserva claves). TDD red-green por CR; pnpm verify 651/651.
-- **2026-07-11T22:12:03Z** — status: in-progress → in-review
-- **2026-07-11T22:17:14Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T22:17:14Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con evidencia e2e en repos scratch (base declarada vs auto-detección, base explícita gana, fail-fast en valores malformados, policy line exacta, preservación en visor). Sin residuos vs baseline; verify 651/651.
-- **2026-07-11T22:18:43Z** — Dogfooding: este repo declara git.integration_branch: dev en su config; Effective policy lo expone y check --commits lintea dev..HEAD por defecto.
-- **2026-07-11T22:22:59Z** — validation → done (human accepted)
-- **2026-07-11T22:24:25Z** — graduado a spec `git-traceability.md`
-- **2026-07-11T22:24:27Z** — archived
+- **2026-07-11T21:05:26Z** `[status]` draft → approved
+- **2026-07-11T21:56:31Z** `[status]` approved → in-progress
+- **2026-07-11T21:56:31Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T22:12:03Z** `[note]` Integrada implementación delegada (8f4b532..b483512): integrationBranch() en config, check --commits usa la rama declarada como base, Effective policy la expone, implement.md instruye partir/integrar en ella (main solo release), test de preservación en el visor (ya pasaba: el patch AST conserva claves). TDD red-green por CR; pnpm verify 651/651.
+- **2026-07-11T22:12:03Z** `[status]` in-progress → in-review
+- **2026-07-11T22:17:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T22:17:14Z** `[note]` Review independiente (contexto limpio) PASS: CR1-CR4 con evidencia e2e en repos scratch (base declarada vs auto-detección, base explícita gana, fail-fast en valores malformados, policy line exacta, preservación en visor). Sin residuos vs baseline; verify 651/651.
+- **2026-07-11T22:18:43Z** `[note]` Dogfooding: este repo declara git.integration_branch: dev en su config; Effective policy lo expone y check --commits lintea dev..HEAD por defecto.
+- **2026-07-11T22:22:59Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T22:24:25Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-11T22:24:27Z** `[archive]` archived

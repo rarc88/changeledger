@@ -249,6 +249,7 @@ function canonicalHeading(key) {
 }
 
 function checkTasks(c, tasks, err) {
+  for (const issue of c.taskIssues ?? []) err(c, issue.message);
   for (const t of tasks) {
     if (t.state === 'done' && !ISO_UTC.test(t.resolvedAt ?? '')) {
       err(c, 'done task is missing an ISO 8601 UTC resolution timestamp');
@@ -278,9 +279,9 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
   const destinationsByChange = new Map(); // change id → spec names named by its Log
   const activityBySpec = new Map(); // spec name → latest linked-change activity
   for (const c of changes) {
-    for (const m of graduationMarkers(c)) {
-      const ts = m[1].trim();
-      const specName = m[2].trim();
+    for (const event of graduationMarkers(c)) {
+      const ts = event.at;
+      const specName = event.spec;
       if (!specNames.has(specName)) {
         err(c, `graduated to a missing spec "${specName}"`);
         continue;
@@ -332,10 +333,8 @@ function logBody(change) {
 
 function* graduationMarkers(change) {
   for (const line of logBody(change).split('\n')) {
-    const m = line.match(
-      /\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*\s*—\s*graduado a spec `([^`]+)`/i,
-    );
-    if (m) yield m;
+    const event = parseLogEvent(line);
+    if (event?.type === 'graduation' && event.outcome === 'spec') yield event;
   }
 }
 
@@ -393,12 +392,16 @@ function checkLifecycleSequence(c, fm, err) {
     }
     if (!inLog) continue;
     const event = parseLogEvent(line);
-    if (!event) continue;
+    if (!event) {
+      if (/^- /.test(line)) err(c, `Log line ${i + 1}: invalid typed event`);
+      continue;
+    }
+    if (!['status', 'review', 'validation'].includes(event.type)) continue;
     if (!CANONICAL.has(event.from) || !CANONICAL.has(event.to)) return;
     events += 1;
     if (event.from !== current) {
       const legacyGap =
-        event.explicit &&
+        event.type === 'status' &&
         LEGACY_RESYNC_RANK[current] !== undefined &&
         LEGACY_RESYNC_RANK[event.from] !== undefined &&
         LEGACY_RESYNC_RANK[event.from] > LEGACY_RESYNC_RANK[current];

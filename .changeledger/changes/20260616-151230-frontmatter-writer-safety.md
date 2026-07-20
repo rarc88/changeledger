@@ -36,18 +36,23 @@ mutaciones, pero produciría churn de formato y más riesgo en cambios históric
 
 ## Plan
 
-- [x] Añadir tests negativos en `test/writer.test.mjs` para `setOwner`, `setArchived` y `setReviewed` cuando falta `depends_on` — 2026-06-16T15:28:18Z
-- [x] Añadir test negativo en `test/writer.test.mjs` para `setSpecUpdated` cuando falta `updated` — 2026-06-16T15:28:18Z
-- [x] Actualizar `src/writer.mjs` para lanzar errores explícitos cuando no encuentre líneas ancla o no aplique la sustitución — 2026-06-16T15:28:18Z
-- [x] Confirmar con tests existentes que los documentos sanos conservan su formato esperado — 2026-06-16T15:28:18Z
-- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` — 2026-06-16T15:28:19Z
+- [x] Añadir tests negativos en `test/writer.test.mjs` para `setOwner`, `setArchived` y `setReviewed` cuando falta `depends_on`
+  - **Resolved:** `2026-06-16T15:28:18Z`
+- [x] Añadir test negativo en `test/writer.test.mjs` para `setSpecUpdated` cuando falta `updated`
+  - **Resolved:** `2026-06-16T15:28:18Z`
+- [x] Actualizar `src/writer.mjs` para lanzar errores explícitos cuando no encuentre líneas ancla o no aplique la sustitución
+  - **Resolved:** `2026-06-16T15:28:18Z`
+- [x] Confirmar con tests existentes que los documentos sanos conservan su formato esperado
+  - **Resolved:** `2026-06-16T15:28:18Z`
+- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
+  - **Resolved:** `2026-06-16T15:28:19Z`
 
 ## Log
-- **2026-06-16T15:15:16Z** — status: draft → approved
-- **2026-06-16T15:27:07Z** — status: approved → in-progress
-- **2026-06-16T15:27:07Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T15:28:19Z** — Implemented fail-fast frontmatter anchors; pnpm verify passed with one unrelated support-task warning.
-- **2026-06-16T15:28:19Z** — status: in-progress → in-review
-- **2026-06-16T15:29:31Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:29:31Z** — graduado a spec `data-model.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T15:15:16Z** `[status]` draft → approved
+- **2026-06-16T15:27:07Z** `[status]` approved → in-progress
+- **2026-06-16T15:27:07Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T15:28:19Z** `[note]` Implemented fail-fast frontmatter anchors; pnpm verify passed with one unrelated support-task warning.
+- **2026-06-16T15:28:19Z** `[status]` in-progress → in-review
+- **2026-06-16T15:29:31Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T15:29:31Z** `[graduation]` spec: `data-model.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

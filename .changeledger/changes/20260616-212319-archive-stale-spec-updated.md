@@ -46,16 +46,19 @@ no debería obligar a refrescar el spec.
 - **Then** el warning de orphan spec se mantiene
 
 ## Plan
-- [x] Ajustar la heurística de stale en `src/check.mjs` para ignorar actividad no persistente posterior a la graduación, cubierta por `test/check.test.mjs` (CR1, CR2) — 2026-06-17T10:22:33Z
-- [x] Añadir regresiones en `test/check.test.mjs` para archivar luego de graduar, enlace roto y spec huérfano en `src/check.mjs` (CR1, CR3, CR4) — 2026-06-17T10:22:37Z
-- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4) — 2026-06-17T10:22:42Z
+- [x] Ajustar la heurística de stale en `src/check.mjs` para ignorar actividad no persistente posterior a la graduación, cubierta por `test/check.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-17T10:22:33Z`
+- [x] Añadir regresiones en `test/check.test.mjs` para archivar luego de graduar, enlace roto y spec huérfano en `src/check.mjs` (CR1, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:22:37Z`
+- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:22:42Z`
 
 ## Log
-- **2026-06-16T21:23:19Z** — Creado desde fricción observada: archivar un change graduado generó stale warning en el spec sin cambio real de verdad persistente.
-- **2026-06-17T10:03:06Z** — status: draft → approved
-- **2026-06-17T10:21:35Z** — status: approved → in-progress
-- **2026-06-17T10:21:35Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T10:22:59Z** — status: in-progress → in-review
-- **2026-06-17T10:24:01Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:24:05Z** — graduado a spec `lifecycle.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T21:23:19Z** `[note]` Creado desde fricción observada: archivar un change graduado generó stale warning en el spec sin cambio real de verdad persistente.
+- **2026-06-17T10:03:06Z** `[status]` draft → approved
+- **2026-06-17T10:21:35Z** `[status]` approved → in-progress
+- **2026-06-17T10:21:35Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T10:22:59Z** `[status]` in-progress → in-review
+- **2026-06-17T10:24:01Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T10:24:05Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

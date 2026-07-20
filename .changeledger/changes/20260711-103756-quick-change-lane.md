@@ -94,20 +94,26 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir `quick` a tipos válidos y matriz por defecto en `src/config.mjs`; verify: `pnpm test` (CR4) — 2026-07-11T11:05:46Z
-- [x] Aceptar el scaffold `quick` en `src/commands/new.mjs`; verify: `pnpm test` (CR1) — 2026-07-11T11:05:47Z
-- [x] Excluir `quick` del review gate en la lógica de transiciones de `src/lifecycle.mjs`; verify: `pnpm test` (CR2) — 2026-07-11T11:05:47Z
-- [x] Verificar que `src/check.mjs` no exige stages desactivados para `quick` y cubrirlo con test; verify: `pnpm test` (CR3) — 2026-07-11T11:05:47Z
-- [x] Documentar el carril y su elegibilidad en `templates/contract/spec.md` y la mención mínima en `templates/contract/core.md`; verify: `pnpm test` (CR5) — 2026-07-11T11:05:47Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:05:47Z
+- [x] Añadir `quick` a tipos válidos y matriz por defecto en `src/config.mjs`; verify: `pnpm test` (CR4)
+  - **Resolved:** `2026-07-11T11:05:46Z`
+- [x] Aceptar el scaffold `quick` en `src/commands/new.mjs`; verify: `pnpm test` (CR1)
+  - **Resolved:** `2026-07-11T11:05:47Z`
+- [x] Excluir `quick` del review gate en la lógica de transiciones de `src/lifecycle.mjs`; verify: `pnpm test` (CR2)
+  - **Resolved:** `2026-07-11T11:05:47Z`
+- [x] Verificar que `src/check.mjs` no exige stages desactivados para `quick` y cubrirlo con test; verify: `pnpm test` (CR3)
+  - **Resolved:** `2026-07-11T11:05:47Z`
+- [x] Documentar el carril y su elegibilidad en `templates/contract/spec.md` y la mención mínima en `templates/contract/core.md`; verify: `pnpm test` (CR5)
+  - **Resolved:** `2026-07-11T11:05:47Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T11:05:47Z`
 
 ## Log
-- **2026-07-11T10:47:23Z** — status: draft → approved
-- **2026-07-11T10:52:15Z** — status: approved → in-progress
-- **2026-07-11T10:52:15Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T11:05:48Z** — Integrada implementación delegada (1a18fe4..a921f3b). Divergencia registrada: la matriz por defecto vive en templates/config.yml, no en src/config.mjs; new/check/lifecycle ya eran genéricos y solo requirieron tests. Añadido release.impacts.quick=patch. Snapshots de core.md/spec.md actualizados. pnpm verify 567/567.
-- **2026-07-11T11:16:21Z** — status: in-progress → in-review
-- **2026-07-11T11:20:39Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T11:37:25Z** — validation → done (human accepted)
-- **2026-07-11T15:45:49Z** — graduado a spec `lifecycle.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T10:47:23Z** `[status]` draft → approved
+- **2026-07-11T10:52:15Z** `[status]` approved → in-progress
+- **2026-07-11T10:52:15Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T11:05:48Z** `[note]` Integrada implementación delegada (1a18fe4..a921f3b). Divergencia registrada: la matriz por defecto vive en templates/config.yml, no en src/config.mjs; new/check/lifecycle ya eran genéricos y solo requirieron tests. Añadido release.impacts.quick=patch. Snapshots de core.md/spec.md actualizados. pnpm verify 567/567.
+- **2026-07-11T11:16:21Z** `[status]` in-progress → in-review
+- **2026-07-11T11:20:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:25Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T15:45:49Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

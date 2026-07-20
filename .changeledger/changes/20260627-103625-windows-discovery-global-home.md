@@ -57,19 +57,22 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 
 ## Plan
 
-- [x] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`); verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2) — 2026-06-27T10:40:39Z
-- [x] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado; verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2, CR3) — 2026-06-27T10:40:39Z
-- [x] Ejecutar el gate completo para `src/**`; verify: `pnpm test` mediante `pnpm verify` (CR3) — 2026-06-27T10:40:39Z
+- [x] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`); verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2)
+  - **Resolved:** `2026-06-27T10:40:39Z`
+- [x] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado; verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-27T10:40:39Z`
+- [x] Ejecutar el gate completo para `src/**`; verify: `pnpm test` mediante `pnpm verify` (CR3)
+  - **Resolved:** `2026-06-27T10:40:39Z`
 
 ## Log
 
-- **2026-06-27T10:36:25Z** — El fallo de Windows CI se aisló a la colisión entre `~/.changeledger/` global y el marcador de proyecto durante el ascenso de directorios.
-- **2026-06-27T10:38:08Z** — status: draft → approved
-- **2026-06-27T10:39:06Z** — status: approved → in-progress
-- **2026-06-27T10:39:06Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-27T10:40:39Z** — Discovery ahora exige .changeledger/config.yml; la regresión sintética reproduce el layout Windows y pnpm verify pasa con 366 pruebas y 123 changes válidos.
-- **2026-06-27T10:40:39Z** — status: in-progress → in-review
-- **2026-06-27T10:42:02Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-27T10:43:15Z** — validation → done (human accepted)
-- **2026-06-27T10:44:24Z** — graduado a spec `contract-discovery.md`
-- **2026-06-27T10:44:24Z** — archived
+- **2026-06-27T10:36:25Z** `[note]` El fallo de Windows CI se aisló a la colisión entre `~/.changeledger/` global y el marcador de proyecto durante el ascenso de directorios.
+- **2026-06-27T10:38:08Z** `[status]` draft → approved
+- **2026-06-27T10:39:06Z** `[status]` approved → in-progress
+- **2026-06-27T10:39:06Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-27T10:40:39Z** `[note]` Discovery ahora exige .changeledger/config.yml; la regresión sintética reproduce el layout Windows y pnpm verify pasa con 366 pruebas y 123 changes válidos.
+- **2026-06-27T10:40:39Z** `[status]` in-progress → in-review
+- **2026-06-27T10:42:02Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-27T10:43:15Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-27T10:44:24Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-27T10:44:24Z** `[archive]` archived

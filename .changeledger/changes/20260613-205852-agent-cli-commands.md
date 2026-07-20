@@ -71,19 +71,26 @@ Todas escriben de forma idempotente y dejan el archivo válido para `sl check`.
 
 ## Plan
 
-- [x] Escritor de change: editar frontmatter y secciones preservando formato — 2026-06-13T21:11:35Z
-- [x] `sl status` (CR1, CR2) — 2026-06-13T21:11:35Z
-- [x] `sl log` (CR3) — 2026-06-13T21:11:35Z
-- [x] `sl task` done/block (CR4) — 2026-06-13T21:11:35Z
-- [x] `sl list` + `sl show` con `--json` (CR5) — 2026-06-13T21:11:35Z
-- [x] Tests de cada comando — 2026-06-13T21:11:35Z
-- [x] Actualizar AGENTS.md (comandos disponibles para agentes) y README — 2026-06-13T21:11:35Z
+- [x] Escritor de change: editar frontmatter y secciones preservando formato
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] `sl status` (CR1, CR2)
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] `sl log` (CR3)
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] `sl task` done/block (CR4)
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] `sl list` + `sl show` con `--json` (CR5)
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] Tests de cada comando
+  - **Resolved:** `2026-06-13T21:11:35Z`
+- [x] Actualizar AGENTS.md (comandos disponibles para agentes) y README
+  - **Resolved:** `2026-06-13T21:11:35Z`
 
 ## Log
 
-- **2026-06-13T20:58:52Z** — Creado en draft. Comandos elegidos con el humano:
+- **2026-06-13T20:58:52Z** `[note]` Creado en draft. Comandos elegidos con el humano:
   status, log, task (mutación), list, show (consulta). Aditivos; archivos siguen
   siendo la fuente de verdad.
-- **2026-06-13T21:11:36Z** — status: in-progress → done
-- **2026-06-13T21:11:36Z** — Implementado con TDD (51 tests verde). Cerrado usando los propios comandos sl task/status/log.
-- **2026-06-15T21:17:53Z** — archived
+- **2026-06-13T21:11:36Z** `[status]` in-progress → done
+- **2026-06-13T21:11:36Z** `[note]` Implementado con TDD (51 tests verde). Cerrado usando los propios comandos sl task/status/log.
+- **2026-06-15T21:17:53Z** `[archive]` archived

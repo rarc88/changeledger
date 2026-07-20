@@ -1,11 +1,10 @@
 // Parses a ChangeLedger change file: frontmatter + stages + tasks.
 // Stage bodies are kept raw (markdown) — the viewer renders them.
 
+import { parseTaskBlocks } from './task.mjs';
 import { parseYaml } from './yaml.mjs';
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
-const TASK = /^- \[( |x|!)\]\s+(.*)$/;
-const STATE_BY_MARK = { ' ': 'todo', x: 'done', '!': 'blocked' };
 
 export function parseChange(text) {
   const fm = text.match(FRONTMATTER);
@@ -15,7 +14,8 @@ export function parseChange(text) {
 
   const stages = splitStages(body);
   const plan = stages.find((s) => s.key === 'plan');
-  const tasks = plan ? parseTasks(plan.body) : [];
+  const parsedTasks = plan ? parseTaskBlocks(plan.body) : { tasks: [], issues: [] };
+  const { tasks } = parsedTasks;
   const spec = stages.find((s) => s.key === 'specification');
   const criterionBlocks = spec ? parseCriteria(spec.body) : [];
   const criteria = criterionBlocks.map((c) => c.id);
@@ -25,7 +25,15 @@ export function parseChange(text) {
     blocked: tasks.filter((t) => t.state === 'blocked').length,
   };
 
-  return { frontmatter, stages, tasks, criteria, criterionBlocks, progress };
+  return {
+    frontmatter,
+    stages,
+    tasks,
+    taskIssues: parsedTasks.issues,
+    criteria,
+    criterionBlocks,
+    progress,
+  };
 }
 
 // Acceptance criteria declared in `## Specification` as `### CRn — name` blocks.
@@ -68,35 +76,4 @@ function splitStages(body) {
   }
   for (const s of stages) s.body = s.body.trim();
   return stages;
-}
-
-function parseTasks(planBody) {
-  const tasks = [];
-  for (const line of planBody.split('\n')) {
-    const m = line.trim().match(TASK);
-    if (!m) continue;
-    const state = STATE_BY_MARK[m[1]];
-    let rest = m[2].trim();
-    let resolvedAt;
-    let reason;
-    let suffix;
-
-    const dash = rest.lastIndexOf(' — ');
-    if (dash !== -1) {
-      suffix = rest.slice(dash + 3).trim();
-      rest = rest.slice(0, dash).trim();
-      if (state === 'done') resolvedAt = suffix;
-      else if (state === 'blocked') reason = suffix;
-    }
-
-    let criteria = [];
-    const crMatch = rest.match(/\(([^)]*\bCR\d+[^)]*)\)\s*$/);
-    if (crMatch) {
-      criteria = crMatch[1].match(/CR\d+/g) ?? [];
-      rest = rest.slice(0, crMatch.index).trim();
-    }
-
-    tasks.push({ text: rest, state, criteria, resolvedAt, reason, suffix });
-  }
-  return tasks;
 }

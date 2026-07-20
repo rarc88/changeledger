@@ -56,21 +56,26 @@ tarde.
 
 ## Plan
 
-- [x] Añadir tests de casing canónico de stages en `test/change.test.mjs` o `test/check.test.mjs` y validación en `src/check.mjs` usando datos de `src/change.mjs` (CR1) — 2026-06-16T15:17:37Z
-- [x] Añadir tests de timestamp de tarea done en `test/check.test.mjs` y validación sobre `tasks.resolvedAt` en `src/check.mjs` (CR2) — 2026-06-16T15:17:37Z
-- [x] Añadir tests de razón de tarea bloqueada en `test/check.test.mjs` y validación sobre `tasks.reason` en `src/check.mjs` (CR3) — 2026-06-16T15:17:38Z
-- [x] Exponer o calcular duplicados de criterios en `src/change.mjs` y cubrirlos desde `test/check.test.mjs` (CR4) — 2026-06-16T15:17:38Z
-- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` (CR1, CR2, CR3, CR4) — 2026-06-16T15:17:38Z
+- [x] Añadir tests de casing canónico de stages en `test/change.test.mjs` o `test/check.test.mjs` y validación en `src/check.mjs` usando datos de `src/change.mjs` (CR1)
+  - **Resolved:** `2026-06-16T15:17:37Z`
+- [x] Añadir tests de timestamp de tarea done en `test/check.test.mjs` y validación sobre `tasks.resolvedAt` en `src/check.mjs` (CR2)
+  - **Resolved:** `2026-06-16T15:17:37Z`
+- [x] Añadir tests de razón de tarea bloqueada en `test/check.test.mjs` y validación sobre `tasks.reason` en `src/check.mjs` (CR3)
+  - **Resolved:** `2026-06-16T15:17:38Z`
+- [x] Exponer o calcular duplicados de criterios en `src/change.mjs` y cubrirlos desde `test/check.test.mjs` (CR4)
+  - **Resolved:** `2026-06-16T15:17:38Z`
+- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-16T15:17:38Z`
 
 ## Log
-- **2026-06-16T15:15:15Z** — status: draft → approved
-- **2026-06-16T15:16:38Z** — status: approved → in-progress
-- **2026-06-16T15:16:38Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T15:17:38Z** — Implemented strict stage heading, task suffix and duplicate criterion checks; node --test test/check.test.mjs passed.
-- **2026-06-16T15:17:38Z** — status: in-progress → in-review
-- **2026-06-16T15:20:04Z** — review → in-progress (retry): sl check fails on historical tasks whose description contains an em dash before the timestamp; tests were too synthetic.
-- **2026-06-16T15:20:34Z** — Fixed parser interaction by reading task suffixes from the last em dash separator; node --test test/change.test.mjs test/check.test.mjs and sl check passed.
-- **2026-06-16T15:20:34Z** — status: in-progress → in-review
-- **2026-06-16T15:21:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:21:36Z** — graduado a spec `validation.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T15:15:15Z** `[status]` draft → approved
+- **2026-06-16T15:16:38Z** `[status]` approved → in-progress
+- **2026-06-16T15:16:38Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T15:17:38Z** `[note]` Implemented strict stage heading, task suffix and duplicate criterion checks; node --test test/check.test.mjs passed.
+- **2026-06-16T15:17:38Z** `[status]` in-progress → in-review
+- **2026-06-16T15:20:04Z** `[review]` in-review → in-progress (retry): sl check fails on historical tasks whose description contains an em dash before the timestamp; tests were too synthetic.
+- **2026-06-16T15:20:34Z** `[note]` Fixed parser interaction by reading task suffixes from the last em dash separator; node --test test/change.test.mjs test/check.test.mjs and sl check passed.
+- **2026-06-16T15:20:34Z** `[status]` in-progress → in-review
+- **2026-06-16T15:21:36Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T15:21:36Z** `[graduation]` spec: `validation.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

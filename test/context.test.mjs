@@ -326,15 +326,15 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /\[ \] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\)/],
     [
       'spec',
-      /\[x\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\) — 2026-06-13T14:20:00Z/,
+      /\[x\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Resolved:\*\* `2026-06-13T14:20:00Z`/s,
     ],
-    ['spec', /\[!\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\) — blocked reason/],
-    ['spec', /parser removes `— verify: \.\.\.` before readiness checks/],
     [
       'spec',
-      /running a test suite, reading before refactoring, evaluating blast radius or scaffolding/,
+      /\[!\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Blocked:\*\* blocked reason/s,
     ],
-    ['spec', /not a substitute for a missing criterion on observable behaviour/],
+    ['spec', /Resolution metadata is structural/],
+    ['spec', /operational work such as test suites, reading, blast-radius analysis or scaffolding/],
+    ['spec', /cannot replace a criterion for observable behaviour/],
     ['spec', /strong model documents and a less capable but able model implements/],
     ['spec', /set `tdd` to `false` only for exploratory repos/],
     [
@@ -616,7 +616,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260718-105456: additive related_to scaffold and non-blocking semantics;
     // correction adds mandatory search-result classification during Investigation;
     // existing dependency execution and authoring rules are preserved.
-    'spec.md': 'b78aeea566632cfc1d304ce8a93307951fb08fe564656eb0a354c5e818b5d029',
+    // 20260720-125007: task state metadata and Log events become explicit
+    // structured records; the former punctuation-delimited forms are retired.
+    'spec.md': '0c02131a596088e83496ffa31d5ba87c11b7e03eab67ec50415c1300e485211e',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -1269,11 +1271,8 @@ test('103756 CR5: spec context documents the quick lane and its eligibility', ()
   const root = repo();
   const spec = buildContext('spec', root).replace(/\s+/g, ' ');
   assert.match(spec, /quick/);
-  assert.match(
-    spec,
-    /single-concern work that does\s+not expand public surface or persistent truth/,
-  );
-  assert.match(spec, /discard the change and\s+recreate it under the correct type/);
+  assert.match(spec, /single-concern work that adds no public surface\s+or persistent truth/);
+  assert.match(spec, /discard and recreate it under the correct type/);
   assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
 });
 
@@ -1287,5 +1286,5 @@ test('105456 CR8 correction: spec context makes agents populate discovered relat
   assert.match(spec, /execution prerequisite.*`depends_on`/);
   assert.match(spec, /useful context without execution order.*`related_to`/);
   assert.match(spec, /unstructured nuance.*textual mention/);
-  assert.match(spec, /Declare a local relation once.*incoming backlink is derived/);
+  assert.match(spec, /declare a local relation once, deriving its backlink/);
 });

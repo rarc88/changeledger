@@ -75,22 +75,25 @@ siendo determinista y stateless, y la precondición continúa en el bootstrap.
 
 ## Plan
 
-- [x] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-06-29T21:14:05Z
-- [x] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4) — 2026-06-29T21:14:05Z
-- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support) — 2026-06-29T21:14:31Z
+- [x] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-29T21:14:05Z`
+- [x] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-06-29T21:14:05Z`
+- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-06-29T21:14:31Z`
 
 ## Log
 
-- 2026-06-29T21:05:43Z — Alcance autorizado por el humano; se documenta como mejora separada y se pospone el release para incluir ambos cambios.
-- **2026-06-29T21:11:52Z** — status: draft → approved
-- **2026-06-29T21:12:55Z** — status: approved → in-progress
-- **2026-06-29T21:12:55Z** — owner → Roberto Ruiz (auto)
-- **2026-06-29T21:14:31Z** — Implementación completada: los contextos específicos son incrementales y pnpm verify pasa con 468 tests; permanece el warning conocido de dependencies.md huérfano.
-- **2026-06-29T21:14:40Z** — status: in-progress → in-review
-- **2026-06-29T21:17:36Z** — review → in-progress (retry): CR2 no cubre draft, approved e in-review; ampliar la matriz a todos los estados soportados.
-- **2026-06-29T21:18:17Z** — Corrección de review: CR2 cubre ahora los ocho estados soportados; pnpm verify pasa con 469 tests. La corrección permanece sin commit para revisión limpia.
-- **2026-06-29T21:18:17Z** — status: in-progress → in-review
-- **2026-06-29T21:19:31Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-29T23:19:39Z** — validation → done (human accepted)
-- **2026-06-29T23:20:33Z** — graduado a spec `contract-discovery.md`
-- **2026-06-29T23:20:57Z** — archived
+- **2026-06-29T21:05:43Z** `[note]` Alcance autorizado por el humano; se documenta como mejora separada y se pospone el release para incluir ambos cambios.
+- **2026-06-29T21:11:52Z** `[status]` draft → approved
+- **2026-06-29T21:12:55Z** `[status]` approved → in-progress
+- **2026-06-29T21:12:55Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-29T21:14:31Z** `[note]` Implementación completada: los contextos específicos son incrementales y pnpm verify pasa con 468 tests; permanece el warning conocido de dependencies.md huérfano.
+- **2026-06-29T21:14:40Z** `[status]` in-progress → in-review
+- **2026-06-29T21:17:36Z** `[review]` in-review → in-progress (retry): CR2 no cubre draft, approved e in-review; ampliar la matriz a todos los estados soportados.
+- **2026-06-29T21:18:17Z** `[note]` Corrección de review: CR2 cubre ahora los ocho estados soportados; pnpm verify pasa con 469 tests. La corrección permanece sin commit para revisión limpia.
+- **2026-06-29T21:18:17Z** `[status]` in-progress → in-review
+- **2026-06-29T21:19:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-29T23:19:39Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-29T23:20:33Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-29T23:20:57Z** `[archive]` archived

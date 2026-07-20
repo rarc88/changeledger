@@ -105,22 +105,25 @@ actual.
 
 ## Plan
 
-- [x] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs` (CR1, CR2) — 2026-06-29T16:05:03Z
-- [x] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs` (CR3, CR4, CR5) — 2026-06-29T16:05:08Z
-- [x] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349` (CR1, CR2, CR3, CR4, CR5) — 2026-06-29T16:05:27Z
+- [x] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-29T16:05:03Z`
+- [x] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs` (CR3, CR4, CR5)
+  - **Resolved:** `2026-06-29T16:05:08Z`
+- [x] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-29T16:05:27Z`
 
 ## Log
 
-- 2026-06-29T15:53:49Z — Draft creado tras autorización humana explícita para
+- **2026-06-29T15:53:49Z** `[note]` Draft creado tras autorización humana explícita para
   plantear el change.
-- 2026-06-29T16:02:00Z — Investigación refinada: el contexto de 36KB vino de
+- **2026-06-29T16:02:00Z** `[note]` Investigación refinada: el contexto de 36KB vino de
   ejecutar `changeledger context <change-id>` contra un change anterior, no del
   contexto inicial sin argumentos.
-- **2026-06-29T16:02:24Z** — status: draft → approved
-- **2026-06-29T16:03:44Z** — status: approved → in-progress
-- **2026-06-29T16:03:44Z** — owner → Roberto Ruiz (auto)
-- **2026-06-29T16:07:19Z** — status: in-progress → in-review
-- **2026-06-29T16:09:15Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-29T16:20:02Z** — validation → done (human accepted)
-- **2026-06-29T16:21:35Z** — graduado a spec `contract-discovery.md`
-- **2026-06-29T16:22:11Z** — archived
+- **2026-06-29T16:02:24Z** `[status]` draft → approved
+- **2026-06-29T16:03:44Z** `[status]` approved → in-progress
+- **2026-06-29T16:03:44Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-29T16:07:19Z** `[status]` in-progress → in-review
+- **2026-06-29T16:09:15Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-29T16:20:02Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-29T16:21:35Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-29T16:22:11Z** `[archive]` archived

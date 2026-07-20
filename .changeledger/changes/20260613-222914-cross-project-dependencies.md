@@ -61,11 +61,14 @@ pureza del validador y acopla el check al registro/FS global.
 
 ## Plan
 
-- [x] `check.mjs`: deps con `:` son externas — 2026-06-14T11:45:24Z
-- [x] Visor: pill de dep externa + navegación cross-proyecto (`gotoChange`) (CR3) — 2026-06-14T11:45:24Z
-- [x] Tests: dep externa no falsea; dep local rota sí; grafo ignora externas (CR1, CR2) — 2026-06-14T11:45:24Z
+- [x] `check.mjs`: deps con `:` son externas
+  - **Resolved:** `2026-06-14T11:45:24Z`
+- [x] Visor: pill de dep externa + navegación cross-proyecto (`gotoChange`) (CR3)
+  - **Resolved:** `2026-06-14T11:45:24Z`
+- [x] Tests: dep externa no falsea; dep local rota sí; grafo ignora externas (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:45:24Z`
 
 ## Log
-- **2026-06-14T11:12:24Z** — status: draft → approved
-- **2026-06-14T11:45:24Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:24Z** `[status]` draft → approved
+- **2026-06-14T11:45:24Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

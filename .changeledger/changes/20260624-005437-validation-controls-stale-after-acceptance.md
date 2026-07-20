@@ -66,19 +66,23 @@ formulario anterior.
 
 ## Plan
 
-- [x] Reproducir el bloqueo y localizar la transición de estado responsable en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; documentar la causa y verificar con `node --test` (support) — 2026-06-24T01:00:27Z
-- [x] Añadir una regresión de dos validaciones consecutivas para `src/viewer/public/**` en `test/app-state.test.mjs` o `test/viewer-metadata.test.mjs`; verificar que falle antes de la corrección con `node --test` (CR1, CR2, CR3) — 2026-06-24T01:00:27Z
-- [x] Aislar y limpiar el estado de validación en `src/viewer/public/**` al completar, fallar o cambiar de change; comprobar la regresión con `node --test` (CR1, CR2, CR3) — 2026-06-24T01:00:27Z
-- [x] Ejecutar `pnpm verify` y validar manualmente dos changes consecutivos en `sl view` sin refrescar (support) — 2026-06-24T01:02:30Z
+- [x] Reproducir el bloqueo y localizar la transición de estado responsable en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; documentar la causa y verificar con `node --test` (support)
+  - **Resolved:** `2026-06-24T01:00:27Z`
+- [x] Añadir una regresión de dos validaciones consecutivas para `src/viewer/public/**` en `test/app-state.test.mjs` o `test/viewer-metadata.test.mjs`; verificar que falle antes de la corrección con `node --test` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-24T01:00:27Z`
+- [x] Aislar y limpiar el estado de validación en `src/viewer/public/**` al completar, fallar o cambiar de change; comprobar la regresión con `node --test` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-24T01:00:27Z`
+- [x] Ejecutar `pnpm verify` y validar manualmente dos changes consecutivos en `sl view` sin refrescar (support)
+  - **Resolved:** `2026-06-24T01:02:30Z`
 
 ## Log
-- **2026-06-24T00:57:06Z** — status: draft → approved
-- **2026-06-24T00:59:00Z** — status: approved → in-progress
-- **2026-06-24T00:59:00Z** — owner → Roberto Ruiz (auto)
-- **2026-06-24T01:00:27Z** — Causa confirmada: Lit reutilizaba controles con disabled=true y errores DOM del formulario anterior. Se añadió reset explícito al éxito y al abrir cada detalle, con regresiones de reutilización.
-- **2026-06-24T01:02:30Z** — Validación manual en viewer temporal: primer change aceptado; segundo abierto sin recarga con accept/reject/input habilitados; rechazo posterior actualizó el board correctamente.
-- **2026-06-24T01:02:31Z** — status: in-progress → in-review
-- **2026-06-24T09:56:06Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-24T09:57:37Z** — validation → done (human accepted)
-- **2026-06-24T09:58:32Z** — graduado a spec `architecture.md`
-- **2026-06-24T09:58:32Z** — archived
+- **2026-06-24T00:57:06Z** `[status]` draft → approved
+- **2026-06-24T00:59:00Z** `[status]` approved → in-progress
+- **2026-06-24T00:59:00Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-24T01:00:27Z** `[note]` Causa confirmada: Lit reutilizaba controles con disabled=true y errores DOM del formulario anterior. Se añadió reset explícito al éxito y al abrir cada detalle, con regresiones de reutilización.
+- **2026-06-24T01:02:30Z** `[note]` Validación manual en viewer temporal: primer change aceptado; segundo abierto sin recarga con accept/reject/input habilitados; rechazo posterior actualizó el board correctamente.
+- **2026-06-24T01:02:31Z** `[status]` in-progress → in-review
+- **2026-06-24T09:56:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-24T09:57:37Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-24T09:58:32Z** `[graduation]` spec: `architecture.md`
+- **2026-06-24T09:58:32Z** `[archive]` archived

@@ -103,17 +103,20 @@ se reduce ligeramente al abreviar la regla 8, lo que además da holgura a
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-05T14:13:02Z
-- [x] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR4) — 2026-07-05T14:13:02Z
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support) — 2026-07-05T14:13:02Z
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-05T14:13:02Z`
+- [x] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-07-05T14:13:02Z`
+- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-05T14:13:02Z`
 
 ## Log
-- **2026-07-05T13:57:41Z** — status: draft → approved
-- **2026-07-05T14:09:09Z** — status: approved → in-progress
-- **2026-07-05T14:09:09Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-05T14:13:02Z** — Receta numerada de graduacion en close.md (new-spec en 3 pasos, reviewed:true por paso, existing-spec y skip como alternativas). Regla 8 de core.md recortada: sin el parentesis --new/--into, apunta al close overlay. Actualizados tests context/230608/cli(221849) y snapshots core/close. Budgets core 120/8000 intactos. 541 tests verdes.
-- **2026-07-05T14:13:02Z** — status: in-progress → in-review
-- **2026-07-05T14:16:03Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-05T16:48:28Z** — validation → done (human accepted)
-- **2026-07-10T10:28:22Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
-- **2026-07-10T20:18:08Z** — archived
+- **2026-07-05T13:57:41Z** `[status]` draft → approved
+- **2026-07-05T14:09:09Z** `[status]` approved → in-progress
+- **2026-07-05T14:09:09Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-05T14:13:02Z** `[note]` Receta numerada de graduacion en close.md (new-spec en 3 pasos, reviewed:true por paso, existing-spec y skip como alternativas). Regla 8 de core.md recortada: sin el parentesis --new/--into, apunta al close overlay. Actualizados tests context/230608/cli(221849) y snapshots core/close. Budgets core 120/8000 intactos. 541 tests verdes.
+- **2026-07-05T14:13:02Z** `[status]` in-progress → in-review
+- **2026-07-05T14:16:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:48:28Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T10:28:22Z** `[graduation]` skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
+- **2026-07-10T20:18:08Z** `[archive]` archived

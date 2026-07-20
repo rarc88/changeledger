@@ -17,15 +17,18 @@ archived: true
 Use a proper AST to manipulate the YAML frontmatter. The project already depends on `yaml`. By using `yaml.parseDocument()`, setting the node, and calling `.toString()`, the structure will remain intact.
 
 ## Plan
-- [x] Load the frontmatter into memory with `yaml.parseDocument`. — 2026-06-16T20:49:50Z
-- [x] Replace Regex substitutions inside `writer.mjs` methods. — 2026-06-16T20:49:53Z
-- [x] Write integration tests proving it respects multiline YAML formats. — 2026-06-16T20:49:55Z
+- [x] Load the frontmatter into memory with `yaml.parseDocument`.
+  - **Resolved:** `2026-06-16T20:49:50Z`
+- [x] Replace Regex substitutions inside `writer.mjs` methods.
+  - **Resolved:** `2026-06-16T20:49:53Z`
+- [x] Write integration tests proving it respects multiline YAML formats.
+  - **Resolved:** `2026-06-16T20:49:55Z`
 
 ## Log
-- **2026-06-16T20:47:01Z** — status: draft → approved
-- **2026-06-16T20:48:39Z** — status: approved → in-progress
-- **2026-06-16T20:48:39Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T20:50:00Z** — status: in-progress → in-review
-- **2026-06-16T20:59:32Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T21:03:48Z** — graduation skipped: no persistent spec change; internal writer implementation hardening
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T20:47:01Z** `[status]` draft → approved
+- **2026-06-16T20:48:39Z** `[status]` approved → in-progress
+- **2026-06-16T20:48:39Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T20:50:00Z** `[status]` in-progress → in-review
+- **2026-06-16T20:59:32Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T21:03:48Z** `[graduation]` skipped: no persistent spec change; internal writer implementation hardening
+- **2026-06-17T15:23:05Z** `[archive]` archived

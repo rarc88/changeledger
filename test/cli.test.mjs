@@ -217,11 +217,12 @@ P
 
 ## Plan
 
-- [x] do it (CR1) — 2026-06-13T12:00:00Z
+- [x] do it (CR1)
+  - **Resolved:** \`2026-06-13T12:00:00Z\`
 
 ## Log
 
-- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
+- **2026-06-13T12:00:00Z** \`[graduation]\` spec: \`arch.md\`
 `,
   );
   const before = fs.readFileSync(file, 'utf8');

@@ -42,17 +42,22 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Crear módulos `security`, `state` y `api` en `src/viewer/public/`, moviendo funciones puras con tests existentes como red de seguridad — 2026-06-15T21:59:51Z
-- [x] Extraer vistas de board/table/detail primero, porque concentran más interpolaciones HTML — 2026-06-15T21:59:51Z
-- [x] Extraer graph/specs/metrics manteniendo IDs de DOM y comportamiento actual — 2026-06-15T21:59:51Z
-- [x] Dejar `src/viewer/public/app.js` como bootstrap fino y eliminar estado global innecesario — 2026-06-15T21:59:57Z
-- [x] Ejecutar tests de viewer (`test/viewer-*.test.mjs`, `test/view.test.mjs`) y `pnpm check` — 2026-06-15T21:59:57Z
+- [x] Crear módulos `security`, `state` y `api` en `src/viewer/public/`, moviendo funciones puras con tests existentes como red de seguridad
+  - **Resolved:** `2026-06-15T21:59:51Z`
+- [x] Extraer vistas de board/table/detail primero, porque concentran más interpolaciones HTML
+  - **Resolved:** `2026-06-15T21:59:51Z`
+- [x] Extraer graph/specs/metrics manteniendo IDs de DOM y comportamiento actual
+  - **Resolved:** `2026-06-15T21:59:51Z`
+- [x] Dejar `src/viewer/public/app.js` como bootstrap fino y eliminar estado global innecesario
+  - **Resolved:** `2026-06-15T21:59:57Z`
+- [x] Ejecutar tests de viewer (`test/viewer-*.test.mjs`, `test/view.test.mjs`) y `pnpm check`
+  - **Resolved:** `2026-06-15T21:59:57Z`
 
 ## Log
-- **2026-06-15T21:52:26Z** — status: draft → approved
-- **2026-06-15T21:55:33Z** — status: approved → in-progress
-- **2026-06-15T21:55:33Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T22:00:10Z** — status: in-progress → in-review
-- **2026-06-15T22:07:19Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T22:08:03Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T21:52:26Z** `[status]` draft → approved
+- **2026-06-15T21:55:33Z** `[status]` approved → in-progress
+- **2026-06-15T21:55:33Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T22:00:10Z** `[status]` in-progress → in-review
+- **2026-06-15T22:07:19Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T22:08:03Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

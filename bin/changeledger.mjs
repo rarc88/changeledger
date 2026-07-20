@@ -172,12 +172,14 @@ program
   .argument('[id]')
   .option('--dry-run', 'print the proposed diff without writing')
   .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
+  .option('--structured-sections', 'migrate task metadata and typed Log events')
   .action((id, options) => {
     try {
       const args = [
         ...(id ? [id] : []),
         ...(options.dryRun ? ['--dry-run'] : []),
         ...(options.graduationLinks ? ['--graduation-links'] : []),
+        ...(options.structuredSections ? ['--structured-sections'] : []),
       ];
       process.exit(fix(args));
     } catch (e) {

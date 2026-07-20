@@ -34,9 +34,11 @@ duplicado. El validador debe detectarlo.
 
 ## Plan
 
-- [x] `checkRepo`: contar keys de etapa repetidas y emitir error por cada una (CR1) — 2026-06-14T12:18:19Z
-- [x] Test: etapa duplicada = error; sin duplicados no falsea (CR1) — 2026-06-14T12:18:19Z
+- [x] `checkRepo`: contar keys de etapa repetidas y emitir error por cada una (CR1)
+  - **Resolved:** `2026-06-14T12:18:19Z`
+- [x] Test: etapa duplicada = error; sin duplicados no falsea (CR1)
+  - **Resolved:** `2026-06-14T12:18:19Z`
 
 ## Log
-- **2026-06-14T12:18:19Z** — status: in-progress → done
-- **2026-06-15T21:17:56Z** — archived
+- **2026-06-14T12:18:19Z** `[status]` in-progress → done
+- **2026-06-15T21:17:56Z** `[archive]` archived

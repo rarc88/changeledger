@@ -142,29 +142,35 @@ archivo vigente es un no-op byte-idéntico.
 
 ## Plan
 
-- [x] Añadir `schema_version: 1` al template y detección compartida en `src/config.mjs`, `src/check.mjs` y `src/commands/register.mjs`; verify: `test/config-migration.test.mjs`, `test/cli.test.mjs` y `test/check.test.mjs` cubren schema actual y antiguo (CR1, CR2, CR8) — 2026-06-28T11:59:59Z
-- [x] Implementar migraciones secuenciales y render preservador en `src/config-migration.mjs` usando el AST de `yaml` y `writeFileAtomic`; verify: fixtures históricas y casos custom en `test/config-migration.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-28T12:00:00Z
-- [x] Exponer `changeledger config migrate [--dry-run]` desde `bin/changeledger.mjs`; verify: `test/cli-bin.test.mjs` comprueba stdout, códigos de salida y no-escritura (CR2, CR3, CR7, CR8) — 2026-06-28T12:00:00Z
-- [x] Documentar el flujo de upgrade en `README.md` y el contexto de implementación; verify: inspección renderizada y `pnpm test` (support) — 2026-06-28T12:00:00Z
-- [x] Migrar el `.changeledger/config.yml` de este repo como caso dogfood y comprobar que conserva `language: es`, readiness e identidad (support) — 2026-06-28T12:00:00Z
-- [x] Ejecutar `pnpm verify` y probar la migración sobre copias temporales de configs históricos (support) — 2026-06-28T12:00:00Z
+- [x] Añadir `schema_version: 1` al template y detección compartida en `src/config.mjs`, `src/check.mjs` y `src/commands/register.mjs`; verify: `test/config-migration.test.mjs`, `test/cli.test.mjs` y `test/check.test.mjs` cubren schema actual y antiguo (CR1, CR2, CR8)
+  - **Resolved:** `2026-06-28T11:59:59Z`
+- [x] Implementar migraciones secuenciales y render preservador en `src/config-migration.mjs` usando el AST de `yaml` y `writeFileAtomic`; verify: fixtures históricas y casos custom en `test/config-migration.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR8, CR9)
+  - **Resolved:** `2026-06-28T12:00:00Z`
+- [x] Exponer `changeledger config migrate [--dry-run]` desde `bin/changeledger.mjs`; verify: `test/cli-bin.test.mjs` comprueba stdout, códigos de salida y no-escritura (CR2, CR3, CR7, CR8)
+  - **Resolved:** `2026-06-28T12:00:00Z`
+- [x] Documentar el flujo de upgrade en `README.md` y el contexto de implementación; verify: inspección renderizada y `pnpm test` (support)
+  - **Resolved:** `2026-06-28T12:00:00Z`
+- [x] Migrar el `.changeledger/config.yml` de este repo como caso dogfood y comprobar que conserva `language: es`, readiness e identidad (support)
+  - **Resolved:** `2026-06-28T12:00:00Z`
+- [x] Ejecutar `pnpm verify` y probar la migración sobre copias temporales de configs históricos (support)
+  - **Resolved:** `2026-06-28T12:00:00Z`
 
 ## Log
-- **2026-06-28T11:42:01Z** — status: draft → approved
-- **2026-06-28T11:51:01Z** — status: approved → in-progress
-- **2026-06-28T11:51:01Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-28T12:00:00Z** — Implemented schema versioning (0→1 migration): buildMigration/applyMigration in src/config-migration.mjs, check/register detect schema 0 with actionable warning, CLI exposes 'config migrate [--dry-run]', template seeded with schema_version:1, repo's own config migrated as dogfood. 433 tests pass, pnpm verify clean.
-- **2026-06-28T12:00:17Z** — status: in-progress → in-review
-- **2026-06-28T12:02:07Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T12:02:07Z** — Review passed — no issues found. All CRs verified.
-- **2026-06-28T12:38:33Z** — validation → in-progress (human rejected): La migración debe refrescar los comentarios administrados desde el template actual, eliminando referencias históricas a Spec Ledger/sl check y preservando comentarios custom; añadir fixtures y assertions que lo demuestren.
-- **2026-06-28T12:50:43Z** — status: in-progress → in-review
-- **2026-06-28T12:50:43Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T12:50:43Z** — Corrección: migración refresca comentarios managed desde template (elimina referencias sl/SpecLedger, preserva comentarios custom); guarda template faltante con try/catch; elimina schema_version existente antes de prepend para evitar duplicados; tests añadidos.
-- **2026-06-28T16:39:52Z** — validation → in-progress (human rejected): La corrección de comentarios para claves añadidas necesita cobertura explícita y el config dogfood debe quedar alineado sin comentarios duplicados.
-- **2026-06-28T16:47:36Z** — Corrección final: cobertura explícita para comentarios administrados en claves añadidas y config dogfood alineado con referencias actuales, sin bloque readiness duplicado. pnpm verify: 462 tests.
-- **2026-06-28T16:47:36Z** — status: in-progress → in-review
-- **2026-06-28T16:51:50Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T17:13:43Z** — validation → done (human accepted)
-- **2026-06-28T17:15:04Z** — graduado a spec `architecture.md`
-- **2026-06-28T17:15:04Z** — archived
+- **2026-06-28T11:42:01Z** `[status]` draft → approved
+- **2026-06-28T11:51:01Z** `[status]` approved → in-progress
+- **2026-06-28T11:51:01Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-28T12:00:00Z** `[note]` Implemented schema versioning (0→1 migration): buildMigration/applyMigration in src/config-migration.mjs, check/register detect schema 0 with actionable warning, CLI exposes 'config migrate [--dry-run]', template seeded with schema_version:1, repo's own config migrated as dogfood. 433 tests pass, pnpm verify clean.
+- **2026-06-28T12:00:17Z** `[status]` in-progress → in-review
+- **2026-06-28T12:02:07Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:02:07Z** `[note]` Review passed — no issues found. All CRs verified.
+- **2026-06-28T12:38:33Z** `[validation]` in-validation → in-progress (human rejected): La migración debe refrescar los comentarios administrados desde el template actual, eliminando referencias históricas a Spec Ledger/sl check y preservando comentarios custom; añadir fixtures y assertions que lo demuestren.
+- **2026-06-28T12:50:43Z** `[status]` in-progress → in-review
+- **2026-06-28T12:50:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:50:43Z** `[note]` Corrección: migración refresca comentarios managed desde template (elimina referencias sl/SpecLedger, preserva comentarios custom); guarda template faltante con try/catch; elimina schema_version existente antes de prepend para evitar duplicados; tests añadidos.
+- **2026-06-28T16:39:52Z** `[validation]` in-validation → in-progress (human rejected): La corrección de comentarios para claves añadidas necesita cobertura explícita y el config dogfood debe quedar alineado sin comentarios duplicados.
+- **2026-06-28T16:47:36Z** `[note]` Corrección final: cobertura explícita para comentarios administrados en claves añadidas y config dogfood alineado con referencias actuales, sin bloque readiness duplicado. pnpm verify: 462 tests.
+- **2026-06-28T16:47:36Z** `[status]` in-progress → in-review
+- **2026-06-28T16:51:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T17:13:43Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-28T17:15:04Z** `[graduation]` spec: `architecture.md`
+- **2026-06-28T17:15:04Z** `[archive]` archived

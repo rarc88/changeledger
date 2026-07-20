@@ -22,15 +22,20 @@ navegador desde `node_modules` (`marked/lib/marked.umd.js`,
 
 ## Plan
 
-- [x] `pnpm add marked mermaid` (dependencies) — 2026-06-13T22:32:00Z
-- [x] view.mjs: resolver y servir builds desde node_modules bajo `/vendor/*` — 2026-06-13T22:32:30Z
-- [x] Eliminar `src/viewer/public/vendor/*.js` del repo — 2026-06-13T22:32:40Z
-- [x] Verificar en navegador (marked/mermaid cargan, diagrama renderiza) — 2026-06-13T22:33:00Z
-- [x] Actualizar spec de arquitectura — 2026-06-13T22:33:11Z
+- [x] `pnpm add marked mermaid` (dependencies)
+  - **Resolved:** `2026-06-13T22:32:00Z`
+- [x] view.mjs: resolver y servir builds desde node_modules bajo `/vendor/*`
+  - **Resolved:** `2026-06-13T22:32:30Z`
+- [x] Eliminar `src/viewer/public/vendor/*.js` del repo
+  - **Resolved:** `2026-06-13T22:32:40Z`
+- [x] Verificar en navegador (marked/mermaid cargan, diagrama renderiza)
+  - **Resolved:** `2026-06-13T22:33:00Z`
+- [x] Actualizar spec de arquitectura
+  - **Resolved:** `2026-06-13T22:33:11Z`
 
 ## Log
-- **2026-06-13T22:31:11Z** — status: draft → in-progress
-- **2026-06-13T22:33:11Z** — Implementado. marked@18/mermaid@11 como deps; servidos
+- **2026-06-13T22:31:11Z** `[status]` draft → in-progress
+- **2026-06-13T22:33:11Z** `[note]` Implementado. marked@18/mermaid@11 como deps; servidos
   desde node_modules (200, mermaid 3.3M fuera de git); diagrama renderiza.
-- **2026-06-13T22:33:11Z** — status: in-progress → done
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T22:33:11Z** `[status]` in-progress → done
+- **2026-06-15T21:17:54Z** `[archive]` archived

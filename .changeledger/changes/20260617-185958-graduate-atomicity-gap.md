@@ -86,20 +86,26 @@ haber iniciado el write.
 
 ## Plan
 
-- [x] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs` (CR1) — 2026-06-17T20:33:03Z
-- [x] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs` (CR2, CR3) — 2026-06-17T20:33:03Z
-- [x] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs` (CR3) — 2026-06-17T20:33:03Z
-- [x] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs` (CR4) — 2026-06-17T20:33:03Z
-- [x] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs` (CR5) — 2026-06-17T20:33:03Z
-- [x] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones (CR5) — 2026-06-17T20:33:03Z
+- [x] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs` (CR1)
+  - **Resolved:** `2026-06-17T20:33:03Z`
+- [x] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs` (CR2, CR3)
+  - **Resolved:** `2026-06-17T20:33:03Z`
+- [x] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs` (CR3)
+  - **Resolved:** `2026-06-17T20:33:03Z`
+- [x] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs` (CR4)
+  - **Resolved:** `2026-06-17T20:33:03Z`
+- [x] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs` (CR5)
+  - **Resolved:** `2026-06-17T20:33:03Z`
+- [x] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones (CR5)
+  - **Resolved:** `2026-06-17T20:33:03Z`
 
 ## Log
 
-- **2026-06-17T18:59:58Z** — Detectado en auditoría de commits desde 407dcdd. El change `e6dcc4d` (atomic-source-writes) no cubre la coordinación entre los dos writes de graduate.
-- **2026-06-17T20:04:24Z** — status: draft → approved
-- **2026-06-17T20:31:36Z** — status: approved → in-progress
-- **2026-06-17T20:31:36Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-17T20:33:04Z** — status: in-progress → in-review
-- **2026-06-17T20:33:23Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T20:33:23Z** — graduado a spec `architecture.md`
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-17T18:59:58Z** `[note]` Detectado en auditoría de commits desde 407dcdd. El change `e6dcc4d` (atomic-source-writes) no cubre la coordinación entre los dos writes de graduate.
+- **2026-06-17T20:04:24Z** `[status]` draft → approved
+- **2026-06-17T20:31:36Z** `[status]` approved → in-progress
+- **2026-06-17T20:31:36Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-17T20:33:04Z** `[status]` in-progress → in-review
+- **2026-06-17T20:33:23Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T20:33:23Z** `[graduation]` spec: `architecture.md`
+- **2026-06-18T10:09:09Z** `[archive]` archived

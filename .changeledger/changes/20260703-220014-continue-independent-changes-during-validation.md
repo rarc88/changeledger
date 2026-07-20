@@ -80,20 +80,23 @@ el core local-first y no es necesario para resolver la espera artificial.
 
 ## Plan
 
-- [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:04Z
-- [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T22:53:05Z
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:53:50Z
+- [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-03T22:53:04Z`
+- [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-03T22:53:05Z`
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-03T22:53:50Z`
 
 ## Log
 
-- **2026-07-03T22:00:14Z** — Draft autorizado como mejora independiente; se acotó a política contractual secuencial, sin añadir orquestación automática al core.
-- **2026-07-03T22:07:21Z** — status: draft → approved
-- **2026-07-03T22:47:31Z** — status: approved → in-progress
-- **2026-07-03T22:47:31Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-03T22:53:50Z** — pnpm verify: 534 pruebas ok (+2 nuevas: 220014 CR1/CR4 y CR2/CR3), 157 changes válidos. Redacción escogida: la parada de in-validation queda scoped a ese change; el chequeo de cadena transitiva reutiliza changeledger context <id> salto a salto, sin comando nuevo.
-- **2026-07-03T22:53:50Z** — status: in-progress → in-review
-- **2026-07-03T22:55:47Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. CR3 confirmado como trazado manual salto a salto vía changeledger context <id>, no resolución automática de la cadena — consistente con el diseño sin orquestación oculta.
-- **2026-07-03T22:55:48Z** — status: in-review → in-validation
-- **2026-07-03T22:56:28Z** — validation → done (human accepted)
-- **2026-07-03T23:21:51Z** — graduado a spec `lifecycle.md`
-- **2026-07-03T23:22:53Z** — archived
+- **2026-07-03T22:00:14Z** `[note]` Draft autorizado como mejora independiente; se acotó a política contractual secuencial, sin añadir orquestación automática al core.
+- **2026-07-03T22:07:21Z** `[status]` draft → approved
+- **2026-07-03T22:47:31Z** `[status]` approved → in-progress
+- **2026-07-03T22:47:31Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-03T22:53:50Z** `[note]` pnpm verify: 534 pruebas ok (+2 nuevas: 220014 CR1/CR4 y CR2/CR3), 157 changes válidos. Redacción escogida: la parada de in-validation queda scoped a ese change; el chequeo de cadena transitiva reutiliza changeledger context <id> salto a salto, sin comando nuevo.
+- **2026-07-03T22:53:50Z** `[status]` in-progress → in-review
+- **2026-07-03T22:55:47Z** `[note]` Revisión (subagente, contexto limpio): PASS, sin defectos. CR3 confirmado como trazado manual salto a salto vía changeledger context <id>, no resolución automática de la cadena — consistente con el diseño sin orquestación oculta.
+- **2026-07-03T22:55:48Z** `[status]` in-review → in-validation
+- **2026-07-03T22:56:28Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-03T23:21:51Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-03T23:22:53Z** `[archive]` archived

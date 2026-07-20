@@ -230,32 +230,41 @@ completo: reduce autoridad por prosa, pero no reduce contexto ni ambigüedad.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1, CR2) — 2026-07-05T14:24:08Z
-- [x] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol; verify: `node --test test/agent-prompt.test.mjs` (CR3, CR4) — 2026-07-05T14:24:08Z
-- [x] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`; verify: `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos) (CR5) — 2026-07-05T14:24:08Z
-- [x] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete; verify: `node --test test/agent-prompt.test.mjs` (CR6) — 2026-07-05T14:24:08Z
-- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-05T14:24:08Z
-- [x] Añadir regresiones en `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs` y `test/contract.test.mjs`, luego implementar `src/commands/agent-context.mjs`, registrar el comando en `bin/changeledger.mjs` y refrescar bootstrap/README; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs` (CR4, CR7, CR9) — 2026-07-05T22:22:18Z
-- [x] Crear `templates/contract/agent-contexts/{investigation,implementation,review}.md`, mover allí el checklist delegado de `templates/contract/review.md` y ajustar los esqueletos para la entrada única; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (CR4, CR8) — 2026-07-05T22:22:18Z
-- [x] Probar los presupuestos base y el artefacto publicable desde `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs`, manteniendo el core dentro de su presupuesto; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (support) — 2026-07-05T22:22:18Z
-- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support) — 2026-07-10T10:22:14Z
+- [x] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-05T14:24:08Z`
+- [x] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol; verify: `node --test test/agent-prompt.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-05T14:24:08Z`
+- [x] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`; verify: `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos) (CR5)
+  - **Resolved:** `2026-07-05T14:24:08Z`
+- [x] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete; verify: `node --test test/agent-prompt.test.mjs` (CR6)
+  - **Resolved:** `2026-07-05T14:24:08Z`
+- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-05T14:24:08Z`
+- [x] Añadir regresiones en `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs` y `test/contract.test.mjs`, luego implementar `src/commands/agent-context.mjs`, registrar el comando en `bin/changeledger.mjs` y refrescar bootstrap/README; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs` (CR4, CR7, CR9)
+  - **Resolved:** `2026-07-05T22:22:18Z`
+- [x] Crear `templates/contract/agent-contexts/{investigation,implementation,review}.md`, mover allí el checklist delegado de `templates/contract/review.md` y ajustar los esqueletos para la entrada única; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (CR4, CR8)
+  - **Resolved:** `2026-07-05T22:22:18Z`
+- [x] Probar los presupuestos base y el artefacto publicable desde `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs`, manteniendo el core dentro de su presupuesto; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (support)
+  - **Resolved:** `2026-07-05T22:22:18Z`
+- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-10T10:22:14Z`
 
 ## Log
 
-- **2026-07-04T23:32:10Z** — Draft refinado tras revisión humana: límites agnósticos por efectos, contrato completo de delegación, contexto por change id para implementación/review, investigación sin id, comando utilizable fuera de un repo, delimitadores propios y prueba del paquete portable. Se mantienen los presupuestos actuales; el puntero bajo demanda debe caber sin ampliarlos.
-- **2026-07-04T23:32:10Z** — La graduación a `.changeledger/specs/contract-discovery.md` queda como decisión post-aceptación exigida por el lifecycle, no como tarea de implementación que impediría llegar a review.
-- **2026-07-04T23:59:24Z** — Corregida la descubribilidad pre-draft: el puntero a `agent-prompt` pertenece a la regla mínima de delegación del core, único contexto garantizado durante la conversación inicial, y no a `delegation.md`. El contenido completo sigue bajo demanda y los presupuestos no cambian.
-- **2026-07-05T13:57:37Z** — status: draft → approved
-- **2026-07-05T14:16:24Z** — status: approved → in-progress
-- **2026-07-05T14:16:24Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-05T14:24:08Z** — Comando agent-prompt <role> anadido (investigation|implementation|review), sirve esqueletos estaticos del paquete via stdout con delimitadores propios; funciona fuera de repo; rol desconocido sale con codigo !=0. Framing/version extraidos a src/framing.mjs compartido con context (salida byte-identica). 3 plantillas en templates/contract/agent-prompts/ con contrato completo de delegacion, limites por efectos, retorno y carga de contexto por rol. Puntero en core.md (reempaquetado para no exceder 120 lineas), sin duplicar en delegation. Test de npm pack confirma inclusion portable. 548 tests verdes.
-- **2026-07-05T14:24:08Z** — status: in-progress → in-review
-- **2026-07-05T14:36:11Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-05T16:53:38Z** — validation → in-progress (human rejected): Necesita ajustes
-- **2026-07-05T22:24:17Z** — Corrección tras rechazo humano: añadido agent-context autocontenido por rol con guards de lifecycle, política efectiva y change adjunto; bootstrap permite la excepción solo a prompts agent-prompt del mismo rol; checklist delegado movido a la cápsula review. Bases medidas: investigation 892 bytes, implementation 1082 bytes, review por debajo de 3000 bytes; lint/check y 119 tests contractuales verdes. Gate completo pendiente por rechazo de permiso de la app antes de ejecutar.
-- **2026-07-10T10:22:14Z** — Gate completo recuperado: pnpm verify verde (555 tests, lint y changeledger check). Se desbloquea la tarea de quality gate.
-- **2026-07-10T10:22:14Z** — status: in-progress → in-review
-- **2026-07-10T10:25:22Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T20:16:09Z** — validation → done (human accepted)
-- **2026-07-10T20:19:47Z** — graduado a spec `contract-discovery.md`
-- **2026-07-10T20:19:48Z** — archived
+- **2026-07-04T23:32:10Z** `[note]` Draft refinado tras revisión humana: límites agnósticos por efectos, contrato completo de delegación, contexto por change id para implementación/review, investigación sin id, comando utilizable fuera de un repo, delimitadores propios y prueba del paquete portable. Se mantienen los presupuestos actuales; el puntero bajo demanda debe caber sin ampliarlos.
+- **2026-07-04T23:32:10Z** `[note]` La graduación a `.changeledger/specs/contract-discovery.md` queda como decisión post-aceptación exigida por el lifecycle, no como tarea de implementación que impediría llegar a review.
+- **2026-07-04T23:59:24Z** `[note]` Corregida la descubribilidad pre-draft: el puntero a `agent-prompt` pertenece a la regla mínima de delegación del core, único contexto garantizado durante la conversación inicial, y no a `delegation.md`. El contenido completo sigue bajo demanda y los presupuestos no cambian.
+- **2026-07-05T13:57:37Z** `[status]` draft → approved
+- **2026-07-05T14:16:24Z** `[status]` approved → in-progress
+- **2026-07-05T14:16:24Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-05T14:24:08Z** `[note]` Comando agent-prompt <role> anadido (investigation|implementation|review), sirve esqueletos estaticos del paquete via stdout con delimitadores propios; funciona fuera de repo; rol desconocido sale con codigo !=0. Framing/version extraidos a src/framing.mjs compartido con context (salida byte-identica). 3 plantillas en templates/contract/agent-prompts/ con contrato completo de delegacion, limites por efectos, retorno y carga de contexto por rol. Puntero en core.md (reempaquetado para no exceder 120 lineas), sin duplicar en delegation. Test de npm pack confirma inclusion portable. 548 tests verdes.
+- **2026-07-05T14:24:08Z** `[status]` in-progress → in-review
+- **2026-07-05T14:36:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:53:38Z** `[validation]` in-validation → in-progress (human rejected): Necesita ajustes
+- **2026-07-05T22:24:17Z** `[note]` Corrección tras rechazo humano: añadido agent-context autocontenido por rol con guards de lifecycle, política efectiva y change adjunto; bootstrap permite la excepción solo a prompts agent-prompt del mismo rol; checklist delegado movido a la cápsula review. Bases medidas: investigation 892 bytes, implementation 1082 bytes, review por debajo de 3000 bytes; lint/check y 119 tests contractuales verdes. Gate completo pendiente por rechazo de permiso de la app antes de ejecutar.
+- **2026-07-10T10:22:14Z** `[note]` Gate completo recuperado: pnpm verify verde (555 tests, lint y changeledger check). Se desbloquea la tarea de quality gate.
+- **2026-07-10T10:22:14Z** `[status]` in-progress → in-review
+- **2026-07-10T10:25:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:09Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T20:19:47Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-10T20:19:48Z** `[archive]` archived

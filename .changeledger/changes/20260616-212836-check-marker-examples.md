@@ -48,16 +48,19 @@ integridad change↔spec.
 - **Then** mantiene el error de backlink roto
 
 ## Plan
-- [x] Limitar en `src/check.mjs` la detección de enlaces change→spec a marcadores reales del `## Log`, cubierto por `test/check.test.mjs` (CR1, CR2, CR3) — 2026-06-17T10:15:59Z
-- [x] Añadir regresiones en `test/check.test.mjs` para ejemplo narrativo, placeholder, enlace real roto y backlink roto de `src/check.mjs` (CR1, CR2, CR3, CR4) — 2026-06-17T10:16:06Z
-- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4) — 2026-06-17T10:16:15Z
+- [x] Limitar en `src/check.mjs` la detección de enlaces change→spec a marcadores reales del `## Log`, cubierto por `test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-17T10:15:59Z`
+- [x] Añadir regresiones en `test/check.test.mjs` para ejemplo narrativo, placeholder, enlace real roto y backlink roto de `src/check.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:16:06Z`
+- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:16:15Z`
 
 ## Log
-- **2026-06-16T21:28:36Z** — Creado desde fricción observada: una mención literal del marcador de graduación en un draft fue validada como enlace real.
-- **2026-06-17T10:04:23Z** — status: draft → approved
-- **2026-06-17T10:14:56Z** — status: approved → in-progress
-- **2026-06-17T10:14:56Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T10:16:20Z** — status: in-progress → in-review
-- **2026-06-17T10:18:05Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:18:10Z** — graduado a spec `lifecycle.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T21:28:36Z** `[note]` Creado desde fricción observada: una mención literal del marcador de graduación en un draft fue validada como enlace real.
+- **2026-06-17T10:04:23Z** `[status]` draft → approved
+- **2026-06-17T10:14:56Z** `[status]` approved → in-progress
+- **2026-06-17T10:14:56Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T10:16:20Z** `[status]` in-progress → in-review
+- **2026-06-17T10:18:05Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T10:18:10Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

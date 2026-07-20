@@ -23,17 +23,17 @@ renderizarlo con valores distintos antes de aplicar la corrección.
 
 ## Log
 
-- 2026-07-13T12:49:34Z — Se reprodujo la excepción exacta: asignar `textContent`
+- **2026-07-13T12:49:34Z** `[note]` Se reprodujo la excepción exacta: asignar `textContent`
   a un resumen elimina el marcador hijo de Lit; el siguiente render intenta
   actualizar `node.data` cuando `nextSibling` ya es `null`.
-- 2026-07-13T12:49:34Z — Alcance limitado a los filtros de tipo, owner y estado;
+- **2026-07-13T12:49:34Z** `[note]` Alcance limitado a los filtros de tipo, owner y estado;
   la solución hará que Lit reconcilie tanto el resumen como los checkboxes.
-- **2026-07-13T12:50:31Z** — status: draft → approved
-- **2026-07-13T12:51:10Z** — status: approved → in-progress
-- **2026-07-13T12:51:10Z** — owner → Test (auto)
-- **2026-07-13T12:54:54Z** — TDD completado: dos regresiones reprodujeron el fallo antes de reemplazar mutaciones directas del DOM por reconciliación de Lit; pnpm verify pasó con 660 pruebas.
-- **2026-07-13T12:54:54Z** — status: in-progress → in-validation
-- **2026-07-13T13:21:24Z** — owner → Roberto Ruiz
-- **2026-07-13T13:31:01Z** — validation → done (human accepted)
-- **2026-07-13T13:31:23Z** — graduation skipped: Corrección puntual del viewer sin nueva verdad persistente
-- **2026-07-13T13:31:23Z** — archived
+- **2026-07-13T12:50:31Z** `[status]` draft → approved
+- **2026-07-13T12:51:10Z** `[status]` approved → in-progress
+- **2026-07-13T12:51:10Z** `[owner]` set: Test (auto)
+- **2026-07-13T12:54:54Z** `[note]` TDD completado: dos regresiones reprodujeron el fallo antes de reemplazar mutaciones directas del DOM por reconciliación de Lit; pnpm verify pasó con 660 pruebas.
+- **2026-07-13T12:54:54Z** `[status]` in-progress → in-validation
+- **2026-07-13T13:21:24Z** `[owner]` set: Roberto Ruiz
+- **2026-07-13T13:31:01Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-13T13:31:23Z** `[graduation]` skipped: Corrección puntual del viewer sin nueva verdad persistente
+- **2026-07-13T13:31:23Z** `[archive]` archived

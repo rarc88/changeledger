@@ -25,11 +25,16 @@ formateo nunca alcanza lo que no estaba en stage. Cuesta una dev-dep.
 
 ## Plan
 
-- [x] Añadir `lint-staged` como devDependency (`package.json`) — 2026-06-14T18:34:27Z
-- [x] Config `lint-staged` en `package.json`: `"*.{js,mjs,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"` — 2026-06-14T18:34:28Z
-- [x] `hooks/pre-commit`: `npx lint-staged` antes de `pnpm verify` (autoformatea staged, re-add, luego el gate) — 2026-06-14T18:34:28Z
-- [x] Documentar en README §Development (autoformat en commit; `pnpm format` sigue disponible manual) — 2026-06-14T18:34:28Z
-- [x] Verificar commit parcial: archivo con hunk staged + hunk no-staged → solo el staged se formatea/commitea — 2026-06-14T18:34:28Z
+- [x] Añadir `lint-staged` como devDependency (`package.json`)
+  - **Resolved:** `2026-06-14T18:34:27Z`
+- [x] Config `lint-staged` en `package.json`: `"*.{js,mjs,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"`
+  - **Resolved:** `2026-06-14T18:34:28Z`
+- [x] `hooks/pre-commit`: `npx lint-staged` antes de `pnpm verify` (autoformatea staged, re-add, luego el gate)
+  - **Resolved:** `2026-06-14T18:34:28Z`
+- [x] Documentar en README §Development (autoformat en commit; `pnpm format` sigue disponible manual)
+  - **Resolved:** `2026-06-14T18:34:28Z`
+- [x] Verificar commit parcial: archivo con hunk staged + hunk no-staged → solo el staged se formatea/commitea
+  - **Resolved:** `2026-06-14T18:34:28Z`
 
 ### Descartado
 - **`git add` de staged + `biome format` sin stash** — corrompe commits parciales
@@ -40,9 +45,9 @@ formateo nunca alcanza lo que no estaba en stage. Cuesta una dev-dep.
 
 ## Log
 
-- **2026-06-14T18:30:52Z** — status: draft → approved
-- **2026-06-14T18:32:41Z** — status: approved → in-progress
-- **2026-06-14T18:32:41Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T18:34:28Z** — status: in-progress → done
-- **2026-06-14T18:34:28Z** — graduation skipped: chore de tooling, sin verdad persistente
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T18:30:52Z** `[status]` draft → approved
+- **2026-06-14T18:32:41Z** `[status]` approved → in-progress
+- **2026-06-14T18:32:41Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T18:34:28Z** `[status]` in-progress → done
+- **2026-06-14T18:34:28Z** `[graduation]` skipped: chore de tooling, sin verdad persistente
+- **2026-06-15T21:17:57Z** `[archive]` archived

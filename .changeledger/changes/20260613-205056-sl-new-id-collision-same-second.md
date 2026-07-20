@@ -41,16 +41,19 @@ Detectado por dogfooding: tres `sl new` seguidos produjeron el mismo id
 
 ## Plan
 
-- [x] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre (CR1) — 2026-06-13T20:57:00Z
-- [x] Derivar `created` del id final ajustado (CR2) — 2026-06-13T20:57:00Z
-- [x] Test: dos `sl new` con el mismo `now` producen ids consecutivos distintos — 2026-06-13T20:58:00Z
+- [x] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre (CR1)
+  - **Resolved:** `2026-06-13T20:57:00Z`
+- [x] Derivar `created` del id final ajustado (CR2)
+  - **Resolved:** `2026-06-13T20:57:00Z`
+- [x] Test: dos `sl new` con el mismo `now` producen ids consecutivos distintos
+  - **Resolved:** `2026-06-13T20:58:00Z`
 
 ## Log
 
-- **2026-06-13T20:50:56Z** — Creado en draft. Bug encontrado por dogfooding al
+- **2026-06-13T20:50:56Z** `[note]` Creado en draft. Bug encontrado por dogfooding al
   crear los changes del CLI/specs. Fix: guardia de unicidad en `sl new`
   (incrementar segundos hasta id libre), manteniendo el formato.
-- **2026-06-13T20:58:00Z** — Aprobado e implementado. `sl new` ahora incrementa
+- **2026-06-13T20:58:00Z** `[note]` Aprobado e implementado. `sl new` ahora incrementa
   el id 1s hasta uno libre; `created` coherente. Verificado: 3 `sl new` seguidos
   → ids consecutivos. 36 tests verde. `in-progress → done`.
-- **2026-06-15T21:17:53Z** — archived
+- **2026-06-15T21:17:53Z** `[archive]` archived

@@ -58,18 +58,21 @@ fallo del commit debe explicar por qué falló.
 
 ## Plan
 
-- [x] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error; verify: `node --test test/commit.test.mjs` (CR1) — 2026-07-11T21:16:05Z
-- [x] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas; verify: `node --test test/commit.test.mjs test/git.test.mjs` (CR1, CR2, CR3) — 2026-07-11T21:16:05Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T21:16:05Z
+- [x] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error; verify: `node --test test/commit.test.mjs` (CR1)
+  - **Resolved:** `2026-07-11T21:16:05Z`
+- [x] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas; verify: `node --test test/commit.test.mjs test/git.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-11T21:16:05Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T21:16:05Z`
 
 ## Log
-- **2026-07-11T21:05:24Z** — status: draft → approved
-- **2026-07-11T21:08:42Z** — status: approved → in-progress
-- **2026-07-11T21:08:42Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T21:16:05Z** — Integrada implementación delegada (bf039f4): mutatingRun captura stderr/stdout en fallo solo para el camino de commit; defaultRun y consultas tolerantes intactos. TDD red-green; pnpm verify 633/633. Verificación end-to-end: commit sin staged sale exit 1 mostrando el diagnóstico del hook y de git.
-- **2026-07-11T21:16:05Z** — status: in-progress → in-review
-- **2026-07-11T21:21:54Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T21:21:54Z** — Review independiente (contexto limpio) PASS: CR1-CR3 con evidencia e2e en repo scratch; defaultRun intacto byte a byte; suite 633/633. Observaciones menores no bloqueantes: diagnóstico duplicado stderr+stdout en fallo de hook (cosmético) y labels CR sin desambiguar en test/git.test.mjs.
-- **2026-07-11T21:39:56Z** — validation → done (human accepted)
-- **2026-07-11T21:53:18Z** — graduado a spec `git-traceability.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T21:05:24Z** `[status]` draft → approved
+- **2026-07-11T21:08:42Z** `[status]` approved → in-progress
+- **2026-07-11T21:08:42Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T21:16:05Z** `[note]` Integrada implementación delegada (bf039f4): mutatingRun captura stderr/stdout en fallo solo para el camino de commit; defaultRun y consultas tolerantes intactos. TDD red-green; pnpm verify 633/633. Verificación end-to-end: commit sin staged sale exit 1 mostrando el diagnóstico del hook y de git.
+- **2026-07-11T21:16:05Z** `[status]` in-progress → in-review
+- **2026-07-11T21:21:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:21:54Z** `[note]` Review independiente (contexto limpio) PASS: CR1-CR3 con evidencia e2e en repo scratch; defaultRun intacto byte a byte; suite 633/633. Observaciones menores no bloqueantes: diagnóstico duplicado stderr+stdout en fallo de hook (cosmético) y labels CR sin desambiguar en test/git.test.mjs.
+- **2026-07-11T21:39:56Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:53:18Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

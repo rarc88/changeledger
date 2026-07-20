@@ -49,11 +49,14 @@ validador; el texto ya está disponible en la carga).
 
 ## Plan
 
-- [x] `loadRepo` adjunta el texto crudo `text` a cada change (CR1) — 2026-06-14T11:43:27Z
-- [x] `checkRepo` escanea `text` y reporta marcadores con su línea (CR1, CR2) — 2026-06-14T11:43:27Z
-- [x] Tests: detecta los tres marcadores; repo limpio no falsea (CR1, CR2) — 2026-06-14T11:43:27Z
+- [x] `loadRepo` adjunta el texto crudo `text` a cada change (CR1)
+  - **Resolved:** `2026-06-14T11:43:27Z`
+- [x] `checkRepo` escanea `text` y reporta marcadores con su línea (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:43:27Z`
+- [x] Tests: detecta los tres marcadores; repo limpio no falsea (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:43:27Z`
 
 ## Log
-- **2026-06-14T11:12:24Z** — status: draft → approved
-- **2026-06-14T11:43:27Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:24Z** `[status]` draft → approved
+- **2026-06-14T11:43:27Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

@@ -31,12 +31,13 @@ parecen duplicados. Mostrar el **id completo**.
 
 ## Plan
 
-- [x] Eliminar `shortId`; mostrar el id completo en card, grafo y tabla (CR1) — 2026-06-13T21:37:20Z
+- [x] Eliminar `shortId`; mostrar el id completo en card, grafo y tabla (CR1)
+  - **Resolved:** `2026-06-13T21:37:20Z`
 
 ## Log
 
-- **2026-06-13T21:35:53Z** — Creado. Bug de UX: la abreviatura ocultaba los
+- **2026-06-13T21:35:53Z** `[note]` Creado. Bug de UX: la abreviatura ocultaba los
   segundos y los changes del mismo minuto parecían duplicados.
-- **2026-06-13T21:37:20Z** — status: in-progress → done
-- **2026-06-13T21:37:20Z** — Eliminado shortId; id completo en board/table/graph. Verificado en navegador.
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T21:37:20Z** `[status]` in-progress → done
+- **2026-06-13T21:37:20Z** `[note]` Eliminado shortId; id completo en board/table/graph. Verificado en navegador.
+- **2026-06-15T21:17:54Z** `[archive]` archived

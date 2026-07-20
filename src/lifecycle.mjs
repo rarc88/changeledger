@@ -57,18 +57,92 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
   }
 }
 
-// A lifecycle event recorded in `## Log`. `status:` lines carry an explicit
-// origin; review/validation verdict lines imply it (the writer only emits them
-// from in-review / in-validation). Non-lifecycle entries (owner, graduation,
-// free notes) return null.
-const LOG_EVENT =
-  /\*\*([^*]+)\*\*\s*—\s*(?:status:\s*([a-z-]+)\s*→\s*([a-z-]+)|(review)\s*→\s*([a-z-]+)|(validation)\s*→\s*([a-z-]+))/;
+export const LOG_EVENT_TYPES = [
+  'status',
+  'review',
+  'validation',
+  'owner',
+  'graduation',
+  'archive',
+  'note',
+];
+
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const LOG_EVENT = /^- \*\*([^*]+)\*\* `\[([a-z]+)\]`(?: (.*))?$/;
+const TRANSITION_PAYLOAD = /^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/;
+
+export function isIsoUtc(value) {
+  return ISO_UTC.test(String(value));
+}
 
 export function parseLogEvent(line) {
-  const m = line.match(LOG_EVENT);
-  if (!m) return null;
-  const at = m[1].trim();
-  if (m[2]) return { at, from: m[2], to: m[3], explicit: true };
-  if (m[4]) return { at, from: 'in-review', to: m[5], explicit: false };
-  return { at, from: 'in-validation', to: m[7], explicit: false };
+  const match = String(line).match(LOG_EVENT);
+  if (!match || !isIsoUtc(match[1]) || !LOG_EVENT_TYPES.includes(match[2])) return null;
+  const [at, type, payload = ''] = match.slice(1);
+
+  if (['status', 'review', 'validation'].includes(type)) {
+    const transition = payload.match(TRANSITION_PAYLOAD);
+    if (!transition) return null;
+    const event = { at, type, from: transition[1], to: transition[2] };
+    if (transition[3]) event.detail = transition[3];
+    if (transition[4]) event.reason = transition[4];
+    if (type === 'review' && event.from !== 'in-review') return null;
+    if (type === 'validation' && event.from !== 'in-validation') return null;
+    return event;
+  }
+
+  if (type === 'owner') {
+    if (payload === 'cleared') return { at, type, owner: null };
+    if (!payload.startsWith('set: ') || payload.length === 5) return null;
+    const automatic = payload.endsWith(' (auto)');
+    const owner = payload.slice(5, automatic ? -7 : undefined);
+    if (!owner) return null;
+    return automatic ? { at, type, owner, automatic: true } : { at, type, owner };
+  }
+
+  if (type === 'graduation') {
+    const spec = payload.match(/^spec: `([^`]+)`(?: \((.*)\))?$/);
+    if (spec) {
+      const event = { at, type, outcome: 'spec', spec: spec[1] };
+      if (spec[2]) event.detail = spec[2];
+      return event;
+    }
+    if (payload === 'skipped') return { at, type, outcome: 'skipped' };
+    if (payload.startsWith('skipped: ') && payload.length > 9) {
+      return { at, type, outcome: 'skipped', reason: payload.slice(9) };
+    }
+    return null;
+  }
+
+  if (type === 'archive') return payload === 'archived' ? { at, type } : null;
+  if (type === 'note') return payload ? { at, type, message: payload } : null;
+  return null;
+}
+
+export function serializeLogEvent(event) {
+  const at = String(event?.at ?? '');
+  const type = String(event?.type ?? '');
+  let payload;
+
+  if (['status', 'review', 'validation'].includes(type)) {
+    payload = `${event.from} → ${event.to}`;
+    if (event.detail) payload += ` (${event.detail})`;
+    if (event.reason) payload += `: ${event.reason}`;
+  } else if (type === 'owner') {
+    payload =
+      event.owner == null ? 'cleared' : `set: ${event.owner}${event.automatic ? ' (auto)' : ''}`;
+  } else if (type === 'graduation') {
+    payload =
+      event.outcome === 'spec'
+        ? `spec: \`${event.spec}\`${event.detail ? ` (${event.detail})` : ''}`
+        : `skipped${event.reason ? `: ${event.reason}` : ''}`;
+  } else if (type === 'archive') {
+    payload = 'archived';
+  } else if (type === 'note') {
+    payload = event.message;
+  }
+
+  const line = `- **${at}** \`[${type}]\` ${payload ?? ''}`;
+  if (!parseLogEvent(line)) throw new Error(`invalid ${type || 'unknown'} Log event`);
+  return line;
 }

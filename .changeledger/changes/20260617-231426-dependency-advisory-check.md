@@ -18,15 +18,18 @@ tiene documentado si ese check es manual, pre-release o parte de CI.
 
 ## Plan
 
-- [x] Documentar en `CONTRIBUTING.md` cuando correr `pnpm audit --audit-level moderate`, incluyendo que envia metadatos del lockfile a npm; verificar con `node bin/sl.mjs check` — 2026-06-18T10:08:50Z
-- [x] Agregar un script `audit:deps` en `package.json` para estandarizar el comando sin meterlo aun en `pnpm verify`; verificar con `pnpm audit:deps` cuando haya red disponible — 2026-06-18T10:08:50Z
-- [x] Decidir si `.github/workflows/ci.yml` debe ejecutar `pnpm audit:deps` en releases o scheduled job; verificar con `pnpm verify` — 2026-06-18T10:08:50Z
+- [x] Documentar en `CONTRIBUTING.md` cuando correr `pnpm audit --audit-level moderate`, incluyendo que envia metadatos del lockfile a npm; verificar con `node bin/sl.mjs check`
+  - **Resolved:** `2026-06-18T10:08:50Z`
+- [x] Agregar un script `audit:deps` en `package.json` para estandarizar el comando sin meterlo aun en `pnpm verify`; verificar con `pnpm audit:deps` cuando haya red disponible
+  - **Resolved:** `2026-06-18T10:08:50Z`
+- [x] Decidir si `.github/workflows/ci.yml` debe ejecutar `pnpm audit:deps` en releases o scheduled job; verificar con `pnpm verify`
+  - **Resolved:** `2026-06-18T10:08:50Z`
 
 ## Log
 
-- **2026-06-18T09:52:54Z** — status: draft → approved
-- **2026-06-18T09:56:49Z** — status: approved → in-progress
-- **2026-06-18T09:56:49Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-18T10:05:45Z** — status: in-progress → done
-- **2026-06-18T10:06:37Z** — graduation skipped: Process documentation; no spec needed
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-18T09:52:54Z** `[status]` draft → approved
+- **2026-06-18T09:56:49Z** `[status]` approved → in-progress
+- **2026-06-18T09:56:49Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-18T10:05:45Z** `[status]` in-progress → done
+- **2026-06-18T10:06:37Z** `[graduation]` skipped: Process documentation; no spec needed
+- **2026-06-18T10:09:09Z** `[archive]` archived

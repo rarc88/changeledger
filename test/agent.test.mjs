@@ -67,7 +67,7 @@ test('125139 CR1/CR7: conversational approval is attributed without changing vie
   const viewerLog = parseChange(fs.readFileSync(viewer.file, 'utf8')).stages.find(
     (stage) => stage.key === 'log',
   ).body;
-  assert.match(viewerLog, /status: draft → approved/);
+  assert.match(viewerLog, /`\[status\]` draft → approved/);
   assert.doesNotMatch(viewerLog, /via conversation/);
 });
 
@@ -93,10 +93,14 @@ test('task done marks the task with a timestamp', () => {
   assert.match(t.resolvedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
-test('log appends a timestamped entry', () => {
+test('125007 CR6: log appends an opaque typed note', () => {
   const { root, file, id } = repoWithChange();
-  log(id, 'a note', root);
-  assert.match(fs.readFileSync(file, 'utf8'), /— a note\n?$/);
+  const message = 'status: draft → done — [graduation] spec: fake.md';
+  log(id, message, root);
+  assert.match(
+    fs.readFileSync(file, 'utf8'),
+    /`\[note\]` status: draft → done — \[graduation\] spec: fake\.md\n?$/,
+  );
 });
 
 test('new --owner writes the owner into the frontmatter', () => {
@@ -124,7 +128,7 @@ test('status to in-progress auto-assigns owner handle when empty', () => {
   status(id, 'in-progress', root, { ownerHandle: () => 'raruiz' });
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.owner, 'raruiz');
-  assert.match(c.stages.find((s) => s.key === 'log').body, /owner → raruiz \(auto\)/);
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[owner\]` set: raruiz \(auto\)/);
 });
 
 test('status to in-progress does not overwrite an explicit owner', () => {
@@ -187,11 +191,11 @@ test('212322 CR2: archiveGraduated archives graduated and skipped done changes',
   const { root, write } = repoWithArchiveCandidates();
   const graduated = write({
     id: '20260613-120001',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`',
   });
   const skipped = write({
     id: '20260613-120002',
-    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
   });
   const archived = archiveGraduated({}, root);
   assert.deepEqual(
@@ -201,7 +205,7 @@ test('212322 CR2: archiveGraduated archives graduated and skipped done changes',
   for (const file of [graduated, skipped]) {
     const c = parseChange(fs.readFileSync(file, 'utf8'));
     assert.equal(c.frontmatter.archived, true);
-    assert.match(c.stages.find((s) => s.key === 'log').body, /— archived/);
+    assert.match(c.stages.find((s) => s.key === 'log').body, /`\[archive\]` archived/);
   }
 });
 
@@ -210,17 +214,17 @@ test('212322 CR3/CR4: archiveGraduated skips active, unreviewed and already arch
   const active = write({
     id: '20260613-120001',
     status: 'in-progress',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`',
   });
   const unreviewed = write({
     id: '20260613-120002',
     reviewed: false,
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`',
   });
   const alreadyArchived = write({
     id: '20260613-120003',
     archived: true,
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`\n- **2026-06-13T12:01:00Z** — archived',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`\n- **2026-06-13T12:01:00Z** `[archive]` archived',
   });
   const before = new Map(
     [active, unreviewed, alreadyArchived].map((file) => [file, fs.readFileSync(file, 'utf8')]),
@@ -234,12 +238,12 @@ test('105457 CR1/CR4/CR5: archiveGraduated filters exact owners and matches list
   write({
     id: '20260613-120001',
     owner: 'Roberto Ruiz',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `one.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `one.md`',
   });
   write({
     id: '20260613-120002',
     owner: 'Ana',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `two.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `two.md`',
   });
   write({ id: '20260613-120003', owner: 'Roberto Ruiz', reviewed: false });
 
@@ -257,12 +261,12 @@ test('105457 CR2/CR4: archiveGraduated filters unowned candidates and matches li
   const { root, write } = repoWithArchiveCandidates();
   write({
     id: '20260613-120001',
-    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
   });
   write({
     id: '20260613-120002',
     owner: 'Ana',
-    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
   });
 
   const preview = list({ pending: 'archive', unowned: true }, root).map((c) => c.id);
@@ -284,17 +288,17 @@ test('131649 CR1/CR2: list owns graduation and archive pending queries', () => {
   write({ id: '20260613-120002' });
   write({
     id: '20260613-120003',
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `api.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `api.md`',
   });
   write({
     id: '20260613-120004',
-    log: '- **2026-06-13T12:00:00Z** — graduation skipped: no durable truth',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
   });
   write({ id: '20260613-120005', status: 'in-validation', reviewed: false });
   write({
     id: '20260613-120006',
     archived: true,
-    log: '- **2026-06-13T12:00:00Z** — graduado a spec `old.md`',
+    log: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `old.md`',
   });
 
   assert.deepEqual(
@@ -503,7 +507,10 @@ test('150231 CR2/CR3: human acceptance rejects incomplete or inconsistent change
         file,
         fs
           .readFileSync(file, 'utf8')
-          .replace('## Log\n', '## Log\n\n- **2026-06-13T12:30:00Z** — status: draft → approved\n'),
+          .replace(
+            '## Log\n',
+            '## Log\n\n- **2026-06-13T12:30:00Z** `[status]` draft → approved\n',
+          ),
       );
     }
     const before = fs.readFileSync(file, 'utf8');
@@ -570,7 +577,7 @@ test('150232 CR3: durable closure boundaries reject reopening without writes', (
     let text = fs.readFileSync(file, 'utf8');
     if (boundary === 'reviewed')
       text = text.replace('depends_on: []', 'depends_on: []\nreviewed: true');
-    if (boundary === 'graduated') text += '\n- **2026-06-13T13:00:00Z** — graduation skipped\n';
+    if (boundary === 'graduated') text += '\n- **2026-06-13T13:00:00Z** `[graduation]` skipped\n';
     if (boundary === 'archived')
       text = text.replace('depends_on: []', 'depends_on: []\narchived: true');
     fs.writeFileSync(file, text);

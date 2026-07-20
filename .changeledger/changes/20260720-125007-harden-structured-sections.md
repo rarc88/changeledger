@@ -2,7 +2,7 @@
 id: "20260720-125007"
 title: Fortalecer las secciones estructuradas de los changes
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-20T12:50:07Z
 depends_on: []
 owner: Roberto Ruiz
@@ -165,13 +165,23 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Definir primero casos rojos para bloques de tarea en `test/change.test.mjs`, `test/writer.test.mjs` y `test/agent.test.mjs`, implementar el parser/serializador compartido en `src/change.mjs` y `src/writer.mjs`, y hacer que `setTask` preserve el texto; verify: `node --test test/change.test.mjs test/writer.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] Definir primero casos rojos para eventos tipados y sustituir mensajes inferidos por objetos de evento en `src/lifecycle.mjs`, `src/writer.mjs`, comandos y consumidores; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs test/check.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR5, CR6, CR7)
-- [ ] Añadir primero fixtures de migración segura en `test/fix.test.mjs` y `test/cli-bin.test.mjs`, y extender `src/fix.mjs`, `src/commands/fix.mjs` y `bin/changeledger.mjs` con `changeledger fix --structured-sections`, preview, conversión atómica y reporte manual; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR8)
-- [ ] Migrar `.changeledger/`, plantillas y fixtures del repositorio, actualizar `templates/contract/` y adaptar el viewer a los bloques nuevos; verify: `changeledger check && node --test test/change.test.mjs test/view.test.mjs test/viewer-metadata.test.mjs` (CR9)
-- [ ] Ejecutar la puerta completa y confirmar que no queda gramática antigua mediante búsqueda estructural; verify: `pnpm verify` (support)
+- [x] Definir primero casos rojos para bloques de tarea en `test/change.test.mjs`, `test/writer.test.mjs` y `test/agent.test.mjs`, implementar el parser/serializador compartido en `src/change.mjs` y `src/writer.mjs`, y hacer que `setTask` preserve el texto; verify: `node --test test/change.test.mjs test/writer.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-20T13:39:02Z`
+- [x] Definir primero casos rojos para eventos tipados y sustituir mensajes inferidos por objetos de evento en `src/lifecycle.mjs`, `src/writer.mjs`, comandos y consumidores; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs test/check.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR5, CR6, CR7)
+  - **Resolved:** `2026-07-20T13:57:21Z`
+- [x] Añadir primero fixtures de migración segura en `test/fix.test.mjs` y `test/cli-bin.test.mjs`, y extender `src/fix.mjs`, `src/commands/fix.mjs` y `bin/changeledger.mjs` con `changeledger fix --structured-sections`, preview, escritura atómica por archivo y reporte manual; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR8)
+  - **Resolved:** `2026-07-20T13:57:26Z`
+- [x] Migrar `.changeledger/`, plantillas y fixtures del repositorio, actualizar `templates/contract/` y adaptar el viewer a los bloques nuevos; verify: `changeledger check && node --test test/change.test.mjs test/view.test.mjs test/viewer-metadata.test.mjs` (CR9)
+  - **Resolved:** `2026-07-20T13:58:30Z`
+- [x] Ejecutar la puerta completa y confirmar que no queda gramática antigua mediante búsqueda estructural; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-20T13:59:45Z`
 
 ## Log
-- **2026-07-20T13:34:00Z** — status: draft → approved
-- **2026-07-20T13:34:36Z** — status: approved → in-progress
-- **2026-07-20T13:34:36Z** — owner → Roberto Ruiz (auto)
+- **2026-07-20T13:34:00Z** `[status]` draft → approved
+- **2026-07-20T13:34:36Z** `[status]` approved → in-progress
+- **2026-07-20T13:34:36Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-20T13:59:48Z** `[status]` in-progress → in-review
+- **2026-07-20T14:06:56Z** `[review]` in-review → in-progress (retry): Validar ISO en Resolved, ignorar eventos no transicionales en métricas y garantizar o acotar la atomicidad multiarchivo de la migración
+- **2026-07-20T14:08:26Z** `[note]` Corrección de review: Resolved valida ISO UTC compartido, métricas ignoran eventos no transicionales y el Plan explicita atomicidad por archivo; la prosa adyacente del contrato se condensó para mantener el presupuesto duro del contexto spec
+- **2026-07-20T14:08:38Z** `[status]` in-progress → in-review
+- **2026-07-20T14:14:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)

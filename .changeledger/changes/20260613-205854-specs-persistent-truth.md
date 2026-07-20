@@ -69,18 +69,24 @@ spec. El código refleja los specs.
 
 ## Plan
 
-- [x] Parser de spec (frontmatter + cuerpo) y carga desde `specs_dir` — 2026-06-13T21:15:04Z
-- [x] Exponer specs en el JSON del visor — 2026-06-13T21:15:04Z
-- [x] Sección Specs en el visor (lista + render + búsqueda) (CR2, CR3) — 2026-06-13T21:15:04Z
-- [x] Regla de graduación en `AGENTS.md` (CR4) — 2026-06-13T21:15:04Z
-- [x] Primer spec: arquitectura de Spec Ledger (dogfood) — 2026-06-13T21:15:04Z
-- [x] Tests del parser de spec (CR1) — 2026-06-13T21:15:04Z
+- [x] Parser de spec (frontmatter + cuerpo) y carga desde `specs_dir`
+  - **Resolved:** `2026-06-13T21:15:04Z`
+- [x] Exponer specs en el JSON del visor
+  - **Resolved:** `2026-06-13T21:15:04Z`
+- [x] Sección Specs en el visor (lista + render + búsqueda) (CR2, CR3)
+  - **Resolved:** `2026-06-13T21:15:04Z`
+- [x] Regla de graduación en `AGENTS.md` (CR4)
+  - **Resolved:** `2026-06-13T21:15:04Z`
+- [x] Primer spec: arquitectura de Spec Ledger (dogfood)
+  - **Resolved:** `2026-06-13T21:15:04Z`
+- [x] Tests del parser de spec (CR1)
+  - **Resolved:** `2026-06-13T21:15:04Z`
 
 ## Log
 
-- **2026-06-13T20:58:54Z** — Creado en draft. Estrena la capa persistente diferida
+- **2026-06-13T20:58:54Z** `[note]` Creado en draft. Estrena la capa persistente diferida
   desde 0001. Specs sin ciclo de vida; graduación manual por ahora.
-- **2026-06-13T21:15:04Z** — status: in-progress → done
-- **2026-06-13T21:15:04Z** — Implementado con TDD (54 tests verde). Visor con vista Specs y render mermaid verificado. Primer spec: arquitectura.
-- **2026-06-14T12:16:16Z** — graduado a spec `data-model.md`
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T21:15:04Z** `[status]` in-progress → done
+- **2026-06-13T21:15:04Z** `[note]` Implementado con TDD (54 tests verde). Visor con vista Specs y render mermaid verificado. Primer spec: arquitectura.
+- **2026-06-14T12:16:16Z** `[graduation]` spec: `data-model.md`
+- **2026-06-15T21:17:54Z** `[archive]` archived

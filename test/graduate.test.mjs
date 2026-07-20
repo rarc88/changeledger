@@ -49,7 +49,7 @@ El sistema soporta login OAuth.
 
 ## Log
 
-- **2026-06-13T12:00:00Z** — created
+- **2026-06-13T12:00:00Z** \`[note]\` created
 `,
   );
   return { root, file, id: '20260613-120000' };
@@ -89,7 +89,7 @@ test('CR1: graduate --into links an existing spec without touching its body', ()
   const change = parseChange(fs.readFileSync(file, 'utf8'));
   assert.match(
     change.stages.find((s) => s.key === 'log').body,
-    /graduado a spec `architecture.md`/,
+    /`\[graduation\]` spec: `architecture.md`/,
   );
   assert.equal(change.frontmatter.reviewed, true);
 });
@@ -289,7 +289,7 @@ test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', ()
   assert.equal(c.frontmatter.reviewed, true);
   assert.match(
     c.stages.find((s) => s.key === 'log').body,
-    /graduation skipped: bug fix, sin verdad persistente$/m,
+    /`\[graduation\]` skipped: bug fix, sin verdad persistente$/m,
   );
   const specsDir = path.join(root, '.changeledger', 'specs');
   assert.equal(fs.existsSync(specsDir) && fs.readdirSync(specsDir).length > 0, false);
@@ -299,7 +299,7 @@ test('skipGraduation without a reason logs the bare marker (CR3)', () => {
   const { root, file, id } = repo();
   skipGraduation(id, '', root);
   const log = parseChange(fs.readFileSync(file, 'utf8')).stages.find((s) => s.key === 'log').body;
-  assert.match(log, /graduation skipped$/m);
+  assert.match(log, /`\[graduation\]` skipped$/m);
 });
 
 test('skipGraduation refuses a non-done change and writes nothing (CR6)', () => {

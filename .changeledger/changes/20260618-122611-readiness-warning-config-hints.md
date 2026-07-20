@@ -71,17 +71,20 @@ la tarea, en vez de obligar a listar cada frase manual posible en la config.
 - **And** prefiere patrones estructurales como `verify:` antes que vocabulario específico de dispositivo o UI
 
 ## Plan
-- [x] Actualizar `src/check.mjs` para que los warnings/errores de readiness incluyan los patrones efectivos y si vienen de defaults; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2) — 2026-06-18T13:00:34Z
-- [x] Cubrir el caso default y el caso configurado para `src/check.mjs` en `test/check.test.mjs`; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2) — 2026-06-18T13:00:34Z
-- [x] Ajustar `templates/AGENTS.md` para orientar a repos con estructura no estándar hacia `readiness` en config; verify: `pnpm test -- test/cli.test.mjs` (CR3) — 2026-06-18T13:00:34Z
+- [x] Actualizar `src/check.mjs` para que los warnings/errores de readiness incluyan los patrones efectivos y si vienen de defaults; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-18T13:00:34Z`
+- [x] Cubrir el caso default y el caso configurado para `src/check.mjs` en `test/check.test.mjs`; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-18T13:00:34Z`
+- [x] Ajustar `templates/AGENTS.md` para orientar a repos con estructura no estándar hacia `readiness` en config; verify: `pnpm test -- test/cli.test.mjs` (CR3)
+  - **Resolved:** `2026-06-18T13:00:34Z`
 
 ## Log
-- **2026-06-18T12:26:11Z** — Creado desde diagnóstico de warnings en `ionic-app`: el checker era correcto, pero el mensaje no dejaba claro que estaba usando defaults `src/**` + `test/**`.
-- **2026-06-18T12:33:00Z** — Refinado desde feedback: no conviene meter frases manuales como `dispositivo físico` o `consola de red` en `verification_patterns`; mejor orientar la convención hacia una cláusula estándar `verify:`.
-- **2026-06-18T12:58:00Z** — status: draft → approved
-- **2026-06-18T12:59:08Z** — status: approved → in-progress
-- **2026-06-18T12:59:08Z** — owner → Roberto Ruiz (auto)
-- **2026-06-18T13:01:07Z** — status: in-progress → in-review
-- **2026-06-18T13:02:06Z** — review → done (delegated subagent, clean context)
-- **2026-06-18T13:02:23Z** — graduado a spec `architecture.md`
-- **2026-06-20T20:10:35Z** — archived
+- **2026-06-18T12:26:11Z** `[note]` Creado desde diagnóstico de warnings en `ionic-app`: el checker era correcto, pero el mensaje no dejaba claro que estaba usando defaults `src/**` + `test/**`.
+- **2026-06-18T12:33:00Z** `[note]` Refinado desde feedback: no conviene meter frases manuales como `dispositivo físico` o `consola de red` en `verification_patterns`; mejor orientar la convención hacia una cláusula estándar `verify:`.
+- **2026-06-18T12:58:00Z** `[status]` draft → approved
+- **2026-06-18T12:59:08Z** `[status]` approved → in-progress
+- **2026-06-18T12:59:08Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-18T13:01:07Z** `[status]` in-progress → in-review
+- **2026-06-18T13:02:06Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-18T13:02:23Z** `[graduation]` spec: `architecture.md`
+- **2026-06-20T20:10:35Z** `[archive]` archived
