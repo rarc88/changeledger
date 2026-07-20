@@ -614,11 +614,12 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
     // 20260718-105456: additive related_to scaffold and non-blocking semantics;
-    // correction adds mandatory search-result classification during Investigation;
+    // correction first added search-result classification, then generalized it
+    // to every discovery source and forbade leaving an explicit local id only in prose;
     // existing dependency execution and authoring rules are preserved.
     // 20260720-125007: task state metadata and Log events become explicit
     // structured records; the former punctuation-delimited forms are retired.
-    'spec.md': '0c02131a596088e83496ffa31d5ba87c11b7e03eab67ec50415c1300e485211e',
+    'spec.md': '2214972d07198b897d1f629109f495413ef70f92bb68ffdff5fbbfc62917bbcf',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -1281,10 +1282,10 @@ test('105456 CR8 correction: spec context makes agents populate discovered relat
   const spec = buildContext('spec', root).replace(/\s+/g, ' ');
   assert.match(
     spec,
-    /during Investigation, classify every relevant result from `changeledger search`/,
+    /during Investigation, classify every relevant change discovered.*regardless of whether it came from `search`, `list`, direct reading, context or conversation/,
   );
   assert.match(spec, /execution prerequisite.*`depends_on`/);
   assert.match(spec, /useful context without execution order.*`related_to`/);
-  assert.match(spec, /unstructured nuance.*textual mention/);
+  assert.match(spec, /explicit local change id must not remain only in prose/);
   assert.match(spec, /declare a local relation once, deriving its backlink/);
 });

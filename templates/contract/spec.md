@@ -98,10 +98,12 @@ the human `draft → approved` gate and `[#id]` marker, skipping only `in-review
 If scope outgrows this, discard and recreate it under the correct type.
 
 Before writing Investigation, run `changeledger search <terms from the request>`;
-during Investigation, classify every relevant result from `changeledger search`:
-an execution prerequisite becomes `depends_on`, useful context without execution
-order becomes `related_to`, and unstructured nuance stays a textual mention. Do not rediscover
-work another change or spec already covers.
+during Investigation, classify every relevant change discovered, regardless of
+whether it came from `search`, `list`, direct reading, context or conversation:
+an execution prerequisite becomes `depends_on`, and useful context without
+execution order becomes `related_to`. An explicit local change id must not
+remain only in prose. Do not rediscover work another change or spec already
+covers.
 
 When a relationship, flow or architecture is clearer visually, use a Mermaid
 block and keep its text as the source; the viewer renders it.
