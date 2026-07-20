@@ -2,9 +2,11 @@
 id: "20260720-212659"
 title: Hacer opcional la carga de ChangeLedger desde el bootstrap
 type: feature
-status: in-review
+status: done
 created: 2026-07-20T21:26:59Z
 depends_on: []
+archived: true
+reviewed: true
 owner: Roberto Ruiz
 related_to: [ "20260613-205854", "20260629-155349", "20260629-165838", "20260701-213931", "20260704-144327", "20260711-103759" ]
 ---
@@ -189,3 +191,7 @@ superficie que precisamente se quiere reducir.
 - **2026-07-20T22:13:33Z** `[note]` La corrección elimina del bootstrap las excepciones de delegación y la política de divergencias. El anti-truncado queda en el mismo párrafo que `changeledger context`; cada `agent-prompt` reemplaza explícitamente esa carga predeterminada, mientras core/implement conservan la resolución humana de divergencias.
 - **2026-07-20T22:16:28Z** `[note]` `pnpm verify` no puede iniciar Biome por el `biome.json` raíz de un worktree ignorado en `.claude/worktrees/global-state-review-760733/`, ajeno al diff. Sin modificar ese residuo se ejecutaron los gates equivalentes: Biome aceptó los archivos afectados, `pnpm test` pasó 718/718 fuera del sandbox y `pnpm check` validó 203 changes; `changeledger check --commits dev` también pasó.
 - **2026-07-20T22:18:45Z** `[status]` in-progress → in-review
+- **2026-07-20T22:23:04Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T22:23:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-20T22:30:15Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived
