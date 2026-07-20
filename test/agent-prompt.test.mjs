@@ -121,10 +121,14 @@ test('CR4: each role loads available context without inventing a change', () => 
   for (const role of ROLES) {
     assert.match(
       prose(role),
+      /For this delegated task, do not run the bootstrap's default `changeledger context`/i,
+      `${role} must explicitly replace the bootstrap default`,
+    );
+    assert.match(
+      prose(role),
       new RegExp(`changeledger agent-context ${role}`),
       `${role} must load its delegated capsule`,
     );
-    assert.doesNotMatch(prose(role), /changeledger context(?: |`)/, `${role} must skip core`);
   }
   for (const role of ['implementation', 'review', 'audit']) {
     assert.match(

@@ -149,18 +149,18 @@ changeledger agent-context <role> [id]  # self-contained context for that delega
 `init` places a small optional-discovery bootstrap in the project-owned
 `AGENTS.md`; there is no linked or copied contract under `.changeledger/`. Run
 `changeledger register` after upgrading to refresh that bootstrap. An agent
-attempts `changeledger context`: when the command is unavailable it continues
+attempts `changeledger context` and, on success, immediately captures its full
+output through the END sentinel. When the command is unavailable it continues
 normally without ChangeLedger; when the executable fails it reports the error
-for human direction. Successful output must be captured completely through its
-END sentinel, and a retained revision is checked with `--have <rev>` after
-compaction. A ChangeLedger delegation prompt may prescribe its specialized
-`agent-context` entry point instead. Observed code/spec divergence is reported
-to the human without inferred reconciliation or scope expansion.
+for human direction. A retained revision is checked with `--have <rev>` after
+compaction.
 
 Roles are `investigation`, `implementation`, `review` and `audit`. `audit` is a
 read-only inspection of a change already in `in-validation` — after review has
 already passed — for a human or orchestrator to consult before accepting or
-rejecting it; it never moves the change or records a verdict.
+rejecting it; it never moves the change or records a verdict. Each generated
+delegation prompt explicitly replaces the bootstrap's default context load with
+its specialized `agent-context` command.
 
 ### Upgrading an existing repo's configuration
 

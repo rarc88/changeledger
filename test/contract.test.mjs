@@ -58,7 +58,10 @@ test('212659 CR7: bootstrap leaves lifecycle authority to loaded context', () =>
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /When context loads successfully, follow its complete output/i);
+  assert.match(
+    agents,
+    /If it succeeds,[\s\S]*follow (?:its|that)\s+>?\s*complete (?:output|context)/i,
+  );
   assert.doesNotMatch(agents, /Do not create or modify files without an authorized change/);
   assert.doesNotMatch(agents, /workflow, the task contexts, and the narrow operational exception/);
   assert.doesNotMatch(agents, /spec\|implement\|review\|release/);
@@ -69,7 +72,10 @@ test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /through the `CHANGELEDGER CONTEXT END` line/);
-  assert.match(agents, /first successful load[\s\S]*retain complete stdout/i);
+  assert.match(
+    agents.replace(/\s+/g, ' '),
+    /`changeledger context`[^.]*\.[^.]*(?:If it succeeds|On success),\s*>?\s*retain complete stdout/i,
+  );
   assert.match(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
   assert.match(agents, /output budget[\s\S]*whole response/i);
   assert.match(agents, /missing END[\s\S]*re-run with a larger capture/i);
@@ -80,28 +86,21 @@ test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery
   assert.match(agents, /context or its revision was lost[\s\S]*load it completely again/i);
 });
 
-test('212659 CR5: bootstrap permits delegated entry points without exposing agent-context', () => {
+test('212659 CR5: bootstrap contains no delegation mechanism', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(
-    agents,
-    /ChangeLedger\s+>?\s*delegation prompt[\s\S]*different context entry point/i,
-  );
   assert.doesNotMatch(
     agents,
-    /agent-context|investigation|implementation|CHANGELEDGER AGENT CONTEXT END/i,
+    /delegat|subagent|agent-context|investigation|implementation|CHANGELEDGER AGENT CONTEXT END/i,
   );
 });
 
-test('212659 CR6: bootstrap reports code/spec divergence without inferring reconciliation', () => {
+test('212659 CR6: bootstrap leaves divergence policy to loaded context', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /divergence between specs and code[\s\S]*report it to the human/i);
-  assert.match(agents, /affects the current task[\s\S]*wait for their decision/i);
-  assert.match(agents, /unrelated[\s\S]*do not expand scope/i);
-  assert.match(agents, /Do not modify\s+>?\s*either side solely to reconcile/i);
+  assert.doesNotMatch(agents, /divergence|specs and code|reconcile/i);
 });
 
 test('CR10/CR12: reference refresh is idempotent and stale references fail check', () => {
