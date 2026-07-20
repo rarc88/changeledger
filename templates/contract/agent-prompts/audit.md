@@ -13,9 +13,9 @@ another agent; execute it yourself.
 Why this is delegated: {{reason}} (independent inspection after review already
 passed and the change is waiting for a human at `in-validation`).
 
-Your prompt identifies you as a ChangeLedger delegate. As your only
-ChangeLedger load, run `changeledger agent-context audit {{change_id}}` and
-read it through its END sentinel; do not load the orchestrator core.
+For this delegated task, do not run the bootstrap's default `changeledger
+context`. As your only ChangeLedger load, run `changeledger agent-context audit
+{{change_id}}` and read it through its END sentinel.
 
 Change under audit: {{change_id}}.
 

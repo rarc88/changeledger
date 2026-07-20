@@ -58,8 +58,10 @@ other tools discover it through the repository's `AGENTS.md` reference.
 
 - **Changes** describe a delta: why it is needed, what was learned, the chosen
   design, acceptance criteria, implementation tasks and execution log.
-- **Specs** describe the current system after completed changes graduate. They
-  have no work lifecycle and remain concise, durable product truth.
+- **Specs** describe the intended current system after completed changes
+  graduate. They have no work lifecycle and remain concise, durable ChangeLedger
+  product truth. Work performed without the CLI may diverge; observed drift is
+  reported for human resolution rather than reconciled automatically.
 
 With the default Definition of Ready policy, `changeledger check` verifies that acceptance
 criteria are test-grade and mapped to actionable tasks. Repositories doing
@@ -144,16 +146,21 @@ changeledger agent-prompt <role>         # portable delegation skeleton
 changeledger agent-context <role> [id]  # self-contained context for that delegate
 ```
 
-`init` places a small fail-closed bootstrap in the project-owned `AGENTS.md`;
-there is no linked or copied contract under `.changeledger/`. Run
-`changeledger register` after upgrading to refresh that bootstrap. Normal agents
-load `context`; a delegated leaf identified by `agent-prompt` loads only its
-matching `agent-context`, without the orchestrator core.
+`init` places a small optional-discovery bootstrap in the project-owned
+`AGENTS.md`; there is no linked or copied contract under `.changeledger/`. Run
+`changeledger register` after upgrading to refresh that bootstrap. An agent
+attempts `changeledger context` and, on success, immediately captures its full
+output through the END sentinel. When the command is unavailable it continues
+normally without ChangeLedger; when the executable fails it reports the error
+for human direction. A retained revision is checked with `--have <rev>` after
+compaction.
 
 Roles are `investigation`, `implementation`, `review` and `audit`. `audit` is a
 read-only inspection of a change already in `in-validation` — after review has
 already passed — for a human or orchestrator to consult before accepting or
-rejecting it; it never moves the change or records a verdict.
+rejecting it; it never moves the change or records a verdict. Each generated
+delegation prompt explicitly replaces the bootstrap's default context load with
+its specialized `agent-context` command.
 
 ### Upgrading an existing repo's configuration
 

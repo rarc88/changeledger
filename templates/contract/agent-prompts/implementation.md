@@ -13,9 +13,9 @@ Why this is delegated: {{reason}} (why a separate agent, e.g. a disjoint write
 set that parallelizes safely, a sufficient cheaper model for well-specified
 execution).
 
-Your prompt identifies you as a ChangeLedger delegate. As your only ChangeLedger
-load, run `changeledger agent-context implementation {{change_id}}` and read it
-through its END sentinel; do not load the orchestrator core. It supplies the
+For this delegated task, do not run the bootstrap's default `changeledger
+context`. As your only ChangeLedger load, run `changeledger agent-context
+implementation {{change_id}}` and read it through its END sentinel. It supplies the
 selected change with its acceptance criteria and Plan.
 
 If that command does not resolve the change, or the working tree does not

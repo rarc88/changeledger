@@ -288,7 +288,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
   );
   const expected = [
-    ['core', /Documents under `.changeledger\/` are the source of truth/],
+    ['core', /Documents under `.changeledger\/` are ChangeLedger's persistent truth/],
     ['core', /Work starts with conversation/],
     ['core', /human explicitly authorizes documentation/],
     ['core', /Never implement a `draft`/],
@@ -493,6 +493,24 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
+test('212659 CR6: pre-existing code/spec divergence is reported for human resolution', () => {
+  const root = repo();
+  const normalize = (text) => text.replace(/\s+/g, ' ');
+  const core = normalize(buildContext(undefined, root));
+  const implement = normalize(buildContext('implement', root));
+
+  assert.match(core, /pre-existing divergence between specs and code.*reported to the human/i);
+  assert.match(core, /Wait if it affects the current task/i);
+  assert.match(core, /unrelated.*report it without expanding scope/i);
+  assert.doesNotMatch(core, /document wins when code and documentation disagree/i);
+
+  assert.match(implement, /approved change governs the code written within its scope/i);
+  assert.match(
+    implement,
+    /pre-existing divergence not introduced by the current work.*human resolution/i,
+  );
+});
+
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
@@ -552,7 +570,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // canonical list queries for graduation and archive candidates.
     // 20260718-105457: those queries add optional owner scoping while keeping
     // per-change graduation and matching filtered archive semantics explicit.
-    'core.md': '14ba2bdaf590565378f44a54b15e3b4aff6b44ad9b8d1162948b17068dcf7eb2',
+    // 20260720-212659: universal document-wins semantics are replaced by
+    // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
+    // is reported for human resolution, while an approved change still governs
+    // code written inside its authorized scope. No lifecycle rule is retired.
+    'core.md': 'e41c7912f87dd99bb9900db2a8f94b74ab1915f14646911d827262d4c271b3ed',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -591,7 +613,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260715-122950: the ordered review recipe is extended with formatter and
     // check gates after lifecycle mutations; host ownership is explicit. Existing
     // review, verdict and validation rules are preserved, none retired.
-    'implement.md': '93878b96dabcb8a35853d977a11cf200bb04248703789cb872425be353e24c88',
+    // 20260720-212659: unconditional code-wins repair is replaced: the approved
+    // change still governs code authored in scope, while a pre-existing
+    // divergence is reported for human resolution. Execution discipline remains.
+    'implement.md': 'e52078e83d25505f4771ffd6e3c0185503ac29cb90e0855301b799397d12cbb3',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',

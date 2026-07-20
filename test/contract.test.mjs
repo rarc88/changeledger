@@ -18,81 +18,89 @@ function root() {
 
 function reflowBootstrap(text) {
   return text.replace(
-    '> This repo uses **ChangeLedger**. Immediately after reading this file — before\n> planning, investigating, or acting — a normal agent must run `changeledger context` directly.',
-    '>This repo uses **ChangeLedger**. Immediately after reading this file —\n> before planning, investigating, or acting — a normal agent must run\n>`changeledger context` directly.',
+    '> Attempt to run **ChangeLedger** with `changeledger context` immediately after\n> reading this file — before planning, investigating, or acting.',
+    '>Attempt to run **ChangeLedger** with `changeledger context` immediately\n> after reading this file — before planning, investigating, or acting.',
   );
 }
 
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace(
-      "> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
-      "[mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
-    )
+    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
-test('CR10: init installs a fail-closed bootstrap without link or gitignore entry', () => {
+test('212659 CR1/CR2: init installs an optional bootstrap without hiding real failures', () => {
   const dir = root();
   init(dir);
   assert.equal(fs.existsSync(path.join(dir, '.changeledger', 'AGENTS.md')), false);
   assert.equal(fs.existsSync(path.join(dir, '.gitignore')), false);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /changeledger context/);
-  assert.match(agents, /run `changeledger context` directly/);
-  assert.match(agents, /restore\/install ChangeLedger; do not\s+>?\s*proceed from memory/);
+  assert.match(agents, /Attempt to run[\s\S]*`changeledger context`/);
+  assert.match(agents, /command is unavailable[\s\S]*continue normally without ChangeLedger/i);
+  assert.match(agents, /starts but fails[\s\S]*report the error[\s\S]*human/i);
+  assert.match(agents, /human[\s\S]*decide how\s+>?\s*to continue/i);
+  assert.doesNotMatch(agents, /restore\/install ChangeLedger|command -v|which changeledger/i);
   assert.doesNotMatch(agents, /\.changeledger\/AGENTS\.md/);
   assert.deepEqual(checkContract(dir), []);
 });
 
-test('213931 CR1: bootstrap triggers the core load immediately, not only before edits', () => {
+test('212659 CR1: bootstrap attempts the core load immediately, not only before edits', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /Immediately after reading this file/);
+  assert.match(agents, /immediately after\s+>?\s*reading this file/i);
   assert.match(agents, /before\s+>?\s*planning, investigating, or acting/);
   assert.doesNotMatch(agents, /Before creating or modifying files/);
 });
 
-test('213931 CR2: bootstrap carries the hard rule and defers detail to the core', () => {
+test('212659 CR7: bootstrap leaves lifecycle authority to loaded context', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /Do not create or modify files without an authorized change/);
   assert.match(
     agents,
-    /the core context\s+>?\s*defines the workflow, the task contexts, and the narrow operational exception/,
+    /If it succeeds,[\s\S]*follow (?:its|that)\s+>?\s*complete (?:output|context)/i,
   );
-  // No mode enumeration (it invites skipping the base context) and no absolute
-  // "Never" (the core's operational-exception valve is the single truth).
+  assert.doesNotMatch(agents, /Do not create or modify files without an authorized change/);
+  assert.doesNotMatch(agents, /workflow, the task contexts, and the narrow operational exception/);
   assert.doesNotMatch(agents, /spec\|implement\|review\|release/);
-  assert.doesNotMatch(agents, /Never create or modify/);
 });
 
-test('213931 CR3: bootstrap verifies completeness through the END sentinel', () => {
+test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.match(agents, /through the `CHANGELEDGER CONTEXT END` line/);
-  assert.match(agents, /first invocation[\s\S]*retain complete stdout/i);
+  assert.match(
+    agents.replace(/\s+/g, ' '),
+    /`changeledger context`[^.]*\.[^.]*(?:If it succeeds|On success),\s*>?\s*retain complete stdout/i,
+  );
   assert.match(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
   assert.match(agents, /output budget[\s\S]*whole response/i);
-  assert.match(agents, /exceptional recovery/i);
+  assert.match(agents, /missing END[\s\S]*re-run with a larger capture/i);
+  assert.match(
+    agents,
+    /After a compaction[\s\S]*`changeledger context\s+>?\s*\[mode\] --have <rev>`/i,
+  );
+  assert.match(agents, /context or its revision was lost[\s\S]*load it completely again/i);
 });
 
-test('144327 CR9: bootstrap permits only the role-matched delegated capsule instead of core', () => {
+test('212659 CR5: bootstrap contains no delegation mechanism', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /normal agent[\s\S]*run `changeledger context`/i);
-  assert.match(
+  assert.doesNotMatch(
     agents,
-    /prompt (?:was )?emitted by `changeledger agent-prompt <role>`[\s\S]*`changeledger agent-context <role> \[change-id\]`/i,
+    /delegat|subagent|agent-context|investigation|implementation|CHANGELEDGER AGENT CONTEXT END/i,
   );
-  assert.match(agents, /role in the\s+>?\s*prompt and command must match/i);
-  assert.match(agents, /CHANGELEDGER (?:AGENT )?CONTEXT END/);
-  assert.doesNotMatch(agents, /any delegate may skip/i);
+});
+
+test('212659 CR6: bootstrap leaves divergence policy to loaded context', () => {
+  const dir = root();
+  init(dir);
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.doesNotMatch(agents, /divergence|specs and code|reconcile/i);
 });
 
 test('CR10/CR12: reference refresh is idempotent and stale references fail check', () => {
@@ -232,7 +240,7 @@ test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () 
   const stale = fs
     .readFileSync(file, 'utf8')
     .replace(
-      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->',
+      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->',
       '<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->',
     );
   fs.writeFileSync(file, `@AGENTS.md\n\n${stale}`);
@@ -246,15 +254,11 @@ test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () 
 
 test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
   const mutations = [
+    (text) => text.replace('with `changeledger context`', 'with `changeledger check`'),
+    (text) => text.replace('Attempt to run **ChangeLedger**', 'Attempt  to run **ChangeLedger**'),
+    (text) => text.replace('> reading this file', '>\n> reading this file'),
     (text) =>
-      text.replace('run `changeledger context` directly', 'run `changeledger check` directly'),
-    (text) => text.replace('This repo uses **ChangeLedger**.', 'This  repo uses **ChangeLedger**.'),
-    (text) => text.replace('> planning, investigating', '>\n> planning, investigating'),
-    (text) =>
-      text.replace(
-        '> planning, investigating',
-        '>\n\noutside the blockquote\n\n> planning, investigating',
-      ),
+      text.replace('> reading this file', '>\n\noutside the blockquote\n\n> reading this file'),
   ];
 
   for (const mutate of mutations) {
@@ -289,7 +293,7 @@ test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', 
 
 test('153633 CR4/CR5: check rejects semantic token and delimiter changes', () => {
   const mutations = [
-    (text) => text.replace('`changeledger context` directly', '`changeledger check` directly'),
+    (text) => text.replace('`changeledger context`', '`changeledger check`'),
     (text) => text.replace('**ChangeLedger**', '**[ChangeLedger](https://example.com)**'),
     (text) => `${text}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
     (text) =>
