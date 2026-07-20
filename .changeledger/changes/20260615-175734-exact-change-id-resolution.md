@@ -61,17 +61,21 @@ debe resolverse por igualdad exacta con el `frontmatter.id`.
 
 ## Plan
 
-- [x] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial (CR1, CR2, CR3) — 2026-06-15T18:42:28Z
-- [x] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta (CR1, CR3, CR4) — 2026-06-15T18:42:28Z
-- [x] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes (CR1, CR2, CR4) — 2026-06-15T18:42:28Z
-- [x] Ejecutar `pnpm verify` y smoke CLI desde el tarball (CR1, CR2) — 2026-06-15T18:42:28Z
+- [x] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T18:42:28Z`
+- [x] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta (CR1, CR3, CR4)
+  - **Resolved:** `2026-06-15T18:42:28Z`
+- [x] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes (CR1, CR2, CR4)
+  - **Resolved:** `2026-06-15T18:42:28Z`
+- [x] Ejecutar `pnpm verify` y smoke CLI desde el tarball (CR1, CR2)
+  - **Resolved:** `2026-06-15T18:42:28Z`
 
 ## Log
-- **2026-06-15T18:29:27Z** — status: draft → approved
-- **2026-06-15T18:40:01Z** — status: approved → in-progress
-- **2026-06-15T18:40:02Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T18:42:28Z** — fix: resolvedor único en repo.mjs compara frontmatter.id por igualdad exacta; agent.locate y graduate migrados; sin búsquedas por prefijo (CR1-CR4)
-- **2026-06-15T18:42:38Z** — status: in-progress → in-review
-- **2026-06-15T18:43:49Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T20:47:34Z** — graduation skipped: bug de resolución de id; sin verdad persistente nueva
-- **2026-06-15T21:17:59Z** — archived
+- **2026-06-15T18:29:27Z** `[status]` draft → approved
+- **2026-06-15T18:40:01Z** `[status]` approved → in-progress
+- **2026-06-15T18:40:02Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T18:42:28Z** `[note]` fix: resolvedor único en repo.mjs compara frontmatter.id por igualdad exacta; agent.locate y graduate migrados; sin búsquedas por prefijo (CR1-CR4)
+- **2026-06-15T18:42:38Z** `[status]` in-progress → in-review
+- **2026-06-15T18:43:49Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** `[graduation]` skipped: bug de resolución de id; sin verdad persistente nueva
+- **2026-06-15T21:17:59Z** `[archive]` archived

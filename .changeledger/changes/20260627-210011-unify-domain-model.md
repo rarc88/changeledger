@@ -63,4 +63,4 @@ complejidad si aparece un consumidor real.
 - [ ] Verificar no-regresión global de la suite y el gate; verify: `pnpm verify` (support)
 
 ## Log
-- **2026-06-28T00:47:48Z** — status: draft → discarded: diagnóstico incorrecto verificado contra el código: no hay tres parsers. check.mjs (checkRepo) y viewer/domain.mjs (serialize) consumen objetos YA parseados por repo.mjs vía change.mjs/spec.mjs; recorrer campos para validar/serializar no es parsear. El domain model funcional ya existe. Refactor transversal sin evidencia
+- **2026-06-28T00:47:48Z** `[status]` draft → discarded: diagnóstico incorrecto verificado contra el código: no hay tres parsers. check.mjs (checkRepo) y viewer/domain.mjs (serialize) consumen objetos YA parseados por repo.mjs vía change.mjs/spec.mjs; recorrer campos para validar/serializar no es parsear. El domain model funcional ya existe. Refactor transversal sin evidencia

@@ -2,15 +2,10 @@
 title: Definition of Ready
 updated: 2026-07-01T23:21:38Z
 tags: [ readiness, tdd ]
+graduated_from: ["20260614-162547", "20260616-151216", "20260617-020229", "20260626-115134", "20260630-225208"]
 ---
 
 ## Definition of Ready (tdd)
-
-> Graduado del change 20260614-162547 (Definition of Ready / tdd).
-> Graduado del change 20260616-151216 (Definition of Ready verificable).
-> Graduado del change 20260617-020229 (Definition of Ready con patrones configurables).
-> Graduado del change 20260626-115134 (formato machine-readable de tareas y readiness).
-> Corregido por el change 20260630-225208 (severidades reales por estado).
 
 El modelo de uso es **documentar con modelo fuerte, implementar con modelo menos
 potente**. El flag `tdd` en `config.yml` (default `true`) gobierna la política: con

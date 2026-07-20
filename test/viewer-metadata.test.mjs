@@ -26,6 +26,7 @@ const {
   cssIdent,
   esc,
   isVisible,
+  openChangeById,
   passesTombstones,
   projectMutation,
   projectsViewTemplate,
@@ -55,7 +56,7 @@ const {
   taskList,
 } = await import('../src/viewer/public/app.js');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
-const { closeButton, splitGraduationHistory, specBody, validationPanel } = await import(
+const { closeButton, referenceDetails, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
 const { graphSvg, metricsHtml, specsListHtml } = await import(
@@ -414,7 +415,7 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
-test('125850 CR6: graduation history is separated only from the leading spec preamble', () => {
+test('111457 CR8: legacy prose is ordinary spec content, not graduation metadata', () => {
   const body = `# Architecture
 
 > Graduado del change 20260613-120000 (first).
@@ -423,16 +424,11 @@ test('125850 CR6: graduation history is separated only from the leading spec pre
 Normal truth.
 
 > A regular quote.`;
-  const split = splitGraduationHistory(body);
-  assert.equal(split.entries.length, 2);
-  assert.match(split.before, /# Architecture/);
-  assert.match(split.after, /Normal truth/);
-  assert.match(split.after, /> A regular quote/);
-});
-
-test('125850 CR6: non-provenance blockquotes remain untouched', () => {
-  const body = '# Architecture\n\n> A regular quote.\n\nTruth.';
-  assert.deepEqual(splitGraduationHistory(body), { before: '', entries: [], after: body });
+  const host = parse(specBody(body, []));
+  assert.equal(host.querySelector('details.change-references'), null);
+  assert.match(host.textContent, /Graduado del change 20260613-120000/);
+  assert.match(host.textContent, /Normal truth/);
+  assert.match(host.textContent, /A regular quote/);
 });
 
 test('125850 CR7/CR8: table cells have explicit wrapping roles and a safe status badge', () => {
@@ -766,21 +762,64 @@ test('125850 CR9: sort indicator is a bounded SVG icon', () => {
   assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
 });
 
-test('125850 CR6: spec body renders graduation entries inside a collapsed details list', () => {
+test('105456 CR6: spec history resolves metadata, navigation and unavailable ids', () => {
+  const changes = [
+    { ...baseChange(), id: '20260613-120000', title: 'First origin', owner: 'Ana' },
+    { ...baseChange(), id: '20260613-120001', title: 'Second origin' },
+  ];
   const host = parse(
-    specBody(`# Architecture
-
-> Graduado del change 20260613-120000 (first).
-> Graduado del change 20260613-120001 (second).
-
-Persistent truth.`),
+    specBody(
+      '# Architecture\n\nPersistent truth.',
+      ['20260613-120000', '20260613-120001', '20990101-000000'],
+      changes,
+    ),
   );
-  const details = host.querySelector('details.graduation-history');
+  const details = host.querySelector('details.change-references');
   assert.ok(details);
   assert.equal(details.open, false);
-  assert.equal(details.querySelector('.history-count').textContent, '2');
-  assert.equal(details.querySelectorAll('li').length, 2);
+  assert.equal(details.querySelector('.reference-count').textContent, '3');
+  assert.equal(details.querySelectorAll('button[data-change]').length, 2);
+  assert.equal(details.querySelector('button').dataset.change, '20260613-120000');
+  assert.match(details.textContent, /First origin.*feature.*draft.*@Ana/s);
+  assert.match(details.textContent, /20990101-000000.*Unavailable.*unavailable/s);
   assert.match(host.textContent, /Persistent truth/);
+});
+
+test('105456 CR5/CR7: common reference component separates local and external entries', () => {
+  const changes = [{ ...baseChange(), id: 'B', title: 'Related B', owner: 'Ana' }];
+  const host = parse(
+    referenceDetails(
+      'Related changes',
+      [
+        { id: 'B', direction: 'outgoing' },
+        { id: 'other-project:20260701-090000', direction: 'outgoing' },
+      ],
+      changes,
+      '↔',
+    ),
+  );
+  assert.match(host.querySelector('summary').textContent, /Related changes.*2/s);
+  assert.match(host.textContent, /Related B.*feature.*draft.*@Ana/s);
+  assert.equal(host.querySelector('[data-change="B"]')?.tagName, 'BUTTON');
+  assert.equal(
+    host.querySelector('[data-external="other-project:20260701-090000"]')?.tagName,
+    'BUTTON',
+  );
+});
+
+test('111457 request: structured graduation history resolves a change for navigation', () => {
+  const found = { id: '20260613-120000', title: 'Origin' };
+  let opened;
+  openChangeById(found.id, { repo: { changes: [found] } }, (id) => {
+    opened = id;
+  });
+  assert.equal(opened, found.id);
+
+  opened = undefined;
+  openChangeById('missing', { repo: { changes: [found] } }, (id) => {
+    opened = id;
+  });
+  assert.equal(opened, undefined);
 });
 
 test('222619 CR1: graph empty state does not render invalid dimensions', () => {
@@ -808,6 +847,17 @@ test('222619 CR2: graph with changes keeps finite svg dimensions and nodes', () 
   assert.doesNotMatch(svg.getAttribute('height'), /Infinity|NaN/);
   assert.equal(host.querySelectorAll('.node').length, 2);
   assert.equal(host.querySelectorAll('.edge').length, 1);
+});
+
+test('105456 CR5: graph renders deduplicated dashed undirected relation edges', () => {
+  const host = parse(
+    graphSvg([
+      { ...baseChange(), id: 'A', title: 'A', related_to: ['B'] },
+      { ...baseChange(), id: 'B', title: 'B', related_to: ['A'] },
+    ]),
+  );
+  assert.equal(host.querySelectorAll('.relation-edge').length, 1);
+  assert.equal(host.querySelectorAll('.edge').length, 0);
 });
 
 const nodeX = (host, id) => {

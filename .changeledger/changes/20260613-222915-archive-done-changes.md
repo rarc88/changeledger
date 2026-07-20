@@ -56,13 +56,18 @@ sin esos efectos.
 
 ## Plan
 
-- [x] `setArchived(text, bool)` en writer.mjs (CR1) — 2026-06-14T11:48:06Z
-- [x] `archive(id, on)` en agent.mjs + comandos `sl archive`/`sl unarchive` (CR1) — 2026-06-14T11:48:07Z
-- [x] `serialize()` expone `archived`; app.js: toggle + ocultar/atenuar (CR2) — 2026-06-14T11:48:07Z
-- [x] `check.mjs`: `archived` debe ser booleano (CR3) — 2026-06-14T11:48:07Z
-- [x] Tests: setArchived, archive/unarchive, check del flag (CR1, CR3) — 2026-06-14T11:48:07Z
+- [x] `setArchived(text, bool)` en writer.mjs (CR1)
+  - **Resolved:** `2026-06-14T11:48:06Z`
+- [x] `archive(id, on)` en agent.mjs + comandos `sl archive`/`sl unarchive` (CR1)
+  - **Resolved:** `2026-06-14T11:48:07Z`
+- [x] `serialize()` expone `archived`; app.js: toggle + ocultar/atenuar (CR2)
+  - **Resolved:** `2026-06-14T11:48:07Z`
+- [x] `check.mjs`: `archived` debe ser booleano (CR3)
+  - **Resolved:** `2026-06-14T11:48:07Z`
+- [x] Tests: setArchived, archive/unarchive, check del flag (CR1, CR3)
+  - **Resolved:** `2026-06-14T11:48:07Z`
 
 ## Log
-- **2026-06-14T11:12:24Z** — status: draft → approved
-- **2026-06-14T11:48:07Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:24Z** `[status]` draft → approved
+- **2026-06-14T11:48:07Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

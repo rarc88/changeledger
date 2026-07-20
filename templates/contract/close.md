@@ -14,6 +14,7 @@ Markdown:
 title: Short title
 updated: 2026-06-30T10:00:00Z
 tags: []
+graduated_from: []
 ---
 ```
 
@@ -41,8 +42,11 @@ Alternatives to the two-step:
   unresolved.
 
 `reviewed: true` means the persistent-truth question was settled, not necessarily
-that a spec was created. The graduation link remains derivable from the Log
-marker `graduado a spec`, which carries the spec link, rather than from the flag.
+that a spec was created. `--into` records the same link in both directions: the
+change Log carries `graduado a spec`, and the target spec appends the change id to
+`graduated_from`. `changeledger check` requires both sides to agree. Repositories
+with legacy prose markers can migrate them deterministically with
+`changeledger fix --graduation-links` (or preview with `--dry-run`).
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
 pending `in-review → in-validation → done` ledger updates with the graduation
@@ -53,7 +57,8 @@ graduation or skip itself remains the meaningful closure evidence.
 Operational inspection and visibility:
 
 - `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
-- `changeledger list --pending archive` previews the exact candidates for `changeledger archive --graduated`.
+- `changeledger list --pending graduation --owner NAME` scopes a multi-change request, but every returned id is resolved individually with `graduate --new`, `--into` or `--skip`; graduation is never a bulk mutation.
+- `changeledger list --pending archive [--owner NAME|--unowned]` previews the exact candidates for `changeledger archive --graduated [--owner NAME|--unowned]` when both commands use the same filter. Without a filter, the action keeps its repository-wide behavior.
 - `changeledger show <id> [--json]`
 - `changeledger archive <id>` (reversible by manually editing `archived: false` in frontmatter)
 

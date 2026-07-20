@@ -70,24 +70,28 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 
 ## Plan
 
-- [x] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-07-10T17:16:45Z
-- [x] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3) — 2026-07-10T17:16:46Z
-- [x] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4) — 2026-07-10T17:16:46Z
-- [x] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4) — 2026-07-10T17:25:41Z
+- [x] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-10T17:16:45Z`
+- [x] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3)
+  - **Resolved:** `2026-07-10T17:16:46Z`
+- [x] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4)
+  - **Resolved:** `2026-07-10T17:16:46Z`
+- [x] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4)
+  - **Resolved:** `2026-07-10T17:25:41Z`
 
 ## Log
-- **2026-07-10T12:03:54Z** — status: draft → approved
-- **2026-07-10T14:30:25Z** — status: approved → in-progress
-- **2026-07-10T14:30:25Z** — owner → Roberto Ruiz (auto)
-- **2026-07-10T17:16:57Z** — status: in-progress → in-review
-- **2026-07-10T17:18:03Z** — review → in-progress (retry): Faltan pruebas específicas y el resumen de Owner no representa Unassigned seleccionado.
-- **2026-07-10T17:18:49Z** — status: in-progress → in-review
-- **2026-07-10T17:20:03Z** — review → in-progress (retry): El resumen no cuenta Unassigned combinado y faltan pruebas de migración/semántica.
-- **2026-07-10T17:24:01Z** — status: in-progress → in-review
-- **2026-07-10T17:25:41Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T17:58:07Z** — validation → in-progress (agent rejected): Type y Owner deben reutilizar el patrón completo de Status: iconos y cierre al hacer clic fuera.
-- **2026-07-10T18:38:07Z** — status: in-progress → in-review
-- **2026-07-10T18:40:11Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T20:16:16Z** — validation → done (human accepted)
-- **2026-07-10T20:19:47Z** — graduado a spec `viewer.md`
-- **2026-07-10T20:19:48Z** — archived
+- **2026-07-10T12:03:54Z** `[status]` draft → approved
+- **2026-07-10T14:30:25Z** `[status]` approved → in-progress
+- **2026-07-10T14:30:25Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-10T17:16:57Z** `[status]` in-progress → in-review
+- **2026-07-10T17:18:03Z** `[review]` in-review → in-progress (retry): Faltan pruebas específicas y el resumen de Owner no representa Unassigned seleccionado.
+- **2026-07-10T17:18:49Z** `[status]` in-progress → in-review
+- **2026-07-10T17:20:03Z** `[review]` in-review → in-progress (retry): El resumen no cuenta Unassigned combinado y faltan pruebas de migración/semántica.
+- **2026-07-10T17:24:01Z** `[status]` in-progress → in-review
+- **2026-07-10T17:25:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T17:58:07Z** `[validation]` in-validation → in-progress (agent rejected): Type y Owner deben reutilizar el patrón completo de Status: iconos y cierre al hacer clic fuera.
+- **2026-07-10T18:38:07Z** `[status]` in-progress → in-review
+- **2026-07-10T18:40:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:16Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T20:19:47Z** `[graduation]` spec: `viewer.md`
+- **2026-07-10T20:19:48Z** `[archive]` archived

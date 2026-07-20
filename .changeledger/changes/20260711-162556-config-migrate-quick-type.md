@@ -62,19 +62,23 @@ nueva solo la reciben los repos creados con `init`. Reportado por el humano el
 
 ## Plan
 
-- [x] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs` (CR1, CR2, CR3) — 2026-07-11T21:25:29Z
-- [x] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`; verify: `node --test test/config-migration.test.mjs` (CR1, CR3) — 2026-07-11T21:25:29Z
-- [x] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR4) — 2026-07-11T21:25:29Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T21:25:29Z
+- [x] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-11T21:25:29Z`
+- [x] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`; verify: `node --test test/config-migration.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-11T21:25:29Z`
+- [x] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR4)
+  - **Resolved:** `2026-07-11T21:25:29Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T21:25:29Z`
 
 ## Log
-- **2026-07-11T21:05:23Z** — status: draft → approved
-- **2026-07-11T21:08:41Z** — status: approved → in-progress
-- **2026-07-11T21:08:41Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T21:25:29Z** — Integrada implementación delegada (e1f8f30, 3712162): schema 2 con migración 1→2 aditiva (quick + impacts.quick), idempotente, byte-intacta para config custom, falla cerrado en schema 3; viewer usa el schema del payload en vez del duplicado hardcodeado. Nota: el delegado tocó src/viewer/domain.mjs y src/viewer/public/app.js más allá del ownership declarado, reportado y justificado por CR4 (región disjunta de la corrección pendiente de 20260711-155719). pnpm verify 638/638.
-- **2026-07-11T21:25:29Z** — status: in-progress → in-review
-- **2026-07-11T21:33:28Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T21:33:29Z** — Review independiente (contexto limpio) PASS: CR1-CR4 con e2e adversarial sobre configs scratch (schema 0/1/1-custom/2/3), red-green verificado revirtiendo src a baseline, verify 638/638. Caveat acotado aceptado: re-serialización normaliza estilo flow con padding en regiones no tocadas (preexistente, este change lo mejora).
-- **2026-07-11T21:39:53Z** — validation → done (human accepted)
-- **2026-07-11T21:52:41Z** — graduado a spec `architecture.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T21:05:23Z** `[status]` draft → approved
+- **2026-07-11T21:08:41Z** `[status]` approved → in-progress
+- **2026-07-11T21:08:41Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T21:25:29Z** `[note]` Integrada implementación delegada (e1f8f30, 3712162): schema 2 con migración 1→2 aditiva (quick + impacts.quick), idempotente, byte-intacta para config custom, falla cerrado en schema 3; viewer usa el schema del payload en vez del duplicado hardcodeado. Nota: el delegado tocó src/viewer/domain.mjs y src/viewer/public/app.js más allá del ownership declarado, reportado y justificado por CR4 (región disjunta de la corrección pendiente de 20260711-155719). pnpm verify 638/638.
+- **2026-07-11T21:25:29Z** `[status]` in-progress → in-review
+- **2026-07-11T21:33:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:33:29Z** `[note]` Review independiente (contexto limpio) PASS: CR1-CR4 con e2e adversarial sobre configs scratch (schema 0/1/1-custom/2/3), red-green verificado revirtiendo src a baseline, verify 638/638. Caveat acotado aceptado: re-serialización normaliza estilo flow con padding en regiones no tocadas (preexistente, este change lo mejora).
+- **2026-07-11T21:39:53Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:52:41Z** `[graduation]` spec: `architecture.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

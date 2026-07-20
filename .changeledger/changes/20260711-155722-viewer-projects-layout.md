@@ -70,22 +70,27 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`; verify: manual browser check con una config más alta que el viewport (CR1) — 2026-07-11T16:33:24Z
-- [x] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`; verify: manual browser check a 1600 px (CR2) — 2026-07-11T16:33:25Z
-- [x] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`; verify: manual browser check a 680 px (CR3) — 2026-07-11T16:33:25Z
-- [x] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde (support) — 2026-07-11T16:33:25Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:33:26Z
+- [x] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`; verify: manual browser check con una config más alta que el viewport (CR1)
+  - **Resolved:** `2026-07-11T16:33:24Z`
+- [x] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`; verify: manual browser check a 1600 px (CR2)
+  - **Resolved:** `2026-07-11T16:33:25Z`
+- [x] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`; verify: manual browser check a 680 px (CR3)
+  - **Resolved:** `2026-07-11T16:33:25Z`
+- [x] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde (support)
+  - **Resolved:** `2026-07-11T16:33:25Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T16:33:26Z`
 
 ## Log
-- **2026-07-11T16:13:59Z** — status: draft → approved
-- **2026-07-11T16:22:44Z** — status: approved → in-progress
-- **2026-07-11T16:22:44Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T16:33:26Z** — Integrada implementación delegada (9b8b828): altura acotada por --header-height, overflow-y por panel, sin tope de 1500px, breakpoint 900px con scroll de página. CRs verificados en navegador por el implementador (scroll independiente, 1564px de shell a 1600px, apilado a 700px). pnpm verify 607/607.
-- **2026-07-11T16:33:26Z** — status: in-progress → in-review
-- **2026-07-11T16:39:33Z** — review → in-progress (retry): El alto fijo --header-height:55px no cubre el topbar envuelto a dos filas (94.5px reales) en la banda ~1000-1280px: el shell desborda el viewport 20-40px y rompe la garantía de CR1; derivar la altura del layout real en vez de una constante
-- **2026-07-11T16:45:22Z** — Corrección confirmada por re-review de contexto limpio: ResizeObserver en bootstrap() sincroniza --header-height con el alto real del topbar (95px envuelto verificado a 1000/1150px, sin overflow); CSS queda como fallback. Divergencia del Plan justificada: derivar la altura real exige JS.
-- **2026-07-11T16:45:22Z** — status: in-progress → in-review
-- **2026-07-11T16:45:22Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T21:39:43Z** — validation → done (human accepted)
-- **2026-07-11T21:51:56Z** — graduado a spec `viewer.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T16:13:59Z** `[status]` draft → approved
+- **2026-07-11T16:22:44Z** `[status]` approved → in-progress
+- **2026-07-11T16:22:44Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T16:33:26Z** `[note]` Integrada implementación delegada (9b8b828): altura acotada por --header-height, overflow-y por panel, sin tope de 1500px, breakpoint 900px con scroll de página. CRs verificados en navegador por el implementador (scroll independiente, 1564px de shell a 1600px, apilado a 700px). pnpm verify 607/607.
+- **2026-07-11T16:33:26Z** `[status]` in-progress → in-review
+- **2026-07-11T16:39:33Z** `[review]` in-review → in-progress (retry): El alto fijo --header-height:55px no cubre el topbar envuelto a dos filas (94.5px reales) en la banda ~1000-1280px: el shell desborda el viewport 20-40px y rompe la garantía de CR1; derivar la altura del layout real en vez de una constante
+- **2026-07-11T16:45:22Z** `[note]` Corrección confirmada por re-review de contexto limpio: ResizeObserver en bootstrap() sincroniza --header-height con el alto real del topbar (95px envuelto verificado a 1000/1150px, sin overflow); CSS queda como fallback. Divergencia del Plan justificada: derivar la altura real exige JS.
+- **2026-07-11T16:45:22Z** `[status]` in-progress → in-review
+- **2026-07-11T16:45:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:39:43Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:51:56Z** `[graduation]` spec: `viewer.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

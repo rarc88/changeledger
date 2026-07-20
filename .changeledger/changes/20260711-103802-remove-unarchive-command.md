@@ -40,18 +40,22 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests (support) — 2026-07-11T11:01:32Z
-- [x] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs` (support) — 2026-07-11T11:01:32Z
-- [x] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo (support) — 2026-07-11T11:01:33Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:01:33Z
+- [x] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests (support)
+  - **Resolved:** `2026-07-11T11:01:32Z`
+- [x] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs` (support)
+  - **Resolved:** `2026-07-11T11:01:32Z`
+- [x] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo (support)
+  - **Resolved:** `2026-07-11T11:01:33Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T11:01:33Z`
 
 ## Log
-- **2026-07-11T10:47:27Z** — status: draft → approved
-- **2026-07-11T10:53:20Z** — status: approved → in-progress
-- **2026-07-11T10:53:20Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T11:01:33Z** — Implementación delegada integrada en change/20260711-batch-optimizations (commit ab5dc28); pnpm verify 562/562 en la rama del delegado.
-- **2026-07-11T11:16:22Z** — status: in-progress → in-review
-- **2026-07-11T11:19:54Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T11:37:34Z** — validation → done (human accepted)
-- **2026-07-11T15:45:50Z** — graduation skipped: retirada de comando muerto; ningún spec documentaba unarchive y la reversión manual ya estaba descrita
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T10:47:27Z** `[status]` draft → approved
+- **2026-07-11T10:53:20Z** `[status]` approved → in-progress
+- **2026-07-11T10:53:20Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T11:01:33Z** `[note]` Implementación delegada integrada en change/20260711-batch-optimizations (commit ab5dc28); pnpm verify 562/562 en la rama del delegado.
+- **2026-07-11T11:16:22Z** `[status]` in-progress → in-review
+- **2026-07-11T11:19:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:34Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T15:45:50Z** `[graduation]` skipped: retirada de comando muerto; ningún spec documentaba unarchive y la reversión manual ya estaba descrita
+- **2026-07-11T21:54:25Z** `[archive]` archived

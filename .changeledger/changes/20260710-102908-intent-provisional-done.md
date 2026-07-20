@@ -57,17 +57,19 @@ change nuevo y no alterar la semántica del CLI.
 
 ## Plan
 
-- [x] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`; verify: `node --test test/intent.test.mjs` (CR1, CR2) — 2026-07-10T17:27:52Z
-- [x] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3) — 2026-07-10T17:27:52Z
+- [x] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`; verify: `node --test test/intent.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-10T17:27:52Z`
+- [x] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3)
+  - **Resolved:** `2026-07-10T17:27:52Z`
 
 ## Log
-- **2026-07-10T12:02:45Z** — status: draft → approved
-- **2026-07-10T17:26:36Z** — status: approved → in-progress
-- **2026-07-10T17:26:36Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-10T17:27:52Z** — status: in-progress → in-review
-- **2026-07-10T17:28:47Z** — review → in-progress (retry): INTENT decía aceptación definitiva y la CR3 contradice su test documental.
-- **2026-07-10T17:29:08Z** — status: in-progress → in-review
-- **2026-07-10T17:30:41Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T20:16:14Z** — validation → done (human accepted)
-- **2026-07-10T20:19:47Z** — graduation skipped: La corrección alinea INTENT.md con la verdad de lifecycle ya existente; no crea un spec adicional.
-- **2026-07-10T20:19:48Z** — archived
+- **2026-07-10T12:02:45Z** `[status]` draft → approved
+- **2026-07-10T17:26:36Z** `[status]` approved → in-progress
+- **2026-07-10T17:26:36Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-10T17:27:52Z** `[status]` in-progress → in-review
+- **2026-07-10T17:28:47Z** `[review]` in-review → in-progress (retry): INTENT decía aceptación definitiva y la CR3 contradice su test documental.
+- **2026-07-10T17:29:08Z** `[status]` in-progress → in-review
+- **2026-07-10T17:30:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:14Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T20:19:47Z** `[graduation]` skipped: La corrección alinea INTENT.md con la verdad de lifecycle ya existente; no crea un spec adicional.
+- **2026-07-10T20:19:48Z** `[archive]` archived

@@ -109,28 +109,34 @@ navegación que ya existe.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-07-04T10:57:36Z
-- [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5) — 2026-07-04T10:57:36Z
-- [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4) — 2026-07-04T10:57:36Z
-- [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5) — 2026-07-04T10:57:36Z
-- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support) — 2026-07-04T11:23:31Z
-- [x] Corregir CR4 en `src/viewer/public/styles.css` con `container-type: inline-size` en `.detail` y un `@container` que apile la navegación por ancho de panel, no de viewport, cubriendo el preset `Compact`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual en `Compact` a 1280 px (CR4) — 2026-07-04T11:23:41Z
+- [x] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-04T10:57:36Z`
+- [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5)
+  - **Resolved:** `2026-07-04T10:57:36Z`
+- [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4)
+  - **Resolved:** `2026-07-04T10:57:36Z`
+- [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-04T10:57:36Z`
+- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-04T11:23:31Z`
+- [x] Corregir CR4 en `src/viewer/public/styles.css` con `container-type: inline-size` en `.detail` y un `@container` que apile la navegación por ancho de panel, no de viewport, cubriendo el preset `Compact`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual en `Compact` a 1280 px (CR4)
+  - **Resolved:** `2026-07-04T11:23:41Z`
 
 ## Log
 
-- 2026-07-04T10:37:15Z — Se autorizó documentar la barra fija a partir del
+- **2026-07-04T10:37:15Z** `[note]` Se autorizó documentar la barra fija a partir del
   problema observado de scroll heredado y de la captura del detalle flotante.
-- **2026-07-04T10:40:52Z** — status: draft → approved
-- **2026-07-04T10:41:46Z** — status: approved → in-progress
-- **2026-07-04T10:41:46Z** — owner → Roberto Ruiz (auto)
-- **2026-07-04T10:57:36Z** — Toolbar y reset verificados con tests y manualmente a 1280 px, 680 px y 375 px; la prueba real detectó y corrigió scroll anchoring y navegación pendiente.
-- **2026-07-04T10:59:14Z** — Quality gate completo: Biome validó 64 archivos, 539/539 pruebas pasaron y 159 changes resultaron válidos.
-- **2026-07-04T10:59:14Z** — status: in-progress → in-review
-- **2026-07-04T11:01:55Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-04T11:12:40Z** — validation → in-progress (human rejected): Cuando configuro el modal en modo "Compact" la navegación se hace scrollable y no es una buena experiencia, debería pasar a la segunda linea cuando no tiene espacio.
-- **2026-07-04T11:23:47Z** — Corrección tras rechazo humano: CR4 usaba @media de viewport; el preset Compact (720px) seguía scrolleando el pipeline en pantallas anchas. Se cambió a container-type: inline-size en .detail + @container, verificado con tests y manualmente en Compact a 1280px/1400px (nav apila) y Wide (nav en línea).
-- **2026-07-04T11:24:14Z** — status: in-progress → in-review
-- **2026-07-04T11:26:02Z** — review → in-validation (delegated subagent, clean context): CR4 fix confirmed — container query matches Compact (668px content) not Wide/Full; 56/56 + 539/539 tests pass; check clean.
-- **2026-07-04T11:33:51Z** — validation → done (human accepted)
-- **2026-07-04T11:35:33Z** — graduado a spec `viewer.md`
-- **2026-07-04T11:36:03Z** — archived
+- **2026-07-04T10:40:52Z** `[status]` draft → approved
+- **2026-07-04T10:41:46Z** `[status]` approved → in-progress
+- **2026-07-04T10:41:46Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-04T10:57:36Z** `[note]` Toolbar y reset verificados con tests y manualmente a 1280 px, 680 px y 375 px; la prueba real detectó y corrigió scroll anchoring y navegación pendiente.
+- **2026-07-04T10:59:14Z** `[note]` Quality gate completo: Biome validó 64 archivos, 539/539 pruebas pasaron y 159 changes resultaron válidos.
+- **2026-07-04T10:59:14Z** `[status]` in-progress → in-review
+- **2026-07-04T11:01:55Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-04T11:12:40Z** `[validation]` in-validation → in-progress (human rejected): Cuando configuro el modal en modo "Compact" la navegación se hace scrollable y no es una buena experiencia, debería pasar a la segunda linea cuando no tiene espacio.
+- **2026-07-04T11:23:47Z** `[note]` Corrección tras rechazo humano: CR4 usaba @media de viewport; el preset Compact (720px) seguía scrolleando el pipeline en pantallas anchas. Se cambió a container-type: inline-size en .detail + @container, verificado con tests y manualmente en Compact a 1280px/1400px (nav apila) y Wide (nav en línea).
+- **2026-07-04T11:24:14Z** `[status]` in-progress → in-review
+- **2026-07-04T11:26:02Z** `[review]` in-review → in-validation (delegated subagent, clean context): CR4 fix confirmed — container query matches Compact (668px content) not Wide/Full; 56/56 + 539/539 tests pass; check clean.
+- **2026-07-04T11:33:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-04T11:35:33Z** `[graduation]` spec: `viewer.md`
+- **2026-07-04T11:36:03Z** `[archive]` archived

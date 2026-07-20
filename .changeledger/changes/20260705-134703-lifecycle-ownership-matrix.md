@@ -119,24 +119,30 @@ agentes consumen el contexto, no el README.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership; verify: `node --test test/context.test.mjs` (CR1, CR2) — 2026-07-05T14:42:14Z
-- [x] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes; verify: `node --test test/context.test.mjs` (CR3) — 2026-07-05T14:42:14Z
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support) — 2026-07-05T14:42:14Z
-- [x] Preparar las regresiones en `test/context.test.mjs` y `test/cli.test.mjs` para exigir una sola representación sin fijar la forma retirada; verify: `node --test test/context.test.mjs test/cli.test.mjs` (support) — 2026-07-05T16:57:44Z
-- [x] Eliminar el diagrama paralelo de `templates/contract/core.md`, agrupar filas equivalentes sin perder comandos y fijar el techo del core en 130 líneas / 8000 bytes con margen; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-05T16:57:44Z
-- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support) — 2026-07-05T16:59:53Z
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-05T14:42:14Z`
+- [x] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-05T14:42:14Z`
+- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-05T14:42:14Z`
+- [x] Preparar las regresiones en `test/context.test.mjs` y `test/cli.test.mjs` para exigir una sola representación sin fijar la forma retirada; verify: `node --test test/context.test.mjs test/cli.test.mjs` (support)
+  - **Resolved:** `2026-07-05T16:57:44Z`
+- [x] Eliminar el diagrama paralelo de `templates/contract/core.md`, agrupar filas equivalentes sin perder comandos y fijar el techo del core en 130 líneas / 8000 bytes con margen; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-05T16:57:44Z`
+- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-05T16:59:53Z`
 
 ## Log
-- **2026-07-05T13:57:40Z** — status: draft → approved
-- **2026-07-05T14:36:22Z** — status: approved → in-progress
-- **2026-07-05T14:36:22Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-05T14:42:14Z** — Matriz transicion->propietario->mecanismo (12 filas) reemplaza el parrafo de ownership en core.md; diagrama de lifecycle queda solo topologia (anotaciones entre corchetes eliminadas, expresadas por la matriz); reglas no-ownership sobreviven como nota. Presupuesto de lineas del core elevado 120->134 (composicion medida exacta) manteniendo bytes 8000 (real 7076); actualizadas 8 aserciones de linea, el snapshot de core.md y la asercion viewer-owns de 234939. 549 tests verdes.
-- **2026-07-05T14:42:14Z** — status: in-progress → in-review
-- **2026-07-05T14:44:40Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-05T16:53:42Z** — validation → in-progress (human rejected): Necesita ajustes
-- **2026-07-05T16:59:53Z** — Corrección tras rechazo humano: la matriz queda como única representación del lifecycle; agrupa transiciones con actor/mecanismo idénticos, conserva separados los tres veredictos de review y elimina el diagrama paralelo. Core medido en 120 líneas/6674 bytes frente a techo redondo 130/8000. pnpm verify verde con 549 tests.
-- **2026-07-05T16:59:53Z** — status: in-progress → in-review
-- **2026-07-05T17:02:27Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T20:16:11Z** — validation → done (human accepted)
-- **2026-07-10T20:19:47Z** — graduado a spec `lifecycle.md`
-- **2026-07-10T20:19:48Z** — archived
+- **2026-07-05T13:57:40Z** `[status]` draft → approved
+- **2026-07-05T14:36:22Z** `[status]` approved → in-progress
+- **2026-07-05T14:36:22Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-05T14:42:14Z** `[note]` Matriz transicion->propietario->mecanismo (12 filas) reemplaza el parrafo de ownership en core.md; diagrama de lifecycle queda solo topologia (anotaciones entre corchetes eliminadas, expresadas por la matriz); reglas no-ownership sobreviven como nota. Presupuesto de lineas del core elevado 120->134 (composicion medida exacta) manteniendo bytes 8000 (real 7076); actualizadas 8 aserciones de linea, el snapshot de core.md y la asercion viewer-owns de 234939. 549 tests verdes.
+- **2026-07-05T14:42:14Z** `[status]` in-progress → in-review
+- **2026-07-05T14:44:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:53:42Z** `[validation]` in-validation → in-progress (human rejected): Necesita ajustes
+- **2026-07-05T16:59:53Z** `[note]` Corrección tras rechazo humano: la matriz queda como única representación del lifecycle; agrupa transiciones con actor/mecanismo idénticos, conserva separados los tres veredictos de review y elimina el diagrama paralelo. Core medido en 120 líneas/6674 bytes frente a techo redondo 130/8000. pnpm verify verde con 549 tests.
+- **2026-07-05T16:59:53Z** `[status]` in-progress → in-review
+- **2026-07-05T17:02:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:11Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T20:19:47Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-10T20:19:48Z** `[archive]` archived

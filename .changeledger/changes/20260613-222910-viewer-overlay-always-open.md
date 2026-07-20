@@ -31,13 +31,14 @@ se puede cerrar (sin contenido no hay botón de cierre).
 
 ## Plan
 
-- [x] `.hidden { display: none !important }` en styles.css (CR1) — 2026-06-13T22:30:00Z
+- [x] `.hidden { display: none !important }` en styles.css (CR1)
+  - **Resolved:** `2026-06-13T22:30:00Z`
 
 ## Log
 
-- **2026-06-13T22:29:10Z** — Reportado por el humano: panel lateral siempre
+- **2026-06-13T22:29:10Z** `[note]` Reportado por el humano: panel lateral siempre
   abierto y vacío.
-- **2026-06-13T22:30:00Z** — Causa: `.hidden` sin `!important`, sobrescrito por
+- **2026-06-13T22:30:00Z** `[note]` Causa: `.hidden` sin `!important`, sobrescrito por
   `.overlay`. Fix aplicado y verificado en navegador (oculto al cargar; open/close
   OK). `draft → done`.
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-15T21:17:54Z** `[archive]` archived

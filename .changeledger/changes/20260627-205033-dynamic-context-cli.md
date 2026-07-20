@@ -228,32 +228,43 @@ determinista que lo soporte.
 
 ## Plan
 
-- [x] Crear los fragmentos del contrato en `templates/contract/` (`core.md`, packs `implement`/`review`/`spec`/`release`, `readiness.md` compartido y overlays `blocked`/`validation`/`close`/`discarded`) extraídos de `templates/AGENTS.md`, con el núcleo dentro del presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR6, CR7, CR8) — 2026-06-28T01:17:02Z
-- [x] Implementar `src/commands/context.mjs` que componga núcleo + pack de forma determinista; verify: `node --test test/context.test.mjs` (CR1, CR3, CR5, CR6) — 2026-06-28T01:17:02Z
-- [x] Añadir en `src/commands/context.mjs` la resolución de change id (vía `resolveChange` en `src/repo.mjs`), la inferencia status→modo/overlay para todos los estados y release explícito, y la inclusión del contenido relevante del change sin inferir specs relacionadas; verify: `node --test test/context.test.mjs` (CR2, CR8, CR9) — 2026-06-28T01:17:02Z
-- [x] Manejar el argumento desconocido en `src/commands/context.mjs` con el mensaje literal y exit 1; verify: `node --test test/context.test.mjs` (CR4) — 2026-06-28T01:17:02Z
-- [x] Registrar el comando `context` en `bin/changeledger.mjs` con USAGE y help; verify: `node --test test/cli-bin.test.mjs` (CR1, CR3) — 2026-06-28T01:17:02Z
-- [x] Retirar `linkContract` y `ensureGitignore` de `src/contract.mjs` y reescribir `REFERENCE` con bootstrap fail-closed apuntando a `changeledger context`; verify: `node --test test/contract.test.mjs` (CR10) — 2026-06-28T01:17:02Z
-- [x] Actualizar `src/commands/init.mjs` para no enlazar ni tocar `.gitignore`; verify: `node --test test/contract.test.mjs` (CR10) — 2026-06-28T01:17:02Z
-- [x] Implementar la migración segura en `src/commands/register.mjs`: eliminar symlink o copia legacy reconocible, preservar y rechazar copias desconocidas, limpiar la entrada exacta de `.gitignore` y reescribir la referencia; verify: `node --test test/contract.test.mjs` (CR11) — 2026-06-28T01:17:03Z
-- [x] Ajustar `checkContract` en `src/contract.mjs`: no exigir link, exigir referencia y detectar la forma obsoleta; verify: `node --test test/check.test.mjs` (CR12) — 2026-06-28T01:17:03Z
-- [x] Eliminar `templates/AGENTS.md` y `agentsTemplate` de `src/paths.mjs` una vez los fragmentos lo cubren, y migrar `README.md`, ayuda y tests para que no quede documentación operativa del modelo anterior salvo fixtures explícitas de migración; verify: `node --test test/contract.test.mjs test/cli-bin.test.mjs` (CR6, CR13) — 2026-06-28T01:17:03Z
-- [x] Auto-aplicar al propio repo: borrar el symlink/copia `.changeledger/AGENTS.md`, quitar su línea de `.gitignore`, reescribir la referencia en `AGENTS.md` y `CLAUDE.md`; verify: `node bin/changeledger.mjs check` (support) — 2026-06-28T01:17:03Z
+- [x] Crear los fragmentos del contrato en `templates/contract/` (`core.md`, packs `implement`/`review`/`spec`/`release`, `readiness.md` compartido y overlays `blocked`/`validation`/`close`/`discarded`) extraídos de `templates/AGENTS.md`, con el núcleo dentro del presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR6, CR7, CR8)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Implementar `src/commands/context.mjs` que componga núcleo + pack de forma determinista; verify: `node --test test/context.test.mjs` (CR1, CR3, CR5, CR6)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Añadir en `src/commands/context.mjs` la resolución de change id (vía `resolveChange` en `src/repo.mjs`), la inferencia status→modo/overlay para todos los estados y release explícito, y la inclusión del contenido relevante del change sin inferir specs relacionadas; verify: `node --test test/context.test.mjs` (CR2, CR8, CR9)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Manejar el argumento desconocido en `src/commands/context.mjs` con el mensaje literal y exit 1; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Registrar el comando `context` en `bin/changeledger.mjs` con USAGE y help; verify: `node --test test/cli-bin.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Retirar `linkContract` y `ensureGitignore` de `src/contract.mjs` y reescribir `REFERENCE` con bootstrap fail-closed apuntando a `changeledger context`; verify: `node --test test/contract.test.mjs` (CR10)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Actualizar `src/commands/init.mjs` para no enlazar ni tocar `.gitignore`; verify: `node --test test/contract.test.mjs` (CR10)
+  - **Resolved:** `2026-06-28T01:17:02Z`
+- [x] Implementar la migración segura en `src/commands/register.mjs`: eliminar symlink o copia legacy reconocible, preservar y rechazar copias desconocidas, limpiar la entrada exacta de `.gitignore` y reescribir la referencia; verify: `node --test test/contract.test.mjs` (CR11)
+  - **Resolved:** `2026-06-28T01:17:03Z`
+- [x] Ajustar `checkContract` en `src/contract.mjs`: no exigir link, exigir referencia y detectar la forma obsoleta; verify: `node --test test/check.test.mjs` (CR12)
+  - **Resolved:** `2026-06-28T01:17:03Z`
+- [x] Eliminar `templates/AGENTS.md` y `agentsTemplate` de `src/paths.mjs` una vez los fragmentos lo cubren, y migrar `README.md`, ayuda y tests para que no quede documentación operativa del modelo anterior salvo fixtures explícitas de migración; verify: `node --test test/contract.test.mjs test/cli-bin.test.mjs` (CR6, CR13)
+  - **Resolved:** `2026-06-28T01:17:03Z`
+- [x] Auto-aplicar al propio repo: borrar el symlink/copia `.changeledger/AGENTS.md`, quitar su línea de `.gitignore`, reescribir la referencia en `AGENTS.md` y `CLAUDE.md`; verify: `node bin/changeledger.mjs check` (support)
+  - **Resolved:** `2026-06-28T01:17:03Z`
 
 ## Log
 
-- **2026-06-28T01:15:43Z** — La extracción preserva Definition of Ready como `readiness.md` único y lo compone tanto en `spec` como en `implement`; evita duplicar la misma norma entre packs para satisfacer CR6.
-- **2026-06-28T01:00:50Z** — status: draft → approved
-- **2026-06-28T01:06:08Z** — status: approved → in-progress
-- **2026-06-28T01:06:08Z** — owner → Roberto Ruiz (auto)
-- **2026-06-28T01:17:03Z** — Implementation complete: dynamic context, safe legacy migration, public docs and self-registration verified; pnpm verify passed with 413 tests
-- **2026-06-28T01:17:03Z** — status: in-progress → in-review
-- **2026-06-28T01:40:20Z** — review → in-progress (retry): CR11 legacy-copy recognition can delete an unrelated regular file sharing the historical heading; use exact known-content hashes and remove only the literal gitignore entry
-- **2026-06-28T01:41:24Z** — Review correction: regular legacy copies now require an exact SHA-256 match against historical shipped contracts; similarly named files fail closed, and gitignore cleanup removes only the literal entry
-- **2026-06-28T01:41:29Z** — status: in-progress → in-review
-- **2026-06-28T01:43:31Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T01:45:18Z** — validation → done (human accepted)
-- **2026-06-28T01:46:07Z** — graduado a spec `contract-discovery.md`
-- **2026-06-28T01:46:07Z** — graduado a spec `language.md`
-- **2026-06-28T01:46:07Z** — graduado a spec `architecture.md`
-- **2026-06-28T01:46:50Z** — archived
+- **2026-06-28T01:15:43Z** `[note]` La extracción preserva Definition of Ready como `readiness.md` único y lo compone tanto en `spec` como en `implement`; evita duplicar la misma norma entre packs para satisfacer CR6.
+- **2026-06-28T01:00:50Z** `[status]` draft → approved
+- **2026-06-28T01:06:08Z** `[status]` approved → in-progress
+- **2026-06-28T01:06:08Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-28T01:17:03Z** `[note]` Implementation complete: dynamic context, safe legacy migration, public docs and self-registration verified; pnpm verify passed with 413 tests
+- **2026-06-28T01:17:03Z** `[status]` in-progress → in-review
+- **2026-06-28T01:40:20Z** `[review]` in-review → in-progress (retry): CR11 legacy-copy recognition can delete an unrelated regular file sharing the historical heading; use exact known-content hashes and remove only the literal gitignore entry
+- **2026-06-28T01:41:24Z** `[note]` Review correction: regular legacy copies now require an exact SHA-256 match against historical shipped contracts; similarly named files fail closed, and gitignore cleanup removes only the literal entry
+- **2026-06-28T01:41:29Z** `[status]` in-progress → in-review
+- **2026-06-28T01:43:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T01:45:18Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-28T01:46:07Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-28T01:46:07Z** `[graduation]` spec: `language.md`
+- **2026-06-28T01:46:07Z** `[graduation]` spec: `architecture.md`
+- **2026-06-28T01:46:50Z** `[archive]` archived

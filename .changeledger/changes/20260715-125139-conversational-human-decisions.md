@@ -131,26 +131,31 @@ validation → in-progress (human rejected via conversation): <razón>
 
 ## Plan
 
-- [x] Escribir pruebas rojas en test/agent.test.mjs para atribución por canal conversacional y no-regresión del viewer; adaptar src/commands/agent.mjs sin duplicar guards ni el check scoped; verify: node --test test/agent.test.mjs test/view.test.mjs (CR1, CR3, CR4, CR5, CR6, CR7) — 2026-07-15T13:30:53Z
-- [x] Escribir pruebas e2e en test/cli-bin.test.mjs para `approve`, `validation pass`, `validation fail --human`, estados inválidos y razones vacías; exponer los comandos y ayuda en bin/changeledger.mjs; verify: node --test test/cli-bin.test.mjs (CR1, CR3, CR4, CR5, CR6, CR8) — 2026-07-15T13:30:53Z
-- [x] Actualizar templates/contract/core.md, templates/contract/spec.md y templates/contract/validation.md con viewer o conversación como mecanismos human-owned y la prohibición de inferir; cubrir composición y presupuestos en test/context.test.mjs; verify: node --test test/context.test.mjs (CR2, CR8) — 2026-07-15T13:30:54Z
-- [x] Actualizar `.changeledger/specs/lifecycle.md` con decisiones humanas multicanal, comandos y eventos auditables, manteniendo el viewer como alternativa; verify: `changeledger check 20260715-125139` (CR1, CR3, CR5, CR6, CR7, CR8) — 2026-07-15T13:30:54Z
-- [x] Ejecutar `pnpm verify` y confirmar que CLI, viewer, lifecycle y contrato completo permanecen verdes (support) — 2026-07-15T13:34:09Z
+- [x] Escribir pruebas rojas en test/agent.test.mjs para atribución por canal conversacional y no-regresión del viewer; adaptar src/commands/agent.mjs sin duplicar guards ni el check scoped; verify: node --test test/agent.test.mjs test/view.test.mjs (CR1, CR3, CR4, CR5, CR6, CR7)
+  - **Resolved:** `2026-07-15T13:30:53Z`
+- [x] Escribir pruebas e2e en test/cli-bin.test.mjs para `approve`, `validation pass`, `validation fail --human`, estados inválidos y razones vacías; exponer los comandos y ayuda en bin/changeledger.mjs; verify: node --test test/cli-bin.test.mjs (CR1, CR3, CR4, CR5, CR6, CR8)
+  - **Resolved:** `2026-07-15T13:30:53Z`
+- [x] Actualizar templates/contract/core.md, templates/contract/spec.md y templates/contract/validation.md con viewer o conversación como mecanismos human-owned y la prohibición de inferir; cubrir composición y presupuestos en test/context.test.mjs; verify: node --test test/context.test.mjs (CR2, CR8)
+  - **Resolved:** `2026-07-15T13:30:54Z`
+- [x] Actualizar `.changeledger/specs/lifecycle.md` con decisiones humanas multicanal, comandos y eventos auditables, manteniendo el viewer como alternativa; verify: `changeledger check 20260715-125139` (CR1, CR3, CR5, CR6, CR7, CR8)
+  - **Resolved:** `2026-07-15T13:30:54Z`
+- [x] Ejecutar `pnpm verify` y confirmar que CLI, viewer, lifecycle y contrato completo permanecen verdes (support)
+  - **Resolved:** `2026-07-15T13:34:09Z`
 
 ## Log
 
-- **2026-07-15T12:51:39Z** — Draft creado para desacoplar las decisiones human-owned del acceso al viewer. Se reutilizan las rutas de dominio existentes, se conserva el rechazo agent-owned y se descartan autenticación de prompts o persistencia de conversaciones como complejidad fuera del núcleo local-first.
-- **2026-07-15T12:53:55Z** — status: draft → approved
-- **2026-07-15T13:20:14Z** — status: approved → in-progress
-- **2026-07-15T13:20:14Z** — owner → Roberto Ruiz (auto)
-- **2026-07-15T13:20:15Z** — Implementation started on codex/resolve-approved-changes after the two bug fixes reached in-validation.
-- **2026-07-15T13:30:54Z** — TDD completado: las pruebas rojas cubrieron approve ausente, validation pass bloqueado y --human desconocido; implementación de dominio, CLI, contrato y lifecycle terminada. Suite focalizada: 195/195 pruebas pasan.
-- **2026-07-15T13:34:09Z** — Gate completo aprobado: Biome sin cambios, 682/682 pruebas pasan y 197 changes válidos.
-- **2026-07-15T13:34:09Z** — status: in-progress → in-review
-- **2026-07-15T13:40:59Z** — review → in-progress (retry): CR8: status --help contradice los canales conversacionales; validation.md eliminó reglas previas fuera del scope y debe restaurarlas.
-- **2026-07-15T13:44:27Z** — Corrección tras review FAIL: prueba roja para status --help; ayuda alineada con approve/validation pass; reglas históricas de validation restauradas sin exceder el límite duro. Suites focalizadas 195/195.
-- **2026-07-15T13:44:28Z** — status: in-progress → in-review
-- **2026-07-15T13:50:57Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-16T13:37:32Z** — validation → done (human accepted)
-- **2026-07-16T13:39:26Z** — graduado a spec `lifecycle.md`
-- **2026-07-16T13:39:36Z** — archived
+- **2026-07-15T12:51:39Z** `[note]` Draft creado para desacoplar las decisiones human-owned del acceso al viewer. Se reutilizan las rutas de dominio existentes, se conserva el rechazo agent-owned y se descartan autenticación de prompts o persistencia de conversaciones como complejidad fuera del núcleo local-first.
+- **2026-07-15T12:53:55Z** `[status]` draft → approved
+- **2026-07-15T13:20:14Z** `[status]` approved → in-progress
+- **2026-07-15T13:20:14Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-15T13:20:15Z** `[note]` Implementation started on codex/resolve-approved-changes after the two bug fixes reached in-validation.
+- **2026-07-15T13:30:54Z** `[note]` TDD completado: las pruebas rojas cubrieron approve ausente, validation pass bloqueado y --human desconocido; implementación de dominio, CLI, contrato y lifecycle terminada. Suite focalizada: 195/195 pruebas pasan.
+- **2026-07-15T13:34:09Z** `[note]` Gate completo aprobado: Biome sin cambios, 682/682 pruebas pasan y 197 changes válidos.
+- **2026-07-15T13:34:09Z** `[status]` in-progress → in-review
+- **2026-07-15T13:40:59Z** `[review]` in-review → in-progress (retry): CR8: status --help contradice los canales conversacionales; validation.md eliminó reglas previas fuera del scope y debe restaurarlas.
+- **2026-07-15T13:44:27Z** `[note]` Corrección tras review FAIL: prueba roja para status --help; ayuda alineada con approve/validation pass; reglas históricas de validation restauradas sin exceder el límite duro. Suites focalizadas 195/195.
+- **2026-07-15T13:44:28Z** `[status]` in-progress → in-review
+- **2026-07-15T13:50:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-16T13:37:32Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-16T13:39:26Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-16T13:39:36Z** `[archive]` archived

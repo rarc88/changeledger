@@ -58,28 +58,32 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 
 ## Plan
 
-- [x] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4) — 2026-07-03T22:46:11Z
-- [x] Record the board layout guarantees in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-220013` (CR1, CR2, CR3, CR4) — 2026-07-03T22:46:11Z
-- [x] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path (support) — 2026-07-03T22:46:12Z
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:46:12Z
+- [x] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-03T22:46:11Z`
+- [x] Record the board layout guarantees in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-220013` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-03T22:46:11Z`
+- [x] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path (support)
+  - **Resolved:** `2026-07-03T22:46:12Z`
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-03T22:46:12Z`
 
 ## Log
 
-- **2026-07-03T22:00:13Z** — Draft autorizado a partir de la captura del board; se separó del cambio de flujo porque afecta una superficie independiente.
-- **2026-07-03T22:07:19Z** — status: draft → approved
-- **2026-07-03T22:42:39Z** — status: approved → in-progress
-- **2026-07-03T22:42:39Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-03T22:46:20Z** — Fix es puramente CSS (markup de card sin cambios); no hay comportamiento JS que testear con node --test. Verificación: overflow-wrap:anywhere en card-title/card-id/owner probado inyectando un token de 90 chars sin espacios (no desborda la card), .column crece 320-400px con scroll horizontal en vez de comprimirse (2048px/1280px), y el layout móvil (680px) sigue apilando sin overflow horizontal.
-- **2026-07-03T22:46:40Z** — pnpm verify: 532 pruebas ok, 157 changes válidos.
-- **2026-07-03T22:46:45Z** — status: in-progress → in-review
-- **2026-07-03T22:48:25Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
-- **2026-07-03T22:48:25Z** — status: in-review → in-validation
-- **2026-07-03T22:56:11Z** — validation → in-progress (human rejected): Como minimo que se vea 6 columnas a la vez.
-- **2026-07-03T22:59:21Z** — Corrección de rechazo: CR2 exigía min 320px, pero el humano necesita ver 6 columnas simultáneas desde 1280px. Reescrita la CR y el CSS: clamp(190px, calc((100vw - 140px)/6), 400px). Verificado en preview: 1280px → 6/7 visibles sin scroll (190px c/u), 2048px → 318px c/u, 680px → apilado sin overflow.
-- **2026-07-03T23:00:45Z** — pnpm test: 534 pruebas ok. changeledger check scoped al 20260703-220013: válido (el check global reporta un error ajeno en 150232, edición en curso del humano, no tocado).
-- **2026-07-03T23:00:45Z** — status: in-progress → in-review
-- **2026-07-03T23:12:40Z** — Revisión (subagente, contexto limpio): PASS, sin defectos. Fórmula verificada aritméticamente: 6×190+5×14+32=1242px cabe en 1280px con margen para scrollbar.
-- **2026-07-03T23:12:40Z** — status: in-review → in-validation
-- **2026-07-03T23:15:27Z** — validation → done (human accepted)
-- **2026-07-03T23:21:51Z** — graduado a spec `viewer.md`
-- **2026-07-03T23:22:53Z** — archived
+- **2026-07-03T22:00:13Z** `[note]` Draft autorizado a partir de la captura del board; se separó del cambio de flujo porque afecta una superficie independiente.
+- **2026-07-03T22:07:19Z** `[status]` draft → approved
+- **2026-07-03T22:42:39Z** `[status]` approved → in-progress
+- **2026-07-03T22:42:39Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-03T22:46:20Z** `[note]` Fix es puramente CSS (markup de card sin cambios); no hay comportamiento JS que testear con node --test. Verificación: overflow-wrap:anywhere en card-title/card-id/owner probado inyectando un token de 90 chars sin espacios (no desborda la card), .column crece 320-400px con scroll horizontal en vez de comprimirse (2048px/1280px), y el layout móvil (680px) sigue apilando sin overflow horizontal.
+- **2026-07-03T22:46:40Z** `[note]` pnpm verify: 532 pruebas ok, 157 changes válidos.
+- **2026-07-03T22:46:45Z** `[status]` in-progress → in-review
+- **2026-07-03T22:48:25Z** `[note]` Revisión (subagente, contexto limpio): PASS, sin defectos.
+- **2026-07-03T22:48:25Z** `[status]` in-review → in-validation
+- **2026-07-03T22:56:11Z** `[validation]` in-validation → in-progress (human rejected): Como minimo que se vea 6 columnas a la vez.
+- **2026-07-03T22:59:21Z** `[note]` Corrección de rechazo: CR2 exigía min 320px, pero el humano necesita ver 6 columnas simultáneas desde 1280px. Reescrita la CR y el CSS: clamp(190px, calc((100vw - 140px)/6), 400px). Verificado en preview: 1280px → 6/7 visibles sin scroll (190px c/u), 2048px → 318px c/u, 680px → apilado sin overflow.
+- **2026-07-03T23:00:45Z** `[note]` pnpm test: 534 pruebas ok. changeledger check scoped al 20260703-220013: válido (el check global reporta un error ajeno en 150232, edición en curso del humano, no tocado).
+- **2026-07-03T23:00:45Z** `[status]` in-progress → in-review
+- **2026-07-03T23:12:40Z** `[note]` Revisión (subagente, contexto limpio): PASS, sin defectos. Fórmula verificada aritméticamente: 6×190+5×14+32=1242px cabe en 1280px con margen para scrollbar.
+- **2026-07-03T23:12:40Z** `[status]` in-review → in-validation
+- **2026-07-03T23:15:27Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-03T23:21:51Z** `[graduation]` spec: `viewer.md`
+- **2026-07-03T23:22:53Z** `[archive]` archived

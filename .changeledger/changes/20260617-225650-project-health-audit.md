@@ -140,14 +140,14 @@ superficie humana principal, archivarlos reduciria ruido.
 
 ## Log
 
-- **2026-06-17T22:56:50Z** — audit scaffold created.
-- **2026-06-17T23:00:18Z** — ejecutado `pnpm verify`: lint OK, 306 tests OK, `sl check` OK.
-- **2026-06-17T23:00:18Z** — intento de `pnpm audit --audit-level moderate` fallo por DNS; escalacion bloqueada por riesgo de privacidad al enviar metadatos a npm.
-- **2026-06-17T23:00:18Z** — registrados hallazgos y veredicto general.
-- **2026-06-17T23:00:31Z** — status: draft → approved
-- **2026-06-17T23:00:36Z** — status: approved → in-progress
-- **2026-06-17T23:00:36Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T23:00:41Z** — status: in-progress → done
-- **2026-06-17T23:11:45Z** — incorporados hallazgos utiles de una segunda auditoria y actualizado el estado de `pnpm audit` segun ejecucion del owner.
-- **2026-06-18T10:06:37Z** — graduation skipped: Audit record; no persistent architectural truth
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-17T22:56:50Z** `[note]` audit scaffold created.
+- **2026-06-17T23:00:18Z** `[note]` ejecutado `pnpm verify`: lint OK, 306 tests OK, `sl check` OK.
+- **2026-06-17T23:00:18Z** `[note]` intento de `pnpm audit --audit-level moderate` fallo por DNS; escalacion bloqueada por riesgo de privacidad al enviar metadatos a npm.
+- **2026-06-17T23:00:18Z** `[note]` registrados hallazgos y veredicto general.
+- **2026-06-17T23:00:31Z** `[status]` draft → approved
+- **2026-06-17T23:00:36Z** `[status]` approved → in-progress
+- **2026-06-17T23:00:36Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T23:00:41Z** `[status]` in-progress → done
+- **2026-06-17T23:11:45Z** `[note]` incorporados hallazgos utiles de una segunda auditoria y actualizado el estado de `pnpm audit` segun ejecucion del owner.
+- **2026-06-18T10:06:37Z** `[graduation]` skipped: Audit record; no persistent architectural truth
+- **2026-06-18T10:09:09Z** `[archive]` archived

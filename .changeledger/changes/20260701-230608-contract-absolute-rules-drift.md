@@ -63,20 +63,23 @@ contradicciones directas (clase A); tres hallazgos menores:
 
 ## Plan
 
-- [x] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios; verify: `node --test test/context.test.mjs` (CR1, CR2) — 2026-07-01T23:25:31Z
-- [x] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-07-01T23:25:31Z
-- [x] Ejecutar el gate completo (support) — 2026-07-01T23:25:31Z
+- [x] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-01T23:25:31Z`
+- [x] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-01T23:25:31Z`
+- [x] Ejecutar el gate completo (support)
+  - **Resolved:** `2026-07-01T23:25:31Z`
 
 ## Log
 
-- **2026-07-01T23:06:08Z** — Draft creado desde la auditoría de contradicciones: 0 clase A, 1 duplicación divergente (B1) y 2 omisiones engañosas (C2, C3). Depende de las correcciones de la card (#20260701-213931) y de la reorganización de packs (#20260630-225213) porque edita el mismo `core.md`.
-- **2026-07-01T23:14:26Z** — C2 descartado por el humano como falso positivo: regla 4 del core gobierna el documento al iniciar trabajo; Correction isolation gobierna el diff de corrección pendiente de validación — artefactos y momentos distintos. Alcance reducido a B1 (prompt de delegación) y C3 (graduación no binaria).
-- **2026-07-01T23:17:25Z** — status: draft → approved
-- **2026-07-01T23:23:49Z** — status: approved → in-progress
-- **2026-07-01T23:23:49Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-01T23:25:31Z** — Regla de delegación del core ahora dice 'at least' y remite al contrato completo del pack; regla 8 explicita el doble paso --new/--into; snapshot reclasificado; gate verde
-- **2026-07-01T23:25:43Z** — status: in-progress → in-review
-- **2026-07-01T23:27:08Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:27:55Z** — validation → done (human accepted)
-- **2026-07-01T23:29:25Z** — graduado a spec `contract-discovery.md`
-- **2026-07-01T23:29:25Z** — archived
+- **2026-07-01T23:06:08Z** `[note]` Draft creado desde la auditoría de contradicciones: 0 clase A, 1 duplicación divergente (B1) y 2 omisiones engañosas (C2, C3). Depende de las correcciones de la card (#20260701-213931) y de la reorganización de packs (#20260630-225213) porque edita el mismo `core.md`.
+- **2026-07-01T23:14:26Z** `[note]` C2 descartado por el humano como falso positivo: regla 4 del core gobierna el documento al iniciar trabajo; Correction isolation gobierna el diff de corrección pendiente de validación — artefactos y momentos distintos. Alcance reducido a B1 (prompt de delegación) y C3 (graduación no binaria).
+- **2026-07-01T23:17:25Z** `[status]` draft → approved
+- **2026-07-01T23:23:49Z** `[status]` approved → in-progress
+- **2026-07-01T23:23:49Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-01T23:25:31Z** `[note]` Regla de delegación del core ahora dice 'at least' y remite al contrato completo del pack; regla 8 explicita el doble paso --new/--into; snapshot reclasificado; gate verde
+- **2026-07-01T23:25:43Z** `[status]` in-progress → in-review
+- **2026-07-01T23:27:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:27:55Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-01T23:29:25Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-01T23:29:25Z** `[archive]` archived

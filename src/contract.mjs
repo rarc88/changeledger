@@ -39,31 +39,27 @@ const LEGACY_CONTRACT_HASHES = new Set([
 // Bootstrap block format version. Independent of the package version: bump
 // only when the delimited block's shape or required content changes in a way
 // that must be detected and re-registered in consuming repos.
-export const BOOTSTRAP_VERSION = 2;
+export const BOOTSTRAP_VERSION = 3;
 
 const BEGIN_ALL_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/g;
 const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
 const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->`;
 
 export const REFERENCE = `> [!IMPORTANT]
-> This repo uses **ChangeLedger**. Immediately after reading this file — before
-> planning, investigating, or acting — a normal agent must run \`changeledger context\` directly.
-> Only a delegated leaf whose prompt was emitted by \`changeledger agent-prompt <role>\`
-> runs \`changeledger agent-context <role> [change-id]\` instead; the role in the
-> prompt and command must match. No other agent may skip the core context.
-> On the first invocation, retain complete stdout through the \`CHANGELEDGER CONTEXT END\` line,
-> or the \`CHANGELEDGER AGENT CONTEXT END\` line for that delegated path:
-> no pipes, filters, summaries, previews or voluntary output limits. If the tool
-> exposes an output budget, reserve enough for the whole response. A missing END
-> after that is exceptional recovery: stop and re-run with a larger capture. If
-> the command is unavailable, stop and restore/install ChangeLedger; do not
-> proceed from memory.
+> Attempt to run **ChangeLedger** with \`changeledger context\` immediately after
+> reading this file — before planning, investigating, or acting. If it succeeds,
+> retain complete stdout through the \`CHANGELEDGER CONTEXT END\` line and follow that
+> complete context: no pipes, filters, summaries, previews or voluntary output limits.
+> If the tool exposes an output budget, reserve enough for the whole response. A
+> missing END means the output was truncated: stop and re-run with a larger capture.
 >
-> Do not create or modify files without an authorized change; the core context
-> defines the workflow, the task contexts, and the narrow operational exception.
+> If the command is unavailable, continue normally without ChangeLedger. If it
+> starts but fails, report the error to the human and wait for them to decide how
+> to continue; do not treat a failing command as absent.
+>
 > After a compaction, verify a retained capture with \`changeledger context
-> [mode] --have <rev>\` (the BEGIN line's \`rev:\`) instead of recapturing in
-> full; a mismatch still returns the complete output.
+> [mode] --have <rev>\` (the BEGIN line's \`rev:\`). If the context or its revision was lost,
+> load it completely again; a mismatch still returns the complete output.
 `;
 
 function bootstrapBlock(version = BOOTSTRAP_VERSION) {

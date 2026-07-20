@@ -2,6 +2,7 @@
 title: Política de idioma
 updated: 2026-06-28T01:46:07Z
 tags: [ language ]
+graduated_from: ["20260627-205033"]
 ---
 
 ## Política de idioma

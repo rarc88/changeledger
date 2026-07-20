@@ -95,23 +95,28 @@ verdad persistente afectada continúa siendo `contract-discovery`.
 
 ## Plan
 
-- [x] Añadir el fixture exacto de Prettier 3.9.5 como test fallido en `test/contract.test.mjs`, luego sustituir en `src/contract.mjs` la normalización por líneas por una proyección de tokens de `marked.lexer()`; verify: `node --test test/contract.test.mjs` (CR1, CR3) — 2026-07-14T15:55:49Z
-- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar la integración de equivalencia en `src/contract.mjs` para preservar `AGENTS.md`/`CLAUDE.md` y completar el registro sin warning; verify: `node --test test/register.test.mjs` (CR2) — 2026-07-14T15:55:49Z
-- [x] Añadir una matriz de mutaciones semánticas y estructurales en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier proyección más amplia que el árbol permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR4, CR5) — 2026-07-14T15:55:49Z
-- [x] Ejecutar el CLI de esta rama contra `/Users/raruiz/repositories/mine/ranchops` sin modificarlo y confirmar que `check` pasa mientras Prettier mantiene el archivo canónico; verify: `node /Users/raruiz/repositories/mine/spec-ledger/bin/changeledger.mjs check` desde `ranchops` (support) — 2026-07-14T15:55:49Z
-- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support) — 2026-07-14T15:56:27Z
+- [x] Añadir el fixture exacto de Prettier 3.9.5 como test fallido en `test/contract.test.mjs`, luego sustituir en `src/contract.mjs` la normalización por líneas por una proyección de tokens de `marked.lexer()`; verify: `node --test test/contract.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-14T15:55:49Z`
+- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar la integración de equivalencia en `src/contract.mjs` para preservar `AGENTS.md`/`CLAUDE.md` y completar el registro sin warning; verify: `node --test test/register.test.mjs` (CR2)
+  - **Resolved:** `2026-07-14T15:55:49Z`
+- [x] Añadir una matriz de mutaciones semánticas y estructurales en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier proyección más amplia que el árbol permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR4, CR5)
+  - **Resolved:** `2026-07-14T15:55:49Z`
+- [x] Ejecutar el CLI de esta rama contra `/Users/raruiz/repositories/mine/ranchops` sin modificarlo y confirmar que `check` pasa mientras Prettier mantiene el archivo canónico; verify: `node /Users/raruiz/repositories/mine/spec-ledger/bin/changeledger.mjs check` desde `ranchops` (support)
+  - **Resolved:** `2026-07-14T15:55:49Z`
+- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-14T15:56:27Z`
 
 ## Log
 
-- **2026-07-14T15:36:33Z** — Draft creado tras reproducir el fallo en `ranchops`: Prettier 3.9.5 emite padding y una lazy continuation CommonMark válida que la normalización léxica de `#20260714-150300` rechaza. Se elige comparación por tokens Markdown con `marked`, no integración con Prettier.
-- **2026-07-14T15:50:54Z** — status: draft → approved
-- **2026-07-14T15:51:28Z** — status: approved → in-progress
-- **2026-07-14T15:51:28Z** — owner → Roberto Ruiz (auto)
-- **2026-07-14T15:55:50Z** — Implementada proyección semántica con marked: un único blockquote, tokens y valores significativos preservados, saltos blandos normalizados y padding exterior ignorado. Marcadores duplicados o fuera de línea fallan cerrado. 23 tests enfocados y prueba real contra ranchops/Prettier verdes sin modificar ranchops.
-- **2026-07-14T15:56:28Z** — Puerta completa verde: Biome, 669 tests y 194 changes válidos.
-- **2026-07-14T15:58:39Z** — Reforzada la proyección para fallar cerrado ante tipos de token no modelados; puerta completa repetida: Biome, 669 tests y 194 changes válidos.
-- **2026-07-14T15:58:51Z** — status: in-progress → in-review
-- **2026-07-14T16:03:01Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-14T16:07:04Z** — validation → done (human accepted)
-- **2026-07-14T16:08:14Z** — graduado a spec `contract-discovery.md`
-- **2026-07-16T13:39:36Z** — archived
+- **2026-07-14T15:36:33Z** `[note]` Draft creado tras reproducir el fallo en `ranchops`: Prettier 3.9.5 emite padding y una lazy continuation CommonMark válida que la normalización léxica de `#20260714-150300` rechaza. Se elige comparación por tokens Markdown con `marked`, no integración con Prettier.
+- **2026-07-14T15:50:54Z** `[status]` draft → approved
+- **2026-07-14T15:51:28Z** `[status]` approved → in-progress
+- **2026-07-14T15:51:28Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-14T15:55:50Z** `[note]` Implementada proyección semántica con marked: un único blockquote, tokens y valores significativos preservados, saltos blandos normalizados y padding exterior ignorado. Marcadores duplicados o fuera de línea fallan cerrado. 23 tests enfocados y prueba real contra ranchops/Prettier verdes sin modificar ranchops.
+- **2026-07-14T15:56:28Z** `[note]` Puerta completa verde: Biome, 669 tests y 194 changes válidos.
+- **2026-07-14T15:58:39Z** `[note]` Reforzada la proyección para fallar cerrado ante tipos de token no modelados; puerta completa repetida: Biome, 669 tests y 194 changes válidos.
+- **2026-07-14T15:58:51Z** `[status]` in-progress → in-review
+- **2026-07-14T16:03:01Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-14T16:07:04Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-14T16:08:14Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-16T13:39:36Z** `[archive]` archived

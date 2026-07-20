@@ -53,19 +53,22 @@ comportamiento antiguo y compiten con el código.
 
 ## Plan
 
-- [x] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades; verify: `node bin/changeledger.mjs check` (CR1, CR2) — 2026-07-01T22:09:12Z
-- [x] Alinear los comentarios de `src/check.mjs` sin modificar la semántica; verify: `node --test test/check.test.mjs` (CR2, CR3) — 2026-07-01T22:09:12Z
-- [x] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate; verify: `pnpm test` (CR1, CR2, CR3) — 2026-07-01T22:09:12Z
+- [x] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades; verify: `node bin/changeledger.mjs check` (CR1, CR2)
+  - **Resolved:** `2026-07-01T22:09:12Z`
+- [x] Alinear los comentarios de `src/check.mjs` sin modificar la semántica; verify: `node --test test/check.test.mjs` (CR2, CR3)
+  - **Resolved:** `2026-07-01T22:09:12Z`
+- [x] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate; verify: `pnpm test` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-01T22:09:12Z`
 
 ## Log
 
-- **2026-06-30T22:52:08Z** — Draft creado tras auditar la divergencia entre spec, contrato, comentarios y comportamiento de readiness.
-- **2026-07-01T21:51:09Z** — status: draft → approved
-- **2026-07-01T22:04:33Z** — status: approved → in-progress
-- **2026-07-01T22:04:33Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-01T22:09:12Z** — Spec, fragmento canónico readiness.md y comentario de checkCoverage alineados con la matriz real; test 225208 CR3 fija el split de severidad en approved; gate verde
-- **2026-07-01T22:09:22Z** — status: in-progress → in-review
-- **2026-07-01T22:10:38Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:17:51Z** — validation → done (human accepted)
-- **2026-07-01T23:21:38Z** — graduado a spec `readiness.md`
-- **2026-07-01T23:23:29Z** — archived
+- **2026-06-30T22:52:08Z** `[note]` Draft creado tras auditar la divergencia entre spec, contrato, comentarios y comportamiento de readiness.
+- **2026-07-01T21:51:09Z** `[status]` draft → approved
+- **2026-07-01T22:04:33Z** `[status]` approved → in-progress
+- **2026-07-01T22:04:33Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-01T22:09:12Z** `[note]` Spec, fragmento canónico readiness.md y comentario de checkCoverage alineados con la matriz real; test 225208 CR3 fija el split de severidad en approved; gate verde
+- **2026-07-01T22:09:22Z** `[status]` in-progress → in-review
+- **2026-07-01T22:10:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:17:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-01T23:21:38Z** `[graduation]` spec: `readiness.md`
+- **2026-07-01T23:23:29Z** `[archive]` archived

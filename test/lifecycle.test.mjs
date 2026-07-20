@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assertTransition, canTransition, parseLogEvent } from '../src/lifecycle.mjs';
+import {
+  assertTransition,
+  canTransition,
+  parseLogEvent,
+  serializeLogEvent,
+} from '../src/lifecycle.mjs';
 
 test('CR1: the happy path is allowed at every step', () => {
   const path = ['draft', 'approved', 'in-progress', 'in-validation', 'done'];
@@ -107,27 +112,80 @@ test('discarded: reachable before closing gates, while done/validation stay term
 
 // 20260630-225210 — shared Log event parser (CR2/CR5).
 test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () => {
-  assert.deepEqual(parseLogEvent('- **2026-06-30T10:36:01Z** — status: in-progress → in-review'), {
+  assert.deepEqual(parseLogEvent('- **2026-06-30T10:36:01Z** `[status]` in-progress → in-review'), {
     at: '2026-06-30T10:36:01Z',
+    type: 'status',
     from: 'in-progress',
     to: 'in-review',
-    explicit: true,
   });
   assert.deepEqual(
     parseLogEvent(
-      '- **2026-06-30T10:48:03Z** — review → in-validation (delegated subagent, clean context)',
+      '- **2026-06-30T10:48:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
     ),
-    { at: '2026-06-30T10:48:03Z', from: 'in-review', to: 'in-validation', explicit: false },
+    {
+      at: '2026-06-30T10:48:03Z',
+      type: 'review',
+      from: 'in-review',
+      to: 'in-validation',
+      detail: 'delegated subagent, clean context',
+    },
   );
   assert.deepEqual(
-    parseLogEvent('- **2026-06-30T15:28:42Z** — validation → done (human accepted)'),
-    { at: '2026-06-30T15:28:42Z', from: 'in-validation', to: 'done', explicit: false },
+    parseLogEvent(
+      '- **2026-06-30T15:28:42Z** `[validation]` in-validation → done (human accepted)',
+    ),
+    {
+      at: '2026-06-30T15:28:42Z',
+      type: 'validation',
+      from: 'in-validation',
+      to: 'done',
+      detail: 'human accepted',
+    },
   );
   assert.deepEqual(
-    parseLogEvent('- **2026-06-30T15:28:42Z** — status: in-progress → discarded: superseded'),
-    { at: '2026-06-30T15:28:42Z', from: 'in-progress', to: 'discarded', explicit: true },
+    parseLogEvent(
+      '- **2026-06-30T15:28:42Z** `[status]` in-progress → discarded: superseded — duplicate',
+    ),
+    {
+      at: '2026-06-30T15:28:42Z',
+      type: 'status',
+      from: 'in-progress',
+      to: 'discarded',
+      reason: 'superseded — duplicate',
+    },
   );
-  assert.equal(parseLogEvent('- **2026-06-30T15:28:42Z** — owner → ana (auto)'), null);
-  assert.equal(parseLogEvent('- **2026-06-30T15:28:42Z** — graduado a spec `x.md`'), null);
+  assert.deepEqual(parseLogEvent('- **2026-06-30T15:28:42Z** `[owner]` set: ana (auto)'), {
+    at: '2026-06-30T15:28:42Z',
+    type: 'owner',
+    owner: 'ana',
+    automatic: true,
+  });
+  assert.deepEqual(parseLogEvent('- **2026-06-30T15:28:42Z** `[graduation]` spec: `x.md`'), {
+    at: '2026-06-30T15:28:42Z',
+    type: 'graduation',
+    outcome: 'spec',
+    spec: 'x.md',
+  });
   assert.equal(parseLogEvent('- plain decision note'), null);
+});
+
+test('125007 CR7: typed log text payloads round-trip without delimiter parsing', () => {
+  for (const event of [
+    {
+      at: '2026-07-20T10:00:00Z',
+      type: 'note',
+      message: 'status: draft → done — [graduation] | x:y',
+    },
+    {
+      at: '2026-07-20T10:00:01Z',
+      type: 'review',
+      from: 'in-review',
+      to: 'blocked',
+      reason: 'evidence — platform | [status]: missing',
+    },
+  ]) {
+    const line = serializeLogEvent(event);
+    assert.deepEqual(parseLogEvent(line), event);
+    assert.equal(serializeLogEvent(parseLogEvent(line)), line);
+  }
 });

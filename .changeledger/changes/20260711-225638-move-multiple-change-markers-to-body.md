@@ -87,22 +87,27 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad; verify: `node --test test/commit.test.mjs` (CR1, CR2) — 2026-07-11T23:11:30Z
-- [x] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR3, CR4) — 2026-07-11T23:11:30Z
-- [x] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`; verify: `node --test test/git.test.mjs test/view.test.mjs` (CR5) — 2026-07-11T23:11:31Z
-- [x] Actualizar `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4) — 2026-07-11T23:11:31Z
-- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support) — 2026-07-11T23:11:31Z
+- [x] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad; verify: `node --test test/commit.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-11T23:11:30Z`
+- [x] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-11T23:11:30Z`
+- [x] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`; verify: `node --test test/git.test.mjs test/view.test.mjs` (CR5)
+  - **Resolved:** `2026-07-11T23:11:31Z`
+- [x] Actualizar `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-11T23:11:31Z`
+- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support)
+  - **Resolved:** `2026-07-11T23:11:31Z`
 
 ## Log
 
-- **2026-07-11T22:56:38Z** — Draft creado por evidencia visual de subjects ilegibles en commits que agrupan muchos changes.
-- **2026-07-11T23:00:13Z** — status: draft → approved
-- **2026-07-11T23:07:57Z** — status: approved → in-progress
-- **2026-07-11T23:07:57Z** — owner → Test (auto)
-- **2026-07-11T23:11:36Z** — Implementación TDD completa: un id permanece en subject; múltiples ids usan cuerpo ChangeLedger canónico; lint valida ambas formas y reporta formatos ambiguos; gitRefs conserva lookup con subject limpio. pnpm verify 658/658 y 189 changes válidos.
-- **2026-07-11T23:11:36Z** — status: in-progress → in-review
-- **2026-07-11T23:13:54Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-12T10:47:20Z** — validation → done (human accepted)
-- **2026-07-12T10:49:41Z** — graduado a spec `git-traceability.md`
-- **2026-07-12T10:49:41Z** — archived
-- **2026-07-13T13:19:23Z** — owner → Roberto Ruiz
+- **2026-07-11T22:56:38Z** `[note]` Draft creado por evidencia visual de subjects ilegibles en commits que agrupan muchos changes.
+- **2026-07-11T23:00:13Z** `[status]` draft → approved
+- **2026-07-11T23:07:57Z** `[status]` approved → in-progress
+- **2026-07-11T23:07:57Z** `[owner]` set: Test (auto)
+- **2026-07-11T23:11:36Z** `[note]` Implementación TDD completa: un id permanece en subject; múltiples ids usan cuerpo ChangeLedger canónico; lint valida ambas formas y reporta formatos ambiguos; gitRefs conserva lookup con subject limpio. pnpm verify 658/658 y 189 changes válidos.
+- **2026-07-11T23:11:36Z** `[status]` in-progress → in-review
+- **2026-07-11T23:13:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-12T10:47:20Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-12T10:49:41Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-12T10:49:41Z** `[archive]` archived
+- **2026-07-13T13:19:23Z** `[owner]` set: Roberto Ruiz

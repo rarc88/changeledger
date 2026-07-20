@@ -73,17 +73,21 @@ la capacidad persistente.
 - **Then** `architecture.md` documenta la mecánica como parte del flujo de agentes
 
 ## Plan
-- [x] Añadir regla de friction capture en `templates/AGENTS.md` y asegurar su instalación desde `src/contract.mjs`, cubierta por `test/init.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-17T10:19:52Z
-- [x] Actualizar `.sl/specs/architecture.md` para reflejar la mecánica, validada por `src/check.mjs` y `test/check.test.mjs` (CR5) — 2026-06-17T10:19:56Z
-- [x] Añadir o ajustar tests de contrato en `test/init.test.mjs` para asegurar que `src/contract.mjs` instala la regla en el contrato enlazado (CR1, CR2, CR3, CR4) — 2026-06-17T10:20:02Z
-- [x] Ejecutar `pnpm test -- test/init.test.mjs test/check.test.mjs` sobre `src/contract.mjs` y `src/check.mjs`, más `node bin/sl.mjs check` (CR1, CR2, CR3, CR4, CR5) — 2026-06-17T10:20:06Z
+- [x] Añadir regla de friction capture en `templates/AGENTS.md` y asegurar su instalación desde `src/contract.mjs`, cubierta por `test/init.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:19:52Z`
+- [x] Actualizar `.sl/specs/architecture.md` para reflejar la mecánica, validada por `src/check.mjs` y `test/check.test.mjs` (CR5)
+  - **Resolved:** `2026-06-17T10:19:56Z`
+- [x] Añadir o ajustar tests de contrato en `test/init.test.mjs` para asegurar que `src/contract.mjs` instala la regla en el contrato enlazado (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:20:02Z`
+- [x] Ejecutar `pnpm test -- test/init.test.mjs test/check.test.mjs` sobre `src/contract.mjs` y `src/check.mjs`, más `node bin/sl.mjs check` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-17T10:20:06Z`
 
 ## Log
-- **2026-06-16T21:28:40Z** — Creado desde acuerdo con el usuario: las fricciones descubiertas al usar la herramienta deben capturarse automáticamente.
-- **2026-06-17T10:05:16Z** — status: draft → approved
-- **2026-06-17T10:18:56Z** — status: approved → in-progress
-- **2026-06-17T10:18:56Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T10:20:12Z** — status: in-progress → in-review
-- **2026-06-17T10:21:03Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:21:08Z** — graduado a spec `architecture.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T21:28:40Z** `[note]` Creado desde acuerdo con el usuario: las fricciones descubiertas al usar la herramienta deben capturarse automáticamente.
+- **2026-06-17T10:05:16Z** `[status]` draft → approved
+- **2026-06-17T10:18:56Z** `[status]` approved → in-progress
+- **2026-06-17T10:18:56Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T10:20:12Z** `[status]` in-progress → in-review
+- **2026-06-17T10:21:03Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T10:21:08Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

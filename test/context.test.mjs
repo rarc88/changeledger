@@ -75,9 +75,10 @@ Chosen behavior.
 
 function writeRawChange(
   root,
-  { id, status, type = 'feature', dependsOn = [], title = 'Dep target' },
+  { id, status, type = 'feature', dependsOn = [], relatedTo = [], title = 'Dep target' },
 ) {
   const deps = dependsOn.length ? `[ ${dependsOn.map((d) => `"${d}"`).join(', ')} ]` : '[]';
+  const related = relatedTo.length ? `[ ${relatedTo.map((d) => `"${d}"`).join(', ')} ]` : '[]';
   const text = `---
 id: "${id}"
 title: ${title}
@@ -85,6 +86,7 @@ type: ${type}
 status: ${status}
 created: 2026-06-27T12:00:00Z
 depends_on: ${deps}
+related_to: ${related}
 ---
 
 ## Request
@@ -286,7 +288,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
   );
   const expected = [
-    ['core', /Documents under `.changeledger\/` are the source of truth/],
+    ['core', /Documents under `.changeledger\/` are ChangeLedger's persistent truth/],
     ['core', /Work starts with conversation/],
     ['core', /human explicitly authorizes documentation/],
     ['core', /Never implement a `draft`/],
@@ -309,6 +311,8 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /id: "20260613-134548"/],
     ['spec', /type: feature.*feature \| bug \| audit \| refactor \| chore/],
     ['spec', /release_impact: minor.*none \| patch \| minor \| major/],
+    ['spec', /Use `depends_on` only for execution prerequisites/],
+    ['spec', /Use optional `related_to` for useful context that must not impose execution order/],
     ['spec', /changeledger owner <id> <name\|->/],
     ['spec', /changeledger list.*--owner.*--pending/s],
     ['spec', /changeledger show <id> \[--json\]/],
@@ -322,15 +326,15 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /\[ \] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\)/],
     [
       'spec',
-      /\[x\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\) — 2026-06-13T14:20:00Z/,
+      /\[x\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Resolved:\*\* `2026-06-13T14:20:00Z`/s,
     ],
-    ['spec', /\[!\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\) — blocked reason/],
-    ['spec', /parser removes `— verify: \.\.\.` before readiness checks/],
     [
       'spec',
-      /running a test suite, reading before refactoring, evaluating blast radius or scaffolding/,
+      /\[!\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Blocked:\*\* blocked reason/s,
     ],
-    ['spec', /not a substitute for a missing criterion on observable behaviour/],
+    ['spec', /Resolution metadata is structural/],
+    ['spec', /operational work such as test suites, reading, blast-radius analysis or scaffolding/],
+    ['spec', /cannot replace a criterion for observable behaviour/],
     ['spec', /strong model documents and a less capable but able model implements/],
     ['spec', /set `tdd` to `false` only for exploratory repos/],
     [
@@ -403,7 +407,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['close', /changeledger list --pending archive/],
     ['close', /changeledger archive <id>.*archived: false.*frontmatter/],
     ['close', /changeledger list.*changeledger show/],
-    ['close', /graduation link remains derivable from the Log marker/],
+    ['close', /`--into` records the same link in both directions/],
+    ['close', /target spec appends the change id to `graduated_from`/],
+    ['close', /changeledger fix --graduation-links/],
     ['close', /`graduado a spec`/],
     ['close', /seed from the change's Specification or Proposal/],
     ['close', /remove the explicit scaffold marker/],
@@ -487,6 +493,24 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
+test('212659 CR6: pre-existing code/spec divergence is reported for human resolution', () => {
+  const root = repo();
+  const normalize = (text) => text.replace(/\s+/g, ' ');
+  const core = normalize(buildContext(undefined, root));
+  const implement = normalize(buildContext('implement', root));
+
+  assert.match(core, /pre-existing divergence between specs and code.*reported to the human/i);
+  assert.match(core, /Wait if it affects the current task/i);
+  assert.match(core, /unrelated.*report it without expanding scope/i);
+  assert.doesNotMatch(core, /document wins when code and documentation disagree/i);
+
+  assert.match(implement, /approved change governs the code written within its scope/i);
+  assert.match(
+    implement,
+    /pre-existing divergence not introduced by the current work.*human resolution/i,
+  );
+});
+
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
@@ -502,7 +526,12 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // `archived: false` frontmatter edit. Rule preserved, not retired.
     // 20260716-131649: listing unresolved graduation and archive candidates is
     // replaced by canonical `list --pending` queries; closure actions remain.
-    'close.md': '60974a93c0a7e0d7343526efb53abaaba3d6ac849f720b1c925a539a1ed124c0',
+    // 20260718-111457: the Log-only graduation rule is replaced by the
+    // bidirectional Log + graduated_from invariant and its explicit migration;
+    // the closure modes, reviewed semantics and commit recipe are preserved.
+    // 20260718-105457: the queries gain optional owner scoping; graduation stays
+    // individual and archive preview/action equivalence is preserved per filter.
+    'close.md': '10960f9878b3011e6f463c7509e6fe2a86382319ac4e36fe3b9c011d5bd288a7',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -539,7 +568,13 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // the ownership boundary is preserved and strengthened against inference.
     // 20260716-131649: operational discovery replaces the graduate query with
     // canonical list queries for graduation and archive candidates.
-    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
+    // 20260718-105457: those queries add optional owner scoping while keeping
+    // per-change graduation and matching filtered archive semantics explicit.
+    // 20260720-212659: universal document-wins semantics are replaced by
+    // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
+    // is reported for human resolution, while an approved change still governs
+    // code written inside its authorized scope. No lifecycle rule is retired.
+    'core.md': 'e41c7912f87dd99bb9900db2a8f94b74ab1915f14646911d827262d4c271b3ed',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -578,7 +613,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260715-122950: the ordered review recipe is extended with formatter and
     // check gates after lifecycle mutations; host ownership is explicit. Existing
     // review, verdict and validation rules are preserved, none retired.
-    'implement.md': '93878b96dabcb8a35853d977a11cf200bb04248703789cb872425be353e24c88',
+    // 20260720-212659: unconditional code-wins repair is replaced: the approved
+    // change still governs code authored in scope, while a pre-existing
+    // divergence is reported for human resolution. Execution discipline remains.
+    'implement.md': 'e52078e83d25505f4771ffd6e3c0185503ac29cb90e0855301b799397d12cbb3',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -600,7 +638,13 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // draft approval; existing authoring authorization rules are preserved.
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
-    'spec.md': '3e114f7b8d181cfab9c382769c0ed492f9089227cf7326400bc93f5646f2cfd8',
+    // 20260718-105456: additive related_to scaffold and non-blocking semantics;
+    // correction first added search-result classification, then generalized it
+    // to every discovery source and forbade leaving an explicit local id only in prose;
+    // existing dependency execution and authoring rules are preserved.
+    // 20260720-125007: task state metadata and Log events become explicit
+    // structured records; the former punctuation-delimited forms are retired.
+    'spec.md': '2214972d07198b897d1f629109f495413ef70f92bb68ffdff5fbbfc62917bbcf',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -980,6 +1024,29 @@ test('225213 CR3: change without dependencies emits no dependency block', () => 
   assert.doesNotMatch(output, /## Dependencies/);
 });
 
+test('105456 CR4: context resolves outgoing, incoming and external related changes', () => {
+  const root = repo();
+  const a = writeRawChange(root, {
+    id: '20260627-160000',
+    status: 'in-progress',
+    title: 'Selected',
+    relatedTo: ['20260627-160001', 'otherproj:20260101-000000'],
+  });
+  writeRawChange(root, { id: '20260627-160001', status: 'done', title: 'Outgoing target' });
+  writeRawChange(root, {
+    id: '20260627-160002',
+    status: 'approved',
+    title: 'Incoming source',
+    relatedTo: [a],
+  });
+
+  const output = buildContext(a, root);
+  assert.match(output, /## Related changes/);
+  assert.match(output, /outgoing.*#20260627-160001.*Outgoing target.*done/);
+  assert.match(output, /incoming.*#20260627-160002.*Incoming source.*approved/);
+  assert.match(output, /outgoing.*otherproj:20260101-000000.*external reference/);
+});
+
 test('220014 CR1/CR4: core and validation scope the stop to one change, not the queue', () => {
   const root = repo();
   const validationId = addChange(root, 'in-validation', '20260628-000001');
@@ -1230,10 +1297,20 @@ test('103756 CR5: spec context documents the quick lane and its eligibility', ()
   const root = repo();
   const spec = buildContext('spec', root).replace(/\s+/g, ' ');
   assert.match(spec, /quick/);
+  assert.match(spec, /single-concern work that adds no public surface\s+or persistent truth/);
+  assert.match(spec, /discard and recreate it under the correct type/);
+  assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
+});
+
+test('105456 CR8 correction: spec context makes agents populate discovered relations', () => {
+  const root = repo();
+  const spec = buildContext('spec', root).replace(/\s+/g, ' ');
   assert.match(
     spec,
-    /single-concern work that does\s+not expand public surface or persistent truth/,
+    /during Investigation, classify every relevant change discovered.*regardless of whether it came from `search`, `list`, direct reading, context or conversation/,
   );
-  assert.match(spec, /discard the change and\s+recreate it under the correct type/);
-  assertWithinBudget('spec', buildContext('spec', root), contextBudgets.base.spec);
+  assert.match(spec, /execution prerequisite.*`depends_on`/);
+  assert.match(spec, /useful context without execution order.*`related_to`/);
+  assert.match(spec, /explicit local change id must not remain only in prose/);
+  assert.match(spec, /declare a local relation once, deriving its backlink/);
 });

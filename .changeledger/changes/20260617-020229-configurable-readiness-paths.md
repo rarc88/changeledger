@@ -82,19 +82,24 @@ changes aprobados vuelven a ser demasiado ambiguos para implementación TDD.
 - **Then** reporta un error de config claro sin validar cambios con supuestos silenciosos
 
 ## Plan
-- [x] Añadir parsing/validación de `readiness.target_patterns` y `readiness.verification_patterns` en `src/check.mjs`, cubierto por `test/check.test.mjs` (CR1, CR2, CR5) — 2026-06-17T10:11:32Z
-- [x] Cambiar `namesTargetAndTestFiles` en `src/check.mjs` por una función semántica configurable, cubierta por `test/check.test.mjs` (CR1, CR2, CR3) — 2026-06-17T10:11:35Z
-- [x] Actualizar `templates/AGENTS.md` para explicar target+verification configurables, cubierto por `test/init.test.mjs` o tests de contrato existentes en `src/contract.mjs` (CR4) — 2026-06-17T10:11:40Z
-- [x] Actualizar `.sl/config.yml` y `.sl/specs/architecture.md` con los defaults de este repo, validado por `src/check.mjs` y `test/check.test.mjs` (CR1, CR4) — 2026-06-17T10:11:44Z
-- [x] Ejecutar `pnpm test -- test/check.test.mjs test/init.test.mjs` y `node bin/sl.mjs check` sobre `src/check.mjs` y `src/contract.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-17T10:11:52Z
+- [x] Añadir parsing/validación de `readiness.target_patterns` y `readiness.verification_patterns` en `src/check.mjs`, cubierto por `test/check.test.mjs` (CR1, CR2, CR5)
+  - **Resolved:** `2026-06-17T10:11:32Z`
+- [x] Cambiar `namesTargetAndTestFiles` en `src/check.mjs` por una función semántica configurable, cubierta por `test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-17T10:11:35Z`
+- [x] Actualizar `templates/AGENTS.md` para explicar target+verification configurables, cubierto por `test/init.test.mjs` o tests de contrato existentes en `src/contract.mjs` (CR4)
+  - **Resolved:** `2026-06-17T10:11:40Z`
+- [x] Actualizar `.sl/config.yml` y `.sl/specs/architecture.md` con los defaults de este repo, validado por `src/check.mjs` y `test/check.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-06-17T10:11:44Z`
+- [x] Ejecutar `pnpm test -- test/check.test.mjs test/init.test.mjs` y `node bin/sl.mjs check` sobre `src/check.mjs` y `src/contract.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-17T10:11:52Z`
 
 ## Log
-- **2026-06-17T02:02:29Z** — Creado desde observación del usuario: la DoR no debe codificar `src/` + `test/` porque los repos consumidores tienen estructuras distintas.
-- **2026-06-17T10:07:55Z** — status: draft → approved
-- **2026-06-17T10:09:00Z** — status: approved → in-progress
-- **2026-06-17T10:09:00Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T10:12:41Z** — status: in-progress → in-review
-- **2026-06-17T10:14:17Z** — review clarification: architecture.md still contains preexisting metrics graduation edits from 20260616-210825; scope for this change is only configurable readiness
-- **2026-06-17T10:14:29Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T10:14:33Z** — graduado a spec `architecture.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-17T02:02:29Z** `[note]` Creado desde observación del usuario: la DoR no debe codificar `src/` + `test/` porque los repos consumidores tienen estructuras distintas.
+- **2026-06-17T10:07:55Z** `[status]` draft → approved
+- **2026-06-17T10:09:00Z** `[status]` approved → in-progress
+- **2026-06-17T10:09:00Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T10:12:41Z** `[status]` in-progress → in-review
+- **2026-06-17T10:14:17Z** `[note]` review clarification: architecture.md still contains preexisting metrics graduation edits from 20260616-210825; scope for this change is only configurable readiness
+- **2026-06-17T10:14:29Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T10:14:33Z** `[graduation]` spec: `readiness.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

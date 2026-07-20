@@ -1,26 +1,11 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-16T13:39:26Z
+updated: 2026-07-20T22:30:15Z
 tags: [ contract ]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659"]
 ---
 
 ## Discovery del contrato
-
-> Graduado del change 20260614-151759 (discovery del contrato).
-> Graduado del change 20260616-162027 (registry corrupto falla sin sobrescribir).
-> Graduado del change 20260626-174204 (ruta rápida del contrato para agentes).
-> Graduado del change 20260627-103625 (discovery distingue estado global de raíz de proyecto).
-> Graduado del change 20260627-205033 (contexto dinámico y retiro del symlink).
-> Graduado del change 20260629-155349 (lectura completa del contexto y bootstrap mínimo).
-> Graduado del change 20260629-165838 (prohibición de contexto truncado).
-> Graduado del change 20260629-210543 (contextos específicos incrementales).
-> Graduado del change 20260629-234939 (paridad operativa del contrato dinámico).
-> Graduado del change 20260630-225213 (política efectiva, dependencias resueltas y packs por audiencia).
-> Graduado del change 20260701-213931 (trigger inmediato del bootstrap y delimitadores BEGIN/END).
-> Graduado del change 20260701-230608 (los resúmenes del core se leen como mínimos, nunca como listas exhaustivas).
-> Actualizado por el change 20260703-150229 (adquisición completa en una sola pasada y recarga sólo por transición real).
-> Actualizado por el change 20260711-103759 (revisión de contenido `rev:` y verificación `--have`).
-> Actualizado por el change 20260711-103803 (bootstrap con delimitadores versionados BEGIN/END).
 
 El contrato canónico es un artefacto de la herramienta, separado del contrato
 propio de cada repo. Vive como fragmentos normativos únicos en
@@ -64,7 +49,9 @@ La delegación portable separa el contrato del orquestador del de sus hojas:
 implementación o review, y el delegado identificado carga únicamente
 `changeledger agent-context <role> [change-id]`. Las cápsulas delimitan su
 responsabilidad y autoridad; investigation y review son de solo lectura y no
-reciben comandos de lifecycle.
+reciben comandos de lifecycle. Cada esqueleto declara que su `agent-context`
+reemplaza la carga predeterminada del bootstrap para esa tarea delegada; el
+bootstrap general no expone roles ni detalles de delegación.
 
 Cada composición de modo o id incluye una cabecera determinista **Effective
 policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
@@ -72,7 +59,9 @@ policy** derivada de `.changeledger/config.yml` con defaults resueltos (idioma,
 el agente no lee el config crudo. El core lleva la línea transversal mínima. En
 modo por id, cada dependencia local de `depends_on` se resume como
 `#id — título — status` sin incorporar su cuerpo; las referencias externas se
-conservan como referencias sin resolución local.
+conservan como referencias sin resolución local. `related_to` se presenta en
+una sección separada, distingue enlaces salientes de backlinks entrantes y
+resuelve título y estado locales sin convertir la relación en dependencia.
 
 Toda composición base (sin el change seleccionado, cuya longitud pertenece al
 trabajo) tiene objetivos y límites duros en la única tabla ejecutable
@@ -138,22 +127,25 @@ token, anidamiento, orden y valores significativos —incluido código inline—
 falla cerrado ante tokens no modelados, contenido fuera del blockquote,
 cambios de párrafo o delimitadores ausentes, duplicados, desordenados o unidos
 a texto. Cualquier diferencia semántica restaura el bloque canónico. El
-bootstrap mantiene un único punto de entrada:
-`changeledger context`. Ordena ejecutarlo directamente nada más leer el archivo
-—antes de planificar, investigar o actuar— y conservar stdout completo desde esa
-primera ejecución hasta la línea `CHANGELEDGER CONTEXT END`, sin previews ni
-límites voluntarios. La completitud se verifica por centinela: toda
-salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode>
-[— change: #<id>] — v<version> — rev:<hash> =====` y cierra con una línea END
-autodetectora;
-si falta pese a la captura completa, la salida llegó truncada y hay que detenerse
-y re-ejecutar con mayor capacidad como recuperación excepcional.
-Falla cerrado si el CLI no está disponible. El bloque incluye además la regla
-dura —no crear ni modificar archivos sin change autorizado— con un puntero al
-core como única fuente del workflow, los task contexts y la excepción
-operacional; no enumera modos (eso invitaría a saltarse el contexto base). No
-crea `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade
-entradas a `.gitignore`.
+bootstrap mantiene un único punto de entrada: `changeledger context`. Ordena
+intentarlo directamente nada más leer el archivo —antes de planificar,
+investigar o actuar— y conservar stdout completo desde esa primera ejecución
+hasta la línea `CHANGELEDGER CONTEXT END`, sin pipes, filtros, previews,
+resúmenes ni límites voluntarios. La completitud se verifica por centinela:
+toda salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode:
+<mode> [— change: #<id>] — v<version> — rev:<hash> =====` y cierra con una
+línea END autodetectora; si falta pese a la captura completa, la salida llegó
+truncada y hay que detenerse y re-ejecutar con mayor capacidad como
+recuperación excepcional. Si el entorno informa que el comando no existe, el
+agente continúa normalmente sin ChangeLedger; si el ejecutable comienza pero
+falla, presenta el error al humano y espera su decisión en vez de degradar
+silenciosamente. Tras una compactación, el `rev` retenido se comprueba con
+`changeledger context [mode] --have <rev>` y una captura perdida o desactualizada
+se recarga por completo. El bootstrap no contiene reglas de lifecycle,
+delegación ni reconciliación de divergencias: esas políticas pertenecen al
+contexto que se carga cuando el CLI está disponible. No crea
+`.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
+`.gitignore`.
 
 Ejecutar `changeledger context` no basta por sí solo para cumplir el contrato. El
 agente debe leer la salida completa y seguir el modo actual. Si no existe un

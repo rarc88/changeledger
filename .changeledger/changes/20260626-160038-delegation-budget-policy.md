@@ -142,19 +142,23 @@ agentes, porque depende del harness y del coste disponible en cada entorno.
 
 ## Plan
 
-- [x] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038` (CR1, CR2, CR3) — 2026-06-26T17:23:07Z
-- [x] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038` (CR4) — 2026-06-26T17:23:12Z
-- [x] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038` (CR5) — 2026-06-26T17:23:17Z
-- [x] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos (support) — 2026-06-26T17:23:35Z
+- [x] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-26T17:23:07Z`
+- [x] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038` (CR4)
+  - **Resolved:** `2026-06-26T17:23:12Z`
+- [x] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038` (CR5)
+  - **Resolved:** `2026-06-26T17:23:17Z`
+- [x] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos (support)
+  - **Resolved:** `2026-06-26T17:23:35Z`
 
 ## Log
 
-- 2026-06-26T16:00:38Z — Change creado en estado draft.
-- **2026-06-26T17:19:43Z** — status: draft → approved
-- **2026-06-26T17:22:36Z** — status: approved → in-progress
-- **2026-06-26T17:22:36Z** — owner → Roberto Ruiz (auto)
-- **2026-06-26T17:24:20Z** — status: in-progress → in-review
-- **2026-06-26T17:26:00Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-26T17:38:31Z** — validation → done (human accepted)
-- **2026-06-26T17:40:44Z** — graduado a spec `architecture.md`
-- **2026-06-26T17:41:22Z** — archived
+- **2026-06-26T16:00:38Z** `[note]` Change creado en estado draft.
+- **2026-06-26T17:19:43Z** `[status]` draft → approved
+- **2026-06-26T17:22:36Z** `[status]` approved → in-progress
+- **2026-06-26T17:22:36Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-26T17:24:20Z** `[status]` in-progress → in-review
+- **2026-06-26T17:26:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-26T17:38:31Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-26T17:40:44Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-26T17:41:22Z** `[archive]` archived

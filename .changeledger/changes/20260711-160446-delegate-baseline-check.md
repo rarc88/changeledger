@@ -70,18 +70,22 @@ falla cerrado; añadir superficie duplicaría el detector.
 
 ## Plan
 
-- [x] Añadir la regla de parada al skeleton `templates/contract/agent-prompts/implementation.md` con aserción en `test/agent-prompt.test.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1) — 2026-07-11T16:31:13Z
-- [x] Añadir la base esperada al contrato de prompt en `templates/contract/delegation.md` con cobertura en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR2) — 2026-07-11T16:31:13Z
-- [x] Reclasificar snapshots y matriz semántica de los fragmentos de `templates/contract/` en `test/context.test.mjs` y validar budgets; verify: `node --test test/context.test.mjs` (CR3) — 2026-07-11T16:31:13Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T16:31:13Z
+- [x] Añadir la regla de parada al skeleton `templates/contract/agent-prompts/implementation.md` con aserción en `test/agent-prompt.test.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+  - **Resolved:** `2026-07-11T16:31:13Z`
+- [x] Añadir la base esperada al contrato de prompt en `templates/contract/delegation.md` con cobertura en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR2)
+  - **Resolved:** `2026-07-11T16:31:13Z`
+- [x] Reclasificar snapshots y matriz semántica de los fragmentos de `templates/contract/` en `test/context.test.mjs` y validar budgets; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-11T16:31:13Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T16:31:13Z`
 
 ## Log
-- **2026-07-11T16:13:59Z** — status: draft → approved
-- **2026-07-11T16:23:17Z** — status: approved → in-progress
-- **2026-07-11T16:23:17Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T16:31:14Z** — Integrada implementación delegada (6468786, 2e5fbd1): regla de parada en el skeleton de implementación, baseline esperada en el contrato de prompt de delegación, snapshot de delegation.md reclasificado como aditivo, budgets bajo hard caps. pnpm verify verde.
-- **2026-07-11T16:31:14Z** — status: in-progress → in-review
-- **2026-07-11T16:34:25Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T21:37:34Z** — validation → done (human accepted)
-- **2026-07-11T21:51:13Z** — graduado a spec `lifecycle.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T16:13:59Z** `[status]` draft → approved
+- **2026-07-11T16:23:17Z** `[status]` approved → in-progress
+- **2026-07-11T16:23:17Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T16:31:14Z** `[note]` Integrada implementación delegada (6468786, 2e5fbd1): regla de parada en el skeleton de implementación, baseline esperada en el contrato de prompt de delegación, snapshot de delegation.md reclasificado como aditivo, budgets bajo hard caps. pnpm verify verde.
+- **2026-07-11T16:31:14Z** `[status]` in-progress → in-review
+- **2026-07-11T16:34:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T21:37:34Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:51:13Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

@@ -32,18 +32,22 @@ conceptual que beneficio para una UI local y pequena.
 
 ## Plan
 
-- [x] Extraer estado y transiciones puras desde `src/viewer/public/app.js` hacia `src/viewer/public/app-state.js`, verificando con `pnpm test` — 2026-06-18T10:08:51Z
-- [x] Agregar tests unitarios en `test/viewer-metadata.test.mjs` o archivo nuevo para filtros, cambio de vista y reset de proyecto; verificar con `pnpm test` — 2026-06-18T10:08:51Z
-- [x] Mantener `src/viewer/public/app.js` como bootstrap/wiring sin cambiar comportamiento visible; verificar con `pnpm test` y `node bin/sl.mjs check` — 2026-06-18T10:08:51Z
-- [x] Ejecutar `pnpm verify` como cierre — 2026-06-18T10:08:51Z
+- [x] Extraer estado y transiciones puras desde `src/viewer/public/app.js` hacia `src/viewer/public/app-state.js`, verificando con `pnpm test`
+  - **Resolved:** `2026-06-18T10:08:51Z`
+- [x] Agregar tests unitarios en `test/viewer-metadata.test.mjs` o archivo nuevo para filtros, cambio de vista y reset de proyecto; verificar con `pnpm test`
+  - **Resolved:** `2026-06-18T10:08:51Z`
+- [x] Mantener `src/viewer/public/app.js` como bootstrap/wiring sin cambiar comportamiento visible; verificar con `pnpm test` y `node bin/sl.mjs check`
+  - **Resolved:** `2026-06-18T10:08:51Z`
+- [x] Ejecutar `pnpm verify` como cierre
+  - **Resolved:** `2026-06-18T10:08:51Z`
 
 ## Log
 
-- **2026-06-17T23:14:29Z** — creado desde los hallazgos de la auditoria 20260617-225650.
-- **2026-06-18T09:47:26Z** — status: draft → approved
-- **2026-06-18T09:56:51Z** — status: approved → in-progress
-- **2026-06-18T09:56:51Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-18T10:05:52Z** — status: in-progress → in-review
-- **2026-06-18T10:06:02Z** — review → done (delegated subagent, clean context)
-- **2026-06-18T10:06:47Z** — graduado a spec `architecture.md`
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-17T23:14:29Z** `[note]` creado desde los hallazgos de la auditoria 20260617-225650.
+- **2026-06-18T09:47:26Z** `[status]` draft → approved
+- **2026-06-18T09:56:51Z** `[status]` approved → in-progress
+- **2026-06-18T09:56:51Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-18T10:05:52Z** `[status]` in-progress → in-review
+- **2026-06-18T10:06:02Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-18T10:06:47Z** `[graduation]` spec: `architecture.md`
+- **2026-06-18T10:09:09Z** `[archive]` archived

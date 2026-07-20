@@ -42,16 +42,20 @@ graph está aislado en `src/viewer/public/view-renderers.js`.
 
 ## Plan
 
-- [x] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN` (CR1) — 2026-06-15T22:45:09Z
-- [x] Añadir o preservar test con cambios visibles para no romper nodos/edges (CR2) — 2026-06-15T22:45:09Z
-- [x] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros (CR1, CR2) — 2026-06-15T22:45:09Z
-- [x] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2) — 2026-06-15T22:45:20Z
+- [x] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN` (CR1)
+  - **Resolved:** `2026-06-15T22:45:09Z`
+- [x] Añadir o preservar test con cambios visibles para no romper nodos/edges (CR2)
+  - **Resolved:** `2026-06-15T22:45:09Z`
+- [x] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros (CR1, CR2)
+  - **Resolved:** `2026-06-15T22:45:09Z`
+- [x] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2)
+  - **Resolved:** `2026-06-15T22:45:20Z`
 
 ## Log
-- **2026-06-15T22:38:28Z** — status: draft → approved
-- **2026-06-15T22:44:43Z** — status: approved → in-progress
-- **2026-06-15T22:44:43Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T22:45:20Z** — status: in-progress → in-review
-- **2026-06-15T22:46:10Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T22:51:10Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T22:38:28Z** `[status]` draft → approved
+- **2026-06-15T22:44:43Z** `[status]` approved → in-progress
+- **2026-06-15T22:44:43Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T22:45:20Z** `[status]` in-progress → in-review
+- **2026-06-15T22:46:10Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T22:51:10Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

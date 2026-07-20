@@ -127,6 +127,114 @@ test('CR5: dependency cycle is an error', () => {
   assert.ok(msgs(run([a, b]).errors).some((m) => /dependency cycle/.test(m)));
 });
 
+test('105456 CR1/CR3: related_to is non-blocking and permits external references and cycles', () => {
+  const a = change({
+    frontmatter: {
+      id: '20260613-120000',
+      related_to: ['20260613-130000', 'other:20260101-000000'],
+    },
+  });
+  const b = change({
+    frontmatter: { id: '20260613-130000', related_to: ['20260613-120000'] },
+  });
+  assert.deepEqual(run([a, b]).errors, []);
+});
+
+test('105456 CR2: related_to validates list, local destination and self-reference', () => {
+  const invalidList = change({ frontmatter: { related_to: '20260613-130000' } });
+  assert.ok(msgs(run([invalidList]).errors).includes('related_to must be a list'));
+
+  const missing = change({ frontmatter: { related_to: ['20260613-130000'] } });
+  assert.ok(
+    msgs(run([missing]).errors).includes('related_to references missing change "20260613-130000"'),
+  );
+
+  const self = change({ frontmatter: { related_to: ['20260613-120000'] } });
+  assert.ok(
+    msgs(run([self]).errors).includes(
+      'related_to cannot reference its own change "20260613-120000"',
+    ),
+  );
+});
+
+test('105456 CR9: active semantic mention without a structural link warns but does not error', () => {
+  const target = change({
+    frontmatter: { id: '20260613-130000' },
+    name: '20260613-130000-target.md',
+  });
+  const source = change({
+    stages: [
+      { key: 'request', body: 'Discovered #20260613-130000 by reading another change.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+
+  const { errors, warnings } = run([source, target]);
+  assert.deepEqual(errors, []);
+  assert.ok(
+    msgs(warnings).includes(
+      'mentions change "20260613-130000" without declaring it in depends_on or related_to',
+    ),
+  );
+});
+
+test('105456 CR9: classified, derived and non-semantic mentions do not warn', () => {
+  const source = change({
+    frontmatter: {
+      depends_on: ['20260613-130001'],
+      related_to: ['20260613-130002'],
+    },
+    stages: [
+      {
+        key: 'request',
+        body: `Self 20260613-120000, dependency 20260613-130001, outgoing 20260613-130002,
+incoming 20260613-130003, and unknown 20990101-000000.
+
+\`\`\`
+example 20260613-130004
+\`\`\``,
+      },
+      { key: 'plan', body: '' },
+      { key: 'log', body: 'Historical 20260613-130004.' },
+    ],
+  });
+  const sibling = (id, over = {}) =>
+    change({ frontmatter: { id, ...over }, name: `${id}-sibling.md` });
+  const closedSource = change({
+    frontmatter: { id: '20260613-130005', status: 'done' },
+    name: '20260613-130005-closed.md',
+    stages: [
+      { key: 'request', body: 'Legacy mention 20260613-130004.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const archivedSource = change({
+    frontmatter: { id: '20260613-130006', archived: true },
+    name: '20260613-130006-archived.md',
+    stages: [
+      { key: 'request', body: 'Archived mention 20260613-130004.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const changes = [
+    source,
+    sibling('20260613-130001'),
+    sibling('20260613-130002'),
+    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
+    sibling('20260613-130004'),
+    closedSource,
+    archivedSource,
+  ];
+
+  const unclassified = run(changes).warnings.filter((warning) =>
+    warning.message.startsWith('mentions change'),
+  );
+  assert.deepEqual(unclassified, []);
+});
+
 test('CR6: duplicate ids are an error', () => {
   const a = change();
   const b = change({ name: '20260613-120000-y.md' });
@@ -353,7 +461,7 @@ test('CR1: a change graduating to a missing spec is an error', () => {
       { key: 'plan' },
       {
         key: 'log',
-        body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n',
+        body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`\n',
       },
     ],
   });
@@ -382,14 +490,14 @@ test('212836 CR3: real graduation markers in Log are still validated', () => {
       { key: 'request', body: 'Example: graduado a spec `...`' },
       { key: 'specification' },
       { key: 'plan' },
-      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`' },
     ],
   });
   assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
 });
 
 test('CR1: a spec referencing a missing change is an error', () => {
-  const s = spec({ body: 'Graduado del change 20990101-000000' });
+  const s = spec({ frontmatter: { graduated_from: ['20990101-000000'] } });
   assert.ok(
     msgs(runS([change()], [s]).errors).some((m) => /missing change "20990101-000000"/.test(m)),
   );
@@ -402,10 +510,46 @@ test('CR2: a spec with no link is an orphan warning, not an error', () => {
 });
 
 test('CR2: a spec backlinked to an existing change is not orphan', () => {
-  const c = change({ frontmatter: { id: '20260613-120000' } });
-  const s = spec({ body: 'Graduado del change 20260613-120000' });
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`' },
+    ],
+  });
+  const s = spec({ frontmatter: { graduated_from: ['20260613-120000'] } });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /orphan/.test(m)),
+    [],
+  );
+});
+
+test('111457 CR9: one change can link bidirectionally to multiple curated specs', () => {
+  const id = '20260613-120000';
+  const c = change({
+    frontmatter: { id },
+    stages: [
+      { key: 'request' },
+      { key: 'plan' },
+      {
+        key: 'log',
+        body: [
+          '- **2026-06-13T12:00:00Z** `[graduation]` spec: `lifecycle.md`',
+          '- **2026-06-13T12:00:00Z** `[graduation]` spec: `metrics.md`',
+        ].join('\n'),
+      },
+    ],
+  });
+  const specs = [
+    spec({ name: 'lifecycle.md', frontmatter: { graduated_from: [id] } }),
+    spec({ name: 'metrics.md', frontmatter: { graduated_from: [id] } }),
+  ];
+  const { errors, warnings } = runS([c], specs);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    msgs(warnings).filter((message) => /orphan/.test(message)),
     [],
   );
 });
@@ -413,18 +557,23 @@ test('CR2: a spec backlinked to an existing change is not orphan', () => {
 test('CR3: a stale updated is a warning', () => {
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
-    text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+    text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** `[graduation]` spec: `arch.md`\n',
     stages: [
       { key: 'request' },
       { key: 'specification' },
       { key: 'plan' },
       {
         key: 'log',
-        body: '- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+        body: '- **2026-06-20T10:00:00Z** `[graduation]` spec: `arch.md`\n',
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.ok(msgs(runS([c], [s]).warnings).some((m) => /older than linked change activity/.test(m)));
 });
 
@@ -432,8 +581,8 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
     text: `---\n---\n## Log
-- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
-- **2026-06-20T10:00:00Z** — archived
+- **2026-06-13T12:00:00Z** \`[graduation]\` spec: \`arch.md\`
+- **2026-06-20T10:00:00Z** \`[archive]\` archived
 `,
     stages: [
       { key: 'request' },
@@ -441,12 +590,17 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
       { key: 'plan' },
       {
         key: 'log',
-        body: `- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
-- **2026-06-20T10:00:00Z** — archived`,
+        body: `- **2026-06-13T12:00:00Z** \`[graduation]\` spec: \`arch.md\`
+- **2026-06-20T10:00:00Z** \`[archive]\` archived`,
       },
     ],
   });
-  const s = spec({ frontmatter: { updated: '2026-06-14T10:00:00Z' } });
+  const s = spec({
+    frontmatter: {
+      updated: '2026-06-14T10:00:00Z',
+      graduated_from: ['20260613-120000'],
+    },
+  });
   assert.deepEqual(
     msgs(runS([c], [s]).warnings).filter((m) => /older than linked change activity/.test(m)),
     [],
@@ -456,6 +610,49 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
 test('CR3: a non-ISO updated is an error', () => {
   const s = spec({ frontmatter: { updated: '2026-06-13' } });
   assert.ok(msgs(runS([change()], [s]).errors).some((m) => /updated not ISO/.test(m)));
+});
+
+test('111457 CR4: graduated_from must be a list', () => {
+  const s = spec({ frontmatter: { graduated_from: '20260613-120000' } });
+  assert.ok(msgs(runS([change()], [s]).errors).includes('graduated_from must be a list'));
+});
+
+test('111457 CR4: a spec must name every change whose Log graduates into it', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`' },
+    ],
+  });
+  assert.ok(
+    msgs(runS([c], [spec({ frontmatter: { graduated_from: [] } })]).errors).includes(
+      'spec "arch.md" missing graduated_from "20260613-120000"',
+    ),
+  );
+});
+
+test('111457 CR4: graduated_from must link back to the same spec', () => {
+  const c = change({
+    frontmatter: { id: '20260613-120000' },
+    stages: [
+      { key: 'request' },
+      { key: 'specification' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `other.md`' },
+    ],
+  });
+  const specs = [
+    spec({ frontmatter: { graduated_from: ['20260613-120000'] } }),
+    spec({ name: 'other.md', frontmatter: { graduated_from: ['20260613-120000'] } }),
+  ];
+  assert.ok(
+    msgs(runS([c], specs).errors).includes(
+      'graduated_from "20260613-120000" does not link back to spec "arch.md"',
+    ),
+  );
 });
 
 test('CR1: a duplicate stage is an error', () => {
@@ -489,7 +686,7 @@ test('151221 CR2: done tasks require an ISO resolution timestamp', () => {
   );
 });
 
-test('151221 CR2: done task descriptions may contain an em dash before the timestamp', () => {
+test('151221 CR2 / 125007 CR1: done task descriptions may contain an em dash', () => {
   const text = `---
 id: "20260613-120000"
 title: X
@@ -505,7 +702,8 @@ X
 
 ## Plan
 
-- [x] Keep the phrase — do not truncate it (CR1) — 2026-06-13T12:01:00Z
+- [x] Keep the phrase — do not truncate it (CR1)
+  - **Resolved:** \`2026-06-13T12:01:00Z\`
 
 ## Log
 `;
@@ -1007,7 +1205,7 @@ X
   );
 });
 
-test('115134 CR5: misplaced verify suffix explains the parseable task order', () => {
+test('115134 CR5 / 125007 CR1: verification precedes final criteria despite punctuation', () => {
   const { errors } = covResult(
     `---
 id: "20260613-120000"
@@ -1031,7 +1229,7 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts (CR1) — verify: manual device check
+- [ ] Update app/profile.ts — verify: manual device check (CR1)
 
 ## Log
 `,
@@ -1043,9 +1241,7 @@ X
       },
     },
   );
-  const message = msgs(errors).find((m) => /verify:/.test(m));
-  assert.match(message, /before the final \(CRn\) block/);
-  assert.match(message, /reserved for done timestamps and blocked reasons/);
+  assert.deepEqual(errors, []);
 });
 
 test('151216 CR3: draft readiness gaps are warnings', () => {
@@ -1313,12 +1509,12 @@ ${logLines.join('\n')}
 
 test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
   const text = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   const e = msgs(covResult(text).errors);
   assert.ok(
@@ -1333,13 +1529,13 @@ test('225210 CR1: a repeated review verdict after in-validation is an error with
 
 test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch fail', () => {
   const ok = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-progress (retry): reason',
-    '- **2026-06-13T12:45:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress (retry): reason',
+    '- **2026-06-13T12:45:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
@@ -1347,9 +1543,9 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 
   const selfLoop = seqChange('in-progress', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-progress',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-progress',
   ]);
   assert.ok(
     msgs(covResult(selfLoop).errors).some((m) =>
@@ -1357,14 +1553,14 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     ),
   );
 
-  const skip = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → done']);
+  const skip = seqChange('done', ['- **2026-06-13T12:10:00Z** `[status]` draft → done']);
   assert.ok(
     msgs(covResult(skip).errors).some((m) =>
       /Log line \d+: invalid lifecycle transition "draft → done"/.test(m),
     ),
   );
 
-  const mismatch = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → approved']);
+  const mismatch = seqChange('done', ['- **2026-06-13T12:10:00Z** `[status]` draft → approved']);
   assert.ok(
     msgs(covResult(mismatch).errors).some((m) =>
       /Log reconstructs status "approved" but frontmatter says "done"/.test(m),
@@ -1374,15 +1570,15 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
 
 test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
   const text = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** — validation → done (human accepted)',
-    '- **2026-06-13T13:00:00Z** — status: done → in-progress (human reopened): fix',
-    '- **2026-06-13T13:10:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T13:20:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:30:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:30:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
@@ -1392,10 +1588,10 @@ test('150232 CR6: sequence validation accepts reopen followed by normal gates', 
 
 test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
   const legacyReviewClose = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — status: in-review → done',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[status]` in-review → done',
   ]);
   assert.deepEqual(
     msgs(covResult(legacyReviewClose).errors).filter((m) => /Log/.test(m)),
@@ -1403,9 +1599,9 @@ test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
   );
 
   const legacyDirectClose = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → done',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → done',
   ]);
   assert.deepEqual(
     msgs(covResult(legacyDirectClose).errors).filter((m) => /Log/.test(m)),

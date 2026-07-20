@@ -42,16 +42,19 @@ real de loopback.
 - **Then** la suite no falla por `listen EPERM 127.0.0.1`
 
 ## Plan
-- [x] Extraer o reutilizar helpers de `src/viewer/server/router.mjs` para probar requests/responses en memoria desde `test/view.test.mjs` (CR1, CR3) — 2026-06-17T15:19:05Z
-- [x] Reducir el test con socket real de `src/viewer/server/*.mjs` en `test/view.test.mjs` a una cobertura mínima y tolerante al entorno (CR2, CR3) — 2026-06-17T15:19:05Z
-- [x] Ejecutar `pnpm test -- test/view.test.mjs` contra `src/viewer/server/router.mjs` y `pnpm verify` sin escalación para confirmar que no depende de loopback real (CR1, CR2, CR3) — 2026-06-17T15:19:06Z
+- [x] Extraer o reutilizar helpers de `src/viewer/server/router.mjs` para probar requests/responses en memoria desde `test/view.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-06-17T15:19:05Z`
+- [x] Reducir el test con socket real de `src/viewer/server/*.mjs` en `test/view.test.mjs` a una cobertura mínima y tolerante al entorno (CR2, CR3)
+  - **Resolved:** `2026-06-17T15:19:05Z`
+- [x] Ejecutar `pnpm test -- test/view.test.mjs` contra `src/viewer/server/router.mjs` y `pnpm verify` sin escalación para confirmar que no depende de loopback real (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-17T15:19:06Z`
 
 ## Log
-- **2026-06-16T21:23:09Z** — Creado desde fricción observada: la suite completa requirió escalación porque los tests del viewer abrían `127.0.0.1`.
-- **2026-06-17T10:02:17Z** — status: draft → approved
-- **2026-06-17T10:36:10Z** — status: approved → in-progress
-- **2026-06-17T10:36:10Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T15:21:31Z** — status: in-progress → in-review
-- **2026-06-17T15:22:33Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T15:22:39Z** — graduado a spec `architecture.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T21:23:09Z** `[note]` Creado desde fricción observada: la suite completa requirió escalación porque los tests del viewer abrían `127.0.0.1`.
+- **2026-06-17T10:02:17Z** `[status]` draft → approved
+- **2026-06-17T10:36:10Z** `[status]` approved → in-progress
+- **2026-06-17T10:36:10Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T15:21:31Z** `[status]` in-progress → in-review
+- **2026-06-17T15:22:33Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T15:22:39Z** `[graduation]` spec: `viewer.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

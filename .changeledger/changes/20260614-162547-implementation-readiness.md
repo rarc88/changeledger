@@ -138,18 +138,24 @@ flowchart LR
 
 ## Plan
 
-- [x] Añadir `tdd: true` a `templates/config.yml` (copiado por `init`) y a `.sl/config.yml` (CR1) — 2026-06-14T16:43:29Z
-- [x] Parser: exponer CR declarados en `## Specification` desde `src/change.mjs` (`parseChange().criteria`) (CR2) — 2026-06-14T16:43:29Z
-- [x] Cobertura CR↔tarea en `src/check.mjs` (`checkCoverage`), solo `approved`/`in-progress`, warnings no errores (CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
-- [x] Documentar el DoR y el efecto de `tdd` en el contrato `templates/AGENTS.md` §11 (CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
-- [x] Tests de config `tdd` en `test/cli.test.mjs` y de cobertura en `test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-14T16:43:29Z
-- [x] README: mencionar el flag `tdd` y el DoR en `README.md` (sin CR — docs) — 2026-06-14T16:43:29Z
+- [x] Añadir `tdd: true` a `templates/config.yml` (copiado por `init`) y a `.sl/config.yml` (CR1)
+  - **Resolved:** `2026-06-14T16:43:29Z`
+- [x] Parser: exponer CR declarados en `## Specification` desde `src/change.mjs` (`parseChange().criteria`) (CR2)
+  - **Resolved:** `2026-06-14T16:43:29Z`
+- [x] Cobertura CR↔tarea en `src/check.mjs` (`checkCoverage`), solo `approved`/`in-progress`, warnings no errores (CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-14T16:43:29Z`
+- [x] Documentar el DoR y el efecto de `tdd` en el contrato `templates/AGENTS.md` §11 (CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-14T16:43:29Z`
+- [x] Tests de config `tdd` en `test/cli.test.mjs` y de cobertura en `test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-14T16:43:29Z`
+- [x] README: mencionar el flag `tdd` y el DoR en `README.md` (sin CR — docs)
+  - **Resolved:** `2026-06-14T16:43:29Z`
 
 ## Log
-- **2026-06-14T16:36:56Z** — status: draft → approved
-- **2026-06-14T16:38:33Z** — status: approved → in-progress
-- **2026-06-14T16:38:33Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T16:45:00Z** — Spec architecture.md actualizada con seccion Definition of Ready (tdd)
-- **2026-06-14T16:45:00Z** — status: in-progress → done
-- **2026-06-14T16:52:30Z** — graduado a spec `architecture.md`
-- **2026-06-15T21:17:56Z** — archived
+- **2026-06-14T16:36:56Z** `[status]` draft → approved
+- **2026-06-14T16:38:33Z** `[status]` approved → in-progress
+- **2026-06-14T16:38:33Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T16:45:00Z** `[note]` Spec architecture.md actualizada con seccion Definition of Ready (tdd)
+- **2026-06-14T16:45:00Z** `[status]` in-progress → done
+- **2026-06-14T16:52:30Z** `[graduation]` spec: `readiness.md`
+- **2026-06-15T21:17:56Z** `[archive]` archived

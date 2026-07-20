@@ -99,20 +99,24 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 
 ## Plan
 
-- [x] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-01T22:30:06Z
-- [x] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos; verify: `node --test test/cli-bin.test.mjs test/view.test.mjs` (CR4) — 2026-07-01T22:30:06Z
-- [x] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-01T22:30:06Z
-- [x] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-01T22:30:10Z
+- [x] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-01T22:30:06Z`
+- [x] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos; verify: `node --test test/cli-bin.test.mjs test/view.test.mjs` (CR4)
+  - **Resolved:** `2026-07-01T22:30:06Z`
+- [x] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-01T22:30:06Z`
+- [x] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-01T22:30:10Z`
 
 ## Log
 
-- **2026-06-30T22:52:12Z** — Draft creado tras auditar el help real de todos los comandos; `review` y `graduate` se conservaron como referencia positiva.
-- **2026-07-01T21:51:36Z** — status: draft → approved
-- **2026-07-01T22:24:48Z** — status: approved → in-progress
-- **2026-07-01T22:24:48Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-01T22:30:17Z** — README.md and templates/contract/** already matched the new CLI syntax (view/context/status/task/owner/list); no edits needed, verified by full pnpm test pass.
-- **2026-07-01T22:30:28Z** — status: in-progress → in-review
-- **2026-07-01T22:33:28Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:18:00Z** — validation → done (human accepted)
-- **2026-07-01T23:21:49Z** — graduation skipped: La ayuda autocontenida es interfaz viva en bin/changeledger.mjs protegida por la matriz de tests de help; no introduce verdad persistente fuera del código
-- **2026-07-01T23:23:29Z** — archived
+- **2026-06-30T22:52:12Z** `[note]` Draft creado tras auditar el help real de todos los comandos; `review` y `graduate` se conservaron como referencia positiva.
+- **2026-07-01T21:51:36Z** `[status]` draft → approved
+- **2026-07-01T22:24:48Z** `[status]` approved → in-progress
+- **2026-07-01T22:24:48Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-01T22:30:17Z** `[note]` README.md and templates/contract/** already matched the new CLI syntax (view/context/status/task/owner/list); no edits needed, verified by full pnpm test pass.
+- **2026-07-01T22:30:28Z** `[status]` in-progress → in-review
+- **2026-07-01T22:33:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:18:00Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-01T23:21:49Z** `[graduation]` skipped: La ayuda autocontenida es interfaz viva en bin/changeledger.mjs protegida por la matriz de tests de help; no introduce verdad persistente fuera del código
+- **2026-07-01T23:23:29Z** `[archive]` archived

@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import {
-  appendLog,
+  appendLogEvent,
   setArchived,
   setOwner,
   setReviewed,
+  setSpecGraduatedFrom,
   setSpecUpdated,
   setStatus,
   setTask,
@@ -24,11 +25,12 @@ depends_on: []
 
 - [ ] First (CR1)
 - [ ] Second
-- [!] Third — was blocked
+- [!] Third
+  - **Blocked:** was blocked
 
 ## Log
 
-- **2026-06-13T12:00:00Z** — created
+- **2026-06-13T12:00:00Z** \`[note]\` created
 `;
 
 test('setStatus changes only the frontmatter status', () => {
@@ -64,9 +66,13 @@ test('setStatus throws when status is missing', () => {
   assert.throws(() => setStatus(DOC.replace(/^status:.*\n/m, ''), 'approved'), /missing status/);
 });
 
-test('appendLog adds a timestamped entry at the end of Log', () => {
-  const out = appendLog(DOC, '2026-06-13T13:00:00Z', 'moved to approved');
-  assert.match(out, /- \*\*2026-06-13T13:00:00Z\*\* — moved to approved\n?$/);
+test('appendLogEvent adds a typed entry at the end of Log', () => {
+  const out = appendLogEvent(DOC, {
+    at: '2026-06-13T13:00:00Z',
+    type: 'note',
+    message: 'moved — [status] | freely',
+  });
+  assert.match(out, /- \*\*2026-06-13T13:00:00Z\*\* `\[note\]` moved — \[status\] \| freely\n?$/);
 });
 
 test('setTask done marks the task and appends the timestamp, keeping criteria', () => {
@@ -75,13 +81,37 @@ test('setTask done marks the task and appends the timestamp, keeping criteria', 
   assert.equal(t.state, 'done');
   assert.deepEqual(t.criteria, ['CR1']);
   assert.equal(t.resolvedAt, '2026-06-13T13:00:00Z');
+  assert.match(out, /- \[x\] First \(CR1\)\n {2}- \*\*Resolved:\*\* `2026-06-13T13:00:00Z`/);
+});
+
+test('125007 CR1: setTask preserves punctuation in the task description', () => {
+  const text = DOC.replace(
+    '- [ ] First (CR1)',
+    '- [ ] Lote 1 — ReferralCode + Chatbot | `src/a:b.mjs` — mismo patrón (CR1)',
+  );
+  const out = setTask(text, 1, 'done', { iso: '2026-07-19T10:22:32Z' });
+  assert.match(
+    out,
+    /- \[x\] Lote 1 — ReferralCode \+ Chatbot \| `src\/a:b\.mjs` — mismo patrón \(CR1\)\n {2}- \*\*Resolved:\*\* `2026-07-19T10:22:32Z`/,
+  );
+});
+
+test('125007 CR2: completing an already resolved task is byte-for-byte idempotent', () => {
+  const once = setTask(DOC, 1, 'done', { iso: '2026-06-13T13:00:00Z' });
+  const twice = setTask(once, 1, 'done', { iso: '2026-06-13T14:00:00Z' });
+  assert.equal(twice, once);
 });
 
 test('setTask block marks [!] with a reason', () => {
-  const out = setTask(DOC, 2, 'blocked', { reason: 'waiting upstream' });
+  const reason = 'waiting upstream — platform | security: [status]';
+  const out = setTask(DOC, 2, 'blocked', { reason });
   const t = parseChange(out).tasks[1];
   assert.equal(t.state, 'blocked');
-  assert.equal(t.reason, 'waiting upstream');
+  assert.equal(t.reason, reason);
+  assert.match(
+    out,
+    /- \[!\] Second\n {2}- \*\*Blocked:\*\* waiting upstream — platform \| security: \[status\]/,
+  );
 });
 
 test('setTask done replaces an existing blocked suffix', () => {
@@ -90,6 +120,22 @@ test('setTask done replaces an existing blocked suffix', () => {
   assert.equal(t.state, 'done');
   assert.equal(t.resolvedAt, '2026-06-13T14:00:00Z');
   assert.equal(t.reason, undefined);
+});
+
+test('125007 CR4: setTask rejects malformed metadata without producing output', () => {
+  const malformed = DOC.replace('- [ ] Second', '- [x] Second');
+  assert.throws(
+    () => setTask(malformed, 2, 'done', { iso: '2026-06-13T14:00:00Z' }),
+    /invalid task metadata structure for task #2/,
+  );
+});
+
+test('125007 CR4: setTask rejects a non-ISO Resolved timestamp without writing', () => {
+  const malformed = DOC.replace('- [ ] Second', '- [x] Second\n  - **Resolved:** `not-iso`');
+  assert.throws(
+    () => setTask(malformed, 2, 'done', { iso: '2026-06-13T14:00:00Z' }),
+    /invalid task metadata structure for task #2/,
+  );
 });
 
 test('setTask throws on a missing task index', () => {
@@ -149,7 +195,7 @@ Body.
   );
 });
 
-test('appendLog creates the Log section when absent', () => {
+test('appendLogEvent creates the Log section when absent', () => {
   const noLog = `---
 id: "20260613-120000"
 title: X
@@ -167,10 +213,15 @@ x
 
 - [ ] do it
 `;
-  const out = appendLog(noLog, '2026-06-13T13:00:00Z', 'status: draft → approved');
+  const out = appendLogEvent(noLog, {
+    at: '2026-06-13T13:00:00Z',
+    type: 'status',
+    from: 'draft',
+    to: 'approved',
+  });
   const log = parseChange(out).stages.find((s) => s.key === 'log');
   assert.ok(log, 'a ## Log section is created');
-  assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* — status: draft → approved\n$/);
+  assert.match(out, /## Log\n\n- \*\*2026-06-13T13:00:00Z\*\* `\[status\]` draft → approved\n$/);
 });
 
 test('setReviewed adds and removes the reviewed flag', () => {
@@ -237,6 +288,30 @@ Body.
 test('setSpecUpdated throws when updated is missing', () => {
   const spec = `---\ntitle: Arch\ntags: [architecture]\n---\n\n# Arch\n`;
   assert.throws(() => setSpecUpdated(spec, '2026-06-15T17:30:00Z'), /missing updated/);
+});
+
+test('111457 CR1/CR2: setSpecGraduatedFrom appends unique ids and preserves the body', () => {
+  const spec = `---
+title: Arch
+updated: 2020-01-01T00:00:00Z
+tags: [architecture]
+graduated_from: ["20260613-120000"]
+---
+
+# Arch
+
+Body.
+`;
+  const once = setSpecGraduatedFrom(spec, '20260613-130000');
+  const twice = setSpecGraduatedFrom(once, '20260613-130000');
+  assert.match(twice, /^graduated_from: \["20260613-120000", "20260613-130000"\]$/m);
+  assert.equal(twice.slice(twice.indexOf('\n---\n') + 5), '\n# Arch\n\nBody.\n');
+});
+
+test('111457 CR1: setSpecGraduatedFrom creates the field after tags', () => {
+  const spec = `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n\n# Arch\n`;
+  const out = setSpecGraduatedFrom(spec, '20260613-120000');
+  assert.match(out, /tags: \[architecture\]\ngraduated_from: \["20260613-120000"\]\n---/);
 });
 
 test('174430: frontmatter mutations preserve multiline and nested YAML values', () => {

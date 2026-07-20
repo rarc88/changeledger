@@ -2,12 +2,10 @@
 title: Política de dependencias
 updated: 2026-07-01T23:21:38Z
 tags: [ dependencies ]
+graduated_from: ["20260615-214818", "20260630-225211"]
 ---
 
 ## Política de dependencias
-
-> Graduado del change 20260615-214818.
-> Graduado del change 20260630-225211 (commander en la política runtime).
 
 ChangeLedger no prohíbe dependencias runtime, pero las trata como coste de
 producto: cada una debe ser madura, mantenida y proporcional al problema que

@@ -1,22 +1,11 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-11T21:51:56Z
+updated: 2026-07-18T12:35:18Z
 tags: [ viewer ]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457"]
 ---
 
 ## Presentación
-
-> Graduado del change 20260616-151234 (resolución segura de assets estáticos).
-> Graduado del change 20260616-212309 (tests del viewer sin socket local).
-> Graduado del change 20260623-125850 (legibilidad e interacción del viewer).
-> Graduado del change 20260627-111219 (persistencia del estado del viewer).
-> Graduado del change 20260627-215619 (navegación entre specs por enlaces).
-> Graduado del change 20260628-113924 (editor amigable y migración de config).
-> Actualizado por el change 20260703-150228 (layout y ancho configurables del detalle).
-> Actualizado por el change 20260703-220013 (ancho responsive y wrapping del board).
-> Actualizado por el change 20260711-155720 (Specs en grid rico a ancho completo).
-> Actualizado por el change 20260711-155721 (Metrics filtradas, throughput SVG y cuadrantes).
-> Actualizado por el change 20260711-155722 (Projects a ancho completo con scroll por panel).
 
 El visor (`changeledger view`) levanta un server `node:http` enlazado **solo a loopback**
 (`127.0.0.1`) que relee `.changeledger/` en cada request (live) y expone JSON. Rechaza
@@ -29,7 +18,7 @@ permite que **el humano** apruebe un change `draft` arrastrando su card y acepte
 rechace con motivo un change `in-validation` desde su detalle, además de reabrir
 uno provisional. El agente puede rechazar o reabrir también desde el CLI; sólo
 la aprobación y aceptación permanecen humanas. La UI rinde board (kanban), table, graph
-(`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
+(`depends_on` y `related_to`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
 multiselección; owner incluye `Unassigned` como booleano independiente de los
 nombres para no colisionar con un owner real. El cliente está dividido en módulos
@@ -58,9 +47,18 @@ verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
 badge delineado distinto del type sólido. Los details presentan la validación
 humana como una única acción pendiente (controles deshabilitados durante el
 request y cierre al éxito), usan controles de cierre consistentes y convierten
-cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
-el bloque inicial de procedencia `Graduado del change …` se agrupa en un historial
-colapsable sin reinterpretar otros blockquotes ni relajar la sanitización.
+cada Mermaid en un lightbox navegable por teclado con retorno de foco.
+Dependencias y relaciones se presentan en componentes expandibles separados;
+cada referencia local muestra id, título, tipo, estado y owner cuando existe, y
+la fila completa abre el change. Los backlinks de `related_to` se derivan sin
+duplicar la relación en ambos documentos. Las referencias cross-proyecto
+conservan la navegación global y permanecen visibles como externas si no pueden
+resolverse. El grafo dibuja dependencias como aristas dirigidas y relaciones
+como aristas no dirigidas discontinuas. En specs, el frontmatter estructurado
+`graduated_from` reutiliza el mismo componente como historial colapsable: los
+ids resolubles muestran metadatos y abren el change; los ausentes siguen visibles
+como `unavailable`, sin reinterpretar el cuerpo Markdown ni relajar la
+sanitización.
 
 La pestaña **Specs** dispone las cards en un grid responsive a ancho completo
 (al menos 3 columnas desde 1280 px, una columna bajo 680 px), ordenadas por

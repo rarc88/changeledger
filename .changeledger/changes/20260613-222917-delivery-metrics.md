@@ -59,11 +59,14 @@ ya tiene (fuente única); y calcular en el cliente — no testeable y duplica l�
 
 ## Plan
 
-- [x] `metrics.mjs`: `doneAt` + `computeMetrics` puros (CR1, CR2) — 2026-06-14T11:54:54Z
-- [x] `serialize()` añade `metrics`; pestaña Metrics en el visor (CR3) — 2026-06-14T11:54:55Z
-- [x] Tests: cycle time, agregados, throughput, ignora no-done (CR1, CR2) — 2026-06-14T11:54:55Z
+- [x] `metrics.mjs`: `doneAt` + `computeMetrics` puros (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:54:54Z`
+- [x] `serialize()` añade `metrics`; pestaña Metrics en el visor (CR3)
+  - **Resolved:** `2026-06-14T11:54:55Z`
+- [x] Tests: cycle time, agregados, throughput, ignora no-done (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:54:55Z`
 
 ## Log
-- **2026-06-14T11:12:24Z** — status: draft → approved
-- **2026-06-14T11:54:55Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:24Z** `[status]` draft → approved
+- **2026-06-14T11:54:55Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

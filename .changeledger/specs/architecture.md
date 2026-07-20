@@ -2,19 +2,10 @@
 title: Arquitectura de ChangeLedger
 updated: 2026-07-11T21:52:41Z
 tags: [ architecture, cli, viewer ]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556"]
 ---
 
 # Arquitectura de ChangeLedger
-
-> Graduado del change 20260616-151226 (parser CLI con commander).
-> Graduado del change 20260624-153236 (migración integral a ChangeLedger).
-> Graduado del change 20260627-205033 (compilador de contexto determinista).
-> Graduado del change 20260628-113218 (versión instalada desde el CLI).
-> Graduado del change 20260628-113219 (schema y migración segura de configuración).
-> Graduado del change 20260628-213942 (descubrimiento operativo desde el contexto inicial).
-> Actualizado por el change 20260711-103758 (búsqueda determinista sobre changes y specs).
-> Actualizado por el change 20260711-160445 (empates de búsqueda: spec antes que change).
-> Actualizado por el change 20260711-162556 (migraciones aditivas versionadas, schema 2).
 
 ChangeLedger separa **almacén** (fuente de verdad, optimizada para agente y git)
 de **presentación** (un visor agradable para el humano). Es un CLI global; en

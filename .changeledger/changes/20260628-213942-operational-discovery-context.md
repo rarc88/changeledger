@@ -85,16 +85,18 @@ preguntas operativas observadas al iniciar y cerrar trabajo.
 
 ## Plan
 
-- [x] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-28T21:42:55Z
-- [x] Ejecutar el gate completo y comprobar el output real del binario; verify: `pnpm verify` y `node bin/changeledger.mjs context` (support) — 2026-06-28T21:43:15Z
+- [x] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-28T21:42:55Z`
+- [x] Ejecutar el gate completo y comprobar el output real del binario; verify: `pnpm verify` y `node bin/changeledger.mjs context` (support)
+  - **Resolved:** `2026-06-28T21:43:15Z`
 
 ## Log
-- **2026-06-28T21:40:56Z** — status: draft → approved
-- **2026-06-28T21:42:11Z** — status: approved → in-progress
-- **2026-06-28T21:42:11Z** — owner → Roberto Ruiz (auto)
-- **2026-06-28T21:43:15Z** — Implementado con TDD: el contexto core recomienda list --status approved y graduate --pending antes de escanear archivos; permanece determinista, no incorpora estado y conserva el presupuesto. pnpm verify: 467 tests.
-- **2026-06-28T21:43:15Z** — status: in-progress → in-review
-- **2026-06-28T21:45:41Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T21:46:59Z** — validation → done (human accepted)
-- **2026-06-28T21:49:06Z** — graduado a spec `architecture.md`
-- **2026-06-28T21:49:06Z** — archived
+- **2026-06-28T21:40:56Z** `[status]` draft → approved
+- **2026-06-28T21:42:11Z** `[status]` approved → in-progress
+- **2026-06-28T21:42:11Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-28T21:43:15Z** `[note]` Implementado con TDD: el contexto core recomienda list --status approved y graduate --pending antes de escanear archivos; permanece determinista, no incorpora estado y conserva el presupuesto. pnpm verify: 467 tests.
+- **2026-06-28T21:43:15Z** `[status]` in-progress → in-review
+- **2026-06-28T21:45:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T21:46:59Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-28T21:49:06Z** `[graduation]` spec: `architecture.md`
+- **2026-06-28T21:49:06Z** `[archive]` archived

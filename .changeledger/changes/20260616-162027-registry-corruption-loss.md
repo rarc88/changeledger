@@ -45,16 +45,20 @@ informacion silenciosamente.
 
 ## Plan
 
-- [x] Añadir tests en `test/registry.test.mjs` para `src/registry.mjs` con lectura corrupta, no sobrescritura al registrar y registry ausente (CR1, CR2, CR3) — 2026-06-16T16:31:24Z
-- [x] Actualizar `src/registry.mjs` y cubrirlo con `test/registry.test.mjs` para distinguir archivo ausente de JSON invalido y lanzar un error claro en el segundo caso (CR1, CR2, CR3) — 2026-06-16T16:31:27Z
-- [x] Revisar `src/commands/register.mjs` y cubrirlo con `test/registry.test.mjs` para que el error llegue al CLI sin borrar datos locales (CR2) — 2026-06-16T16:31:30Z
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/registry.mjs` y `src/commands/register.mjs` con `test/registry.test.mjs` (CR1, CR2, CR3) — 2026-06-16T16:31:36Z
+- [x] Añadir tests en `test/registry.test.mjs` para `src/registry.mjs` con lectura corrupta, no sobrescritura al registrar y registry ausente (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:31:24Z`
+- [x] Actualizar `src/registry.mjs` y cubrirlo con `test/registry.test.mjs` para distinguir archivo ausente de JSON invalido y lanzar un error claro en el segundo caso (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:31:27Z`
+- [x] Revisar `src/commands/register.mjs` y cubrirlo con `test/registry.test.mjs` para que el error llegue al CLI sin borrar datos locales (CR2)
+  - **Resolved:** `2026-06-16T16:31:30Z`
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/registry.mjs` y `src/commands/register.mjs` con `test/registry.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:31:36Z`
 
 ## Log
-- **2026-06-16T16:25:41Z** — status: draft → approved
-- **2026-06-16T16:31:01Z** — status: approved → in-progress
-- **2026-06-16T16:31:01Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T16:31:43Z** — status: in-progress → in-review
-- **2026-06-16T16:43:22Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:44:49Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T16:25:41Z** `[status]` draft → approved
+- **2026-06-16T16:31:01Z** `[status]` approved → in-progress
+- **2026-06-16T16:31:01Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T16:31:43Z** `[status]` in-progress → in-review
+- **2026-06-16T16:43:22Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:49Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

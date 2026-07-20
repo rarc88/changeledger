@@ -71,16 +71,21 @@ Descartado:
 
 ## Plan
 
-- [x] `githubLogin(run)` en `src/git.mjs` (`gh api user --jq .login`, tolerante); test en `test/git.test.mjs` (CR1, CR4) — 2026-06-14T18:39:36Z
-- [x] `ownerHandle(cwd, run, ghRun)` en `src/git.mjs` (`githubLogin || gitUser`); test en `test/git.test.mjs` (CR1, CR2, CR4) — 2026-06-14T18:39:36Z
-- [x] `status()` usa `ownerHandle` (inyectable) en `src/commands/agent.mjs`; tests en `test/agent.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-14T18:39:36Z
-- [x] Backfill `owner: Roberto Ruiz` → `owner: raruiz-hiberuscom` en `.sl/changes/` (migración, sin CR) — 2026-06-14T18:39:36Z
-- [x] Contrato: owner auto = GitHub login, fallback git name, en `templates/AGENTS.md` §3 (docs, sin CR) — 2026-06-14T18:39:36Z
+- [x] `githubLogin(run)` en `src/git.mjs` (`gh api user --jq .login`, tolerante); test en `test/git.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-06-14T18:39:36Z`
+- [x] `ownerHandle(cwd, run, ghRun)` en `src/git.mjs` (`githubLogin || gitUser`); test en `test/git.test.mjs` (CR1, CR2, CR4)
+  - **Resolved:** `2026-06-14T18:39:36Z`
+- [x] `status()` usa `ownerHandle` (inyectable) en `src/commands/agent.mjs`; tests en `test/agent.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-14T18:39:36Z`
+- [x] Backfill `owner: Roberto Ruiz` → `owner: raruiz-hiberuscom` en `.sl/changes/` (migración, sin CR)
+  - **Resolved:** `2026-06-14T18:39:36Z`
+- [x] Contrato: owner auto = GitHub login, fallback git name, en `templates/AGENTS.md` §3 (docs, sin CR)
+  - **Resolved:** `2026-06-14T18:39:36Z`
 
 ## Log
-- **2026-06-14T18:31:34Z** — status: draft → approved
-- **2026-06-14T18:37:16Z** — status: approved → in-progress
-- **2026-06-14T18:37:16Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T18:39:36Z** — status: in-progress → done
-- **2026-06-14T18:39:36Z** — graduado a spec `architecture.md`
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T18:31:34Z** `[status]` draft → approved
+- **2026-06-14T18:37:16Z** `[status]` approved → in-progress
+- **2026-06-14T18:37:16Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T18:39:36Z** `[status]` in-progress → done
+- **2026-06-14T18:39:36Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-15T21:17:57Z** `[archive]` archived

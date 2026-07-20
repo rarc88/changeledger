@@ -17,9 +17,11 @@ Build the thing.
 
 ## Plan
 
-- [x] First task (CR1) — 2026-06-13T13:30:00Z
+- [x] First task (CR1)
+  - **Resolved:** \`2026-06-13T13:30:00Z\`
 - [ ] Second task (CR2, CR3)
-- [!] Third task — blocked by upstream
+- [!] Third task
+  - **Blocked:** blocked by upstream
 
 ## Log
 
@@ -61,7 +63,7 @@ test('parses task criteria, resolution timestamp and block reason', () => {
   assert.equal(c.tasks[2].reason, 'blocked by upstream');
 });
 
-test('parses task suffix from the last em dash separator', () => {
+test('125007 CR1: parses structured metadata without truncating task punctuation', () => {
   const c = parseChange(`---
 id: "0001"
 title: X
@@ -73,12 +75,40 @@ depends_on: []
 
 ## Plan
 
-- [x] Preserve wording — with an internal dash (CR1) — 2026-06-13T13:30:00Z
+- [x] Preserve wording — with an internal dash | and colon: value (CR1)
+  - **Resolved:** \`2026-06-13T13:30:00Z\`
 `);
-  assert.equal(c.tasks[0].text, 'Preserve wording — with an internal dash');
+  assert.equal(c.tasks[0].text, 'Preserve wording — with an internal dash | and colon: value');
   assert.deepEqual(c.tasks[0].criteria, ['CR1']);
-  assert.equal(c.tasks[0].suffix, '2026-06-13T13:30:00Z');
   assert.equal(c.tasks[0].resolvedAt, '2026-06-13T13:30:00Z');
+});
+
+test('125007 CR4: reports task metadata structure defects for validation', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [x] Missing metadata (CR1)
+- [ ] Pending metadata (CR1)
+  - **Resolved:** \`2026-06-13T13:30:00Z\`
+- [x] Invalid timestamp (CR1)
+  - **Resolved:** \`not-iso\`
+`);
+  assert.deepEqual(
+    c.taskIssues.map((issue) => issue.message),
+    [
+      'invalid task metadata structure for task #1',
+      'invalid task metadata structure for task #2',
+      'invalid task metadata structure for task #3',
+    ],
+  );
 });
 
 test('parses acceptance criterion steps', () => {

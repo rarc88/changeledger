@@ -100,22 +100,28 @@ operación.
 
 ## Plan
 
-- [x] Definir en `bin/changeledger.mjs` mediante `test/cli-bin.test.mjs` el modo explícito, la exclusión de flags y la ausencia de escrituras ante errores; verify: `node --test test/cli-bin.test.mjs` (CR1, CR4, CR5) — 2026-06-30T19:43:42Z
-- [x] Separar scaffold y finalización en `src/commands/graduate.mjs` y cablear `--new` en `bin/changeledger.mjs`, dejando la creación pendiente hasta `--into`; verify: `node --test test/graduate.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-06-30T19:43:42Z
-- [x] Actualizar la guía de cierre y el handoff de fase en `templates/contract/core.md` y `templates/contract/close.md`, con hashes y expectativas correspondientes en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6) — 2026-06-30T19:43:42Z
-- [x] Alinear `README.md` con la ayuda canónica de `templates/contract/close.md` y sus expectativas de contexto; verify: `node --test test/context.test.mjs` y `rg -n "graduate" README.md templates bin test` (CR1, CR2, CR3, CR4, CR6) — 2026-06-30T19:43:42Z
-- [x] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes (support) — 2026-06-30T19:45:43Z
-- [x] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación; verify: `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app` (CR7) — 2026-06-30T19:46:55Z
+- [x] Definir en `bin/changeledger.mjs` mediante `test/cli-bin.test.mjs` el modo explícito, la exclusión de flags y la ausencia de escrituras ante errores; verify: `node --test test/cli-bin.test.mjs` (CR1, CR4, CR5)
+  - **Resolved:** `2026-06-30T19:43:42Z`
+- [x] Separar scaffold y finalización en `src/commands/graduate.mjs` y cablear `--new` en `bin/changeledger.mjs`, dejando la creación pendiente hasta `--into`; verify: `node --test test/graduate.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-06-30T19:43:42Z`
+- [x] Actualizar la guía de cierre y el handoff de fase en `templates/contract/core.md` y `templates/contract/close.md`, con hashes y expectativas correspondientes en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6)
+  - **Resolved:** `2026-06-30T19:43:42Z`
+- [x] Alinear `README.md` con la ayuda canónica de `templates/contract/close.md` y sus expectativas de contexto; verify: `node --test test/context.test.mjs` y `rg -n "graduate" README.md templates bin test` (CR1, CR2, CR3, CR4, CR6)
+  - **Resolved:** `2026-06-30T19:43:42Z`
+- [x] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes (support)
+  - **Resolved:** `2026-06-30T19:45:43Z`
+- [x] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación; verify: `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app` (CR7)
+  - **Resolved:** `2026-06-30T19:46:55Z`
 
 ## Log
 
-- **2026-06-30T19:18:57Z** — change creado como draft tras reproducir la ambigüedad del parser, verificar el overlay `close` para `done` y auditar el historial de graduación de `ionic-app`.
-- **2026-06-30T19:37:31Z** — status: draft → approved
-- **2026-06-30T19:45:00Z** — Durante el TDD se precisó la condición verificable de refinamiento: `--new` deja un marcador de scaffold y `--into` no puede finalizar mientras siga presente.
-- **2026-06-30T19:38:23Z** — status: approved → in-progress
-- **2026-06-30T19:38:23Z** — owner → Roberto Ruiz (auto)
-- **2026-06-30T19:47:01Z** — status: in-progress → in-review
-- **2026-06-30T19:56:53Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-30T19:58:37Z** — validation → done (human accepted)
-- **2026-06-30T20:25:58Z** — graduado a spec `lifecycle.md`
-- **2026-06-30T20:25:58Z** — archived
+- **2026-06-30T19:18:57Z** `[note]` change creado como draft tras reproducir la ambigüedad del parser, verificar el overlay `close` para `done` y auditar el historial de graduación de `ionic-app`.
+- **2026-06-30T19:37:31Z** `[status]` draft → approved
+- **2026-06-30T19:45:00Z** `[note]` Durante el TDD se precisó la condición verificable de refinamiento: `--new` deja un marcador de scaffold y `--into` no puede finalizar mientras siga presente.
+- **2026-06-30T19:38:23Z** `[status]` approved → in-progress
+- **2026-06-30T19:38:23Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-30T19:47:01Z** `[status]` in-progress → in-review
+- **2026-06-30T19:56:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-30T19:58:37Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-30T20:25:58Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-30T20:25:58Z** `[archive]` archived

@@ -63,13 +63,18 @@ basta y no añade fricción de mantenimiento.
 
 ## Plan
 
-- [x] `setOwner(text, owner)` en writer.mjs: set/update/remove línea owner (CR1, CR2) — 2026-06-14T11:40:51Z
-- [x] `newChange` acepta `owner` y `render()` lo inyecta (CR1) — 2026-06-14T11:40:51Z
-- [x] `owner(id, name)` en agent.mjs + comando `sl new --owner` y `sl owner` en bin (CR1, CR2) — 2026-06-14T11:40:51Z
-- [x] `serialize()` expone `owner`; app.js: filtro, display en card/detalle, haystack (CR3) — 2026-06-14T11:40:52Z
-- [x] Tests: writer setOwner, new --owner, owner command (CR1, CR2) — 2026-06-14T11:40:52Z
+- [x] `setOwner(text, owner)` en writer.mjs: set/update/remove línea owner (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:40:51Z`
+- [x] `newChange` acepta `owner` y `render()` lo inyecta (CR1)
+  - **Resolved:** `2026-06-14T11:40:51Z`
+- [x] `owner(id, name)` en agent.mjs + comando `sl new --owner` y `sl owner` en bin (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:40:51Z`
+- [x] `serialize()` expone `owner`; app.js: filtro, display en card/detalle, haystack (CR3)
+  - **Resolved:** `2026-06-14T11:40:52Z`
+- [x] Tests: writer setOwner, new --owner, owner command (CR1, CR2)
+  - **Resolved:** `2026-06-14T11:40:52Z`
 
 ## Log
-- **2026-06-14T11:12:23Z** — status: draft → approved
-- **2026-06-14T11:40:52Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:23Z** `[status]` draft → approved
+- **2026-06-14T11:40:52Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

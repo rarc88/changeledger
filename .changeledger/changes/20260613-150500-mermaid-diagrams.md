@@ -56,17 +56,20 @@ mermaid es declarativo en texto, mejor para documentación versionada.
 
 ## Plan
 
-- [x] Vendorizar mermaid en el visor (CR1) — 2026-06-13T15:33:00Z
-- [x] Renderizar bloques `mermaid` tras `marked` (CR1) — 2026-06-13T15:34:00Z
-- [x] Regla de diagramas en `AGENTS.md` (CR2) — 2026-06-13T15:34:30Z
+- [x] Vendorizar mermaid en el visor (CR1)
+  - **Resolved:** `2026-06-13T15:33:00Z`
+- [x] Renderizar bloques `mermaid` tras `marked` (CR1)
+  - **Resolved:** `2026-06-13T15:34:00Z`
+- [x] Regla de diagramas en `AGENTS.md` (CR2)
+  - **Resolved:** `2026-06-13T15:34:30Z`
 
 ## Log
 
-- **2026-06-13T15:05:00Z** — Creado en draft a partir de feedback humano: priorizar
+- **2026-06-13T15:05:00Z** `[note]` Creado en draft a partir de feedback humano: priorizar
   explicaciones visuales con mermaid.
-- **2026-06-13T15:08:09Z** — Aprobado (draft → approved).
-- **2026-06-13T15:35:15Z** — Implementado y verificado en navegador: mermaid
+- **2026-06-13T15:08:09Z** `[note]` Aprobado (draft → approved).
+- **2026-06-13T15:35:15Z** `[note]` Implementado y verificado en navegador: mermaid
   vendorizado (UMD), `renderMermaid` reemplaza bloques ` ```mermaid ` por SVG tras
   `marked`; regla §8 en `AGENTS.md` (preferir visuales). El diagrama del Proposal
   de este change renderiza como flowchart (dogfood de la regla). `in-progress → done`.
-- **2026-06-15T21:17:53Z** — archived
+- **2026-06-15T21:17:53Z** `[archive]` archived

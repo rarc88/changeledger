@@ -46,14 +46,17 @@ invisible para el visor y reportado como error por `sl check`.
 
 ## Plan
 
-- [x] Centralizar la resolución de `specs_dir` (incluido su default) en un único punto reutilizado por graduate y loadRepo — 2026-06-15T11:44:28Z
-- [x] Cubrir con test el caso de config sin `specs_dir`: graduar y luego cargar/checkear el repo — 2026-06-15T11:44:29Z
-- [x] Ejecutar `pnpm verify` (CR1, CR2) — 2026-06-15T11:44:29Z
+- [x] Centralizar la resolución de `specs_dir` (incluido su default) en un único punto reutilizado por graduate y loadRepo
+  - **Resolved:** `2026-06-15T11:44:28Z`
+- [x] Cubrir con test el caso de config sin `specs_dir`: graduar y luego cargar/checkear el repo
+  - **Resolved:** `2026-06-15T11:44:29Z`
+- [x] Ejecutar `pnpm verify` (CR1, CR2)
+  - **Resolved:** `2026-06-15T11:44:29Z`
 
 ## Log
-- **2026-06-15T11:38:40Z** — status: draft → approved
-- **2026-06-15T11:43:36Z** — status: approved → in-progress
-- **2026-06-15T11:43:37Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T11:44:29Z** — status: in-progress → done
-- **2026-06-15T21:16:52Z** — graduation skipped: bug de default specs_dir; sin verdad persistente nueva
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T11:38:40Z** `[status]` draft → approved
+- **2026-06-15T11:43:36Z** `[status]` approved → in-progress
+- **2026-06-15T11:43:37Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T11:44:29Z** `[status]` in-progress → done
+- **2026-06-15T21:16:52Z** `[graduation]` skipped: bug de default specs_dir; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** `[archive]` archived

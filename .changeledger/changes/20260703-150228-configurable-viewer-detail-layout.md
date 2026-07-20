@@ -88,30 +88,35 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 
 ## Plan
 
-- [x] Extend `src/viewer/public/app-state.js`; verify: `node --test test/app-state.test.mjs` (CR3, CR5) — 2026-07-03T22:23:13Z
-- [x] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR4, CR6) — 2026-07-03T22:23:13Z
-- [x] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`; verify: `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px (CR1, CR2, CR4, CR5, CR6) — 2026-07-03T22:23:13Z
-- [x] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-150228` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T22:23:13Z
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T22:23:43Z
+- [x] Extend `src/viewer/public/app-state.js`; verify: `node --test test/app-state.test.mjs` (CR3, CR5)
+  - **Resolved:** `2026-07-03T22:23:13Z`
+- [x] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR4, CR6)
+  - **Resolved:** `2026-07-03T22:23:13Z`
+- [x] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`; verify: `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px (CR1, CR2, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-03T22:23:13Z`
+- [x] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-150228` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-03T22:23:13Z`
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-03T22:23:43Z`
 
 ## Log
 
-- 2026-07-03T15:02:28Z — Se autorizó documentar una configuración compartida
+- **2026-07-03T15:02:28Z** `[note]` Se autorizó documentar una configuración compartida
   para changes y specs a partir de la evidencia visual en una pantalla ancha.
-- 2026-07-03T15:12:00Z — Se eligieron presets discretos como primera versión y
+- **2026-07-03T15:12:00Z** `[note]` Se eligieron presets discretos como primera versión y
   se dejó el resize continuo fuera hasta observar una necesidad adicional.
-- **2026-07-03T15:10:11Z** — status: draft → approved
-- **2026-07-03T22:14:35Z** — status: approved → in-progress
-- **2026-07-03T22:14:35Z** — owner → Roberto Ruiz (auto)
-- **2026-07-03T22:23:43Z** — Implementación verificada: 532 pruebas pasan, 157 changes válidos y comprobación manual responsive en 2048×1100, 1280×900 y 680×820.
-- **2026-07-03T22:23:43Z** — status: in-progress → in-review
-- **2026-07-03T22:26:08Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-03T22:29:46Z** — validation → in-progress (human rejected): El scroll del modal esta en modo claro, mientras que todo el view esta en modo oscuro. Aprovechemos para homogeneizar los scroll vertical y horizontal del view, ya que son diferentes. El que mas me gusta es el horizontal.
-- **2026-07-03T22:35:41Z** — Se homogeneizó scroll: color-scheme: dark global evita scrollbar nativo claro; .detail, .detail pre/table y html/body comparten ahora el mismo estilo thin/oscuro que .board (referencia elegida por el humano).
-- **2026-07-03T22:36:05Z** — pnpm verify: 532 pruebas ok, 157 changes válidos.
-- **2026-07-03T22:36:05Z** — status: in-progress → in-review
-- **2026-07-03T22:37:24Z** — Revisión (subagente, contexto limpio): PASS, sin defectos.
-- **2026-07-03T22:37:24Z** — status: in-review → in-validation
-- **2026-07-03T22:43:07Z** — validation → done (human accepted)
-- **2026-07-03T23:21:10Z** — graduado a spec `viewer.md`
-- **2026-07-03T23:22:53Z** — archived
+- **2026-07-03T15:10:11Z** `[status]` draft → approved
+- **2026-07-03T22:14:35Z** `[status]` approved → in-progress
+- **2026-07-03T22:14:35Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-03T22:23:43Z** `[note]` Implementación verificada: 532 pruebas pasan, 157 changes válidos y comprobación manual responsive en 2048×1100, 1280×900 y 680×820.
+- **2026-07-03T22:23:43Z** `[status]` in-progress → in-review
+- **2026-07-03T22:26:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-03T22:29:46Z** `[validation]` in-validation → in-progress (human rejected): El scroll del modal esta en modo claro, mientras que todo el view esta en modo oscuro. Aprovechemos para homogeneizar los scroll vertical y horizontal del view, ya que son diferentes. El que mas me gusta es el horizontal.
+- **2026-07-03T22:35:41Z** `[note]` Se homogeneizó scroll: color-scheme: dark global evita scrollbar nativo claro; .detail, .detail pre/table y html/body comparten ahora el mismo estilo thin/oscuro que .board (referencia elegida por el humano).
+- **2026-07-03T22:36:05Z** `[note]` pnpm verify: 532 pruebas ok, 157 changes válidos.
+- **2026-07-03T22:36:05Z** `[status]` in-progress → in-review
+- **2026-07-03T22:37:24Z** `[note]` Revisión (subagente, contexto limpio): PASS, sin defectos.
+- **2026-07-03T22:37:24Z** `[status]` in-review → in-validation
+- **2026-07-03T22:43:07Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-03T23:21:10Z** `[graduation]` spec: `viewer.md`
+- **2026-07-03T23:22:53Z** `[archive]` archived

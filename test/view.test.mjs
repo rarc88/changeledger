@@ -266,6 +266,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
     { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
     root,
   );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const specsDir = path.join(root, '.changeledger', 'specs');
   fs.mkdirSync(specsDir, { recursive: true });
   fs.writeFileSync(
@@ -274,6 +275,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
 title: Viewer
 updated: 2026-06-13T12:00:00Z
 tags: [viewer]
+graduated_from: ["${id}"]
 ---
 
 # Viewer
@@ -281,7 +283,6 @@ tags: [viewer]
 The viewer serializes specs.
 `,
   );
-  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { current } = resolveProjects(root, true);
 
   const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
@@ -293,6 +294,8 @@ The viewer serializes specs.
   assert.equal(body.specs.length, 1);
   assert.equal(body.specs[0].name, 'viewer.md');
   assert.equal(body.specs[0].title, 'Viewer');
+  assert.deepEqual(body.specs[0].graduated_from, [id]);
+  assert.deepEqual(body.changes[0].related_to, []);
   assert.match(body.specs[0].body, /serializes specs/);
 });
 

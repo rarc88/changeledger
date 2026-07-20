@@ -64,20 +64,25 @@ confirmada.
 
 ## Plan
 
-- [x] Extraer o ampliar en `src/lifecycle.mjs`/`src/metrics.mjs` el parser de eventos necesario para reproducir el Log; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs` (CR2, CR3, CR5) — 2026-07-01T22:19:51Z
-- [x] Incorporar la validación secuencial en `src/check.mjs` con diagnósticos de línea y compatibilidad legacy; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3) — 2026-07-01T22:19:52Z
-- [x] Reparar la entrada duplicada de `.changeledger/changes/20260629-234939-restore-dynamic-context-contract.md` y comprobarla contra `src/check.mjs`; verify: `node bin/changeledger.mjs check 20260629-234939` (CR4) — 2026-07-01T22:19:52Z
-- [x] Graduar la semántica de `src/lifecycle.mjs` a `.changeledger/specs/lifecycle.md` y `.changeledger/specs/metrics.md`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5) — 2026-07-01T22:19:52Z
+- [x] Extraer o ampliar en `src/lifecycle.mjs`/`src/metrics.mjs` el parser de eventos necesario para reproducir el Log; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs` (CR2, CR3, CR5)
+  - **Resolved:** `2026-07-01T22:19:51Z`
+- [x] Incorporar la validación secuencial en `src/check.mjs` con diagnósticos de línea y compatibilidad legacy; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-01T22:19:52Z`
+- [x] Reparar la entrada duplicada de `.changeledger/changes/20260629-234939-restore-dynamic-context-contract.md` y comprobarla contra `src/check.mjs`; verify: `node bin/changeledger.mjs check 20260629-234939` (CR4)
+  - **Resolved:** `2026-07-01T22:19:52Z`
+- [x] Graduar la semántica de `src/lifecycle.mjs` a `.changeledger/specs/lifecycle.md` y `.changeledger/specs/metrics.md`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-01T22:19:52Z`
 
 ## Log
 
-- **2026-06-30T22:52:10Z** — Draft creado tras confirmar que una transición duplicada reciente pasa el check y que existen cierres legacy que requieren compatibilidad.
-- **2026-07-01T21:51:30Z** — status: draft → approved
-- **2026-07-01T22:11:24Z** — status: approved → in-progress
-- **2026-07-01T22:11:24Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-01T22:19:52Z** — parseLogEvent compartido en lifecycle.mjs (metrics lo reutiliza); validación secuencial en check con resync legacy acotado (solo status: explícito, hacia delante, pre-review) y aristas legacy literales; duplicado de 234939 eliminado y cierre en prosa de 222911 formalizado; specs lifecycle/metrics graduadas; 488 tests y 149 changes verdes
-- **2026-07-01T22:20:02Z** — status: in-progress → in-review
-- **2026-07-01T22:22:31Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T23:17:56Z** — validation → done (human accepted)
-- **2026-07-01T23:21:38Z** — graduado a spec `lifecycle.md`
-- **2026-07-01T23:23:29Z** — archived
+- **2026-06-30T22:52:10Z** `[note]` Draft creado tras confirmar que una transición duplicada reciente pasa el check y que existen cierres legacy que requieren compatibilidad.
+- **2026-07-01T21:51:30Z** `[status]` draft → approved
+- **2026-07-01T22:11:24Z** `[status]` approved → in-progress
+- **2026-07-01T22:11:24Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-01T22:19:52Z** `[note]` parseLogEvent compartido en lifecycle.mjs (metrics lo reutiliza); validación secuencial en check con resync legacy acotado (solo status: explícito, hacia delante, pre-review) y aristas legacy literales; duplicado de 234939 eliminado y cierre en prosa de 222911 formalizado; specs lifecycle/metrics graduadas; 488 tests y 149 changes verdes
+- **2026-07-01T22:20:02Z** `[status]` in-progress → in-review
+- **2026-07-01T22:22:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T23:17:56Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-01T23:21:38Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-01T23:21:38Z** `[graduation]` spec: `metrics.md`
+- **2026-07-01T23:23:29Z** `[archive]` archived

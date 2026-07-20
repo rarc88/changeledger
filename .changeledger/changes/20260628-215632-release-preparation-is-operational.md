@@ -83,16 +83,18 @@ GitHub ni un stack concreto.
 
 ## Plan
 
-- [x] Añadir primero pruebas fallidas de la política operativa y su secuencia en `test/context.test.mjs`; implementar la regla mínima en `templates/contract/release.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3) — 2026-06-28T21:58:56Z
-- [x] Ejecutar el gate completo y comprobar el contexto público real; verify: `pnpm verify` y `node bin/changeledger.mjs context release` (support) — 2026-06-28T21:59:13Z
+- [x] Añadir primero pruebas fallidas de la política operativa y su secuencia en `test/context.test.mjs`; implementar la regla mínima en `templates/contract/release.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-28T21:58:56Z`
+- [x] Ejecutar el gate completo y comprobar el contexto público real; verify: `pnpm verify` y `node bin/changeledger.mjs context release` (support)
+  - **Resolved:** `2026-06-28T21:59:13Z`
 
 ## Log
-- **2026-06-28T21:57:31Z** — status: draft → approved
-- **2026-06-28T21:58:16Z** — status: approved → in-progress
-- **2026-06-28T21:58:16Z** — owner → Roberto Ruiz (auto)
-- **2026-06-28T21:59:14Z** — Implementado con TDD: el contexto release clasifica la preparación rutinaria como trabajo operativo, evita chores circulares y exige resolver cambios reales antes de recalcular el plan. pnpm verify: 468 tests.
-- **2026-06-28T21:59:14Z** — status: in-progress → in-review
-- **2026-06-28T22:01:22Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T22:01:51Z** — validation → done (human accepted)
-- **2026-06-28T22:02:31Z** — graduado a spec `releases.md`
-- **2026-06-28T22:02:42Z** — archived
+- **2026-06-28T21:57:31Z** `[status]` draft → approved
+- **2026-06-28T21:58:16Z** `[status]` approved → in-progress
+- **2026-06-28T21:58:16Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-28T21:59:14Z** `[note]` Implementado con TDD: el contexto release clasifica la preparación rutinaria como trabajo operativo, evita chores circulares y exige resolver cambios reales antes de recalcular el plan. pnpm verify: 468 tests.
+- **2026-06-28T21:59:14Z** `[status]` in-progress → in-review
+- **2026-06-28T22:01:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T22:01:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-28T22:02:31Z** `[graduation]` spec: `releases.md`
+- **2026-06-28T22:02:42Z** `[archive]` archived

@@ -1,24 +1,24 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-07-16T13:39:26Z
+updated: 2026-07-20T22:30:15Z
 tags: [ data-model ]
+graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457", "20260718-105456", "20260720-125007"]
 ---
 
 ## Modelo de datos
 
-> Graduado del change 20260613-205854 (capa specs: verdad persistente y graduación).
-> Graduado del change 20260616-151230 (mutaciones de frontmatter fail-fast).
-> Graduado del change 20260616-162020 (normalización compartida de slugs).
-> Graduado del change 20260616-162017 (escrituras atomicas de fuente de verdad).
-> Graduado del change 20260616-212314 (serialización de mutaciones por archivo).
-
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
-  `type`, `status`, `created`, `depends_on`, `owner` opcional, `archived` opcional,
-  `reviewed` opcional, `release_impact` opcional) + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo
-  de vida (ver **Ciclo de vida y gate de revisión**). Tareas en `## Plan` como
-  checklist (`[ ]`/`[x]`/`[!]`).
+  `type`, `status`, `created`, `depends_on`, `related_to` opcional, `owner`
+  opcional, `archived` opcional, `reviewed` opcional, `release_impact` opcional)
+  + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (ver
+  **Ciclo de vida y gate de revisión**). Cada tarea de `## Plan` ocupa una línea
+  checklist (`[ ]`/`[x]`/`[!]`); una tarea resuelta exige una única línea hija
+  ``  - **Resolved:** `<timestamp ISO UTC>` ``, y una bloqueada una única línea
+  hija `  - **Blocked:** <reason>`. Una tarea pendiente no admite metadatos. La
+  descripción y la razón son texto libre y nunca se interpretan mediante
+  separadores de puntuación.
 - **spec**: un archivo markdown sin ciclo de vida. Frontmatter mínimo (`title`,
-  `updated`, `tags`) + cuerpo libre. Es la verdad persistente; un change `done`
+  `updated`, `tags`, `graduated_from`) + cuerpo libre. Es la verdad persistente; un change `done`
   gradúa su verdad aquí.
 - **release**: manifiesto YAML inmutable en `.changeledger/releases/<version>.yml` con
   versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva
@@ -67,9 +67,32 @@ El lock se borra en `finally`; si otro proceso encuentra un lock existente, espe
 hasta un timeout y falla sin borrarlo, porque expirar un lock solo por edad puede
 romper la exclusión si una mutación legítima tarda más de lo esperado.
 
-## Dependencias cross-proyecto
+Antes de mutar una tarea, el parser valida el bloque completo y falla sin
+escribir ante metadatos ausentes, duplicados, desconocidos o huérfanos. Completar
+una tarea ya resuelta es idempotente y conserva el timestamp original. El Log
+usa eventos tipados con timestamp y uno de los tipos `status`, `review`,
+`validation`, `owner`, `graduation`, `archive` o `note`. Un único parser y
+serializador alimenta lifecycle, métricas, graduación y archivado; el payload es
+opaco salvo por el esquema del tipo declarado. `changeledger log` siempre crea
+un evento `note`, por lo que su texto no puede simular una transición operativa.
+La migración desde la gramática anterior es explícita mediante
+`changeledger fix --structured-sections`, admite `--dry-run`, escribe de forma
+atómica por archivo y deja intacto cualquier documento que requiera una decisión
+manual.
+
+## Dependencias y relaciones entre changes
 
 Una entrada de `depends_on` con la forma `<proyecto>:<changeId>` es una
 dependencia **cross-proyecto**: `check` no la valida localmente (apunta a otro
 repo) ni la mete en el grafo de ciclos; el visor global la resuelve por id o
 nombre de proyecto y navega a ese change.
+
+`depends_on` expresa un requisito de ejecución y participa en readiness y en el
+lifecycle. `related_to` expresa contexto compartido sin imponer orden: acepta
+ids locales o referencias `<proyecto>:<changeId>`, no participa en ciclos ni
+bloquea ningún estado. Una relación local se declara una sola vez; el contexto y
+el visor derivan el backlink entrante y la presentan como bidireccional para
+descubrimiento. `check` valida la forma, la existencia de destinos locales y que
+un change no se relacione consigo mismo. Además advierte, sin fallar, cuando un
+change activo menciona otro id local en una etapa semántica sin clasificarlo como
+dependencia o relación; ignora Log, bloques de código y changes cerrados.

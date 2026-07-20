@@ -11,8 +11,8 @@ function change({ id, created, status = 'done', type = 'feature', logBody }) {
 
 const HOUR = 3600000;
 
-const DONE_LOG = (iso) => `- **2026-06-13T10:00:00Z** — status: draft → approved
-- **${iso}** — status: in-progress → done`;
+const DONE_LOG = (iso) => `- **2026-06-13T10:00:00Z** \`[status]\` draft → approved
+- **${iso}** \`[status]\` in-progress → done`;
 
 test('doneAt extracts the iso of the last → done log entry', () => {
   const c = change({
@@ -27,8 +27,8 @@ test('doneAt extracts the iso of a review pass transition', () => {
   const c = change({
     id: 'a',
     created: '2026-06-13T08:00:00Z',
-    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-review
-- **2026-06-13T12:00:00Z** — review → done (delegated subagent, clean context)`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-review
+- **2026-06-13T12:00:00Z** \`[review]\` in-review → done (delegated subagent, clean context)`,
   });
   assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
 });
@@ -38,7 +38,7 @@ test('doneAt returns null when there is no done transition', () => {
     id: 'a',
     created: '2026-06-13T08:00:00Z',
     status: 'draft',
-    logBody: '- **x** — created',
+    logBody: '- **x** `[note]` created',
   });
   assert.equal(doneAt(c), null);
 });
@@ -73,10 +73,10 @@ test('CR1: aggregates and throughput include review pass closures', () => {
   const c = change({
     id: 'a',
     created: '2026-06-16T10:00:00Z',
-    logBody: `- **2026-06-16T11:00:00Z** — status: draft → approved
-- **2026-06-16T12:00:00Z** — status: approved → in-progress
-- **2026-06-16T13:00:00Z** — status: in-progress → in-review
-- **2026-06-16T14:00:00Z** — review → done (delegated subagent, clean context)`,
+    logBody: `- **2026-06-16T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-16T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-16T13:00:00Z** \`[status]\` in-progress → in-review
+- **2026-06-16T14:00:00Z** \`[review]\` in-review → done (delegated subagent, clean context)`,
   });
   const m = computeMetrics([c]);
   assert.equal(m.count, 1);
@@ -90,7 +90,7 @@ test('CR2: non-done changes are ignored', () => {
       id: 'a',
       created: '2026-06-13T10:00:00Z',
       status: 'in-progress',
-      logBody: '- **x** — created',
+      logBody: '- **x** `[note]` created',
     }),
   ];
   const m = computeMetrics(changes);
@@ -98,9 +98,9 @@ test('CR2: non-done changes are ignored', () => {
   assert.deepEqual(m.throughput, []);
 });
 
-const FULL_LOG = `- **2026-06-13T11:00:00Z** — status: draft → approved
-- **2026-06-13T12:00:00Z** — status: approved → in-progress
-- **2026-06-13T15:00:00Z** — status: in-progress → done`;
+const FULL_LOG = `- **2026-06-13T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T15:00:00Z** \`[status]\` in-progress → done`;
 
 test('CR1: statusTimeline splits time across states', () => {
   const c = change({ id: 'a', created: '2026-06-13T10:00:00Z', logBody: FULL_LOG });
@@ -116,10 +116,10 @@ test('CR1: statusTimeline treats review verdicts as lifecycle transitions', () =
   const c = change({
     id: 'a',
     created: '2026-06-13T10:00:00Z',
-    logBody: `- **2026-06-13T11:00:00Z** — status: draft → approved
-- **2026-06-13T12:00:00Z** — status: approved → in-progress
-- **2026-06-13T13:00:00Z** — status: in-progress → in-review
-- **2026-06-13T15:00:00Z** — review → done (delegated subagent, clean context)`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → in-review
+- **2026-06-13T15:00:00Z** \`[review]\` in-review → done (delegated subagent, clean context)`,
   });
   const segs = statusTimeline(c, '2026-06-13T15:00:00Z');
   assert.deepEqual(segs, [
@@ -128,6 +128,32 @@ test('CR1: statusTimeline treats review verdicts as lifecycle transitions', () =
     { state: 'in-progress', ms: 1 * HOUR },
     { state: 'in-review', ms: 2 * HOUR },
   ]);
+});
+
+test('125007 CR6: notes and non-transition events do not alter status metrics', () => {
+  const base = change({
+    id: 'a',
+    created: '2026-06-13T10:00:00Z',
+    status: 'in-progress',
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress`,
+  });
+  const withOpaqueEvents = change({
+    ...base.frontmatter,
+    id: 'a',
+    created: '2026-06-13T10:00:00Z',
+    status: 'in-progress',
+    logBody: `- **2026-06-13T10:30:00Z** \`[note]\` status: draft → done — [graduation] spec: fake.md
+- **2026-06-13T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-13T11:30:00Z** \`[owner]\` set: ana
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress
+- **2026-06-13T12:30:00Z** \`[graduation]\` skipped: no durable truth
+- **2026-06-13T13:00:00Z** \`[archive]\` archived`,
+  });
+  assert.deepEqual(
+    statusTimeline(withOpaqueEvents, '2026-06-13T14:00:00Z'),
+    statusTimeline(base, '2026-06-13T14:00:00Z'),
+  );
 });
 
 test('CR1: timeInStatus aggregates totals and averages', () => {
@@ -143,8 +169,8 @@ test('CR2: wip counts active states; aging measures in-progress age', () => {
     id: 'b',
     created: '2026-06-13T10:00:00Z',
     status: 'in-progress',
-    logBody: `- **2026-06-13T11:00:00Z** — status: draft → approved
-- **2026-06-13T12:00:00Z** — status: approved → in-progress`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` draft → approved
+- **2026-06-13T12:00:00Z** \`[status]\` approved → in-progress`,
   });
   const m = computeMetrics([wip], { now: '2026-06-13T22:00:00Z' });
   assert.equal(m.wip['in-progress'], 1);
@@ -157,7 +183,7 @@ test('CR11: wip counts an in-review change as active', () => {
     id: 'r',
     created: '2026-06-13T10:00:00Z',
     status: 'in-review',
-    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-review`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-review`,
   });
   const m = computeMetrics([c], { now: '2026-06-13T12:00:00Z' });
   assert.equal(m.wip['in-review'], 1);
@@ -168,7 +194,7 @@ test('171002 CR1: validation is active WIP and contributes time in status', () =
     id: 'v',
     created: '2026-06-13T10:00:00Z',
     status: 'in-validation',
-    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-validation`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation`,
   });
   const m = computeMetrics([c], { now: '2026-06-13T13:00:00Z' });
   assert.equal(m.wip['in-validation'], 1);
@@ -179,8 +205,8 @@ test('171002 CR2: human validation is the canonical done transition', () => {
   const c = change({
     id: 'v',
     created: '2026-06-13T10:00:00Z',
-    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → in-validation
-- **2026-06-13T12:00:00Z** — validation → done (human accepted)`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → in-validation
+- **2026-06-13T12:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
   });
   assert.equal(doneAt(c), '2026-06-13T12:00:00Z');
 });
@@ -190,11 +216,11 @@ test('150232 CR6: reopened work uses the last acceptance for cycle time', () => 
     id: 'reopened',
     created: '2026-06-13T10:00:00Z',
     status: 'done',
-    logBody: `- **2026-06-13T11:00:00Z** — validation → done (human accepted)
-- **2026-06-13T12:00:00Z** — status: done → in-progress (human reopened): fix
-- **2026-06-13T13:00:00Z** — status: in-progress → in-review
-- **2026-06-13T14:00:00Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-13T15:00:00Z** — validation → done (human accepted)`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[validation]\` in-validation → done (human accepted)
+- **2026-06-13T12:00:00Z** \`[status]\` done → in-progress (human reopened): fix
+- **2026-06-13T13:00:00Z** \`[status]\` in-progress → in-review
+- **2026-06-13T14:00:00Z** \`[review]\` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-13T15:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
   });
   assert.equal(doneAt(c), '2026-06-13T15:00:00Z');
   assert.equal(computeMetrics([c]).perChange[0].cycleMs, 5 * HOUR);
@@ -205,9 +231,9 @@ test('CR2: blockedMs sums time spent blocked', () => {
     id: 'c',
     created: '2026-06-13T10:00:00Z',
     status: 'done',
-    logBody: `- **2026-06-13T11:00:00Z** — status: in-progress → blocked
-- **2026-06-13T13:00:00Z** — status: blocked → in-progress
-- **2026-06-13T14:00:00Z** — status: in-progress → done`,
+    logBody: `- **2026-06-13T11:00:00Z** \`[status]\` in-progress → blocked
+- **2026-06-13T13:00:00Z** \`[status]\` blocked → in-progress
+- **2026-06-13T14:00:00Z** \`[status]\` in-progress → done`,
   });
   const m = computeMetrics([c], { now: '2026-06-13T14:00:00Z' });
   assert.equal(m.blockedMs, 2 * HOUR);
@@ -224,7 +250,7 @@ test('CR3: byType reports closed count and avg cycle per type', () => {
     id: 'b',
     type: 'bug',
     created: '2026-06-13T10:00:00Z',
-    logBody: '- **2026-06-13T12:00:00Z** — status: in-progress → done',
+    logBody: '- **2026-06-13T12:00:00Z** `[status]` in-progress → done',
   });
   const m = computeMetrics([a, b], { now: '2026-06-13T20:00:00Z' });
   const feat = m.byType.find((t) => t.type === 'feature');
@@ -254,15 +280,15 @@ test('155721 CR3: reviewRetries counts fail --retry verdicts, validationWaitMs i
   const c = change({
     id: 'x',
     created: '2026-07-01T10:00:00Z',
-    logBody: `- **2026-07-01T10:00:00Z** — status: draft → approved
-- **2026-07-01T10:00:00Z** — status: approved → in-progress
-- **2026-07-01T11:00:00Z** — status: in-progress → in-review
-- **2026-07-01T12:00:00Z** — review → in-progress (retry): reason1
-- **2026-07-01T13:00:00Z** — status: in-progress → in-review
-- **2026-07-01T14:00:00Z** — review → in-progress (retry): reason2
-- **2026-07-01T15:00:00Z** — status: in-progress → in-review
-- **2026-07-01T16:00:00Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-01T20:00:00Z** — validation → done (human accepted)`,
+    logBody: `- **2026-07-01T10:00:00Z** \`[status]\` draft → approved
+- **2026-07-01T10:00:00Z** \`[status]\` approved → in-progress
+- **2026-07-01T11:00:00Z** \`[status]\` in-progress → in-review
+- **2026-07-01T12:00:00Z** \`[review]\` in-review → in-progress (retry): reason1
+- **2026-07-01T13:00:00Z** \`[status]\` in-progress → in-review
+- **2026-07-01T14:00:00Z** \`[review]\` in-review → in-progress (retry): reason2
+- **2026-07-01T15:00:00Z** \`[status]\` in-progress → in-review
+- **2026-07-01T16:00:00Z** \`[review]\` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-01T20:00:00Z** \`[validation]\` in-validation → done (human accepted)`,
   });
   const m = computeMetrics([c]);
   assert.equal(m.reviewRetries, 2);
@@ -274,8 +300,8 @@ test('155721 CR3: reviewRetries ignores review→blocked and validation→in-pro
     id: 'y',
     created: '2026-07-01T10:00:00Z',
     status: 'blocked',
-    logBody: `- **2026-07-01T11:00:00Z** — status: in-progress → in-review
-- **2026-07-01T12:00:00Z** — review → blocked: spec is ambiguous`,
+    logBody: `- **2026-07-01T11:00:00Z** \`[status]\` in-progress → in-review
+- **2026-07-01T12:00:00Z** \`[review]\` in-review → blocked: spec is ambiguous`,
   });
   const m = computeMetrics([c], { now: '2026-07-01T12:00:00Z' });
   assert.equal(m.reviewRetries, 0);
@@ -287,7 +313,7 @@ test('155721 CR3: byOwner mirrors byType, unassigned changes group together', ()
   const b = change({
     id: 'b',
     created: '2026-06-13T10:00:00Z',
-    logBody: '- **2026-06-13T12:00:00Z** — status: in-progress → done',
+    logBody: '- **2026-06-13T12:00:00Z** `[status]` in-progress → done',
   });
   const m = computeMetrics([a, b], { now: '2026-06-13T20:00:00Z' });
   const alice = m.byOwner.find((o) => o.owner === 'alice');

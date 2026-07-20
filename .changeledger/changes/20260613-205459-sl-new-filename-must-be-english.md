@@ -39,16 +39,20 @@ Ejemplo: `20260613-205056-sl-new-colisiona-ids-creados-en-el-mismo-segundo.md`.
 
 ## Plan
 
-- [x] Cambiar firma a `sl new <type> <slug> "<title>"` (CR1) — 2026-06-13T20:57:00Z
-- [x] Normalizar el slug (kebab ascii); el `title` ya no alimenta el nombre (CR2) — 2026-06-13T20:57:30Z
-- [x] Actualizar `AGENTS.md` §7 (slug inglés explícito) y README/USAGE — 2026-06-13T20:58:00Z
-- [x] Tests: slug inglés en el archivo, title en frontmatter — 2026-06-13T20:58:30Z
+- [x] Cambiar firma a `sl new <type> <slug> "<title>"` (CR1)
+  - **Resolved:** `2026-06-13T20:57:00Z`
+- [x] Normalizar el slug (kebab ascii); el `title` ya no alimenta el nombre (CR2)
+  - **Resolved:** `2026-06-13T20:57:30Z`
+- [x] Actualizar `AGENTS.md` §7 (slug inglés explícito) y README/USAGE
+  - **Resolved:** `2026-06-13T20:58:00Z`
+- [x] Tests: slug inglés en el archivo, title en frontmatter
+  - **Resolved:** `2026-06-13T20:58:30Z`
 
 ## Log
 
-- **2026-06-13T20:54:59Z** — Creado en draft. Bug encontrado tras feedback humano:
+- **2026-06-13T20:54:59Z** `[note]` Creado en draft. Bug encontrado tras feedback humano:
   los nombres de archivo deben ser inglés (§8); `sl new` los generaba en español.
-- **2026-06-13T20:58:30Z** — Aprobado e implementado. Firma `sl new <type> <slug>
+- **2026-06-13T20:58:30Z** `[note]` Aprobado e implementado. Firma `sl new <type> <slug>
   <title>`: slug inglés normalizado para el archivo, `title` (contenido) al
   frontmatter. `AGENTS.md` §7 y README actualizados. Tests verde. `in-progress → done`.
-- **2026-06-15T21:17:53Z** — archived
+- **2026-06-15T21:17:53Z** `[archive]` archived

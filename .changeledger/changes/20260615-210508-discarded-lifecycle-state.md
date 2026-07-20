@@ -105,21 +105,26 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 
 ## Plan
 
-- [x] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs` (CR3, CR4) — 2026-06-15T21:26:49Z
-- [x] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs` (CR5, CR7) — 2026-06-15T21:26:49Z
-- [x] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs` (CR1, CR2) — 2026-06-15T21:26:49Z
-- [x] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs` (CR6) — 2026-06-15T21:26:50Z
-- [x] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7) — 2026-06-15T21:26:50Z
+- [x] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-06-15T21:26:49Z`
+- [x] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs` (CR5, CR7)
+  - **Resolved:** `2026-06-15T21:26:49Z`
+- [x] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-15T21:26:49Z`
+- [x] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs` (CR6)
+  - **Resolved:** `2026-06-15T21:26:50Z`
+- [x] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7)
+  - **Resolved:** `2026-06-15T21:26:50Z`
 
 ## Log
-- **2026-06-15T21:16:06Z** — status: draft → approved
-- **2026-06-15T21:21:20Z** — status: approved → in-progress
-- **2026-06-15T21:21:21Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T21:27:48Z** — Implementado: discarded en lifecycle (terminal, entrada desde draft/approved/in-progress/blocked), sl discard con razón obligatoria, status rechaza discarded, statuses en ambos config, visor oculta + toggle sin columna, docs §5/README. 218 tests, visor verificado en navegador.
-- **2026-06-15T21:27:54Z** — status: in-progress → in-review
-- **2026-06-15T21:29:48Z** — review → in-progress (retry): CR6: renderGraph ignora showDiscarded; el grafo siempre muestra descartados
-- **2026-06-15T21:30:55Z** — retry: grafo respeta showDiscarded vía predicado compartido passesTombstones (board/table/graph ya no divergen) (CR6)
-- **2026-06-15T21:31:02Z** — status: in-progress → in-review
-- **2026-06-15T21:33:59Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T21:34:35Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T21:16:06Z** `[status]` draft → approved
+- **2026-06-15T21:21:20Z** `[status]` approved → in-progress
+- **2026-06-15T21:21:21Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T21:27:48Z** `[note]` Implementado: discarded en lifecycle (terminal, entrada desde draft/approved/in-progress/blocked), sl discard con razón obligatoria, status rechaza discarded, statuses en ambos config, visor oculta + toggle sin columna, docs §5/README. 218 tests, visor verificado en navegador.
+- **2026-06-15T21:27:54Z** `[status]` in-progress → in-review
+- **2026-06-15T21:29:48Z** `[review]` in-review → in-progress (retry): CR6: renderGraph ignora showDiscarded; el grafo siempre muestra descartados
+- **2026-06-15T21:30:55Z** `[note]` retry: grafo respeta showDiscarded vía predicado compartido passesTombstones (board/table/graph ya no divergen) (CR6)
+- **2026-06-15T21:31:02Z** `[status]` in-progress → in-review
+- **2026-06-15T21:33:59Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T21:34:35Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

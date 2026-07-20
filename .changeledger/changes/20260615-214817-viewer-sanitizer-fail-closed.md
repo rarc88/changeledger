@@ -51,18 +51,22 @@ DOMPurify no está presente.
 
 ## Plan
 
-- [x] Añadir tests en `test/viewer-sanitize.test.mjs` para el caso sin `DOMPurify` y para el camino sano con sanitizador (CR1, CR2) — 2026-06-15T22:02:51Z
-- [x] Cambiar `safeHtml()` en `src/viewer/public/app.js` para fallar cerrado o renderizar texto escapado cuando falta DOMPurify (CR1, CR3) — 2026-06-15T21:55:07Z
-- [x] Revisar `src/viewer/public/index.html` y `src/commands/view.mjs` para que las dependencias críticas del visor no parezcan opcionales (CR3) — 2026-06-15T21:55:07Z
-- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2, CR3) — 2026-06-15T21:59:43Z
+- [x] Añadir tests en `test/viewer-sanitize.test.mjs` para el caso sin `DOMPurify` y para el camino sano con sanitizador (CR1, CR2)
+  - **Resolved:** `2026-06-15T22:02:51Z`
+- [x] Cambiar `safeHtml()` en `src/viewer/public/app.js` para fallar cerrado o renderizar texto escapado cuando falta DOMPurify (CR1, CR3)
+  - **Resolved:** `2026-06-15T21:55:07Z`
+- [x] Revisar `src/viewer/public/index.html` y `src/commands/view.mjs` para que las dependencias críticas del visor no parezcan opcionales (CR3)
+  - **Resolved:** `2026-06-15T21:55:07Z`
+- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T21:59:43Z`
 
 ## Log
-- **2026-06-15T21:52:24Z** — status: draft → approved
-- **2026-06-15T21:53:14Z** — status: approved → in-progress
-- **2026-06-15T21:53:14Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T22:00:05Z** — status: in-progress → in-review
-- **2026-06-15T22:02:31Z** — review → in-progress (retry): Plan incompleto detectado por revisión independiente
-- **2026-06-15T22:03:03Z** — status: in-progress → in-review
-- **2026-06-15T22:07:19Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T22:08:03Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T21:52:24Z** `[status]` draft → approved
+- **2026-06-15T21:53:14Z** `[status]` approved → in-progress
+- **2026-06-15T21:53:14Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T22:00:05Z** `[status]` in-progress → in-review
+- **2026-06-15T22:02:31Z** `[review]` in-review → in-progress (retry): Plan incompleto detectado por revisión independiente
+- **2026-06-15T22:03:03Z** `[status]` in-progress → in-review
+- **2026-06-15T22:07:19Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T22:08:03Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

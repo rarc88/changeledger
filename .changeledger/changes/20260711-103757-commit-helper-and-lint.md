@@ -99,19 +99,24 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Crear `src/commands/commit.mjs` con resolución de change activo y composición del subject; verify: `node --test test/commit.test.mjs` (CR1, CR2, CR3, CR4) — 2026-07-11T11:15:08Z
-- [x] Registrar el subcomando en `bin/changeledger.mjs` con help y opciones; verify: `pnpm test` (CR1) — 2026-07-11T11:15:08Z
-- [x] Añadir `--commits` a `src/commands/check.mjs` con parseo del rango sobre `src/git.mjs`; verify: `node --test test/check.test.mjs` (CR5, CR6) — 2026-07-11T11:15:09Z
-- [x] Actualizar `templates/contract/implement.md` con el formato canónico y las exenciones; verify: `pnpm test` (CR7) — 2026-07-11T11:15:09Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:15:09Z
+- [x] Crear `src/commands/commit.mjs` con resolución de change activo y composición del subject; verify: `node --test test/commit.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-11T11:15:08Z`
+- [x] Registrar el subcomando en `bin/changeledger.mjs` con help y opciones; verify: `pnpm test` (CR1)
+  - **Resolved:** `2026-07-11T11:15:08Z`
+- [x] Añadir `--commits` a `src/commands/check.mjs` con parseo del rango sobre `src/git.mjs`; verify: `node --test test/check.test.mjs` (CR5, CR6)
+  - **Resolved:** `2026-07-11T11:15:09Z`
+- [x] Actualizar `templates/contract/implement.md` con el formato canónico y las exenciones; verify: `pnpm test` (CR7)
+  - **Resolved:** `2026-07-11T11:15:09Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T11:15:09Z`
 
 ## Log
-- **2026-07-11T10:47:24Z** — status: draft → approved
-- **2026-07-11T10:52:32Z** — status: approved → in-progress
-- **2026-07-11T10:52:32Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T11:15:09Z** — Integrada implementación delegada (948a245..aa7c980): comando commit, check --commits con exenciones, contrato multi-id canónico en implement.md. Hallazgo raíz: git.mjs sanea GIT_DIR/GIT_WORK_TREE para hooks anidados. En integración se añadió commit al USAGE (omisión del delegado) y se resolvió el bloque de subcomandos contra fix. pnpm verify verde.
-- **2026-07-11T11:16:21Z** — status: in-progress → in-review
-- **2026-07-11T11:22:35Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T11:37:26Z** — validation → done (human accepted)
-- **2026-07-11T15:45:49Z** — graduado a spec `git-traceability.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T10:47:24Z** `[status]` draft → approved
+- **2026-07-11T10:52:32Z** `[status]` approved → in-progress
+- **2026-07-11T10:52:32Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T11:15:09Z** `[note]` Integrada implementación delegada (948a245..aa7c980): comando commit, check --commits con exenciones, contrato multi-id canónico en implement.md. Hallazgo raíz: git.mjs sanea GIT_DIR/GIT_WORK_TREE para hooks anidados. En integración se añadió commit al USAGE (omisión del delegado) y se resolvió el bloque de subcomandos contra fix. pnpm verify verde.
+- **2026-07-11T11:16:21Z** `[status]` in-progress → in-review
+- **2026-07-11T11:22:35Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:26Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T15:45:49Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

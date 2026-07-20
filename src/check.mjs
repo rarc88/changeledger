@@ -9,6 +9,8 @@ import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
+const CLOSED_STATUSES = new Set(['done', 'discarded']);
+const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
 
 export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
   const errors = [];
@@ -29,6 +31,9 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if (!targets.length) err(null, `no change with id "${opts.id}"`);
   }
 
+  const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
+  const incomingRelations = relatedBacklinks(changes);
+
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
 
@@ -43,6 +48,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if (fm.type && !types[fm.type]) err(c, `unknown type "${fm.type}"`);
     if (fm.status && !statuses.includes(fm.status)) err(c, `unknown status "${fm.status}"`);
     if ('depends_on' in fm && !Array.isArray(fm.depends_on)) err(c, 'depends_on must be a list');
+    if ('related_to' in fm && !Array.isArray(fm.related_to)) err(c, 'related_to must be a list');
     if ('archived' in fm && typeof fm.archived !== 'boolean') err(c, 'archived must be a boolean');
     if ('reviewed' in fm && typeof fm.reviewed !== 'boolean') err(c, 'reviewed must be a boolean');
     if ('release_impact' in fm && !RELEASE_IMPACTS.includes(fm.release_impact)) {
@@ -93,6 +99,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
     checkCoverage(c, fm, active, config, warn, err);
     checkLifecycleSequence(c, fm, err);
+    checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -123,6 +130,16 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
         id,
         deps.filter((d) => !isExternal(d) && ids.has(d)),
       );
+
+    const relations = Array.isArray(c.frontmatter?.related_to) ? c.frontmatter.related_to : [];
+    for (const raw of relations) {
+      const related = String(raw);
+      if (String(id) === related) {
+        err(c, `related_to cannot reference its own change "${related}"`);
+      } else if (!isExternal(related) && !ids.has(related)) {
+        err(c, `related_to references missing change "${related}"`);
+      }
+    }
   }
 
   const cycle = findCycle(graph);
@@ -132,6 +149,65 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
   return { errors, warnings };
+}
+
+function relatedBacklinks(changes) {
+  const incoming = new Map();
+  for (const change of changes) {
+    const source = String(change.frontmatter?.id ?? '');
+    const relations = change.frontmatter?.related_to;
+    if (!source || !Array.isArray(relations)) continue;
+    for (const raw of relations) {
+      const target = String(raw);
+      if (target.includes(':')) continue;
+      if (!incoming.has(target)) incoming.set(target, new Set());
+      incoming.get(target).add(source);
+    }
+  }
+  return incoming;
+}
+
+function textOutsideFences(text) {
+  const visible = [];
+  let fence = null;
+  for (const line of String(text ?? '').split('\n')) {
+    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = { char: marker[1][0], length: marker[1].length };
+      else if (marker[1][0] === fence.char && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (!fence) visible.push(line);
+  }
+  return visible.join('\n');
+}
+
+function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
+  const fm = change.frontmatter ?? {};
+  if (CLOSED_STATUSES.has(fm.status) || fm.archived === true) return;
+
+  const ownId = String(fm.id ?? '');
+  const linkedIds = new Set(
+    [
+      ...(Array.isArray(fm.depends_on) ? fm.depends_on : []),
+      ...(Array.isArray(fm.related_to) ? fm.related_to : []),
+      ...(incomingRelations.get(ownId) ?? []),
+    ].map(String),
+  );
+  const mentionedIds = new Set();
+
+  for (const stage of change.stages ?? []) {
+    if (!SEMANTIC_STAGES.has(stage.key)) continue;
+    const body = textOutsideFences(stage.body);
+    for (const match of body.matchAll(/(?<![:\d])\d{8}-\d{6}(?!\d)/g)) {
+      const id = match[0];
+      if (id !== ownId && knownIds.has(id) && !linkedIds.has(id)) mentionedIds.add(id);
+    }
+  }
+
+  for (const id of mentionedIds) {
+    warn(change, `mentions change "${id}" without declaring it in depends_on or related_to`);
+  }
 }
 
 // Reuses the scoped validator for a selected change, optionally replacing its
@@ -238,6 +314,7 @@ function canonicalHeading(key) {
 }
 
 function checkTasks(c, tasks, err) {
+  for (const issue of c.taskIssues ?? []) err(c, issue.message);
   for (const t of tasks) {
     if (t.state === 'done' && !ISO_UTC.test(t.resolvedAt ?? '')) {
       err(c, 'done task is missing an ISO 8601 UTC resolution timestamp');
@@ -256,24 +333,29 @@ function checkCriteria(c, criteria, err) {
   }
 }
 
-// Validates the spec layer and its links to changes. `graduate` records two
-// markers: in the change Log `graduado a spec \`<file>\``, and in the spec body
-// `Graduado del change <id>`.
+// Validates the spec layer and its bidirectional links to changes. `graduate`
+// records the event in the change Log and the durable provenance in the spec's
+// `graduated_from` frontmatter; neither direction is sufficient on its own.
 function checkSpecs(changes, specs, changeIds, err, warn) {
   const specNames = new Set(specs.map((s) => s.name));
 
   // change → spec links (from each change's Log graduation marker).
-  const incoming = new Set(); // spec names a change graduated to
+  const incomingBySpec = new Map(); // spec name → change ids that graduated to it
+  const destinationsByChange = new Map(); // change id → spec names named by its Log
   const activityBySpec = new Map(); // spec name → latest linked-change activity
   for (const c of changes) {
-    for (const m of graduationMarkers(c)) {
-      const ts = m[1].trim();
-      const specName = m[2].trim();
+    for (const event of graduationMarkers(c)) {
+      const ts = event.at;
+      const specName = event.spec;
       if (!specNames.has(specName)) {
         err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
-      incoming.add(specName);
+      const changeId = String(c.frontmatter?.id);
+      if (!incomingBySpec.has(specName)) incomingBySpec.set(specName, new Set());
+      incomingBySpec.get(specName).add(changeId);
+      if (!destinationsByChange.has(changeId)) destinationsByChange.set(changeId, new Set());
+      destinationsByChange.get(changeId).add(specName);
       const prev = activityBySpec.get(specName);
       if (ts && (!prev || ts > prev)) activityBySpec.set(specName, ts);
     }
@@ -283,16 +365,25 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
     const fm = s.frontmatter ?? {};
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
-    // spec → change backlinks.
-    let hasValidBacklink = false;
-    for (const m of String(s.body ?? '').matchAll(/Graduado del change\s+(\d{8}-\d{6})/gi)) {
-      if (changeIds.has(m[1])) hasValidBacklink = true;
-      else err(s, `references a missing change "${m[1]}"`);
+    let graduatedFrom = [];
+    if ('graduated_from' in fm) {
+      if (!Array.isArray(fm.graduated_from)) err(s, 'graduated_from must be a list');
+      else graduatedFrom = fm.graduated_from.map(String);
+    }
+    const listed = new Set(graduatedFrom);
+    for (const changeId of graduatedFrom) {
+      if (!changeIds.has(changeId)) {
+        err(s, `graduated_from references missing change "${changeId}"`);
+      } else if (!destinationsByChange.get(changeId)?.has(s.name)) {
+        err(s, `graduated_from "${changeId}" does not link back to spec "${s.name}"`);
+      }
     }
 
-    if (!incoming.has(s.name) && !hasValidBacklink) {
-      warn(s, 'orphan spec (no change graduated it)');
+    const incoming = incomingBySpec.get(s.name) ?? new Set();
+    for (const changeId of incoming) {
+      if (!listed.has(changeId)) err(s, `spec "${s.name}" missing graduated_from "${changeId}"`);
     }
+    if (!incoming.size) warn(s, 'orphan spec (no change graduated it)');
 
     const activity = activityBySpec.get(s.name);
     if (fm.updated && ISO_UTC.test(fm.updated) && activity && activity > fm.updated) {
@@ -307,10 +398,8 @@ function logBody(change) {
 
 function* graduationMarkers(change) {
   for (const line of logBody(change).split('\n')) {
-    const m = line.match(
-      /\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*\s*—\s*graduado a spec `([^`]+)`/i,
-    );
-    if (m) yield m;
+    const event = parseLogEvent(line);
+    if (event?.type === 'graduation' && event.outcome === 'spec') yield event;
   }
 }
 
@@ -368,12 +457,16 @@ function checkLifecycleSequence(c, fm, err) {
     }
     if (!inLog) continue;
     const event = parseLogEvent(line);
-    if (!event) continue;
+    if (!event) {
+      if (/^- /.test(line)) err(c, `Log line ${i + 1}: invalid typed event`);
+      continue;
+    }
+    if (!['status', 'review', 'validation'].includes(event.type)) continue;
     if (!CANONICAL.has(event.from) || !CANONICAL.has(event.to)) return;
     events += 1;
     if (event.from !== current) {
       const legacyGap =
-        event.explicit &&
+        event.type === 'status' &&
         LEGACY_RESYNC_RANK[current] !== undefined &&
         LEGACY_RESYNC_RANK[event.from] !== undefined &&
         LEGACY_RESYNC_RANK[event.from] > LEGACY_RESYNC_RANK[current];

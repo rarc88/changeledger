@@ -72,21 +72,25 @@ antes de medir los contextos efectivos y sus márgenes.
 
 ## Plan
 
-- [x] Añadir `templates/contract/budgets.yml`, actualizar `contract-discovery.md` y cubrir su carga/forma en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1) — 2026-07-10T17:34:21Z
-- [x] Actualizar `templates/contract/budgets.yml` y `test/context.test.mjs` para aplicar target (diagnóstico) y hard cap (fallo) a los cinco contextos base; verify: `node --test test/context.test.mjs` (CR2, CR4) — 2026-07-10T17:34:21Z
-- [x] Actualizar `templates/contract/budgets.yml`, `test/context.test.mjs` y `test/agent-context.test.mjs` para medir overlays y capsules sin change seleccionado; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR3, CR4) — 2026-07-10T17:34:31Z
-- [x] Revisar `templates/contract/core.md` y ejecutar el gate completo para confirmar que detalle específico no entró al core; verify: `pnpm verify` (support) — 2026-07-10T17:34:31Z
+- [x] Añadir `templates/contract/budgets.yml`, actualizar `contract-discovery.md` y cubrir su carga/forma en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1)
+  - **Resolved:** `2026-07-10T17:34:21Z`
+- [x] Actualizar `templates/contract/budgets.yml` y `test/context.test.mjs` para aplicar target (diagnóstico) y hard cap (fallo) a los cinco contextos base; verify: `node --test test/context.test.mjs` (CR2, CR4)
+  - **Resolved:** `2026-07-10T17:34:21Z`
+- [x] Actualizar `templates/contract/budgets.yml`, `test/context.test.mjs` y `test/agent-context.test.mjs` para medir overlays y capsules sin change seleccionado; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-10T17:34:31Z`
+- [x] Revisar `templates/contract/core.md` y ejecutar el gate completo para confirmar que detalle específico no entró al core; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-10T17:34:31Z`
 
 ## Log
-- **2026-07-10T12:02:37Z** — status: draft → approved
-- **2026-07-10T17:31:29Z** — status: approved → in-progress
-- **2026-07-10T17:31:29Z** — owner → Roberto Ruiz (auto)
-- **2026-07-10T17:34:32Z** — status: in-progress → in-review
-- **2026-07-10T17:41:37Z** — review → in-progress (retry): La tabla no gobierna overlays/capsules ni aplica diagnóstico de target.
-- **2026-07-10T17:42:05Z** — status: in-progress → in-review
-- **2026-07-10T17:42:55Z** — review → in-progress (retry): Capsules no cargan tabla y los targets no emiten diagnóstico.
-- **2026-07-10T17:47:55Z** — status: in-progress → in-review
-- **2026-07-10T17:49:29Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T20:16:13Z** — validation → done (human accepted)
-- **2026-07-10T20:19:47Z** — graduado a spec `contract-discovery.md`
-- **2026-07-10T20:19:48Z** — archived
+- **2026-07-10T12:02:37Z** `[status]` draft → approved
+- **2026-07-10T17:31:29Z** `[status]` approved → in-progress
+- **2026-07-10T17:31:29Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-10T17:34:32Z** `[status]` in-progress → in-review
+- **2026-07-10T17:41:37Z** `[review]` in-review → in-progress (retry): La tabla no gobierna overlays/capsules ni aplica diagnóstico de target.
+- **2026-07-10T17:42:05Z** `[status]` in-progress → in-review
+- **2026-07-10T17:42:55Z** `[review]` in-review → in-progress (retry): Capsules no cargan tabla y los targets no emiten diagnóstico.
+- **2026-07-10T17:47:55Z** `[status]` in-progress → in-review
+- **2026-07-10T17:49:29Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T20:16:13Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T20:19:47Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-10T20:19:48Z** `[archive]` archived

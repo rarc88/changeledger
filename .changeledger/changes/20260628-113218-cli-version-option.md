@@ -51,21 +51,23 @@ no ofrece hoy la convención estándar `--version`/`-V`; responde `unknown optio
 
 ## Plan
 
-- [x] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-28T11:47:56Z
-- [x] Empaquetar e invocar `--version` desde una instalación aislada; verify: `pnpm test` pasa y el resultado coincide con el `package.json` del tarball (support) — 2026-06-28T11:47:57Z
+- [x] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-28T11:47:56Z`
+- [x] Empaquetar e invocar `--version` desde una instalación aislada; verify: `pnpm test` pasa y el resultado coincide con el `package.json` del tarball (support)
+  - **Resolved:** `2026-06-28T11:47:57Z`
 
 ## Log
-- **2026-06-28T11:41:15Z** — status: draft → approved
-- **2026-06-28T11:46:13Z** — status: approved → in-progress
-- **2026-06-28T11:46:13Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-28T11:47:57Z** — Implemented .version() via Commander; reads version from package.json at runtime with createRequire. Tests CR1-CR4 pass, pnpm verify clean.
-- **2026-06-28T11:48:13Z** — status: in-progress → in-review
-- **2026-06-28T11:50:49Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T11:50:50Z** — Review passed after tightening CR1/CR3 assertions to exact newline match.
-- **2026-06-28T12:38:33Z** — validation → in-progress (human rejected): Añadir el alias corto -v además de -V/--version, actualizar help y cubrir las tres variantes con tests.
-- **2026-06-28T12:44:39Z** — status: in-progress → in-review
-- **2026-06-28T12:44:39Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-28T12:44:39Z** — Corrección: -v añadido como alias; -V normalizado en pre-parse; tests actualizados.
-- **2026-06-28T17:13:41Z** — validation → done (human accepted)
-- **2026-06-28T17:15:04Z** — graduado a spec `architecture.md`
-- **2026-06-28T17:15:04Z** — archived
+- **2026-06-28T11:41:15Z** `[status]` draft → approved
+- **2026-06-28T11:46:13Z** `[status]` approved → in-progress
+- **2026-06-28T11:46:13Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-28T11:47:57Z** `[note]` Implemented .version() via Commander; reads version from package.json at runtime with createRequire. Tests CR1-CR4 pass, pnpm verify clean.
+- **2026-06-28T11:48:13Z** `[status]` in-progress → in-review
+- **2026-06-28T11:50:49Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T11:50:50Z** `[note]` Review passed after tightening CR1/CR3 assertions to exact newline match.
+- **2026-06-28T12:38:33Z** `[validation]` in-validation → in-progress (human rejected): Añadir el alias corto -v además de -V/--version, actualizar help y cubrir las tres variantes con tests.
+- **2026-06-28T12:44:39Z** `[status]` in-progress → in-review
+- **2026-06-28T12:44:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-28T12:44:39Z** `[note]` Corrección: -v añadido como alias; -V normalizado en pre-parse; tests actualizados.
+- **2026-06-28T17:13:41Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-28T17:15:04Z** `[graduation]` spec: `architecture.md`
+- **2026-06-28T17:15:04Z** `[archive]` archived

@@ -47,15 +47,18 @@ orden incorrecto o perdida de contenido renderizado.
 
 ## Plan
 
-- [x] Añadir tests en `test/change.test.mjs` para `src/change.mjs` con headings dentro de fences cerrados y abiertos (CR1, CR2, CR3) — 2026-06-16T16:32:51Z
-- [x] Actualizar `src/change.mjs` y cubrirlo con `test/change.test.mjs` para que `splitStages` lleve estado de fenced code blocks y solo detecte etapas fuera de fences (CR1, CR2, CR3) — 2026-06-16T16:32:54Z
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/change.mjs` con `test/change.test.mjs` (CR1, CR2, CR3) — 2026-06-16T16:32:58Z
+- [x] Añadir tests en `test/change.test.mjs` para `src/change.mjs` con headings dentro de fences cerrados y abiertos (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:32:51Z`
+- [x] Actualizar `src/change.mjs` y cubrirlo con `test/change.test.mjs` para que `splitStages` lleve estado de fenced code blocks y solo detecte etapas fuera de fences (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:32:54Z`
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/change.mjs` con `test/change.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:32:58Z`
 
 ## Log
-- **2026-06-16T16:26:19Z** — status: draft → approved
-- **2026-06-16T16:32:23Z** — status: approved → in-progress
-- **2026-06-16T16:32:23Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T16:33:01Z** — status: in-progress → in-review
-- **2026-06-16T16:43:29Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:44:55Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T16:26:19Z** `[status]` draft → approved
+- **2026-06-16T16:32:23Z** `[status]` approved → in-progress
+- **2026-06-16T16:32:23Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T16:33:01Z** `[status]` in-progress → in-review
+- **2026-06-16T16:43:29Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:55Z** `[graduation]` spec: `validation.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

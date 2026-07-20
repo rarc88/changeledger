@@ -1,12 +1,10 @@
 import { cssIdent } from './security.js';
 import { html, nothing, svg } from './templates.js';
-import { splitGraduationHistory } from './view-parts.js';
 
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-// Plain-text excerpt for spec cards: strips the leading graduation-history
-// blockquote, picks the first prose paragraph (skipping headings, remaining
-// blockquotes and code fences) and removes inline Markdown syntax. The result
+// Plain-text excerpt for spec cards: picks the first prose paragraph (skipping
+// headings, blockquotes and code fences) and removes inline Markdown syntax. The result
 // is interpolated as text (lit-html), never as HTML.
 function firstProseParagraph(text) {
   const paragraphs = String(text ?? '').split(/\n\s*\n/);
@@ -34,8 +32,7 @@ function stripMarkdown(text) {
 }
 
 export function specExcerpt(body, maxLen = 160) {
-  const { after } = splitGraduationHistory(body);
-  return clip(stripMarkdown(firstProseParagraph(after)), maxLen);
+  return clip(stripMarkdown(firstProseParagraph(body)), maxLen);
 }
 
 // Most recently updated truth first.
@@ -99,6 +96,26 @@ export function graphSvg(changes) {
       return svg`<path class="edge" d=${`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />`;
     });
 
+  const relationKeys = new Set();
+  const relationEdges = changes.flatMap((change) =>
+    (change.related_to || []).flatMap((raw) => {
+      const related = String(raw);
+      if (!pos.has(related)) return [];
+      const key = [String(change.id), related].sort().join('::');
+      if (relationKeys.has(key)) return [];
+      relationKeys.add(key);
+      const from = pos.get(String(change.id));
+      const to = pos.get(related);
+      return svg`<line
+        class="relation-edge"
+        x1=${from.x + W / 2}
+        y1=${from.y + H / 2}
+        x2=${to.x + W / 2}
+        y2=${to.y + H / 2}
+      />`;
+    }),
+  );
+
   const nodes = changes.map((c) => {
     const p = pos.get(String(c.id));
     return svg`<g class="node" data-id=${c.id} transform=${`translate(${p.x},${p.y})`}>
@@ -115,7 +132,7 @@ export function graphSvg(changes) {
           <path d="M0,0 L7,3 L0,6 Z" fill="var(--muted)"></path>
         </marker>
       </defs>
-      ${edges}${nodes}
+      ${edges}${relationEdges}${nodes}
     </svg>`;
 }
 

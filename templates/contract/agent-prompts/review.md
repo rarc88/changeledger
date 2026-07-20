@@ -12,9 +12,9 @@ part of this to another agent; execute it yourself.
 Why this is delegated: {{reason}} (independence is a correctness requirement, not
 an optimization — a fresh reviewer that does not trust the implementer's summary).
 
-Your prompt identifies you as a ChangeLedger delegate. As your only ChangeLedger
-load, run `changeledger agent-context review {{change_id}}` and read it through
-its END sentinel; do not load the orchestrator core. Use the inspection
+For this delegated task, do not run the bootstrap's default `changeledger
+context`. As your only ChangeLedger load, run `changeledger agent-context review
+{{change_id}}` and read it through its END sentinel. Use the inspection
 checklist that agent-context gives you.
 
 Change under review: {{change_id}}.

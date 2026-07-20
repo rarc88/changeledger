@@ -1,7 +1,7 @@
 # ChangeLedger — Core Contract
 
-Documents under `.changeledger/` are the source of truth. Code is their
-reflection. Work is planned and documented before code is written.
+Documents under `.changeledger/` are ChangeLedger's persistent truth. Work using
+ChangeLedger is documented before code; work performed without the CLI may diverge.
 
 ## Read complete context before acting
 
@@ -29,8 +29,10 @@ complete output, and the very first capture of a session is always full.
    decision may come from the viewer or an explicit active conversation message
    identifying the change and verdict; praise, “continue”, or agent inference is
    not a decision. The agent executes but never makes human decisions.
-3. Capture every authorized change in `.changeledger/changes/`. The document
-   wins when code and documentation disagree.
+3. Capture every authorized change in `.changeledger/changes/`. Any pre-existing
+   divergence between specs and code must be reported to the human, never
+   reconciled by inference. Wait if it affects the current task; if unrelated,
+   report it without expanding scope. An approved change governs code in scope.
 4. Never implement a `draft`. After approval, implement one change at a time on
    a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.
@@ -120,8 +122,8 @@ context already read; it never repeats it.
 Prefer structured CLI queries before scanning files:
 
 - `changeledger list --status approved`: find approved changes ready to implement.
-- `changeledger list --pending graduation`: find accepted changes whose graduation decision is unresolved.
-- `changeledger list --pending archive`: find graduated or skipped changes ready to archive.
+- `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
+- `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.
