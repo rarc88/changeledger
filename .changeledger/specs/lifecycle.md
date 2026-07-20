@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-16T13:39:27Z
+updated: 2026-07-18T12:33:08Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -248,12 +248,15 @@ mismo check scoped del change `done`. Si existen tareas incompletas o errores de
 secuencia/formato, fallan antes de crear una spec, refrescar `updated`, añadir el
 marker de graduación o fijar `reviewed: true`.
 
-`changeledger list --pending archive` previsualiza los changes `done`,
-`reviewed: true`, no archivados y con resolución de graduación en `## Log`
-(`graduado a spec` o `graduation skipped`). `changeledger archive --graduated`
-archiva exactamente ese conjunto: escribe `archived: true` más una entrada
-`archived` en el Log; no toca estados activos, bloqueados, descartados, changes
-sin reviewed ni changes ya archivados.
+`changeledger list --pending archive [--owner NAME|--unowned]` previsualiza los
+changes `done`, `reviewed: true`, no archivados y con resolución de graduación en
+`## Log` (`graduado a spec` o `graduation skipped`). `changeledger archive
+--graduated` acepta el mismo filtro opcional y archiva exactamente el conjunto
+previsualizado; sin filtro conserva el alcance global. Escribe `archived: true`
+más una entrada `archived` en el Log y no toca estados activos, bloqueados,
+descartados, changes sin reviewed ni changes ya archivados. Una graduación
+múltiple se acota con `list --pending graduation --owner NAME`, pero cada id se
+resuelve individualmente con `--new`, `--into` o `--skip`.
 
 La intención es siempre explícita y los modos `--new`, `--into` y `--skip` son
 mutuamente excluyentes. Un slug posicional sin modo falla sin

@@ -511,7 +511,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260718-111457: the Log-only graduation rule is replaced by the
     // bidirectional Log + graduated_from invariant and its explicit migration;
     // the closure modes, reviewed semantics and commit recipe are preserved.
-    'close.md': '6bb4d85138ac861c03ef0d0c7471b506dd51e2e8ac2ab7a30a50083a1743f478',
+    // 20260718-105457: the queries gain optional owner scoping; graduation stays
+    // individual and archive preview/action equivalence is preserved per filter.
+    'close.md': '10960f9878b3011e6f463c7509e6fe2a86382319ac4e36fe3b9c011d5bd288a7',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -548,7 +550,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // the ownership boundary is preserved and strengthened against inference.
     // 20260716-131649: operational discovery replaces the graduate query with
     // canonical list queries for graduation and archive candidates.
-    'core.md': '0901810016a7d69dc083073de9677a8ef61bf35d184733f95a5341e422826e0b',
+    // 20260718-105457: those queries add optional owner scoping while keeping
+    // per-change graduation and matching filtered archive semantics explicit.
+    'core.md': '14ba2bdaf590565378f44a54b15e3b4aff6b44ad9b8d1162948b17068dcf7eb2',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
