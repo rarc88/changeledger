@@ -18,7 +18,7 @@ permite que **el humano** apruebe un change `draft` arrastrando su card y acepte
 rechace con motivo un change `in-validation` desde su detalle, además de reabrir
 uno provisional. El agente puede rechazar o reabrir también desde el CLI; sólo
 la aprobación y aceptación permanecen humanas. La UI rinde board (kanban), table, graph
-(`depends_on`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
+(`depends_on` y `related_to`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
 multiselección; owner incluye `Unassigned` como booleano independiente de los
 nombres para no colisionar con un owner real. El cliente está dividido en módulos
@@ -47,10 +47,18 @@ verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
 badge delineado distinto del type sólido. Los details presentan la validación
 humana como una única acción pendiente (controles deshabilitados durante el
 request y cierre al éxito), usan controles de cierre consistentes y convierten
-cada Mermaid en un lightbox navegable por teclado con retorno de foco. En specs,
-el frontmatter estructurado `graduated_from` se presenta como un historial
-colapsable cuyos ids abren el change correspondiente, sin reinterpretar el
-cuerpo Markdown ni relajar la sanitización.
+cada Mermaid en un lightbox navegable por teclado con retorno de foco.
+Dependencias y relaciones se presentan en componentes expandibles separados;
+cada referencia local muestra id, título, tipo, estado y owner cuando existe, y
+la fila completa abre el change. Los backlinks de `related_to` se derivan sin
+duplicar la relación en ambos documentos. Las referencias cross-proyecto
+conservan la navegación global y permanecen visibles como externas si no pueden
+resolverse. El grafo dibuja dependencias como aristas dirigidas y relaciones
+como aristas no dirigidas discontinuas. En specs, el frontmatter estructurado
+`graduated_from` reutiliza el mismo componente como historial colapsable: los
+ids resolubles muestran metadatos y abren el change; los ausentes siguen visibles
+como `unavailable`, sin reinterpretar el cuerpo Markdown ni relajar la
+sanitización.
 
 La pestaña **Specs** dispone las cards en un grid responsive a ancho completo
 (al menos 3 columnas desde 1280 px, una columna bajo 680 px), ordenadas por

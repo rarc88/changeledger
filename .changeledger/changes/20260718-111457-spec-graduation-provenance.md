@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-18T11:14:57Z
 depends_on: []
+archived: true
 reviewed: true
 owner: Roberto Ruiz
 
@@ -142,3 +143,4 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 - **2026-07-18T12:34:50Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-18T12:35:18Z** `[graduation]` spec: `data-model.md`
 - **2026-07-18T12:35:18Z** `[graduation]` spec: `viewer.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived

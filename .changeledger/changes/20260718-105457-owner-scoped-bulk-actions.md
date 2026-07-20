@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-18T10:54:57Z
 depends_on: []
+archived: true
 reviewed: true
 owner: Roberto Ruiz
 
@@ -144,3 +145,4 @@ Alternativas descartadas:
 - **2026-07-18T12:29:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-18T12:31:55Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-18T12:33:08Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived

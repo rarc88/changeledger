@@ -2,9 +2,11 @@
 id: "20260718-105456"
 title: Relacionar changes sin bloquear su ejecución
 type: feature
-status: in-validation
+status: done
 created: 2026-07-18T10:54:56Z
 depends_on: ["20260718-111457"]
+archived: true
+reviewed: true
 related_to: ["20260619-171002"]
 owner: Roberto Ruiz
 
@@ -234,3 +236,6 @@ Alternativas descartadas:
 - **2026-07-20T20:31:24Z** `[note]` Corrección completa: check advierte referencias locales activas sin vínculo estructurado y el contrato exige clasificarlas sin depender de la fuente de descubrimiento; pnpm verify pasó con 715/715 tests y 202 changes válidos.
 - **2026-07-20T20:31:24Z** `[status]` in-progress → in-review
 - **2026-07-20T20:34:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T22:23:44Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-20T22:30:14Z** `[graduation]` spec: `data-model.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived
