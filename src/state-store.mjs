@@ -1,6 +1,6 @@
 import { parseChange } from './change.mjs';
 import { checkRepo } from './check.mjs';
-import { isValidBranchName, objectRun } from './git.mjs';
+import { isValidBranchName, objectRun, objectRunBuffer } from './git.mjs';
 import { parseLogEvent } from './lifecycle.mjs';
 import { parseYaml, serializeScalar } from './yaml.mjs';
 
@@ -8,8 +8,6 @@ export const STATE_ROOT = '.changeledger-state';
 export const STATE_MANIFEST = `${STATE_ROOT}/manifest.yml`;
 export const STATE_CHANGES_DIR = `${STATE_ROOT}/changes`;
 export const STATE_SCHEMA_VERSION = 1;
-
-const ZERO_OID = '0'.repeat(40);
 
 export class StateConflictError extends Error {
   constructor(id, expectedHead, currentHead) {
@@ -52,12 +50,51 @@ function confirmedRef(branch) {
   return `refs/changeledger/confirmed/${branch}`;
 }
 
+function zeroFor(oid) {
+  return '0'.repeat(oid.length);
+}
+
+function updateLocalStateWithPending(repoRoot, branch, oldHead, newHead, gitEnv) {
+  const ref = refName(branch);
+  const pending = pendingRef(branch);
+  const confirmed = confirmedRef(branch);
+  const oldPending = resolveHead(repoRoot, pending, gitEnv) ?? zeroFor(newHead);
+  const oldConfirmed = resolveHead(repoRoot, confirmed, gitEnv);
+  const tracked = resolveHead(repoRoot, `refs/remotes/origin/${branch}`, gitEnv);
+  if (/^0+$/.test(oldPending) && !oldConfirmed && tracked && tracked !== oldHead) {
+    throw new Error(
+      `local state head ${oldHead} has no confirmed global base and does not match the observed remote head ${tracked}`,
+    );
+  }
+  const commands = [
+    'start',
+    `update ${ref} ${newHead} ${oldHead}`,
+    `update ${pending} ${newHead} ${oldPending}`,
+  ];
+  if (!oldConfirmed && tracked === oldHead) {
+    commands.push(`update ${confirmed} ${oldHead} ${zeroFor(newHead)}`);
+  }
+  commands.push('prepare', 'commit', '');
+  run(repoRoot, ['update-ref', '--stdin'], gitEnv, commands.join('\n'));
+}
+
 function remoteAvailable(repoRoot, gitEnv) {
   try {
     run(repoRoot, ['remote', 'get-url', 'origin'], gitEnv);
     return true;
   } catch {
     return false;
+  }
+}
+
+function assertRemoteNotRewound(repoRoot, knownHead, remoteHead, gitEnv) {
+  if (!knownHead || !remoteHead || knownHead === remoteHead) return;
+  try {
+    run(repoRoot, ['merge-base', '--is-ancestor', knownHead, remoteHead], gitEnv);
+  } catch {
+    throw new Error(
+      `remote state head ${remoteHead} does not descend from previously observed remote head ${knownHead}`,
+    );
   }
 }
 
@@ -85,10 +122,12 @@ export function refreshStateStoreConfirmation(repoRoot, branch, { gitEnv = {} } 
   }
   const ref = refName(branch);
   const fetched = `refs/changeledger/fetched/${branch}`;
+  const knownRemote = resolveHead(repoRoot, `refs/remotes/origin/${branch}`, gitEnv);
   run(repoRoot, ['fetch', 'origin', `+${ref}:${fetched}`], gitEnv);
   const head = resolveHead(repoRoot, ref, gitEnv);
   const confirmedHead = resolveHead(repoRoot, confirmedRef(branch), gitEnv);
   const remoteHead = resolveHead(repoRoot, fetched, gitEnv);
+  assertRemoteNotRewound(repoRoot, knownRemote, remoteHead, gitEnv);
   if (confirmedHead && remoteHead) {
     try {
       run(repoRoot, ['merge-base', '--is-ancestor', confirmedHead, remoteHead], gitEnv);
@@ -107,16 +146,42 @@ export function refreshStateStoreConfirmation(repoRoot, branch, { gitEnv = {} } 
   };
 }
 
-export function publishStateStore(repoRoot, branch, { gitEnv = {} } = {}) {
+export function publishStateStore(repoRoot, branch, { gitEnv = {}, allowUnmarked = false } = {}) {
   const ref = refName(branch);
   const head = resolveHead(repoRoot, ref, gitEnv);
   if (!head) throw new Error(`state branch "${branch}" does not exist`);
   if (!remoteAvailable(repoRoot, gitEnv)) {
-    run(repoRoot, ['update-ref', pendingRef(branch), head], gitEnv);
-    return { head, confirmed: false, pending: true, remote: 'unconfigured' };
+    const pending = resolveHead(repoRoot, pendingRef(branch), gitEnv) === head;
+    return { head, confirmed: false, pending, remote: 'unconfigured' };
   }
   const knownRemote = resolveHead(repoRoot, `refs/remotes/origin/${branch}`, gitEnv);
+  const confirmedHead = resolveHead(repoRoot, confirmedRef(branch), gitEnv);
+  let pendingHead = resolveHead(repoRoot, pendingRef(branch), gitEnv);
+  if (allowUnmarked && pendingHead !== head) {
+    run(repoRoot, ['update-ref', pendingRef(branch), head], gitEnv);
+    pendingHead = head;
+  }
+  let remoteHead;
   try {
+    const output = run(repoRoot, ['ls-remote', '--heads', 'origin', ref], gitEnv);
+    remoteHead = output ? output.split(/\s+/)[0] : undefined;
+    const initialCreation = !remoteHead && !knownRemote && !confirmedHead;
+    if (pendingHead !== head && !initialCreation) {
+      if (remoteHead === head) {
+        run(repoRoot, ['update-ref', confirmedRef(branch), head], gitEnv);
+        return { head, confirmed: true, pending: false, remote: 'origin' };
+      }
+      throw new Error(
+        `state head ${head} has no explicit pending publication evidence; refusing to publish`,
+      );
+    }
+    if (!remoteHead && (knownRemote || confirmedHead)) {
+      throw new Error('remote state branch disappeared; refusing to recreate it');
+    }
+    for (const observed of [confirmedHead, knownRemote].filter(Boolean)) {
+      if (!remoteHead) break;
+      assertRemoteNotRewound(repoRoot, observed, remoteHead, gitEnv);
+    }
     run(repoRoot, ['push', 'origin', `${ref}:${ref}`], gitEnv);
     run(repoRoot, ['update-ref', confirmedRef(branch), head], gitEnv);
     try {
@@ -126,16 +191,22 @@ export function publishStateStore(repoRoot, branch, { gitEnv = {} } = {}) {
     }
     return { head, confirmed: true, pending: false, remote: 'origin' };
   } catch (error) {
-    if (knownRemote) {
+    if (remoteHead && knownRemote) {
       try {
-        const common = run(repoRoot, ['merge-base', head, knownRemote], gitEnv);
-        run(repoRoot, ['update-ref', confirmedRef(branch), common], gitEnv);
+        run(repoRoot, ['merge-base', '--is-ancestor', knownRemote, remoteHead], gitEnv);
+        const common = run(repoRoot, ['merge-base', head, remoteHead], gitEnv);
+        if (!confirmedHead) run(repoRoot, ['update-ref', confirmedRef(branch), common], gitEnv);
       } catch {
         // An unrelated remote is still a pending conflict; sync will fail closed.
       }
     }
-    run(repoRoot, ['update-ref', pendingRef(branch), head], gitEnv);
-    return { head, confirmed: false, pending: true, remote: 'origin', error: error.message };
+    return {
+      head,
+      confirmed: false,
+      pending: pendingHead === head,
+      remote: 'origin',
+      error: error.message,
+    };
   }
 }
 
@@ -210,12 +281,43 @@ function createCommit(repoRoot, files, { parent, message, gitEnv }) {
 }
 
 function readFilesAt(repoRoot, revision, gitEnv) {
-  const names = run(repoRoot, ['ls-tree', '-r', '--name-only', revision, '--', STATE_ROOT], gitEnv)
-    .split('\n')
-    .filter(Boolean);
-  return new Map(
-    names.map((name) => [name, runRaw(repoRoot, ['show', `${revision}:${name}`], gitEnv)]),
-  );
+  const tree = objectRunBuffer(['ls-tree', '-r', '-z', revision, '--', STATE_ROOT], repoRoot, {
+    env: gitEnv,
+  });
+  const entries = tree
+    .toString('utf8')
+    .split('\0')
+    .filter(Boolean)
+    .map((record) => {
+      const match = record.match(/^\d+ blob ([0-9a-f]{40,64})\t(.+)$/s);
+      if (!match) throw new Error(`invalid state tree entry: ${record}`);
+      return { oid: match[1], name: match[2] };
+    });
+  if (!entries.length) return new Map();
+  const output = objectRunBuffer(['cat-file', '--batch'], repoRoot, {
+    env: gitEnv,
+    input: `${entries.map(({ oid }) => oid).join('\n')}\n`,
+  });
+  const files = new Map();
+  let offset = 0;
+  for (const entry of entries) {
+    const newline = output.indexOf(0x0a, offset);
+    if (newline < 0) throw new Error(`truncated Git object header for ${entry.name}`);
+    const header = output.subarray(offset, newline).toString('ascii');
+    const match = header.match(/^([0-9a-f]{40,64}) blob (\d+)$/);
+    if (!match || match[1] !== entry.oid) {
+      throw new Error(`invalid Git object response for ${entry.name}: ${header}`);
+    }
+    const size = Number(match[2]);
+    const start = newline + 1;
+    const end = start + size;
+    if (end >= output.length || output[end] !== 0x0a) {
+      throw new Error(`truncated Git object content for ${entry.name}`);
+    }
+    files.set(entry.name, output.subarray(start, end).toString('utf8'));
+    offset = end + 1;
+  }
+  return files;
 }
 
 function parseStore(repoRoot, head, gitEnv, { allowFutureRead = false } = {}) {
@@ -268,6 +370,11 @@ export function readStateStore(
       Boolean,
     );
     const pendingAtHead = pending.pending && pending.head === head;
+    if (!pendingAtHead && !confirmedHeads.length && remoteHeads.some((remote) => remote !== head)) {
+      throw new Error(
+        `local state head ${head} differs from the observed remote head ${remoteHeads[0]} with no explicit pending state`,
+      );
+    }
     if (pendingAtHead && remoteHeads.length && !confirmedHeads.length) {
       throw new Error(
         `pending state has no confirmed global base for known remote head ${remoteHeads[0]}`,
@@ -329,7 +436,7 @@ export function initializeStateStore({
   const message = ['ChangeLedger state baseline', '', ...trailers].join('\n').trim();
   const head = createCommit(repoRoot, files, { message, gitEnv });
   try {
-    run(repoRoot, ['update-ref', ref, head, ZERO_OID], gitEnv);
+    run(repoRoot, ['update-ref', ref, head, zeroFor(head)], gitEnv);
   } catch (error) {
     throw new Error(`state branch "${branch}" changed during initialization: ${error.message}`);
   }
@@ -386,7 +493,7 @@ export function addStateChange({
     ].join('\n');
     const head = createCommit(repoRoot, files, { parent: currentHead, message, gitEnv });
     try {
-      run(repoRoot, ['update-ref', ref, head, currentHead], gitEnv);
+      updateLocalStateWithPending(repoRoot, branch, currentHead, head, gitEnv);
       const publication = publishStateStore(repoRoot, branch, { gitEnv });
       return {
         head,
@@ -394,7 +501,8 @@ export function addStateChange({
         retried: currentHead !== expectedHead,
         ...publication,
       };
-    } catch {
+    } catch (error) {
+      if (resolveHead(repoRoot, ref, gitEnv) === currentHead) throw error;
       // Retry only if another writer added a different id.
     }
   }
@@ -440,7 +548,7 @@ export function mutateStateChange({
     ].join('\n');
     const head = createCommit(repoRoot, files, { parent: currentHead, message, gitEnv });
     try {
-      run(repoRoot, ['update-ref', ref, head, currentHead], gitEnv);
+      updateLocalStateWithPending(repoRoot, branch, currentHead, head, gitEnv);
       const publication = publishStateStore(repoRoot, branch, { gitEnv });
       return {
         head,
@@ -448,7 +556,8 @@ export function mutateStateChange({
         retried: currentHead !== expectedHead,
         ...publication,
       };
-    } catch {
+    } catch (error) {
+      if (resolveHead(repoRoot, ref, gitEnv) === currentHead) throw error;
       // Another local process won the ref race. Re-read and apply the same
       // document-level conflict rule before trying again.
     }
@@ -482,12 +591,15 @@ export function syncStateStore(repoRoot, branch, { gitEnv = {} } = {}) {
   if (!beforeFetch) throw new Error(`state branch "${branch}" does not exist`);
   parseStore(repoRoot, beforeFetch, gitEnv);
   const fetched = `refs/changeledger/fetched/${branch}`;
-  run(repoRoot, ['fetch', 'origin', `${ref}:${fetched}`], gitEnv);
+  const knownRemote = resolveHead(repoRoot, `refs/remotes/origin/${branch}`, gitEnv);
+  run(repoRoot, ['fetch', 'origin', `+${ref}:${fetched}`], gitEnv);
   const localHead = resolveHead(repoRoot, ref, gitEnv);
   const remoteHead = resolveHead(repoRoot, fetched, gitEnv);
   if (!localHead || !remoteHead) throw new Error(`unable to resolve local and remote state heads`);
   parseStore(repoRoot, remoteHead, gitEnv);
+  assertRemoteNotRewound(repoRoot, knownRemote, remoteHead, gitEnv);
   const confirmedHead = resolveHead(repoRoot, confirmedRef(branch), gitEnv);
+  const pending = statePending(repoRoot, branch, { gitEnv });
   if (confirmedHead) {
     try {
       run(repoRoot, ['merge-base', '--is-ancestor', confirmedHead, remoteHead], gitEnv);
@@ -504,9 +616,25 @@ export function syncStateStore(repoRoot, branch, { gitEnv = {} } = {}) {
   }
   try {
     run(repoRoot, ['merge-base', '--is-ancestor', remoteHead, localHead], gitEnv);
+    if (!pending.pending || pending.head !== localHead) {
+      throw new Error(
+        `local state head ${localHead} is ahead of remote ${remoteHead} with no explicit pending state`,
+      );
+    }
+    if (!confirmedHead) {
+      throw new Error(
+        `pending state head ${localHead} has no confirmed global base; refusing to publish`,
+      );
+    }
     return { ...publishStateStore(repoRoot, branch, { gitEnv }), replayed: 0 };
-  } catch {
+  } catch (error) {
+    if (/no explicit pending state|no confirmed global base/.test(error.message)) throw error;
     // The remote advanced independently; replay local state commits below.
+  }
+  if (!pending.pending || pending.head !== localHead || !confirmedHead) {
+    throw new Error(
+      `divergent local state head ${localHead} requires explicit pending state and a confirmed global base`,
+    );
   }
   const base = run(repoRoot, ['merge-base', localHead, remoteHead], gitEnv);
   const commits = run(repoRoot, ['rev-list', '--reverse', `${base}..${localHead}`], gitEnv)
@@ -542,7 +670,7 @@ export function syncStateStore(repoRoot, branch, { gitEnv = {} } = {}) {
     priorLocal = commit;
   }
   validateStateRange(repoRoot, { oldHead: remoteHead, newHead: target, gitEnv });
-  run(repoRoot, ['update-ref', ref, target, localHead], gitEnv);
+  updateLocalStateWithPending(repoRoot, branch, localHead, target, gitEnv);
   const publication = publishStateStore(repoRoot, branch, { gitEnv });
   return { ...publication, replayed: commits.length };
 }
@@ -694,7 +822,19 @@ function validateBaselineOrigins(repoRoot, commit, store, message, gitEnv) {
         `state baseline ${commit} has invalid Change-Origin objects for #${origin.id}`,
       );
     }
-    const originHead = resolveHead(repoRoot, origin.ref, gitEnv);
+    let originHead = resolveHead(repoRoot, origin.ref, gitEnv);
+    if (!originHead && origin.ref.startsWith('refs/heads/')) {
+      const branch = origin.ref.slice('refs/heads/'.length);
+      const remote = runRaw(
+        repoRoot,
+        ['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes'],
+        gitEnv,
+      )
+        .split('\n')
+        .map((line) => line.trim().split(' '))
+        .find(([ref]) => ref?.endsWith(`/${branch}`));
+      originHead = remote?.[1];
+    }
     if (!originHead) {
       throw new Error(
         `state baseline ${commit} Change-Origin ref ${origin.ref} does not exist for #${origin.id}`,

@@ -11,7 +11,7 @@ import {
 import { objectRun } from './git.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
-import { readStateStore } from './state-store.mjs';
+import { readStateStore, STATE_MANIFEST } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 function configAt(repoRoot, ref) {
@@ -75,23 +75,38 @@ function readonlyState(state, remoteOnly) {
 
 function discoverCanonicalState(repoRoot, localConfig) {
   const localState = stateConfig(localConfig);
-  const candidates = [];
-  if (localState) candidates.push(stateCandidate(`refs/heads/${localState.branch}`));
+  const refs = [];
+  if (localState) refs.push(`refs/heads/${localState.branch}`);
   try {
-    const refs = objectRun(
+    for (const ref of objectRun(
       ['for-each-ref', '--format=%(refname)', 'refs/heads', 'refs/remotes'],
       repoRoot,
     )
       .split('\n')
-      .filter(Boolean);
-    for (const ref of refs) {
-      const candidate = stateCandidate(ref);
-      if (candidate && !candidates.some((item) => item.sourceRef === candidate.sourceRef)) {
-        candidates.push(candidate);
-      }
+      .filter(Boolean)) {
+      if (!refs.includes(ref)) refs.push(ref);
     }
   } catch {
     // A non-Git legacy repository remains supported.
+  }
+
+  const candidates = [];
+  if (refs.length) {
+    try {
+      const queries = refs.map((ref) => `${ref}:${STATE_MANIFEST}`);
+      const answers = objectRun(['cat-file', '--batch-check'], repoRoot, {
+        input: `${queries.join('\n')}\n`,
+      })
+        .trimEnd()
+        .split('\n');
+      for (let index = 0; index < refs.length; index += 1) {
+        if (answers[index]?.endsWith(' missing')) continue;
+        const candidate = stateCandidate(refs[index]);
+        if (candidate) candidates.push(candidate);
+      }
+    } catch {
+      // Malformed or unavailable refs cannot establish global authority.
+    }
   }
 
   for (const candidate of candidates) {

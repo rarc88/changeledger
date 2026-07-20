@@ -39,6 +39,30 @@ test('loadRepo walks up from a subdirectory', () => {
   assert.equal(repo.changes.length, 1);
 });
 
+test('124231 CR9: legacy discovery stays bounded with hundreds of unrelated refs', () => {
+  const root = fixture();
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Repo Test',
+    GIT_AUTHOR_EMAIL: 'repo@example.com',
+    GIT_COMMITTER_NAME: 'Repo Test',
+    GIT_COMMITTER_EMAIL: 'repo@example.com',
+  };
+  const git = (args, input) =>
+    execFileSync('git', args, { cwd: root, env, input, encoding: 'utf8' }).trim();
+  git(['init', '-q', '-b', 'dev']);
+  git(['add', '.changeledger']);
+  git(['commit', '-qm', 'legacy']);
+  const head = git(['rev-parse', 'HEAD']);
+  git(
+    ['update-ref', '--stdin'],
+    `${Array.from({ length: 500 }, (_, index) => `create refs/heads/unrelated-${index} ${head}`).join('\n')}\n`,
+  );
+  const started = performance.now();
+  assert.equal(loadRepo(root).changes.length, 1);
+  assert.ok(performance.now() - started < 3000, 'legacy discovery exceeded 3 seconds');
+});
+
 test('124231 CR2/CR9: active state loads changes from the configured ref', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-repo-'));
   const env = {

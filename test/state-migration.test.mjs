@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { previewStateMigration } from '../src/state-migration.mjs';
+import { initializeStateStore, validateStateRange } from '../src/state-store.mjs';
 
 const ENV = {
   ...process.env,
@@ -150,6 +151,39 @@ test('124231 CR14/CR15: preview records one logical legacy branch and deduplicat
   assert.deepEqual(result.legacyBranches, {
     '20260720-120000': 'work/20260720-120000',
   });
+});
+
+test('124231 CR10: remote-tracking provenance is portable to a bare receive hook', () => {
+  const root = repo();
+  git(root, ['update-ref', 'refs/remotes/origin/dev', 'refs/heads/dev']);
+  const preview = previewStateMigration(root, {
+    refs: ['dev', 'refs/remotes/origin/dev'],
+    gitEnv: ENV,
+  });
+  assert.deepEqual(preview.conflicts, []);
+  assert.equal(preview.origins.length, 1);
+  assert.equal(preview.origins[0].ref, 'refs/heads/dev');
+  const state = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: preview.changes,
+    origins: preview.origins,
+    gitEnv: ENV,
+  });
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-origin-bare-'));
+  git(bare, ['init', '--bare', '-q']);
+  git(root, ['push', '-q', bare, 'dev:refs/heads/dev']);
+  git(root, ['push', '-q', bare, `${state.head}:refs/heads/changeledger/state`]);
+  assert.doesNotThrow(() =>
+    validateStateRange(bare, {
+      oldHead: '0'.repeat(state.head.length),
+      newHead: state.head,
+      humanOverride: true,
+      gitEnv: ENV,
+    }),
+  );
 });
 
 test('124231 CR15: a ref merely containing the id is not an implementation branch', () => {

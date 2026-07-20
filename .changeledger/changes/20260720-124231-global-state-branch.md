@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: in-validation
+status: in-progress
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -484,3 +484,6 @@ legacy, porque ya podrían estar obsoletas.
 - **2026-07-20T18:27:57Z** `[note]` Corregida la validación de procedencia para baselines raíz vacíos: solo se permite ausencia de Change-Origin; los trailers presentes se validan y los huérfanos se rechazan.
 - **2026-07-20T18:27:59Z** `[status]` in-progress → in-review
 - **2026-07-20T18:35:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T19:23:02Z** `[validation]` in-validation → in-progress (human rejected via conversation): La auditoría de release confirmó que el candidato no es usable: regresión severa al descubrir refs en repositorios legacy, rewind remoto republished por clones sin confirmation ref, doctor con falsos positivos, provenance no portable al bare hook, ausencia de cutover fuerte completo y fallo en Git SHA-256.
+- **2026-07-20T19:39:33Z** `[note]` Correction after human rejection: batched state/ref reads; SHA-256 initialization; fresh-clone remote rewind rejection; complete doctor validation; portable bare-hook provenance; explicit protected/advisory cutover; receive-hook enforcement against legacy double authority with exact pre-advance rollback; regression tests and documentation. Verified with Biome, focused 63-test audit suite, full node test suite using isolated npm cache, and changeledger check (203 valid). Awaiting human confirmation before review or commit.
+- **2026-07-20T20:13:29Z** `[note]` Second audit correction: publication now requires exact pending/confirmed ancestry and fails closed after fetched rewinds or remote deletion; provider-neutral activation no longer claims unverifiable branch protection; cutover revalidates pre-published state and requires the canonical marker; rollback validates exact paths and bytes. Verification: 115 focused tests passed, full suite 787/788 in sandbox with only listen EPERM, isolated listener test passed outside sandbox, pnpm lint and changeledger check passed.

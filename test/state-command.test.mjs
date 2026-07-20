@@ -8,10 +8,12 @@ import { fileURLToPath } from 'node:url';
 import {
   abortState,
   activateState,
+  doctorState,
   initState,
   previewState,
   publishState,
   recoverState,
+  validateReceive,
 } from '../src/commands/state.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { mutateStateChange, readStateStore } from '../src/state-store.mjs';
@@ -147,6 +149,193 @@ test('124231 CR16/CR19: activate records ref and baseline together and removes o
   assert.equal(
     fs.readFileSync(path.join(dir, '.changeledger', 'specs', 'truth.md'), 'utf8'),
     'durable truth\n',
+  );
+});
+
+test('124231 CR16: provider-neutral activation never claims unverifiable remote protection', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir);
+  assert.throws(() => activateState({ remoteProtected: true }, dir, { gitEnv: ENV }), /--advisory/);
+  const result = activateState(
+    { advisoryReason: 'provider protection is externally managed' },
+    dir,
+    {
+      gitEnv: ENV,
+    },
+  );
+  assert.equal(result.advisory, true);
+  assert.match(
+    fs.readFileSync(path.join(dir, '.changeledger', 'changes', 'STATE_MOVED'), 'utf8'),
+    /Advisory cutover: provider protection is externally managed/,
+  );
+  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'unverified');
+});
+
+test('124231 CR11: doctor validates the complete inactive candidate layout', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  git(dir, ['switch', '-q', 'changeledger/state']);
+  fs.writeFileSync(path.join(dir, 'unexpected.txt'), 'invalid\n');
+  git(dir, ['add', 'unexpected.txt']);
+  git(dir, ['commit', '-qm', 'invalid candidate']);
+  git(dir, ['switch', '-q', 'dev']);
+  assert.throws(
+    () => doctorState({ branch: 'changeledger/state' }, dir, { gitEnv: ENV }),
+    /outside the state layout/,
+  );
+});
+
+test('124231 CR16: receive validation blocks legacy writes after cutover', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir);
+  activateState({ advisoryReason: 'test hook enforcement' }, dir, { gitEnv: ENV });
+  const beforeCutover = git(dir, ['rev-parse', 'HEAD']);
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'activate state']);
+  const cutover = git(dir, ['rev-parse', 'HEAD']);
+  assert.doesNotThrow(() =>
+    validateReceive(`${beforeCutover} ${cutover} refs/heads/dev\n`, dir, {
+      branch: 'changeledger/state',
+      integrationBranch: 'dev',
+      gitEnv: ENV,
+    }),
+  );
+
+  abortState(dir, { gitEnv: ENV });
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'abort state before first mutation']);
+  const rollback = git(dir, ['rev-parse', 'HEAD']);
+  assert.doesNotThrow(() =>
+    validateReceive(`${cutover} ${rollback} refs/heads/dev\n`, dir, {
+      branch: 'changeledger/state',
+      integrationBranch: 'dev',
+      gitEnv: ENV,
+    }),
+  );
+  fs.copyFileSync(
+    path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md'),
+    path.join(dir, '.changeledger', 'changes', '20260720-120000-copy.md'),
+  );
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'duplicate rollback']);
+  const duplicateRollback = git(dir, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      validateReceive(`${cutover} ${duplicateRollback} refs/heads/dev\n`, dir, {
+        branch: 'changeledger/state',
+        integrationBranch: 'dev',
+        gitEnv: ENV,
+      }),
+    /does not exactly restore the state baseline/,
+  );
+  git(dir, ['reset', '--hard', '-q', cutover]);
+
+  const configFile = path.join(dir, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('changes_dir: .changeledger/changes', 'changes_dir: .changeledger/legacy-changes'),
+  );
+  git(dir, ['add', configFile]);
+  git(dir, ['commit', '-qm', 'attempt legacy path bypass']);
+  const bypass = git(dir, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      validateReceive(`${cutover} ${bypass} refs/heads/dev\n`, dir, {
+        branch: 'changeledger/state',
+        integrationBranch: 'dev',
+        gitEnv: ENV,
+      }),
+    /changes_dir cannot change/,
+  );
+  git(dir, ['reset', '--hard', '-q', cutover]);
+
+  git(dir, ['switch', '-qc', 'stale-client', beforeCutover]);
+  const legacy = path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md');
+  fs.appendFileSync(legacy, '\nstale mutation\n');
+  git(dir, ['add', legacy]);
+  git(dir, ['commit', '-qm', 'stale legacy mutation']);
+  const stale = git(dir, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      validateReceive(`${beforeCutover} ${stale} refs/heads/stale-client\n`, dir, {
+        branch: 'changeledger/state',
+        integrationBranch: 'dev',
+        gitEnv: ENV,
+      }),
+    /legacy change state.*read-only/,
+  );
+});
+
+test('124231 CR11/CR16: receive validation revalidates a pre-published cutover candidate', () => {
+  const dir = root();
+  const initialized = initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir);
+  git(dir, ['switch', '-q', 'changeledger/state']);
+  fs.writeFileSync(path.join(dir, 'unexpected.txt'), 'invalid\n');
+  git(dir, ['add', 'unexpected.txt']);
+  git(dir, ['commit', '-qm', 'invalid candidate']);
+  git(dir, ['switch', '-q', 'dev']);
+  const beforeCutover = git(dir, ['rev-parse', 'HEAD']);
+  const configFile = path.join(dir, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(
+        '  change_branch_format: "{type}/{id}"\n',
+        `  change_branch_format: "{type}/{id}"\n  state_branch: changeledger/state\n  state_baseline: ${initialized.head}\n`,
+      ),
+  );
+  fs.rmSync(path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md'));
+  fs.writeFileSync(
+    path.join(dir, '.changeledger', 'changes', 'STATE_MOVED'),
+    `Changes moved to refs/heads/changeledger/state at ${initialized.head}.\nAdvisory cutover: test\n`,
+  );
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'manual invalid cutover']);
+  const cutover = git(dir, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      validateReceive(`${beforeCutover} ${cutover} refs/heads/dev\n`, dir, {
+        branch: 'changeledger/state',
+        integrationBranch: 'dev',
+        gitEnv: ENV,
+      }),
+    /outside the state layout/,
+  );
+});
+
+test('124231 CR16: receive validation requires the canonical cutover marker', () => {
+  const dir = root();
+  const initialized = initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir);
+  const beforeCutover = git(dir, ['rev-parse', 'HEAD']);
+  const configFile = path.join(dir, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(
+        '  change_branch_format: "{type}/{id}"\n',
+        `  change_branch_format: "{type}/{id}"\n  state_branch: changeledger/state\n  state_baseline: ${initialized.head}\n`,
+      ),
+  );
+  fs.rmSync(path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md'));
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'cutover without marker']);
+  const cutover = git(dir, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      validateReceive(`${beforeCutover} ${cutover} refs/heads/dev\n`, dir, {
+        branch: 'changeledger/state',
+        integrationBranch: 'dev',
+        gitEnv: ENV,
+      }),
+    /STATE_MOVED/,
   );
 });
 

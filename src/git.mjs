@@ -77,6 +77,24 @@ export function objectRun(args, cwd, { input, env: extraEnv = {} } = {}) {
   }
 }
 
+export function objectRunBuffer(args, cwd, { input, env: extraEnv = {} } = {}) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      env: { ...sanitizedEnv(), ...extraEnv },
+      input,
+      encoding: null,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    const detail = [e.stderr, e.stdout]
+      .map((value) => (Buffer.isBuffer(value) ? value.toString('utf8').trim() : ''))
+      .filter(Boolean)
+      .join('\n');
+    throw new Error(detail ? `${e.message}\n${detail}` : e.message, { cause: e });
+  }
+}
+
 export function isValidBranchName(name, run = defaultRun, cwd = process.cwd()) {
   if (typeof name !== 'string' || !name) return false;
   try {

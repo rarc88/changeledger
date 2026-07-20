@@ -69,14 +69,22 @@ changeledger config migrate
 changeledger state preview --ref dev --ref refs/remotes/origin/dev
 changeledger state init --ref dev --ref refs/remotes/origin/dev
 changeledger state publish
-# protect changeledger/state, then:
+# Install the receive validator and protect changeledger/state, then:
 changeledger state doctor
-changeledger state activate --advisory "provider protection verified manually"
+changeledger state activate --advisory "remote protection is managed outside ChangeLedger"
 ```
 
 Protect the state branch against deletion and force-push, permit only
-fast-forward writes, restrict writers, and install `changeledger state
-validate-receive` as a `pre-receive` hook when the server supports it. A failed
+fast-forward writes, restrict writers, and install
+`changeledger state validate-receive --branch changeledger/state
+--integration-branch dev` as the bare repository's `pre-receive` hook. The
+integration option also makes legacy `.changeledger/changes` read-only on every
+branch after cutover, preventing a stale client from creating a second source
+of truth. Push the integration branch and any implementation branch referenced
+by state traceability before pushing the corresponding state commit, so the
+hook can verify their revisions. Provider-neutral ChangeLedger cannot inspect
+hosting-provider branch rules, so activation always requires `--advisory
+<reason>` and `state doctor` reports remote protection as unverified. A failed
 publication remains visibly pending; `changeledger state sync` publishes it or
 replays it only when remote edits touched different change documents.
 Configure `validate-receive --human-override` only for an explicit human-owned

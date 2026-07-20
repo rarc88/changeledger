@@ -40,6 +40,13 @@ function logicalBranch(repoRoot, ref, gitEnv) {
   return undefined;
 }
 
+function portableOriginRef(repoRoot, ref, gitEnv) {
+  const full = run(repoRoot, ['rev-parse', '--symbolic-full-name', ref], gitEnv);
+  const remote = full.match(/^refs\/remotes\/[^/]+\/(.+)$/);
+  if (remote) return `refs/heads/${remote[1]}`;
+  return full || ref;
+}
+
 export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
   const inspectedRefs = [...new Set(refs ?? [])].sort();
   if (!inspectedRefs.length) throw new Error('state migration preview requires at least one ref');
@@ -88,6 +95,7 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
         const blob = run(repoRoot, ['rev-parse', `${commit}:${file}`], gitEnv);
         records.push({
           ref,
+          originRef: portableOriginRef(repoRoot, ref, gitEnv),
           commit,
           blob,
           file,
@@ -206,7 +214,18 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
     }
     changes.push({ name: selected.name, text: selected.text, ...parseChange(selected.text) });
     for (const variant of variants) {
-      origins.push({ id, ref: variant.ref, commit: variant.commit, blob: variant.blob });
+      const origin = { id, ref: variant.originRef, commit: variant.commit, blob: variant.blob };
+      if (
+        !origins.some(
+          (item) =>
+            item.id === origin.id &&
+            item.ref === origin.ref &&
+            item.commit === origin.commit &&
+            item.blob === origin.blob,
+        )
+      ) {
+        origins.push(origin);
+      }
     }
   }
 

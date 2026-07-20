@@ -114,6 +114,39 @@ test('124231 CR1/CR2: initialization creates an independent readable state ref',
   );
 });
 
+test('124231 CR1: state initialization supports SHA-256 object repositories', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-sha256-'));
+  git(root, ['init', '--object-format=sha256', '-q', '-b', 'dev']);
+  const created = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [],
+    gitEnv: GIT_ENV,
+  });
+  assert.match(created.head, /^[0-9a-f]{64}$/);
+  assert.equal(readStateStore(root, 'changeledger/state').head, created.head);
+});
+
+test('124231 CR2: reading hundreds of changes uses bounded Git process overhead', () => {
+  const root = repo();
+  initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: Array.from({ length: 200 }, (_, index) => {
+      const id = `20260720-${String(index).padStart(6, '0')}`;
+      return { name: `${id}-state.md`, text: change(id) };
+    }),
+    gitEnv: GIT_ENV,
+  });
+  const started = performance.now();
+  assert.equal(readStateStore(root, 'changeledger/state').changes.length, 200);
+  assert.ok(performance.now() - started < 1500, 'state read exceeded 1.5 seconds');
+});
+
 test('124231 CR4: a stale mutation retries when its target change is untouched', () => {
   const root = repo();
   const first = initializeStateStore({
@@ -516,6 +549,115 @@ test('124231 CR7/CR16: a known remote rewind is rejected instead of republished'
     /remote state head.*does not descend from last confirmed global head/,
   );
   assert.equal(git(bare, ['rev-parse', 'refs/heads/changeledger/state']), baseline.head);
+});
+
+test('124231 CR7/CR16: a fresh clone never republishes a remotely rewound state head', () => {
+  const root = repo();
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-fresh-rewind-origin-'));
+  git(bare, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', bare]);
+  const baseline = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [{ name: '20260720-120000-a.md', text: change('20260720-120000', 'A') }],
+    gitEnv: GIT_ENV,
+  });
+  publishStateStore(root, 'changeledger/state', { gitEnv: GIT_ENV });
+  const advanced = mutateStateChange({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    id: '20260720-120000',
+    expectedHead: baseline.head,
+    operation: 'note',
+    actor: 'ana',
+    mutate: (text) => `${text}\nadvanced\n`,
+    gitEnv: GIT_ENV,
+  });
+  const second = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-fresh-rewind-clone-'));
+  git(second, ['clone', '-q', bare, '.']);
+  git(second, [
+    'update-ref',
+    'refs/heads/changeledger/state',
+    'refs/remotes/origin/changeledger/state',
+  ]);
+  assert.equal(git(second, ['rev-parse', 'refs/remotes/origin/changeledger/state']), advanced.head);
+  assert.notEqual(
+    spawnSync(
+      'git',
+      ['show-ref', '--verify', '--quiet', 'refs/changeledger/confirmed/changeledger/state'],
+      {
+        cwd: second,
+        env: GIT_ENV,
+      },
+    ).status,
+    0,
+  );
+
+  git(bare, ['update-ref', 'refs/heads/changeledger/state', baseline.head, advanced.head]);
+  git(second, ['fetch', '-q', 'origin']);
+  assert.equal(git(second, ['rev-parse', 'refs/remotes/origin/changeledger/state']), baseline.head);
+  assert.throws(
+    () => readStateStore(second, 'changeledger/state', { gitEnv: GIT_ENV }),
+    /no explicit pending state/,
+  );
+  assert.throws(
+    () => syncStateStore(second, 'changeledger/state', { gitEnv: GIT_ENV }),
+    /no explicit pending state|confirmed global base/,
+  );
+  assert.throws(
+    () =>
+      mutateStateChange({
+        repoRoot: second,
+        branch: 'changeledger/state',
+        id: '20260720-120000',
+        expectedHead: advanced.head,
+        operation: 'note-after-rewind',
+        actor: 'ana',
+        mutate: (text) => `${text}\nmust not republish\n`,
+        gitEnv: GIT_ENV,
+      }),
+    /no confirmed global base|does not match the observed remote head/,
+  );
+  assert.equal(git(bare, ['rev-parse', 'refs/heads/changeledger/state']), baseline.head);
+});
+
+test('124231 CR7: publication does not recreate a remotely deleted state branch', () => {
+  const root = repo();
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-remote-delete-'));
+  git(bare, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', bare]);
+  const baseline = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [{ name: '20260720-120000-a.md', text: change('20260720-120000', 'A') }],
+    gitEnv: GIT_ENV,
+  });
+  publishStateStore(root, 'changeledger/state', { gitEnv: GIT_ENV });
+  git(bare, ['update-ref', '-d', 'refs/heads/changeledger/state']);
+
+  const result = mutateStateChange({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    id: '20260720-120000',
+    expectedHead: baseline.head,
+    operation: 'note',
+    actor: 'ana',
+    mutate: (text) => `${text}\npending after deletion\n`,
+    gitEnv: GIT_ENV,
+  });
+  assert.equal(result.confirmed, false);
+  assert.equal(result.pending, true);
+  assert.notEqual(
+    spawnSync('git', ['show-ref', '--verify', '--quiet', 'refs/heads/changeledger/state'], {
+      cwd: bare,
+      env: GIT_ENV,
+    }).status,
+    0,
+  );
 });
 
 test('124231 CR7: pending state with a known remote requires an explicit confirmed base', () => {

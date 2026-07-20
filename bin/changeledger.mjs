@@ -836,6 +836,7 @@ stateCommand
   .option('--actor <handle>', 'authenticated remote actor (or CHANGELEDGER_AUTHENTICATED_ACTOR)')
   .option('--human-override', 'authorize this update as an explicit human decision')
   .option('--branch <name>', 'protected state branch', 'changeledger/state')
+  .option('--integration-branch <name>', 'integration branch whose legacy changes become read-only')
   .action(
     action((options) => {
       const input = fs.readFileSync(0, 'utf8');
@@ -843,6 +844,7 @@ stateCommand
         actor: options.actor ?? process.env.CHANGELEDGER_AUTHENTICATED_ACTOR,
         humanOverride: options.humanOverride,
         branch: options.branch,
+        integrationBranch: options.integrationBranch,
       });
       console.log(`Validated ${results.length} state update(s)`);
       if (results.some((result) => result.owner_enforcement === 'unavailable')) {
@@ -887,13 +889,13 @@ stateCommand
   .command('activate')
   .description('stage a cutover on the integration branch after validating the candidate')
   .option('--branch <name>', 'candidate branch', 'changeledger/state')
-  .requiredOption(
-    '--advisory <reason>',
-    'explicit reason when remote protection cannot be verified',
-  )
+  .option('--advisory <reason>', 'explicit reason when remote protection cannot be verified')
   .action(
     action((options) => {
-      const result = activateState({ branch: options.branch, advisoryReason: options.advisory });
+      const result = activateState({
+        branch: options.branch,
+        advisoryReason: options.advisory,
+      });
       console.log(
         `Prepared cutover to ${result.branch} at ${result.baseline}; review and commit the integration branch changes.`,
       );
