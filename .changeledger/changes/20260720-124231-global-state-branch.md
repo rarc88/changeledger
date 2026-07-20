@@ -261,6 +261,24 @@ legacy, porque ya podrían estar obsoletas.
 
 ## Specification
 
+### Nota de alcance (post-revisión, 2026-07-20)
+
+Una revisión independiente encontró que CR11 (validación server-side vía
+`pre-receive`) no funciona en un push real: el entorno Git saneado que usa el
+CLI cliente (`src/git.mjs`) oculta también al hook de recepción los objetos en
+cuarentena que necesita validar. El test añadido para cerrar el rechazo humano
+anterior no lo detectaba porque precargaba los objetos en el repositorio bare
+en vez de simular un push real bajo cuarentena.
+
+El humano decidió extraer esa pieza a un change propio
+(`20260720-223228`, `depends_on: ["20260720-124231"]`) en vez de seguir
+iterando dentro de este change, ya `major` y con doce ciclos de revisión antes
+de llegar a validación. CR11 queda removido de este change; el código, el
+comando `state validate-receive` y su documentación se retiraron. CR16 se
+ajusta para reflejar que este change entrega únicamente el cutover en modo
+advisory — la protección remota "fuerte" (validación de contenido vía hook)
+queda fuera de alcance hasta que `20260720-223228` la entregue.
+
 ### CR1 — Inicialización explícita y recuperable
 - **Given** un repositorio ChangeLedger sin almacén global y con una rama de integración configurada
 - **When** el humano inicializa el almacén `changeledger/state`
@@ -331,13 +349,6 @@ legacy, porque ya podrían estar obsoletas.
 - **And** no elimina los documentos originales
 - **And** registra para cada documento importado sus refs, commits y blobs de origen
 
-### CR11 — Validación server-side reutilizable
-- **Given** un servidor Git que permite hooks de recepción
-- **When** el administrador instala la validación de ChangeLedger como `pre-receive`
-- **Then** el hook valida el rango old-head/new-head sin checkout
-- **And** rechaza documentos inválidos, historia reescrita y archivos fuera del layout permitido
-- **And** usa el mismo motor de validación que el CLI
-
 ### CR12 — Owner obligatorio al aprobar
 - **Given** un change draft sin owner
 - **When** el humano intenta aprobarlo sin indicar un responsable
@@ -382,7 +393,7 @@ legacy, porque ya podrían estar obsoletas.
 - **And** conserva en la rama de integración specs, releases y configuración ajena al estado operativo de los changes
 - **And** desde ese commit toda mutación soportada usa exclusivamente el almacén global
 - **And** una mutación iniciada desde configuración legacy que detecta el manifiesto remoto falla cerrado y pide actualizar la rama
-- **And** la activación fuerte exige protección remota contra escrituras legacy o una aceptación humana explícita y auditada del modo advisory
+- **And** este change solo entrega el modo advisory: la activación exige siempre una aceptación humana explícita y auditada, ya que la validación de contenido vía `pre-receive` (protección fuerte) queda fuera de alcance hasta `20260720-223228`
 
 ### CR17 — Compatibilidad de clientes fail-closed
 - **Given** una configuración o manifiesto cuyo schema requiere una versión de ChangeLedger más reciente
@@ -424,7 +435,7 @@ legacy, porque ya podrían estar obsoletas.
   - **Resolved:** `2026-07-20T15:08:24Z`
 - [x] Añadir primero pruebas HTTP y de presentación del estado global, después adaptar `src/viewer/` para mostrar revisión, frescura, pendientes y conflictos; verify: `node --test test/view.test.mjs test/app-state.test.mjs` (CR2, CR5, CR6)
   - **Resolved:** `2026-07-20T15:08:25Z`
-- [x] Añadir primero pruebas de referencias de código y rangos de refs, después ampliar `src/check.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR7, CR8, CR11)
+- [x] Añadir primero pruebas de referencias de código y rangos de refs, después ampliar `src/check.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR7, CR8)
   - **Resolved:** `2026-07-20T15:08:25Z`
 - [x] Añadir primero pruebas de aprobación con owner y autorización de mutaciones, después ajustar `src/commands/agent.mjs`, `src/lifecycle.mjs` y el viewer; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR12, CR13)
   - **Resolved:** `2026-07-20T15:08:26Z`
@@ -438,7 +449,7 @@ legacy, porque ya podrían estar obsoletas.
   - **Resolved:** `2026-07-20T15:08:28Z`
 - [x] Añadir primero pruebas de aborto pre-cutover y recuperación post-cutover, después implementar export y recovery en `src/commands/state.mjs`; verify: `node --test test/state-migration.test.mjs` (CR18)
   - **Resolved:** `2026-07-20T15:08:29Z`
-- [x] Documentar el contrato y la guía de protección agnóstica en `templates/contract/`, `README.md` y la spec graduable; verify: `pnpm test && changeledger check` (CR6, CR7, CR9, CR11)
+- [x] Documentar el contrato y la guía de protección agnóstica en `templates/contract/`, `README.md` y la spec graduable; verify: `pnpm test && changeledger check` (CR6, CR7, CR9)
   - **Resolved:** `2026-07-20T15:08:29Z`
 - [x] Ejecutar el gate completo y verificar manualmente dos clones concurrentes contra un remoto temporal protegido; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-20T15:10:45Z`
@@ -487,3 +498,4 @@ legacy, porque ya podrían estar obsoletas.
 - **2026-07-20T19:23:02Z** `[validation]` in-validation → in-progress (human rejected via conversation): La auditoría de release confirmó que el candidato no es usable: regresión severa al descubrir refs en repositorios legacy, rewind remoto republished por clones sin confirmation ref, doctor con falsos positivos, provenance no portable al bare hook, ausencia de cutover fuerte completo y fallo en Git SHA-256.
 - **2026-07-20T19:39:33Z** `[note]` Correction after human rejection: batched state/ref reads; SHA-256 initialization; fresh-clone remote rewind rejection; complete doctor validation; portable bare-hook provenance; explicit protected/advisory cutover; receive-hook enforcement against legacy double authority with exact pre-advance rollback; regression tests and documentation. Verified with Biome, focused 63-test audit suite, full node test suite using isolated npm cache, and changeledger check (203 valid). Awaiting human confirmation before review or commit.
 - **2026-07-20T20:13:29Z** `[note]` Second audit correction: publication now requires exact pending/confirmed ancestry and fails closed after fetched rewinds or remote deletion; provider-neutral activation no longer claims unverifiable branch protection; cutover revalidates pre-published state and requires the canonical marker; rollback validates exact paths and bytes. Verification: 115 focused tests passed, full suite 787/788 in sandbox with only listen EPERM, isolated listener test passed outside sandbox, pnpm lint and changeledger check passed.
+- **2026-07-20T22:34:08Z** `[note]` Reparto de alcance (autorizado por el humano): CR11 removido y extraído a 20260720-223228 tras hallazgo de review independiente (hook pre-receive no ve objetos en cuarentena de un push real). CR16 ajustado a modo advisory-only en este change.

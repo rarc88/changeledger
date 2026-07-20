@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { validateReceive } from '../src/commands/state.mjs';
 import {
   addStateChange,
   initializeStateStore,
@@ -18,8 +16,6 @@ import {
   validateStateRange,
 } from '../src/state-store.mjs';
 
-const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
-
 const GIT_ENV = {
   ...process.env,
   GIT_AUTHOR_NAME: 'State Test',
@@ -27,6 +23,19 @@ const GIT_ENV = {
   GIT_COMMITTER_NAME: 'State Test',
   GIT_COMMITTER_EMAIL: 'state@example.com',
 };
+// A parent process (e.g. a git hook) may export these; inheriting them here
+// would redirect this test's git init at a fresh tmpdir onto the real repo.
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete GIT_ENV[key];
+}
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' }).trim();
@@ -963,47 +972,6 @@ test('124231 CR11/CR12/CR13: receive validation parses complete new Log evidence
   );
 });
 
-test('124231 CR13: receive validation accepts an explicit human ownership override', () => {
-  const root = repo();
-  const owned = change('20260720-120000', 'A').replace(
-    'status: draft',
-    'status: approved\nowner: ana',
-  );
-  const baseline = initializeStateStore({
-    repoRoot: root,
-    branch: 'changeledger/state',
-    projectId: 'project-1',
-    integrationBranch: 'dev',
-    changes: [{ name: '20260720-120000-a.md', text: owned }],
-    gitEnv: GIT_ENV,
-  });
-  const transferred = mutateStateChange({
-    repoRoot: root,
-    branch: 'changeledger/state',
-    id: '20260720-120000',
-    expectedHead: baseline.head,
-    operation: 'owner',
-    actor: 'admin',
-    mutate: (text) =>
-      `${text.replace('owner: ana', 'owner: luis')}- **2026-07-20T12:10:00Z** \`[owner]\` set: luis\n- **2026-07-20T12:10:00Z** \`[note]\` ownership transferred: ana → luis by admin via hook\n`,
-    gitEnv: GIT_ENV,
-  });
-  const input = `${baseline.head} ${transferred.head} refs/heads/changeledger/state\n`;
-
-  assert.throws(
-    () => validateReceive(input, root, { actor: 'admin', gitEnv: GIT_ENV }),
-    /current owner is "ana"/,
-  );
-  assert.equal(
-    validateReceive(input, root, {
-      actor: 'admin',
-      humanOverride: true,
-      gitEnv: GIT_ENV,
-    })[0].ok,
-    true,
-  );
-});
-
 test('124231 CR13: receive validation declares unavailable owner enforcement', () => {
   const root = repo();
   const baseline = initializeStateStore({
@@ -1031,15 +999,6 @@ test('124231 CR13: receive validation declares unavailable owner enforcement', (
     gitEnv: GIT_ENV,
   });
   assert.equal(result.owner_enforcement, 'unavailable');
-
-  const cli = spawnSync(process.execPath, [BIN, 'state', 'validate-receive'], {
-    cwd: root,
-    env: GIT_ENV,
-    encoding: 'utf8',
-    input: `${baseline.head} ${advanced.head} refs/heads/changeledger/state\n`,
-  });
-  assert.equal(cli.status, 0, cli.stderr);
-  assert.match(cli.stderr, /identity is unavailable.*owner exclusivity was not enforced/);
 });
 
 test('124231 CR8/CR11: traced lifecycle operations require code revision and branch', () => {
