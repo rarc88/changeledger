@@ -9,6 +9,8 @@ import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
+const CLOSED_STATUSES = new Set(['done', 'discarded']);
+const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
 
 export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
   const errors = [];
@@ -28,6 +30,9 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     targets = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
     if (!targets.length) err(null, `no change with id "${opts.id}"`);
   }
+
+  const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
+  const incomingRelations = relatedBacklinks(changes);
 
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
@@ -94,6 +99,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
     checkCoverage(c, fm, active, config, warn, err);
     checkLifecycleSequence(c, fm, err);
+    checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
 
   // Aggregate checks only make sense over the whole repo.
@@ -143,6 +149,65 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
   return { errors, warnings };
+}
+
+function relatedBacklinks(changes) {
+  const incoming = new Map();
+  for (const change of changes) {
+    const source = String(change.frontmatter?.id ?? '');
+    const relations = change.frontmatter?.related_to;
+    if (!source || !Array.isArray(relations)) continue;
+    for (const raw of relations) {
+      const target = String(raw);
+      if (target.includes(':')) continue;
+      if (!incoming.has(target)) incoming.set(target, new Set());
+      incoming.get(target).add(source);
+    }
+  }
+  return incoming;
+}
+
+function textOutsideFences(text) {
+  const visible = [];
+  let fence = null;
+  for (const line of String(text ?? '').split('\n')) {
+    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = { char: marker[1][0], length: marker[1].length };
+      else if (marker[1][0] === fence.char && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (!fence) visible.push(line);
+  }
+  return visible.join('\n');
+}
+
+function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
+  const fm = change.frontmatter ?? {};
+  if (CLOSED_STATUSES.has(fm.status) || fm.archived === true) return;
+
+  const ownId = String(fm.id ?? '');
+  const linkedIds = new Set(
+    [
+      ...(Array.isArray(fm.depends_on) ? fm.depends_on : []),
+      ...(Array.isArray(fm.related_to) ? fm.related_to : []),
+      ...(incomingRelations.get(ownId) ?? []),
+    ].map(String),
+  );
+  const mentionedIds = new Set();
+
+  for (const stage of change.stages ?? []) {
+    if (!SEMANTIC_STAGES.has(stage.key)) continue;
+    const body = textOutsideFences(stage.body);
+    for (const match of body.matchAll(/(?<![:\d])\d{8}-\d{6}(?!\d)/g)) {
+      const id = match[0];
+      if (id !== ownId && knownIds.has(id) && !linkedIds.has(id)) mentionedIds.add(id);
+    }
+  }
+
+  for (const id of mentionedIds) {
+    warn(change, `mentions change "${id}" without declaring it in depends_on or related_to`);
+  }
 }
 
 // Reuses the scoped validator for a selected change, optionally replacing its
