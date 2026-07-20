@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -500,3 +500,5 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **2026-07-20T20:13:29Z** `[note]` Second audit correction: publication now requires exact pending/confirmed ancestry and fails closed after fetched rewinds or remote deletion; provider-neutral activation no longer claims unverifiable branch protection; cutover revalidates pre-published state and requires the canonical marker; rollback validates exact paths and bytes. Verification: 115 focused tests passed, full suite 787/788 in sandbox with only listen EPERM, isolated listener test passed outside sandbox, pnpm lint and changeledger check passed.
 - **2026-07-20T22:34:08Z** `[note]` Reparto de alcance (autorizado por el humano): CR11 removido y extraído a 20260720-223228 tras hallazgo de review independiente (hook pre-receive no ve objetos en cuarentena de un push real). CR16 ajustado a modo advisory-only en este change.
 - **2026-07-20T23:28:03Z** `[note]` Los 3 commits de este reparto se hicieron con --no-verify (autorizado explícitamente): el hook de pre-commit corre limpio en pnpm test/lint/check fuera del hook (784/784, 0 errores), pero changeledger check falla dentro del hook por un bug de resolución de repoRoot bajo GIT_DIR heredado en un setup multi-worktree (lee AGENTS.md de un worktree hermano en vez del propio). Bug nuevo, no relacionado con CR11, reportado aparte para investigar.
+- **2026-07-20T23:31:48Z** `[status]` in-progress → in-review
+- **2026-07-20T23:36:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)
