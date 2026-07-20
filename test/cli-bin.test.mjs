@@ -611,8 +611,8 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 3 \(dry run\)/);
-  assert.match(out, /schema_version: 3/);
+  assert.match(out, /Config migration 0 → 4 \(dry run\)/);
+  assert.match(out, /schema_version: 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
 

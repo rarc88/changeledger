@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import { findChangeledgerDir, resolveRepoPath, stateConfig } from '../config.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
+import { objectRun } from '../git.mjs';
+import { resolveRepoAuthority } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { addStateChange, readStateStore, StateConflictError } from '../state-store.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 // Applied only when JSON parse fails — governs mtime-based staleness fallback.
@@ -16,16 +20,51 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
-  const config = loadConfig(changeledgerDir);
+  const authority = resolveRepoAuthority(cwd);
+  const config = authority.config;
+  assertSupportedSchema(config);
   const typeDef = config.types?.[type];
   if (!typeDef) {
     throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
   }
 
-  const repoRoot = path.dirname(changeledgerDir);
+  const repoRoot = authority.repoRoot;
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
-  fs.mkdirSync(changesDir, { recursive: true });
   const normalizedSlug = slugify(slug);
+  const activeState = stateConfig(config);
+
+  if (activeState) {
+    let created = now;
+    for (;;) {
+      const id = idFromTimestamp(created);
+      const name = `${id}-${normalizedSlug}.md`;
+      const store = readStateStore(repoRoot, activeState.branch, {
+        baseline: activeState.baseline,
+      });
+      if (store.changes.some((change) => String(change.frontmatter.id) === id)) {
+        created = bumpSecond(created);
+        continue;
+      }
+      try {
+        addStateChange({
+          repoRoot,
+          branch: activeState.branch,
+          expectedHead: store.head,
+          name,
+          text: render({ id, title, type, owner, stages: typeDef.stages, now: created }),
+          actor: owner ?? 'unknown',
+          codeRevision: objectRun(['rev-parse', 'HEAD'], repoRoot).trim(),
+          codeBranch: objectRun(['branch', '--show-current'], repoRoot).trim(),
+        });
+        return path.join(changesDir, name);
+      } catch (error) {
+        if (!(error instanceof StateConflictError)) throw error;
+        created = bumpSecond(created);
+      }
+    }
+  }
+
+  fs.mkdirSync(changesDir, { recursive: true });
 
   // Guarantee a unique id even for changes created within the same second
   // (an agent creating several in a loop). Bump by 1s until free; keep created

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import {
@@ -28,6 +29,16 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
+import {
+  abortState,
+  activateState,
+  doctorState,
+  initState,
+  previewState,
+  recoverState,
+  syncState,
+  validateReceive,
+} from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
@@ -42,7 +53,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
-  changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger archive | log | task | list | show | search | graduate | config | state | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -61,6 +72,10 @@ function action(fn) {
 
 // Collects a repeatable option (e.g. `--id`) into an array across invocations.
 function collect(value, previous) {
+  return previous.concat([value]);
+}
+
+function collectRef(value, previous) {
   return previous.concat([value]);
 }
 
@@ -350,6 +365,7 @@ program
   .command('approve')
   .description('transmit an explicit human decision to approve a draft via conversation')
   .argument('<id>')
+  .option('--owner <handle>', 'responsible required by global-state repositories')
   .addHelpText(
     'after',
     [
@@ -362,8 +378,8 @@ program
     ].join('\n'),
   )
   .action(
-    action((id) => {
-      approve(id);
+    action((id, options) => {
+      approve(id, process.cwd(), { owner: options.owner });
       console.log(`#${id} → approved (human via conversation)`);
     }),
   );
@@ -465,6 +481,7 @@ program
   .description("set or clear a change's owner")
   .argument('<id>')
   .argument('<name>', 'owner handle, or "-" to clear it')
+  .option('--human', 'attribute an explicit human ownership override via conversation')
   .addHelpText(
     'after',
     [
@@ -475,8 +492,11 @@ program
     ].join('\n'),
   )
   .action(
-    action((id, name) => {
-      owner(id, name);
+    action((id, name, options) => {
+      owner(id, name, process.cwd(), {
+        actor: options.human ? 'human' : 'agent',
+        channel: options.human ? 'conversation' : 'cli',
+      });
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
     }),
   );
@@ -706,6 +726,130 @@ configCommand
       const configFile = `${changeledgerDir}/config.yml`;
       const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
       console.log(result);
+    }),
+  );
+
+const stateCommand = program
+  .command('state')
+  .description('prepare, inspect and activate the Git-backed global change state');
+
+stateCommand
+  .command('preview')
+  .description('inspect explicit fetched refs and report import conflicts without writing')
+  .requiredOption('--ref <git-ref>', 'ref to inspect (repeatable)', collectRef, [])
+  .option('--json', 'print the deterministic report as JSON')
+  .action(
+    action((options) => {
+      const result = previewState({ refs: options.ref });
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log(
+          `${result.changes.length} change(s), ${result.origins.length} origin(s), ${result.conflicts.length} conflict(s)`,
+        );
+        for (const item of result.conflicts) {
+          console.log(`  ${item.kind}${item.id ? ` #${item.id}` : ''}: ${item.detail}`);
+        }
+      }
+    }),
+  );
+
+stateCommand
+  .command('init')
+  .description('create an inactive state branch candidate from explicit fetched refs')
+  .requiredOption('--ref <git-ref>', 'ref to import (repeatable)', collectRef, [])
+  .option('--branch <name>', 'candidate branch', 'changeledger/state')
+  .action(
+    action((options) => {
+      const result = initState({ refs: options.ref, branch: options.branch });
+      console.log(`Initialized ${result.branch} at ${result.head} (pending activation)`);
+    }),
+  );
+
+stateCommand
+  .command('abort')
+  .description('restore legacy authority only while the active state still equals its baseline')
+  .action(
+    action(() => {
+      const result = abortState();
+      console.log(
+        `Restored legacy authority; candidate ${result.branch} remains at ${result.baseline}`,
+      );
+    }),
+  );
+
+stateCommand
+  .command('recover')
+  .description('export advanced state to a recovery branch without selecting stale legacy copies')
+  .requiredOption('--branch <name>', 'new recovery branch')
+  .action(
+    action((options) => {
+      const result = recoverState({ branch: options.branch });
+      console.log(
+        `Exported ${result.head} to ${result.branch}; perform an explicit cutover to recover.`,
+      );
+    }),
+  );
+
+stateCommand
+  .command('validate-receive')
+  .description('validate pre-receive old/new/ref lines from stdin without checkout')
+  .option('--actor <handle>', 'authenticated remote actor (or CHANGELEDGER_AUTHENTICATED_ACTOR)')
+  .option('--branch <name>', 'protected state branch', 'changeledger/state')
+  .action(
+    action((options) => {
+      const input = fs.readFileSync(0, 'utf8');
+      const results = validateReceive(input, process.cwd(), {
+        actor: options.actor ?? process.env.CHANGELEDGER_AUTHENTICATED_ACTOR,
+        branch: options.branch,
+      });
+      console.log(`Validated ${results.length} state update(s)`);
+    }),
+  );
+
+stateCommand
+  .command('sync')
+  .description('publish pending state or replay disjoint changes onto the remote fast-forward head')
+  .action(
+    action(() => {
+      const result = syncState();
+      console.log(
+        result.pending
+          ? `State remains pending at ${result.head}`
+          : `State confirmed at ${result.head}${result.replayed ? ` (${result.replayed} replayed)` : ''}`,
+      );
+    }),
+  );
+
+stateCommand
+  .command('doctor')
+  .description('validate local append-only state and print provider-neutral protection guidance')
+  .option('--branch <name>', 'candidate branch when the state store is not active')
+  .option('--json', 'print JSON')
+  .action(
+    action((options) => {
+      const result = doctorState({ branch: options.branch });
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log(`${result.branch} ${result.head} append-only (${result.remote_protection})`);
+        for (const instruction of result.instructions) console.log(`  - ${instruction}`);
+      }
+    }),
+  );
+
+stateCommand
+  .command('activate')
+  .description('stage a cutover on the integration branch after validating the candidate')
+  .option('--branch <name>', 'candidate branch', 'changeledger/state')
+  .requiredOption(
+    '--advisory <reason>',
+    'explicit reason when remote protection cannot be verified',
+  )
+  .action(
+    action((options) => {
+      const result = activateState({ branch: options.branch, advisoryReason: options.advisory });
+      console.log(
+        `Prepared cutover to ${result.branch} at ${result.baseline}; review and commit the integration branch changes.`,
+      );
     }),
   );
 

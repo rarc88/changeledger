@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo } from '../src/repo.mjs';
+import { initializeStateStore } from '../src/state-store.mjs';
 
 function fixture(changesDir = '.changeledger/changes') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-'));
@@ -35,6 +37,42 @@ test('loadRepo walks up from a subdirectory', () => {
   fs.mkdirSync(sub, { recursive: true });
   const repo = loadRepo(sub);
   assert.equal(repo.changes.length, 1);
+});
+
+test('124231 CR2/CR9: active state loads changes from the configured ref', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-repo-'));
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Repo Test',
+    GIT_AUTHOR_EMAIL: 'repo@example.com',
+    GIT_COMMITTER_NAME: 'Repo Test',
+    GIT_COMMITTER_EMAIL: 'repo@example.com',
+  };
+  const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
+  git(['init', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'README.md'), '# repo\n');
+  git(['add', 'README.md']);
+  git(['commit', '-qm', 'initial']);
+  const text =
+    '---\nid: "20260720-120000"\ntitle: Global\ntype: feature\nstatus: draft\ncreated: 2026-07-20T12:00:00Z\ndepends_on: []\n---\n\n## Request\n';
+  const initialized = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [{ name: '20260720-120000-global.md', text }],
+    gitEnv: env,
+  });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    `schema_version: 4\nlanguage: en\nchanges_dir: .changeledger/changes\nspecs_dir: .changeledger/specs\ngit:\n  integration_branch: dev\n  change_branch_format: "{type}/{id}"\n  state_branch: changeledger/state\n  state_baseline: ${initialized.head}\ntypes:\n  feature:\n    stages: [request]\n`,
+  );
+
+  const loaded = loadRepo(root);
+  assert.equal(loaded.changes.length, 1);
+  assert.equal(loaded.changes[0].frontmatter.title, 'Global');
+  assert.equal(loaded.state.head, initialized.head);
 });
 
 test('loadRepo throws outside a ChangeLedger repo', () => {

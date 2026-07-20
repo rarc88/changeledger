@@ -1107,7 +1107,7 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 3);
+  assert.equal(result.body.supported, 4);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -1284,7 +1284,7 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
 
   const result = previewConfigMigration(projects, current);
   assert.equal(result.code, 200);
-  assert.ok(result.body.yaml.includes('schema_version: 3'));
+  assert.ok(result.body.yaml.includes('schema_version: 4'));
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
 });
@@ -1312,7 +1312,7 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   const result = applyConfigMigration(projects, { project: current, revision: body.revision });
   assert.equal(result.code, 200);
   assert.ok(result.body.ok);
-  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 3'));
+  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 4'));
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
     project: current,
@@ -1348,7 +1348,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 4');
+    .replace(/schema_version: \d+/, 'schema_version: 5');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -1368,7 +1368,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 4');
+    .replace(/schema_version: \d+/, 'schema_version: 5');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -1379,7 +1379,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 4 is newer than supported schema 3/);
+  assert.match(direct.body.error, /config schema 5 is newer than supported schema 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1394,7 +1394,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 4 is newer than supported schema 3/);
+  assert.match(response.body, /config schema 5 is newer than supported schema 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -1438,14 +1438,14 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
 
   const structured = readProjectConfigStructured(projects, current);
   assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 3);
+  assert.equal(structured.body.supported, 4);
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 3/);
+  assert.match(preview.body.summary, /Config migration 1 → 4/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
   assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.match(preview.body.yaml, /^schema_version: 3$/m);
+  assert.match(preview.body.yaml, /^schema_version: 4$/m);
   assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
 
   // Apply lands the additions and becomes terminal
@@ -1455,7 +1455,7 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   });
   assert.equal(applied.code, 200);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 3$/m);
+  assert.match(after, /^schema_version: 4$/m);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
   const again = previewConfigMigration(projects, current);

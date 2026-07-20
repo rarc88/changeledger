@@ -19,6 +19,10 @@ finished result into it; `main` stays reserved for releases. Inspect the worktre
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
+With global state active, only the owner may implement. Use the branch rendered
+by `git.change_branch_format` (default `{type}/{id}`) from integration; transfer
+explicitly, and synchronize pending state before another human decision.
+
 After `approved → in-progress`, create a baseline commit of the approved change
 document before code. Implement one change at a time, even while another
 already-delivered change waits in `in-validation`.

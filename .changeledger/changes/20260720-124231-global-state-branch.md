@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -412,21 +412,36 @@ legacy, porque ya podrían estar obsoletas.
 
 ## Plan
 
-- [ ] Añadir primero pruebas del formato y del acceso a objetos Git, después implementar `src/state-store.mjs` y `src/git.mjs`; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR7)
-- [ ] Añadir primero pruebas de inicialización y previsualización, después implementar los comandos de estado en `src/commands/state.mjs` y `bin/changeledger.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR1, CR9, CR10)
-- [ ] Añadir primero pruebas de carga global, después desacoplar `src/repo.mjs` y las consultas de la resolución directa del worktree; verify: `node --test test/repo.test.mjs test/search.test.mjs test/list.test.mjs` (CR2, CR9)
-- [ ] Añadir primero pruebas de compare-and-swap, reintento disjunto y conflicto, después implementar la transacción append-only en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs` (CR3, CR4, CR5)
-- [ ] Añadir primero pruebas de mutación compartida, después migrar lifecycle, tasks, review, validation, graduation y archive en `src/commands/`; verify: `node --test test/agent.test.mjs test/task.test.mjs test/graduate.test.mjs test/archive.test.mjs` (CR3, CR5, CR6, CR8, CR9)
-- [ ] Añadir primero pruebas HTTP y de presentación del estado global, después adaptar `src/viewer/` para mostrar revisión, frescura, pendientes y conflictos; verify: `node --test test/view.test.mjs test/app-state.test.mjs` (CR2, CR5, CR6)
-- [ ] Añadir primero pruebas de referencias de código y rangos de refs, después ampliar `src/check.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR7, CR8, CR11)
-- [ ] Añadir primero pruebas de aprobación con owner y autorización de mutaciones, después ajustar `src/commands/agent.mjs`, `src/lifecycle.mjs` y el viewer; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR12, CR13)
-- [ ] Añadir primero pruebas del schema 4, formato, preservación YAML y validación de ramas, después ampliar `src/config.mjs`, `src/config-migration.mjs`, `src/git.mjs` y los formularios de configuración; verify: `node --test test/config-migration.test.mjs test/git.test.mjs test/view.test.mjs` (CR14, CR19)
-- [ ] Añadir primero pruebas de inventario multi-ref, conflictos, provenance y preflight, después implementar la migración en `src/commands/state.mjs` y `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR10, CR15)
-- [ ] Añadir primero pruebas de activación, detección legacy y ausencia de doble autoridad, después implementar el cutover en `src/state-migration.mjs`, `src/repo.mjs` y `src/config-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/repo.test.mjs test/config-migration.test.mjs` (CR16)
-- [ ] Añadir primero una matriz de mutaciones con schema futuro, después aplicar el guard común en `src/commands/` y el viewer; verify: `node --test test/future-schema.test.mjs test/view.test.mjs test/cli-bin.test.mjs` (CR17)
-- [ ] Añadir primero pruebas de aborto pre-cutover y recuperación post-cutover, después implementar export y recovery en `src/commands/state.mjs`; verify: `node --test test/state-migration.test.mjs` (CR18)
-- [ ] Documentar el contrato y la guía de protección agnóstica en `templates/contract/`, `README.md` y la spec graduable; verify: `pnpm test && changeledger check` (CR6, CR7, CR9, CR11)
-- [ ] Ejecutar el gate completo y verificar manualmente dos clones concurrentes contra un remoto temporal protegido; verify: `pnpm verify` (support)
+- [x] Añadir primero pruebas del formato y del acceso a objetos Git, después implementar `src/state-store.mjs` y `src/git.mjs`; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR7)
+  - **Resolved:** `2026-07-20T15:08:23Z`
+- [x] Añadir primero pruebas de inicialización y previsualización, después implementar los comandos de estado en `src/commands/state.mjs` y `bin/changeledger.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR1, CR9, CR10)
+  - **Resolved:** `2026-07-20T15:08:23Z`
+- [x] Añadir primero pruebas de carga global, después desacoplar `src/repo.mjs` y las consultas de la resolución directa del worktree; verify: `node --test test/repo.test.mjs test/search.test.mjs test/list.test.mjs` (CR2, CR9)
+  - **Resolved:** `2026-07-20T15:08:24Z`
+- [x] Añadir primero pruebas de compare-and-swap, reintento disjunto y conflicto, después implementar la transacción append-only en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs` (CR3, CR4, CR5)
+  - **Resolved:** `2026-07-20T15:08:24Z`
+- [x] Añadir primero pruebas de mutación compartida, después migrar lifecycle, tasks, review, validation, graduation y archive en `src/commands/`; verify: `node --test test/agent.test.mjs test/task.test.mjs test/graduate.test.mjs test/archive.test.mjs` (CR3, CR5, CR6, CR8, CR9)
+  - **Resolved:** `2026-07-20T15:08:24Z`
+- [x] Añadir primero pruebas HTTP y de presentación del estado global, después adaptar `src/viewer/` para mostrar revisión, frescura, pendientes y conflictos; verify: `node --test test/view.test.mjs test/app-state.test.mjs` (CR2, CR5, CR6)
+  - **Resolved:** `2026-07-20T15:08:25Z`
+- [x] Añadir primero pruebas de referencias de código y rangos de refs, después ampliar `src/check.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR7, CR8, CR11)
+  - **Resolved:** `2026-07-20T15:08:25Z`
+- [x] Añadir primero pruebas de aprobación con owner y autorización de mutaciones, después ajustar `src/commands/agent.mjs`, `src/lifecycle.mjs` y el viewer; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR12, CR13)
+  - **Resolved:** `2026-07-20T15:08:26Z`
+- [x] Añadir primero pruebas del schema 4, formato, preservación YAML y validación de ramas, después ampliar `src/config.mjs`, `src/config-migration.mjs`, `src/git.mjs` y los formularios de configuración; verify: `node --test test/config-migration.test.mjs test/git.test.mjs test/view.test.mjs` (CR14, CR19)
+  - **Resolved:** `2026-07-20T15:08:27Z`
+- [x] Añadir primero pruebas de inventario multi-ref, conflictos, provenance y preflight, después implementar la migración en `src/commands/state.mjs` y `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR10, CR15)
+  - **Resolved:** `2026-07-20T15:08:27Z`
+- [x] Añadir primero pruebas de activación, detección legacy y ausencia de doble autoridad, después implementar el cutover en `src/state-migration.mjs`, `src/repo.mjs` y `src/config-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/repo.test.mjs test/config-migration.test.mjs` (CR16)
+  - **Resolved:** `2026-07-20T15:08:28Z`
+- [x] Añadir primero una matriz de mutaciones con schema futuro, después aplicar el guard común en `src/commands/` y el viewer; verify: `node --test test/future-schema.test.mjs test/view.test.mjs test/cli-bin.test.mjs` (CR17)
+  - **Resolved:** `2026-07-20T15:08:28Z`
+- [x] Añadir primero pruebas de aborto pre-cutover y recuperación post-cutover, después implementar export y recovery en `src/commands/state.mjs`; verify: `node --test test/state-migration.test.mjs` (CR18)
+  - **Resolved:** `2026-07-20T15:08:29Z`
+- [x] Documentar el contrato y la guía de protección agnóstica en `templates/contract/`, `README.md` y la spec graduable; verify: `pnpm test && changeledger check` (CR6, CR7, CR9, CR11)
+  - **Resolved:** `2026-07-20T15:08:29Z`
+- [x] Ejecutar el gate completo y verificar manualmente dos clones concurrentes contra un remoto temporal protegido; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-20T15:10:45Z`
 
 ## Log
 
@@ -440,3 +455,4 @@ legacy, porque ya podrían estar obsoletas.
 - **2026-07-20T14:21:31Z** `[status]` draft → approved
 - **2026-07-20T14:23:28Z** `[status]` approved → in-progress
 - **2026-07-20T14:23:28Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-20T15:10:48Z** `[status]` in-progress → in-review

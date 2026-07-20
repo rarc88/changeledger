@@ -29,8 +29,9 @@ complete output, and the very first capture of a session is always full.
    decision may come from the viewer or an explicit active conversation message
    identifying the change and verdict; praise, “continue”, or agent inference is
    not a decision. The agent executes but never makes human decisions.
-3. Capture every authorized change in `.changeledger/changes/`. The document
-   wins when code and documentation disagree.
+3. Capture every authorized change through ChangeLedger: under
+   `.changeledger/changes/` in legacy mode or on the activated state ref. The
+   document wins when code and documentation disagree.
 4. Never implement a `draft`. After approval, implement one change at a time on
    a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.
@@ -56,6 +57,9 @@ Humans consume changes in `changeledger view`; write for the rendered view.
 Files are the source of truth and may be edited directly. CLI helpers are
 optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
+
+An activated state ref is the only change authority; never edit a legacy copy.
+Synchronize pending state before another human decision on that change.
 
 Delegate only with a clear boundary and benefit. Each delegation prompt states at least
 ownership, expected output and integration criterion; the task context carries the full

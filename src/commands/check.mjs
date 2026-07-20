@@ -4,6 +4,7 @@ import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.
 import { checkContract } from '../contract.mjs';
 import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
+import { stateTraceabilityErrors } from '../state-store.mjs';
 
 // Declared integration branch, when a ChangeLedger repo (and the key) exists.
 // Outside a repo the lint still works on plain git, so absence is undefined,
@@ -92,6 +93,14 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   if (!id) {
     for (const message of checkContract(repo.repoRoot, repo.changeledgerDir)) {
       errors.push({ file: 'AGENTS.md', message });
+    }
+    if (repo.state) {
+      for (const issue of stateTraceabilityErrors(repo.repoRoot, repo.state.head)) {
+        errors.push({
+          file: '.changeledger-state',
+          message: `${issue.message}: ${issue.revision} (state commit ${issue.commit})`,
+        });
+      }
     }
   }
 

@@ -4,10 +4,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
+import { writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
+import { mutateResolvedChange } from '../change-store.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -18,6 +20,7 @@ const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
 
 function graduationTarget(id, slug, cwd) {
   const resolved = resolveChange(cwd, id);
+  assertSupportedSchema(resolved.config);
   const specsDir = resolveSpecsDir(resolved.repoRoot, resolved.config);
   const specName = `${slugify(slug)}.md`;
   return { ...resolved, specsDir, specName, specFile: path.join(specsDir, specName) };
@@ -45,7 +48,8 @@ export function scaffoldSpec(id, slug, cwd = process.cwd()) {
     specName,
     specFile,
   } = graduationTarget(id, slug, cwd);
-  const change = requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
+  const resolved = resolveChange(cwd, id);
+  const change = requireGraduationReady(config, changeFile, resolved.change.text);
   if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
 
   const seedStage =
@@ -79,51 +83,67 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
-  const { config, file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
-  requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
+  const resolved = graduationTarget(id, slug, cwd);
+  const { config, file: changeFile, specName, specFile } = resolved;
+  requireGraduationReady(config, changeFile, resolved.change.text);
 
   if (!fs.existsSync(specFile)) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
   }
 
-  mutateFileAtomic(changeFile, (changeText) => {
-    requireGraduationReady(config, changeFile, changeText);
-    const specText = fs.readFileSync(specFile, 'utf8');
-    if (specText.includes(SPEC_SCAFFOLD_MARKER)) {
-      throw new Error(
-        `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
-      );
-    }
-    const timestamp = nowUtc();
-    const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specText, timestamp), id);
-    writeFileAtomic(specFile, updatedSpec);
-
-    let text = appendLogEvent(changeText, {
-      at: timestamp,
-      type: 'graduation',
-      outcome: 'spec',
-      spec: specName,
-    });
-    text = setReviewed(text, true);
-    return text;
-  });
+  const originalSpec = fs.readFileSync(specFile, 'utf8');
+  if (originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+    throw new Error(
+      `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
+    );
+  }
+  const timestamp = nowUtc();
+  const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
+  writeFileAtomic(specFile, updatedSpec);
+  try {
+    mutateResolvedChange(
+      resolved,
+      (changeText) => {
+        requireGraduationReady(config, changeFile, changeText);
+        let text = appendLogEvent(changeText, {
+          at: timestamp,
+          type: 'graduation',
+          outcome: 'spec',
+          spec: specName,
+        });
+        text = setReviewed(text, true);
+        return text;
+      },
+      { operation: 'graduate', actor: resolved.change.frontmatter.owner ?? 'human' },
+    );
+  } catch (error) {
+    // Keep the integration-branch spec and the state document from silently
+    // disagreeing when the state CAS loses a race.
+    writeFileAtomic(specFile, originalSpec);
+    throw error;
+  }
   return specFile;
 }
 
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
-  const { config, file: changeFile } = resolveChange(cwd, id);
-  mutateFileAtomic(changeFile, (text) => {
-    requireGraduationReady(config, changeFile, text);
+  const resolved = resolveChange(cwd, id);
+  const { config, file: changeFile } = resolved;
+  mutateResolvedChange(
+    resolved,
+    (text) => {
+      requireGraduationReady(config, changeFile, text);
 
-    text = appendLogEvent(text, {
-      at: nowUtc(),
-      type: 'graduation',
-      outcome: 'skipped',
-      reason,
-    });
-    return setReviewed(text, true);
-  });
+      text = appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'graduation',
+        outcome: 'skipped',
+        reason,
+      });
+      return setReviewed(text, true);
+    },
+    { operation: 'graduate:skip', actor: resolved.change.frontmatter.owner ?? 'human' },
+  );
   return changeFile;
 }

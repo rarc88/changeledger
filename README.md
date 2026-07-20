@@ -54,6 +54,36 @@ When the work is done, its lasting truth graduates into `.changeledger/specs/`.
 The contract is agent-agnostic: Codex, Claude Code, opencode, Copilot, Cursor and
 other tools discover it through the repository's `AGENTS.md` reference.
 
+### Optional global state branch
+
+Repositories may move operational change documents to a dedicated,
+append-only `changeledger/state` branch. The CLI reads and updates that ref via
+Git objects without checking it out; configuration, specs and releases remain
+on the declared integration branch. Repositories that do not activate it keep
+the filesystem behavior above.
+
+Activation is an explicit migration, never a side effect of upgrading config:
+
+```sh
+changeledger config migrate
+changeledger state preview --ref dev --ref refs/remotes/origin/dev
+changeledger state init --ref dev --ref refs/remotes/origin/dev
+# publish and protect changeledger/state, then:
+changeledger state doctor
+changeledger state activate --advisory "provider protection verified manually"
+```
+
+Protect the state branch against deletion and force-push, permit only
+fast-forward writes, restrict writers, and install `changeledger state
+validate-receive` as a `pre-receive` hook when the server supports it. A failed
+publication remains visibly pending; `changeledger state sync` publishes it or
+replays it only when remote edits touched different change documents.
+
+Before the first post-cutover state write, `changeledger state abort` restores
+legacy authority while preserving the candidate. Afterwards use `changeledger
+state recover --branch <new-branch>` and perform another explicit cutover; stale
+legacy copies are never selected automatically.
+
 ## Changes and specs
 
 - **Changes** describe a delta: why it is needed, what was learned, the chosen
@@ -92,6 +122,7 @@ changeledger review <id> pass
 changeledger review <id> fail --retry "<reason>"
 changeledger review <id> fail --block "<reason>"
 changeledger discard <id> <reason>
+changeledger owner <id> <new-owner>      # explicit, audited transfer
 ```
 
 ### Preserve completed truth
@@ -108,6 +139,11 @@ changeledger archive --graduated                              # without a filter
 ```
 
 Run `changeledger --help` or `changeledger <command> --help` for the complete command reference.
+
+Schema 4 adds `git.change_branch_format`, defaulting to `{type}/{id}`. Only
+`{type}` and `{id}` are supported, and `{id}` must occur exactly once. Active
+global stores additionally declare the atomic pair `git.state_branch` and
+`git.state_baseline`; `config migrate` never invents either field.
 
 ## Release planning
 

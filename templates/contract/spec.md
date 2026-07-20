@@ -19,9 +19,9 @@ changeledger new <type> <slug> "<title>"
 ```
 
 The CLI generates the UTC id, filename and active stages. The slug is structural
-and must be English; title and narrative follow the configured language. Files
-remain the source of truth and may be edited directly, but prefer the CLI for
-timestamps, enums and markers that are easy to mistype.
+and must be English; title and narrative follow the configured language. Legacy
+files may be edited directly; an activated state ref has no visible worktree, so
+create and mutate through the CLI or viewer.
 
 One concern per change. If a request mixes unrelated concerns, propose separate
 changes and create them only after explicit human authorization. Work necessary
@@ -56,9 +56,9 @@ lifecycle progress and cycles. Use optional `related_to` for useful context that
 must not impose execution order or affect readiness. Both accept local ids and
 external `project:id` refs; declare a local relation once, deriving its backlink.
 
-`owner` identifies responsibility. `approved → in-progress` assigns an absent
-owner via `gh api user --jq .login`, then `git config user.name`. Override with
-`changeledger owner <id> <name|->`; absence means unassigned.
+Legacy mode assigns an absent `owner` via `gh api user --jq .login`, then Git
+identity. Global state requires it at approval, reserves agent work for that
+identity, and permits only the owner or a human to transfer it auditably.
 
 Keep each fact in one stage and link to it from the others. Do not let summaries
 or plans become competing versions of the same truth.

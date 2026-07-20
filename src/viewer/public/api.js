@@ -21,14 +21,20 @@ export const getGitRefs = (project, id) =>
 export const searchAllProjects = (query) =>
   fetch(`/api/search?q=${encodeURIComponent(query)}`).then((r) => r.json());
 
-export const postStatus = (project, id, status, reason) =>
+export const postStatus = (project, id, status, reason, owner) =>
   fetch('/api/status', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-changeledger-token': window.__CHANGELEDGER_TOKEN__,
     },
-    body: JSON.stringify({ project, id, status, ...(reason ? { reason } : {}) }),
+    body: JSON.stringify({
+      project,
+      id,
+      status,
+      ...(reason ? { reason } : {}),
+      ...(owner ? { owner } : {}),
+    }),
   });
 
 const postProject = (route, body) =>

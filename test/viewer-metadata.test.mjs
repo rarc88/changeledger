@@ -1312,7 +1312,7 @@ test('113924 CR4: form emits only fields changed by the human', () => {
 
 test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
   const config = {
-    schema_version: 3,
+    schema_version: 4,
     project_id: 'aaa111',
     project_name: 'alpha',
     language: 'en',

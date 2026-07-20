@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
+import { mutateResolvedChange } from '../change-store.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
-import { loadRepo } from '../repo.mjs';
+import { loadRepo, resolveChange } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
@@ -16,6 +18,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   let repo;
   try {
     repo = loadRepo(cwd);
+    if (!dryRun) assertSupportedSchema(repo.config);
   } catch (e) {
     output.error(`  error  (repo): ${e.message}`);
     return 1;
@@ -70,7 +73,11 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       continue;
     }
 
-    writeFileAtomic(c.file, fixedText);
+    const resolved = resolveChange(repo.repoRoot, c.frontmatter.id);
+    mutateResolvedChange(resolved, () => fixedText, {
+      operation: 'fix',
+      actor: c.frontmatter.owner ?? 'unknown',
+    });
     output.log(`fixed — ${c.name}:`);
     for (const a of applied) output.log(`  - ${a}`);
   }
@@ -96,7 +103,11 @@ function fixStructuredSections(repo, { dryRun, output }) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
     } else {
-      writeFileAtomic(change.file, result.text);
+      const resolved = resolveChange(repo.repoRoot, change.frontmatter.id);
+      mutateResolvedChange(resolved, () => result.text, {
+        operation: 'fix:structured-sections',
+        actor: change.frontmatter.owner ?? 'unknown',
+      });
       output.log(`fixed — ${change.name}:`);
       for (const message of result.applied) output.log(`  - ${message}`);
     }

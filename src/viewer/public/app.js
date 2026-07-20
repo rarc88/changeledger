@@ -258,12 +258,29 @@ function visibleChanges() {
 }
 
 function render() {
+  renderStateStatus();
   if (state.currentView === 'graph') renderGraph();
   else if (state.currentView === 'table') renderTable();
   else if (state.currentView === 'specs') renderSpecs();
   else if (state.currentView === 'metrics') renderMetrics();
   else if (state.currentView === 'projects') renderProjects();
   else renderBoard();
+}
+
+function renderStateStatus() {
+  const host = $('#state-status');
+  if (!host) return;
+  const store = state.repo?.state_store;
+  if (!store?.active) {
+    host.classList.add('hidden');
+    host.textContent = '';
+    return;
+  }
+  host.classList.remove('hidden');
+  host.classList.toggle('pending', Boolean(store.pending));
+  host.textContent = store.pending
+    ? `Global state pending publication at ${store.head}. Run changeledger state sync before another human decision.`
+    : `Global state ${store.branch} at ${store.head}`;
 }
 
 function renderBoard() {
@@ -305,15 +322,22 @@ function renderBoard() {
       approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
       const c = state.repo.changes.find((x) => String(x.id) === String(id));
-      if (c && c.status === 'draft') moveStatus(id, 'approved');
+      if (c && c.status === 'draft') {
+        const owner = state.repo.state_store?.active
+          ? window.prompt('Owner required to approve this change', c.owner ?? '')
+          : undefined;
+        if (!state.repo.state_store?.active || owner?.trim()) {
+          moveStatus(id, 'approved', undefined, owner?.trim());
+        }
+      }
     };
   }
 }
 
 // Persist a human-owned lifecycle move, then refresh the board.
-async function moveStatus(id, status, reason) {
+async function moveStatus(id, status, reason, owner) {
   try {
-    const res = await postStatus(state.currentProject, id, status, reason);
+    const res = await postStatus(state.currentProject, id, status, reason, owner);
     const out = await res.json();
     if (!res.ok) {
       showToast(out.error || 'status change failed');
@@ -1110,6 +1134,16 @@ function formEditorTemplate(config) {
         <input name="integration_branch" .value=${cfg.git?.integration_branch ?? ''} placeholder="Auto-detect" />
       </label>
       <p class="config-note">Change branches start from and merge into this branch. Leave empty to auto-detect.</p>
+      <label>Change branch format
+        <input name="change_branch_format" .value=${cfg.git?.change_branch_format ?? '{type}/{id}'} />
+      </label>
+      <p class="config-note">Supported placeholders: <code>{type}</code> and <code>{id}</code>.</p>
+      ${
+        cfg.git?.state_branch
+          ? html`<label>State branch<input .value=${cfg.git.state_branch} readonly /></label>
+            <label>State baseline<input .value=${cfg.git.state_baseline ?? ''} readonly /></label>`
+          : nothing
+      }
     </fieldset>
 
     <fieldset class="config-group">
@@ -1362,6 +1396,13 @@ export function collectFormPatch(formEl, currentConfig) {
     const proposedBranch = els.integration_branch.value.trim();
     if (proposedBranch !== currentBranch) {
       patch.git = { integration_branch: proposedBranch || null };
+    }
+  }
+  if (els.change_branch_format) {
+    const currentFormat = currentConfig.git?.change_branch_format ?? '{type}/{id}';
+    const proposedFormat = els.change_branch_format.value.trim();
+    if (proposedFormat !== currentFormat) {
+      patch.git = { ...(patch.git ?? {}), change_branch_format: proposedFormat };
     }
   }
 

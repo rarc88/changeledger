@@ -552,7 +552,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // canonical list queries for graduation and archive candidates.
     // 20260718-105457: those queries add optional owner scoping while keeping
     // per-change graduation and matching filtered archive semantics explicit.
-    'core.md': '14ba2bdaf590565378f44a54b15e3b4aff6b44ad9b8d1162948b17068dcf7eb2',
+    // 20260720-124231: storage wording is replaced with legacy/global authority;
+    // pending publication is additive. Human decision ownership is preserved.
+    'core.md': '37f12efda52f98de3b7d0f27cb21b72ba2afc8653380ae153f08ff1cf564b9fd',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -591,7 +593,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260715-122950: the ordered review recipe is extended with formatter and
     // check gates after lifecycle mutations; host ownership is explicit. Existing
     // review, verdict and validation rules are preserved, none retired.
-    'implement.md': '93878b96dabcb8a35853d977a11cf200bb04248703789cb872425be353e24c88',
+    // 20260720-124231: additive global-state owner, branch-format and pending
+    // synchronization invariants; legacy branch behavior is preserved.
+    'implement.md': '0cec49e3c43135d7afe829956a0e468c3e63fa7e89fe0e956410a03cb13d095b',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -618,7 +622,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // existing dependency execution and authoring rules are preserved.
     // 20260720-125007: task state metadata and Log events become explicit
     // structured records; the former punctuation-delimited forms are retired.
-    'spec.md': '0c02131a596088e83496ffa31d5ba87c11b7e03eab67ec50415c1300e485211e',
+    // 20260720-124231: direct-file storage and late auto-owner rules are replaced
+    // conditionally when global state is active; legacy behavior is preserved.
+    'spec.md': '2b39e2f87f6d17c7a397dd194adac9e2369bd0bdd165b9f5707777d5538e6b24',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct

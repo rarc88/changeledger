@@ -226,6 +226,19 @@ body {
   color: var(--blocked);
   background: rgba(248, 81, 73, 0.1);
 }
+
+.state-status {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 0.82rem;
+}
+
+.state-status.pending {
+  color: var(--warning-text, #7a4b00);
+  background: var(--warning-bg, #fff4d6);
+}
 .project-placeholder,
 .missing-config {
   padding: 28px 20px;

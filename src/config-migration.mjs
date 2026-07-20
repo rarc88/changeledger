@@ -4,7 +4,7 @@ import { parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 3;
+export const SUPPORTED_SCHEMA_VERSION = 4;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -32,6 +32,16 @@ export function getSchemaVersion(config) {
   return typeof v === 'number' ? v : 0;
 }
 
+export function assertSupportedSchema(config, subject = 'config') {
+  const current = getSchemaVersion(config ?? {});
+  if (current > SUPPORTED_SCHEMA_VERSION) {
+    throw new Error(
+      `${subject} schema ${current} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}; update ChangeLedger before writing`,
+    );
+  }
+  return current;
+}
+
 // Returns null when no migration needed; throws on invalid/future schema.
 // Otherwise returns { yaml: string, changes: string[] }.
 export function buildMigration(originalText) {
@@ -48,11 +58,7 @@ export function buildMigration(originalText) {
   const config = doc.toJS() ?? {};
   const current = getSchemaVersion(config);
 
-  if (current > SUPPORTED_SCHEMA_VERSION) {
-    throw new Error(
-      `config schema ${current} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-    );
-  }
+  assertSupportedSchema(config);
   if (current === SUPPORTED_SCHEMA_VERSION) {
     return null;
   }
@@ -78,6 +84,7 @@ export function buildMigration(originalText) {
   }
   if (current < 2) migrateToV2(doc, config, changes);
   if (current < 3) migrateToV3(doc, config, changes);
+  if (current < 4) migrateToV4(doc, config, changes);
 
   // No line wrapping and no flow padding: keeps untouched flow sequences
   // (statuses, stages) byte-identical to their common written form.
@@ -185,6 +192,16 @@ function setBlankGitSection(doc) {
   gitPair.key.spaceBefore = true;
   gitPair.key.commentBefore =
     ' Git integration: change branches start from and merge into this branch';
+}
+
+// 3 → 4: define implementation branch naming without activating a state store.
+// State activation remains a separate, explicit migration after an imported
+// baseline exists and therefore never belongs in config migrate.
+function migrateToV4(doc, config, changes) {
+  if (!Object.hasOwn(config.git ?? {}, 'change_branch_format')) {
+    doc.setIn(['git', 'change_branch_format'], '{type}/{id}');
+    changes.push('added git.change_branch_format: {type}/{id}');
+  }
 }
 
 // Apply migration to a file (or dry-run). Returns summary string.

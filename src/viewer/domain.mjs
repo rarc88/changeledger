@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
-import { parseChange } from '../change.mjs';
 import { checkRepo } from '../check.mjs';
 import {
   reopen as applyReopen,
@@ -51,6 +50,17 @@ export function serialize(repo) {
       graduated_from: s.frontmatter.graduated_from ?? [],
       body: s.body,
     })),
+    state_store: repo.state
+      ? {
+          active: true,
+          branch: repo.config.git?.state_branch,
+          baseline: repo.config.git?.state_baseline,
+          head: repo.state.head,
+          freshness: repo.state.pending?.pending ? 'pending' : 'local',
+          pending: repo.state.pending?.pending ?? false,
+          pending_changes: repo.state.pending?.ids ?? [],
+        }
+      : { active: false },
   };
 }
 
@@ -110,7 +120,7 @@ export function searchProjects(projects, q, load = loadRepo) {
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-export function changeStatus(projects, { project, id, status, reason }) {
+export function changeStatus(projects, { project, id, status, reason, owner }) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
@@ -122,8 +132,7 @@ export function changeStatus(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const { file } = resolveChange(proj.path, id);
-    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    current = resolveChange(proj.path, id).change.frontmatter.status;
   } catch (e) {
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
@@ -132,7 +141,7 @@ export function changeStatus(projects, { project, id, status, reason }) {
   }
   try {
     if (current === 'draft' && status === 'approved') {
-      applyStatusCmd(id, status, proj.path, { actor: 'human' });
+      applyStatusCmd(id, status, proj.path, { actor: 'human', owner });
     } else if (current === 'in-validation' && status === 'done') {
       applyValidation(id, 'pass', {}, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
@@ -566,5 +575,8 @@ function applyGitPatch(doc, gitPatch) {
     doc.setIn(['git', 'integration_branch'], gitPatch.integration_branch.trim());
   } else if (gitPatch.integration_branch === null) {
     doc.deleteIn(['git', 'integration_branch']);
+  }
+  if (typeof gitPatch.change_branch_format === 'string' && gitPatch.change_branch_format.trim()) {
+    doc.setIn(['git', 'change_branch_format'], gitPatch.change_branch_format.trim());
   }
 }

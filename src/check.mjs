@@ -600,6 +600,7 @@ function checkConfig(config, err) {
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
+  if ('git' in c) checkGitConfig(c.git, err);
   const configuredTypes = isMapping(c.types) ? c.types : {};
   if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
   const canonical = Array.isArray(c.stages) ? c.stages : [];
@@ -619,6 +620,69 @@ function checkConfig(config, err) {
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
   }
+}
+
+function checkGitConfig(git, err) {
+  if (!isMapping(git)) {
+    err(null, 'config "git" must be a mapping');
+    return;
+  }
+  if (
+    'integration_branch' in git &&
+    git.integration_branch !== null &&
+    (typeof git.integration_branch !== 'string' || !git.integration_branch.trim())
+  ) {
+    err(null, 'config "git.integration_branch" must be a non-empty string');
+  }
+  const format = git.change_branch_format;
+  if (format !== undefined) {
+    if (typeof format !== 'string' || !format.trim()) {
+      err(null, 'config "git.change_branch_format" must be a non-empty string');
+    } else {
+      const placeholders = [...format.matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]);
+      const unknown = placeholders.find((name) => !['type', 'id'].includes(name));
+      if (unknown) {
+        err(null, `config "git.change_branch_format" has unknown placeholder "{${unknown}}"`);
+      }
+      if ((format.match(/\{id\}/g) ?? []).length !== 1) {
+        err(null, 'config "git.change_branch_format" must contain "{id}" exactly once');
+      }
+      if (/[{}]/.test(format.replaceAll('{type}', '').replaceAll('{id}', ''))) {
+        err(null, 'config "git.change_branch_format" contains malformed placeholders');
+      }
+    }
+  }
+  const hasBranch = Object.hasOwn(git, 'state_branch');
+  const hasBaseline = Object.hasOwn(git, 'state_baseline');
+  if (hasBranch !== hasBaseline) {
+    err(null, 'config "git.state_branch" and "git.state_baseline" must be configured together');
+  }
+  if (hasBranch && !isPureGitBranch(git.state_branch)) {
+    err(null, 'config "git.state_branch" must be a valid Git branch');
+  }
+  if (
+    hasBaseline &&
+    (typeof git.state_baseline !== 'string' ||
+      !/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(git.state_baseline))
+  ) {
+    err(null, 'config "git.state_baseline" must be a full Git object id');
+  }
+}
+
+function isPureGitBranch(value) {
+  return (
+    typeof value === 'string' &&
+    Boolean(value) &&
+    !value.startsWith('-') &&
+    !value.startsWith('/') &&
+    !value.endsWith('/') &&
+    !value.endsWith('.') &&
+    !value.includes('..') &&
+    !value.includes('@{') &&
+    ![...value].some((char) => char.charCodeAt(0) <= 32) &&
+    !/[~^:?*[\\]/.test(value) &&
+    !value.split('/').some((part) => !part || part.startsWith('.') || part.endsWith('.lock'))
+  );
 }
 
 function isMapping(value) {

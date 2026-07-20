@@ -3,7 +3,7 @@
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
-schema_version: 3
+schema_version: 4
 
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
@@ -38,6 +38,7 @@ specs_dir: .changeledger/specs
 # Git integration: change branches start from and merge into this branch
 git:
   integration_branch:
+  change_branch_format: "{type}/{id}"
 
 # Valid lifecycle statuses (order = progress)
 statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
