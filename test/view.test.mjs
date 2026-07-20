@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -24,9 +25,11 @@ import {
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
+import { loadConfig } from '../src/config.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { initializeStateStore } from '../src/state-store.mjs';
 
 const TOKEN = 'test-token';
 
@@ -418,6 +421,20 @@ function newRepo() {
   return root;
 }
 
+function git(root, args) {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'Viewer Test',
+      GIT_AUTHOR_EMAIL: 'viewer@example.com',
+      GIT_COMMITTER_NAME: 'Viewer Test',
+      GIT_COMMITTER_EMAIL: 'viewer@example.com',
+    },
+  }).trim();
+}
+
 test('global mode lists all registered projects', () => {
   isolatedHome();
   newRepo();
@@ -747,6 +764,50 @@ test('111218 CR4/CR5/CR9: invalid, identity-changing and stale configs preserve 
   assert.equal(stale.code, 409);
   assert.equal(stale.body.error, 'configuration changed on disk; reload before saving');
   assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+});
+
+test('124231 CR16/CR18: viewer cannot change active state authority fields', () => {
+  isolatedHome();
+  const root = newRepo();
+  git(root, ['init', '-q', '-b', 'dev']);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  let configText = fs.readFileSync(configFile, 'utf8');
+  if (!/^git:/m.test(configText)) {
+    configText += '\ngit:\n  integration_branch: dev\n  change_branch_format: "{type}/{id}"\n';
+    fs.writeFileSync(configFile, configText);
+  }
+  git(root, ['add', '.changeledger', 'AGENTS.md']);
+  git(root, ['commit', '-qm', 'initial']);
+  const initialized = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: loadConfig(path.join(root, '.changeledger')).project_id,
+    integrationBranch: 'dev',
+    changes: [],
+  });
+  configText = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(
+      /^(git:\n(?: {2}[^\n]+\n)*)/m,
+      `$1  state_branch: changeledger/state\n  state_baseline: ${initialized.head}\n`,
+    );
+  fs.writeFileSync(configFile, configText);
+
+  const { projects, current } = resolveProjects(root, false);
+  const read = readProjectConfig(projects, current);
+  const candidate = read.body.content.replace(
+    'state_branch: changeledger/state',
+    'state_branch: changeledger/other',
+  );
+  const result = saveProjectConfig(projects, {
+    project: current,
+    content: candidate,
+    revision: read.body.revision,
+  });
+
+  assert.equal(result.code, 400);
+  assert.match(result.body.error, /state authority.*state abort.*state recover/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), read.body.content);
 });
 
 test('111218 CR4: candidate directories are loaded before config replacement', () => {

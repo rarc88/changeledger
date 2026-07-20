@@ -26,18 +26,37 @@ function conflict(kind, id, detail, refs = []) {
   return { kind, id: id ? String(id) : null, detail, refs: [...refs].sort() };
 }
 
+function logicalBranch(repoRoot, ref, gitEnv) {
+  let full = '';
+  try {
+    full = run(repoRoot, ['rev-parse', '--symbolic-full-name', ref], gitEnv);
+  } catch {
+    return undefined;
+  }
+  if (full.startsWith('refs/heads/')) return full.slice('refs/heads/'.length);
+  if (full.startsWith('refs/remotes/origin/')) {
+    return full.slice('refs/remotes/origin/'.length);
+  }
+  return undefined;
+}
+
 export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
   const inspectedRefs = [...new Set(refs ?? [])].sort();
   if (!inspectedRefs.length) throw new Error('state migration preview requires at least one ref');
 
   const records = [];
   const conflicts = [];
+  const resolvedRefs = new Map();
   for (const ref of inspectedRefs) {
     let commit;
     let config;
     try {
       commit = run(repoRoot, ['rev-parse', '--verify', ref], gitEnv);
       config = parseYaml(readAt(repoRoot, commit, '.changeledger/config.yml', gitEnv));
+      resolvedRefs.set(ref, {
+        commit,
+        branch: logicalBranch(repoRoot, ref, gitEnv),
+      });
     } catch (error) {
       conflicts.push(conflict('unreadable-ref', null, error.message, [ref]));
       continue;
@@ -74,6 +93,7 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
           file,
           name: path.posix.basename(file),
           text,
+          integrationBranch: config.git?.integration_branch,
           ...parsed,
         });
       } catch (error) {
@@ -91,6 +111,7 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
 
   const changes = [];
   const origins = [];
+  const legacyBranches = {};
   for (const [id, variants] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     variants.sort((a, b) => a.ref.localeCompare(b.ref) || a.file.localeCompare(b.file));
     const blobs = new Set(variants.map((variant) => variant.blob));
@@ -105,7 +126,10 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
       );
     }
 
-    const selected = variants[0];
+    const selected =
+      variants.find(
+        (variant) => resolvedRefs.get(variant.ref)?.branch === variant.integrationBranch,
+      ) ?? variants[0];
     const missingOwner = variants.find(
       (variant) =>
         ['approved', 'in-progress'].includes(variant.frontmatter.status) &&
@@ -122,9 +146,13 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
       );
     }
     if (variants.some((variant) => variant.frontmatter.status === 'in-progress')) {
-      const branches = inspectedRefs.filter(
-        (ref) => ref.split('/').at(-1)?.includes(id) || ref.includes(id),
-      );
+      const branches = [
+        ...new Set(
+          inspectedRefs
+            .map((ref) => logicalBranch(repoRoot, ref, gitEnv))
+            .filter((branch) => branch?.split('/').includes(id)),
+        ),
+      ].sort();
       if (branches.length !== 1) {
         conflicts.push(
           conflict(
@@ -134,6 +162,46 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
             branches,
           ),
         );
+      } else {
+        const branch = branches[0];
+        const branchTips = [
+          ...new Set(
+            [...resolvedRefs.values()]
+              .filter((item) => item.branch === branch)
+              .map((item) => item.commit),
+          ),
+        ];
+        const integration = selected.integrationBranch;
+        const integrationTips = [
+          ...new Set(
+            [...resolvedRefs.values()]
+              .filter((item) => item.branch === integration)
+              .map((item) => item.commit),
+          ),
+        ];
+        const hasValidBaseline =
+          branchTips.length === 1 &&
+          integrationTips.length > 0 &&
+          integrationTips.some((base) => {
+            try {
+              run(repoRoot, ['merge-base', '--is-ancestor', base, branchTips[0]], gitEnv);
+              return true;
+            } catch {
+              return false;
+            }
+          });
+        if (!hasValidBaseline) {
+          conflicts.push(
+            conflict(
+              'invalid-branch-baseline',
+              id,
+              `implementation branch "${branch}" must descend from integration branch "${integration}"`,
+              inspectedRefs.filter((ref) => resolvedRefs.get(ref)?.branch === branch),
+            ),
+          );
+        } else {
+          legacyBranches[id] = branch;
+        }
       }
     }
     changes.push({ name: selected.name, text: selected.text, ...parseChange(selected.text) });
@@ -157,6 +225,7 @@ export function previewStateMigration(repoRoot, { refs, gitEnv = {} } = {}) {
     warnings: ['Only explicitly provided, already-fetched refs were inspected.'],
     changes,
     origins,
+    legacyBranches,
     conflicts,
   };
 }

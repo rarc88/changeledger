@@ -35,6 +35,7 @@ const {
   reopenPanel,
   renderChoiceFilter,
   renderStatusFilter,
+  renderStateStatus,
   detailToolbar,
   detailPresentationControls,
   restoreInitialViewerShell,
@@ -78,6 +79,44 @@ const parse = (html) => {
 };
 const XSS = '"><img src=x onerror=alert(1)>';
 const HOUR = 3600000;
+
+test('124231 CR6: viewer distinguishes pending global state from confirmed state', () => {
+  document.body.innerHTML = '<div id="state-status" class="hidden"></div>';
+  appState.repo = {
+    state_store: {
+      active: true,
+      branch: 'changeledger/state',
+      head: 'abc123',
+      pending: true,
+    },
+  };
+  renderStateStatus();
+  const host = document.querySelector('#state-status');
+  assert.equal(host.classList.contains('hidden'), false);
+  assert.equal(host.classList.contains('pending'), true);
+  assert.match(host.textContent, /pending publication/);
+  assert.match(host.textContent, /state sync/);
+});
+
+test('124231 CR17: viewer marks a future global state as read-only', () => {
+  document.body.innerHTML = '<div id="state-status" class="hidden"></div>';
+  appState.repo = {
+    state_store: {
+      active: true,
+      branch: 'changeledger/state',
+      head: 'future123',
+      pending: false,
+      read_only: true,
+      minimum_version: 2,
+    },
+  };
+  renderStateStatus();
+  const host = document.querySelector('#state-status');
+  assert.equal(host.classList.contains('hidden'), false);
+  assert.equal(host.classList.contains('read-only'), true);
+  assert.match(host.textContent, /read-only/);
+  assert.match(host.textContent, /schema 2/);
+});
 
 const baseChange = () => ({
   id: '20260613-120000',

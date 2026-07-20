@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,6 +8,7 @@ import test from 'node:test';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
+import { initializeStateStore } from '../src/state-store.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 const contextBudgets = JSON.parse(
@@ -118,6 +120,87 @@ function setConfig(root, replacements) {
   for (const [pattern, value] of replacements) text = text.replace(pattern, value);
   fs.writeFileSync(file, text);
 }
+
+test('124231 CR2: context capsules read selected changes from global state after cutover', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'context-global-'));
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Context Test',
+    GIT_AUTHOR_EMAIL: 'context@example.com',
+    GIT_COMMITTER_NAME: 'Context Test',
+    GIT_COMMITTER_EMAIL: 'context@example.com',
+  };
+  const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
+  git(['init', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  const text = `---
+id: "20260720-120000"
+title: Global context
+type: feature
+status: in-progress
+created: 2026-07-20T12:00:00Z
+depends_on: []
+owner: ana
+---
+
+## Request
+
+Global body.
+
+## Investigation
+
+## Proposal
+
+## Specification
+
+## Plan
+
+## Log
+`;
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const baseConfig = `schema_version: 4
+language: en
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: project-1
+project_name: context
+`;
+  fs.writeFileSync(configFile, baseConfig);
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', '20260720-120000-global.md'), text);
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  git(['add', '.changeledger', 'AGENTS.md']);
+  git(['commit', '-qm', 'legacy']);
+  const state = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [{ name: '20260720-120000-global.md', text }],
+    gitEnv: env,
+  });
+  fs.writeFileSync(
+    configFile,
+    baseConfig.replace(
+      '  change_branch_format: "{type}/{id}"\n',
+      `  change_branch_format: "{type}/{id}"\n  state_branch: changeledger/state\n  state_baseline: ${state.head}\n`,
+    ),
+  );
+  fs.rmSync(path.join(root, '.changeledger', 'changes', '20260720-120000-global.md'));
+  git(['add', '-A', '.changeledger']);
+  git(['commit', '-qm', 'cutover']);
+
+  assert.match(buildContext('20260720-120000', root), /Global body\./);
+  assert.match(buildAgentContext('implementation', '20260720-120000', root), /Global body\./);
+});
 
 test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const root = repo();

@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, resolveRepoPath, stateConfig } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { objectRun } from '../git.mjs';
-import { resolveRepoAuthority } from '../repo.mjs';
+import { assertRepoStateWritable, resolveRepoAuthority } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { addStateChange, readStateStore, StateConflictError } from '../state-store.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -34,6 +33,7 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   const activeState = stateConfig(config);
 
   if (activeState) {
+    assertRepoStateWritable(authority);
     let created = now;
     for (;;) {
       const id = idFromTimestamp(created);
@@ -53,8 +53,6 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
           name,
           text: render({ id, title, type, owner, stages: typeDef.stages, now: created }),
           actor: owner ?? 'unknown',
-          codeRevision: objectRun(['rev-parse', 'HEAD'], repoRoot).trim(),
-          codeBranch: objectRun(['branch', '--show-current'], repoRoot).trim(),
         });
         return path.join(changesDir, name);
       } catch (error) {

@@ -47,7 +47,10 @@ function assertNoPendingHumanDecision(located, actor) {
 }
 
 function assertImplementationBranch(located) {
-  const expected = renderChangeBranch(located.config, located.change.frontmatter);
+  const id = String(located.change.frontmatter.id);
+  const expected =
+    located.state?.manifest?.legacy_branches?.[id] ??
+    renderChangeBranch(located.config, located.change.frontmatter);
   const current = objectRun(['branch', '--show-current'], located.repoRoot).trim();
   if (current !== expected) {
     throw new Error(
@@ -362,6 +365,17 @@ export function owner(
   const previous = located.change.frontmatter.owner ?? null;
   const handle = actorHandle(located.repoRoot);
   assertNoPendingHumanDecision(located, actor);
+  if (
+    isGlobal(located) &&
+    !next &&
+    ['approved', 'in-progress', 'in-review', 'in-validation', 'blocked'].includes(
+      located.change.frontmatter.status,
+    )
+  ) {
+    throw new Error(
+      `cannot clear the owner of a global change in ${located.change.frontmatter.status}; transfer ownership explicitly`,
+    );
+  }
   if (isGlobal(located) && previous && actor !== 'human') assertOwnedBy(located, handle);
   mutateResolvedChange(
     located,

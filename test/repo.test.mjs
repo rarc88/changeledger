@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
-import { loadRepo } from '../src/repo.mjs';
+import { loadRepo, resolveChange } from '../src/repo.mjs';
 import { initializeStateStore } from '../src/state-store.mjs';
 
 function fixture(changesDir = '.changeledger/changes') {
@@ -73,6 +73,70 @@ test('124231 CR2/CR9: active state loads changes from the configured ref', () =>
   assert.equal(loaded.changes.length, 1);
   assert.equal(loaded.changes[0].frontmatter.title, 'Global');
   assert.equal(loaded.state.head, initialized.head);
+});
+
+test('124231 CR16: a stale legacy checkout detects activated remote authority and fails closed', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-remote-authority-'));
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Repo Test',
+    GIT_AUTHOR_EMAIL: 'repo@example.com',
+    GIT_COMMITTER_NAME: 'Repo Test',
+    GIT_COMMITTER_EMAIL: 'repo@example.com',
+  };
+  const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
+  git(['init', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  const text =
+    '---\nid: "20260720-120000"\ntitle: Global\ntype: feature\nstatus: draft\ncreated: 2026-07-20T12:00:00Z\ndepends_on: []\n---\n\n## Request\n';
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', '20260720-120000-global.md'), text);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const baseConfig = `schema_version: 4
+language: en
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+types:
+  feature:
+    stages: [request]
+project_id: project-1
+`;
+  fs.writeFileSync(configFile, baseConfig);
+  git(['add', '.changeledger']);
+  git(['commit', '-qm', 'legacy']);
+  const legacy = git(['rev-parse', 'HEAD']);
+  const initialized = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [{ name: '20260720-120000-global.md', text }],
+    gitEnv: env,
+  });
+  fs.writeFileSync(
+    configFile,
+    baseConfig.replace(
+      '  change_branch_format: "{type}/{id}"\n',
+      `  change_branch_format: "{type}/{id}"\n  state_branch: changeledger/state\n  state_baseline: ${initialized.head}\n`,
+    ),
+  );
+  git(['add', configFile]);
+  git(['commit', '-qm', 'activate']);
+  const activated = git(['rev-parse', 'HEAD']);
+  git(['update-ref', 'refs/remotes/origin/dev', activated]);
+  git(['update-ref', 'refs/remotes/origin/changeledger/state', initialized.head]);
+  git(['update-ref', '-d', 'refs/heads/changeledger/state']);
+  git(['reset', '--hard', '-q', legacy]);
+
+  const loaded = loadRepo(root);
+  assert.equal(loaded.state.remoteOnly, true);
+  assert.equal(loaded.changes[0].frontmatter.title, 'Global');
+  assert.throws(
+    () => resolveChange(root, '20260720-120000').state.assertWritable(),
+    /update integration branch and fetch state branch/,
+  );
 });
 
 test('loadRepo throws outside a ChangeLedger repo', () => {

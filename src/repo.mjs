@@ -14,22 +14,20 @@ import { parseSpec } from './spec.mjs';
 import { readStateStore } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
-function configAt(repoRoot, branch) {
+function configAt(repoRoot, ref) {
   try {
-    return parseYaml(
-      objectRun(['show', `refs/heads/${branch}:.changeledger/config.yml`], repoRoot),
-    );
+    return parseYaml(objectRun(['show', `${ref}:.changeledger/config.yml`], repoRoot));
   } catch {
     return undefined;
   }
 }
 
-function specsAt(repoRoot, branch, config) {
+function specsAt(repoRoot, revision, config) {
   const dir = config.specs_dir ?? '.changeledger/specs';
   resolveRepoPath(repoRoot, dir, 'specs_dir');
   let names;
   try {
-    names = objectRun(['ls-tree', '-r', '--name-only', `refs/heads/${branch}`, '--', dir], repoRoot)
+    names = objectRun(['ls-tree', '-r', '--name-only', revision, '--', dir], repoRoot)
       .split('\n')
       .filter((name) => name.endsWith('.md'))
       .sort();
@@ -39,45 +37,94 @@ function specsAt(repoRoot, branch, config) {
   return names.map((name) => ({
     file: path.join(repoRoot, name),
     name: path.basename(name),
-    ...parseSpec(objectRun(['show', `refs/heads/${branch}:${name}`], repoRoot)),
+    ...parseSpec(objectRun(['show', `${revision}:${name}`], repoRoot)),
   }));
+}
+
+function stateCandidate(ref) {
+  if (ref.startsWith('refs/heads/')) {
+    return {
+      branch: ref.slice('refs/heads/'.length),
+      sourceRef: ref,
+      integrationPrefix: 'refs/heads',
+    };
+  }
+  const remote = ref.match(/^refs\/remotes\/([^/]+)\/(.+)$/);
+  if (!remote || remote[2] === 'HEAD') return undefined;
+  return {
+    branch: remote[2],
+    sourceRef: ref,
+    integrationPrefix: `refs/remotes/${remote[1]}`,
+    remoteOnly: true,
+  };
+}
+
+function readonlyState(state, remoteOnly) {
+  if (!remoteOnly && !state.readOnly) return state;
+  const reason = remoteOnly
+    ? 'global state is active on origin; update integration branch and fetch state branch before mutating'
+    : `state manifest schema ${state.manifest.schema_version} requires a newer version; update ChangeLedger before mutating`;
+  return {
+    ...state,
+    remoteOnly,
+    assertWritable() {
+      throw new Error(reason);
+    },
+  };
 }
 
 function discoverCanonicalState(repoRoot, localConfig) {
   const localState = stateConfig(localConfig);
-  const branches = [];
-  if (localState) branches.push(localState.branch);
+  const candidates = [];
+  if (localState) candidates.push(stateCandidate(`refs/heads/${localState.branch}`));
   try {
-    const refs = objectRun(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], repoRoot)
+    const refs = objectRun(
+      ['for-each-ref', '--format=%(refname)', 'refs/heads', 'refs/remotes'],
+      repoRoot,
+    )
       .split('\n')
       .filter(Boolean);
-    for (const branch of refs) if (!branches.includes(branch)) branches.push(branch);
+    for (const ref of refs) {
+      const candidate = stateCandidate(ref);
+      if (candidate && !candidates.some((item) => item.sourceRef === candidate.sourceRef)) {
+        candidates.push(candidate);
+      }
+    }
   } catch {
     // A non-Git legacy repository remains supported.
   }
 
-  for (const branch of branches) {
+  for (const candidate of candidates) {
+    const { branch, sourceRef, integrationPrefix, remoteOnly = false } = candidate;
     let store;
     try {
-      store = readStateStore(repoRoot, branch);
+      store = readStateStore(repoRoot, branch, { sourceRef: remoteOnly ? sourceRef : undefined });
     } catch {
       continue;
     }
     const integration = String(store.manifest.integration_branch ?? '');
-    const canonical = configAt(repoRoot, integration);
+    const canonical = configAt(repoRoot, `${integrationPrefix}/${integration}`);
     const canonicalState = canonical ? stateConfig(canonical) : undefined;
     if (canonicalState?.branch === branch) {
+      const state = readStateStore(repoRoot, branch, {
+        baseline: canonicalState.baseline,
+        sourceRef: remoteOnly ? sourceRef : undefined,
+      });
+      state.integrationRef = `${integrationPrefix}/${integration}`;
       return {
         config: canonical,
-        state: readStateStore(repoRoot, branch, { baseline: canonicalState.baseline }),
+        state: readonlyState(state, remoteOnly),
       };
     }
     // `state activate` changes the integration worktree before that cutover
     // commit exists. Honor its complete local pair, but never an inactive candidate.
-    if (localState?.branch === branch) {
+    if (!remoteOnly && localState?.branch === branch) {
       return {
         config: localConfig,
-        state: readStateStore(repoRoot, branch, { baseline: localState.baseline }),
+        state: readonlyState(
+          readStateStore(repoRoot, branch, { baseline: localState.baseline }),
+          false,
+        ),
       };
     }
   }
@@ -90,6 +137,15 @@ export function resolveRepoAuthority(start = process.cwd()) {
   const repoRoot = path.dirname(changeledgerDir);
   const localConfig = loadConfig(changeledgerDir);
   return { changeledgerDir, repoRoot, ...discoverCanonicalState(repoRoot, localConfig) };
+}
+
+export function assertRepoStateWritable(repo) {
+  repo.state?.assertWritable?.();
+  if (repo.state?.readOnly) {
+    throw new Error(
+      `state manifest schema ${repo.state.manifest.schema_version} is newer than supported; update ChangeLedger before mutating`,
+    );
+  }
 }
 
 // Single authority for resolving a change id to its file. Matches by EXACT
@@ -203,7 +259,13 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, discovered
   const specs = [];
   const specsDir = resolveSpecsDir(repoRoot, config);
   if (state) {
-    specs.push(...specsAt(repoRoot, String(state.manifest.integration_branch), config));
+    specs.push(
+      ...specsAt(
+        repoRoot,
+        state.integrationRef ?? `refs/heads/${state.manifest.integration_branch}`,
+        config,
+      ),
+    );
   } else if (fs.existsSync(specsDir)) {
     for (const name of fs.readdirSync(specsDir).sort()) {
       if (!name.endsWith('.md')) continue;
@@ -260,7 +322,13 @@ export async function loadRepoAsync(start = process.cwd()) {
   const specs = [];
   const specsDir = resolveSpecsDir(repoRoot, config);
   if (state) {
-    specs.push(...specsAt(repoRoot, String(state.manifest.integration_branch), config));
+    specs.push(
+      ...specsAt(
+        repoRoot,
+        state.integrationRef ?? `refs/heads/${state.manifest.integration_branch}`,
+        config,
+      ),
+    );
   } else
     try {
       const names = (await fs.promises.readdir(specsDir)).sort();

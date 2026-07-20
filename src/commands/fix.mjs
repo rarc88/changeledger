@@ -4,7 +4,7 @@ import { mutateResolvedChange } from '../change-store.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
-import { loadRepo, resolveChange } from '../repo.mjs';
+import { assertRepoStateWritable, loadRepo, resolveChange } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
@@ -18,7 +18,10 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   let repo;
   try {
     repo = loadRepo(cwd);
-    if (!dryRun) assertSupportedSchema(repo.config);
+    if (!dryRun) {
+      assertSupportedSchema(repo.config);
+      assertRepoStateWritable(repo);
+    }
   } catch (e) {
     output.error(`  error  (repo): ${e.message}`);
     return 1;

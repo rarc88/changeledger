@@ -267,7 +267,7 @@ function render() {
   else renderBoard();
 }
 
-function renderStateStatus() {
+export function renderStateStatus() {
   const host = $('#state-status');
   if (!host) return;
   const store = state.repo?.state_store;
@@ -278,9 +278,12 @@ function renderStateStatus() {
   }
   host.classList.remove('hidden');
   host.classList.toggle('pending', Boolean(store.pending));
-  host.textContent = store.pending
-    ? `Global state pending publication at ${store.head}. Run changeledger state sync before another human decision.`
-    : `Global state ${store.branch} at ${store.head}`;
+  host.classList.toggle('read-only', Boolean(store.read_only));
+  host.textContent = store.read_only
+    ? `Global state ${store.branch} at ${store.head} is read-only (schema ${store.minimum_version}); update ChangeLedger for complete writable support.`
+    : store.pending
+      ? `Global state pending publication at ${store.head}. Run changeledger state sync before another human decision.`
+      : `Global state ${store.branch} at ${store.head}`;
 }
 
 function renderBoard() {

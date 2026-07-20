@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, integrationBranch } from '../config.mjs';
 import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
-import { loadRepo, resolveChange } from '../repo.mjs';
+import { loadRepo, resolveChange, resolveRepoAuthority } from '../repo.mjs';
 
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
@@ -89,7 +89,7 @@ function dependencyBlock(dependsOn, cwd) {
     if (dep.includes(':')) return `- #${dep} — external reference (not resolved locally)`;
     try {
       const resolved = resolveChange(cwd, dep);
-      const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+      const { frontmatter } = resolved.change;
       return `- #${dep} — ${frontmatter.title} — ${frontmatter.status}`;
     } catch {
       return `- #${dep} — unresolved local dependency`;
@@ -105,7 +105,7 @@ function relatedChangeLine(direction, raw, cwd) {
   }
   try {
     const resolved = resolveChange(cwd, reference);
-    const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+    const { frontmatter } = resolved.change;
     return `- ${direction} — #${reference} — ${frontmatter.title} — ${frontmatter.status}`;
   } catch {
     return `- ${direction} — #${reference} — unresolved local relation`;
@@ -181,7 +181,7 @@ function composeInput(input, cwd, config) {
     );
   }
 
-  const text = fs.readFileSync(resolved.file, 'utf8');
+  const text = resolved.change.text;
   const {
     id,
     status,
@@ -204,8 +204,8 @@ function composeInput(input, cwd, config) {
 // framed `unchanged` confirmation instead of the full contract body; any
 // mismatch (stale or invented) falls back to the complete normal output.
 export function buildContext(input, cwd = process.cwd(), options = {}) {
-  const changeledgerDir = requireRepo(cwd);
-  const config = loadConfig(changeledgerDir);
+  requireRepo(cwd);
+  const { config } = resolveRepoAuthority(cwd);
   const result = composeInput(input, cwd, config);
   if (options.have && options.have === result.rev) {
     const sections = [

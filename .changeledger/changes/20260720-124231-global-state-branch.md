@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -456,3 +456,31 @@ legacy, porque ya podrían estar obsoletas.
 - **2026-07-20T14:23:28Z** `[status]` approved → in-progress
 - **2026-07-20T14:23:28Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-20T15:10:48Z** `[status]` in-progress → in-review
+- **2026-07-20T15:25:12Z** `[review]` in-review → in-progress (retry): Corregir contextos globales, detección remota fail-closed, ownership por commit, ramas legacy, señalización pending y validación de trazabilidad/head; añadir regresiones.
+- **2026-07-20T15:41:38Z** `[status]` in-progress → in-review
+- **2026-07-20T15:52:32Z** `[review]` in-review → in-progress (retry): Marcar sin remoto como pending, detectar rewinds aun con pendientes, validar todos los trailers y bloquear sync de manifiestos futuros; añadir regresiones.
+- **2026-07-20T15:57:32Z** `[status]` in-progress → in-review
+- **2026-07-20T16:07:36Z** `[review]` in-review → in-progress (retry): Rechazar trailers malformados, exigir base confirmada para pending con remoto conocido y bloquear replay sobre manifiesto remoto futuro; añadir regresiones.
+- **2026-07-20T16:11:21Z** `[status]` in-progress → in-review
+- **2026-07-20T16:22:02Z** `[review]` in-review → in-progress (retry): Corregir sync para detectar conflictos por Change-Id aunque cambie el nombre, revalidar replay antes de publicar y añadir regresión concurrente.
+- **2026-07-20T16:26:50Z** `[status]` in-progress → in-review
+- **2026-07-20T16:36:35Z** `[review]` in-review → in-progress (retry): Exigir candidata publicada antes del cutover, admitir imports multi-ref, validar trailers obligatorios por commit y registrar revisión/rama al iniciar implementación; añadir regresiones.
+- **2026-07-20T16:40:55Z** `[status]` in-progress → in-review
+- **2026-07-20T16:57:32Z** `[review]` in-review → in-progress (retry): Detectar rewinds remotos, exigir trazabilidad de código según operación, permitir override humano explícito en validate-receive y exponer manifiestos futuros como read-only; añadir regresiones.
+- **2026-07-20T17:02:37Z** `[status]` in-progress → in-review
+- **2026-07-20T17:07:49Z** `[review]` in-review → in-progress (retry): Exponer state publish para confirmar una candidata inactiva y probar el flujo CLI init → publish → activate sin APIs internas.
+- **2026-07-20T17:10:28Z** `[status]` in-progress → in-review
+- **2026-07-20T17:16:57Z** `[review]` in-review → in-progress (retry): Refrescar el head remoto inmediatamente antes de state activate y exigir candidate === confirmed === remote; añadir regresión de avance concurrente.
+- **2026-07-20T17:21:01Z** `[status]` in-progress → in-review
+- **2026-07-20T17:34:50Z** `[review]` in-review → in-progress (retry): Cerrar cutover sobre el snapshot refrescado; refrescar abort/recovery; endurecer layout, ownership y validación advisory; resolver migración por Change-Id, proteger config activa y probar flujo CLI completo.
+- **2026-07-20T17:41:31Z** `[status]` in-progress → in-review
+- **2026-07-20T17:52:04Z** `[review]` in-review → in-progress (retry): Validar invariantes de owner y evidencia auditada commit a commit; exigir procedencia Change-Origin completa y verificable en el baseline antes del cutover.
+- **2026-07-20T17:56:20Z** `[status]` in-progress → in-review
+- **2026-07-20T18:03:56Z** `[review]` in-review → in-progress (retry): Validar asignación y transferencia mediante eventos nuevos parseados dentro de Log, preservar actores con espacios y exigir que cada ref Change-Origin exista y alcance su commit.
+- **2026-07-20T18:07:59Z** `[status]` in-progress → in-review
+- **2026-07-20T18:14:17Z** `[review]` in-review → in-progress (retry): Exigir status Log en toda aprobación aunque el owner ya exista, validar la nota de transferencia de forma exacta y rechazar Change-Origin que no corresponda a un change del baseline.
+- **2026-07-20T18:16:41Z** `[status]` in-progress → in-review
+- **2026-07-20T18:26:48Z** `[review]` in-review → in-progress (retry): El baseline raíz vacío omite la validación de trailers Change-Origin; debe rechazar cualquier origen huérfano o malformado.
+- **2026-07-20T18:27:57Z** `[note]` Corregida la validación de procedencia para baselines raíz vacíos: solo se permite ausencia de Change-Origin; los trailers presentes se validan y los huérfanos se rechazan.
+- **2026-07-20T18:27:59Z** `[status]` in-progress → in-review
+- **2026-07-20T18:35:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)

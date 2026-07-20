@@ -127,3 +127,59 @@ test('124231 CR15: approved without owner blocks while terminal changes need no 
   git(root, ['commit', '-qm', 'done']);
   assert.deepEqual(previewStateMigration(root, { refs: ['dev'], gitEnv: ENV }).conflicts, []);
 });
+
+test('124231 CR14/CR15: preview records one logical legacy branch and deduplicates aliases', () => {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'changes', '20260720-120000-state.md');
+  fs.writeFileSync(file, change('20260720-120000', { status: 'in-progress', owner: 'ana' }));
+  git(root, ['add', file]);
+  git(root, ['commit', '-qm', 'in progress']);
+  git(root, ['branch', 'work/20260720-120000']);
+  git(root, [
+    'update-ref',
+    'refs/remotes/origin/work/20260720-120000',
+    'refs/heads/work/20260720-120000',
+  ]);
+
+  const result = previewStateMigration(root, {
+    refs: ['dev', 'work/20260720-120000', 'refs/remotes/origin/work/20260720-120000'],
+    gitEnv: ENV,
+  });
+
+  assert.deepEqual(result.conflicts, []);
+  assert.deepEqual(result.legacyBranches, {
+    '20260720-120000': 'work/20260720-120000',
+  });
+});
+
+test('124231 CR15: a ref merely containing the id is not an implementation branch', () => {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'changes', '20260720-120000-state.md');
+  fs.writeFileSync(file, change('20260720-120000', { status: 'in-progress', owner: 'ana' }));
+  git(root, ['add', file]);
+  git(root, ['commit', '-qm', 'in progress']);
+  git(root, ['branch', 'backup-20260720-120000-copy']);
+
+  const result = previewStateMigration(root, {
+    refs: ['dev', 'backup-20260720-120000-copy'],
+    gitEnv: ENV,
+  });
+  assert.ok(result.conflicts.some((item) => item.kind === 'ambiguous-branch'));
+});
+
+test('124231 CR15: an implementation branch must descend from integration', () => {
+  const root = repo();
+  const file = path.join(root, '.changeledger', 'changes', '20260720-120000-state.md');
+  fs.writeFileSync(file, change('20260720-120000', { status: 'in-progress', owner: 'ana' }));
+  git(root, ['add', file]);
+  git(root, ['commit', '-qm', 'in progress']);
+  const tree = git(root, ['rev-parse', 'dev^{tree}']);
+  const unrelated = git(root, ['commit-tree', tree, '-m', 'unrelated root']);
+  git(root, ['update-ref', 'refs/heads/work/20260720-120000', unrelated]);
+
+  const result = previewStateMigration(root, {
+    refs: ['dev', 'work/20260720-120000'],
+    gitEnv: ENV,
+  });
+  assert.ok(result.conflicts.some((item) => item.kind === 'invalid-branch-baseline'));
+});

@@ -11,7 +11,7 @@ import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
-import { resolveChange } from '../repo.mjs';
+import { assertRepoStateWritable, resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -21,6 +21,7 @@ const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
 function graduationTarget(id, slug, cwd) {
   const resolved = resolveChange(cwd, id);
   assertSupportedSchema(resolved.config);
+  assertRepoStateWritable(resolved);
   const specsDir = resolveSpecsDir(resolved.repoRoot, resolved.config);
   const specName = `${slugify(slug)}.md`;
   return { ...resolved, specsDir, specName, specFile: path.join(specsDir, specName) };

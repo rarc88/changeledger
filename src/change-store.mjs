@@ -2,6 +2,7 @@ import { mutateFileAtomic } from './atomic-write.mjs';
 import { stateConfig } from './config.mjs';
 import { assertSupportedSchema } from './config-migration.mjs';
 import { objectRun } from './git.mjs';
+import { assertRepoStateWritable } from './repo.mjs';
 import { mutateStateChange } from './state-store.mjs';
 
 export function mutateResolvedChange(
@@ -15,6 +16,24 @@ export function mutateResolvedChange(
     mutateFileAtomic(resolved.file, mutate);
     return { file: resolved.file, pending: false };
   }
+  assertRepoStateWritable(resolved);
+  const traceCode =
+    /^(status:in-progress|status:in-review|status:in-validation|review:|validation:|graduate|fix)/.test(
+      operation,
+    );
+  let codeRevision;
+  let codeBranch;
+  if (traceCode) {
+    codeRevision = objectRun(['rev-parse', 'HEAD'], resolved.repoRoot).trim();
+    const message = objectRun(['show', '-s', '--format=%B', codeRevision], resolved.repoRoot);
+    const marker = `[#${resolved.change.frontmatter.id}]`;
+    if (operation !== 'status:in-progress' && !message.includes(marker)) {
+      throw new Error(
+        `cannot record code traceability: revision ${codeRevision} lacks change marker ${marker}`,
+      );
+    }
+    codeBranch = objectRun(['branch', '--show-current'], resolved.repoRoot).trim();
+  }
   const result = mutateStateChange({
     repoRoot: resolved.repoRoot,
     branch: active.branch,
@@ -22,8 +41,8 @@ export function mutateResolvedChange(
     expectedHead: resolved.state.head,
     operation,
     actor,
-    codeRevision: objectRun(['rev-parse', 'HEAD'], resolved.repoRoot).trim(),
-    codeBranch: objectRun(['branch', '--show-current'], resolved.repoRoot).trim(),
+    codeRevision,
+    codeBranch,
     mutate,
   });
   return { file: resolved.file, ...result };

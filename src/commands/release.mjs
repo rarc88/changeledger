@@ -10,7 +10,7 @@ import {
   RELEASE_IMPACTS,
   resolveReleasesDir,
 } from '../release.mjs';
-import { loadRepo } from '../repo.mjs';
+import { assertRepoStateWritable, loadRepo } from '../repo.mjs';
 import { stringifyYaml } from '../yaml.mjs';
 
 const IMPACT_RANK = new Map(RELEASE_IMPACTS.map((impact, index) => [impact, index]));
@@ -60,6 +60,7 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+  assertRepoStateWritable(initial);
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   const historyLock = path.join(releasesDir, '.history');
@@ -86,6 +87,7 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+  assertRepoStateWritable(initial);
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   const historyLock = path.join(releasesDir, '.history');
 

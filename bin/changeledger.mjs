@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command } from 'commander';
 import {
   approve,
@@ -35,6 +36,7 @@ import {
   doctorState,
   initState,
   previewState,
+  publishState,
   recoverState,
   syncState,
   validateReceive,
@@ -43,6 +45,7 @@ import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
+import { assertRepoStateWritable, loadRepo } from '../src/repo.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -77,6 +80,16 @@ function collect(value, previous) {
 
 function collectRef(value, previous) {
   return previous.concat([value]);
+}
+
+function reportPendingState(id) {
+  const pending = loadRepo().state?.pending;
+  if (!pending?.pending) return;
+  if (pending.ids.length && id && !pending.ids.includes(String(id))) return;
+  const label = (id ?? pending.ids.join(', #')) || 'state';
+  console.warn(
+    `Pending: #${label} is saved locally but not globally confirmed; run \`changeledger state sync\`.`,
+  );
 }
 
 program
@@ -130,6 +143,7 @@ program
       const title = titleParts.join(' ').trim();
       const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
       console.log(`Created ${file}`);
+      reportPendingState(path.basename(file).match(/^(\d{8}-\d{6})-/)?.[1]);
     }),
   );
 
@@ -358,6 +372,7 @@ program
     action((id, st) => {
       status(id, st, process.cwd(), { actor: 'agent' });
       console.log(`#${id} → ${st}`);
+      reportPendingState(id);
     }),
   );
 
@@ -381,6 +396,7 @@ program
     action((id, options) => {
       approve(id, process.cwd(), { owner: options.owner });
       console.log(`#${id} → approved (human via conversation)`);
+      reportPendingState(id);
     }),
   );
 
@@ -422,6 +438,7 @@ program
         throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
       }
       console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
+      reportPendingState(id);
     }),
   );
 
@@ -434,6 +451,7 @@ program
     action((id, reasonParts) => {
       reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
       console.log(`#${id} → in-progress`);
+      reportPendingState(id);
     }),
   );
 
@@ -446,6 +464,7 @@ program
     action((id, reasonParts) => {
       discard(id, reasonParts.join(' ').trim());
       console.log(`#${id} → discarded`);
+      reportPendingState(id);
     }),
   );
 
@@ -473,6 +492,7 @@ program
       const reason = reasonParts.join(' ').trim() || undefined;
       review(id, verdict, { mode, reason });
       console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
+      reportPendingState(id);
     }),
   );
 
@@ -498,6 +518,7 @@ program
         channel: options.human ? 'conversation' : 'cli',
       });
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
+      reportPendingState(id);
     }),
   );
 
@@ -539,6 +560,7 @@ program
       if (!id) throw new Error('archive requires <id> or --graduated');
       archive(id);
       console.log(`#${id} archived`);
+      reportPendingState(id);
     }),
   );
 
@@ -551,6 +573,7 @@ program
     action((id, messageParts) => {
       log(id, messageParts.join(' ').trim());
       console.log(`logged on #${id}`);
+      reportPendingState(id);
     }),
   );
 
@@ -575,6 +598,7 @@ program
       const n = Number(nStr);
       task(id, taskAction, n, reasonParts.join(' ').trim());
       console.log(`task #${n} on #${id} → ${taskAction}`);
+      reportPendingState(id);
     }),
   );
 
@@ -724,6 +748,7 @@ configCommand
       const changeledgerDir = findChangeledgerDir();
       if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
       const configFile = `${changeledgerDir}/config.yml`;
+      if (!options.dryRun) assertRepoStateWritable(loadRepo());
       const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
       console.log(result);
     }),
@@ -766,6 +791,21 @@ stateCommand
   );
 
 stateCommand
+  .command('publish')
+  .description('publish and confirm an inactive state branch candidate')
+  .option('--branch <name>', 'candidate branch', 'changeledger/state')
+  .action(
+    action((options) => {
+      const result = publishState({ branch: options.branch });
+      console.log(
+        result.confirmed
+          ? `State candidate confirmed at ${result.head}`
+          : `State candidate remains pending at ${result.head}`,
+      );
+    }),
+  );
+
+stateCommand
   .command('abort')
   .description('restore legacy authority only while the active state still equals its baseline')
   .action(
@@ -794,15 +834,22 @@ stateCommand
   .command('validate-receive')
   .description('validate pre-receive old/new/ref lines from stdin without checkout')
   .option('--actor <handle>', 'authenticated remote actor (or CHANGELEDGER_AUTHENTICATED_ACTOR)')
+  .option('--human-override', 'authorize this update as an explicit human decision')
   .option('--branch <name>', 'protected state branch', 'changeledger/state')
   .action(
     action((options) => {
       const input = fs.readFileSync(0, 'utf8');
       const results = validateReceive(input, process.cwd(), {
         actor: options.actor ?? process.env.CHANGELEDGER_AUTHENTICATED_ACTOR,
+        humanOverride: options.humanOverride,
         branch: options.branch,
       });
       console.log(`Validated ${results.length} state update(s)`);
+      if (results.some((result) => result.owner_enforcement === 'unavailable')) {
+        console.error(
+          'Warning: authenticated remote identity is unavailable; owner exclusivity was not enforced.',
+        );
+      }
     }),
   );
 

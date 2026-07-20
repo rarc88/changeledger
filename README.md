@@ -68,7 +68,8 @@ Activation is an explicit migration, never a side effect of upgrading config:
 changeledger config migrate
 changeledger state preview --ref dev --ref refs/remotes/origin/dev
 changeledger state init --ref dev --ref refs/remotes/origin/dev
-# publish and protect changeledger/state, then:
+changeledger state publish
+# protect changeledger/state, then:
 changeledger state doctor
 changeledger state activate --advisory "provider protection verified manually"
 ```
@@ -78,6 +79,9 @@ fast-forward writes, restrict writers, and install `changeledger state
 validate-receive` as a `pre-receive` hook when the server supports it. A failed
 publication remains visibly pending; `changeledger state sync` publishes it or
 replays it only when remote edits touched different change documents.
+Configure `validate-receive --human-override` only for an explicit human-owned
+decision allowed to bypass the current owner; the state commit still records
+the actor and operation.
 
 Before the first post-cutover state write, `changeledger state abort` restores
 legacy authority while preserving the candidate. Afterwards use `changeledger

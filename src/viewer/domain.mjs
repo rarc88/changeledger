@@ -9,7 +9,13 @@ import {
   status as applyStatusCmd,
   validation as applyValidation,
 } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+  stateConfig,
+} from '../config.mjs';
 import {
   buildMigration,
   getSchemaVersion,
@@ -18,7 +24,7 @@ import {
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
-import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
+import { assertRepoStateWritable, loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Serializes a loaded repo into the flat shape the UI consumes.
@@ -56,9 +62,15 @@ export function serialize(repo) {
           branch: repo.config.git?.state_branch,
           baseline: repo.config.git?.state_baseline,
           head: repo.state.head,
-          freshness: repo.state.pending?.pending ? 'pending' : 'local',
+          freshness: repo.state.readOnly
+            ? 'read-only'
+            : repo.state.pending?.pending
+              ? 'pending'
+              : 'local',
           pending: repo.state.pending?.pending ?? false,
           pending_changes: repo.state.pending?.ids ?? [],
+          read_only: repo.state.readOnly ?? false,
+          minimum_version: repo.state.minimumVersion,
         }
       : { active: false },
   };
@@ -200,8 +212,30 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
   let repo;
   try {
     repo = loadRepo(found.project.path);
-  } catch {
-    return { code: 400, body: { error: 'unable to load the current project configuration' } };
+    assertRepoStateWritable(repo);
+  } catch (error) {
+    return {
+      code: 400,
+      body: {
+        error: error.message.includes('state manifest')
+          ? error.message
+          : 'unable to load the current project configuration',
+      },
+    };
+  }
+  const activeState = stateConfig(repo.config);
+  if (
+    activeState &&
+    (candidate.git?.state_branch !== activeState.branch ||
+      candidate.git?.state_baseline !== activeState.baseline)
+  ) {
+    return {
+      code: 400,
+      body: {
+        error:
+          'active state authority cannot be changed in the viewer; use state abort or state recover',
+      },
+    };
   }
   try {
     resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
@@ -344,6 +378,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
   let result;
   try {
+    assertRepoStateWritable(loadRepo(found.project.path));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
@@ -437,6 +472,7 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
 
   let result;
   try {
+    assertRepoStateWritable(loadRepo(found.project.path));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');

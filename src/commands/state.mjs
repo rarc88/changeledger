@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { writeFileAtomic } from '../atomic-write.mjs';
+import { parseChange } from '../change.mjs';
 import {
   findChangeledgerDir,
   integrationBranch,
@@ -14,7 +15,9 @@ import { objectRun } from '../git.mjs';
 import { previewStateMigration } from '../state-migration.mjs';
 import {
   initializeStateStore,
+  publishStateStore,
   readStateStore,
+  refreshStateStoreConfirmation,
   syncStateStore,
   validateStateRange,
 } from '../state-store.mjs';
@@ -34,6 +37,14 @@ function assertCurrentSchema(config) {
   if (version !== SUPPORTED_SCHEMA_VERSION) {
     throw new Error(
       `state commands require config schema ${SUPPORTED_SCHEMA_VERSION} (current: ${version}); run changeledger config migrate`,
+    );
+  }
+}
+
+function assertWritableStore(store) {
+  if (store.readOnly) {
+    throw new Error(
+      `state manifest schema ${store.manifest.schema_version} is newer than supported; update ChangeLedger before mutating`,
     );
   }
 }
@@ -69,8 +80,30 @@ export function initState(
     integrationBranch: integration,
     changes: preview.changes,
     origins: preview.origins,
+    legacyBranches: preview.legacyBranches,
     gitEnv,
   });
+}
+
+export function publishState(
+  { branch = DEFAULT_STATE_BRANCH } = {},
+  cwd = process.cwd(),
+  { gitEnv = {} } = {},
+) {
+  const { repoRoot, config } = project(cwd);
+  assertCurrentSchema(config);
+  if (stateConfig(config)) throw new Error('state store is already active; use state sync');
+  const integration = integrationBranch(config);
+  if (!integration) throw new Error('state publish requires config "git.integration_branch"');
+  const store = readStateStore(repoRoot, branch, { gitEnv });
+  assertWritableStore(store);
+  if (String(store.manifest.project_id) !== String(config.project_id)) {
+    throw new Error('state store project_id does not match this repository');
+  }
+  if (String(store.manifest.integration_branch) !== integration) {
+    throw new Error('state store integration branch does not match the configuration');
+  }
+  return publishStateStore(repoRoot, branch, { gitEnv });
 }
 
 function currentBranch(repoRoot, gitEnv) {
@@ -78,19 +111,19 @@ function currentBranch(repoRoot, gitEnv) {
 }
 
 function verifyWorkingChanges(changesDir, store) {
-  const expected = new Map(store.changes.map((change) => [change.name, change.text]));
+  const expected = new Map(
+    store.changes.map((change) => [String(change.frontmatter.id), change.text]),
+  );
   const names = fs.existsSync(changesDir)
     ? fs
         .readdirSync(changesDir)
         .filter((name) => name.endsWith('.md'))
         .sort()
     : [];
-  if (names.length !== expected.size) {
-    throw new Error('working changes changed after the state baseline; run state preview again');
-  }
   for (const name of names) {
     const text = fs.readFileSync(path.join(changesDir, name), 'utf8');
-    if (expected.get(name) !== text) {
+    const id = String(parseChange(text).frontmatter.id);
+    if (expected.get(id) !== text) {
       throw new Error(
         `working change ${name} changed after the state baseline; run state preview again`,
       );
@@ -121,7 +154,36 @@ export function activateState(
     );
   }
 
+  let confirmation;
+  try {
+    confirmation = refreshStateStoreConfirmation(repoRoot, branch, { gitEnv });
+  } catch (error) {
+    throw new Error(
+      `state branch "${branch}" must be published and confirmed before activation: ${error.message}`,
+    );
+  }
+  if (!confirmation.confirmed) {
+    throw new Error(
+      `state branch "${branch}" must be published and confirmed at ${confirmation.head ?? 'missing'} before activation; remote head is ${confirmation.remoteHead ?? 'missing'}`,
+    );
+  }
   const store = readStateStore(repoRoot, branch, { gitEnv });
+  assertWritableStore(store);
+  if (
+    store.head !== confirmation.head ||
+    store.head !== confirmation.confirmedHead ||
+    store.head !== confirmation.remoteHead
+  ) {
+    throw new Error(
+      `state candidate changed while activation was confirming it; reload and retry (snapshot ${store.head}, confirmed ${confirmation.confirmedHead ?? 'missing'}, remote ${confirmation.remoteHead ?? 'missing'})`,
+    );
+  }
+  validateStateRange(repoRoot, {
+    oldHead: '0'.repeat(store.head.length),
+    newHead: store.head,
+    humanOverride: true,
+    gitEnv,
+  });
   if (String(store.manifest.project_id) !== String(config.project_id)) {
     throw new Error('state store project_id does not match this repository');
   }
@@ -199,13 +261,18 @@ export function syncState(cwd = process.cwd(), { gitEnv = {} } = {}) {
   assertCurrentSchema(config);
   const active = stateConfig(config);
   if (!active) throw new Error('state sync requires an active state store');
+  const store = readStateStore(repoRoot, active.branch, {
+    baseline: active.baseline,
+    gitEnv,
+  });
+  assertWritableStore(store);
   return syncStateStore(repoRoot, active.branch, { gitEnv });
 }
 
 export function validateReceive(
   input,
   cwd = process.cwd(),
-  { actor, branch = DEFAULT_STATE_BRANCH, gitEnv = {} } = {},
+  { actor, humanOverride = false, branch = DEFAULT_STATE_BRANCH, gitEnv = {} } = {},
 ) {
   const repoRoot = path.resolve(cwd);
   const expectedRef = `refs/heads/${branch}`;
@@ -214,7 +281,9 @@ export function validateReceive(
     const [oldHead, newHead, ref] = line.trim().split(/\s+/);
     if (!oldHead || !newHead || !ref) throw new Error(`invalid pre-receive input: ${line}`);
     if (ref === expectedRef) {
-      results.push(validateStateRange(repoRoot, { oldHead, newHead, actor, gitEnv }));
+      results.push(
+        validateStateRange(repoRoot, { oldHead, newHead, actor, humanOverride, gitEnv }),
+      );
     }
   }
   return results;
@@ -232,7 +301,15 @@ export function abortState(cwd = process.cwd(), { gitEnv = {} } = {}) {
       `state abort must run on integration branch "${integration}" (current: ${current})`,
     );
   }
-  const store = readStateStore(repoRoot, active.branch, { baseline: active.baseline, gitEnv });
+  const confirmation = refreshStateStoreConfirmation(repoRoot, active.branch, { gitEnv });
+  const remoteHead = confirmation.remoteHead;
+  if (!remoteHead) throw new Error(`state branch "${active.branch}" is missing from origin`);
+  const store = readStateStore(repoRoot, active.branch, {
+    baseline: active.baseline,
+    sourceRef: `refs/changeledger/fetched/${active.branch}`,
+    gitEnv,
+  });
+  assertWritableStore(store);
   if (store.head !== active.baseline) {
     throw new Error(
       `state has advanced from baseline ${active.baseline} to ${store.head}; export a recovery branch instead`,
@@ -263,7 +340,16 @@ export function recoverState({ branch } = {}, cwd = process.cwd(), { gitEnv = {}
   assertCurrentSchema(config);
   const active = stateConfig(config);
   if (!active) throw new Error('state recover requires an active state store');
-  const store = readStateStore(repoRoot, active.branch, { baseline: active.baseline, gitEnv });
+  const confirmation = refreshStateStoreConfirmation(repoRoot, active.branch, { gitEnv });
+  if (!confirmation.remoteHead) {
+    throw new Error(`state branch "${active.branch}" is missing from origin`);
+  }
+  const store = readStateStore(repoRoot, active.branch, {
+    baseline: active.baseline,
+    sourceRef: `refs/changeledger/fetched/${active.branch}`,
+    gitEnv,
+  });
+  assertWritableStore(store);
   if (store.head === active.baseline) {
     throw new Error('state has not advanced; use state abort instead');
   }
