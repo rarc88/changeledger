@@ -2,7 +2,7 @@
 id: "20260720-212659"
 title: Hacer opcional la carga de ChangeLedger desde el bootstrap
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-20T21:26:59Z
 depends_on: []
 owner: Roberto Ruiz
@@ -157,11 +157,16 @@ superficie que precisamente se quiere reducir.
 
 ## Plan
 
-- [ ] Escribir primero tests semánticos del bootstrap opcional y actualizar `src/contract.mjs`; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR7, CR8)
-- [ ] Escribir primero la cobertura de la notificación de divergencias y ajustar `templates/contract/core.md` sin duplicar lifecycle; verify: `node --test test/context.test.mjs` (CR6, CR7)
-- [ ] Actualizar `README.md` con el modelo de adopción opcional y la distinción entre ausencia, error, truncación y divergencia (support)
-- [ ] Re-registrar el bootstrap del propio repositorio después de cubrir su migración en la primera tarea (support)
-- [ ] Ejecutar `pnpm verify` tras completar la implementación (support)
+- [x] Escribir primero tests semánticos del bootstrap opcional y actualizar `src/contract.mjs`; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR7, CR8)
+  - **Resolved:** `2026-07-20T21:46:34Z`
+- [x] Escribir primero la cobertura de la notificación de divergencias y ajustar `templates/contract/core.md` y `templates/contract/implement.md` sin duplicar lifecycle; verify: `node --test test/context.test.mjs` (CR6, CR7)
+  - **Resolved:** `2026-07-20T21:47:18Z`
+- [x] Actualizar `README.md` con el modelo de adopción opcional y la distinción entre ausencia, error, truncación y divergencia (support)
+  - **Resolved:** `2026-07-20T21:47:42Z`
+- [x] Re-registrar el bootstrap del propio repositorio después de cubrir su migración en la primera tarea (support)
+  - **Resolved:** `2026-07-20T21:47:53Z`
+- [x] Ejecutar `pnpm verify` tras completar la implementación (support)
+  - **Resolved:** `2026-07-20T21:49:06Z`
 
 ## Log
 
@@ -169,3 +174,5 @@ superficie que precisamente se quiere reducir.
 - **2026-07-20T21:40:08Z** `[status]` draft → approved
 - **2026-07-20T21:41:08Z** `[status]` approved → in-progress
 - **2026-07-20T21:41:08Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-20T21:47:18Z** `[note]` La semántica de divergencia reemplaza document-wins en core e implement: una divergencia preexistente requiere decisión humana, mientras el change aprobado gobierna el código escrito en alcance. Core queda en 138 líneas/8451 bytes e implement en 199/9862: ambos superan target por reglas ya acumuladas pero permanecen bajo hard cap (140/9000 y 205/10000); no se eleva presupuesto.
+- **2026-07-20T21:49:06Z** `[status]` in-progress → in-review

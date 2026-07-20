@@ -3,26 +3,28 @@
 This is the ChangeLedger repo itself. It dogfoods its own format: changes live
 under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
-<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->
+<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->
 > [!IMPORTANT]
-> This repo uses **ChangeLedger**. Immediately after reading this file — before
-> planning, investigating, or acting — a normal agent must run `changeledger context` directly.
-> Only a delegated leaf whose prompt was emitted by `changeledger agent-prompt <role>`
-> runs `changeledger agent-context <role> [change-id]` instead; the role in the
-> prompt and command must match. No other agent may skip the core context.
-> On the first invocation, retain complete stdout through the `CHANGELEDGER CONTEXT END` line,
-> or the `CHANGELEDGER AGENT CONTEXT END` line for that delegated path:
+> Attempt to run **ChangeLedger** with `changeledger context` immediately after
+> reading this file — before planning, investigating, or acting. A ChangeLedger
+> delegation prompt may specify a different context entry point; follow it instead.
+> If the command is unavailable, continue normally without ChangeLedger. If it
+> starts but fails, report the error to the human and wait for them to decide how
+> to continue; do not treat a failing command as absent.
+>
+> When context loads successfully, follow its complete output. On the first successful load,
+> retain complete stdout through the `CHANGELEDGER CONTEXT END` line:
 > no pipes, filters, summaries, previews or voluntary output limits. If the tool
 > exposes an output budget, reserve enough for the whole response. A missing END
-> after that is exceptional recovery: stop and re-run with a larger capture. If
-> the command is unavailable, stop and restore/install ChangeLedger; do not
-> proceed from memory.
+> means the output was truncated: stop and re-run with a larger capture.
 >
-> Do not create or modify files without an authorized change; the core context
-> defines the workflow, the task contexts, and the narrow operational exception.
 > After a compaction, verify a retained capture with `changeledger context
-> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in
-> full; a mismatch still returns the complete output.
+> [mode] --have <rev>` (the BEGIN line's `rev:`). If the context or its revision was lost,
+> load it completely again; a mismatch still returns the complete output.
+>
+> If you observe a divergence between specs and code, report it to the human. Do not modify
+> either side solely to reconcile it without their decision. If it affects the current task,
+> wait for their decision; if it is unrelated, report it but do not expand scope.
 <!-- CHANGELEDGER BOOTSTRAP END -->
 
 The canonical ChangeLedger contract is split into task-focused fragments under

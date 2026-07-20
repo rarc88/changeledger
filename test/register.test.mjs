@@ -21,18 +21,15 @@ function initializedRepo(agentsBody = '# Project rules\n') {
 
 function reflowBootstrap(text) {
   return text.replace(
-    '> This repo uses **ChangeLedger**. Immediately after reading this file — before\n> planning, investigating, or acting — a normal agent must run `changeledger context` directly.',
-    '>This repo uses **ChangeLedger**. Immediately after reading this file —\n> before planning, investigating, or acting — a normal agent must run\n>`changeledger context` directly.',
+    '> Attempt to run **ChangeLedger** with `changeledger context` immediately after\n> reading this file — before planning, investigating, or acting.',
+    '>Attempt to run **ChangeLedger** with `changeledger context` immediately\n> after reading this file — before planning, investigating, or acting.',
   );
 }
 
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace(
-      "> [mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
-      "[mode] --have <rev>` (the BEGIN line's `rev:`) instead of recapturing in",
-    )
+    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
@@ -93,6 +90,44 @@ test('CR4: register updates an outdated bootstrap version and reports it', () =>
   assert.match(agents, new RegExp(`<!-- CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION} -->`));
   assert.ok(agents.includes(REFERENCE.trim()));
   assert.doesNotMatch(agents, /CHANGELEDGER BOOTSTRAP BEGIN v0/);
+  assert.ok(warnings.some((msg) => /outdated/i.test(msg)));
+});
+
+test('212659 CR8: register migrates v2 optional-bootstrap predecessor and preserves outside text', () => {
+  const before = '# Project\n\nprose before.\n\n';
+  const after = '\nprose after.\n';
+  const previousReference = `> [!IMPORTANT]
+> This repo uses **ChangeLedger**. Immediately after reading this file — before
+> planning, investigating, or acting — a normal agent must run \`changeledger context\` directly.
+> Only a delegated leaf whose prompt was emitted by \`changeledger agent-prompt <role>\`
+> runs \`changeledger agent-context <role> [change-id]\` instead; the role in the
+> prompt and command must match. No other agent may skip the core context.
+> On the first invocation, retain complete stdout through the \`CHANGELEDGER CONTEXT END\` line,
+> or the \`CHANGELEDGER AGENT CONTEXT END\` line for that delegated path:
+> no pipes, filters, summaries, previews or voluntary output limits. If the tool
+> exposes an output budget, reserve enough for the whole response. A missing END
+> after that is exceptional recovery: stop and re-run with a larger capture. If
+> the command is unavailable, stop and restore/install ChangeLedger; do not
+> proceed from memory.
+>
+> Do not create or modify files without an authorized change; the core context
+> defines the workflow, the task contexts, and the narrow operational exception.
+> After a compaction, verify a retained capture with \`changeledger context
+> [mode] --have <rev>\` (the BEGIN line's \`rev:\`) instead of recapturing in
+> full; a mismatch still returns the complete output.
+`;
+  const stale = `<!-- CHANGELEDGER BOOTSTRAP BEGIN v2 -->\n${previousReference}<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
+  const dir = initializedRepo(`${before}${stale}${after}`);
+
+  const warnings = [];
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+
+  assert.ok(agents.startsWith(before));
+  assert.ok(agents.endsWith(after));
+  assert.match(agents, new RegExp(`CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION}`));
+  assert.ok(agents.includes(REFERENCE.trim()));
+  assert.doesNotMatch(agents, /CHANGELEDGER BOOTSTRAP BEGIN v2/);
   assert.ok(warnings.some((msg) => /outdated/i.test(msg)));
 });
 

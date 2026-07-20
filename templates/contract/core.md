@@ -1,7 +1,7 @@
 # ChangeLedger — Core Contract
 
-Documents under `.changeledger/` are the source of truth. Code is their
-reflection. Work is planned and documented before code is written.
+Documents under `.changeledger/` are ChangeLedger's persistent truth. Work using
+ChangeLedger is documented before code; work performed without the CLI may diverge.
 
 ## Read complete context before acting
 
@@ -29,8 +29,10 @@ complete output, and the very first capture of a session is always full.
    decision may come from the viewer or an explicit active conversation message
    identifying the change and verdict; praise, “continue”, or agent inference is
    not a decision. The agent executes but never makes human decisions.
-3. Capture every authorized change in `.changeledger/changes/`. The document
-   wins when code and documentation disagree.
+3. Capture every authorized change in `.changeledger/changes/`. Any pre-existing
+   divergence between specs and code must be reported to the human, never
+   reconciled by inference. Wait if it affects the current task; if unrelated,
+   report it without expanding scope. An approved change governs code in scope.
 4. Never implement a `draft`. After approval, implement one change at a time on
    a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.

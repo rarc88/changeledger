@@ -6,9 +6,11 @@ Keep one concern per change. Work necessary for the authorized objective belongs
 in its Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
 authorization before adding it; propose independent work separately.
 
-Follow the Specification exactly. If code and document diverge, update code;
-never quietly drift the approved contract. Keep status, tasks, owner and Log
-current throughout execution.
+Follow the Specification exactly: the approved change governs the code written
+within its scope, so never quietly drift that contract. A pre-existing
+divergence not introduced by the current work requires human resolution; if it
+affects the task, report it and wait, otherwise report it without expanding
+scope. Keep status, tasks, owner and Log current throughout execution.
 
 ## Git protects traceability
 
