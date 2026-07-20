@@ -2,7 +2,7 @@
 id: "20260720-212659"
 title: Hacer opcional la carga de ChangeLedger desde el bootstrap
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-20T21:26:59Z
 depends_on: []
 owner: Roberto Ruiz
@@ -176,3 +176,4 @@ superficie que precisamente se quiere reducir.
 - **2026-07-20T21:41:08Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-20T21:47:18Z** `[note]` La semántica de divergencia reemplaza document-wins en core e implement: una divergencia preexistente requiere decisión humana, mientras el change aprobado gobierna el código escrito en alcance. Core queda en 138 líneas/8451 bytes e implement en 199/9862: ambos superan target por reglas ya acumuladas pero permanecen bajo hard cap (140/9000 y 205/10000); no se eleva presupuesto.
 - **2026-07-20T21:49:06Z** `[status]` in-progress → in-review
+- **2026-07-20T21:55:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
