@@ -422,17 +422,27 @@ function newRepo() {
 }
 
 function git(root, args) {
-  return execFileSync('git', args, {
-    cwd: root,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      GIT_AUTHOR_NAME: 'Viewer Test',
-      GIT_AUTHOR_EMAIL: 'viewer@example.com',
-      GIT_COMMITTER_NAME: 'Viewer Test',
-      GIT_COMMITTER_EMAIL: 'viewer@example.com',
-    },
-  }).trim();
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Viewer Test',
+    GIT_AUTHOR_EMAIL: 'viewer@example.com',
+    GIT_COMMITTER_NAME: 'Viewer Test',
+    GIT_COMMITTER_EMAIL: 'viewer@example.com',
+  };
+  // A parent process (e.g. a git hook) may export these; inheriting them here
+  // would redirect this test's git init at a fresh tmpdir onto the real repo.
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', env }).trim();
 }
 
 test('global mode lists all registered projects', () => {

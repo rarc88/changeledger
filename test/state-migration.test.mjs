@@ -14,6 +14,19 @@ const ENV = {
   GIT_COMMITTER_NAME: 'Migration Test',
   GIT_COMMITTER_EMAIL: 'migration@example.com',
 };
+// A parent process (e.g. a git hook) may export these; inheriting them here
+// would redirect this test's git init at a fresh tmpdir onto the real repo.
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete ENV[key];
+}
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: ENV, encoding: 'utf8' }).trim();

@@ -48,6 +48,19 @@ test('124231 CR9: legacy discovery stays bounded with hundreds of unrelated refs
     GIT_COMMITTER_NAME: 'Repo Test',
     GIT_COMMITTER_EMAIL: 'repo@example.com',
   };
+  // A parent process (e.g. a git hook) may export these; inheriting them here
+  // would redirect this test's git init at a fresh tmpdir onto the real repo.
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
   const git = (args, input) =>
     execFileSync('git', args, { cwd: root, env, input, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'dev']);
@@ -72,6 +85,19 @@ test('124231 CR2/CR9: active state loads changes from the configured ref', () =>
     GIT_COMMITTER_NAME: 'Repo Test',
     GIT_COMMITTER_EMAIL: 'repo@example.com',
   };
+  // A parent process (e.g. a git hook) may export these; inheriting them here
+  // would redirect this test's git init at a fresh tmpdir onto the real repo.
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
   const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'dev']);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
@@ -108,6 +134,19 @@ test('124231 CR16: a stale legacy checkout detects activated remote authority an
     GIT_COMMITTER_NAME: 'Repo Test',
     GIT_COMMITTER_EMAIL: 'repo@example.com',
   };
+  // A parent process (e.g. a git hook) may export these; inheriting them here
+  // would redirect this test's git init at a fresh tmpdir onto the real repo.
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
   const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'dev']);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
