@@ -47,17 +47,22 @@ en ingles y crea un artefacto ambiguo.
 
 ## Plan
 
-- [x] Añadir tests en `test/graduate.test.mjs` para `src/commands/graduate.mjs` con slug vacio y ausencia de escrituras al fallar (CR1) — 2026-06-16T16:30:06Z
-- [x] Añadir test en `test/graduate.test.mjs` o `test/cli-bin.test.mjs` para `src/commands/graduate.mjs` con slug valido y comportamiento existente (CR2) — 2026-06-16T16:30:11Z
-- [x] Extraer la normalizacion a un helper compartido en `src/` y cubrirlo con `test/graduate.test.mjs` para que `src/commands/new.mjs` y `src/commands/graduate.mjs` deriven el mismo slug (CR1, CR3) — 2026-06-16T16:30:11Z
-- [x] Actualizar `src/commands/graduate.mjs` y cubrirlo con `test/graduate.test.mjs` para rechazar slugs vacios con el mismo mensaje de `sl new` (CR1, CR2) — 2026-06-16T16:30:15Z
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/commands/graduate.mjs` con `test/graduate.test.mjs` (CR1, CR2, CR3) — 2026-06-16T16:30:21Z
+- [x] Añadir tests en `test/graduate.test.mjs` para `src/commands/graduate.mjs` con slug vacio y ausencia de escrituras al fallar (CR1)
+  - **Resolved:** `2026-06-16T16:30:06Z`
+- [x] Añadir test en `test/graduate.test.mjs` o `test/cli-bin.test.mjs` para `src/commands/graduate.mjs` con slug valido y comportamiento existente (CR2)
+  - **Resolved:** `2026-06-16T16:30:11Z`
+- [x] Extraer la normalizacion a un helper compartido en `src/` y cubrirlo con `test/graduate.test.mjs` para que `src/commands/new.mjs` y `src/commands/graduate.mjs` deriven el mismo slug (CR1, CR3)
+  - **Resolved:** `2026-06-16T16:30:11Z`
+- [x] Actualizar `src/commands/graduate.mjs` y cubrirlo con `test/graduate.test.mjs` para rechazar slugs vacios con el mismo mensaje de `sl new` (CR1, CR2)
+  - **Resolved:** `2026-06-16T16:30:15Z`
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/commands/graduate.mjs` con `test/graduate.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:30:21Z`
 
 ## Log
-- **2026-06-16T16:25:24Z** — status: draft → approved
-- **2026-06-16T16:29:14Z** — status: approved → in-progress
-- **2026-06-16T16:29:14Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T16:30:21Z** — status: in-progress → in-review
-- **2026-06-16T16:42:58Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:44:41Z** — graduado a spec `data-model.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T16:25:24Z** `[status]` draft → approved
+- **2026-06-16T16:29:14Z** `[status]` approved → in-progress
+- **2026-06-16T16:29:14Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T16:30:21Z** `[status]` in-progress → in-review
+- **2026-06-16T16:42:58Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T16:44:41Z** `[graduation]` spec: `data-model.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

@@ -124,19 +124,23 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir primero tests de selección y extender `archiveGraduated()` en `src/commands/agent.mjs` con filtros compartidos con `list`; verify: `node --test test/agent.test.mjs` (CR1, CR2, CR4, CR5) — 2026-07-18T12:23:51Z
-- [x] Escribir primero tests del CLI y añadir opciones, guardas, salida y ejemplos en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR7) — 2026-07-18T12:23:51Z
-- [x] Actualizar `templates/contract/core.md`, `templates/contract/close.md` y `README.md` con el flujo multiowner; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` (CR4, CR6, CR7) — 2026-07-18T12:23:51Z
-- [x] Ejecutar el gate completo `pnpm verify` (support) — 2026-07-18T12:24:30Z
+- [x] Escribir primero tests de selección y extender `archiveGraduated()` en `src/commands/agent.mjs` con filtros compartidos con `list`; verify: `node --test test/agent.test.mjs` (CR1, CR2, CR4, CR5)
+  - **Resolved:** `2026-07-18T12:23:51Z`
+- [x] Escribir primero tests del CLI y añadir opciones, guardas, salida y ejemplos en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR7)
+  - **Resolved:** `2026-07-18T12:23:51Z`
+- [x] Actualizar `templates/contract/core.md`, `templates/contract/close.md` y `README.md` con el flujo multiowner; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` (CR4, CR6, CR7)
+  - **Resolved:** `2026-07-18T12:23:51Z`
+- [x] Ejecutar el gate completo `pnpm verify` (support)
+  - **Resolved:** `2026-07-18T12:24:30Z`
 
 ## Log
 
-- **2026-07-18T10:54:57Z** — Draft autorizado por el humano tras detectar que una operación pedida por owner podía ampliar silenciosamente su alcance al archivar candidatos de otras personas.
-- **2026-07-18T11:18:34Z** — status: draft → approved
-- **2026-07-18T12:16:16Z** — status: approved → in-progress
-- **2026-07-18T12:16:16Z** — owner → Roberto Ruiz (auto)
-- **2026-07-18T12:24:37Z** — Implementado selector compartido para preview/archive, filtros exactos --owner/--unowned, guardas CLI y contrato de graduación individual; pnpm verify pasa con 687 tests.
-- **2026-07-18T12:24:41Z** — status: in-progress → in-review
-- **2026-07-18T12:29:17Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-18T12:31:55Z** — validation → done (human accepted)
-- **2026-07-18T12:33:08Z** — graduado a spec `lifecycle.md`
+- **2026-07-18T10:54:57Z** `[note]` Draft autorizado por el humano tras detectar que una operación pedida por owner podía ampliar silenciosamente su alcance al archivar candidatos de otras personas.
+- **2026-07-18T11:18:34Z** `[status]` draft → approved
+- **2026-07-18T12:16:16Z** `[status]` approved → in-progress
+- **2026-07-18T12:16:16Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-18T12:24:37Z** `[note]` Implementado selector compartido para preview/archive, filtros exactos --owner/--unowned, guardas CLI y contrato de graduación individual; pnpm verify pasa con 687 tests.
+- **2026-07-18T12:24:41Z** `[status]` in-progress → in-review
+- **2026-07-18T12:29:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-18T12:31:55Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-18T12:33:08Z** `[graduation]` spec: `lifecycle.md`

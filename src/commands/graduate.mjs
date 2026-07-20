@@ -11,7 +11,7 @@ import { resolveSpecsDir } from '../config.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
-import { appendLog, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
+import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
@@ -98,7 +98,12 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
     const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specText, timestamp), id);
     writeFileAtomic(specFile, updatedSpec);
 
-    let text = appendLog(changeText, timestamp, `graduado a spec \`${specName}\``);
+    let text = appendLogEvent(changeText, {
+      at: timestamp,
+      type: 'graduation',
+      outcome: 'spec',
+      spec: specName,
+    });
     text = setReviewed(text, true);
     return text;
   });
@@ -109,11 +114,15 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
   const { config, file: changeFile } = resolveChange(cwd, id);
-  const message = reason ? `graduation skipped: ${reason}` : 'graduation skipped';
   mutateFileAtomic(changeFile, (text) => {
     requireGraduationReady(config, changeFile, text);
 
-    text = appendLog(text, nowUtc(), message);
+    text = appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'graduation',
+      outcome: 'skipped',
+      reason,
+    });
     return setReviewed(text, true);
   });
   return changeFile;

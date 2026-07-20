@@ -65,17 +65,23 @@ changes mediante su API HTTP.
 
 ## Plan
 
-- [x] Enlazar el servidor explícitamente a loopback y cubrir selección/reintento de puerto — 2026-06-15T11:58:04Z
-- [x] Generar una credencial efímera por proceso y exigirla junto con validación de origen en escrituras — 2026-06-15T11:58:04Z
-- [x] Eliminar fallbacks ambiguos de proyecto en endpoints con efectos y devolver errores exactos — 2026-06-15T11:58:04Z
-- [x] Limitar body, configurar timeouts y añadir headers de seguridad sin romper los assets locales — 2026-06-15T11:58:05Z
-- [x] Añadir tests HTTP de acceso autorizado/no autorizado y ausencia de escrituras ante rechazo — 2026-06-15T11:58:05Z
-- [x] Actualizar la arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR4, CR5) — 2026-06-15T11:58:05Z
+- [x] Enlazar el servidor explícitamente a loopback y cubrir selección/reintento de puerto
+  - **Resolved:** `2026-06-15T11:58:04Z`
+- [x] Generar una credencial efímera por proceso y exigirla junto con validación de origen en escrituras
+  - **Resolved:** `2026-06-15T11:58:04Z`
+- [x] Eliminar fallbacks ambiguos de proyecto en endpoints con efectos y devolver errores exactos
+  - **Resolved:** `2026-06-15T11:58:04Z`
+- [x] Limitar body, configurar timeouts y añadir headers de seguridad sin romper los assets locales
+  - **Resolved:** `2026-06-15T11:58:05Z`
+- [x] Añadir tests HTTP de acceso autorizado/no autorizado y ausencia de escrituras ante rechazo
+  - **Resolved:** `2026-06-15T11:58:05Z`
+- [x] Actualizar la arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR4, CR5)
+  - **Resolved:** `2026-06-15T11:58:05Z`
 
 ## Log
-- **2026-06-15T11:38:40Z** — status: draft → approved
-- **2026-06-15T11:51:53Z** — status: approved → in-progress
-- **2026-06-15T11:51:53Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T11:58:05Z** — status: in-progress → done
-- **2026-06-15T21:16:52Z** — graduation skipped: bug de frontera HTTP; cubierto por SECURITY.md, sin verdad persistente en specs/
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-15T11:38:40Z** `[status]` draft → approved
+- **2026-06-15T11:51:53Z** `[status]` approved → in-progress
+- **2026-06-15T11:51:53Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T11:58:05Z** `[status]` in-progress → done
+- **2026-06-15T21:16:52Z** `[graduation]` skipped: bug de frontera HTTP; cubierto por SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:57Z** `[archive]` archived

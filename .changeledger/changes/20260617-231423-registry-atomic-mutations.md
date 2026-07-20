@@ -56,19 +56,24 @@ mantener los errores actuales para JSON corrupto.
 
 ## Plan
 
-- [x] Agregar cobertura concurrente en `test/registry.test.mjs` para dos `register()` simultaneos contra `src/registry.mjs`, verificando con `pnpm test` (CR1) — 2026-06-18T10:08:48Z
-- [x] Agregar cobertura en `test/registry.test.mjs` para `remove()` + `register()` concurrentes contra `src/registry.mjs`, verificando con `pnpm test` (CR2) — 2026-06-18T10:08:48Z
-- [x] Envolver la transaccion read-modify-write de `src/registry.mjs` con un lock por `registry.json`, verificando con `pnpm test` (CR1, CR2) — 2026-06-18T10:08:48Z
-- [x] Mantener el comportamiento de registry corrupto en `src/registry.mjs`, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3) — 2026-06-18T10:08:48Z
-- [x] Ejecutar `pnpm verify` como cierre (support) — 2026-06-18T10:08:48Z
+- [x] Agregar cobertura concurrente en `test/registry.test.mjs` para dos `register()` simultaneos contra `src/registry.mjs`, verificando con `pnpm test` (CR1)
+  - **Resolved:** `2026-06-18T10:08:48Z`
+- [x] Agregar cobertura en `test/registry.test.mjs` para `remove()` + `register()` concurrentes contra `src/registry.mjs`, verificando con `pnpm test` (CR2)
+  - **Resolved:** `2026-06-18T10:08:48Z`
+- [x] Envolver la transaccion read-modify-write de `src/registry.mjs` con un lock por `registry.json`, verificando con `pnpm test` (CR1, CR2)
+  - **Resolved:** `2026-06-18T10:08:48Z`
+- [x] Mantener el comportamiento de registry corrupto en `src/registry.mjs`, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3)
+  - **Resolved:** `2026-06-18T10:08:48Z`
+- [x] Ejecutar `pnpm verify` como cierre (support)
+  - **Resolved:** `2026-06-18T10:08:48Z`
 
 ## Log
 
-- **2026-06-17T23:14:29Z** — creado desde los hallazgos de la auditoria 20260617-225650.
-- **2026-06-18T09:47:05Z** — status: draft → approved
-- **2026-06-18T09:56:47Z** — status: approved → in-progress
-- **2026-06-18T09:56:47Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-18T10:05:52Z** — status: in-progress → in-review
-- **2026-06-18T10:06:02Z** — review → done (delegated subagent, clean context)
-- **2026-06-18T10:06:47Z** — graduado a spec `architecture.md`
-- **2026-06-18T10:09:09Z** — archived
+- **2026-06-17T23:14:29Z** `[note]` creado desde los hallazgos de la auditoria 20260617-225650.
+- **2026-06-18T09:47:05Z** `[status]` draft → approved
+- **2026-06-18T09:56:47Z** `[status]` approved → in-progress
+- **2026-06-18T09:56:47Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-18T10:05:52Z** `[status]` in-progress → in-review
+- **2026-06-18T10:06:02Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-18T10:06:47Z** `[graduation]` spec: `architecture.md`
+- **2026-06-18T10:09:09Z** `[archive]` archived

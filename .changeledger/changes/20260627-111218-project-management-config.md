@@ -150,41 +150,51 @@ global.
 
 ## Plan
 
-- [x] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR9) — 2026-06-27T11:24:53Z
-- [x] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs` (CR2, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-27T11:24:54Z
-- [x] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9) — 2026-06-27T11:24:54Z
-- [x] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local` (support) — 2026-06-27T11:24:54Z
-- [x] Añadir carga completa con config candidato y regresiones de rutas alternativas inválidas en `src/repo.mjs`, `src/viewer/domain.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/repo.test.mjs` (CR4) — 2026-06-27T11:41:02Z
-- [x] Hacer `config.yml` canónico para el nombre mostrado, eliminar la mutación cruzada con el registro y sanitizar errores inesperados en `src/viewer/domain.mjs`, `src/registry.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/registry.test.mjs` (CR3, CR4, CR6, CR9) — 2026-06-27T11:45:56Z
-- [x] Cubrir pending, éxito, error, recarga y acciones cableadas de proyecto en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs` (CR3, CR4, CR6, CR7, CR9) — 2026-06-27T11:45:56Z
-- [x] Endurecer formas inválidas de config y captura de excepciones HTTP en `src/check.mjs`, `src/viewer/server/router.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4) — 2026-06-27T11:51:25Z
-- [x] Validar formas anidadas de tipos y hacer el guardado fail-closed en `src/check.mjs`, `src/viewer/domain.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4) — 2026-06-27T11:55:25Z
-- [x] Validar formas inválidas de readiness y alinear la autoridad del nombre en `src/check.mjs`, `test/check.test.mjs`, `test/view.test.mjs` y este change; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR3, CR4) — 2026-06-27T12:01:16Z
+- [x] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR9)
+  - **Resolved:** `2026-06-27T11:24:53Z`
+- [x] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs` (CR2, CR4, CR5, CR6, CR7, CR8, CR9)
+  - **Resolved:** `2026-06-27T11:24:54Z`
+- [x] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9)
+  - **Resolved:** `2026-06-27T11:24:54Z`
+- [x] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local` (support)
+  - **Resolved:** `2026-06-27T11:24:54Z`
+- [x] Añadir carga completa con config candidato y regresiones de rutas alternativas inválidas en `src/repo.mjs`, `src/viewer/domain.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/repo.test.mjs` (CR4)
+  - **Resolved:** `2026-06-27T11:41:02Z`
+- [x] Hacer `config.yml` canónico para el nombre mostrado, eliminar la mutación cruzada con el registro y sanitizar errores inesperados en `src/viewer/domain.mjs`, `src/registry.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/registry.test.mjs` (CR3, CR4, CR6, CR9)
+  - **Resolved:** `2026-06-27T11:45:56Z`
+- [x] Cubrir pending, éxito, error, recarga y acciones cableadas de proyecto en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs` (CR3, CR4, CR6, CR7, CR9)
+  - **Resolved:** `2026-06-27T11:45:56Z`
+- [x] Endurecer formas inválidas de config y captura de excepciones HTTP en `src/check.mjs`, `src/viewer/server/router.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4)
+  - **Resolved:** `2026-06-27T11:51:25Z`
+- [x] Validar formas anidadas de tipos y hacer el guardado fail-closed en `src/check.mjs`, `src/viewer/domain.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4)
+  - **Resolved:** `2026-06-27T11:55:25Z`
+- [x] Validar formas inválidas de readiness y alinear la autoridad del nombre en `src/check.mjs`, `test/check.test.mjs`, `test/view.test.mjs` y este change; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-06-27T12:01:16Z`
 
 ## Log
 
-- **2026-06-27T11:12:18Z** — Draft creado tras confirmar que el viewer solo selecciona proyectos, el registro ya puede eliminar entradas y el config aún no se expone. El alcance autorizado incluye editar `config.yml`; se protege `project_id` como identidad estable y el desregistro nunca elimina archivos.
-- **2026-06-27T11:16:07Z** — status: draft → approved
-- **2026-06-27T11:18:00Z** — status: approved → in-progress
-- **2026-06-27T11:18:00Z** — owner → Roberto Ruiz (auto)
-- **2026-06-27T11:24:54Z** — Implementación completa: gestión global/local de proyectos, edición YAML validada y atómica, control de conflictos, reparación de rutas y desregistro seguro. pnpm verify pasa con 375 tests; comprobación visual sin overflow a 1280 px y 680 px.
-- **2026-06-27T11:25:08Z** — status: in-progress → in-review
-- **2026-06-27T11:38:35Z** — review → in-progress (retry): La validación usa las rutas anteriores; config y registro pueden divergir ante fallo; algunos errores filtran rutas internas; faltan tests DOM de los flujos activos.
-- **2026-06-27T11:41:02Z** — Correcciones del review: carga completa con config candidato, coordinación config/registro con rollback, errores inesperados sanitizados y tests DOM de pending/error/confirmación. pnpm verify pasa con 380 tests.
-- **2026-06-27T11:41:02Z** — status: in-progress → in-review
-- **2026-06-27T11:43:41Z** — review → in-progress (retry): El rollback entre config y registro aún puede fallar; queda un error crudo; los tests no ejercitan handlers DOM reales de Save/Repair/Reload/Unregister.
-- **2026-06-27T11:45:56Z** — Segunda corrección del review: config.yml es la autoridad única del nombre visible, eliminada la mutación cruzada de archivos, todos los errores de carga/escritura se sanitizan y los handlers DOM reales quedan cubiertos. pnpm verify pasa con 382 tests y no quedan residuos.
-- **2026-06-27T11:45:56Z** — status: in-progress → in-review
-- **2026-06-27T11:48:55Z** — review → in-progress (retry): Un config YAML válido con statuses de forma incorrecta lanza TypeError en checkRepo y el callback HTTP no captura la excepción para responder 400/500.
-- **2026-06-27T11:51:25Z** — Tercera corrección del review: el checker tolera colecciones config con forma inválida, devuelve errores de contrato y el callback HTTP captura excepciones inesperadas. pnpm verify pasa con 384 tests.
-- **2026-06-27T11:51:25Z** — status: in-progress → in-review
-- **2026-06-27T11:53:44Z** — review → in-progress (retry): CR4: types escalar o types.<tipo>.stages con forma no-lista aún puede lanzar en checkRepo; saveProjectConfig debe fallar cerrado con 400.
-- **2026-06-27T11:55:25Z** — Cuarta corrección del review: validación estructural profunda de types y type.stages, rutas seguras dentro del checker y guardado fail-closed ante cualquier excepción de validación. pnpm verify pasa con 386 tests.
-- **2026-06-27T11:55:25Z** — status: in-progress → in-review
-- **2026-06-27T11:58:37Z** — review → in-progress (retry): CR4: readiness patterns con forma no-lista aún pueden lanzar en coverage; Proposal/CR3 deben reflejar que config.yml es autoridad del nombre y el nombre almacenado en registry es solo fallback.
-- **2026-06-27T12:01:16Z** — Quinta corrección del review: readiness con patrones no-lista devuelve su causa sin romper coverage y el change documenta config.yml como autoridad del nombre visible. 112 tests focalizados pasan; el gate completo no pudo repetirse por límite de uso del entorno, tras haber pasado previamente con 386 tests.
-- **2026-06-27T12:01:16Z** — status: in-progress → in-review
-- **2026-06-27T19:05:23Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-27T19:18:20Z** — validation → done (human accepted)
-- **2026-06-27T19:19:39Z** — graduado a spec `architecture.md`
-- **2026-06-27T19:19:40Z** — archived
+- **2026-06-27T11:12:18Z** `[note]` Draft creado tras confirmar que el viewer solo selecciona proyectos, el registro ya puede eliminar entradas y el config aún no se expone. El alcance autorizado incluye editar `config.yml`; se protege `project_id` como identidad estable y el desregistro nunca elimina archivos.
+- **2026-06-27T11:16:07Z** `[status]` draft → approved
+- **2026-06-27T11:18:00Z** `[status]` approved → in-progress
+- **2026-06-27T11:18:00Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-27T11:24:54Z** `[note]` Implementación completa: gestión global/local de proyectos, edición YAML validada y atómica, control de conflictos, reparación de rutas y desregistro seguro. pnpm verify pasa con 375 tests; comprobación visual sin overflow a 1280 px y 680 px.
+- **2026-06-27T11:25:08Z** `[status]` in-progress → in-review
+- **2026-06-27T11:38:35Z** `[review]` in-review → in-progress (retry): La validación usa las rutas anteriores; config y registro pueden divergir ante fallo; algunos errores filtran rutas internas; faltan tests DOM de los flujos activos.
+- **2026-06-27T11:41:02Z** `[note]` Correcciones del review: carga completa con config candidato, coordinación config/registro con rollback, errores inesperados sanitizados y tests DOM de pending/error/confirmación. pnpm verify pasa con 380 tests.
+- **2026-06-27T11:41:02Z** `[status]` in-progress → in-review
+- **2026-06-27T11:43:41Z** `[review]` in-review → in-progress (retry): El rollback entre config y registro aún puede fallar; queda un error crudo; los tests no ejercitan handlers DOM reales de Save/Repair/Reload/Unregister.
+- **2026-06-27T11:45:56Z** `[note]` Segunda corrección del review: config.yml es la autoridad única del nombre visible, eliminada la mutación cruzada de archivos, todos los errores de carga/escritura se sanitizan y los handlers DOM reales quedan cubiertos. pnpm verify pasa con 382 tests y no quedan residuos.
+- **2026-06-27T11:45:56Z** `[status]` in-progress → in-review
+- **2026-06-27T11:48:55Z** `[review]` in-review → in-progress (retry): Un config YAML válido con statuses de forma incorrecta lanza TypeError en checkRepo y el callback HTTP no captura la excepción para responder 400/500.
+- **2026-06-27T11:51:25Z** `[note]` Tercera corrección del review: el checker tolera colecciones config con forma inválida, devuelve errores de contrato y el callback HTTP captura excepciones inesperadas. pnpm verify pasa con 384 tests.
+- **2026-06-27T11:51:25Z** `[status]` in-progress → in-review
+- **2026-06-27T11:53:44Z** `[review]` in-review → in-progress (retry): CR4: types escalar o types.<tipo>.stages con forma no-lista aún puede lanzar en checkRepo; saveProjectConfig debe fallar cerrado con 400.
+- **2026-06-27T11:55:25Z** `[note]` Cuarta corrección del review: validación estructural profunda de types y type.stages, rutas seguras dentro del checker y guardado fail-closed ante cualquier excepción de validación. pnpm verify pasa con 386 tests.
+- **2026-06-27T11:55:25Z** `[status]` in-progress → in-review
+- **2026-06-27T11:58:37Z** `[review]` in-review → in-progress (retry): CR4: readiness patterns con forma no-lista aún pueden lanzar en coverage; Proposal/CR3 deben reflejar que config.yml es autoridad del nombre y el nombre almacenado en registry es solo fallback.
+- **2026-06-27T12:01:16Z** `[note]` Quinta corrección del review: readiness con patrones no-lista devuelve su causa sin romper coverage y el change documenta config.yml como autoridad del nombre visible. 112 tests focalizados pasan; el gate completo no pudo repetirse por límite de uso del entorno, tras haber pasado previamente con 386 tests.
+- **2026-06-27T12:01:16Z** `[status]` in-progress → in-review
+- **2026-06-27T19:05:23Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-27T19:18:20Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-27T19:19:39Z** `[graduation]` spec: `architecture.md`
+- **2026-06-27T19:19:40Z** `[archive]` archived

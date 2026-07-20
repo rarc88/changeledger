@@ -128,17 +128,21 @@ solo difiere el manejo del archivo del spec.
 
 ## Plan
 
-- [x] Añadir `setSpecUpdated(text, iso)` puro en `src/writer.mjs` (reemplaza la línea `updated:` del frontmatter); test en `test/writer.test.mjs` (CR5) — 2026-06-15T17:36:16Z
-- [x] Extender `graduate(id, slug, cwd, { into })` en `src/commands/graduate.mjs`: rama `into` exige spec existente (error simétrico), refresca `updated` vía `setSpecUpdated`, no toca el cuerpo; marker + `setReviewed` compartidos; test en `test/graduate.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-15T17:36:16Z
-- [x] Parsear `--into` en el caso `graduate` de `bin/sl.mjs` (positionals robustos a flags) + entrada en `HELP`/`USAGE`; test e2e en `test/cli-bin.test.mjs` (CR6) — 2026-06-15T17:36:16Z
-- [x] Documentar `--into` en `templates/AGENTS.md` §9 (`sl graduate … --into`) y §10 (graduar a spec existente) — 2026-06-15T17:36:17Z
+- [x] Añadir `setSpecUpdated(text, iso)` puro en `src/writer.mjs` (reemplaza la línea `updated:` del frontmatter); test en `test/writer.test.mjs` (CR5)
+  - **Resolved:** `2026-06-15T17:36:16Z`
+- [x] Extender `graduate(id, slug, cwd, { into })` en `src/commands/graduate.mjs`: rama `into` exige spec existente (error simétrico), refresca `updated` vía `setSpecUpdated`, no toca el cuerpo; marker + `setReviewed` compartidos; test en `test/graduate.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-15T17:36:16Z`
+- [x] Parsear `--into` en el caso `graduate` de `bin/sl.mjs` (positionals robustos a flags) + entrada en `HELP`/`USAGE`; test e2e en `test/cli-bin.test.mjs` (CR6)
+  - **Resolved:** `2026-06-15T17:36:16Z`
+- [x] Documentar `--into` en `templates/AGENTS.md` §9 (`sl graduate … --into`) y §10 (graduar a spec existente)
+  - **Resolved:** `2026-06-15T17:36:17Z`
 
 ## Log
-- **2026-06-15T17:29:52Z** — status: draft → approved
-- **2026-06-15T17:31:48Z** — status: approved → in-progress
-- **2026-06-15T17:31:48Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T17:36:31Z** — status: in-progress → in-review
-- **2026-06-15T17:37:35Z** — independent review (delegated subagent, clean context): VERDICT pass — 6/6 CRs implemented and tested, literal messages match, shared marker+reviewed write, no write on error paths, no residue, pnpm verify green.
-- **2026-06-15T17:37:35Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T17:37:35Z** — graduado a spec `lifecycle.md`
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T17:29:52Z** `[status]` draft → approved
+- **2026-06-15T17:31:48Z** `[status]` approved → in-progress
+- **2026-06-15T17:31:48Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T17:36:31Z** `[status]` in-progress → in-review
+- **2026-06-15T17:37:35Z** `[note]` independent review (delegated subagent, clean context): VERDICT pass — 6/6 CRs implemented and tested, literal messages match, shared marker+reviewed write, no write on error paths, no residue, pnpm verify green.
+- **2026-06-15T17:37:35Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T17:37:35Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-15T21:17:58Z** `[archive]` archived

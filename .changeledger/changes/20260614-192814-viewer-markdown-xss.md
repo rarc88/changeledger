@@ -58,15 +58,19 @@ contenido no confiable, incluso cuando el repo sea local.
 
 ## Plan
 
-- [x] Añadir una estrategia de sanitización mantenida para el HTML producido por Marked y aplicarla antes de cada inserción en el DOM — 2026-06-15T11:50:55Z
-- [x] Configurar Mermaid para contenido no confiable y documentar la frontera de confianza del visor — 2026-06-15T11:50:55Z
-- [x] Añadir pruebas de navegador/DOM para payloads XSS, URLs peligrosas y Markdown permitido — 2026-06-15T11:50:55Z
-- [x] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid (CR3, CR4) — 2026-06-15T11:50:55Z
+- [x] Añadir una estrategia de sanitización mantenida para el HTML producido por Marked y aplicarla antes de cada inserción en el DOM
+  - **Resolved:** `2026-06-15T11:50:55Z`
+- [x] Configurar Mermaid para contenido no confiable y documentar la frontera de confianza del visor
+  - **Resolved:** `2026-06-15T11:50:55Z`
+- [x] Añadir pruebas de navegador/DOM para payloads XSS, URLs peligrosas y Markdown permitido
+  - **Resolved:** `2026-06-15T11:50:55Z`
+- [x] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid (CR3, CR4)
+  - **Resolved:** `2026-06-15T11:50:55Z`
 
 ## Log
-- **2026-06-15T11:38:40Z** — status: draft → approved
-- **2026-06-15T11:47:48Z** — status: approved → in-progress
-- **2026-06-15T11:47:49Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T11:50:55Z** — status: in-progress → done
-- **2026-06-15T21:16:51Z** — graduation skipped: bug del visor; modelo de seguridad documentado en SECURITY.md, sin verdad persistente en specs/
-- **2026-06-15T21:17:34Z** — archived
+- **2026-06-15T11:38:40Z** `[status]` draft → approved
+- **2026-06-15T11:47:48Z** `[status]` approved → in-progress
+- **2026-06-15T11:47:49Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T11:50:55Z** `[status]` in-progress → done
+- **2026-06-15T21:16:51Z** `[graduation]` skipped: bug del visor; modelo de seguridad documentado en SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:34Z** `[archive]` archived

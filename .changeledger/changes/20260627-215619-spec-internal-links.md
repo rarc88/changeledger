@@ -104,16 +104,19 @@ spec a change, y deep-linking por URL. Si se quieren, serán changes aparte.
 
 ## Plan
 
-- [x] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`; verify: `node --test test/view.test.mjs` (CR1, CR4) — 2026-06-27T22:07:57Z
-- [x] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3) — 2026-06-27T22:07:57Z
-- [x] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op); verify: `node --test test/view.test.mjs` (CR2) — 2026-06-27T22:07:57Z
+- [x] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`; verify: `node --test test/view.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-06-27T22:07:57Z`
+- [x] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-27T22:07:57Z`
+- [x] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op); verify: `node --test test/view.test.mjs` (CR2)
+  - **Resolved:** `2026-06-27T22:07:57Z`
 
 ## Log
-- **2026-06-27T21:58:59Z** — status: draft → approved
-- **2026-06-27T22:04:01Z** — status: approved → in-progress
-- **2026-06-27T22:04:01Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-27T22:07:57Z** — status: in-progress → in-review
-- **2026-06-27T22:09:48Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-27T22:11:41Z** — validation → done (human accepted)
-- **2026-06-27T22:13:56Z** — graduado a spec `viewer.md`
-- **2026-06-27T22:14:30Z** — archived
+- **2026-06-27T21:58:59Z** `[status]` draft → approved
+- **2026-06-27T22:04:01Z** `[status]` approved → in-progress
+- **2026-06-27T22:04:01Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-27T22:07:57Z** `[status]` in-progress → in-review
+- **2026-06-27T22:09:48Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-27T22:11:41Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-27T22:13:56Z** `[graduation]` spec: `viewer.md`
+- **2026-06-27T22:14:30Z** `[archive]` archived

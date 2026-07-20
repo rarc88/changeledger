@@ -86,21 +86,24 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 
 ## Plan
 
-- [x] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T15:24:18Z
-- [x] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-150230` (CR1, CR2, CR3, CR4, CR5, CR6) — 2026-07-03T15:24:18Z
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T16:48:24Z
+- [x] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-03T15:24:18Z`
+- [x] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-150230` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-03T15:24:18Z`
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-03T16:48:24Z`
 
 ## Log
 
-- 2026-07-03T15:02:30Z — Se preservó el baseline de inicio como evidencia
+- **2026-07-03T15:02:30Z** `[note]` Se preservó el baseline de inicio como evidencia
   obligatoria y se decidió que el Log, no un commit por estado, conserva la
   granularidad temporal del lifecycle.
-- **2026-07-03T15:11:49Z** — status: draft → approved
-- **2026-07-03T15:17:07Z** — status: approved → in-progress
-- **2026-07-03T15:17:07Z** — owner → Roberto Ruiz (auto)
-- **2026-07-03T16:48:29Z** — Implementado: commits por evidencia significativa, transiciones coalescidas, cierre consolidado y checkpoint único de handoff; tests contractuales y pnpm verify pasan (3 warnings preexistentes de lint).
-- **2026-07-03T16:48:33Z** — status: in-progress → in-review
-- **2026-07-03T16:50:49Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-03T16:51:39Z** — validation → done (human accepted)
-- **2026-07-03T16:52:42Z** — graduado a spec `lifecycle.md`
-- **2026-07-03T23:22:53Z** — archived
+- **2026-07-03T15:11:49Z** `[status]` draft → approved
+- **2026-07-03T15:17:07Z** `[status]` approved → in-progress
+- **2026-07-03T15:17:07Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-03T16:48:29Z** `[note]` Implementado: commits por evidencia significativa, transiciones coalescidas, cierre consolidado y checkpoint único de handoff; tests contractuales y pnpm verify pasan (3 warnings preexistentes de lint).
+- **2026-07-03T16:48:33Z** `[status]` in-progress → in-review
+- **2026-07-03T16:50:49Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-03T16:51:39Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-03T16:52:42Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-03T23:22:53Z** `[archive]` archived

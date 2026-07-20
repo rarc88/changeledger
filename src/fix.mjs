@@ -13,10 +13,14 @@
 // completely untouched and reported under `manual` — the defect requires
 // judgment (unknown criterion), not a mechanical rewrite.
 import { parseChange } from './change.mjs';
+import { parseLogEvent, serializeLogEvent } from './lifecycle.mjs';
 
 const TASK_LINE = /^(\s*-\s)\[([^\]]*)\](\s+)(.*)$/;
 const REORDERED_VERIFY = /^(.*?)\s*\(([^)]*\bCR\d+[^)]*)\)\s*—\s*verify:\s*(.+)$/;
 const NEAR_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?(Z)?$/;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const LEGACY_LOG =
+  /^- (?:\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)) — (.*)$/;
 
 export function computeFixes(text) {
   const criteria = new Set(parseChange(text).criteria ?? []);
@@ -53,6 +57,118 @@ export function hasFixableDefects(text) {
   } catch {
     return false;
   }
+}
+
+export function migrateStructuredSections(text) {
+  const lines = String(text).split('\n');
+  const output = [];
+  const applied = [];
+  const manual = [];
+  let section = '';
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      section = heading[1].toLowerCase();
+      output.push(line);
+      continue;
+    }
+
+    if (section === 'plan') {
+      const task = line.match(/^- \[([ x!])\]\s+(.*)$/);
+      const alreadyStructured = /^ {2}- \*\*(?:Resolved|Blocked):\*\*/.test(lines[index + 1] ?? '');
+      if (task && !alreadyStructured && task[1] !== ' ') {
+        const separator = task[2].lastIndexOf(' — ');
+        const separators = task[2].match(/ — /g)?.length ?? 0;
+        const suffix = separator === -1 ? '' : task[2].slice(separator + 3);
+        const description = separator === -1 ? task[2] : task[2].slice(0, separator);
+        if (task[1] === 'x' && ISO_UTC.test(suffix)) {
+          output.push(`- [x] ${description}`, `  - **Resolved:** \`${suffix}\``);
+          applied.push(`line ${index + 1}: migrated resolved task metadata`);
+          continue;
+        }
+        if (task[1] === '!' && separator !== -1 && separators === 1 && suffix.trim()) {
+          output.push(`- [!] ${description}`, `  - **Blocked:** ${suffix}`);
+          applied.push(`line ${index + 1}: migrated blocked task metadata`);
+          continue;
+        }
+        manual.push(`line ${index + 1}: ambiguous legacy task metadata`);
+      }
+    }
+
+    if (section === 'log' && /^- /.test(line)) {
+      if (parseLogEvent(line)) {
+        output.push(line);
+        continue;
+      }
+      const legacy = line.match(LEGACY_LOG);
+      if (legacy) {
+        output.push(serializeLogEvent(parseLegacyLogEvent(legacy[1] ?? legacy[2], legacy[3])));
+        applied.push(`line ${index + 1}: migrated typed Log event`);
+        continue;
+      }
+      manual.push(`line ${index + 1}: untyped Log entry has no migratable timestamp`);
+    }
+
+    output.push(line);
+  }
+
+  const migrated = output.join('\n');
+  return { text: migrated, applied, manual, changed: migrated !== text };
+}
+
+function parseLegacyLogEvent(at, message) {
+  for (const [type, prefix, from] of [
+    ['status', 'status: ', null],
+    ['review', 'review → ', 'in-review'],
+    ['validation', 'validation → ', 'in-validation'],
+  ]) {
+    if (!message.startsWith(prefix)) continue;
+    const payload =
+      type === 'status'
+        ? message.slice(prefix.length)
+        : `${from} → ${message.slice(prefix.length)}`;
+    const transition = payload.match(/^([a-z-]+) → ([a-z-]+)(?: \(([^)]*)\))?(?:: ([\s\S]+))?$/);
+    if (transition) {
+      const event = { at, type, from: transition[1], to: transition[2] };
+      if (transition[3]) event.detail = transition[3];
+      if (transition[4]) event.reason = transition[4];
+      return event;
+    }
+  }
+
+  if (message === 'owner cleared') return { at, type: 'owner', owner: null };
+  const owner = message.match(/^owner → (.+?)( \(auto\))?$/);
+  if (owner) {
+    return {
+      at,
+      type: 'owner',
+      owner: owner[1],
+      ...(owner[2] ? { automatic: true } : {}),
+    };
+  }
+  const graduated = message.match(/^graduado a spec `([^`]+)`(?: \((.*)\))?$/i);
+  if (graduated) {
+    return {
+      at,
+      type: 'graduation',
+      outcome: 'spec',
+      spec: graduated[1],
+      ...(graduated[2] ? { detail: graduated[2] } : {}),
+    };
+  }
+  const skipped = message.match(/^graduation skipped(?:: ([\s\S]+))?$/);
+  if (skipped) {
+    return {
+      at,
+      type: 'graduation',
+      outcome: 'skipped',
+      ...(skipped[1] ? { reason: skipped[1] } : {}),
+    };
+  }
+  if (message === 'archived') return { at, type: 'archive' };
+  return { at, type: 'note', message };
 }
 
 function fixTaskLine(rawLine, declaredCR, lineNo) {

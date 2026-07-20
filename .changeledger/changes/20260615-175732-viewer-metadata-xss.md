@@ -64,18 +64,22 @@ configuración, headings de etapa, tareas o referencias.
 
 ## Plan
 
-- [x] Añadir tests DOM con payloads en metadatos, headings, tareas, config y atributos para reproducir cada contexto (CR1, CR2, CR3) — 2026-06-15T18:52:27Z
-- [x] Inventariar las escrituras `innerHTML` y clasificar cada interpolación por contexto HTML, atributo, selector o estilo (CR1, CR2, CR3) — 2026-06-15T18:52:27Z
-- [x] Sustituir interpolaciones no confiables por APIs DOM seguras o helpers de escape contextual; limitar valores dinámicos usados en CSS/selectores (CR1, CR2, CR3) — 2026-06-15T18:52:27Z
-- [x] Ejecutar `pnpm verify` y smoke visual de todas las vistas con Markdown/Mermaid normal (CR3, CR4) — 2026-06-15T18:52:27Z
+- [x] Añadir tests DOM con payloads en metadatos, headings, tareas, config y atributos para reproducir cada contexto (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T18:52:27Z`
+- [x] Inventariar las escrituras `innerHTML` y clasificar cada interpolación por contexto HTML, atributo, selector o estilo (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T18:52:27Z`
+- [x] Sustituir interpolaciones no confiables por APIs DOM seguras o helpers de escape contextual; limitar valores dinámicos usados en CSS/selectores (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T18:52:27Z`
+- [x] Ejecutar `pnpm verify` y smoke visual de todas las vistas con Markdown/Mermaid normal (CR3, CR4)
+  - **Resolved:** `2026-06-15T18:52:27Z`
 
 ## Log
-- **2026-06-15T18:29:26Z** — status: draft → approved
-- **2026-06-15T18:45:44Z** — status: approved → in-progress
-- **2026-06-15T18:45:44Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T18:52:27Z** — fix: app.js es módulo ESM con builders exportables; esc() (incl comillas) en todo metadato no confiable y cssIdent() en var(--type) de board/detail/table/graph/metrics/global/filtros; tests DOM reales (CR1-CR4); smoke visual del visor OK
-- **2026-06-15T18:52:39Z** — status: in-progress → in-review
-- **2026-06-15T18:55:46Z** — polish: esc() en throughput date y mensaje de error del board para estrategia uniforme (CR3), por revisión independiente
-- **2026-06-15T18:55:59Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T20:47:34Z** — graduation skipped: bug de sanitización del visor; sin verdad persistente nueva
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T18:29:26Z** `[status]` draft → approved
+- **2026-06-15T18:45:44Z** `[status]` approved → in-progress
+- **2026-06-15T18:45:44Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T18:52:27Z** `[note]` fix: app.js es módulo ESM con builders exportables; esc() (incl comillas) en todo metadato no confiable y cssIdent() en var(--type) de board/detail/table/graph/metrics/global/filtros; tests DOM reales (CR1-CR4); smoke visual del visor OK
+- **2026-06-15T18:52:39Z** `[status]` in-progress → in-review
+- **2026-06-15T18:55:46Z** `[note]` polish: esc() en throughput date y mensaje de error del board para estrategia uniforme (CR3), por revisión independiente
+- **2026-06-15T18:55:59Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** `[graduation]` skipped: bug de sanitización del visor; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** `[archive]` archived

@@ -8,11 +8,11 @@ import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
-import { assertTransition } from '../lifecycle.mjs';
+import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
-import { appendLog, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
+import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
   const { config, file, repoRoot } = resolveChange(cwd, id);
@@ -56,20 +56,31 @@ export function status(
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, newStatus);
-    const message =
+    const detail =
       actor === 'human' &&
       channel === 'conversation' &&
       fm.status === 'draft' &&
       newStatus === 'approved'
-        ? 'status: draft → approved (human via conversation)'
-        : `status: ${fm.status} → ${newStatus}`;
-    text = appendLog(text, nowUtc(), message);
+        ? 'human via conversation'
+        : undefined;
+    text = appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'status',
+      from: fm.status,
+      to: newStatus,
+      detail,
+    });
 
     // Work begins here: assign the owner from the local git identity unless one was
     // set explicitly (see change 20260614-124047).
     if (newStatus === 'in-progress' && !fm.owner && autoOwner) {
       text = setOwner(text, autoOwner);
-      text = appendLog(text, nowUtc(), `owner → ${autoOwner} (auto)`);
+      text = appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'owner',
+        owner: autoOwner,
+        automatic: true,
+      });
     }
     return text;
   });
@@ -97,11 +108,13 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 
     if (verdict === 'pass') {
       text = setStatus(text, 'in-validation');
-      text = appendLog(
-        text,
-        nowUtc(),
-        'review → in-validation (delegated subagent, clean context)',
-      );
+      text = appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'review',
+        from: 'in-review',
+        to: 'in-validation',
+        detail: 'delegated subagent, clean context',
+      });
     } else if (verdict === 'fail') {
       if (!reason) {
         throw new Error(
@@ -110,10 +123,23 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
       }
       if (mode === 'retry') {
         text = setStatus(text, 'in-progress');
-        text = appendLog(text, nowUtc(), `review → in-progress (retry): ${reason}`);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'review',
+          from: 'in-review',
+          to: 'in-progress',
+          detail: 'retry',
+          reason,
+        });
       } else if (mode === 'block') {
         text = setStatus(text, 'blocked');
-        text = appendLog(text, nowUtc(), `review → blocked: ${reason}`);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'review',
+          from: 'in-review',
+          to: 'blocked',
+          reason,
+        });
       } else {
         throw new Error('fail requires --retry or --block');
       }
@@ -155,17 +181,22 @@ export function validation(
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, target);
-    text = appendLog(
-      text,
-      nowUtc(),
+    const detail =
       verdict === 'pass'
         ? channel === 'conversation'
-          ? 'validation → done (human accepted via conversation)'
-          : 'validation → done (human accepted)'
+          ? 'human accepted via conversation'
+          : 'human accepted'
         : channel === 'conversation' && actor === 'human'
-          ? `validation → in-progress (human rejected via conversation): ${reason}`
-          : `validation → in-progress (${actor} rejected): ${reason}`,
-    );
+          ? 'human rejected via conversation'
+          : `${actor} rejected`;
+    text = appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'validation',
+      from: 'in-validation',
+      to: target,
+      detail,
+      reason: verdict === 'fail' ? reason : undefined,
+    });
     if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
   });
@@ -198,7 +229,14 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}
         reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
       });
       text = setStatus(text, 'in-progress');
-      return appendLog(text, nowUtc(), `status: done → in-progress (${actor} reopened): ${reason}`);
+      return appendLogEvent(text, {
+        at: nowUtc(),
+        type: 'status',
+        from: 'done',
+        to: 'in-progress',
+        detail: `${actor} reopened`,
+        reason,
+      });
     });
     return file;
   });
@@ -210,7 +248,7 @@ export function owner(id, name, cwd = process.cwd()) {
   const next = name === '-' ? null : name;
   mutateFileAtomic(file, (text) => {
     text = setOwner(text, next);
-    return appendLog(text, nowUtc(), next ? `owner → ${next}` : 'owner cleared');
+    return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
   });
   return file;
 }
@@ -231,7 +269,13 @@ export function discard(id, reason, cwd = process.cwd()) {
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
     text = setStatus(text, 'discarded');
-    return appendLog(text, nowUtc(), `status: ${fm.status} → discarded: ${reason}`);
+    return appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'status',
+      from: fm.status,
+      to: 'discarded',
+      reason,
+    });
   });
   return file;
 }
@@ -240,7 +284,7 @@ export function archive(id, cwd = process.cwd()) {
   const { file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
     text = setArchived(text, true);
-    return appendLog(text, nowUtc(), 'archived');
+    return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
   });
   return file;
 }
@@ -270,7 +314,7 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
       const current = { ...parseChange(text), text };
       if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) return undefined;
       text = setArchived(text, true);
-      return appendLog(text, nowUtc(), 'archived');
+      return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
     });
   }
   return selected.map((c) => ({
@@ -291,14 +335,12 @@ function isArchivableGraduated(c) {
 
 function hasGraduationResolution(c) {
   const logBody = c.stages.find((s) => s.key === 'log')?.body ?? '';
-  return logBody
-    .split('\n')
-    .some((line) => /—\s*(graduado a spec `[^`]+`|graduation skipped\b)/i.test(line));
+  return logBody.split('\n').some((line) => parseLogEvent(line)?.type === 'graduation');
 }
 
 export function log(id, message, cwd = process.cwd()) {
   const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => appendLog(text, nowUtc(), message));
+  mutateFileAtomic(file, (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message }));
   return file;
 }
 

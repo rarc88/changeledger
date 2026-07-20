@@ -89,19 +89,24 @@ Superficie compartida: el texto del bootstrap se edita también en
 
 ## Plan
 
-- [x] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`; verify: `node --test test/framing.test.mjs` (CR1, CR2) — 2026-07-11T11:25:58Z
-- [x] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed; verify: `pnpm test` (CR3, CR4) — 2026-07-11T11:25:58Z
-- [x] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`; verify: `pnpm test` (CR5) — 2026-07-11T11:25:58Z
-- [x] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register` (support) — 2026-07-11T11:25:58Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:25:58Z
+- [x] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`; verify: `node --test test/framing.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-11T11:25:58Z`
+- [x] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed; verify: `pnpm test` (CR3, CR4)
+  - **Resolved:** `2026-07-11T11:25:58Z`
+- [x] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`; verify: `pnpm test` (CR5)
+  - **Resolved:** `2026-07-11T11:25:58Z`
+- [x] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register` (support)
+  - **Resolved:** `2026-07-11T11:25:58Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T11:25:58Z`
 
 ## Log
-- **2026-07-11T10:47:26Z** — status: draft → approved
-- **2026-07-11T11:06:49Z** — status: approved → in-progress
-- **2026-07-11T11:06:49Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T11:25:58Z** — Integrada implementación delegada (6a7c240, 57b90a7, 5b1c2fc): rev de contenido en la línea BEGIN, --have con respuesta corta unchanged, documentación en core.md y bootstrap (BOOTSTRAP_VERSION 1→2, ejercitando la migración de #20260711-103803). pnpm verify 600/600.
-- **2026-07-11T11:25:58Z** — status: in-progress → in-review
-- **2026-07-11T11:29:41Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T11:37:30Z** — validation → done (human accepted)
-- **2026-07-11T15:45:50Z** — graduado a spec `contract-discovery.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T10:47:26Z** `[status]` draft → approved
+- **2026-07-11T11:06:49Z** `[status]` approved → in-progress
+- **2026-07-11T11:06:49Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T11:25:58Z** `[note]` Integrada implementación delegada (6a7c240, 57b90a7, 5b1c2fc): rev de contenido en la línea BEGIN, --have con respuesta corta unchanged, documentación en core.md y bootstrap (BOOTSTRAP_VERSION 1→2, ejercitando la migración de #20260711-103803). pnpm verify 600/600.
+- **2026-07-11T11:25:58Z** `[status]` in-progress → in-review
+- **2026-07-11T11:29:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:30Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T15:45:50Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

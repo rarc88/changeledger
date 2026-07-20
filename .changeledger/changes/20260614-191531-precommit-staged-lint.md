@@ -43,14 +43,17 @@ commit `feat(owner)` abortó y su código terminó mezclado en el commit de test
 
 ## Plan
 
-- [x] En `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (sin el `biome check` de árbol completo; el lint de staged lo hace lint-staged) (CR1) — 2026-06-14T19:17:11Z
-- [x] `pnpm verify` en `package.json` intacto como gate completo CI/manual (CR2) — 2026-06-14T19:17:11Z
-- [x] Verificado a mano: staged limpio + no-staged sucio → hook exit 0, archivo sucio intacto (CR1) — 2026-06-14T19:17:11Z
+- [x] En `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (sin el `biome check` de árbol completo; el lint de staged lo hace lint-staged) (CR1)
+  - **Resolved:** `2026-06-14T19:17:11Z`
+- [x] `pnpm verify` en `package.json` intacto como gate completo CI/manual (CR2)
+  - **Resolved:** `2026-06-14T19:17:11Z`
+- [x] Verificado a mano: staged limpio + no-staged sucio → hook exit 0, archivo sucio intacto (CR1)
+  - **Resolved:** `2026-06-14T19:17:11Z`
 
 ## Log
-- **2026-06-14T19:16:14Z** — status: draft → approved
-- **2026-06-14T19:16:14Z** — status: approved → in-progress
-- **2026-06-14T19:16:15Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-14T19:17:28Z** — status: in-progress → done
-- **2026-06-14T19:17:28Z** — graduation skipped: fix de tooling (hook); sin verdad persistente
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T19:16:14Z** `[status]` draft → approved
+- **2026-06-14T19:16:14Z** `[status]` approved → in-progress
+- **2026-06-14T19:16:15Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-14T19:17:28Z** `[status]` in-progress → done
+- **2026-06-14T19:17:28Z** `[graduation]` skipped: fix de tooling (hook); sin verdad persistente
+- **2026-06-15T21:17:57Z** `[archive]` archived

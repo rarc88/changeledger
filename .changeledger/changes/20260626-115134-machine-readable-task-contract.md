@@ -98,19 +98,23 @@ bloque de criterios.
 
 ## Plan
 
-- [x] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134` (CR1, CR2, CR4) — 2026-06-26T12:03:20Z
-- [x] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134` (CR3) — 2026-06-26T12:03:23Z
-- [x] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test (CR5) — 2026-06-26T12:04:03Z
-- [x] Actualizar src/change.mjs y src/check.mjs para conservar el sufijo reservado y emitir un diagnóstico específico cuando `verify:` queda allí; verificar con pnpm test y node bin/sl.mjs check (CR5) — 2026-06-26T12:04:06Z
+- [x] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134` (CR1, CR2, CR4)
+  - **Resolved:** `2026-06-26T12:03:20Z`
+- [x] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134` (CR3)
+  - **Resolved:** `2026-06-26T12:03:23Z`
+- [x] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test (CR5)
+  - **Resolved:** `2026-06-26T12:04:03Z`
+- [x] Actualizar src/change.mjs y src/check.mjs para conservar el sufijo reservado y emitir un diagnóstico específico cuando `verify:` queda allí; verificar con pnpm test y node bin/sl.mjs check (CR5)
+  - **Resolved:** `2026-06-26T12:04:06Z`
 
 ## Log
 
-- 2026-06-26T11:51:34Z — Change creado en estado draft.
-- **2026-06-26T12:00:00Z** — status: draft → approved
-- **2026-06-26T12:01:33Z** — status: approved → in-progress
-- **2026-06-26T12:01:33Z** — owner → Roberto Ruiz (auto)
-- **2026-06-26T12:05:28Z** — status: in-progress → in-review
-- **2026-06-26T12:07:05Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-26T17:18:49Z** — validation → done (human accepted)
-- **2026-06-26T17:40:44Z** — graduado a spec `readiness.md`
-- **2026-06-26T17:41:22Z** — archived
+- **2026-06-26T11:51:34Z** `[note]` Change creado en estado draft.
+- **2026-06-26T12:00:00Z** `[status]` draft → approved
+- **2026-06-26T12:01:33Z** `[status]` approved → in-progress
+- **2026-06-26T12:01:33Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-26T12:05:28Z** `[status]` in-progress → in-review
+- **2026-06-26T12:07:05Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-26T17:18:49Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-26T17:40:44Z** `[graduation]` spec: `readiness.md`
+- **2026-06-26T17:41:22Z** `[archive]` archived

@@ -54,16 +54,21 @@ comentarios YAML ni producir documentos inválidos al volver a cargarlos.
 
 ## Plan
 
-- [x] Introducir un serializador único para escalares YAML del subconjunto soportado — 2026-06-15T11:40:49Z
-- [x] Usar el serializador al generar changes y specs — 2026-06-15T11:40:50Z
-- [x] Usar el serializador en mutaciones de frontmatter e identidad de proyecto — 2026-06-15T11:40:50Z
-- [x] Añadir tests round-trip con comentarios, tipos ambiguos, comillas, dos puntos y saltos de línea o rechazo explícito de estos últimos — 2026-06-15T11:40:50Z
-- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4) — 2026-06-15T11:40:50Z
+- [x] Introducir un serializador único para escalares YAML del subconjunto soportado
+  - **Resolved:** `2026-06-15T11:40:49Z`
+- [x] Usar el serializador al generar changes y specs
+  - **Resolved:** `2026-06-15T11:40:50Z`
+- [x] Usar el serializador en mutaciones de frontmatter e identidad de proyecto
+  - **Resolved:** `2026-06-15T11:40:50Z`
+- [x] Añadir tests round-trip con comentarios, tipos ambiguos, comillas, dos puntos y saltos de línea o rechazo explícito de estos últimos
+  - **Resolved:** `2026-06-15T11:40:50Z`
+- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-15T11:40:50Z`
 
 ## Log
-- **2026-06-15T11:38:39Z** — status: draft → approved
-- **2026-06-15T11:39:08Z** — status: approved → in-progress
-- **2026-06-15T11:39:08Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T11:40:50Z** — status: in-progress → done
-- **2026-06-15T21:16:52Z** — graduation skipped: bug de serialización YAML; sin verdad persistente nueva
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T11:38:39Z** `[status]` draft → approved
+- **2026-06-15T11:39:08Z** `[status]` approved → in-progress
+- **2026-06-15T11:39:08Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T11:40:50Z** `[status]` in-progress → done
+- **2026-06-15T21:16:52Z** `[graduation]` skipped: bug de serialización YAML; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** `[archive]` archived

@@ -15,7 +15,9 @@ function logBody(change) {
 // parser so metrics and validation cannot drift (20260630-225210 CR5).
 function logTransition(line) {
   const event = parseLogEvent(line);
-  return event ? { at: event.at, state: event.to } : null;
+  return event && ['status', 'review', 'validation'].includes(event.type)
+    ? { at: event.at, state: event.to }
+    : null;
 }
 
 // The moment a change reached `done`: the last lifecycle transition to done, or
@@ -86,7 +88,7 @@ function reviewRetryCount(change) {
   let count = 0;
   for (const line of logBody(change).split('\n')) {
     const event = parseLogEvent(line);
-    if (event && !event.explicit && event.from === 'in-review' && event.to === 'in-progress') {
+    if (event?.type === 'review' && event.from === 'in-review' && event.to === 'in-progress') {
       count++;
     }
   }

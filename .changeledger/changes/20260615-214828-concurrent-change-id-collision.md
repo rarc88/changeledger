@@ -52,20 +52,24 @@ requiere arreglo manual.
 
 ## Plan
 
-- [x] Añadir un test de concurrencia en `test/change.test.mjs` o `test/cli.test.mjs` que reproduzca dos creaciones simultáneas con el mismo `now` (CR1) — 2026-06-15T21:54:33Z
-- [x] Cambiar `src/commands/new.mjs` para reservar el archivo de forma atómica, por ejemplo con modo de escritura exclusivo (`wx`) y retry al siguiente segundo (CR1, CR2, CR3) — 2026-06-15T21:54:37Z
-- [x] Asegurar que el retry actualiza juntos `created`, `id` y filename (CR3) — 2026-06-15T21:54:37Z
-- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check` (CR1, CR2, CR3) — 2026-06-15T21:59:43Z
+- [x] Añadir un test de concurrencia en `test/change.test.mjs` o `test/cli.test.mjs` que reproduzca dos creaciones simultáneas con el mismo `now` (CR1)
+  - **Resolved:** `2026-06-15T21:54:33Z`
+- [x] Cambiar `src/commands/new.mjs` para reservar el archivo de forma atómica, por ejemplo con modo de escritura exclusivo (`wx`) y retry al siguiente segundo (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T21:54:37Z`
+- [x] Asegurar que el retry actualiza juntos `created`, `id` y filename (CR3)
+  - **Resolved:** `2026-06-15T21:54:37Z`
+- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T21:59:43Z`
 
 ## Log
-- **2026-06-15T21:52:27Z** — status: draft → approved
-- **2026-06-15T21:53:14Z** — status: approved → in-progress
-- **2026-06-15T21:53:14Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T22:00:05Z** — status: in-progress → in-review
-- **2026-06-15T22:02:31Z** — review → in-progress (retry): El test de concurrencia usaba procesos secuenciales
-- **2026-06-15T22:03:03Z** — status: in-progress → in-review
-- **2026-06-15T22:05:08Z** — review → in-progress (retry): El test concurrente era flaky y faltaba check/no-overwrite explícito
-- **2026-06-15T22:05:41Z** — status: in-progress → in-review
-- **2026-06-15T22:07:19Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T22:08:06Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T21:52:27Z** `[status]` draft → approved
+- **2026-06-15T21:53:14Z** `[status]` approved → in-progress
+- **2026-06-15T21:53:14Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T22:00:05Z** `[status]` in-progress → in-review
+- **2026-06-15T22:02:31Z** `[review]` in-review → in-progress (retry): El test de concurrencia usaba procesos secuenciales
+- **2026-06-15T22:03:03Z** `[status]` in-progress → in-review
+- **2026-06-15T22:05:08Z** `[review]` in-review → in-progress (retry): El test concurrente era flaky y faltaba check/no-overwrite explícito
+- **2026-06-15T22:05:41Z** `[status]` in-progress → in-review
+- **2026-06-15T22:07:19Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T22:08:06Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

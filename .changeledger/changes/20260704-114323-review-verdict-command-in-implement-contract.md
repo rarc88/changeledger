@@ -81,19 +81,23 @@ escritura que el comando dedicado hace de forma atómica.
 
 ## Plan
 
-- [x] Actualizar `templates/contract/implement.md`: junto a "When implementation and every task are complete, move to `in-review`..." indicar que el orquestador carga `changeledger context review` una vez en ese punto (no recargarlo solo para registrar el veredicto si sigue disponible en la conversación activa), y añadir `changeledger review <id> pass|fail` a "Useful mutation commands" como comando que ejecuta el orquestador; verify: `node bin/changeledger.mjs check 20260704-114323` (CR1) — 2026-07-04T13:20:10Z
-- [x] Actualizar `templates/contract/delegation.md` ("Configured review is special" o "Delegation prompt contract") para exigir que el subagente de review quede restringido a herramientas de solo lectura y solo reporte texto, nunca mute el ledger; verify: `node bin/changeledger.mjs check 20260704-114323` (CR2) — 2026-07-04T13:20:10Z
-- [x] Añadir a `templates/contract/implement.md` la aclaración de que `in-validation → done|in-progress` no tiene comando CLI, es exclusiva del humano vía viewer; verify: `node bin/changeledger.mjs check 20260704-114323` (CR3) — 2026-07-04T13:20:11Z
-- [x] Revisar `templates/contract/review.md` para confirmar que sigue coherente (dirigido a quien inspecciona) y sin contenido duplicado tras los cambios anteriores; verify: lectura manual de los tres fragmentos (support) — 2026-07-04T13:20:11Z
+- [x] Actualizar `templates/contract/implement.md`: junto a "When implementation and every task are complete, move to `in-review`..." indicar que el orquestador carga `changeledger context review` una vez en ese punto (no recargarlo solo para registrar el veredicto si sigue disponible en la conversación activa), y añadir `changeledger review <id> pass|fail` a "Useful mutation commands" como comando que ejecuta el orquestador; verify: `node bin/changeledger.mjs check 20260704-114323` (CR1)
+  - **Resolved:** `2026-07-04T13:20:10Z`
+- [x] Actualizar `templates/contract/delegation.md` ("Configured review is special" o "Delegation prompt contract") para exigir que el subagente de review quede restringido a herramientas de solo lectura y solo reporte texto, nunca mute el ledger; verify: `node bin/changeledger.mjs check 20260704-114323` (CR2)
+  - **Resolved:** `2026-07-04T13:20:10Z`
+- [x] Añadir a `templates/contract/implement.md` la aclaración de que `in-validation → done|in-progress` no tiene comando CLI, es exclusiva del humano vía viewer; verify: `node bin/changeledger.mjs check 20260704-114323` (CR3)
+  - **Resolved:** `2026-07-04T13:20:11Z`
+- [x] Revisar `templates/contract/review.md` para confirmar que sigue coherente (dirigido a quien inspecciona) y sin contenido duplicado tras los cambios anteriores; verify: lectura manual de los tres fragmentos (support)
+  - **Resolved:** `2026-07-04T13:20:11Z`
 
 ## Log
-- **2026-07-04T13:16:38Z** — status: draft → approved
-- **2026-07-04T13:18:33Z** — status: approved → in-progress
-- **2026-07-04T13:18:33Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-04T14:17:09Z** — Presupuesto explícito de bytes/líneas de 'implement' insuficiente para CR1/CR2 (margen original de 4 bytes). Ajustado junto con spec/review/release/core a múltiplos de 1000 (core 8000, spec 12000, implement 8000, review 4000, release 3000) tras discusión sobre presupuestos de contexto. Restaurada en implement.md la cláusula de CR1 sobre no recargar context review salvo pérdida de contexto, que había quedado recortada por presupuesto en un primer intento. Snapshots de delegation.md e implement.md en test/context.test.mjs actualizados con clasificación de reglas.
-- **2026-07-04T14:17:19Z** — status: in-progress → in-review
-- **2026-07-04T14:19:50Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-04T14:20:02Z** — validation → done (human accepted)
-- **2026-07-04T14:20:36Z** — graduation skipped: La verdad durable ya vive en templates/contract/implement.md y delegation.md, editados directamente por este change; no hay un spec de convención separado que actualizar.
-- **2026-07-04T14:20:42Z** — archived
+- **2026-07-04T13:16:38Z** `[status]` draft → approved
+- **2026-07-04T13:18:33Z** `[status]` approved → in-progress
+- **2026-07-04T13:18:33Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-04T14:17:09Z** `[note]` Presupuesto explícito de bytes/líneas de 'implement' insuficiente para CR1/CR2 (margen original de 4 bytes). Ajustado junto con spec/review/release/core a múltiplos de 1000 (core 8000, spec 12000, implement 8000, review 4000, release 3000) tras discusión sobre presupuestos de contexto. Restaurada en implement.md la cláusula de CR1 sobre no recargar context review salvo pérdida de contexto, que había quedado recortada por presupuesto en un primer intento. Snapshots de delegation.md e implement.md en test/context.test.mjs actualizados con clasificación de reglas.
+- **2026-07-04T14:17:19Z** `[status]` in-progress → in-review
+- **2026-07-04T14:19:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-04T14:20:02Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-04T14:20:36Z** `[graduation]` skipped: La verdad durable ya vive en templates/contract/implement.md y delegation.md, editados directamente por este change; no hay un spec de convención separado que actualizar.
+- **2026-07-04T14:20:42Z** `[archive]` archived
 

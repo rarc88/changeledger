@@ -23,13 +23,14 @@ By default, `DOMPurify.sanitize()` strips scripts but retains CSS. If an attacke
 - **Then** the style node must not appear in the rendering.
 
 ## Plan
-- [x] Pass `{ FORBID_TAGS: ['style'] }` to `DOMPurify.sanitize` in `src/viewer/public/security.js` and add testing payload stripping to `test/viewer-sanitize.test.mjs`. (CR1) — 2026-06-16T20:48:29Z
+- [x] Pass `{ FORBID_TAGS: ['style'] }` to `DOMPurify.sanitize` in `src/viewer/public/security.js` and add testing payload stripping to `test/viewer-sanitize.test.mjs`. (CR1)
+  - **Resolved:** `2026-06-16T20:48:29Z`
 
 ## Log
-- **2026-06-16T20:47:02Z** — status: draft → approved
-- **2026-06-16T20:48:11Z** — status: approved → in-progress
-- **2026-06-16T20:48:11Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T20:48:32Z** — status: in-progress → in-review
-- **2026-06-16T20:58:51Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T21:03:53Z** — graduation skipped: no persistent spec change; viewer sanitizer hardening covered by tests
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T20:47:02Z** `[status]` draft → approved
+- **2026-06-16T20:48:11Z** `[status]` approved → in-progress
+- **2026-06-16T20:48:11Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T20:48:32Z** `[status]` in-progress → in-review
+- **2026-06-16T20:58:51Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T21:03:53Z** `[graduation]` skipped: no persistent spec change; viewer sanitizer hardening covered by tests
+- **2026-06-17T15:23:05Z** `[archive]` archived

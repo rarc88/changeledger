@@ -60,18 +60,24 @@ vive cada uno. Repos movidos o clonados en otro equipo deben poder revincularse.
 
 ## Plan
 
-- [x] `src/registry.mjs` (read/write `~/.spec-ledger/registry.json`) — 2026-06-13T22:15:38Z
-- [x] `config.yml` template: `project_id`/`project_name`; generación en `init` — 2026-06-13T22:15:38Z
-- [x] `sl init`: generar identidad + registrar; no clobbear (CR1, CR4) — 2026-06-13T22:15:38Z
-- [x] `sl register` command (CR2, CR3) — 2026-06-13T22:15:38Z
-- [x] Tests (init registra, register revincula, no duplica) — 2026-06-13T22:15:38Z
-- [x] Documentar en README y AGENTS.md — 2026-06-13T22:15:38Z
+- [x] `src/registry.mjs` (read/write `~/.spec-ledger/registry.json`)
+  - **Resolved:** `2026-06-13T22:15:38Z`
+- [x] `config.yml` template: `project_id`/`project_name`; generación en `init`
+  - **Resolved:** `2026-06-13T22:15:38Z`
+- [x] `sl init`: generar identidad + registrar; no clobbear (CR1, CR4)
+  - **Resolved:** `2026-06-13T22:15:38Z`
+- [x] `sl register` command (CR2, CR3)
+  - **Resolved:** `2026-06-13T22:15:38Z`
+- [x] Tests (init registra, register revincula, no duplica)
+  - **Resolved:** `2026-06-13T22:15:38Z`
+- [x] Documentar en README y AGENTS.md
+  - **Resolved:** `2026-06-13T22:15:38Z`
 
 ## Log
 
-- **2026-06-13T22:11:10Z** — Creado. Aprobado: id aleatorio + nombre; registro
+- **2026-06-13T22:11:10Z** `[note]` Creado. Aprobado: id aleatorio + nombre; registro
   global keyado por id; `sl register` para revincular.
-- **2026-06-13T22:12:45Z** — status: approved → in-progress
-- **2026-06-13T22:15:38Z** — status: in-progress → done
-- **2026-06-13T22:15:38Z** — Implementado: registry.mjs, identidad en config (init inyecta id+name), sl register, tests (registro aislado por SPEC_LEDGER_HOME). Este repo registrado como 304c473ce5.
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T22:12:45Z** `[status]` approved → in-progress
+- **2026-06-13T22:15:38Z** `[status]` in-progress → done
+- **2026-06-13T22:15:38Z** `[note]` Implementado: registry.mjs, identidad en config (init inyecta id+name), sl register, tests (registro aislado por SPEC_LEDGER_HOME). Este repo registrado como 304c473ce5.
+- **2026-06-15T21:17:54Z** `[archive]` archived

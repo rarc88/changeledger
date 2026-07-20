@@ -23,13 +23,15 @@ sería especificar un *cómo* y se sale del propósito.
 
 ## Plan
 
-- [x] Añadir un punto en `templates/AGENTS.md` §6 que declare la agnosticidad a la delegación y reafirme que solo la independencia del review es requisito de contrato — 2026-06-15T21:15:50Z
-- [x] Ejecutar `pnpm verify` (el contrato es texto; sin tests asociados) — 2026-06-15T21:15:50Z
+- [x] Añadir un punto en `templates/AGENTS.md` §6 que declare la agnosticidad a la delegación y reafirme que solo la independencia del review es requisito de contrato
+  - **Resolved:** `2026-06-15T21:15:50Z`
+- [x] Ejecutar `pnpm verify` (el contrato es texto; sin tests asociados)
+  - **Resolved:** `2026-06-15T21:15:50Z`
 
 ## Log
-- **2026-06-15T21:15:29Z** — status: draft → approved
-- **2026-06-15T21:15:29Z** — status: approved → in-progress
-- **2026-06-15T21:15:30Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T21:15:51Z** — status: in-progress → done
-- **2026-06-15T21:15:51Z** — graduation skipped: aclaración del contrato; sin verdad persistente nueva en specs/
-- **2026-06-15T21:17:59Z** — archived
+- **2026-06-15T21:15:29Z** `[status]` draft → approved
+- **2026-06-15T21:15:29Z** `[status]` approved → in-progress
+- **2026-06-15T21:15:30Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T21:15:51Z** `[status]` in-progress → done
+- **2026-06-15T21:15:51Z** `[graduation]` skipped: aclaración del contrato; sin verdad persistente nueva en specs/
+- **2026-06-15T21:17:59Z** `[archive]` archived

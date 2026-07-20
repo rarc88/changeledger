@@ -58,18 +58,23 @@ vagos.
 
 ## Plan
 
-- [x] Añadir tests de criterios incompletos en `test/check.test.mjs` y validación en `src/check.mjs` (CR1) — 2026-06-16T15:25:00Z
-- [x] Añadir tests de tareas sin archivo objetivo/test en `test/check.test.mjs` y validación en `src/check.mjs` (CR2) — 2026-06-16T15:25:00Z
-- [x] Añadir cobertura de severidad `draft` vs `approved` en `test/check.test.mjs` y ajustar `checkCoverage()` en `src/check.mjs` (CR3) — 2026-06-16T15:25:00Z
-- [x] Mantener la exclusión `tdd:false` con test en `test/check.test.mjs` y lógica en `src/check.mjs` (CR4) — 2026-06-16T15:25:00Z
-- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` — 2026-06-16T15:25:00Z
+- [x] Añadir tests de criterios incompletos en `test/check.test.mjs` y validación en `src/check.mjs` (CR1)
+  - **Resolved:** `2026-06-16T15:25:00Z`
+- [x] Añadir tests de tareas sin archivo objetivo/test en `test/check.test.mjs` y validación en `src/check.mjs` (CR2)
+  - **Resolved:** `2026-06-16T15:25:00Z`
+- [x] Añadir cobertura de severidad `draft` vs `approved` en `test/check.test.mjs` y ajustar `checkCoverage()` en `src/check.mjs` (CR3)
+  - **Resolved:** `2026-06-16T15:25:00Z`
+- [x] Mantener la exclusión `tdd:false` con test en `test/check.test.mjs` y lógica en `src/check.mjs` (CR4)
+  - **Resolved:** `2026-06-16T15:25:00Z`
+- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
+  - **Resolved:** `2026-06-16T15:25:00Z`
 
 ## Log
-- **2026-06-16T15:15:14Z** — status: draft → approved
-- **2026-06-16T15:22:27Z** — status: approved → in-progress
-- **2026-06-16T15:22:27Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T15:25:01Z** — Implemented DoR test-grade and file-reference checks; pnpm verify passed with expected support-task warnings.
-- **2026-06-16T15:25:01Z** — status: in-progress → in-review
-- **2026-06-16T15:26:22Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T15:26:22Z** — graduado a spec `readiness.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T15:15:14Z** `[status]` draft → approved
+- **2026-06-16T15:22:27Z** `[status]` approved → in-progress
+- **2026-06-16T15:22:27Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T15:25:01Z** `[note]` Implemented DoR test-grade and file-reference checks; pnpm verify passed with expected support-task warnings.
+- **2026-06-16T15:25:01Z** `[status]` in-progress → in-review
+- **2026-06-16T15:26:22Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T15:26:22Z** `[graduation]` spec: `readiness.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

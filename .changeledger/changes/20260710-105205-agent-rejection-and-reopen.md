@@ -74,24 +74,29 @@ las dos transiciones positivas permanezcan human-only.
 
 ## Plan
 
-- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/cli-bin.test.mjs` para `src/commands/agent.mjs`/`bin/changeledger.mjs`: `validation ... fail`, errores sin escritura y Log de actor; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (CR1, CR3) — 2026-07-10T14:19:34Z
-- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/viewer-domain.test.mjs` para `src/commands/agent.mjs`: `reopen`, fronteras durables y Logs diferenciados; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs` (CR2, CR3) — 2026-07-10T14:19:34Z
-- [x] Exponer comandos en `bin/changeledger.mjs` y parametrizar actor en `src/commands/agent.mjs`/`src/viewer/domain.mjs` sin duplicar guards; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3) — 2026-07-10T14:19:34Z
-- [x] Actualizar `templates/contract/core.md`, `templates/contract/validation.md` y specs `.changeledger/specs/lifecycle.md`/`viewer.md`; verify: `node --test test/context.test.mjs && changeledger check 20260710-105205` (CR4) — 2026-07-10T14:19:34Z
-- [x] Ejecutar revisión independiente y el gate completo; verify: `pnpm verify` (support) — 2026-07-10T14:29:48Z
+- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/cli-bin.test.mjs` para `src/commands/agent.mjs`/`bin/changeledger.mjs`: `validation ... fail`, errores sin escritura y Log de actor; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-10T14:19:34Z`
+- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/viewer-domain.test.mjs` para `src/commands/agent.mjs`: `reopen`, fronteras durables y Logs diferenciados; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs` (CR2, CR3)
+  - **Resolved:** `2026-07-10T14:19:34Z`
+- [x] Exponer comandos en `bin/changeledger.mjs` y parametrizar actor en `src/commands/agent.mjs`/`src/viewer/domain.mjs` sin duplicar guards; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-10T14:19:34Z`
+- [x] Actualizar `templates/contract/core.md`, `templates/contract/validation.md` y specs `.changeledger/specs/lifecycle.md`/`viewer.md`; verify: `node --test test/context.test.mjs && changeledger check 20260710-105205` (CR4)
+  - **Resolved:** `2026-07-10T14:19:34Z`
+- [x] Ejecutar revisión independiente y el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-10T14:29:48Z`
 
 ## Log
-- **2026-07-10T12:03:39Z** — status: draft → approved
-- **2026-07-10T14:14:44Z** — status: approved → in-progress
-- **2026-07-10T14:14:44Z** — owner → Roberto Ruiz (auto)
-- **2026-07-10T14:19:34Z** — status: in-progress → in-review
-- **2026-07-10T14:24:27Z** — review → in-progress (retry): El CLI aún permitía draft → approved; se corrigió la autoridad humana y el contrato.
-- **2026-07-10T14:24:28Z** — status: in-progress → in-review
-- **2026-07-10T14:25:36Z** — review → in-progress (retry): La spec y comentarios aún atribuían rechazo/reapertura sólo al humano.
-- **2026-07-10T14:26:28Z** — status: in-progress → in-review
-- **2026-07-10T14:28:04Z** — review → in-progress (retry): Quedaban una expectativa de ayuda CLI y un comentario de mantenimiento con la reapertura human-only.
-- **2026-07-10T14:28:29Z** — status: in-progress → in-review
-- **2026-07-10T14:29:48Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-10T17:11:40Z** — validation → done (human accepted)
-- **2026-07-10T17:13:14Z** — graduado a spec `lifecycle.md`
-- **2026-07-10T20:18:08Z** — archived
+- **2026-07-10T12:03:39Z** `[status]` draft → approved
+- **2026-07-10T14:14:44Z** `[status]` approved → in-progress
+- **2026-07-10T14:14:44Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-10T14:19:34Z** `[status]` in-progress → in-review
+- **2026-07-10T14:24:27Z** `[review]` in-review → in-progress (retry): El CLI aún permitía draft → approved; se corrigió la autoridad humana y el contrato.
+- **2026-07-10T14:24:28Z** `[status]` in-progress → in-review
+- **2026-07-10T14:25:36Z** `[review]` in-review → in-progress (retry): La spec y comentarios aún atribuían rechazo/reapertura sólo al humano.
+- **2026-07-10T14:26:28Z** `[status]` in-progress → in-review
+- **2026-07-10T14:28:04Z** `[review]` in-review → in-progress (retry): Quedaban una expectativa de ayuda CLI y un comentario de mantenimiento con la reapertura human-only.
+- **2026-07-10T14:28:29Z** `[status]` in-progress → in-review
+- **2026-07-10T14:29:48Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-10T17:11:40Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T17:13:14Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-10T20:18:08Z** `[archive]` archived

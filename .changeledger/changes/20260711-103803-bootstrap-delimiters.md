@@ -77,20 +77,26 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Definir los delimitadores versionados junto al texto de referencia en `src/contract.mjs`; verify: `pnpm test` (CR1) — 2026-07-11T11:06:31Z
-- [x] Implementar inserción, reemplazo delimitado y migración legacy en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR1, CR2, CR3) — 2026-07-11T11:06:31Z
-- [x] Añadir la comparación de versión y el aviso de desactualización en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR4) — 2026-07-11T11:06:31Z
-- [x] Alinear `src/commands/init.mjs` con el formato delimitado; verify: `pnpm test` (CR1) — 2026-07-11T11:06:31Z
-- [x] Regenerar el bloque de `AGENTS.md` de este repo con `changeledger register` (support) — 2026-07-11T11:06:32Z
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support) — 2026-07-11T11:06:32Z
+- [x] Definir los delimitadores versionados junto al texto de referencia en `src/contract.mjs`; verify: `pnpm test` (CR1)
+  - **Resolved:** `2026-07-11T11:06:31Z`
+- [x] Implementar inserción, reemplazo delimitado y migración legacy en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-11T11:06:31Z`
+- [x] Añadir la comparación de versión y el aviso de desactualización en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR4)
+  - **Resolved:** `2026-07-11T11:06:31Z`
+- [x] Alinear `src/commands/init.mjs` con el formato delimitado; verify: `pnpm test` (CR1)
+  - **Resolved:** `2026-07-11T11:06:31Z`
+- [x] Regenerar el bloque de `AGENTS.md` de este repo con `changeledger register` (support)
+  - **Resolved:** `2026-07-11T11:06:32Z`
+- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+  - **Resolved:** `2026-07-11T11:06:32Z`
 
 ## Log
-- **2026-07-11T10:47:29Z** — status: draft → approved
-- **2026-07-11T10:53:36Z** — status: approved → in-progress
-- **2026-07-11T10:53:36Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T11:06:32Z** — Integrada implementación delegada (1944632, b765b26): applyBootstrap con insert/replace idempotente/migración legacy, BOOTSTRAP_VERSION=1, aviso de desactualización en register; AGENTS.md regenerado solo en el bloque delimitado; tests legacy de contract/cli actualizados al nuevo marcador. pnpm verify verde.
-- **2026-07-11T11:16:22Z** — status: in-progress → in-review
-- **2026-07-11T11:21:13Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-11T11:37:36Z** — validation → done (human accepted)
-- **2026-07-11T15:45:50Z** — graduado a spec `contract-discovery.md`
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T10:47:29Z** `[status]` draft → approved
+- **2026-07-11T10:53:36Z** `[status]` approved → in-progress
+- **2026-07-11T10:53:36Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T11:06:32Z** `[note]` Integrada implementación delegada (1944632, b765b26): applyBootstrap con insert/replace idempotente/migración legacy, BOOTSTRAP_VERSION=1, aviso de desactualización en register; AGENTS.md regenerado solo en el bloque delimitado; tests legacy de contract/cli actualizados al nuevo marcador. pnpm verify verde.
+- **2026-07-11T11:16:22Z** `[status]` in-progress → in-review
+- **2026-07-11T11:21:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-11T11:37:36Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T15:45:50Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-11T21:54:25Z** `[archive]` archived

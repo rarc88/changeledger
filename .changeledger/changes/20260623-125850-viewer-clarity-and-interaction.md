@@ -164,39 +164,48 @@ actual.
 
 ## Plan
 
-- [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1) — 2026-06-23T13:53:58Z
-- [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2) — 2026-06-23T13:53:59Z
-- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4) — 2026-06-23T14:20:03Z
-- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5) — 2026-06-23T14:20:03Z
-- [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6) — 2026-06-23T13:53:59Z
-- [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8) — 2026-06-23T13:53:59Z
-- [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support) — 2026-06-23T13:54:00Z
-- [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px (CR9) — 2026-06-23T14:08:33Z
-- [x] Añadir regresión para Clear con Visibility activa en `test/app-state.test.mjs` y corregir `src/viewer/public/app-state.js` y `src/viewer/public/app.js`; verificar con `node --test test/app-state.test.mjs` y el viewer local (CR10) — 2026-06-23T14:31:32Z
+- [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1)
+  - **Resolved:** `2026-06-23T13:53:58Z`
+- [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2)
+  - **Resolved:** `2026-06-23T13:53:59Z`
+- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-06-23T14:20:03Z`
+- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5)
+  - **Resolved:** `2026-06-23T14:20:03Z`
+- [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6)
+  - **Resolved:** `2026-06-23T13:53:59Z`
+- [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8)
+  - **Resolved:** `2026-06-23T13:53:59Z`
+- [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support)
+  - **Resolved:** `2026-06-23T13:54:00Z`
+- [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px (CR9)
+  - **Resolved:** `2026-06-23T14:08:33Z`
+- [x] Añadir regresión para Clear con Visibility activa en `test/app-state.test.mjs` y corregir `src/viewer/public/app-state.js` y `src/viewer/public/app.js`; verificar con `node --test test/app-state.test.mjs` y el viewer local (CR10)
+  - **Resolved:** `2026-06-23T14:31:32Z`
 
 ## Log
 
-- **2026-06-23T12:58:50Z** — Draft creado a partir de los siete defectos visuales reportados y de la inspección de sus rutas actuales en el viewer.
-- **2026-06-23T13:42:13Z** — status: draft → approved
-- **2026-06-23T13:43:31Z** — status: approved → in-progress
-- **2026-06-23T13:43:31Z** — owner → Roberto Ruiz (auto)
-- **2026-06-23T13:54:00Z** — Implementación completa: selector compacto, columna Discarded condicional, validación con estado pending, cierre coherente, lightbox Mermaid, historial de graduaciones colapsable y tabla sin wrapping accidental. pnpm verify pasa con 343 tests; verificación visual completada a 1920 px y 680 px.
-- **2026-06-23T13:54:57Z** — status: in-progress → in-review
-- **2026-06-23T13:57:46Z** — Ajustes solicitados por validación visual: coherencia de chevron, cierre exterior del selector, escala de ordenamiento, centrado vertical y scroll sin compresión al mostrar Discarded.
-- **2026-06-23T14:03:54Z** — status: in-review → in-progress
-- **2026-06-23T14:08:33Z** — Ajustes visuales verificados: chevron SVG coherente, cierre exterior del selector, sort icon 10×10, celdas centradas y ocho columnas de Board mantienen 257.7 px a 1920 px con scrollWidth 2192 px. pnpm verify pasa con 345 tests.
-- **2026-06-23T14:09:03Z** — status: in-progress → in-review
-- **2026-06-23T14:17:57Z** — review → in-progress (retry): Faltan tests DOM de regresión para pending/success/error de validación y para el ciclo real del lightbox Mermaid (SVG, Escape/backdrop y retorno de foco); el Plan no está verdaderamente terminado.
-- **2026-06-23T14:20:03Z** — Corrección del review: añadidos tests DOM del ciclo async de validación y del lightbox real; pnpm verify pasa con 348 tests.
-- **2026-06-23T14:20:03Z** — status: in-progress → in-review
-- **2026-06-23T14:21:32Z** — review → in-progress (retry): Comentario obsoleto en src/viewer/public/state.js afirma que discarded nunca aparece como lane, contradiciendo CR2 y la implementación condicional.
-- **2026-06-23T14:21:51Z** — Corrección del segundo review: actualizado el comentario de boardStatuses para describir la columna Discarded condicional y eliminar residuo del comportamiento anterior.
-- **2026-06-23T14:21:51Z** — status: in-progress → in-review
-- **2026-06-23T14:23:06Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-23T14:28:45Z** — validation → in-progress (human rejected): El botón Clear del selector de estados no limpia la visibilidad Archived/Discarded y parece no hacer nada cuando solo esos filtros están activos.
-- **2026-06-23T14:31:32Z** — Corrección de validación humana: Clear ahora limpia statuses y Visibility; verificado en navegador con Discarded activo (checkboxes false, 0 statuses y columna descartada removida) y pnpm verify con 348 tests.
-- **2026-06-23T14:31:33Z** — status: in-progress → in-review
-- **2026-06-23T14:32:43Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-23T14:33:36Z** — validation → done (human accepted)
-- **2026-06-23T14:34:36Z** — graduado a spec `viewer.md`
-- **2026-06-23T14:47:35Z** — archived
+- **2026-06-23T12:58:50Z** `[note]` Draft creado a partir de los siete defectos visuales reportados y de la inspección de sus rutas actuales en el viewer.
+- **2026-06-23T13:42:13Z** `[status]` draft → approved
+- **2026-06-23T13:43:31Z** `[status]` approved → in-progress
+- **2026-06-23T13:43:31Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-23T13:54:00Z** `[note]` Implementación completa: selector compacto, columna Discarded condicional, validación con estado pending, cierre coherente, lightbox Mermaid, historial de graduaciones colapsable y tabla sin wrapping accidental. pnpm verify pasa con 343 tests; verificación visual completada a 1920 px y 680 px.
+- **2026-06-23T13:54:57Z** `[status]` in-progress → in-review
+- **2026-06-23T13:57:46Z** `[note]` Ajustes solicitados por validación visual: coherencia de chevron, cierre exterior del selector, escala de ordenamiento, centrado vertical y scroll sin compresión al mostrar Discarded.
+- **2026-06-23T14:03:54Z** `[status]` in-review → in-progress
+- **2026-06-23T14:08:33Z** `[note]` Ajustes visuales verificados: chevron SVG coherente, cierre exterior del selector, sort icon 10×10, celdas centradas y ocho columnas de Board mantienen 257.7 px a 1920 px con scrollWidth 2192 px. pnpm verify pasa con 345 tests.
+- **2026-06-23T14:09:03Z** `[status]` in-progress → in-review
+- **2026-06-23T14:17:57Z** `[review]` in-review → in-progress (retry): Faltan tests DOM de regresión para pending/success/error de validación y para el ciclo real del lightbox Mermaid (SVG, Escape/backdrop y retorno de foco); el Plan no está verdaderamente terminado.
+- **2026-06-23T14:20:03Z** `[note]` Corrección del review: añadidos tests DOM del ciclo async de validación y del lightbox real; pnpm verify pasa con 348 tests.
+- **2026-06-23T14:20:03Z** `[status]` in-progress → in-review
+- **2026-06-23T14:21:32Z** `[review]` in-review → in-progress (retry): Comentario obsoleto en src/viewer/public/state.js afirma que discarded nunca aparece como lane, contradiciendo CR2 y la implementación condicional.
+- **2026-06-23T14:21:51Z** `[note]` Corrección del segundo review: actualizado el comentario de boardStatuses para describir la columna Discarded condicional y eliminar residuo del comportamiento anterior.
+- **2026-06-23T14:21:51Z** `[status]` in-progress → in-review
+- **2026-06-23T14:23:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-23T14:28:45Z** `[validation]` in-validation → in-progress (human rejected): El botón Clear del selector de estados no limpia la visibilidad Archived/Discarded y parece no hacer nada cuando solo esos filtros están activos.
+- **2026-06-23T14:31:32Z** `[note]` Corrección de validación humana: Clear ahora limpia statuses y Visibility; verificado en navegador con Discarded activo (checkboxes false, 0 statuses y columna descartada removida) y pnpm verify con 348 tests.
+- **2026-06-23T14:31:33Z** `[status]` in-progress → in-review
+- **2026-06-23T14:32:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-23T14:33:36Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-23T14:34:36Z** `[graduation]` spec: `viewer.md`
+- **2026-06-23T14:47:35Z** `[archive]` archived

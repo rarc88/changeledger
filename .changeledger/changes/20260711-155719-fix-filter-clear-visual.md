@@ -31,14 +31,14 @@ que el resumen queda obsoleto hasta que el poll de datos re-ejecuta
 choice y de `Unassigned`.
 
 ## Log
-- **2026-07-11T16:12:18Z** — status: draft → approved
-- **2026-07-11T16:20:09Z** — status: approved → in-progress
-- **2026-07-11T16:20:09Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-11T16:28:00Z** — Integrada implementación delegada (3514007): Clear de Type/Owner resetea checkboxes y resumen del trigger (patrón del filtro Status). pnpm verify 607/607.
-- **2026-07-11T16:28:00Z** — status: in-progress → in-validation
-- **2026-07-11T20:49:49Z** — validation → in-progress (agent rejected): Validación humana: Clear quedó arreglado pero el onchange de Type/Owner sigue sin reflejar la selección en el trigger (solo se refresca en el poll). Misma preocupación: sincronía visual de los filtros choice.
-- **2026-07-11T20:52:20Z** — Rechazo en validación: extendido Request al onchange (mismo concern). Corrección sin commitear en app.js; comparte worktree con la iteración de 20260711-155721 (ficheros disjuntos).
-- **2026-07-11T20:56:35Z** — status: in-progress → in-validation
-- **2026-07-11T21:39:35Z** — validation → done (human accepted)
-- **2026-07-11T21:53:44Z** — graduation skipped: quick: bugfix visual del viewer sin verdad persistente
-- **2026-07-11T21:54:25Z** — archived
+- **2026-07-11T16:12:18Z** `[status]` draft → approved
+- **2026-07-11T16:20:09Z** `[status]` approved → in-progress
+- **2026-07-11T16:20:09Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-11T16:28:00Z** `[note]` Integrada implementación delegada (3514007): Clear de Type/Owner resetea checkboxes y resumen del trigger (patrón del filtro Status). pnpm verify 607/607.
+- **2026-07-11T16:28:00Z** `[status]` in-progress → in-validation
+- **2026-07-11T20:49:49Z** `[validation]` in-validation → in-progress (agent rejected): Validación humana: Clear quedó arreglado pero el onchange de Type/Owner sigue sin reflejar la selección en el trigger (solo se refresca en el poll). Misma preocupación: sincronía visual de los filtros choice.
+- **2026-07-11T20:52:20Z** `[note]` Rechazo en validación: extendido Request al onchange (mismo concern). Corrección sin commitear en app.js; comparte worktree con la iteración de 20260711-155721 (ficheros disjuntos).
+- **2026-07-11T20:56:35Z** `[status]` in-progress → in-validation
+- **2026-07-11T21:39:35Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-11T21:53:44Z** `[graduation]` skipped: quick: bugfix visual del viewer sin verdad persistente
+- **2026-07-11T21:54:25Z** `[archive]` archived

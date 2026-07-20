@@ -60,11 +60,15 @@ Descartado: fijarlo en `created` (no se sabe aún quién lo hará) o en
 
 ## Plan
 
-- [x] `gitUser(cwd, run)` en git.mjs (CR1, CR3) — 2026-06-14T12:42:37Z
-- [x] `status()` autocompleta owner al entrar a in-progress si está vacío (CR1, CR2, CR3) — 2026-06-14T12:42:37Z
-- [x] Documentar `owner` y la automatización en AGENTS.md — 2026-06-14T12:42:38Z
-- [x] Tests: autoasigna, respeta existente, tolera sin git (CR1, CR2, CR3) — 2026-06-14T12:42:38Z
+- [x] `gitUser(cwd, run)` en git.mjs (CR1, CR3)
+  - **Resolved:** `2026-06-14T12:42:37Z`
+- [x] `status()` autocompleta owner al entrar a in-progress si está vacío (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-14T12:42:37Z`
+- [x] Documentar `owner` y la automatización en AGENTS.md
+  - **Resolved:** `2026-06-14T12:42:38Z`
+- [x] Tests: autoasigna, respeta existente, tolera sin git (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-14T12:42:38Z`
 
 ## Log
-- **2026-06-14T12:42:38Z** — status: in-progress → done
-- **2026-06-15T21:17:56Z** — archived
+- **2026-06-14T12:42:38Z** `[status]` in-progress → done
+- **2026-06-15T21:17:56Z** `[archive]` archived

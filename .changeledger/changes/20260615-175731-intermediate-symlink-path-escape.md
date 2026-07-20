@@ -60,17 +60,21 @@ contenido fuera de la raíz del repositorio descubierto.
 
 ## Plan
 
-- [x] Añadir un test de regresión en `test/repo.test.mjs` con symlink intermedio externo y destino final inexistente (CR1) — 2026-06-15T18:31:37Z
-- [x] Endurecer `resolveRepoPath` en `src/config.mjs` comprobando la cadena existente de ancestros contra la raíz real (CR1, CR2) — 2026-06-15T18:31:38Z
-- [x] Cubrir destino existente/inexistente y symlink interno/externo en las plataformas soportadas (CR1, CR2, CR3) — 2026-06-15T18:31:38Z
-- [x] Ejecutar `pnpm verify` y el smoke test del tarball (CR3, CR4) — 2026-06-15T18:31:38Z
+- [x] Añadir un test de regresión en `test/repo.test.mjs` con symlink intermedio externo y destino final inexistente (CR1)
+  - **Resolved:** `2026-06-15T18:31:37Z`
+- [x] Endurecer `resolveRepoPath` en `src/config.mjs` comprobando la cadena existente de ancestros contra la raíz real (CR1, CR2)
+  - **Resolved:** `2026-06-15T18:31:38Z`
+- [x] Cubrir destino existente/inexistente y symlink interno/externo en las plataformas soportadas (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T18:31:38Z`
+- [x] Ejecutar `pnpm verify` y el smoke test del tarball (CR3, CR4)
+  - **Resolved:** `2026-06-15T18:31:38Z`
 
 ## Log
-- **2026-06-15T18:29:26Z** — status: draft → approved
-- **2026-06-15T18:30:40Z** — status: approved → in-progress
-- **2026-06-15T18:30:40Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T18:31:38Z** — fix: realpath del ancestro existente más cercano cierra el escape por symlink intermedio (CR1); symlink interno sigue permitido (CR2)
-- **2026-06-15T18:31:53Z** — status: in-progress → in-review
-- **2026-06-15T18:32:52Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T20:47:34Z** — graduation skipped: bug de containment; sin verdad persistente nueva
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T18:29:26Z** `[status]` draft → approved
+- **2026-06-15T18:30:40Z** `[status]` approved → in-progress
+- **2026-06-15T18:30:40Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T18:31:38Z** `[note]` fix: realpath del ancestro existente más cercano cierra el escape por symlink intermedio (CR1); symlink interno sigue permitido (CR2)
+- **2026-06-15T18:31:53Z** `[status]` in-progress → in-review
+- **2026-06-15T18:32:52Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T20:47:34Z** `[graduation]` skipped: bug de containment; sin verdad persistente nueva
+- **2026-06-15T21:17:58Z** `[archive]` archived

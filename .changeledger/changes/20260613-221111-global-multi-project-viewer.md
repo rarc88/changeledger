@@ -61,18 +61,24 @@ dentro de uno. `sl view .` muestra solo el actual.
 
 ## Plan
 
-- [x] Server: `/api/projects` + `/api/repo?project=id` desde el registro — 2026-06-13T22:19:38Z
-- [x] UI: selector de proyecto + carga por proyecto (CR1, CR3) — 2026-06-13T22:19:39Z
-- [x] Autoenfoque del cwd; `sl view .` solo actual (CR2, CR4) — 2026-06-13T22:19:39Z
-- [x] Manejo de paths muertos (CR5) — 2026-06-13T22:19:39Z
-- [x] Tests del server multiproyecto — 2026-06-13T22:19:39Z
-- [x] Documentar en README — 2026-06-13T22:19:39Z
+- [x] Server: `/api/projects` + `/api/repo?project=id` desde el registro
+  - **Resolved:** `2026-06-13T22:19:38Z`
+- [x] UI: selector de proyecto + carga por proyecto (CR1, CR3)
+  - **Resolved:** `2026-06-13T22:19:39Z`
+- [x] Autoenfoque del cwd; `sl view .` solo actual (CR2, CR4)
+  - **Resolved:** `2026-06-13T22:19:39Z`
+- [x] Manejo de paths muertos (CR5)
+  - **Resolved:** `2026-06-13T22:19:39Z`
+- [x] Tests del server multiproyecto
+  - **Resolved:** `2026-06-13T22:19:39Z`
+- [x] Documentar en README
+  - **Resolved:** `2026-06-13T22:19:39Z`
 
 ## Log
 
-- **2026-06-13T22:11:11Z** — Creado. Aprobado: `sl view` global con selector,
+- **2026-06-13T22:11:11Z** `[note]` Creado. Aprobado: `sl view` global con selector,
   autoenfoque del actual, `sl view .` para el repo actual.
-- **2026-06-13T22:16:08Z** — status: approved → in-progress
-- **2026-06-13T22:19:39Z** — status: in-progress → done
-- **2026-06-13T22:19:39Z** — Implementado: server con /api/projects y /api/repo?project, selector en UI con autoenfoque del actual, sl view . para local, paths muertos deshabilitados. 4 tests de resolveProjects. Verificado en navegador.
-- **2026-06-15T21:17:54Z** — archived
+- **2026-06-13T22:16:08Z** `[status]` approved → in-progress
+- **2026-06-13T22:19:39Z** `[status]` in-progress → done
+- **2026-06-13T22:19:39Z** `[note]` Implementado: server con /api/projects y /api/repo?project, selector en UI con autoenfoque del actual, sl view . para local, paths muertos deshabilitados. 4 tests de resolveProjects. Verificado en navegador.
+- **2026-06-15T21:17:54Z** `[archive]` archived

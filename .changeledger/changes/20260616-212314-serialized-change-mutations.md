@@ -49,21 +49,25 @@ el patrón read-modify-write sobre el mismo archivo no está serializado.
   
 
 ## Plan
-- [x] Añadir coordinación por archivo en `src/writer.mjs` o una capa cercana a `src/atomic-write.mjs`, cubierta por `test/agent.test.mjs` o `test/atomic-write.test.mjs` (CR1, CR2, CR3, CR4) — 2026-06-17T10:32:57Z
-- [x] Migrar las mutaciones de `src/commands/agent.mjs` y `src/commands/graduate.mjs`, cubiertas por `test/agent.test.mjs`, para usar la sección crítica compartida (CR1, CR2, CR4) — 2026-06-17T10:32:57Z
-- [x] Añadir en `test/agent.test.mjs` una carrera con múltiples `task done` sobre el mismo change y otra sobre changes distintos de `src/commands/agent.mjs` (CR1, CR2) — 2026-06-17T10:32:57Z
-- [x] Ejecutar `pnpm test -- test/agent.test.mjs test/atomic-write.test.mjs` contra `src/commands/agent.mjs` y `src/atomic-write.mjs` (CR1, CR2, CR3, CR4) — 2026-06-17T10:32:57Z
+- [x] Añadir coordinación por archivo en `src/writer.mjs` o una capa cercana a `src/atomic-write.mjs`, cubierta por `test/agent.test.mjs` o `test/atomic-write.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:32:57Z`
+- [x] Migrar las mutaciones de `src/commands/agent.mjs` y `src/commands/graduate.mjs`, cubiertas por `test/agent.test.mjs`, para usar la sección crítica compartida (CR1, CR2, CR4)
+  - **Resolved:** `2026-06-17T10:32:57Z`
+- [x] Añadir en `test/agent.test.mjs` una carrera con múltiples `task done` sobre el mismo change y otra sobre changes distintos de `src/commands/agent.mjs` (CR1, CR2)
+  - **Resolved:** `2026-06-17T10:32:57Z`
+- [x] Ejecutar `pnpm test -- test/agent.test.mjs test/atomic-write.test.mjs` contra `src/commands/agent.mjs` y `src/atomic-write.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-17T10:32:57Z`
 
 ## Log
-- **2026-06-16T21:23:14Z** — Creado desde fricción observada: mutaciones paralelas del mismo change perdieron actualizaciones pese a escritura atomica.
-- **2026-06-17T10:02:28Z** — status: draft → approved
-- **2026-06-17T10:30:13Z** — status: approved → in-progress
-- **2026-06-17T10:30:13Z** — owner → Roberto Ruiz (auto)
-- **2026-06-17T10:33:23Z** — status: in-progress → in-review
-- **2026-06-17T10:34:49Z** — review → in-progress (retry): stale-lock recovery can delete a live long-running lock
-- **2026-06-17T10:35:40Z** — status: in-progress → in-review
-- **2026-06-17T15:17:57Z** — review → in-progress (retry): lock metadata write failure can orphan the newly created lock
-- **2026-06-17T15:21:10Z** — status: in-progress → in-review
-- **2026-06-17T15:21:17Z** — review → done (delegated subagent, clean context)
-- **2026-06-17T15:21:24Z** — graduado a spec `data-model.md`
-- **2026-06-17T15:23:05Z** — archived
+- **2026-06-16T21:23:14Z** `[note]` Creado desde fricción observada: mutaciones paralelas del mismo change perdieron actualizaciones pese a escritura atomica.
+- **2026-06-17T10:02:28Z** `[status]` draft → approved
+- **2026-06-17T10:30:13Z** `[status]` approved → in-progress
+- **2026-06-17T10:30:13Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-17T10:33:23Z** `[status]` in-progress → in-review
+- **2026-06-17T10:34:49Z** `[review]` in-review → in-progress (retry): stale-lock recovery can delete a live long-running lock
+- **2026-06-17T10:35:40Z** `[status]` in-progress → in-review
+- **2026-06-17T15:17:57Z** `[review]` in-review → in-progress (retry): lock metadata write failure can orphan the newly created lock
+- **2026-06-17T15:21:10Z** `[status]` in-progress → in-review
+- **2026-06-17T15:21:17Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-17T15:21:24Z** `[graduation]` spec: `data-model.md`
+- **2026-06-17T15:23:05Z** `[archive]` archived

@@ -60,26 +60,31 @@ La corrección debe ser acotada:
 
 ## Plan
 
-- [x] Target src/contract.mjs; verify: pnpm test test/contract.test.mjs (CR1) — 2026-06-29T17:09:47Z
-- [x] Target templates/contract/core.md; verify: pnpm test test/context.test.mjs test/cli.test.mjs (CR2) — 2026-06-29T17:09:50Z
-- [x] Target .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR2) — 2026-06-29T17:09:56Z
-- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs (CR1, CR2, CR3) — 2026-06-29T17:10:01Z
-- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR1, CR2, CR3) — 2026-06-29T17:10:24Z
+- [x] Target src/contract.mjs; verify: pnpm test test/contract.test.mjs (CR1)
+  - **Resolved:** `2026-06-29T17:09:47Z`
+- [x] Target templates/contract/core.md; verify: pnpm test test/context.test.mjs test/cli.test.mjs (CR2)
+  - **Resolved:** `2026-06-29T17:09:50Z`
+- [x] Target .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR2)
+  - **Resolved:** `2026-06-29T17:09:56Z`
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-29T17:10:01Z`
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-29T17:10:24Z`
 
 ## Log
 
-- 2026-06-29T16:58:38Z — Se redactó el change tras observar agentes ejecutando
+- **2026-06-29T16:58:38Z** `[note]` Se redactó el change tras observar agentes ejecutando
   `changeledger context` mediante `head -100`.
-- 2026-06-29T17:02:00Z — Se corrigió la narrativa del draft a español según
+- **2026-06-29T17:02:00Z** `[note]` Se corrigió la narrativa del draft a español según
   `config.language: es`.
-- **2026-06-29T17:03:15Z** — status: draft → approved
-- 2026-06-29T17:05:00Z — Se ajustaron los criterios y tareas para cumplir las
+- **2026-06-29T17:03:15Z** `[status]` draft → approved
+- **2026-06-29T17:05:00Z** `[note]` Se ajustaron los criterios y tareas para cumplir las
   keywords estructurales y trazabilidad requeridas por `changeledger check`.
-- **2026-06-29T17:07:27Z** — status: approved → in-progress
-- **2026-06-29T17:07:27Z** — owner → Roberto Ruiz (auto)
-- **2026-06-29T17:10:29Z** — Implementado: bootstrap y core ahora exigen ejecutar changeledger context directamente, sin pipes/filtros/resúmenes/límites/truncamiento; tests enfocados y pnpm verify pasan.
-- **2026-06-29T17:11:19Z** — status: in-progress → in-review
-- **2026-06-29T17:13:16Z** — review → in-validation (delegated subagent, clean context)
-- **2026-06-29T17:14:53Z** — validation → done (human accepted)
-- **2026-06-29T17:16:09Z** — graduado a spec `contract-discovery.md`
-- **2026-06-29T17:16:13Z** — archived
+- **2026-06-29T17:07:27Z** `[status]` approved → in-progress
+- **2026-06-29T17:07:27Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-29T17:10:29Z** `[note]` Implementado: bootstrap y core ahora exigen ejecutar changeledger context directamente, sin pipes/filtros/resúmenes/límites/truncamiento; tests enfocados y pnpm verify pasan.
+- **2026-06-29T17:11:19Z** `[status]` in-progress → in-review
+- **2026-06-29T17:13:16Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-06-29T17:14:53Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-29T17:16:09Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-29T17:16:13Z** `[archive]` archived

@@ -130,22 +130,31 @@ Descartado:
 
 ## Plan
 
-- [x] `init`: exigir root AGENTS.md, abortar si falta; symlink `.sl/AGENTS.md` → `agentsTemplate`; append idempotente de la referencia; asegurar `.sl/AGENTS.md` en `.gitignore` (CR1, CR2, CR3, CR4) — 2026-06-14T15:32:59Z
-- [x] `register`: recrear symlink `.sl/AGENTS.md` resolviendo la ruta instalada (CR5) — 2026-06-14T15:33:00Z
-- [x] `check` repo-level (IO): validar existencia de root AGENTS.md, presencia de la referencia y symlink resuelto, con mensajes accionables (CR6) — 2026-06-14T15:33:00Z
-- [x] Quitar el `copyFileSync(agentsTemplate, root)` actual de `init` (CR1) — 2026-06-14T15:33:00Z
-- [x] Actualizar AGENTS.md y README: el contrato se enlaza vía `.sl/AGENTS.md`, no se copia; documentar el modelo de discovery — 2026-06-14T15:33:00Z
-- [x] Tests: init enlaza/aborta/idempotente/gitignore, register regenera, check valida los 3 fallos y el caso OK (CR1–CR6) — 2026-06-14T15:33:00Z
-- [x] Separar contrato canónico a `templates/AGENTS.md`; `paths.agentsTemplate` apunta ahí; root AGENTS.md pasa a contrato propio (sin recursión); quitar `AGENTS.md` de `package.json` files (CR1) — `templates/AGENTS.md`, `src/paths.mjs`, `AGENTS.md`, `package.json` — 2026-06-14T15:45:00Z
-- [x] `ensureReference`/`checkContract` cubren AGENTS.md y CLAUDE.md, saltan symlinks; referencia como alerta GitHub `> [!IMPORTANT]` (CR7, CR8) — `src/contract.mjs` — 2026-06-14T15:45:00Z
-- [x] Tests: CLAUDE.md cubierto, skip symlink, alerta, check de CLAUDE.md sin referencia (CR7, CR8) — `test/cli.test.mjs` — 2026-06-14T15:45:00Z
+- [x] `init`: exigir root AGENTS.md, abortar si falta; symlink `.sl/AGENTS.md` → `agentsTemplate`; append idempotente de la referencia; asegurar `.sl/AGENTS.md` en `.gitignore` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-14T15:32:59Z`
+- [x] `register`: recrear symlink `.sl/AGENTS.md` resolviendo la ruta instalada (CR5)
+  - **Resolved:** `2026-06-14T15:33:00Z`
+- [x] `check` repo-level (IO): validar existencia de root AGENTS.md, presencia de la referencia y symlink resuelto, con mensajes accionables (CR6)
+  - **Resolved:** `2026-06-14T15:33:00Z`
+- [x] Quitar el `copyFileSync(agentsTemplate, root)` actual de `init` (CR1)
+  - **Resolved:** `2026-06-14T15:33:00Z`
+- [x] Actualizar AGENTS.md y README: el contrato se enlaza vía `.sl/AGENTS.md`, no se copia; documentar el modelo de discovery
+  - **Resolved:** `2026-06-14T15:33:00Z`
+- [x] Tests: init enlaza/aborta/idempotente/gitignore, register regenera, check valida los 3 fallos y el caso OK (CR1–CR6)
+  - **Resolved:** `2026-06-14T15:33:00Z`
+- [x] Separar contrato canónico a `templates/AGENTS.md`; `paths.agentsTemplate` apunta ahí; root AGENTS.md pasa a contrato propio (sin recursión); quitar `AGENTS.md` de `package.json` files (CR1) — `templates/AGENTS.md`, `src/paths.mjs`, `AGENTS.md`, `package.json`
+  - **Resolved:** `2026-06-14T15:45:00Z`
+- [x] `ensureReference`/`checkContract` cubren AGENTS.md y CLAUDE.md, saltan symlinks; referencia como alerta GitHub `> [!IMPORTANT]` (CR7, CR8) — `src/contract.mjs`
+  - **Resolved:** `2026-06-14T15:45:00Z`
+- [x] Tests: CLAUDE.md cubierto, skip symlink, alerta, check de CLAUDE.md sin referencia (CR7, CR8) — `test/cli.test.mjs`
+  - **Resolved:** `2026-06-14T15:45:00Z`
 
 ## Log
-- **2026-06-14T15:26:44Z** — status: draft → approved
-- **2026-06-14T15:27:48Z** — status: approved → in-progress
-- **2026-06-14T15:27:48Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T15:33:35Z** — Spec architecture.md actualizada con la sección Discovery del contrato
-- **2026-06-14T15:33:35Z** — status: in-progress → done
-- **2026-06-14T16:15:54Z** — Refinamiento: split contrato a templates/AGENTS.md (sin recursion), cobertura CLAUDE.md + skip symlinks, referencia como alerta GitHub
-- **2026-06-14T16:52:30Z** — graduado a spec `contract-discovery.md`
-- **2026-06-15T21:17:56Z** — archived
+- **2026-06-14T15:26:44Z** `[status]` draft → approved
+- **2026-06-14T15:27:48Z** `[status]` approved → in-progress
+- **2026-06-14T15:27:48Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T15:33:35Z** `[note]` Spec architecture.md actualizada con la sección Discovery del contrato
+- **2026-06-14T15:33:35Z** `[status]` in-progress → done
+- **2026-06-14T16:15:54Z** `[note]` Refinamiento: split contrato a templates/AGENTS.md (sin recursion), cobertura CLAUDE.md + skip symlinks, referencia como alerta GitHub
+- **2026-06-14T16:52:30Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-06-15T21:17:56Z** `[archive]` archived

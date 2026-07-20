@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
-import { computeFixes } from '../fix.mjs';
+import { computeFixes, migrateStructuredSections } from '../fix.mjs';
+import { parseLogEvent } from '../lifecycle.mjs';
 import { loadRepo } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
@@ -9,6 +10,7 @@ import { setSpecGraduatedFromList } from '../writer.mjs';
 export function fix(args = [], cwd = process.cwd(), output = console) {
   const dryRun = args.includes('--dry-run');
   const graduationLinks = args.includes('--graduation-links');
+  const structuredSections = args.includes('--structured-sections');
   const id = args.find((a) => !a.startsWith('--'));
 
   let repo;
@@ -25,6 +27,14 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       return 1;
     }
     return fixGraduationLinks(repo, { dryRun, output });
+  }
+
+  if (structuredSections) {
+    if (id) {
+      output.error('  error  --structured-sections cannot be combined with a change id');
+      return 1;
+    }
+    return fixStructuredSections(repo, { dryRun, output });
   }
 
   let targets = repo.changes;
@@ -65,6 +75,32 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     for (const a of applied) output.log(`  - ${a}`);
   }
 
+  if (!anyChanged && !anyManual) output.log('nothing to fix');
+  return 0;
+}
+
+function fixStructuredSections(repo, { dryRun, output }) {
+  let anyChanged = false;
+  let anyManual = false;
+  for (const change of repo.changes) {
+    const result = migrateStructuredSections(change.text);
+    if (result.manual.length) {
+      anyManual = true;
+      output.log(`requires manual fix — ${change.name}:`);
+      for (const message of result.manual) output.log(`  - ${message}`);
+      continue;
+    }
+    if (!result.changed) continue;
+    anyChanged = true;
+    if (dryRun) {
+      output.log(`--- ${change.name} (dry run)`);
+      for (const line of diffLines(change.text, result.text)) output.log(line);
+    } else {
+      writeFileAtomic(change.file, result.text);
+      output.log(`fixed — ${change.name}:`);
+      for (const message of result.applied) output.log(`  - ${message}`);
+    }
+  }
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -135,13 +171,11 @@ function graduationEventsBySpec(changes) {
     const changeId = String(change.frontmatter?.id);
     const logBody = String(change.stages?.find((stage) => stage.key === 'log')?.body ?? '');
     for (const line of logBody.split('\n')) {
-      const match = line.match(
-        /\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\*\*\s*—\s*graduado a spec `([^`]+)`/i,
-      );
-      if (!match) continue;
-      const event = { changeId, timestamp: match[1] };
-      if (!bySpec.has(match[2])) bySpec.set(match[2], []);
-      bySpec.get(match[2]).push(event);
+      const parsed = parseLogEvent(line);
+      if (parsed?.type !== 'graduation' || parsed.outcome !== 'spec') continue;
+      const event = { changeId, timestamp: parsed.at };
+      if (!bySpec.has(parsed.spec)) bySpec.set(parsed.spec, []);
+      bySpec.get(parsed.spec).push(event);
     }
   }
   for (const events of bySpec.values()) {

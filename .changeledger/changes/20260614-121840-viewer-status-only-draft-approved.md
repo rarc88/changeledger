@@ -43,10 +43,13 @@ columnas. Es peligroso: el único salto de estado que le corresponde al humano e
 
 ## Plan
 
-- [x] `changeStatus`: leer estado actual y permitir solo `draft → approved` (CR1) — 2026-06-14T12:20:32Z
-- [x] Board: draggable solo en `draft`; drop efectivo solo en `approved` (CR2) — 2026-06-14T12:20:32Z
-- [x] Tests: draft→approved ok; otros saltos rechazados sin escribir (CR1) — 2026-06-14T12:20:32Z
+- [x] `changeStatus`: leer estado actual y permitir solo `draft → approved` (CR1)
+  - **Resolved:** `2026-06-14T12:20:32Z`
+- [x] Board: draggable solo en `draft`; drop efectivo solo en `approved` (CR2)
+  - **Resolved:** `2026-06-14T12:20:32Z`
+- [x] Tests: draft→approved ok; otros saltos rechazados sin escribir (CR1)
+  - **Resolved:** `2026-06-14T12:20:32Z`
 
 ## Log
-- **2026-06-14T12:20:32Z** — status: in-progress → done
-- **2026-06-15T21:17:56Z** — archived
+- **2026-06-14T12:20:32Z** `[status]` in-progress → done
+- **2026-06-15T21:17:56Z** `[archive]` archived

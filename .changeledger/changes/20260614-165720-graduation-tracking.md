@@ -119,20 +119,29 @@ stateDiagram-v2
 
 ## Plan
 
-- [x] `setReviewed(text, reviewed)` en `src/writer.mjs` (inserta/quita `reviewed: true` tras `depends_on`); tests en `test/writer.test.mjs` (CR1, CR2, CR3) — 2026-06-14T17:13:54Z
-- [x] `graduate()` marca `reviewed: true` tras la marca de Log en `src/commands/graduate.mjs`; test en `test/graduate.test.mjs` (CR1) — 2026-06-14T17:13:54Z
-- [x] `skipGraduation(id, reason, cwd)` en `src/commands/graduate.mjs` (valida `done`, `setReviewed`+`appendLog`, sin spec); test en `test/graduate.test.mjs` (CR2, CR3, CR6) — 2026-06-14T17:13:54Z
-- [x] `pendingGraduation(cwd)` en `src/commands/graduate.mjs` (done con `reviewed !== true`); test en `test/graduate.test.mjs` (CR4) — 2026-06-14T17:13:54Z
-- [x] Validar `reviewed` booleano en `src/check.mjs`; test en `test/check.test.mjs` (CR5) — 2026-06-14T17:13:54Z
-- [x] Wire en `bin/sl.mjs`: `sl graduate --pending` y `sl graduate <id> --skip [reason]`, conservando `<id> <spec>` (CR1, CR2, CR3, CR4) — 2026-06-14T17:13:54Z
-- [x] Documentar `reviewed` + comandos en `templates/AGENTS.md` §9/§10 (docs, sin CR) — 2026-06-14T17:13:54Z
-- [x] Backfill `reviewed: true` en los `done` actuales de `.sl/changes/` (migración, sin CR) — 2026-06-14T17:13:54Z
-- [x] README: `sl graduate --pending` / `--skip` (docs, sin CR) — 2026-06-14T17:13:54Z
+- [x] `setReviewed(text, reviewed)` en `src/writer.mjs` (inserta/quita `reviewed: true` tras `depends_on`); tests en `test/writer.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] `graduate()` marca `reviewed: true` tras la marca de Log en `src/commands/graduate.mjs`; test en `test/graduate.test.mjs` (CR1)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] `skipGraduation(id, reason, cwd)` en `src/commands/graduate.mjs` (valida `done`, `setReviewed`+`appendLog`, sin spec); test en `test/graduate.test.mjs` (CR2, CR3, CR6)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] `pendingGraduation(cwd)` en `src/commands/graduate.mjs` (done con `reviewed !== true`); test en `test/graduate.test.mjs` (CR4)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] Validar `reviewed` booleano en `src/check.mjs`; test en `test/check.test.mjs` (CR5)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] Wire en `bin/sl.mjs`: `sl graduate --pending` y `sl graduate <id> --skip [reason]`, conservando `<id> <spec>` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] Documentar `reviewed` + comandos en `templates/AGENTS.md` §9/§10 (docs, sin CR)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] Backfill `reviewed: true` en los `done` actuales de `.sl/changes/` (migración, sin CR)
+  - **Resolved:** `2026-06-14T17:13:54Z`
+- [x] README: `sl graduate --pending` / `--skip` (docs, sin CR)
+  - **Resolved:** `2026-06-14T17:13:54Z`
 
 ## Log
-- **2026-06-14T17:09:02Z** — status: draft → approved
-- **2026-06-14T17:09:37Z** — status: approved → in-progress
-- **2026-06-14T17:09:37Z** — owner → Roberto Ruiz (auto)
-- **2026-06-14T17:14:46Z** — status: in-progress → done
-- **2026-06-14T17:14:47Z** — graduado a spec `lifecycle.md`
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T17:09:02Z** `[status]` draft → approved
+- **2026-06-14T17:09:37Z** `[status]` approved → in-progress
+- **2026-06-14T17:09:37Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-14T17:14:46Z** `[status]` in-progress → done
+- **2026-06-14T17:14:47Z** `[graduation]` spec: `lifecycle.md`
+- **2026-06-15T21:17:57Z** `[archive]` archived

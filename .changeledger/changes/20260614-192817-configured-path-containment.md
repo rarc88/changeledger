@@ -55,16 +55,21 @@ repo Spec Ledger que descubrieron.
 
 ## Plan
 
-- [x] Crear un resolvedor compartido que valide rutas relativas y containment real dentro de `repoRoot` — 2026-06-15T11:43:18Z
-- [x] Sustituir resoluciones directas en carga y comandos por el helper compartido — 2026-06-15T11:43:18Z
-- [x] Añadir validación accionable en `sl check` para ambos campos de config (CR1, CR2, CR3) — 2026-06-15T11:43:19Z
-- [x] Añadir tests de traversal, absoluta, symlink externo y rutas internas en las plataformas soportadas — 2026-06-15T11:43:19Z
-- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4) — 2026-06-15T11:43:19Z
+- [x] Crear un resolvedor compartido que valide rutas relativas y containment real dentro de `repoRoot`
+  - **Resolved:** `2026-06-15T11:43:18Z`
+- [x] Sustituir resoluciones directas en carga y comandos por el helper compartido
+  - **Resolved:** `2026-06-15T11:43:18Z`
+- [x] Añadir validación accionable en `sl check` para ambos campos de config (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-15T11:43:19Z`
+- [x] Añadir tests de traversal, absoluta, symlink externo y rutas internas en las plataformas soportadas
+  - **Resolved:** `2026-06-15T11:43:19Z`
+- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-06-15T11:43:19Z`
 
 ## Log
-- **2026-06-15T11:38:40Z** — status: draft → approved
-- **2026-06-15T11:41:20Z** — status: approved → in-progress
-- **2026-06-15T11:41:20Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-15T11:43:19Z** — status: in-progress → done
-- **2026-06-15T21:16:52Z** — graduation skipped: bug de containment; cubierto por SECURITY.md, sin verdad persistente en specs/
-- **2026-06-15T21:17:58Z** — archived
+- **2026-06-15T11:38:40Z** `[status]` draft → approved
+- **2026-06-15T11:41:20Z** `[status]` approved → in-progress
+- **2026-06-15T11:41:20Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-15T11:43:19Z** `[status]` in-progress → done
+- **2026-06-15T21:16:52Z** `[graduation]` skipped: bug de containment; cubierto por SECURITY.md, sin verdad persistente en specs/
+- **2026-06-15T21:17:58Z** `[archive]` archived

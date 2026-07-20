@@ -37,14 +37,17 @@ Descartado:
 
 ## Plan
 
-- [x] `fmtDateTime`/`fmtDate` en `src/viewer/public/app.js` (tolerantes a vacío/ inválido) — 2026-06-14T18:45:20Z
-- [x] Aplicar a `c.created`, `s.updated` (x2) y `c.date`, con `title=` = ISO original — 2026-06-14T18:45:20Z
-- [x] Verificar en preview: pills muestran formato local; hover muestra el ISO; vacío no rompe — 2026-06-14T18:45:20Z
+- [x] `fmtDateTime`/`fmtDate` en `src/viewer/public/app.js` (tolerantes a vacío/ inválido)
+  - **Resolved:** `2026-06-14T18:45:20Z`
+- [x] Aplicar a `c.created`, `s.updated` (x2) y `c.date`, con `title=` = ISO original
+  - **Resolved:** `2026-06-14T18:45:20Z`
+- [x] Verificar en preview: pills muestran formato local; hover muestra el ISO; vacío no rompe
+  - **Resolved:** `2026-06-14T18:45:20Z`
 
 ## Log
-- **2026-06-14T18:31:40Z** — status: draft → approved
-- **2026-06-14T18:41:36Z** — status: approved → in-progress
-- **2026-06-14T18:41:37Z** — owner → raruiz-hiberuscom (auto)
-- **2026-06-14T18:45:21Z** — status: in-progress → done
-- **2026-06-14T18:45:21Z** — graduation skipped: presentacion del viewer; sin verdad persistente nueva
-- **2026-06-15T21:17:57Z** — archived
+- **2026-06-14T18:31:40Z** `[status]` draft → approved
+- **2026-06-14T18:41:36Z** `[status]` approved → in-progress
+- **2026-06-14T18:41:37Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-06-14T18:45:21Z** `[status]` in-progress → done
+- **2026-06-14T18:45:21Z** `[graduation]` skipped: presentacion del viewer; sin verdad persistente nueva
+- **2026-06-15T21:17:57Z** `[archive]` archived

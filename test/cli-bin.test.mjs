@@ -85,6 +85,7 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
   const { code, out } = run('fix', '--help');
   assert.equal(code, 0);
   assert.match(out, /--graduation-links/);
+  assert.match(out, /--structured-sections/);
   assert.match(out, /--dry-run/);
 });
 
@@ -299,8 +300,8 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
     .replace(
       'status: done',
       'status: done\nreviewed: true\nowner: Roberto Ruiz',
-    )}\n## Log\n\n- **2026-07-18T12:00:00Z** — graduation skipped: no durable truth\n`;
-  assert.match(candidate, /graduation skipped: no durable truth/);
+    )}\n## Log\n\n- **2026-07-18T12:00:00Z** \`[graduation]\` skipped: no durable truth\n`;
+  assert.match(candidate, /\[graduation\]` skipped: no durable truth/);
   fs.writeFileSync(changeFile, candidate);
 
   assert.match(runIn(root, env, 'archive', '--graduated', '--owner', 'Ana').out, /Archived 0/);

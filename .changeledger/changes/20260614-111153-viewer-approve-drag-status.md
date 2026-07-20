@@ -56,11 +56,14 @@ frontmatter — superficie de riesgo innecesaria; solo se necesita mover `status
 
 ## Plan
 
-- [x] `POST /api/status` en view.mjs: parse body, reusa `status()`, valida proyecto (CR1) — 2026-06-14T12:04:49Z
-- [x] Visor: cards draggable + columnas drop + refresco (CR2) — 2026-06-14T12:04:49Z
-- [x] Test: `status()` mueve draft→approved y rechaza inválido (ya cubierto en agent.test) + endpoint helper (CR1) — 2026-06-14T12:04:49Z
+- [x] `POST /api/status` en view.mjs: parse body, reusa `status()`, valida proyecto (CR1)
+  - **Resolved:** `2026-06-14T12:04:49Z`
+- [x] Visor: cards draggable + columnas drop + refresco (CR2)
+  - **Resolved:** `2026-06-14T12:04:49Z`
+- [x] Test: `status()` mueve draft→approved y rechaza inválido (ya cubierto en agent.test) + endpoint helper (CR1)
+  - **Resolved:** `2026-06-14T12:04:49Z`
 
 ## Log
-- **2026-06-14T11:12:24Z** — status: draft → approved
-- **2026-06-14T12:04:49Z** — status: in-progress → done
-- **2026-06-15T21:17:55Z** — archived
+- **2026-06-14T11:12:24Z** `[status]` draft → approved
+- **2026-06-14T12:04:49Z** `[status]` in-progress → done
+- **2026-06-15T21:17:55Z** `[archive]` archived

@@ -170,27 +170,34 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir primero tests de validación y extender `src/check.mjs` para `related_to`; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3) — 2026-07-18T12:38:14Z
-- [x] Escribir primero tests de contexto y extender `src/commands/context.mjs` para relaciones salientes y backlinks locales; verify: `node --test test/context.test.mjs` (CR4) — 2026-07-18T12:39:09Z
-- [x] Escribir primero tests del modelo y del componente expandible común, y extender `src/viewer/domain.mjs` y `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6, CR7) — 2026-07-18T12:41:34Z
-- [x] Escribir primero tests del grafo y extender `src/viewer/public/view-renderers.js` y sus estilos; verify: `node --test test/viewer-metadata.test.mjs` (CR5) — 2026-07-18T12:41:34Z
-- [x] Escribir primero tests del scaffold y actualizar `src/commands/new.mjs` y `templates/contract/spec.md`; verify: `node --test test/cli-bin.test.mjs test/context.test.mjs` (CR8) — 2026-07-18T12:44:26Z
-- [x] Ejecutar el gate completo `pnpm verify` (support) — 2026-07-18T12:45:11Z
-- [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral; verify: `node --test test/context.test.mjs` (CR8) — 2026-07-20T10:11:59Z
+- [x] Escribir primero tests de validación y extender `src/check.mjs` para `related_to`; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-18T12:38:14Z`
+- [x] Escribir primero tests de contexto y extender `src/commands/context.mjs` para relaciones salientes y backlinks locales; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-07-18T12:39:09Z`
+- [x] Escribir primero tests del modelo y del componente expandible común, y extender `src/viewer/domain.mjs` y `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6, CR7)
+  - **Resolved:** `2026-07-18T12:41:34Z`
+- [x] Escribir primero tests del grafo y extender `src/viewer/public/view-renderers.js` y sus estilos; verify: `node --test test/viewer-metadata.test.mjs` (CR5)
+  - **Resolved:** `2026-07-18T12:41:34Z`
+- [x] Escribir primero tests del scaffold y actualizar `src/commands/new.mjs` y `templates/contract/spec.md`; verify: `node --test test/cli-bin.test.mjs test/context.test.mjs` (CR8)
+  - **Resolved:** `2026-07-18T12:44:26Z`
+- [x] Ejecutar el gate completo `pnpm verify` (support)
+  - **Resolved:** `2026-07-18T12:45:11Z`
+- [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral; verify: `node --test test/context.test.mjs` (CR8)
+  - **Resolved:** `2026-07-20T10:11:59Z`
 
 ## Log
 
-- **2026-07-18T10:54:56Z** — Draft autorizado por el humano a partir de uso real: requerimientos divididos y extensiones posteriores quedan hoy sin trazabilidad salvo que se falsee `depends_on`.
-- **2026-07-18T11:08:26Z** — Refinamiento solicitado por el humano: dependencias y relaciones adoptan el componente expandible del historial de graduación, con metadatos y navegación; el historial de specs se mejora con el mismo patrón.
-- **2026-07-18T11:14:57Z** — Decisión humana: el componente visual es común, pero la procedencia de specs usa `graduated_from`, no `related_to`; este change depende del bug de procedencia estructurada `20260718-111457`.
-- **2026-07-18T11:18:32Z** — status: draft → approved
-- **2026-07-18T12:36:44Z** — status: approved → in-progress
-- **2026-07-18T12:36:44Z** — owner → Roberto Ruiz (auto)
-- **2026-07-18T12:44:26Z** — CR8 completado: el scaffold genera related_to inmediatamente después de depends_on y el contrato distingue vínculos no bloqueantes de requisitos de ejecución; tests focalizados 113/113.
-- **2026-07-18T12:45:11Z** — Implementación completa: validación, contexto, componente expandible común, navegación local/externa, grafo relacional, scaffold y contrato; pnpm verify pasó con 700/700 tests y 200 changes válidos.
-- **2026-07-18T12:45:11Z** — status: in-progress → in-review
-- **2026-07-18T12:51:59Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-20T10:10:22Z** — validation → in-progress (agent rejected): El flujo de autoría crea related_to vacío pero no exige clasificar los resultados de search ni poblar relaciones no bloqueantes durante Investigation.
-- **2026-07-20T10:11:59Z** — Corrección de validación: el contexto de autoría ahora exige clasificar cada resultado relevante de search como depends_on, related_to o mención textual, y declara una sola vez las relaciones locales; test focalizado 38/38.
-- **2026-07-20T10:11:59Z** — status: in-progress → in-review
-- **2026-07-20T10:14:31Z** — review → in-validation (delegated subagent, clean context)
+- **2026-07-18T10:54:56Z** `[note]` Draft autorizado por el humano a partir de uso real: requerimientos divididos y extensiones posteriores quedan hoy sin trazabilidad salvo que se falsee `depends_on`.
+- **2026-07-18T11:08:26Z** `[note]` Refinamiento solicitado por el humano: dependencias y relaciones adoptan el componente expandible del historial de graduación, con metadatos y navegación; el historial de specs se mejora con el mismo patrón.
+- **2026-07-18T11:14:57Z** `[note]` Decisión humana: el componente visual es común, pero la procedencia de specs usa `graduated_from`, no `related_to`; este change depende del bug de procedencia estructurada `20260718-111457`.
+- **2026-07-18T11:18:32Z** `[status]` draft → approved
+- **2026-07-18T12:36:44Z** `[status]` approved → in-progress
+- **2026-07-18T12:36:44Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-18T12:44:26Z** `[note]` CR8 completado: el scaffold genera related_to inmediatamente después de depends_on y el contrato distingue vínculos no bloqueantes de requisitos de ejecución; tests focalizados 113/113.
+- **2026-07-18T12:45:11Z** `[note]` Implementación completa: validación, contexto, componente expandible común, navegación local/externa, grafo relacional, scaffold y contrato; pnpm verify pasó con 700/700 tests y 200 changes válidos.
+- **2026-07-18T12:45:11Z** `[status]` in-progress → in-review
+- **2026-07-18T12:51:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T10:10:22Z** `[validation]` in-validation → in-progress (agent rejected): El flujo de autoría crea related_to vacío pero no exige clasificar los resultados de search ni poblar relaciones no bloqueantes durante Investigation.
+- **2026-07-20T10:11:59Z** `[note]` Corrección de validación: el contexto de autoría ahora exige clasificar cada resultado relevante de search como depends_on, related_to o mención textual, y declara una sola vez las relaciones locales; test focalizado 38/38.
+- **2026-07-20T10:11:59Z** `[status]` in-progress → in-review
+- **2026-07-20T10:14:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)

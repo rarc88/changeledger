@@ -73,21 +73,24 @@ repita mientras el resultado completo continúe en contexto.
 
 ## Plan
 
-- [x] Tighten one-pass acquisition in `src/contract.mjs` and `templates/contract/core.md`, including the mode/status matrix in `test/context.test.mjs`; verify: `node --test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T16:58:44Z
-- [x] Update `.changeledger/specs/contract-discovery.md` with first-call capture and reload semantics; verify: `node bin/changeledger.mjs check 20260703-150229` (CR1, CR2, CR3, CR4, CR5) — 2026-07-03T16:58:44Z
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support) — 2026-07-03T16:58:44Z
+- [x] Tighten one-pass acquisition in `src/contract.mjs` and `templates/contract/core.md`, including the mode/status matrix in `test/context.test.mjs`; verify: `node --test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-03T16:58:44Z`
+- [x] Update `.changeledger/specs/contract-discovery.md` with first-call capture and reload semantics; verify: `node bin/changeledger.mjs check 20260703-150229` (CR1, CR2, CR3, CR4, CR5)
+  - **Resolved:** `2026-07-03T16:58:44Z`
+- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-03T16:58:44Z`
 
 ## Log
 
-- 2026-07-03T15:02:29Z — Se autorizó reemplazar la doble carga normal por una
+- **2026-07-03T15:02:29Z** `[note]` Se autorizó reemplazar la doble carga normal por una
   primera captura deliberadamente completa, conservando el centinela como
   recuperación ante límites externos inesperados.
-- **2026-07-03T15:11:44Z** — status: draft → approved
-- **2026-07-03T16:53:35Z** — status: approved → in-progress
-- **2026-07-03T16:53:35Z** — owner → Roberto Ruiz (auto)
-- **2026-07-03T16:58:44Z** — La captura completa de una sola pasada quedó exigida en bootstrap, core y contextos especializados; la matriz BEGIN/END cubre todos los modos y estados sin ampliar los presupuestos.
-- **2026-07-03T16:59:49Z** — status: in-progress → in-review
-- **2026-07-03T17:01:59Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-03T22:43:11Z** — validation → done (human accepted)
-- **2026-07-03T23:21:20Z** — graduado a spec `contract-discovery.md`
-- **2026-07-03T23:22:53Z** — archived
+- **2026-07-03T15:11:44Z** `[status]` draft → approved
+- **2026-07-03T16:53:35Z** `[status]` approved → in-progress
+- **2026-07-03T16:53:35Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-03T16:58:44Z** `[note]` La captura completa de una sola pasada quedó exigida en bootstrap, core y contextos especializados; la matriz BEGIN/END cubre todos los modos y estados sin ampliar los presupuestos.
+- **2026-07-03T16:59:49Z** `[status]` in-progress → in-review
+- **2026-07-03T17:01:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-03T22:43:11Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-03T23:21:20Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-03T23:22:53Z** `[archive]` archived

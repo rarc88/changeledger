@@ -94,23 +94,27 @@ debilitar la obligación de mantener el bootstrap canónico en `AGENTS.md`.
 
 ## Plan
 
-- [x] Añadir en test/contract.test.mjs fixtures TDD para `CLAUDE.md` con import válido standalone/en prose y destinos distintos; implementar en src/contract.mjs la detección estrecha del import efectivo sin resolver rutas arbitrarias; verify: node --test test/contract.test.mjs (CR1, CR3, CR4, CR5, CR6) — 2026-07-15T12:58:29Z
-- [x] Cubrir en test/contract.test.mjs que `ensureReference` y `register` preservan byte-for-byte un `CLAUDE.md` delegado y siguen actualizando un bloque directo obsoleto; ajustar src/contract.mjs y src/commands/register.mjs solo si la integración lo exige; verify: node --test test/contract.test.mjs (CR2, CR5, CR6) — 2026-07-15T12:58:29Z
-- [x] Actualizar `.changeledger/specs/contract-discovery.md` para distinguir bootstrap directo e import efectivo de Claude sin retirar la autoridad canónica de `AGENTS.md`; verify: `changeledger check 20260715-124113` (CR1, CR3, CR6) — 2026-07-15T12:58:30Z
-- [x] Ejecutar `pnpm verify` y confirmar que bootstrap, register y checks repo-level permanecen verdes (support) — 2026-07-15T13:00:27Z
+- [x] Añadir en test/contract.test.mjs fixtures TDD para `CLAUDE.md` con import válido standalone/en prose y destinos distintos; implementar en src/contract.mjs la detección estrecha del import efectivo sin resolver rutas arbitrarias; verify: node --test test/contract.test.mjs (CR1, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-15T12:58:29Z`
+- [x] Cubrir en test/contract.test.mjs que `ensureReference` y `register` preservan byte-for-byte un `CLAUDE.md` delegado y siguen actualizando un bloque directo obsoleto; ajustar src/contract.mjs y src/commands/register.mjs solo si la integración lo exige; verify: node --test test/contract.test.mjs (CR2, CR5, CR6)
+  - **Resolved:** `2026-07-15T12:58:29Z`
+- [x] Actualizar `.changeledger/specs/contract-discovery.md` para distinguir bootstrap directo e import efectivo de Claude sin retirar la autoridad canónica de `AGENTS.md`; verify: `changeledger check 20260715-124113` (CR1, CR3, CR6)
+  - **Resolved:** `2026-07-15T12:58:30Z`
+- [x] Ejecutar `pnpm verify` y confirmar que bootstrap, register y checks repo-level permanecen verdes (support)
+  - **Resolved:** `2026-07-15T13:00:27Z`
 
 ## Log
 
-- **2026-07-15T12:41:13Z** — Draft creado por un falso negativo de discovery reproducible: `CLAUDE.md` delega legítimamente en el `AGENTS.md` raíz mediante `@AGENTS.md`, patrón recomendado por Claude Code. Se conserva la garantía cross-agent y se evita duplicar el bloque administrado.
-- **2026-07-15T12:45:15Z** — status: draft → approved
-- **2026-07-15T12:55:34Z** — status: approved → in-progress
-- **2026-07-15T12:55:34Z** — owner → Roberto Ruiz (auto)
-- **2026-07-15T12:55:34Z** — Rama codex/resolve-approved-changes creada desde ef526ba0 porque contiene 20260714-153633, dependencia aún no integrada en dev; CLAUDE.md del humano se incluye en el baseline autorizado.
-- **2026-07-15T12:56:13Z** — Baseline bloqueado por el propio defecto: hook obtuvo 669/669 tests verdes y falló solo porque check rechaza CLAUDE.md con @AGENTS.md. Se autoriza excepción acotada --no-verify antes de implementar; el gate completo debe quedar verde tras la corrección.
-- **2026-07-15T12:58:30Z** — TDD red-green: 3 regresiones iniciales fallaron; detector acotado acepta @AGENTS.md standalone/en prose, rechaza destinos/sufijos, preserva register byte a byte y no oculta bloques directos obsoletos. test/contract 21/21 y check repo verdes.
-- **2026-07-15T13:00:27Z** — Full quality gate passed: pnpm verify (Biome, 674 tests, ChangeLedger check).
-- **2026-07-15T13:00:32Z** — status: in-progress → in-review
-- **2026-07-15T13:05:28Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-16T13:37:31Z** — validation → done (human accepted)
-- **2026-07-16T13:39:26Z** — graduado a spec `contract-discovery.md`
-- **2026-07-16T13:39:36Z** — archived
+- **2026-07-15T12:41:13Z** `[note]` Draft creado por un falso negativo de discovery reproducible: `CLAUDE.md` delega legítimamente en el `AGENTS.md` raíz mediante `@AGENTS.md`, patrón recomendado por Claude Code. Se conserva la garantía cross-agent y se evita duplicar el bloque administrado.
+- **2026-07-15T12:45:15Z** `[status]` draft → approved
+- **2026-07-15T12:55:34Z** `[status]` approved → in-progress
+- **2026-07-15T12:55:34Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-15T12:55:34Z** `[note]` Rama codex/resolve-approved-changes creada desde ef526ba0 porque contiene 20260714-153633, dependencia aún no integrada en dev; CLAUDE.md del humano se incluye en el baseline autorizado.
+- **2026-07-15T12:56:13Z** `[note]` Baseline bloqueado por el propio defecto: hook obtuvo 669/669 tests verdes y falló solo porque check rechaza CLAUDE.md con @AGENTS.md. Se autoriza excepción acotada --no-verify antes de implementar; el gate completo debe quedar verde tras la corrección.
+- **2026-07-15T12:58:30Z** `[note]` TDD red-green: 3 regresiones iniciales fallaron; detector acotado acepta @AGENTS.md standalone/en prose, rechaza destinos/sufijos, preserva register byte a byte y no oculta bloques directos obsoletos. test/contract 21/21 y check repo verdes.
+- **2026-07-15T13:00:27Z** `[note]` Full quality gate passed: pnpm verify (Biome, 674 tests, ChangeLedger check).
+- **2026-07-15T13:00:32Z** `[status]` in-progress → in-review
+- **2026-07-15T13:05:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-16T13:37:31Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-16T13:39:26Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-16T13:39:36Z** `[archive]` archived

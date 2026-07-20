@@ -40,24 +40,30 @@ Alternativas:
 
 ## Plan
 
-- [x] Añadir `yaml` como dependencia runtime justificada en `package.json` y documentación — 2026-06-15T22:55:08Z
-- [x] Reemplazar parseo/serialización en `src/yaml.mjs` o aislar el wrapper allí para minimizar cambios de importación — 2026-06-15T22:55:08Z
-- [x] Mantener tests de seguridad existentes: prototype pollution, claves duplicadas y coerción esperada — 2026-06-15T22:56:51Z
-- [x] Añadir casos de YAML válidos que hoy sean frágiles o difíciles para el parser propio — 2026-06-15T22:55:08Z
-- [x] Revisar comandos que escriben frontmatter (`status`, `task`, `owner`, `graduate`) para confirmar que no dependen de detalles accidentales del serializer actual — 2026-06-15T22:55:08Z
-- [x] Ejecutar `pnpm test -- test/yaml.test.mjs test/change.test.mjs test/spec.test.mjs test/writer.test.mjs test/check.test.mjs` y `pnpm check` — 2026-06-15T22:55:08Z
+- [x] Añadir `yaml` como dependencia runtime justificada en `package.json` y documentación
+  - **Resolved:** `2026-06-15T22:55:08Z`
+- [x] Reemplazar parseo/serialización en `src/yaml.mjs` o aislar el wrapper allí para minimizar cambios de importación
+  - **Resolved:** `2026-06-15T22:55:08Z`
+- [x] Mantener tests de seguridad existentes: prototype pollution, claves duplicadas y coerción esperada
+  - **Resolved:** `2026-06-15T22:56:51Z`
+- [x] Añadir casos de YAML válidos que hoy sean frágiles o difíciles para el parser propio
+  - **Resolved:** `2026-06-15T22:55:08Z`
+- [x] Revisar comandos que escriben frontmatter (`status`, `task`, `owner`, `graduate`) para confirmar que no dependen de detalles accidentales del serializer actual
+  - **Resolved:** `2026-06-15T22:55:08Z`
+- [x] Ejecutar `pnpm test -- test/yaml.test.mjs test/change.test.mjs test/spec.test.mjs test/writer.test.mjs test/check.test.mjs` y `pnpm check`
+  - **Resolved:** `2026-06-15T22:55:08Z`
 
 ## Log
-- **2026-06-15T22:38:26Z** — status: draft → approved
-- **2026-06-15T22:52:36Z** — status: approved → in-progress
-- **2026-06-15T22:52:36Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T22:55:13Z** — status: in-progress → in-review
-- **2026-06-15T22:56:41Z** — review → in-progress (retry): Plan pendiente detectado por revisión independiente
-- **2026-06-15T22:56:54Z** — status: in-progress → in-review
-- **2026-06-15T22:58:16Z** — review → in-progress (retry): AGENTS.md mantenía política runtime zero deps obsoleta
-- **2026-06-15T22:58:32Z** — status: in-progress → in-review
-- **2026-06-15T23:00:48Z** — review → in-progress (retry): parseYaml aceptaba escalares/arrays top-level y rompía validaciones de dominio
-- **2026-06-15T23:01:07Z** — status: in-progress → in-review
-- **2026-06-15T23:02:34Z** — review → done (delegated subagent, clean context)
-- **2026-06-15T23:02:40Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T22:38:26Z** `[status]` draft → approved
+- **2026-06-15T22:52:36Z** `[status]` approved → in-progress
+- **2026-06-15T22:52:36Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T22:55:13Z** `[status]` in-progress → in-review
+- **2026-06-15T22:56:41Z** `[review]` in-review → in-progress (retry): Plan pendiente detectado por revisión independiente
+- **2026-06-15T22:56:54Z** `[status]` in-progress → in-review
+- **2026-06-15T22:58:16Z** `[review]` in-review → in-progress (retry): AGENTS.md mantenía política runtime zero deps obsoleta
+- **2026-06-15T22:58:32Z** `[status]` in-progress → in-review
+- **2026-06-15T23:00:48Z** `[review]` in-review → in-progress (retry): parseYaml aceptaba escalares/arrays top-level y rompía validaciones de dominio
+- **2026-06-15T23:01:07Z** `[status]` in-progress → in-review
+- **2026-06-15T23:02:34Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-15T23:02:40Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

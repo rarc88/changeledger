@@ -99,17 +99,20 @@ esqueleto de review referencia el checklist, no la secuencia del gate.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada de cinco pasos en la composición de `implement` y el sujeto orquestador en `review`; luego reescribir el párrafo de `templates/contract/implement.md:57-63` como receta numerada y ajustar `templates/contract/review.md`, sin tocar `core.md` ni `delegation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2) — 2026-07-05T14:06:25Z
-- [x] Comprobar que las composiciones de `templates/contract/implement.md` y `templates/contract/review.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR3) — 2026-07-05T14:06:25Z
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support) — 2026-07-05T14:06:25Z
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada de cinco pasos en la composición de `implement` y el sujeto orquestador en `review`; luego reescribir el párrafo de `templates/contract/implement.md:57-63` como receta numerada y ajustar `templates/contract/review.md`, sin tocar `core.md` ni `delegation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-05T14:06:25Z`
+- [x] Comprobar que las composiciones de `templates/contract/implement.md` y `templates/contract/review.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-05T14:06:25Z`
+- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-05T14:06:25Z`
 
 ## Log
-- **2026-07-05T13:57:39Z** — status: draft → approved
-- **2026-07-05T14:00:10Z** — status: approved → in-progress
-- **2026-07-05T14:00:10Z** — owner → raruiz-hiberuscom (auto)
-- **2026-07-05T14:06:25Z** — Receta numerada de 5 pasos en implement.md (reemplaza el parrafo denso), review.md nombra al orquestador como sujeto del veredicto. Snapshots de implement/review actualizados; presupuestos 175/8000 y 75/4000 intactos. 540 tests verdes.
-- **2026-07-05T14:06:25Z** — status: in-progress → in-review
-- **2026-07-05T14:08:46Z** — review → in-validation (delegated subagent, clean context)
-- **2026-07-05T16:48:17Z** — validation → done (human accepted)
-- **2026-07-10T10:27:39Z** — graduation skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
-- **2026-07-10T20:18:08Z** — archived
+- **2026-07-05T13:57:39Z** `[status]` draft → approved
+- **2026-07-05T14:00:10Z** `[status]` approved → in-progress
+- **2026-07-05T14:00:10Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-05T14:06:25Z** `[note]` Receta numerada de 5 pasos en implement.md (reemplaza el parrafo denso), review.md nombra al orquestador como sujeto del veredicto. Snapshots de implement/review actualizados; presupuestos 175/8000 y 75/4000 intactos. 540 tests verdes.
+- **2026-07-05T14:06:25Z** `[status]` in-progress → in-review
+- **2026-07-05T14:08:46Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-05T16:48:17Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-10T10:27:39Z** `[graduation]` skipped: La verdad durable ya quedó incorporada en los fragmentos contractuales canónicos.
+- **2026-07-10T20:18:08Z** `[archive]` archived

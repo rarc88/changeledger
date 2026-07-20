@@ -47,15 +47,18 @@ todo lo visitado por ramas hermanas.
 
 ## Plan
 
-- [x] Añadir tests en `test/viewer-metadata.test.mjs` para `src/viewer/public/view-renderers.js` con dependencias compartidas, ciclo real y grafo simple (CR1, CR2, CR3) — 2026-06-16T16:34:17Z
-- [x] Actualizar `src/viewer/public/view-renderers.js` y cubrirlo con `test/viewer-metadata.test.mjs` para clonar o retirar `seen` por rama, preservando el cache de profundidades (CR1, CR2, CR3) — 2026-06-16T16:34:20Z
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/viewer/public/view-renderers.js` con `test/viewer-metadata.test.mjs` (CR1, CR2, CR3) — 2026-06-16T16:34:23Z
+- [x] Añadir tests en `test/viewer-metadata.test.mjs` para `src/viewer/public/view-renderers.js` con dependencias compartidas, ciclo real y grafo simple (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:34:17Z`
+- [x] Actualizar `src/viewer/public/view-renderers.js` y cubrirlo con `test/viewer-metadata.test.mjs` para clonar o retirar `seen` por rama, preservando el cache de profundidades (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:34:20Z`
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/viewer/public/view-renderers.js` con `test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-06-16T16:34:23Z`
 
 ## Log
-- **2026-06-16T16:26:30Z** — status: draft → approved
-- **2026-06-16T16:33:37Z** — status: approved → in-progress
-- **2026-06-16T16:33:37Z** — owner → Roberto Ruiz (auto)
-- **2026-06-16T16:34:26Z** — status: in-progress → in-review
-- **2026-06-16T16:43:36Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T16:45:02Z** — graduado a spec `validation.md`
-- **2026-06-16T21:19:25Z** — archived
+- **2026-06-16T16:26:30Z** `[status]` draft → approved
+- **2026-06-16T16:33:37Z** `[status]` approved → in-progress
+- **2026-06-16T16:33:37Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-16T16:34:26Z** `[status]` in-progress → in-review
+- **2026-06-16T16:43:36Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T16:45:02Z** `[graduation]` spec: `validation.md`
+- **2026-06-16T21:19:25Z** `[archive]` archived

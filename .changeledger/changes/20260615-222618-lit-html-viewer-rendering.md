@@ -45,20 +45,26 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir `lit-html` como dependencia runtime documentada del viewer — 2026-06-15T23:11:46Z
-- [x] Crear un módulo de render base que exporte helpers de templates y el wrapper único para HTML Markdown sanitizado — 2026-06-15T23:11:46Z
-- [x] Migrar primero `view-parts.js` y `view-renderers.js`, manteniendo selectores/IDs usados por tests y eventos — 2026-06-16T09:32:48Z
-- [x] Migrar `app.js` para usar `render()` en contenedores principales en vez de asignar grandes strings a `innerHTML` — 2026-06-15T23:11:46Z
-- [x] Mantener DOMPurify como dependencia obligatoria para Markdown y añadir tests que fallen si HTML no sanitizado llega al wrapper — 2026-06-15T23:11:46Z
-- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs test/view.test.mjs` y `pnpm check` — 2026-06-15T23:11:46Z
+- [x] Añadir `lit-html` como dependencia runtime documentada del viewer
+  - **Resolved:** `2026-06-15T23:11:46Z`
+- [x] Crear un módulo de render base que exporte helpers de templates y el wrapper único para HTML Markdown sanitizado
+  - **Resolved:** `2026-06-15T23:11:46Z`
+- [x] Migrar primero `view-parts.js` y `view-renderers.js`, manteniendo selectores/IDs usados por tests y eventos
+  - **Resolved:** `2026-06-16T09:32:48Z`
+- [x] Migrar `app.js` para usar `render()` en contenedores principales en vez de asignar grandes strings a `innerHTML`
+  - **Resolved:** `2026-06-15T23:11:46Z`
+- [x] Mantener DOMPurify como dependencia obligatoria para Markdown y añadir tests que fallen si HTML no sanitizado llega al wrapper
+  - **Resolved:** `2026-06-15T23:11:46Z`
+- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs test/view.test.mjs` y `pnpm check`
+  - **Resolved:** `2026-06-15T23:11:46Z`
 
 ## Log
-- **2026-06-15T22:38:27Z** — status: draft → approved
-- **2026-06-15T23:03:31Z** — status: approved → in-progress
-- **2026-06-15T23:03:31Z** — owner → Roberto Ruiz (auto)
-- **2026-06-15T23:11:52Z** — status: in-progress → in-review
-- **2026-06-16T09:32:40Z** — review → in-progress (retry): Plan pendiente detectado por revisión independiente
-- **2026-06-16T09:32:54Z** — status: in-progress → in-review
-- **2026-06-16T09:34:23Z** — review → done (delegated subagent, clean context)
-- **2026-06-16T09:34:23Z** — graduado a spec `architecture.md`
-- **2026-06-16T21:19:24Z** — archived
+- **2026-06-15T22:38:27Z** `[status]` draft → approved
+- **2026-06-15T23:03:31Z** `[status]` approved → in-progress
+- **2026-06-15T23:03:31Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-15T23:11:52Z** `[status]` in-progress → in-review
+- **2026-06-16T09:32:40Z** `[review]` in-review → in-progress (retry): Plan pendiente detectado por revisión independiente
+- **2026-06-16T09:32:54Z** `[status]` in-progress → in-review
+- **2026-06-16T09:34:23Z** `[review]` in-review → done (delegated subagent, clean context)
+- **2026-06-16T09:34:23Z** `[graduation]` spec: `architecture.md`
+- **2026-06-16T21:19:24Z** `[archive]` archived

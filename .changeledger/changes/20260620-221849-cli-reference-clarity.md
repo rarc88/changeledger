@@ -23,16 +23,18 @@ Eliminar dos fricciones menores de la referencia rápida en §9 de
 
 ## Plan
 
-- [x] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs` (support) — 2026-06-20T22:22:37Z
-- [x] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones (support) — 2026-06-20T22:22:56Z
+- [x] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs` (support)
+  - **Resolved:** `2026-06-20T22:22:37Z`
+- [x] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones (support)
+  - **Resolved:** `2026-06-20T22:22:56Z`
 
 ## Log
 
-- **2026-06-20T22:21:04Z** — status: draft → approved
-- **2026-06-20T22:22:03Z** — status: approved → in-progress
-- **2026-06-20T22:22:03Z** — owner → Roberto Ruiz (auto)
-- **2026-06-20T22:22:56Z** — Implementación completada; pnpm verify pasó con 335 tests y 113 changes válidos.
-- **2026-06-20T22:22:57Z** — status: in-progress → in-validation
-- **2026-06-20T22:24:43Z** — validation → done (human accepted)
-- **2026-06-20T22:25:13Z** — graduation skipped: Ajuste editorial de la referencia CLI; no introduce verdad arquitectónica persistente adicional.
-- **2026-06-20T22:25:13Z** — archived
+- **2026-06-20T22:21:04Z** `[status]` draft → approved
+- **2026-06-20T22:22:03Z** `[status]` approved → in-progress
+- **2026-06-20T22:22:03Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-06-20T22:22:56Z** `[note]` Implementación completada; pnpm verify pasó con 335 tests y 113 changes válidos.
+- **2026-06-20T22:22:57Z** `[status]` in-progress → in-validation
+- **2026-06-20T22:24:43Z** `[validation]` in-validation → done (human accepted)
+- **2026-06-20T22:25:13Z** `[graduation]` skipped: Ajuste editorial de la referencia CLI; no introduce verdad arquitectónica persistente adicional.
+- **2026-06-20T22:25:13Z** `[archive]` archived

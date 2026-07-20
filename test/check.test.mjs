@@ -383,7 +383,7 @@ test('CR1: a change graduating to a missing spec is an error', () => {
       { key: 'plan' },
       {
         key: 'log',
-        body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`\n',
+        body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`\n',
       },
     ],
   });
@@ -412,7 +412,7 @@ test('212836 CR3: real graduation markers in Log are still validated', () => {
       { key: 'request', body: 'Example: graduado a spec `...`' },
       { key: 'specification' },
       { key: 'plan' },
-      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `ghost.md`' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`' },
     ],
   });
   assert.ok(msgs(runS([c], []).errors).some((m) => /missing spec "ghost.md"/.test(m)));
@@ -438,7 +438,7 @@ test('CR2: a spec backlinked to an existing change is not orphan', () => {
       { key: 'request' },
       { key: 'specification' },
       { key: 'plan' },
-      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`' },
     ],
   });
   const s = spec({ frontmatter: { graduated_from: ['20260613-120000'] } });
@@ -458,8 +458,8 @@ test('111457 CR9: one change can link bidirectionally to multiple curated specs'
       {
         key: 'log',
         body: [
-          '- **2026-06-13T12:00:00Z** — graduado a spec `lifecycle.md`',
-          '- **2026-06-13T12:00:00Z** — graduado a spec `metrics.md`',
+          '- **2026-06-13T12:00:00Z** `[graduation]` spec: `lifecycle.md`',
+          '- **2026-06-13T12:00:00Z** `[graduation]` spec: `metrics.md`',
         ].join('\n'),
       },
     ],
@@ -479,14 +479,14 @@ test('111457 CR9: one change can link bidirectionally to multiple curated specs'
 test('CR3: a stale updated is a warning', () => {
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
-    text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+    text: '---\n---\n## Log\n- **2026-06-20T10:00:00Z** `[graduation]` spec: `arch.md`\n',
     stages: [
       { key: 'request' },
       { key: 'specification' },
       { key: 'plan' },
       {
         key: 'log',
-        body: '- **2026-06-20T10:00:00Z** — graduado a spec `arch.md`\n',
+        body: '- **2026-06-20T10:00:00Z** `[graduation]` spec: `arch.md`\n',
       },
     ],
   });
@@ -503,8 +503,8 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
   const c = change({
     frontmatter: { id: '20260613-120000', created: '2026-06-13T10:00:00Z' },
     text: `---\n---\n## Log
-- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
-- **2026-06-20T10:00:00Z** — archived
+- **2026-06-13T12:00:00Z** \`[graduation]\` spec: \`arch.md\`
+- **2026-06-20T10:00:00Z** \`[archive]\` archived
 `,
     stages: [
       { key: 'request' },
@@ -512,8 +512,8 @@ test('212319 CR1: archiving after graduation does not make the spec stale', () =
       { key: 'plan' },
       {
         key: 'log',
-        body: `- **2026-06-13T12:00:00Z** — graduado a spec \`arch.md\`
-- **2026-06-20T10:00:00Z** — archived`,
+        body: `- **2026-06-13T12:00:00Z** \`[graduation]\` spec: \`arch.md\`
+- **2026-06-20T10:00:00Z** \`[archive]\` archived`,
       },
     ],
   });
@@ -546,7 +546,7 @@ test('111457 CR4: a spec must name every change whose Log graduates into it', ()
       { key: 'request' },
       { key: 'specification' },
       { key: 'plan' },
-      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `arch.md`' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`' },
     ],
   });
   assert.ok(
@@ -563,7 +563,7 @@ test('111457 CR4: graduated_from must link back to the same spec', () => {
       { key: 'request' },
       { key: 'specification' },
       { key: 'plan' },
-      { key: 'log', body: '- **2026-06-13T12:00:00Z** — graduado a spec `other.md`' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `other.md`' },
     ],
   });
   const specs = [
@@ -608,7 +608,7 @@ test('151221 CR2: done tasks require an ISO resolution timestamp', () => {
   );
 });
 
-test('151221 CR2: done task descriptions may contain an em dash before the timestamp', () => {
+test('151221 CR2 / 125007 CR1: done task descriptions may contain an em dash', () => {
   const text = `---
 id: "20260613-120000"
 title: X
@@ -624,7 +624,8 @@ X
 
 ## Plan
 
-- [x] Keep the phrase — do not truncate it (CR1) — 2026-06-13T12:01:00Z
+- [x] Keep the phrase — do not truncate it (CR1)
+  - **Resolved:** \`2026-06-13T12:01:00Z\`
 
 ## Log
 `;
@@ -1126,7 +1127,7 @@ X
   );
 });
 
-test('115134 CR5: misplaced verify suffix explains the parseable task order', () => {
+test('115134 CR5 / 125007 CR1: verification precedes final criteria despite punctuation', () => {
   const { errors } = covResult(
     `---
 id: "20260613-120000"
@@ -1150,7 +1151,7 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts (CR1) — verify: manual device check
+- [ ] Update app/profile.ts — verify: manual device check (CR1)
 
 ## Log
 `,
@@ -1162,9 +1163,7 @@ X
       },
     },
   );
-  const message = msgs(errors).find((m) => /verify:/.test(m));
-  assert.match(message, /before the final \(CRn\) block/);
-  assert.match(message, /reserved for done timestamps and blocked reasons/);
+  assert.deepEqual(errors, []);
 });
 
 test('151216 CR3: draft readiness gaps are warnings', () => {
@@ -1432,12 +1431,12 @@ ${logLines.join('\n')}
 
 test('225210 CR1: a repeated review verdict after in-validation is an error with line and expectation', () => {
   const text = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   const e = msgs(covResult(text).errors);
   assert.ok(
@@ -1452,13 +1451,13 @@ test('225210 CR1: a repeated review verdict after in-validation is an error with
 
 test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch fail', () => {
   const ok = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-progress (retry): reason',
-    '- **2026-06-13T12:45:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:50:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:00:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-progress (retry): reason',
+    '- **2026-06-13T12:45:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:50:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:00:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(ok).errors).filter((m) => /Log line/.test(m)),
@@ -1466,9 +1465,9 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
   );
 
   const selfLoop = seqChange('in-progress', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-progress',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-progress',
   ]);
   assert.ok(
     msgs(covResult(selfLoop).errors).some((m) =>
@@ -1476,14 +1475,14 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
     ),
   );
 
-  const skip = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → done']);
+  const skip = seqChange('done', ['- **2026-06-13T12:10:00Z** `[status]` draft → done']);
   assert.ok(
     msgs(covResult(skip).errors).some((m) =>
       /Log line \d+: invalid lifecycle transition "draft → done"/.test(m),
     ),
   );
 
-  const mismatch = seqChange('done', ['- **2026-06-13T12:10:00Z** — status: draft → approved']);
+  const mismatch = seqChange('done', ['- **2026-06-13T12:10:00Z** `[status]` draft → approved']);
   assert.ok(
     msgs(covResult(mismatch).errors).some((m) =>
       /Log reconstructs status "approved" but frontmatter says "done"/.test(m),
@@ -1493,15 +1492,15 @@ test('225210 CR2: canonical sequences pass; self-loops, skips and final mismatch
 
 test('150232 CR6: sequence validation accepts reopen followed by normal gates', () => {
   const text = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T12:50:00Z** — validation → done (human accepted)',
-    '- **2026-06-13T13:00:00Z** — status: done → in-progress (human reopened): fix',
-    '- **2026-06-13T13:10:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T13:20:00Z** — review → in-validation (delegated subagent, clean context)',
-    '- **2026-06-13T13:30:00Z** — validation → done (human accepted)',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T12:50:00Z** `[validation]` in-validation → done (human accepted)',
+    '- **2026-06-13T13:00:00Z** `[status]` done → in-progress (human reopened): fix',
+    '- **2026-06-13T13:10:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T13:20:00Z** `[review]` in-review → in-validation (delegated subagent, clean context)',
+    '- **2026-06-13T13:30:00Z** `[validation]` in-validation → done (human accepted)',
   ]);
   assert.deepEqual(
     msgs(covResult(text).errors).filter((m) => /Log line|reconstructs status/.test(m)),
@@ -1511,10 +1510,10 @@ test('150232 CR6: sequence validation accepts reopen followed by normal gates', 
 
 test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
   const legacyReviewClose = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → in-review',
-    '- **2026-06-13T12:40:00Z** — status: in-review → done',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → in-review',
+    '- **2026-06-13T12:40:00Z** `[status]` in-review → done',
   ]);
   assert.deepEqual(
     msgs(covResult(legacyReviewClose).errors).filter((m) => /Log/.test(m)),
@@ -1522,9 +1521,9 @@ test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
   );
 
   const legacyDirectClose = seqChange('done', [
-    '- **2026-06-13T12:10:00Z** — status: draft → approved',
-    '- **2026-06-13T12:20:00Z** — status: approved → in-progress',
-    '- **2026-06-13T12:30:00Z** — status: in-progress → done',
+    '- **2026-06-13T12:10:00Z** `[status]` draft → approved',
+    '- **2026-06-13T12:20:00Z** `[status]` approved → in-progress',
+    '- **2026-06-13T12:30:00Z** `[status]` in-progress → done',
   ]);
   assert.deepEqual(
     msgs(covResult(legacyDirectClose).errors).filter((m) => /Log/.test(m)),
