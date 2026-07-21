@@ -9,6 +9,7 @@ import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
@@ -16,9 +17,48 @@ import { loadRepo, resolveChange } from '../repo.mjs';
 import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
 function locate(cwd, id) {
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    const snapshot = store.load();
+    const change = snapshot.changes.find(
+      (candidate) => String(candidate.frontmatter.id) === String(id),
+    );
+    if (!change) {
+      throw new Error(
+        `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
+      );
+    }
+    assertSupportedSchema(snapshot.config);
+    return {
+      config: snapshot.config,
+      file: change.file,
+      repoRoot: snapshot.repoRoot,
+      statePath: change.statePath,
+      store,
+    };
+  }
   const { config, file, repoRoot } = resolveChange(cwd, id);
   assertSupportedSchema(config);
   return { config, file, repoRoot };
+}
+
+function mutateChange(located, id, action, mutate) {
+  if (!located.store) {
+    mutateFileAtomic(located.file, mutate);
+    return located.file;
+  }
+  const after = located.store.mutate(
+    { message: `changeledger: ${action} ${id}` },
+    ({ snapshot, write }) => {
+      const change = snapshot.changes.find(
+        (candidate) => candidate.statePath === located.statePath,
+      );
+      if (!change) throw new Error(`No change with id "${id}" in the state snapshot`);
+      const text = mutate(change.text);
+      if (text !== undefined) write(change.statePath, text);
+    },
+  );
+  return after.changes.find((change) => String(change.frontmatter.id) === String(id))?.file;
 }
 
 export function status(
@@ -27,7 +67,8 @@ export function status(
   cwd = process.cwd(),
   { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer' } = {},
 ) {
-  const { config, file } = locate(cwd, id);
+  const located = locate(cwd, id);
+  const { config, repoRoot } = located;
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
@@ -44,8 +85,8 @@ export function status(
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
-  const autoOwner = newStatus === 'in-progress' ? ownerHandle(path.dirname(file)) : '';
-  mutateFileAtomic(file, (text) => {
+  const autoOwner = newStatus === 'in-progress' ? ownerHandle(repoRoot) : '';
+  return mutateChange(located, id, 'status', (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
       throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
@@ -86,7 +127,6 @@ export function status(
     }
     return text;
   });
-  return file;
 }
 
 // Transmits an explicit human approval received through the host conversation.

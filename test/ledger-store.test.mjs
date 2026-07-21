@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { status } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
@@ -210,4 +211,38 @@ test('193101 CR8: an invalid candidate leaves the state ref at S1', () => {
     /Ledger state validation failed/,
   );
   assert.equal(store.load().revision, before.revision);
+});
+
+test('193101 CR8: lifecycle status writes only the state successor', () => {
+  const { root } = fixture({
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(
+        path.join(state, 'config.yml'),
+        [
+          'project_id: project-1',
+          'changes_dir: .changeledger-state/changes',
+          'statuses: [draft, approved, in-progress, in-validation, blocked, done, discarded]',
+          'stages: [request, log]',
+          'types:',
+          '  feature:',
+          '    stages: [request]',
+          '',
+        ].join('\n'),
+      );
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000000-demo.md'),
+        '---\nid: "20260721-000000"\ntitle: Demo\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo.\n',
+      );
+    },
+  });
+  const before = loadLedgerStore(root).load();
+
+  status('20260721-000000', 'approved', root);
+
+  const after = loadLedgerStore(root).load();
+  assert.notEqual(after.revision, before.revision);
+  assert.equal(after.changes[0].frontmatter.status, 'approved');
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
 });
