@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: done
+status: in-progress
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -421,6 +421,15 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **Then** el cutover añade juntos `git.state_branch` y `git.state_baseline` con la ref y commit exactos
 - **And** una configuración que contiene solo uno de esos campos falla como inválida
 
+### CR20 — Graduación coherente con la verdad canónica
+- **Given** un change `done` almacenado en la rama global y una spec duradera que permanece en la rama de integración
+- **When** el humano inicia `graduate --into` antes de que la versión vinculada de la spec sea alcanzable desde la autoridad canónica de integración
+- **Then** ChangeLedger no marca el change como `reviewed` ni registra la graduación como completada
+- **And** informa que la graduación continúa pendiente hasta publicar o integrar la spec
+- **When** la spec vinculada ya es alcanzable desde la rama de integración canónica y se finaliza la graduación
+- **Then** el evento global referencia evidencia verificable de esa revisión canónica
+- **And** `loadRepo`, el viewer y `list --pending graduation` observan una única decisión coherente incluso si la publicación del estado falla o queda pendiente
+
 ## Plan
 
 - [x] Añadir primero pruebas del formato y del acceso a objetos Git, después implementar `src/state-store.mjs` y `src/git.mjs`; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR7)
@@ -453,6 +462,8 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
   - **Resolved:** `2026-07-20T15:08:29Z`
 - [x] Ejecutar el gate completo y verificar manualmente dos clones concurrentes contra un remoto temporal protegido; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-20T15:10:45Z`
+- [x] Añadir en `test/graduate.test.mjs` una regresión global que reproduzca la graduación antes de publicar la spec, definir el protocolo de finalización en dos fases en `src/commands/graduate.mjs` y `src/repo.mjs`, y evitar que el estado se marque revisado hasta que la spec vinculada sea canónica; verify: `node --test test/graduate.test.mjs test/repo.test.mjs` (CR20)
+  - **Resolved:** `2026-07-21T16:25:20Z`
 
 ## Log
 
@@ -504,3 +515,4 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **2026-07-20T23:36:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-21T12:36:15Z** `[note]` Gap de cobertura conocido, sin cerrar: la primera revisión independiente señaló que SHA-256 solo está probado en init (state-store.mjs); mutate/sync/cutover quedan sin cobertura SHA-256 explícita. No bloquea esta validation por sí solo, pero queda pendiente de decisión humana: aceptar el riesgo o abrir un change de cobertura.
 - **2026-07-21T12:49:02Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-21T16:17:53Z** `[status]` done → in-progress (agent reopened): La auditoría posterior confirmó que la graduación puede marcar el estado global como revisado antes de que la spec exista en la verdad canónica de la rama de integración

@@ -730,8 +730,14 @@ program
         );
         return;
       }
-      const file = graduate(id, slug, process.cwd(), { into: options.into });
-      console.log(`Graduated #${id} → ${file}`);
+      const result = graduate(id, slug, process.cwd(), { into: options.into });
+      if (result?.pending) {
+        console.log(
+          `Prepared spec ${result.file}. Commit or integrate it on the canonical integration branch, then rerun: changeledger graduate ${id} ${slug} --into`,
+        );
+        return;
+      }
+      console.log(`Graduated #${id} → ${result?.file ?? result}`);
     }),
   );
 

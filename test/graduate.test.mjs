@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +10,7 @@ import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
+import { initializeStateStore, readStateStore } from '../src/state-store.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -365,4 +367,126 @@ test('CR2: a scaffolded change remains pending graduation', () => {
     loadRepo(root).changes.find((change) => change.frontmatter.id === id).frontmatter.reviewed,
     undefined,
   );
+});
+
+function globalRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-global-grad-'));
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'Graduate Test',
+    GIT_AUTHOR_EMAIL: 'graduate@example.com',
+    GIT_COMMITTER_NAME: 'Graduate Test',
+    GIT_COMMITTER_EMAIL: 'graduate@example.com',
+  };
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  const git = (args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
+  const id = '20260721-160000';
+  const change = `---
+id: "${id}"
+title: Global graduation
+type: feature
+status: done
+created: 2026-07-21T16:00:00Z
+depends_on: []
+owner: ana
+---
+
+## Request
+
+Global graduation.
+
+## Investigation
+
+State branch stores lifecycle.
+
+## Proposal
+
+Specs remain canonical on integration.
+
+## Specification
+
+Graduation is two-phase.
+
+## Plan
+
+- [x] Complete
+  - **Resolved:** \`2026-07-21T16:00:00Z\`
+
+## Log
+`;
+  git(['init', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'README.md'), '# global graduation\n');
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'specs', 'architecture.md'),
+    '---\ntitle: Architecture\nupdated: 2026-01-01T00:00:00Z\ntags: [feature]\ngraduated_from: []\n---\n\n# Architecture\n\nDurable truth.\n',
+  );
+  git(['add', '.']);
+  git(['commit', '-qm', `baseline [#${id}]`]);
+  const initialized = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'global-graduate',
+    integrationBranch: 'dev',
+    changes: [{ name: `${id}-global-graduation.md`, text: change }],
+    gitEnv: env,
+  });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    `schema_version: 4
+language: en
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+  state_branch: changeledger/state
+  state_baseline: ${initialized.head}
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: global-graduate
+project_name: global-graduate
+`,
+  );
+  git(['add', '.changeledger/config.yml']);
+  git(['commit', '-qm', `activate global state [#${id}]`]);
+  return { root, env, git, id };
+}
+
+test('124231 CR20: global graduation remains pending until the linked spec is canonical', () => {
+  const { root, env, git, id } = globalRepo();
+  const prepared = graduate(id, 'architecture', root, { into: true });
+  assert.equal(prepared.pending, true);
+  assert.equal(
+    readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
+    undefined,
+  );
+  assert.deepEqual(loadRepo(root).specs[0].frontmatter.graduated_from, []);
+
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+  git(['add', specFile]);
+  git(['commit', '-qm', `publish canonical spec [#${id}]`]);
+
+  const finalized = graduate(id, 'architecture', root, { into: true });
+  assert.equal(finalized.pending, false);
+  assert.match(finalized.canonicalRevision, /^[0-9a-f]{40}$/);
+  assert.equal(
+    readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
+    true,
+  );
+  assert.deepEqual(loadRepo(root).specs[0].frontmatter.graduated_from, [id]);
 });

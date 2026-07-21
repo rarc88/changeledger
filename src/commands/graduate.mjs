@@ -10,9 +10,11 @@ import { mutateResolvedChange } from '../change-store.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
+import { objectRun } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
 import { assertRepoStateWritable, resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { parseSpec } from '../spec.mjs';
 import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
@@ -39,6 +41,28 @@ function requireGraduationReady(config, changeFile, changeText) {
   const change = requireDone(changeText);
   assertChangeTextValid(config, path.basename(changeFile), changeText);
   return change;
+}
+
+function canonicalGraduation(resolved, specFile, id) {
+  if (!resolved.state) return undefined;
+  const integrationRef =
+    resolved.state.integrationRef ?? `refs/heads/${resolved.state.manifest.integration_branch}`;
+  const relative = path.relative(resolved.repoRoot, specFile).split(path.sep).join('/');
+  if (!relative || relative.startsWith('../')) {
+    throw new Error(`Spec "${specFile}" is outside the repository`);
+  }
+  try {
+    const text = objectRun(['show', `${integrationRef}:${relative}`], resolved.repoRoot);
+    const graduatedFrom = parseSpec(text).frontmatter.graduated_from ?? [];
+    if (!Array.isArray(graduatedFrom) || !graduatedFrom.map(String).includes(String(id))) {
+      return undefined;
+    }
+    return {
+      revision: objectRun(['rev-parse', '--verify', integrationRef], resolved.repoRoot).trim(),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export function scaffoldSpec(id, slug, cwd = process.cwd()) {
@@ -100,7 +124,13 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   }
   const timestamp = nowUtc();
   const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
-  writeFileAtomic(specFile, updatedSpec);
+  const canonical = canonicalGraduation(resolved, specFile, id);
+  if (resolved.state && !canonical) {
+    writeFileAtomic(specFile, updatedSpec);
+    return { file: specFile, pending: true };
+  }
+
+  if (!resolved.state) writeFileAtomic(specFile, updatedSpec);
   try {
     mutateResolvedChange(
       resolved,
@@ -111,6 +141,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
           type: 'graduation',
           outcome: 'spec',
           spec: specName,
+          detail: canonical ? `canonical ${canonical.revision}` : undefined,
         });
         text = setReviewed(text, true);
         return text;
@@ -118,12 +149,16 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
       { operation: 'graduate', actor: resolved.change.frontmatter.owner ?? 'human' },
     );
   } catch (error) {
-    // Keep the integration-branch spec and the state document from silently
-    // disagreeing when the state CAS loses a race.
-    writeFileAtomic(specFile, originalSpec);
+    // Legacy graduation writes the spec before its local change document. Keep
+    // those two files aligned if that second write fails. Global graduation
+    // finalizes only after the canonical spec already exists, so it never rolls
+    // back a version the integration branch has published.
+    if (!resolved.state) writeFileAtomic(specFile, originalSpec);
     throw error;
   }
-  return specFile;
+  return canonical
+    ? { file: specFile, pending: false, canonicalRevision: canonical.revision }
+    : specFile;
 }
 
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
