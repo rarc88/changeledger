@@ -17,6 +17,7 @@ import {
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
 } from '../config-migration.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
@@ -125,8 +126,21 @@ export function changeStatus(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const { file } = resolveChange(proj.path, id);
-    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    const store = loadLedgerStore(proj.path);
+    if (store.mode === 'state') {
+      const change = store
+        .load()
+        .changes.find((candidate) => String(candidate.frontmatter.id) === String(id));
+      if (!change) {
+        throw new Error(
+          `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
+        );
+      }
+      current = change.frontmatter.status;
+    } else {
+      const { file } = resolveChange(proj.path, id);
+      current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    }
   } catch (e) {
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
