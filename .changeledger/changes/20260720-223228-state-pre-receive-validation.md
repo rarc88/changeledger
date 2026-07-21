@@ -2,7 +2,7 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: draft
+status: approved
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
 related_to: ["20260720-124231"]
@@ -99,3 +99,4 @@ romper esta ruta sin que ningún test lo note.
 ## Log
 
 - **2026-07-20T22:32:28Z** `[note]` Extraído de `20260720-124231` tras revisión independiente: el hook pre-receive original no ve los objetos en cuarentena de un push real porque reutiliza el entorno Git saneado del cliente. Draft pendiente de refinar y aprobar por el humano.
+- **2026-07-21T12:49:07Z** `[status]` draft → approved

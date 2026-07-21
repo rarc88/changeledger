@@ -2,7 +2,7 @@
 id: "20260721-000706"
 title: changeledger check resuelve mal repoRoot bajo git hooks con multi-worktree
 type: bug
-status: draft
+status: approved
 created: 2026-07-21T00:07:06Z
 depends_on: []
 related_to: ["20260720-124231"]
@@ -80,3 +80,4 @@ fix solo a `check`.
 ## Log
 
 - **2026-07-21T00:07:06Z** `[note]` Change creado a partir de un hallazgo de sesión (chip de tarea), no de una investigación de código todavía. Reemplaza ese chip.
+- **2026-07-21T12:49:15Z** `[status]` draft → approved

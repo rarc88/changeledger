@@ -2,7 +2,7 @@
 id: "20260721-124530"
 title: Cobertura SHA-256 en mutate, sync y cutover del almacén de estado
 type: quick
-status: draft
+status: approved
 created: 2026-07-21T12:45:30Z
 depends_on: []
 related_to: ["20260720-124231"]
@@ -26,3 +26,4 @@ si algo falla, corregirlo dentro del mismo alcance (mismo patrón que ya usa
   registrado en el Log de `20260720-124231`; ese gap no bloqueaba su
   validation por sí solo, pero el humano decidió cerrarlo con un change propio
   en vez de dejarlo como riesgo aceptado implícito.
+- **2026-07-21T12:49:18Z** `[status]` draft → approved
