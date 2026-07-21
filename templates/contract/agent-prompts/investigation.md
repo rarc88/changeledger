@@ -16,9 +16,9 @@ analysis).
 Question you own: {{question}} (the single question or area to investigate;
 state it concretely).
 
-Your prompt identifies you as a ChangeLedger delegate. As your only ChangeLedger
-load, run `changeledger agent-context investigation {{change_id}}` and read it
-through its END sentinel; do not load the orchestrator core. There may be no
+For this delegated task, do not run the bootstrap's default `changeledger
+context`. As your only ChangeLedger load, run `changeledger agent-context
+investigation {{change_id}}` and read it through its END sentinel. There may be no
 change yet: work without a change id. If the optional id below is empty, omit it
 from the command.
 

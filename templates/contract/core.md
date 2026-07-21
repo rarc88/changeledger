@@ -1,7 +1,7 @@
 # ChangeLedger — Core Contract
 
-Documents under `.changeledger/` are the source of truth. Code is their
-reflection. Work is planned and documented before code is written.
+Documents under `.changeledger/` are ChangeLedger's persistent truth. Work using
+ChangeLedger is documented before code; work performed without the CLI may diverge.
 
 ## Read complete context before acting
 
@@ -30,8 +30,11 @@ complete output, and the very first capture of a session is always full.
    identifying the change and verdict; praise, “continue”, or agent inference is
    not a decision. The agent executes but never makes human decisions.
 3. Capture every authorized change through ChangeLedger: under
-   `.changeledger/changes/` in legacy mode or on the activated state ref. The
-   document wins when code and documentation disagree.
+   `.changeledger/changes/` in legacy mode or on the activated state ref. Any
+   pre-existing divergence between specs and code must be reported to the
+   human, never reconciled by inference. Wait if it affects the current task;
+   if unrelated, report it without expanding scope. An approved change governs
+   code in scope.
 4. Never implement a `draft`. After approval, implement one change at a time on
    a non-main branch and commit the approved change document before code.
 5. Keep lifecycle, tasks, ownership and Log current while working.
@@ -40,15 +43,14 @@ complete output, and the very first capture of a session is always full.
 7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may reject with a reason and start another approved change unless its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
 8. After human acceptance, reload `changeledger context <id>` for the `done`
    change, then graduate persistent truth or run `changeledger graduate <id>
-   --skip [reason]`; archive only after that decision. The close overlay owns
-   the full graduation recipe.
+   --skip [reason]`; archive only after the decision — per the close overlay.
 
 If no approved or in-progress change applies, do not silently edit repository
 files. Create or update a change, or ask the human whether a purely operational,
 reversible edit with no persistent truth or observable behavior change should be
 done directly. If unsure, document it in ChangeLedger. For small, reversible,
-single-concern work with observable behavior, use the `quick` type instead of
-bypassing documentation — see `changeledger context spec`.
+single-concern work, use the `quick` type instead of bypassing documentation —
+see `changeledger context spec`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 
@@ -58,8 +60,7 @@ Files are the source of truth and may be edited directly. CLI helpers are
 optional and preferred for error-prone operations such as timestamps, lifecycle
 transitions and task markers.
 
-An activated state ref is the only change authority; never edit a legacy copy.
-Synchronize pending state before another human decision on that change.
+An activated state ref is the only change authority; never edit a legacy copy, and synchronize pending state before another human decision on that change.
 
 Delegate only with a clear boundary and benefit. Each delegation prompt states at least
 ownership, expected output and integration criterion; the task context carries the full
@@ -107,11 +108,10 @@ after durable closure, later work needs a new change.
 
 Valid modes: implement, review, spec, release.
 
-Escalate to a mode before acting. Before documenting, run
-`changeledger context spec`. Before executing, run `changeledger context
-implement` or `changeledger context <change-id>`. Run each only after reading
-the complete base output. Every mode and change-id context extends the core
-context already read; it never repeats it.
+Escalate to a mode before acting. Before documenting, run `changeledger context
+spec`. Before executing, run `changeledger context implement` or `changeledger
+context <change-id>`. Run each only after reading the complete base output. Every
+mode and change-id context extends the core context already read; it never repeats it.
 
 - `changeledger context spec`: author or refine a change.
 - `changeledger context implement`: execute an approved change.

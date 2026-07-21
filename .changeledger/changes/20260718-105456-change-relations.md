@@ -2,9 +2,12 @@
 id: "20260718-105456"
 title: Relacionar changes sin bloquear su ejecución
 type: feature
-status: in-validation
+status: done
 created: 2026-07-18T10:54:56Z
 depends_on: ["20260718-111457"]
+archived: true
+reviewed: true
+related_to: ["20260619-171002"]
 owner: Roberto Ruiz
 
 ---
@@ -49,6 +52,12 @@ conectados sin convertir esa conexión en una dependencia.
   scaffold crea `related_to: []`, pero el contrato no obliga a clasificar los
   resultados de `changeledger search`, por lo que los agentes dejan el campo
   vacío incluso cuando descubren antecedentes relevantes.
+- Una segunda validación externa confirmó que el descubrimiento también ocurre
+  mediante `changeledger list`, lectura directa y contexto conversacional. Atar
+  la clasificación únicamente a `search` permite que un ID local explícito
+  quede solo en la prosa. Un inventario dogfood encontró 45 referencias históricas
+  sin vínculo, pero solo una en changes activos: este change mencionaba
+  `20260619-171002` sin declararlo.
 
 ## Proposal
 
@@ -94,11 +103,19 @@ aristas no dirigidas y discontinuas, distinguibles de las dependencias dirigidas
 
 El scaffold de `changeledger new` incluirá `related_to: []` inmediatamente
 después de `depends_on`, y el contrato explicará cuándo usar cada campo.
-Durante Investigation, el agente clasificará cada resultado relevante de
-`changeledger search`: requisito de ejecución como `depends_on`, contexto útil
-sin orden de ejecución como `related_to`, y matiz no estructurable como mención
-textual. Las relaciones se escribirán en un solo change porque el backlink se
-deriva automáticamente.
+Durante Investigation, el agente clasificará todo change relevante descubierto,
+sin importar si apareció mediante `search`, `list`, lectura directa, contexto o
+conversación: requisito de ejecución como `depends_on` y contexto útil sin orden
+de ejecución como `related_to`. Un ID local explícito no puede quedar únicamente
+en la prosa. Las relaciones se escribirán en un solo change porque el backlink
+se deriva automáticamente.
+
+`changeledger check` advertirá, sin fallar, cuando un change activo mencione en
+Request, Investigation, Proposal, Specification o Plan el ID de otro change
+local existente sin `depends_on`, `related_to` saliente ni backlink relacional
+entrante. Ignorará Log, bloques de código, el propio ID, referencias locales
+inexistentes y changes cerrados o archivados para evitar ruido histórico. El
+checker no elegirá automáticamente el tipo de vínculo.
 
 Alternativas descartadas:
 
@@ -165,8 +182,16 @@ Alternativas descartadas:
 - **When** se ejecuta `changeledger new feature example "Ejemplo"`
 - **Then** el frontmatter generado contiene `related_to: []` inmediatamente después de `depends_on: []`
 - **And** el contexto de especificación define `related_to` como vínculo no bloqueante y `depends_on` como requisito de ejecución
-- **And** instruye al agente a clasificar cada resultado relevante de `changeledger search` durante Investigation como `depends_on`, `related_to` o mención textual
+- **And** instruye al agente a clasificar todo change relevante descubierto durante Investigation, independientemente de la fuente, como `depends_on` o `related_to`
+- **And** establece que un ID local explícito no puede quedar únicamente en la prosa
 - **And** indica que una relación local se declara una sola vez porque el backlink entrante es derivado
+
+### CR9 — Advertir referencias locales activas sin clasificar
+- **Given** un change activo que menciona en una etapa semántica el ID de otro change local existente
+- **When** no existe `depends_on`, `related_to` saliente ni un backlink `related_to` entrante
+- **Then** `changeledger check` emite `mentions change "<id>" without declaring it in depends_on or related_to`
+- **And** el warning no hace fallar el comando
+- **And** no se emite para Log, bloques de código, el propio ID, IDs locales inexistentes, changes cerrados o archivados, dependencias ni relaciones salientes o entrantes ya declaradas
 
 ## Plan
 
@@ -184,6 +209,12 @@ Alternativas descartadas:
   - **Resolved:** `2026-07-18T12:45:11Z`
 - [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral; verify: `node --test test/context.test.mjs` (CR8)
   - **Resolved:** `2026-07-20T10:11:59Z`
+- [x] Escribir primero tests del warning y extender `src/check.mjs` para detectar IDs locales activos sin vínculo, con exclusiones y backlinks; verify: `node --test test/check.test.mjs` (CR9)
+  - **Resolved:** `2026-07-20T20:29:17Z`
+- [x] Generalizar el test y `templates/contract/spec.md` para clasificar todo change descubierto independientemente de la fuente; verify: `node --test test/context.test.mjs` (CR8)
+  - **Resolved:** `2026-07-20T20:30:11Z`
+- [x] Ejecutar el gate completo `pnpm verify` sobre la corrección integrada (support)
+  - **Resolved:** `2026-07-20T20:31:24Z`
 
 ## Log
 
@@ -201,3 +232,10 @@ Alternativas descartadas:
 - **2026-07-20T10:11:59Z** `[note]` Corrección de validación: el contexto de autoría ahora exige clasificar cada resultado relevante de search como depends_on, related_to o mención textual, y declara una sola vez las relaciones locales; test focalizado 38/38.
 - **2026-07-20T10:11:59Z** `[status]` in-progress → in-review
 - **2026-07-20T10:14:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T20:24:47Z** `[validation]` in-validation → in-progress (agent rejected): El contrato solo obliga a clasificar resultados de search; debe cubrir cualquier change descubierto y check debe advertir IDs locales activos sin vínculo estructurado.
+- **2026-07-20T20:31:24Z** `[note]` Corrección completa: check advierte referencias locales activas sin vínculo estructurado y el contrato exige clasificarlas sin depender de la fuente de descubrimiento; pnpm verify pasó con 715/715 tests y 202 changes válidos.
+- **2026-07-20T20:31:24Z** `[status]` in-progress → in-review
+- **2026-07-20T20:34:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T22:23:44Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-20T22:30:14Z** `[graduation]` spec: `data-model.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived

@@ -384,7 +384,7 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
   );
   const expected = [
-    ['core', /Documents under `.changeledger\/` are the source of truth/],
+    ['core', /Documents under `.changeledger\/` are ChangeLedger's persistent truth/],
     ['core', /Work starts with conversation/],
     ['core', /human explicitly authorizes documentation/],
     ['core', /Never implement a `draft`/],
@@ -589,6 +589,24 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   assertWithinBudget('core', outputs.core, contextBudgets.base.core);
 });
 
+test('212659 CR6: pre-existing code/spec divergence is reported for human resolution', () => {
+  const root = repo();
+  const normalize = (text) => text.replace(/\s+/g, ' ');
+  const core = normalize(buildContext(undefined, root));
+  const implement = normalize(buildContext('implement', root));
+
+  assert.match(core, /pre-existing divergence between specs and code.*reported to the human/i);
+  assert.match(core, /Wait if it affects the current task/i);
+  assert.match(core, /unrelated.*report it without expanding scope/i);
+  assert.doesNotMatch(core, /document wins when code and documentation disagree/i);
+
+  assert.match(implement, /approved change governs the code written within its scope/i);
+  assert.match(
+    implement,
+    /pre-existing divergence not introduced by the current work.*human resolution/i,
+  );
+});
+
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
@@ -650,7 +668,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // per-change graduation and matching filtered archive semantics explicit.
     // 20260720-124231: storage wording is replaced with legacy/global authority;
     // pending publication is additive. Human decision ownership is preserved.
-    'core.md': '37f12efda52f98de3b7d0f27cb21b72ba2afc8653380ae153f08ff1cf564b9fd',
+    // 20260720-212659: universal document-wins semantics are replaced by
+    // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
+    // is reported for human resolution, while an approved change still governs
+    // code written inside its authorized scope. No lifecycle rule is retired.
+    'core.md': 'cb3b13645ade96ff77b242beb4a672db3cbfa670d759400243a5900eefa247e6',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -691,7 +713,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // review, verdict and validation rules are preserved, none retired.
     // 20260720-124231: additive global-state owner, branch-format and pending
     // synchronization invariants; legacy branch behavior is preserved.
-    'implement.md': '0cec49e3c43135d7afe829956a0e468c3e63fa7e89fe0e956410a03cb13d095b',
+    // 20260720-212659: unconditional code-wins repair is replaced: the approved
+    // change still governs code authored in scope, while a pre-existing
+    // divergence is reported for human resolution. Execution discipline remains.
+    'implement.md': '7997a4cc1d57f586c8e119f4b12a05ef71a96d051718da404201ceda128def94',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
@@ -714,13 +739,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260716-131649: the list helper is extended with owner, pending and
     // archive-visibility filters; existing authoring rules are preserved.
     // 20260718-105456: additive related_to scaffold and non-blocking semantics;
-    // correction adds mandatory search-result classification during Investigation;
+    // correction first added search-result classification, then generalized it
+    // to every discovery source and forbade leaving an explicit local id only in prose;
     // existing dependency execution and authoring rules are preserved.
     // 20260720-125007: task state metadata and Log events become explicit
     // structured records; the former punctuation-delimited forms are retired.
     // 20260720-124231: direct-file storage and late auto-owner rules are replaced
     // conditionally when global state is active; legacy behavior is preserved.
-    'spec.md': '2b39e2f87f6d17c7a397dd194adac9e2369bd0bdd165b9f5707777d5538e6b24',
+    'spec.md': '86c0ede544887248b96e8b4cb2e23e95a96af5949833c354afa931a7579ac614',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct
@@ -1383,10 +1409,10 @@ test('105456 CR8 correction: spec context makes agents populate discovered relat
   const spec = buildContext('spec', root).replace(/\s+/g, ' ');
   assert.match(
     spec,
-    /during Investigation, classify every relevant result from `changeledger search`/,
+    /during Investigation, classify every relevant change discovered.*regardless of whether it came from `search`, `list`, direct reading, context or conversation/,
   );
   assert.match(spec, /execution prerequisite.*`depends_on`/);
   assert.match(spec, /useful context without execution order.*`related_to`/);
-  assert.match(spec, /unstructured nuance.*textual mention/);
+  assert.match(spec, /explicit local change id must not remain only in prose/);
   assert.match(spec, /declare a local relation once, deriving its backlink/);
 });

@@ -6,9 +6,10 @@ Keep one concern per change. Work necessary for the authorized objective belongs
 in its Specification, Plan and Log. If related work materially expands observable scope, obtain explicit human
 authorization before adding it; propose independent work separately.
 
-Follow the Specification exactly. If code and document diverge, update code;
-never quietly drift the approved contract. Keep status, tasks, owner and Log
-current throughout execution.
+Follow the Specification exactly: the approved change governs the code written
+within its scope — never drift the contract. A pre-existing divergence not
+introduced by the current work needs human resolution: wait if it affects the
+task, else report without expanding scope. Keep the ledger current.
 
 ## Git protects traceability
 
@@ -19,9 +20,9 @@ finished result into it; `main` stays reserved for releases. Inspect the worktre
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
-With global state active, only the owner may implement. Use the branch rendered
-by `git.change_branch_format` (default `{type}/{id}`) from integration; transfer
-explicitly, and synchronize pending state before another human decision.
+With global state active, only the owner may implement, on the
+`git.change_branch_format`-rendered branch (default `{type}/{id}`); transfer
+explicitly and sync pending state before the next human decision.
 
 After `approved → in-progress`, create a baseline commit of the approved change
 document before code. Implement one change at a time, even while another

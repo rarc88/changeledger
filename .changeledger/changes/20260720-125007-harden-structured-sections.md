@@ -2,9 +2,11 @@
 id: "20260720-125007"
 title: Fortalecer las secciones estructuradas de los changes
 type: feature
-status: in-validation
+status: done
 created: 2026-07-20T12:50:07Z
 depends_on: []
+archived: true
+reviewed: true
 owner: Roberto Ruiz
 related_to: ["20260613-205852", "20260616-151221"]
 ---
@@ -185,3 +187,6 @@ Alternativas descartadas:
 - **2026-07-20T14:08:26Z** `[note]` Corrección de review: Resolved valida ISO UTC compartido, métricas ignoran eventos no transicionales y el Plan explicita atomicidad por archivo; la prosa adyacente del contrato se condensó para mantener el presupuesto duro del contexto spec
 - **2026-07-20T14:08:38Z** `[status]` in-progress → in-review
 - **2026-07-20T14:14:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-20T22:23:49Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-20T22:30:15Z** `[graduation]` spec: `data-model.md`
+- **2026-07-20T22:30:26Z** `[archive]` archived

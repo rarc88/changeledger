@@ -157,6 +157,84 @@ test('105456 CR2: related_to validates list, local destination and self-referenc
   );
 });
 
+test('105456 CR9: active semantic mention without a structural link warns but does not error', () => {
+  const target = change({
+    frontmatter: { id: '20260613-130000' },
+    name: '20260613-130000-target.md',
+  });
+  const source = change({
+    stages: [
+      { key: 'request', body: 'Discovered #20260613-130000 by reading another change.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+
+  const { errors, warnings } = run([source, target]);
+  assert.deepEqual(errors, []);
+  assert.ok(
+    msgs(warnings).includes(
+      'mentions change "20260613-130000" without declaring it in depends_on or related_to',
+    ),
+  );
+});
+
+test('105456 CR9: classified, derived and non-semantic mentions do not warn', () => {
+  const source = change({
+    frontmatter: {
+      depends_on: ['20260613-130001'],
+      related_to: ['20260613-130002'],
+    },
+    stages: [
+      {
+        key: 'request',
+        body: `Self 20260613-120000, dependency 20260613-130001, outgoing 20260613-130002,
+incoming 20260613-130003, and unknown 20990101-000000.
+
+\`\`\`
+example 20260613-130004
+\`\`\``,
+      },
+      { key: 'plan', body: '' },
+      { key: 'log', body: 'Historical 20260613-130004.' },
+    ],
+  });
+  const sibling = (id, over = {}) =>
+    change({ frontmatter: { id, ...over }, name: `${id}-sibling.md` });
+  const closedSource = change({
+    frontmatter: { id: '20260613-130005', status: 'done' },
+    name: '20260613-130005-closed.md',
+    stages: [
+      { key: 'request', body: 'Legacy mention 20260613-130004.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const archivedSource = change({
+    frontmatter: { id: '20260613-130006', archived: true },
+    name: '20260613-130006-archived.md',
+    stages: [
+      { key: 'request', body: 'Archived mention 20260613-130004.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const changes = [
+    source,
+    sibling('20260613-130001'),
+    sibling('20260613-130002'),
+    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
+    sibling('20260613-130004'),
+    closedSource,
+    archivedSource,
+  ];
+
+  const unclassified = run(changes).warnings.filter((warning) =>
+    warning.message.startsWith('mentions change'),
+  );
+  assert.deepEqual(unclassified, []);
+});
+
 test('CR6: duplicate ids are an error', () => {
   const a = change();
   const b = change({ name: '20260613-120000-y.md' });
