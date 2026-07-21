@@ -2,7 +2,7 @@
 id: "20260721-161754"
 title: changeledger fix debe respetar el owner del change global
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-21T16:17:54Z
 depends_on: []
 owner: Roberto Ruiz
@@ -65,3 +65,5 @@ antes de la primera mutación.
 - **2026-07-21T16:21:50Z** `[status]` draft → approved
 - **2026-07-21T16:40:33Z** `[owner]` set: Roberto Ruiz
 - **2026-07-21T16:40:34Z** `[status]` approved → in-progress
+- **2026-07-21T16:49:10Z** `[status]` in-progress → in-review
+- **2026-07-21T16:54:10Z** `[review]` in-review → in-validation (delegated subagent, clean context)

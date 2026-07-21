@@ -2,7 +2,7 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
 owner: raruiz-hiberuscom
@@ -156,3 +156,5 @@ degradarse silenciosamente a una afirmación de protección.
 - **2026-07-21T15:44:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-21T15:50:22Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-21T16:17:54Z** `[status]` done → in-progress (agent reopened): La auditoría posterior demostró que --confirm-strong puede certificar un hook ajeno o un hook configurado para otra rama de estado
+- **2026-07-21T16:49:10Z** `[status]` in-progress → in-review
+- **2026-07-21T16:54:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)

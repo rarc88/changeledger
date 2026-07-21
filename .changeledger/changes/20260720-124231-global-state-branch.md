@@ -2,7 +2,7 @@
 id: "20260720-124231"
 title: Almacenar el estado global en una rama protegida
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-20T12:42:31Z
 depends_on: []
 owner: Roberto Ruiz
@@ -516,3 +516,5 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **2026-07-21T12:36:15Z** `[note]` Gap de cobertura conocido, sin cerrar: la primera revisión independiente señaló que SHA-256 solo está probado en init (state-store.mjs); mutate/sync/cutover quedan sin cobertura SHA-256 explícita. No bloquea esta validation por sí solo, pero queda pendiente de decisión humana: aceptar el riesgo o abrir un change de cobertura.
 - **2026-07-21T12:49:02Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-21T16:17:53Z** `[status]` done → in-progress (agent reopened): La auditoría posterior confirmó que la graduación puede marcar el estado global como revisado antes de que la spec exista en la verdad canónica de la rama de integración
+- **2026-07-21T16:49:09Z** `[status]` in-progress → in-review
+- **2026-07-21T16:54:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
