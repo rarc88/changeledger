@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
-import { loadRepo } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
@@ -15,8 +15,10 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   const id = args.find((a) => !a.startsWith('--'));
 
   let repo;
+  let store;
   try {
-    repo = loadRepo(cwd);
+    store = loadLedgerStore(cwd);
+    repo = store.load();
     if (!dryRun) assertSupportedSchema(repo.config);
   } catch (e) {
     output.error(`  error  (repo): ${e.message}`);
@@ -28,7 +30,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       output.error('  error  --graduation-links cannot be combined with a change id');
       return 1;
     }
-    return fixGraduationLinks(repo, { dryRun, output });
+    return fixGraduationLinks(repo, { dryRun, output, store });
   }
 
   if (structuredSections) {
@@ -36,7 +38,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       output.error('  error  --structured-sections cannot be combined with a change id');
       return 1;
     }
-    return fixStructuredSections(repo, { dryRun, output });
+    return fixStructuredSections(repo, { dryRun, output, store });
   }
 
   let targets = repo.changes;
@@ -50,6 +52,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
 
   let anyChanged = false;
   let anyManual = false;
+  const candidates = [];
 
   for (const c of targets) {
     const { text: fixedText, applied, manual, changed } = computeFixes(c.text);
@@ -72,18 +75,39 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       continue;
     }
 
-    writeFileAtomic(c.file, fixedText);
-    output.log(`fixed — ${c.name}:`);
-    for (const a of applied) output.log(`  - ${a}`);
+    candidates.push({ change: c, text: fixedText, applied });
+  }
+
+  if (!dryRun && candidates.length) {
+    if (store.mode === 'state') {
+      store.mutate({ message: 'changeledger: fix changes' }, ({ snapshot, write }) => {
+        for (const candidate of candidates) {
+          const current = snapshot.changes.find(
+            (change) => change.statePath === candidate.change.statePath,
+          );
+          if (!current || current.text !== candidate.change.text) {
+            throw new Error('fix target changed concurrently; retry the operation');
+          }
+          write(current.statePath, candidate.text);
+        }
+      });
+    } else {
+      for (const candidate of candidates) writeFileAtomic(candidate.change.file, candidate.text);
+    }
+    for (const candidate of candidates) {
+      output.log(`fixed — ${candidate.change.name}:`);
+      for (const applied of candidate.applied) output.log(`  - ${applied}`);
+    }
   }
 
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
 
-function fixStructuredSections(repo, { dryRun, output }) {
+function fixStructuredSections(repo, { dryRun, output, store }) {
   let anyChanged = false;
   let anyManual = false;
+  const candidates = [];
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
     if (result.manual.length) {
@@ -98,22 +122,42 @@ function fixStructuredSections(repo, { dryRun, output }) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
     } else {
-      writeFileAtomic(change.file, result.text);
-      output.log(`fixed — ${change.name}:`);
-      for (const message of result.applied) output.log(`  - ${message}`);
+      candidates.push({ change, result });
+    }
+  }
+  if (!dryRun && candidates.length) {
+    if (store.mode === 'state') {
+      store.mutate({ message: 'changeledger: fix structured sections' }, ({ snapshot, write }) => {
+        for (const candidate of candidates) {
+          const current = snapshot.changes.find(
+            (change) => change.statePath === candidate.change.statePath,
+          );
+          if (!current || current.text !== candidate.change.text) {
+            throw new Error('fix target changed concurrently; retry the operation');
+          }
+          write(current.statePath, candidate.result.text);
+        }
+      });
+    } else {
+      for (const candidate of candidates)
+        writeFileAtomic(candidate.change.file, candidate.result.text);
+    }
+    for (const candidate of candidates) {
+      output.log(`fixed — ${candidate.change.name}:`);
+      for (const message of candidate.result.applied) output.log(`  - ${message}`);
     }
   }
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
 
-function fixGraduationLinks(repo, { dryRun, output }) {
+function fixGraduationLinks(repo, { dryRun, output, store }) {
   const eventsBySpec = graduationEventsBySpec(repo.changes);
   const candidates = [];
   const errors = [];
 
   for (const spec of repo.specs) {
-    const before = fs.readFileSync(spec.file, 'utf8');
+    const before = spec.text ?? fs.readFileSync(spec.file, 'utf8');
     const existing = spec.frontmatter?.graduated_from;
     if (existing !== undefined && !Array.isArray(existing)) {
       errors.push(`${spec.name}: graduated_from must be a list`);
@@ -154,12 +198,25 @@ function fixGraduationLinks(repo, { dryRun, output }) {
     output.log('nothing to fix');
     return 0;
   }
+  if (!dryRun && candidates.length && store.mode === 'state') {
+    store.mutate({ message: 'changeledger: fix graduation links' }, ({ snapshot, write }) => {
+      for (const candidate of candidates) {
+        const current = snapshot.specs.find((spec) => spec.statePath === candidate.spec.statePath);
+        if (!current || current.text !== candidate.before) {
+          throw new Error('fix target changed concurrently; retry the operation');
+        }
+        write(current.statePath, candidate.after);
+      }
+    });
+  }
   for (const { spec, before, after } of candidates) {
     if (dryRun) {
       output.log(`--- ${spec.name} (dry run)`);
       for (const line of diffLines(before, after)) output.log(line);
-    } else {
+    } else if (store.mode !== 'state') {
       writeFileAtomic(spec.file, after);
+    }
+    if (!dryRun) {
       output.log(`fixed — ${spec.name}:`);
       output.log('  - migrated graduation provenance to graduated_from');
     }

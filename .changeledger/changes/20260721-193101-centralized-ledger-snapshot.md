@@ -204,3 +204,4 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T21:43:01Z** `[note]` Añadida transacción LedgerStore: árbol candidato validado, commit Git condicionado a S1 y layout state exclusivo.
 - **2026-07-21T21:45:33Z** `[note]` Introducida la frontera común de mutación y migrado status al snapshot state; el resto de la matriz continúa pendiente.
 - **2026-07-21T21:58:14Z** `[note]` Migradas lifecycle review, validation, reopen, owner, discard, archive, log y task; archive --graduated ahora publica un único snapshot state; agent context lee state.
+- **2026-07-21T22:00:18Z** `[note]` Migrado new al snapshot state y convertido fix, incluidas variantes bulk, en operaciones de un único sucesor.

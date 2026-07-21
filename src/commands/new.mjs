@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
@@ -14,6 +15,8 @@ const LOCK_MTIME_STALE_MS = 30_000;
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See `changeledger context spec`.
 export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()) {
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') return newStateChange(store, { type, slug, title, owner, now });
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
@@ -74,6 +77,47 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
       id = idFromTimestamp(created);
     } finally {
       releaseIdLock(lock);
+    }
+  }
+}
+
+function newStateChange(store, { type, slug, title, owner, now }) {
+  const normalizedSlug = slugify(slug);
+  let created = now;
+  for (;;) {
+    const snapshot = store.load();
+    const config = snapshot.config;
+    assertSupportedSchema(config);
+    const typeDef = config.types?.[type];
+    if (!typeDef) {
+      throw new Error(
+        `Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`,
+      );
+    }
+    const id = idFromTimestamp(created);
+    if (snapshot.changes.some((change) => String(change.frontmatter.id) === id)) {
+      created = bumpSecond(created);
+      continue;
+    }
+    const statePath = `.changeledger-state/changes/${id}-${normalizedSlug}.md`;
+    try {
+      const after = store.mutate(
+        { message: `changeledger: new ${id}` },
+        ({ snapshot: current, write }) => {
+          if (current.changes.some((change) => String(change.frontmatter.id) === id)) {
+            throw new Error('state id changed concurrently; retry the operation');
+          }
+          write(
+            statePath,
+            render({ id, title, type, owner, stages: typeDef.stages, now: created }),
+          );
+        },
+      );
+      return after.changes.find((change) => String(change.frontmatter.id) === id)?.file;
+    } catch (error) {
+      if (!/state id changed concurrently|Ledger state changed concurrently/.test(error.message))
+        throw error;
+      created = bumpSecond(created);
     }
   }
 }

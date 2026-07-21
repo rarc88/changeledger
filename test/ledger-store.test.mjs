@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { check } from '../src/commands/check.mjs';
+import { newChange } from '../src/commands/new.mjs';
 import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
@@ -253,4 +254,47 @@ test('193101 CR2: agent context selects its change from the state snapshot', () 
   const context = buildAgentContext('investigation', '20260721-000000', root);
   assert.match(context, /title: Demo/);
   assert.match(context, /Effective policy: language=es/);
+});
+
+test('193101 CR8: new creates a change only in the state successor', () => {
+  const { root } = fixture({
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(
+        path.join(state, 'config.yml'),
+        [
+          'project_id: project-1',
+          'changes_dir: .changeledger-state/changes',
+          'statuses: [draft, approved, in-progress, in-validation, blocked, done, discarded]',
+          'stages: [request, log]',
+          'types:',
+          '  feature:',
+          '    stages: [request]',
+          '',
+        ].join('\n'),
+      );
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000000-demo.md'),
+        '---\nid: "20260721-000000"\ntitle: Demo\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo.\n',
+      );
+    },
+  });
+  const before = loadLedgerStore(root).load();
+
+  const file = newChange(
+    {
+      type: 'feature',
+      slug: 'state-change',
+      title: 'State change',
+      now: '2026-07-21T01:00:00Z',
+    },
+    root,
+  );
+
+  const after = loadLedgerStore(root).load();
+  assert.match(file, /^git:/);
+  assert.notEqual(after.revision, before.revision);
+  assert.ok(after.changes.some((change) => change.frontmatter.id === '20260721-010000'));
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
 });
