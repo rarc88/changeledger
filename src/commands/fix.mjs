@@ -1,15 +1,22 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
 import { mutateResolvedChange } from '../change-store.mjs';
+import { stateConfig } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
+import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { assertRepoStateWritable, loadRepo, resolveChange } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
 // Ambiguous defects are never touched — they are listed under "requires manual fix".
-export function fix(args = [], cwd = process.cwd(), output = console) {
+export function fix(
+  args = [],
+  cwd = process.cwd(),
+  output = console,
+  { actorHandle = defaultOwnerHandle } = {},
+) {
   const dryRun = args.includes('--dry-run');
   const graduationLinks = args.includes('--graduation-links');
   const structuredSections = args.includes('--structured-sections');
@@ -40,7 +47,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       output.error('  error  --structured-sections cannot be combined with a change id');
       return 1;
     }
-    return fixStructuredSections(repo, { dryRun, output });
+    return fixStructuredSections(repo, { dryRun, output, actorHandle });
   }
 
   let targets = repo.changes;
@@ -54,6 +61,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
 
   let anyChanged = false;
   let anyManual = false;
+  const repairs = [];
 
   for (const c of targets) {
     const { text: fixedText, applied, manual, changed } = computeFixes(c.text);
@@ -76,22 +84,63 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       continue;
     }
 
-    const resolved = resolveChange(repo.repoRoot, c.frontmatter.id);
-    mutateResolvedChange(resolved, () => fixedText, {
-      operation: 'fix',
-      actor: c.frontmatter.owner ?? 'unknown',
-    });
-    output.log(`fixed — ${c.name}:`);
-    for (const a of applied) output.log(`  - ${a}`);
+    repairs.push({ change: c, text: fixedText, applied });
+  }
+
+  if (!dryRun && repairs.length) {
+    const actor = actorHandle(repo.repoRoot);
+    let resolvedRepairs;
+    try {
+      resolvedRepairs = repairs.map((repair) => ({
+        ...repair,
+        resolved: resolveChange(repo.repoRoot, repair.change.frontmatter.id),
+      }));
+      for (const repair of resolvedRepairs) assertFixAuthorized(repair.resolved, actor);
+    } catch (error) {
+      output.error(`  error  (owner): ${error.message}`);
+      return 1;
+    }
+    for (const repair of resolvedRepairs) {
+      mutateResolvedChange(repair.resolved, () => repair.text, {
+        operation: 'fix',
+        actor: actor || 'unknown',
+      });
+      output.log(`fixed — ${repair.change.name}:`);
+      for (const applied of repair.applied) output.log(`  - ${applied}`);
+    }
+  } else if (dryRun) {
+    for (const repair of repairs) {
+      output.log(`--- ${repair.change.name} (dry run)`);
+      for (const line of diffLines(repair.change.text, repair.text)) output.log(line);
+    }
   }
 
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
 
-function fixStructuredSections(repo, { dryRun, output }) {
+function assertFixAuthorized(resolved, actor) {
+  if (!stateConfig(resolved.config)) return;
+  const { frontmatter } = resolved.change;
+  if (
+    !['approved', 'in-progress', 'in-review', 'in-validation', 'blocked'].includes(
+      frontmatter.status,
+    )
+  ) {
+    return;
+  }
+  if (!frontmatter.owner) throw new Error(`change #${frontmatter.id} has no owner`);
+  if (!actor || actor !== frontmatter.owner) {
+    throw new Error(
+      `change #${frontmatter.id} is owned by "${frontmatter.owner}"; transfer ownership explicitly before continuing`,
+    );
+  }
+}
+
+function fixStructuredSections(repo, { dryRun, output, actorHandle = defaultOwnerHandle }) {
   let anyChanged = false;
   let anyManual = false;
+  const repairs = [];
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
     if (result.manual.length) {
@@ -106,15 +155,33 @@ function fixStructuredSections(repo, { dryRun, output }) {
       output.log(`--- ${change.name} (dry run)`);
       for (const line of diffLines(change.text, result.text)) output.log(line);
     } else {
-      const resolved = resolveChange(repo.repoRoot, change.frontmatter.id);
-      mutateResolvedChange(resolved, () => result.text, {
-        operation: 'fix:structured-sections',
-        actor: change.frontmatter.owner ?? 'unknown',
-      });
-      output.log(`fixed — ${change.name}:`);
-      for (const message of result.applied) output.log(`  - ${message}`);
+      repairs.push({ change, text: result.text, applied: result.applied });
     }
   }
+
+  if (!dryRun && repairs.length) {
+    const actor = actorHandle(repo.repoRoot);
+    let resolvedRepairs;
+    try {
+      resolvedRepairs = repairs.map((repair) => ({
+        ...repair,
+        resolved: resolveChange(repo.repoRoot, repair.change.frontmatter.id),
+      }));
+      for (const repair of resolvedRepairs) assertFixAuthorized(repair.resolved, actor);
+    } catch (error) {
+      output.error(`  error  (owner): ${error.message}`);
+      return 1;
+    }
+    for (const repair of resolvedRepairs) {
+      mutateResolvedChange(repair.resolved, () => repair.text, {
+        operation: 'fix:structured-sections',
+        actor: actor || 'unknown',
+      });
+      output.log(`fixed — ${repair.change.name}:`);
+      for (const message of repair.applied) output.log(`  - ${message}`);
+    }
+  }
+
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
