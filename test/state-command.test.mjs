@@ -97,9 +97,67 @@ depends_on: []
   return dir;
 }
 
-function publishCandidate(dir) {
+function rootSha256() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-command-sha256-'));
+  git(dir, ['init', '--object-format=sha256', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(dir, '.changeledger', 'changes'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.changeledger', 'specs'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '.changeledger', 'config.yml'),
+    `schema_version: 4
+language: en
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+project_id: project-1
+project_name: command
+`,
+  );
+  fs.writeFileSync(
+    path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md'),
+    `---
+id: "20260720-120000"
+title: State
+type: feature
+status: draft
+created: 2026-07-20T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+## Investigation
+
+## Proposal
+
+## Specification
+
+## Plan
+
+## Log
+`,
+  );
+  fs.writeFileSync(path.join(dir, '.changeledger', 'specs', 'truth.md'), 'durable truth\n');
+  git(dir, ['add', '.changeledger']);
+  git(dir, ['commit', '-qm', 'initial']);
+  return dir;
+}
+
+function publishCandidate(dir, { objectFormat } = {}) {
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-command-origin-'));
-  git(bare, ['init', '--bare', '-q']);
+  git(
+    bare,
+    objectFormat
+      ? ['init', '--bare', `--object-format=${objectFormat}`, '-q']
+      : ['init', '--bare', '-q'],
+  );
   git(dir, ['remote', 'add', 'origin', bare]);
   const published = publishState({}, dir, { gitEnv: ENV });
   assert.equal(published.confirmed, true);
@@ -476,4 +534,67 @@ test('124231 CR18: abort and recovery refresh the remote state head', () => {
   assert.throws(() => abortState(dir, { gitEnv: ENV }), /state has advanced/);
   const recovered = recoverState({ branch: 'changeledger/recovery-remote' }, dir, { gitEnv: ENV });
   assert.equal(recovered.head, advanced.head);
+});
+
+test('20260721-124530: preview, init and activate cut over on a SHA-256 object repository', () => {
+  const dir = rootSha256();
+  const preview = previewState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  assert.deepEqual(preview.conflicts, []);
+
+  const initialized = initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  assert.match(initialized.head, /^[0-9a-f]{64}$/);
+  assert.equal(readStateStore(dir, 'changeledger/state').changes.length, 1);
+
+  publishCandidate(dir, { objectFormat: 'sha256' });
+  const activated = activateState({ advisoryReason: 'temporary server without hooks' }, dir, {
+    gitEnv: ENV,
+  });
+  const config = loadConfig(path.join(dir, '.changeledger'));
+  assert.equal(config.git.state_branch, 'changeledger/state');
+  assert.equal(config.git.state_baseline, initialized.head);
+  assert.equal(activated.baseline, initialized.head);
+  assert.equal(
+    fs.existsSync(path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md')),
+    false,
+  );
+  assert.equal(fs.existsSync(path.join(dir, '.changeledger', 'changes', 'STATE_MOVED')), true);
+});
+
+test('20260721-124530: abort restores legacy files on a SHA-256 object repository', () => {
+  const dir = rootSha256();
+  const initialized = initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir, { objectFormat: 'sha256' });
+  activateState({ advisoryReason: 'test' }, dir, { gitEnv: ENV });
+  const aborted = abortState(dir, { gitEnv: ENV });
+  assert.equal(aborted.baseline, initialized.head);
+  assert.equal(
+    fs.existsSync(path.join(dir, '.changeledger', 'changes', '20260720-120000-state.md')),
+    true,
+  );
+  const config = loadConfig(path.join(dir, '.changeledger'));
+  assert.equal(config.git.state_branch, undefined);
+  assert.equal(config.git.state_baseline, undefined);
+});
+
+test('20260721-124530: advanced state exports recovery on a SHA-256 object repository', () => {
+  const dir = rootSha256();
+  const initialized = initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir, { objectFormat: 'sha256' });
+  activateState({ advisoryReason: 'test' }, dir, { gitEnv: ENV });
+  const advanced = mutateStateChange({
+    repoRoot: dir,
+    branch: 'changeledger/state',
+    id: '20260720-120000',
+    expectedHead: initialized.head,
+    operation: 'note',
+    actor: 'ana',
+    mutate: (text) => `${text}\nadvanced\n`,
+    gitEnv: ENV,
+  });
+  assert.throws(() => abortState(dir, { gitEnv: ENV }), /state has advanced/);
+  const recovered = recoverState({ branch: 'changeledger/recovery-sha256' }, dir, { gitEnv: ENV });
+  assert.equal(recovered.head, advanced.head);
+  assert.match(recovered.head, /^[0-9a-f]{64}$/);
+  assert.equal(git(dir, ['rev-parse', 'refs/heads/changeledger/recovery-sha256']), advanced.head);
+  assert.equal(loadConfig(path.join(dir, '.changeledger')).git.state_branch, 'changeledger/state');
 });

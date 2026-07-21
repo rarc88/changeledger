@@ -123,6 +123,34 @@ test('124231 CR1/CR2: initialization creates an independent readable state ref',
   );
 });
 
+function repoSha256() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-sha256-'));
+  git(root, ['init', '--object-format=sha256', '-q', '-b', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    `schema_version: 4
+language: en
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, log]
+types:
+  feature:
+    stages: [request, log]
+project_id: project-1
+project_name: state
+`,
+  );
+  fs.writeFileSync(path.join(root, 'README.md'), '# repo\n');
+  git(root, ['add', 'README.md', '.changeledger/config.yml']);
+  git(root, ['commit', '-qm', 'initial']);
+  return root;
+}
+
 test('124231 CR1: state initialization supports SHA-256 object repositories', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-sha256-'));
   git(root, ['init', '--object-format=sha256', '-q', '-b', 'dev']);
@@ -136,6 +164,120 @@ test('124231 CR1: state initialization supports SHA-256 object repositories', ()
   });
   assert.match(created.head, /^[0-9a-f]{64}$/);
   assert.equal(readStateStore(root, 'changeledger/state').head, created.head);
+});
+
+test('20260721-124530: a stale mutation retries on a SHA-256 object repository', () => {
+  const root = repoSha256();
+  const first = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [
+      { name: '20260720-120000-a.md', text: change('20260720-120000', 'A') },
+      { name: '20260720-120001-b.md', text: change('20260720-120001', 'B') },
+    ],
+    gitEnv: GIT_ENV,
+  });
+  assert.match(first.head, /^[0-9a-f]{64}$/);
+
+  mutateStateChange({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    id: '20260720-120000',
+    expectedHead: first.head,
+    operation: 'note-a',
+    actor: 'ana',
+    mutate: (text) => `${text}\nA changed\n`,
+    gitEnv: GIT_ENV,
+  });
+  const second = mutateStateChange({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    id: '20260720-120001',
+    expectedHead: first.head,
+    operation: 'note-b',
+    actor: 'luis',
+    mutate: (text) => `${text}\nB changed\n`,
+    gitEnv: GIT_ENV,
+  });
+
+  assert.equal(second.retried, true);
+  assert.match(second.head, /^[0-9a-f]{64}$/);
+  const loaded = readStateStore(root, 'changeledger/state');
+  assert.match(
+    loaded.changes.find((item) => item.frontmatter.id === '20260720-120000').text,
+    /A changed/,
+  );
+  assert.match(
+    loaded.changes.find((item) => item.frontmatter.id === '20260720-120001').text,
+    /B changed/,
+  );
+});
+
+test('20260721-124530: sync replays disjoint changes on a SHA-256 object repository', () => {
+  const root = repoSha256();
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-sha256-remote-'));
+  git(bare, ['init', '--bare', '--object-format=sha256', '-q']);
+  git(root, ['remote', 'add', 'origin', bare]);
+  git(root, ['push', '-q', '-u', 'origin', 'dev']);
+  const first = initializeStateStore({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    projectId: 'project-1',
+    integrationBranch: 'dev',
+    changes: [
+      { name: '20260720-120000-a.md', text: change('20260720-120000', 'A') },
+      { name: '20260720-120001-b.md', text: change('20260720-120001', 'B') },
+    ],
+    gitEnv: GIT_ENV,
+  });
+  assert.equal(publishStateStore(root, 'changeledger/state', { gitEnv: GIT_ENV }).confirmed, true);
+
+  const second = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-sha256-clone-'));
+  git(second, ['clone', '-q', bare, '.']);
+  git(second, [
+    'update-ref',
+    'refs/heads/changeledger/state',
+    'refs/remotes/origin/changeledger/state',
+  ]);
+
+  const published = mutateStateChange({
+    repoRoot: root,
+    branch: 'changeledger/state',
+    id: '20260720-120000',
+    expectedHead: first.head,
+    operation: 'first',
+    actor: 'ana',
+    mutate: (text) => `${text}\nA remote\n`,
+    gitEnv: GIT_ENV,
+  });
+  assert.equal(published.confirmed, true);
+  const pending = mutateStateChange({
+    repoRoot: second,
+    branch: 'changeledger/state',
+    id: '20260720-120001',
+    expectedHead: first.head,
+    operation: 'second',
+    actor: 'luis',
+    mutate: (text) => `${text}\nB pending\n`,
+    gitEnv: GIT_ENV,
+  });
+  assert.equal(pending.pending, true);
+
+  const synced = syncStateStore(second, 'changeledger/state', { gitEnv: GIT_ENV });
+  assert.equal(synced.confirmed, true);
+  assert.equal(synced.replayed, 1);
+  assert.match(synced.head, /^[0-9a-f]{64}$/);
+  const loaded = readStateStore(second, 'changeledger/state', { gitEnv: GIT_ENV });
+  assert.match(
+    loaded.changes.find((item) => item.frontmatter.id === '20260720-120000').text,
+    /A remote/,
+  );
+  assert.match(
+    loaded.changes.find((item) => item.frontmatter.id === '20260720-120001').text,
+    /B pending/,
+  );
 });
 
 test('124231 CR2: reading hundreds of changes uses bounded Git process overhead', () => {
