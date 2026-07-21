@@ -2,9 +2,10 @@
 id: "20260721-195659"
 title: Validar la estructura de git en changeledger check
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-21T19:56:59Z
 depends_on: []
+owner: Roberto Ruiz
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
 release_impact: patch
 ---
@@ -70,3 +71,5 @@ permitidas para preservar extensibilidad y configuración específica del repo.
 
 - **2026-07-21T19:56:59Z** `[note]` Extraído por separado para mantener una sola preocupación: alinea check con el accessor Git actual sin portar el schema del estado v1.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
+- **2026-07-21T20:53:19Z** `[status]` approved → in-progress
+- **2026-07-21T20:53:19Z** `[owner]` set: Roberto Ruiz (auto)
