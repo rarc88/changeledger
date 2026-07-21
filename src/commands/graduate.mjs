@@ -6,13 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { mutateResolvedChange } from '../change-store.mjs';
+import { assertResolvedOwner, mutateResolvedChange } from '../change-store.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { objectRun } from '../git.mjs';
+import { ownerHandle as defaultOwnerHandle, objectRun } from '../git.mjs';
 import { nowUtc } from '../paths.mjs';
-import { assertRepoStateWritable, resolveChange } from '../repo.mjs';
+import { assertRepoStateWritable, integrationObservationRef, resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
 import { parseSpec } from '../spec.mjs';
 import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
@@ -45,8 +45,29 @@ function requireGraduationReady(config, changeFile, changeText) {
 
 function canonicalGraduation(resolved, specFile, id) {
   if (!resolved.state) return undefined;
-  const integrationRef =
-    resolved.state.integrationRef ?? `refs/heads/${resolved.state.manifest.integration_branch}`;
+  const integrationBranch = resolved.state.manifest.integration_branch;
+  let integrationRef = resolved.state.integrationRef ?? `refs/heads/${integrationBranch}`;
+  try {
+    objectRun(['remote', 'get-url', 'origin'], resolved.repoRoot);
+    // A remote-tracking ref is only a cache and may survive a remote rewind,
+    // deletion, or URL change. Refresh the exact authoritative branch into a
+    // ChangeLedger-owned observation ref before accepting graduation evidence.
+    integrationRef = integrationObservationRef(integrationBranch);
+    objectRun(
+      ['fetch', '--no-tags', 'origin', `+refs/heads/${integrationBranch}:${integrationRef}`],
+      resolved.repoRoot,
+    );
+  } catch {
+    // A configured but unreachable/missing remote cannot be replaced by stale
+    // local evidence. Without origin at all, the local integration branch is
+    // the only available authority and the state mutation remains pending.
+    try {
+      objectRun(['remote', 'get-url', 'origin'], resolved.repoRoot);
+      return undefined;
+    } catch {
+      // Keep the local integration ref selected above.
+    }
+  }
   const relative = path.relative(resolved.repoRoot, specFile).split(path.sep).join('/');
   if (!relative || relative.startsWith('../')) {
     throw new Error(`Spec "${specFile}" is outside the repository`);
@@ -104,13 +125,20 @@ ${seed}
 
 // Finalizes graduation into an EXISTING, manually refined spec. The command
 // refreshes `updated` and links it back, but never overwrites the body.
-export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
+export function graduate(
+  id,
+  slug,
+  cwd = process.cwd(),
+  { into = false, actorHandle = defaultOwnerHandle } = {},
+) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
   const resolved = graduationTarget(id, slug, cwd);
   const { config, file: changeFile, specName, specFile } = resolved;
   requireGraduationReady(config, changeFile, resolved.change.text);
+  const actor = actorHandle(resolved.repoRoot);
+  assertResolvedOwner(resolved, actor);
 
   if (!fs.existsSync(specFile)) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
@@ -127,12 +155,13 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
   const canonical = canonicalGraduation(resolved, specFile, id);
   if (resolved.state && !canonical) {
     writeFileAtomic(specFile, updatedSpec);
-    return { file: specFile, pending: true };
+    return { file: specFile, pending: true, reason: 'canonical-spec' };
   }
 
   if (!resolved.state) writeFileAtomic(specFile, updatedSpec);
+  let mutation;
   try {
-    mutateResolvedChange(
+    mutation = mutateResolvedChange(
       resolved,
       (changeText) => {
         requireGraduationReady(config, changeFile, changeText);
@@ -146,7 +175,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
         text = setReviewed(text, true);
         return text;
       },
-      { operation: 'graduate', actor: resolved.change.frontmatter.owner ?? 'human' },
+      { operation: 'graduate', actor: actor || 'unknown' },
     );
   } catch (error) {
     // Legacy graduation writes the spec before its local change document. Keep
@@ -156,17 +185,30 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
     if (!resolved.state) writeFileAtomic(specFile, originalSpec);
     throw error;
   }
-  return canonical
-    ? { file: specFile, pending: false, canonicalRevision: canonical.revision }
-    : specFile;
+  if (!canonical) return specFile;
+  const pending = mutation.pending || mutation.confirmed === false;
+  return {
+    file: specFile,
+    pending,
+    confirmed: mutation.confirmed,
+    reason: pending ? 'state-publication' : undefined,
+    canonicalRevision: canonical.revision,
+  };
 }
 
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
 // bug/chore with no persistent truth). Records the reason in the Log.
-export function skipGraduation(id, reason, cwd = process.cwd()) {
+export function skipGraduation(
+  id,
+  reason,
+  cwd = process.cwd(),
+  { actorHandle = defaultOwnerHandle } = {},
+) {
   const resolved = resolveChange(cwd, id);
   const { config, file: changeFile } = resolved;
-  mutateResolvedChange(
+  const actor = actorHandle(resolved.repoRoot);
+  assertResolvedOwner(resolved, actor);
+  const mutation = mutateResolvedChange(
     resolved,
     (text) => {
       requireGraduationReady(config, changeFile, text);
@@ -179,7 +221,14 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
       });
       return setReviewed(text, true);
     },
-    { operation: 'graduate:skip', actor: resolved.change.frontmatter.owner ?? 'human' },
+    { operation: 'graduate:skip', actor: actor || 'unknown' },
   );
-  return changeFile;
+  if (!resolved.state) return changeFile;
+  const pending = mutation.pending || mutation.confirmed === false;
+  return {
+    file: changeFile,
+    pending,
+    confirmed: mutation.confirmed,
+    reason: pending ? 'state-publication' : undefined,
+  };
 }

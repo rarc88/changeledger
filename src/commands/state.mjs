@@ -32,6 +32,7 @@ const DEFAULT_STATE_BRANCH = 'changeledger/state';
 const PROTECTION_PROBE_PREFIX = 'refs/changeledger/protection-probe/';
 const PROTECTION_PROBE_FILE_PREFIX = 'changeledger-protection-probe-';
 const PROTECTION_ATTESTATION = 'CHANGELEDGER_PROTECTION_ATTESTATION';
+const PROTECTION_PROTOCOL = 'v1';
 
 function project(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
@@ -177,7 +178,7 @@ export function activateState(
   const remoteProtected = protection.enforced;
   if (!advisory && !remoteProtected) {
     throw new Error(
-      `remote protection could not be verified${protection.probeRef ? `; probe ${protection.probeRef} was accepted and must be removed by an authorized remote administrator` : ''}; pass --advisory <reason> to record an explicit advisory cutover`,
+      `remote protection could not be verified${protection.diagnostic ? `: ${protection.diagnostic}` : ''}; owner enforcement: ${protection.ownerEnforcement ?? 'unavailable'}${protection.probeRef ? `; inspect probe ${protection.probeRef} and remove it if present using authorized remote administration` : ''}; pass --advisory <reason> to record an explicit advisory cutover`,
     );
   }
 
@@ -250,7 +251,13 @@ export function activateState(
     throw error;
   }
 
-  return { branch, baseline: store.head, advisory: Boolean(advisory), remoteProtected };
+  return {
+    branch,
+    baseline: store.head,
+    advisory: Boolean(advisory),
+    remoteProtected,
+    remoteOwnerEnforcement: protection.ownerEnforcement ?? 'unavailable',
+  };
 }
 
 export function doctorState(
@@ -303,6 +310,10 @@ export function doctorState(
     append_only: true,
     remote_state: remoteState,
     remote_protection: remoteProtection,
+    ...(protection?.ownerEnforcement
+      ? { remote_owner_enforcement: protection.ownerEnforcement }
+      : {}),
+    ...(protection?.diagnostic ? { protection_error: protection.diagnostic } : {}),
     ...(protection?.probeRef ? { protection_probe: protection.probeRef } : {}),
     instructions: [
       'Disable force-push and branch deletion.',
@@ -361,14 +372,24 @@ export function validateReceive(
         throw new Error(`invalid ChangeLedger protection probe ref: ${ref}`);
       }
       results.push(
-        validateProtectionProbe(repoRoot, { oldHead, newHead, nonce, branch, gitEnv: receiveEnv }),
+        validateProtectionProbe(repoRoot, {
+          oldHead,
+          newHead,
+          nonce,
+          branch,
+          ownerEnforcement: actor ? 'authenticated' : 'unavailable',
+          gitEnv: receiveEnv,
+        }),
       );
     }
   }
   return results;
 }
 
-function validateProtectionProbe(repoRoot, { oldHead, newHead, nonce, branch, gitEnv }) {
+function validateProtectionProbe(
+  repoRoot,
+  { oldHead, newHead, nonce, branch, ownerEnforcement, gitEnv },
+) {
   if (!/^0+$/.test(oldHead) || /^0+$/.test(newHead)) {
     throw new Error('ChangeLedger protection probes must create a new ref');
   }
@@ -377,11 +398,88 @@ function validateProtectionProbe(repoRoot, { oldHead, newHead, nonce, branch, gi
     validateStateRange(repoRoot, { oldHead, newHead, gitEnv });
   } catch (error) {
     if (String(error.message).includes(`contains file outside the state layout: ${expectedFile}`)) {
-      throw new Error(`${PROTECTION_ATTESTATION} ${nonce} ${branch}`);
+      throw new Error(
+        `${PROTECTION_ATTESTATION} ${PROTECTION_PROTOCOL} nonce=${nonce} branch=${branch} commit=${newHead} owner=${ownerEnforcement}`,
+      );
     }
     throw error;
   }
   throw new Error('ChangeLedger protection probe unexpectedly passed state validation');
+}
+
+function parseProtectionAttestations(message) {
+  const prefix = `${PROTECTION_ATTESTATION} `;
+  const lines = String(message)
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^remote:\s*/, '')
+        .replace(/^Error:\s*/, ''),
+    )
+    .filter((line) => line.startsWith(prefix));
+  return lines.map((line) => {
+    const match = line.match(
+      /^CHANGELEDGER_PROTECTION_ATTESTATION (\S+) nonce=([0-9a-f]{32}) branch=(\S+) commit=([0-9a-f]{40,64}) owner=(authenticated|unavailable)$/,
+    );
+    if (!match) return { malformed: true, raw: line };
+    return {
+      protocol: match[1],
+      nonce: match[2],
+      branch: match[3],
+      commit: match[4],
+      ownerEnforcement: match[5],
+    };
+  });
+}
+
+function protectionFailure(attestations, { nonce, branch, commit, probeRef }) {
+  if (attestations.length > 1) {
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      probeRef,
+      diagnostic: `ambiguous attestation response: expected exactly one, received ${attestations.length}`,
+    };
+  }
+  const parsed = attestations.find((attestation) => !attestation.malformed);
+  if (!parsed) {
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      probeRef,
+      diagnostic: attestations.length
+        ? `unsupported or malformed attestation protocol; expected ${PROTECTION_PROTOCOL}`
+        : `no valid ChangeLedger ${PROTECTION_PROTOCOL} attestation was received`,
+    };
+  }
+  if (parsed.protocol !== PROTECTION_PROTOCOL) {
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      probeRef,
+      diagnostic: `protocol mismatch: expected ${PROTECTION_PROTOCOL}, received ${parsed.protocol}`,
+    };
+  }
+  if (parsed.branch !== branch) {
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      probeRef,
+      diagnostic: `branch mismatch: expected ${branch}, received ${parsed.branch}`,
+    };
+  }
+  const mismatches = [];
+  if (parsed.nonce !== nonce) mismatches.push('nonce');
+  if (parsed.commit !== commit) mismatches.push('commit');
+  return {
+    enforced: false,
+    ownerEnforcement: 'unavailable',
+    probeRef,
+    diagnostic: mismatches.length
+      ? `attestation mismatch: ${mismatches.join(', ')}`
+      : 'attestation did not match the expected protection protocol',
+  };
 }
 
 // Empirically confirms the remote runs this validator for exactly `branch`.
@@ -396,7 +494,11 @@ export function confirmRemoteProtection(
   try {
     objectRun(['remote', 'get-url', 'origin'], repoRoot, { env: gitEnv });
   } catch {
-    return { enforced: false };
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      diagnostic: 'remote "origin" is not configured or reachable',
+    };
   }
   const nonce = randomBytes(16).toString('hex');
   const probeRef = `${PROTECTION_PROBE_PREFIX}${nonce}`;
@@ -414,18 +516,48 @@ export function confirmRemoteProtection(
       env: gitEnv,
     }).trim();
   } catch {
-    return { enforced: false };
+    return {
+      enforced: false,
+      ownerEnforcement: 'unavailable',
+      probeRef,
+      diagnostic: 'unable to construct the ChangeLedger protection probe commit',
+    };
   }
   try {
     objectRun(['push', 'origin', `${commit}:${probeRef}`], repoRoot, {
       env: gitEnv,
     });
   } catch (error) {
-    return {
-      enforced: String(error.message).includes(`${PROTECTION_ATTESTATION} ${nonce} ${branch}`),
-    };
+    // objectRun includes stderr in both the native child-process message and
+    // its appended diagnostic. Parse the native stderr directly so transport
+    // wrapping is not mistaken for a second attestation, while two lines
+    // actually emitted by the hook still fail the exact-cardinality check.
+    const pushStderr =
+      typeof error.cause?.stderr === 'string' ? error.cause.stderr : String(error.message);
+    const attestations = parseProtectionAttestations(pushStderr);
+    const exact = attestations.length === 1 ? attestations[0] : undefined;
+    if (
+      exact &&
+      !exact.malformed &&
+      exact.protocol === PROTECTION_PROTOCOL &&
+      exact.nonce === nonce &&
+      exact.branch === branch &&
+      exact.commit === commit
+    ) {
+      return {
+        enforced: true,
+        protocol: PROTECTION_PROTOCOL,
+        ownerEnforcement: exact.ownerEnforcement,
+      };
+    }
+    return protectionFailure(attestations, { nonce, branch, commit, probeRef });
   }
-  return { enforced: false, probeRef };
+  return {
+    enforced: false,
+    ownerEnforcement: 'unavailable',
+    probeRef,
+    diagnostic: 'probe ref was accepted; remote protection is not enforced',
+  };
 }
 
 export function abortState(cwd = process.cwd(), { gitEnv = {} } = {}) {

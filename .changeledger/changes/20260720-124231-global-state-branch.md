@@ -426,9 +426,23 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **When** el humano inicia `graduate --into` antes de que la versión vinculada de la spec sea alcanzable desde la autoridad canónica de integración
 - **Then** ChangeLedger no marca el change como `reviewed` ni registra la graduación como completada
 - **And** informa que la graduación continúa pendiente hasta publicar o integrar la spec
+- **Given** un remoto `origin` y una rama de integración local que contiene la spec pero todavía no está publicada en la rama remota equivalente
+- **When** se intenta finalizar la graduación global
+- **Then** la rama local por sí sola no se considera evidencia canónica y el change permanece pendiente
 - **When** la spec vinculada ya es alcanzable desde la rama de integración canónica y se finaliza la graduación
 - **Then** el evento global referencia evidencia verificable de esa revisión canónica
 - **And** `loadRepo`, el viewer y `list --pending graduation` observan una única decisión coherente incluso si la publicación del estado falla o queda pendiente
+
+### CR21 — Publicación y actor de graduación explícitos
+- **Given** una graduación o skip global cuya publicación remota falla o queda offline
+- **When** ChangeLedger guarda el commit local del estado
+- **Then** la API y el CLI informan que la operación está pendiente, no anuncian una graduación global confirmada y remiten a `state sync`
+- **And** una decisión humana posterior sobre ese change permanece bloqueada mientras exista estado pendiente
+- **Given** un change global reservado para `ana`
+- **When** otra identidad intenta ejecutar `graduate --into` o `graduate --skip`
+- **Then** falla antes de mutar y no registra `Change-Actor: ana`
+- **When** `ana` ejecuta la operación
+- **Then** el commit registra la identidad efectiva `ana`
 
 ## Plan
 
@@ -464,6 +478,12 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
   - **Resolved:** `2026-07-20T15:10:45Z`
 - [x] Añadir en `test/graduate.test.mjs` una regresión global que reproduzca la graduación antes de publicar la spec, definir el protocolo de finalización en dos fases en `src/commands/graduate.mjs` y `src/repo.mjs`, y evitar que el estado se marque revisado hasta que la spec vinculada sea canónica; verify: `node --test test/graduate.test.mjs test/repo.test.mjs` (CR20)
   - **Resolved:** `2026-07-21T16:25:20Z`
+- [x] Add remote-backed regressions in `test/graduate.test.mjs` for an unpublished local integration spec, rejected state publication, pending human-decision guards and a non-owner graduation actor; then update `src/commands/graduate.mjs`, `src/repo.mjs` and `bin/changeledger.mjs` to require remote canonical reachability when origin exists, preserve publication results, report pending state and authorize the effective actor; verify: `node --test test/graduate.test.mjs test/repo.test.mjs test/cli-bin.test.mjs` (CR20, CR21)
+  - **Resolved:** `2026-07-21T17:16:24Z`
+- [x] Add a remotely rewound integration regression and CLI/list/viewer-consumer assertions in `test/graduate.test.mjs`, then refresh the exact origin integration ref before accepting canonical graduation evidence in `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs test/repo.test.mjs test/cli-bin.test.mjs` (CR20, CR21)
+  - **Resolved:** `2026-07-21T17:40:46Z`
+- [x] Add two-clone, remote-deletion and unreachable-authority regressions in `test/graduate.test.mjs`; then make `src/repo.mjs` synchronous/async readers consume the same validated integration observation ref as `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs test/repo.test.mjs test/viewer-metadata.test.mjs` (CR20)
+  - **Resolved:** `2026-07-21T17:58:33Z`
 
 ## Log
 
@@ -518,3 +538,10 @@ queda fuera de alcance hasta que `20260720-223228` la entregue.
 - **2026-07-21T16:17:53Z** `[status]` done → in-progress (agent reopened): La auditoría posterior confirmó que la graduación puede marcar el estado global como revisado antes de que la spec exista en la verdad canónica de la rama de integración
 - **2026-07-21T16:49:09Z** `[status]` in-progress → in-review
 - **2026-07-21T16:54:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T17:10:49Z** `[validation]` in-validation → in-progress (human rejected via conversation): La segunda auditoría encontró que una dev local no publicada puede certificar la spec, que graduate/skip ocultan publicación pendiente y que Change-Actor puede suplantar al owner
+- **2026-07-21T17:26:35Z** `[status]` in-progress → in-review
+- **2026-07-21T17:33:21Z** `[review]` in-review → in-progress (retry): canonicalGraduation confía en un refs/remotes/origin obsoleto sin refrescar la autoridad remota; falta demostrar coherencia de CLI/viewer/list cuando la graduación local queda pendiente.
+- **2026-07-21T17:45:43Z** `[status]` in-progress → in-review
+- **2026-07-21T17:52:02Z** `[review]` in-review → in-progress (retry): CR20 diverge en dos clones: graduate refresca una ref propia pero loadRepo/loadRepoAsync siguen leyendo specs desde integrationRef obsoleta, pudiendo mostrar reviewed confirmado sin la evidencia canónica; añadir regresiones de clone atrasado, borrado remoto y URL fallida.
+- **2026-07-21T18:01:24Z** `[status]` in-progress → in-review
+- **2026-07-21T18:10:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)

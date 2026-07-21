@@ -260,14 +260,14 @@ test('223228 CR4: a confirmed pre-receive hook activates strong protection witho
   const bare = publishCandidate(dir);
   installReceiveHook(bare);
 
-  assert.equal(
-    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
-    'enforced',
-  );
+  const diagnosed = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(diagnosed.remote_protection, 'enforced');
+  assert.equal(diagnosed.remote_owner_enforcement, 'unavailable');
 
   const activated = activateState({ confirmStrong: true }, dir, { gitEnv: ENV });
   assert.equal(activated.advisory, false);
   assert.equal(activated.remoteProtected, true);
+  assert.equal(activated.remoteOwnerEnforcement, 'unavailable');
   assert.match(
     fs.readFileSync(path.join(dir, '.changeledger', 'changes', 'STATE_MOVED'), 'utf8'),
     /Remote-validated cutover: pre-receive protection confirmed/,
@@ -321,10 +321,27 @@ test('223228 CR5: a generic reject-all hook is not certified as ChangeLedger pro
   fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n');
   fs.chmodSync(hook, 0o755);
 
-  assert.equal(
-    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
-    'unverified',
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+  assert.match(result.protection_error, /no valid ChangeLedger v1 attestation/);
+});
+
+test('223228 CR7: a hook echoing the legacy public challenge is not protocol attestation', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  const hook = path.join(bare, 'hooks', 'pre-receive');
+  fs.writeFileSync(
+    hook,
+    '#!/bin/sh\nwhile read old new ref; do nonce="$' +
+      '{ref##*/}"; echo "CHANGELEDGER_PROTECTION_ATTESTATION $nonce changeledger/state" >&2; done\nexit 1\n',
   );
+  fs.chmodSync(hook, 0o755);
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.match(result.protection_error, /unsupported or malformed attestation protocol/);
 });
 
 test('223228 CR5: a validator configured for another state branch is not certified', () => {
@@ -334,9 +351,134 @@ test('223228 CR5: a validator configured for another state branch is not certifi
   const bare = publishCandidate(dir, { branch });
   installReceiveHook(bare, 'changeledger/state');
 
-  assert.equal(
-    doctorState({ branch, confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
-    'unverified',
+  const result = doctorState({ branch, confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.match(
+    result.protection_error,
+    /branch mismatch: expected team\/custom-state, received changeledger\/state/,
+  );
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+  assert.throws(
+    () => activateState({ branch, confirmStrong: true }, dir, { gitEnv: ENV }),
+    /branch mismatch: expected team\/custom-state, received changeledger\/state.*owner enforcement: unavailable/s,
+  );
+
+  const output = execFileSync(
+    process.execPath,
+    [BIN, 'state', 'doctor', '--branch', branch, '--confirm-strong'],
+    { cwd: dir, env: ENV, encoding: 'utf8' },
+  );
+  assert.match(
+    output,
+    /Protection error: branch mismatch: expected team\/custom-state, received changeledger\/state/,
+  );
+  assert.match(output, /Protection probe: refs\/changeledger\/protection-probe\/[0-9a-f]{32}/);
+});
+
+function installAttestationHook(bare, attestation) {
+  const hook = path.join(bare, 'hooks', 'pre-receive');
+  const nonceFromRef = `${String.fromCharCode(36)}{ref##*/}`;
+  fs.writeFileSync(
+    hook,
+    `#!/bin/sh\nwhile read old new ref; do nonce="${nonceFromRef}"; ${attestation}\ndone\nexit 1\n`,
+  );
+  fs.chmodSync(hook, 0o755);
+}
+
+for (const [name, attestation, expected] of [
+  [
+    'protocol version',
+    'echo "CHANGELEDGER_PROTECTION_ATTESTATION v2 nonce=$nonce branch=changeledger/state commit=$new owner=unavailable" >&2',
+    /protocol mismatch: expected v1, received v2/,
+  ],
+  [
+    'nonce',
+    'echo "CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=00000000000000000000000000000000 branch=changeledger/state commit=$new owner=unavailable" >&2',
+    /attestation mismatch: nonce/,
+  ],
+  [
+    'commit',
+    'echo "CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=$nonce branch=changeledger/state commit=0000000000000000000000000000000000000000 owner=unavailable" >&2',
+    /attestation mismatch: commit/,
+  ],
+]) {
+  test(`223228 CR7: a mismatched ${name} cannot certify protection`, () => {
+    const dir = root();
+    initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+    const bare = publishCandidate(dir);
+    installAttestationHook(bare, attestation);
+
+    const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+    assert.equal(result.remote_protection, 'unverified');
+    assert.match(result.protection_error, expected);
+    assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+  });
+}
+
+test('223228 CR6/CR7: an interrupted probe reports its exact retained recovery ref', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  const hook = path.join(bare, 'hooks', 'pre-receive');
+  fs.writeFileSync(hook, '#!/bin/sh\nkill -TERM $$\n');
+  fs.chmodSync(hook, 0o755);
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.match(result.protection_error, /no valid ChangeLedger v1 attestation/);
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+});
+
+test('223228 CR7: multiple attestations are ambiguous even when one matches exactly', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  installAttestationHook(
+    bare,
+    'echo "CHANGELEDGER_PROTECTION_ATTESTATION v2 nonce=$nonce branch=other/state commit=$new owner=authenticated" >&2; echo "CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=$nonce branch=changeledger/state commit=$new owner=unavailable" >&2',
+  );
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.equal(result.remote_owner_enforcement, 'unavailable');
+  assert.match(
+    result.protection_error,
+    /ambiguous attestation response: expected exactly one, received 2/,
+  );
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+});
+
+test('223228 CR7: two identical hook attestations remain ambiguous', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  installAttestationHook(
+    bare,
+    'echo "CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=$nonce branch=changeledger/state commit=$new owner=unavailable" >&2; echo "CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=$nonce branch=changeledger/state commit=$new owner=unavailable" >&2',
+  );
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.equal(result.remote_owner_enforcement, 'unavailable');
+  assert.match(
+    result.protection_error,
+    /ambiguous attestation response: expected exactly one, received 2/,
+  );
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+});
+
+test('223228 CR7: a pre-probe failure exposes diagnostics and owner availability', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.equal(result.remote_owner_enforcement, 'unavailable');
+  assert.match(result.protection_error, /origin.*not configured or reachable/);
+  assert.equal(result.protection_probe, undefined);
+  assert.throws(
+    () => activateState({ confirmStrong: true }, dir, { gitEnv: ENV }),
+    /origin.*not configured or reachable.*owner enforcement: unavailable/s,
   );
 });
 
@@ -377,10 +519,19 @@ test('124231 CR16: CLI publishes an inactive candidate before activation', () =>
     encoding: 'utf8',
   });
   assert.match(published, new RegExp(`State candidate confirmed at ${initialized.head}`));
-  execFileSync(process.execPath, [BIN, 'state', 'activate', '--advisory', 'test'], {
-    cwd: dir,
-    env: ENV,
-  });
+  const activationOutput = execFileSync(
+    process.execPath,
+    [BIN, 'state', 'activate', '--advisory', 'test'],
+    {
+      cwd: dir,
+      env: ENV,
+      encoding: 'utf8',
+    },
+  );
+  assert.match(
+    activationOutput,
+    /Remote content protection: unverified; owner enforcement: unavailable/,
+  );
   const config = loadConfig(path.join(dir, '.changeledger'));
   assert.equal(config.git.state_branch, 'changeledger/state');
   assert.equal(config.git.state_baseline, initialized.head);

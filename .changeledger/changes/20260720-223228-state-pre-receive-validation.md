@@ -119,6 +119,19 @@ degradarse silenciosamente a una afirmación de protección.
 - **And** cualquier referencia auxiliar y su política de limpieza se definen antes de la implementación, sin prometer limpieza garantizada mediante una operación best-effort
 - **And** una confirmación interrumpida conserva un diagnóstico recuperable y nunca se presenta como protección verificada
 
+### CR7 — Protocolo y diagnóstico verificables
+- **Given** una confirmación fuerte
+- **When** el validador reconoce el probe reservado
+- **Then** responde con una única atestación versionada que liga exactamente versión de protocolo, nonce, rama, commit del probe y disponibilidad de identidad autenticada
+- **And** el cliente exige una coincidencia completa de campos; una respuesta legacy, parcial o embebida en otro texto no certifica protección
+- **Given** una atestación válida para otra rama o versión
+- **When** el cliente la recibe
+- **Then** `doctor` y `activate` fallan cerrado e indican los valores esperados y recibidos
+- **Given** un push rechazado, interrumpido o de resultado ambiguo sin atestación válida
+- **When** la confirmación termina sin poder demostrar si el ref auxiliar existe
+- **Then** el resultado conserva el nombre exacto del probe para recuperación administrativa
+- **And** separa la protección de contenido/historia de la disponibilidad del enforcement remoto de owner
+
 ## Plan
 
 - [x] Add a failing test that installs a real `pre-receive` hook (invoking the built CLI) in a bare remote and pushes a state update through it while the object quarantine is active, confirming it fails closed on a valid update today; then give the receive path its own git env inheriting `GIT_OBJECT_DIRECTORY`/`GIT_ALTERNATE_OBJECT_DIRECTORIES` from the hook process instead of stripping them, in `src/git.mjs` and `src/commands/state.mjs`; verify: `node --test test/state-receive.test.mjs` (CR1)
@@ -133,12 +146,22 @@ degradarse silenciosamente a una afirmación de protección.
   - **Resolved:** `2026-07-21T13:58:16Z`
 - [x] Run the full gate and update `templates/contract/`/README wording that still describes pre-receive validation as unavailable; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-21T13:58:16Z`
-- [x] Gate `confirmRemoteProtection` behind an explicit `--confirm-strong` flag on `state doctor`/`state activate` in `src/commands/state.mjs` and `bin/changeledger.mjs` so the probe push never runs implicitly; guarantee the throwaway `refs/changeledger/protection-probe` ref is deleted whenever the probe is accepted, with test coverage proving no ref lingers on origin either way; verify: `node --test test/state-command.test.mjs` (CR4)
+- [x] Gate `confirmRemoteProtection` behind an explicit `--confirm-strong` flag on `state doctor`/`state activate` in `src/commands/state.mjs` and `bin/changeledger.mjs` so the probe push never runs implicitly, and cover the then-current accepted-probe cleanup behavior before CR6 replaces it with retained diagnostics; verify: `node --test test/state-command.test.mjs` (CR4)
   - **Resolved:** `2026-07-21T15:39:04Z`
 - [x] Add failing regressions in `test/state-command.test.mjs` and `test/state-receive.test.mjs` for an unrelated reject-all hook and for a ChangeLedger hook configured for a different custom state branch, then replace the generic-error inference in `src/commands/state.mjs` with an exact branch-bound attestation; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR5)
   - **Resolved:** `2026-07-21T16:31:50Z`
 - [x] Remove force-push from the confirmation path in `src/commands/state.mjs`, specify and test interruption/cleanup semantics for any auxiliary ref, and align `README.md` with the implemented append-only behavior; verify: `node --test test/state-command.test.mjs && changeledger check` (CR6)
   - **Resolved:** `2026-07-21T16:31:51Z`
+- [x] Add adversarial protocol, wrong-branch and ambiguous-result regressions in `test/state-command.test.mjs` and `test/state-receive.test.mjs`; then version and strictly parse the attestation in `src/commands/state.mjs`, expose exact mismatch/probe/owner-enforcement diagnostics through doctor and activation, and document the trust boundary in `README.md`; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR5, CR6, CR7)
+  - **Resolved:** `2026-07-21T17:21:42Z`
+- [x] Add explicit wrong-version, nonce, commit and interrupted-probe regressions in `test/state-command.test.mjs`; update `src/commands/state.mjs` and `bin/changeledger.mjs` to expose protection diagnostics in the normal doctor CLI output and preserve owner-enforcement availability in the activation result/output; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs test/cli-bin.test.mjs` (CR5, CR6, CR7)
+  - **Resolved:** `2026-07-21T17:40:46Z`
+- [x] Add multiple-attestation and pre-probe-failure regressions in `test/state-command.test.mjs`; update `src/commands/state.mjs` to require exactly one attestation and expose owner availability/diagnostics on every failure path, then align `README.md` and the historical Plan clarification with retained probe refs; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR6, CR7)
+  - **Resolved:** `2026-07-21T17:58:33Z`
+- [x] Expose owner-enforcement availability in `state activate --confirm-strong` failures before and after probe allocation in `src/commands/state.mjs`, with regressions in `test/state-command.test.mjs`; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR7)
+  - **Resolved:** `2026-07-21T18:10:43Z`
+- [x] Count identical hook attestations separately while parsing only the push process stderr in `src/commands/state.mjs`, with a regression in `test/state-command.test.mjs`; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR7)
+  - **Resolved:** `2026-07-21T18:19:45Z`
 
 ## Log
 
@@ -158,3 +181,15 @@ degradarse silenciosamente a una afirmación de protección.
 - **2026-07-21T16:17:54Z** `[status]` done → in-progress (agent reopened): La auditoría posterior demostró que --confirm-strong puede certificar un hook ajeno o un hook configurado para otra rama de estado
 - **2026-07-21T16:49:10Z** `[status]` in-progress → in-review
 - **2026-07-21T16:54:09Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T17:10:49Z** `[validation]` in-validation → in-progress (human rejected via conversation): La segunda auditoría encontró que la atestación no identifica inequívocamente el protocolo, no diagnostica la rama exacta y puede perder el ref tras un push ambiguo
+- **2026-07-21T17:26:36Z** `[status]` in-progress → in-review
+- **2026-07-21T17:33:01Z** `[review]` in-review → in-progress (retry): La salida CLI normal descarta diagnostics/probe/owner-enforcement, activate pierde la disponibilidad de owner enforcement y faltan regresiones adversariales de version, nonce, commit y push ambiguo.
+- **2026-07-21T17:45:43Z** `[status]` in-progress → in-review
+- **2026-07-21T17:50:58Z** `[review]` in-review → in-progress (retry): CR7 acepta una coincidencia exacta entre múltiples attestations ambiguas; doctor omite diagnostics/owner availability en fallos pre-probe y Plan/Log aún prometen borrar probes aceptados pese a la política final de retención.
+- **2026-07-21T17:58:33Z** `[note]` La limpieza best-effort descrita en la corrección de CR4 quedó reemplazada por CR6: todo probe aceptado o de resultado no verificable se retiene y se informa para recuperación administrativa; no se promete borrado automático.
+- **2026-07-21T18:01:25Z** `[status]` in-progress → in-review
+- **2026-07-21T18:06:47Z** `[review]` in-review → in-progress (retry): CR7: activateState incluye diagnostic y probe al fallar, pero omite ownerEnforcement; la activación debe exponer explícitamente owner enforcement unavailable también en fallos pre/post-probe y probarlo.
+- **2026-07-21T18:11:05Z** `[status]` in-progress → in-review
+- **2026-07-21T18:18:05Z** `[review]` in-review → in-progress (retry): CR7: dos atestaciones idénticas emitidas por el hook se colapsan con Set y certifican el remoto; la cardinalidad debe contarse sobre stderr real del push sin duplicar el stderr que objectRun incorpora al mensaje.
+- **2026-07-21T18:19:50Z** `[status]` in-progress → in-review
+- **2026-07-21T18:24:35Z** `[review]` in-review → in-validation (delegated subagent, clean context)

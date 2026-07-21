@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
-import { mutateResolvedChange } from '../change-store.mjs';
+import { assertResolvedOwner, mutateResolvedChange } from '../change-store.mjs';
 import { stateConfig } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
@@ -61,6 +61,7 @@ export function fix(
 
   let anyChanged = false;
   let anyManual = false;
+  let anyPending = false;
   const repairs = [];
 
   for (const c of targets) {
@@ -101,11 +102,13 @@ export function fix(
       return 1;
     }
     for (const repair of resolvedRepairs) {
-      mutateResolvedChange(repair.resolved, () => repair.text, {
+      const result = mutateResolvedChange(repair.resolved, () => repair.text, {
         operation: 'fix',
         actor: actor || 'unknown',
       });
-      output.log(`fixed — ${repair.change.name}:`);
+      const pending = mutationPending(result);
+      anyPending ||= pending;
+      output.log(`${pending ? 'fixed locally (pending)' : 'fixed'} — ${repair.change.name}:`);
       for (const applied of repair.applied) output.log(`  - ${applied}`);
     }
   } else if (dryRun) {
@@ -115,6 +118,7 @@ export function fix(
     }
   }
 
+  if (anyPending) reportPendingRepair(output);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -129,17 +133,13 @@ function assertFixAuthorized(resolved, actor) {
   ) {
     return;
   }
-  if (!frontmatter.owner) throw new Error(`change #${frontmatter.id} has no owner`);
-  if (!actor || actor !== frontmatter.owner) {
-    throw new Error(
-      `change #${frontmatter.id} is owned by "${frontmatter.owner}"; transfer ownership explicitly before continuing`,
-    );
-  }
+  assertResolvedOwner(resolved, actor);
 }
 
 function fixStructuredSections(repo, { dryRun, output, actorHandle = defaultOwnerHandle }) {
   let anyChanged = false;
   let anyManual = false;
+  let anyPending = false;
   const repairs = [];
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
@@ -173,17 +173,30 @@ function fixStructuredSections(repo, { dryRun, output, actorHandle = defaultOwne
       return 1;
     }
     for (const repair of resolvedRepairs) {
-      mutateResolvedChange(repair.resolved, () => repair.text, {
+      const result = mutateResolvedChange(repair.resolved, () => repair.text, {
         operation: 'fix:structured-sections',
         actor: actor || 'unknown',
       });
-      output.log(`fixed — ${repair.change.name}:`);
+      const pending = mutationPending(result);
+      anyPending ||= pending;
+      output.log(`${pending ? 'fixed locally (pending)' : 'fixed'} — ${repair.change.name}:`);
       for (const message of repair.applied) output.log(`  - ${message}`);
     }
   }
 
+  if (anyPending) reportPendingRepair(output);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
+}
+
+function mutationPending(result) {
+  return result?.pending === true || result?.confirmed === false;
+}
+
+function reportPendingRepair(output) {
+  output.log(
+    'Pending: repair is saved locally but not globally confirmed; run `changeledger state sync`.',
+  );
 }
 
 function fixGraduationLinks(repo, { dryRun, output }) {

@@ -88,14 +88,21 @@ same engine as the CLI. Confirming the hook is a network mutation (it pushes a
 nonce-bound invalid probe to origin), so it only runs when you pass
 `--confirm-strong` to `state doctor` or `state activate`; by default protection
 is reported `not-checked` and `state activate` still requires `--advisory`.
-The hook certifies only a response that echoes that nonce and its exact configured
-state branch: a generic rejection or a validator installed for another branch is
-not evidence. Probes never force-push or delete refs. If an unprotected remote
-accepts a probe, `state doctor` reports its `protection_probe` ref so an
-authorized remote administrator can remove it; that result is always
-`unverified`. With `--confirm-strong`, `state doctor` reports
-`remote_protection: enforced` only after the branch-bound attestation, and
-`state activate` completes without `--advisory` only in that case. A failed
+The hook certifies only a complete versioned response bound to the nonce, exact
+configured state branch, probe commit and owner-enforcement capability. A
+generic rejection, legacy response or validator installed for another branch
+is not evidence; `state doctor` exposes the exact mismatch. This attests protocol
+compatibility from the configured Git remote, not the identity of a remote
+administrator who controls that hook. Probes never force-push or delete refs.
+Every unverified result after a probe ref is allocated reports its
+`protection_probe` name so an authorized administrator can inspect and remove it
+if an interrupted push created it; failures before allocation report an exact
+diagnostic and owner enforcement as unavailable. With
+`--confirm-strong`, `state doctor` reports `remote_protection: enforced` only
+after the complete attestation and separately reports
+`remote_owner_enforcement` as `authenticated` or `unavailable`; `state activate`
+completes without `--advisory` only in that case and prints the content-protection
+and owner-enforcement results separately. A failed
 publication remains visibly pending; `changeledger state
 sync` publishes it or replays it only when remote edits touched different
 change documents.

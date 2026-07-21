@@ -199,7 +199,12 @@ test('223228 CR1/CR3: real pre-receive hook validates quarantined objects on pus
   }).trim();
   const probe = pushState(root, bare, `${probeCommit}:refs/changeledger/protection-probe/${nonce}`);
   assert.notEqual(probe.status, 0);
-  assert.match(probe.stderr, new RegExp(`CHANGELEDGER_PROTECTION_ATTESTATION ${nonce} ${BRANCH}`));
+  assert.match(
+    probe.stderr,
+    new RegExp(
+      `CHANGELEDGER_PROTECTION_ATTESTATION v1 nonce=${nonce} branch=${BRANCH} commit=${probeCommit} owner=unavailable`,
+    ),
+  );
 
   // Sanity: the working store still resolves the mutated head locally.
   assert.equal(readStateStore(root, BRANCH, { gitEnv: ENV }).head, mutationHead);

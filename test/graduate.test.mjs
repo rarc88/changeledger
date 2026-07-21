@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
+import { list } from '../src/commands/agent.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
-import { loadRepo } from '../src/repo.mjs';
+import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 import { initializeStateStore, readStateStore } from '../src/state-store.mjs';
+import { serialize } from '../src/viewer/domain.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -369,7 +371,7 @@ test('CR2: a scaffolded change remains pending graduation', () => {
   );
 });
 
-function globalRepo() {
+function globalRepo({ remote = false, owner = 'ana' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-global-grad-'));
   const env = {
     ...process.env,
@@ -398,7 +400,7 @@ type: feature
 status: done
 created: 2026-07-21T16:00:00Z
 depends_on: []
-owner: ana
+owner: ${owner}
 ---
 
 ## Request
@@ -425,6 +427,8 @@ Graduation is two-phase.
 ## Log
 `;
   git(['init', '-q', '-b', 'dev']);
+  git(['config', 'user.name', owner]);
+  git(['config', 'user.email', 'graduate@example.com']);
   fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
   fs.writeFileSync(path.join(root, 'README.md'), '# global graduation\n');
   fs.writeFileSync(
@@ -464,12 +468,20 @@ project_name: global-graduate
   );
   git(['add', '.changeledger/config.yml']);
   git(['commit', '-qm', `activate global state [#${id}]`]);
-  return { root, env, git, id };
+  let remoteRoot;
+  if (remote) {
+    remoteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-global-grad-remote-'));
+    execFileSync('git', ['init', '--bare', '-q', remoteRoot], { env });
+    git(['remote', 'add', 'origin', remoteRoot]);
+    git(['push', '-qu', 'origin', 'dev']);
+    git(['push', '-q', 'origin', 'changeledger/state']);
+  }
+  return { root, env, git, id, remoteRoot };
 }
 
 test('124231 CR20: global graduation remains pending until the linked spec is canonical', () => {
   const { root, env, git, id } = globalRepo();
-  const prepared = graduate(id, 'architecture', root, { into: true });
+  const prepared = graduate(id, 'architecture', root, { into: true, actorHandle: () => 'ana' });
   assert.equal(prepared.pending, true);
   assert.equal(
     readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
@@ -481,12 +493,234 @@ test('124231 CR20: global graduation remains pending until the linked spec is ca
   git(['add', specFile]);
   git(['commit', '-qm', `publish canonical spec [#${id}]`]);
 
-  const finalized = graduate(id, 'architecture', root, { into: true });
-  assert.equal(finalized.pending, false);
+  const finalized = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+  assert.equal(finalized.pending, true);
+  assert.equal(finalized.confirmed, false);
   assert.match(finalized.canonicalRevision, /^[0-9a-f]{40}$/);
   assert.equal(
     readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
     true,
   );
   assert.deepEqual(loadRepo(root).specs[0].frontmatter.graduated_from, [id]);
+});
+
+test('124231 CR20: an unpublished local integration spec is not canonical when origin exists', () => {
+  const { root, env, git, id } = globalRepo({ remote: true });
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+
+  assert.equal(
+    graduate(id, 'architecture', root, { into: true, actorHandle: () => 'ana' }).pending,
+    true,
+  );
+  git(['add', specFile]);
+  git(['commit', '-qm', `local spec only [#${id}]`]);
+
+  const unpublished = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+  assert.equal(unpublished.pending, true);
+  assert.equal(
+    readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
+    undefined,
+  );
+
+  git(['push', '-q', 'origin', 'dev']);
+  const finalized = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+  assert.equal(finalized.pending, false);
+  assert.equal(finalized.confirmed, true);
+});
+
+test('124231 CR20: a stale origin tracking ref cannot certify a remotely rewound integration branch', () => {
+  const { root, env, git, id, remoteRoot } = globalRepo({ remote: true });
+  const remoteBaseline = git(['rev-parse', 'refs/remotes/origin/dev']);
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+
+  assert.equal(
+    graduate(id, 'architecture', root, { into: true, actorHandle: () => 'ana' }).pending,
+    true,
+  );
+  git(['add', specFile]);
+  git(['commit', '-qm', `publish then rewind spec [#${id}]`]);
+  git(['push', '-q', 'origin', 'dev']);
+  assert.notEqual(git(['rev-parse', 'refs/remotes/origin/dev']), remoteBaseline);
+
+  git(['push', '-q', '--force', remoteRoot, `${remoteBaseline}:refs/heads/dev`]);
+  const result = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+
+  assert.equal(result.pending, true);
+  assert.equal(result.reason, 'canonical-spec');
+  assert.equal(
+    readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
+    undefined,
+  );
+});
+
+test('124231 CR20: readers use the same refreshed integration evidence as graduation', async () => {
+  const { root, env, git, id, remoteRoot } = globalRepo({ remote: true });
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-global-grad-writer-'));
+  const writer = path.join(parent, 'repo');
+  execFileSync('git', ['clone', '-q', '-b', 'dev', remoteRoot, writer], { env });
+  const writerGit = (args) =>
+    execFileSync('git', args, { cwd: writer, env, encoding: 'utf8' }).trim();
+  writerGit(['config', 'user.name', 'Integration Writer']);
+  writerGit(['config', 'user.email', 'writer@example.com']);
+  const writerSpec = path.join(writer, '.changeledger', 'specs', 'architecture.md');
+  fs.writeFileSync(
+    writerSpec,
+    fs.readFileSync(writerSpec, 'utf8').replace('graduated_from: []', `graduated_from: [${id}]`),
+  );
+  writerGit(['add', writerSpec]);
+  writerGit(['commit', '-qm', `remote canonical spec [#${id}]`]);
+  writerGit(['push', '-q', 'origin', 'dev']);
+  assert.notEqual(writerGit(['rev-parse', 'dev']), git(['rev-parse', 'refs/remotes/origin/dev']));
+
+  const result = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+  assert.equal(result.pending, false);
+  const loaded = loadRepo(root);
+  assert.equal(loaded.changes[0].frontmatter.reviewed, true);
+  assert.deepEqual(loaded.specs[0].frontmatter.graduated_from, [id]);
+  assert.deepEqual(list({ pending: 'graduation' }, root), []);
+  assert.equal(serialize(loaded).state_store.pending, false);
+  assert.deepEqual(serialize(loaded).specs[0].graduated_from, [id]);
+  assert.deepEqual((await loadRepoAsync(root)).specs[0].frontmatter.graduated_from, [id]);
+});
+
+test('124231 CR20: deleted or unreachable remote integration authority stays pending', () => {
+  for (const failure of ['deleted', 'unreachable']) {
+    const { root, env, git, id, remoteRoot } = globalRepo({ remote: true });
+    const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+    assert.equal(
+      graduate(id, 'architecture', root, { into: true, actorHandle: () => 'ana' }).pending,
+      true,
+    );
+    git(['add', specFile]);
+    git(['commit', '-qm', `publish before ${failure} [#${id}]`]);
+    git(['push', '-q', 'origin', 'dev']);
+    if (failure === 'deleted') git(['push', '-q', remoteRoot, '--delete', 'dev']);
+    else git(['remote', 'set-url', 'origin', path.join(root, 'missing-origin.git')]);
+
+    const result = graduate(id, 'architecture', root, {
+      into: true,
+      actorHandle: () => 'ana',
+    });
+    assert.equal(result.pending, true);
+    assert.equal(result.reason, 'canonical-spec');
+    assert.equal(
+      readStateStore(root, 'changeledger/state', { gitEnv: env }).changes[0].frontmatter.reviewed,
+      undefined,
+    );
+  }
+});
+
+test('124231 CR21: global graduation reports rejected publication and records the effective owner', () => {
+  const { root, env, git, id, remoteRoot } = globalRepo({ remote: true });
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+  assert.equal(
+    graduate(id, 'architecture', root, { into: true, actorHandle: () => 'ana' }).pending,
+    true,
+  );
+  git(['add', specFile]);
+  git(['commit', '-qm', `publish spec [#${id}]`]);
+  git(['push', '-q', 'origin', 'dev']);
+
+  const before = readStateStore(root, 'changeledger/state', { gitEnv: env }).head;
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true, actorHandle: () => 'luis' }),
+    /owned by "ana"/,
+  );
+  assert.equal(readStateStore(root, 'changeledger/state', { gitEnv: env }).head, before);
+
+  const hook = path.join(remoteRoot, 'hooks', 'pre-receive');
+  fs.writeFileSync(
+    hook,
+    '#!/bin/sh\nwhile read old new ref; do [ "$ref" = "refs/heads/changeledger/state" ] && exit 1; done\nexit 0\n',
+  );
+  fs.chmodSync(hook, 0o755);
+  const result = graduate(id, 'architecture', root, {
+    into: true,
+    actorHandle: () => 'ana',
+  });
+  assert.equal(result.pending, true);
+  assert.equal(result.confirmed, false);
+  const state = readStateStore(root, 'changeledger/state', { gitEnv: env });
+  const message = execFileSync('git', ['show', '-s', '--format=%B', state.head], {
+    cwd: root,
+    env,
+    encoding: 'utf8',
+  });
+  assert.match(message, /^Change-Actor: ana$/m);
+
+  const loaded = loadRepo(root);
+  assert.equal(loaded.state.pending.pending, true);
+  assert.deepEqual(list({ pending: 'graduation' }, root), []);
+  assert.equal(serialize(loaded).state_store.pending, true);
+});
+
+test('124231 CR21: CLI distinguishes a locally saved graduation from global confirmation', () => {
+  const { root, env, git, id, remoteRoot } = globalRepo({
+    remote: true,
+    owner: 'Graduate Test',
+  });
+  const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
+  assert.equal(
+    graduate(id, 'architecture', root, {
+      into: true,
+      actorHandle: () => 'Graduate Test',
+    }).pending,
+    true,
+  );
+  git(['add', specFile]);
+  git(['commit', '-qm', `publish CLI spec [#${id}]`]);
+  git(['push', '-q', 'origin', 'dev']);
+
+  const hook = path.join(remoteRoot, 'hooks', 'pre-receive');
+  fs.writeFileSync(
+    hook,
+    '#!/bin/sh\nwhile read old new ref; do [ "$ref" = "refs/heads/changeledger/state" ] && exit 1; done\nexit 0\n',
+  );
+  fs.chmodSync(hook, 0o755);
+  const result = spawnSync(
+    process.execPath,
+    [path.resolve('bin/changeledger.mjs'), 'graduate', id, 'architecture', '--into'],
+    {
+      cwd: root,
+      env: {
+        ...env,
+        PATH: '/usr/bin:/bin',
+        GH_CONFIG_DIR: path.join(root, '.changeledger-test-gh'),
+      },
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Graduation .* saved locally/);
+  assert.match(result.stderr, /changeledger state sync/);
+});
+
+test('124231 CR21: global skip authorizes its actor and preserves pending publication', () => {
+  const { root, env, git, id } = globalRepo({ remote: true });
+  const before = readStateStore(root, 'changeledger/state', { gitEnv: env }).head;
+  assert.throws(
+    () => skipGraduation(id, 'No durable truth', root, { actorHandle: () => 'luis' }),
+    /owned by "ana"/,
+  );
+  assert.equal(readStateStore(root, 'changeledger/state', { gitEnv: env }).head, before);
+
+  git(['remote', 'set-url', 'origin', path.join(root, 'missing-origin.git')]);
+  const result = skipGraduation(id, 'No durable truth', root, { actorHandle: () => 'ana' });
+  assert.equal(result.pending, true);
+  assert.equal(result.confirmed, false);
 });

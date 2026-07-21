@@ -323,7 +323,7 @@ project_name: global-fix
       ? `activate [#${markers[0]}]`
       : `activate\n\nChangeLedger: ${markers.map((id) => `[#${id}]`).join(' ')}`,
   ]);
-  return { root, env };
+  return { root, env, git };
 }
 
 function globalChange(id, owner, plan, log = '') {
@@ -446,4 +446,27 @@ test('20260721-161754 CR1/CR2: structured and bulk fixes preflight every owner',
     readStateStore(structuredRepo.root, 'changeledger/state', { gitEnv: structuredRepo.env }).head,
     structuredBefore,
   );
+});
+
+test('20260721-161754 CR4: fix reports a locally saved but unpublished global repair', () => {
+  const id = '20260721-160010';
+  const { root, env, git } = globalFixRepo([
+    {
+      name: `${id}-pending.md`,
+      text: globalChange(id, 'ana', '- [ ] Update src/foo.mjs (CR1) — verify: pnpm test'),
+    },
+  ]);
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-global-fix-origin-'));
+  execFileSync('git', ['init', '--bare', '-q', bare], { env });
+  git(['remote', 'add', 'origin', bare]);
+  git(['push', '-qu', 'origin', 'dev']);
+  git(['push', '-q', 'origin', 'changeledger/state']);
+  git(['remote', 'set-url', 'origin', path.join(root, 'missing-origin.git')]);
+
+  const out = output();
+  assert.equal(fix([id], root, out, { actorHandle: () => 'ana' }), 0);
+  assert.match(out.lines.join('\n'), /fixed locally.*pending/i);
+  assert.match(out.lines.join('\n'), /changeledger state sync/);
+  assert.doesNotMatch(out.lines.join('\n'), /^fixed —/m);
+  assert.ok(git(['rev-parse', '--verify', 'refs/changeledger/pending/changeledger/state']));
 });

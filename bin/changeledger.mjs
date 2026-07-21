@@ -717,7 +717,12 @@ program
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
-        skipGraduation(id, reason);
+        const result = skipGraduation(id, reason);
+        if (result?.pending) {
+          console.log(`#${id} graduation skip saved locally`);
+          reportPendingState(id);
+          return;
+        }
         console.log(`#${id} graduation skipped`);
         return;
       }
@@ -732,6 +737,11 @@ program
       }
       const result = graduate(id, slug, process.cwd(), { into: options.into });
       if (result?.pending) {
+        if (result.reason === 'state-publication') {
+          console.log(`Graduation for #${id} saved locally`);
+          reportPendingState(id);
+          return;
+        }
         console.log(
           `Prepared spec ${result.file}. Commit or integrate it on the canonical integration branch, then rerun: changeledger graduate ${id} ${slug} --into`,
         );
@@ -888,6 +898,11 @@ stateCommand
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else {
         console.log(`${result.branch} ${result.head} append-only (${result.remote_protection})`);
+        if (result.remote_owner_enforcement) {
+          console.log(`Owner enforcement: ${result.remote_owner_enforcement}`);
+        }
+        if (result.protection_error) console.log(`Protection error: ${result.protection_error}`);
+        if (result.protection_probe) console.log(`Protection probe: ${result.protection_probe}`);
         for (const instruction of result.instructions) console.log(`  - ${instruction}`);
       }
     }),
@@ -911,6 +926,9 @@ stateCommand
       });
       console.log(
         `Prepared cutover to ${result.branch} at ${result.baseline}; review and commit the integration branch changes.`,
+      );
+      console.log(
+        `Remote content protection: ${result.remoteProtected ? 'enforced' : 'unverified'}; owner enforcement: ${result.remoteOwnerEnforcement}.`,
       );
     }),
   );

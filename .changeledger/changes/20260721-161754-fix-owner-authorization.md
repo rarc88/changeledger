@@ -52,14 +52,26 @@ antes de la primera mutación.
 - **Then** conserva el comportamiento legacy actual
 - **And** ninguna reparación mecánica adquiere implícitamente autoridad humana para transferir ownership o saltarse la exclusividad
 
+### CR4 — Resultado global confirmado o pendiente
+- **Given** una reparación autorizada en el almacén global
+- **When** el commit local se crea pero su publicación remota falla o queda offline
+- **Then** `fix` no imprime el mismo éxito que una reparación confirmada
+- **And** informa que la reparación quedó local y pendiente y remite a `changeledger state sync`
+- **And** conserva exit code exitoso porque la reparación local sí se guardó, sin afirmar confirmación global
+- **Given** un repositorio legacy
+- **When** la reparación termina correctamente
+- **Then** conserva la salida y el exit code anteriores
+
 ## Plan
 
-- [x] Add failing coverage in `test/fix.test.mjs` and `test/state-agent.test.mjs` for the current `src/commands/fix.mjs` behavior with `fix <id>`, `fix --structured-sections` and multi-change preflight under a non-owner identity; verify: `node --test test/fix.test.mjs test/state-agent.test.mjs` (CR1, CR2)
+- [x] Add failing coverage in `test/fix.test.mjs` for the current `src/commands/fix.mjs` behavior with `fix <id>`, `fix --structured-sections` and multi-change preflight under a non-owner identity; verify: `node --test test/fix.test.mjs` (CR1, CR2)
   - **Resolved:** `2026-07-21T16:45:19Z`
 - [x] Update `src/commands/fix.mjs` to resolve the effective actor through the shared identity path, authorize every target before mutation, and record that actor instead of copying frontmatter owner; verify: `node --test test/fix.test.mjs test/state-agent.test.mjs` (CR1, CR2, CR3)
   - **Resolved:** `2026-07-21T16:45:19Z`
 - [x] Run focused legacy regressions for `src/commands/fix.mjs` and the complete quality gate; verify: `node --test test/fix.test.mjs && pnpm verify` (CR3)
   - **Resolved:** `2026-07-21T16:47:41Z`
+- [x] Add a rejected-publication regression in `test/fix.test.mjs`, then preserve every `mutateResolvedChange` result in `src/commands/fix.mjs` and distinguish confirmed, pending and legacy output without weakening owner preflight; verify: `node --test test/fix.test.mjs test/state-agent.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-07-21T17:24:10Z`
 
 ## Log
 - **2026-07-21T16:21:50Z** `[status]` draft → approved
@@ -67,3 +79,8 @@ antes de la primera mutación.
 - **2026-07-21T16:40:34Z** `[status]` approved → in-progress
 - **2026-07-21T16:49:10Z** `[status]` in-progress → in-review
 - **2026-07-21T16:54:10Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T17:10:50Z** `[validation]` in-validation → in-progress (human rejected via conversation): La segunda auditoría encontró que fix anuncia éxito aunque la mutación global quede pendiente o rechazada
+- **2026-07-21T17:26:36Z** `[status]` in-progress → in-review
+- **2026-07-21T17:34:29Z** `[review]` in-review → in-progress (retry): El comportamiento CR1-CR4 pasa, pero Plan task 1 afirma cobertura en test/state-agent.test.mjs que no existe; corregir la trazabilidad del Plan o añadir la prueba declarada.
+- **2026-07-21T17:45:43Z** `[status]` in-progress → in-review
+- **2026-07-21T17:52:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)

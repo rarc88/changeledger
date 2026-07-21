@@ -41,6 +41,18 @@ function specsAt(repoRoot, revision, config) {
   }));
 }
 
+export function integrationObservationRef(branch) {
+  return `refs/changeledger/fetched/integration/${branch}`;
+}
+
+function integrationRefForState(repoRoot, state, config) {
+  const observed = integrationObservationRef(state.manifest.integration_branch);
+  const observedConfig = configAt(repoRoot, observed);
+  const active = stateConfig(config);
+  if (active && stateConfig(observedConfig)?.branch === active.branch) return observed;
+  return state.integrationRef ?? `refs/heads/${state.manifest.integration_branch}`;
+}
+
 function stateCandidate(ref) {
   if (ref.startsWith('refs/heads/')) {
     return {
@@ -274,13 +286,7 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, discovered
   const specs = [];
   const specsDir = resolveSpecsDir(repoRoot, config);
   if (state) {
-    specs.push(
-      ...specsAt(
-        repoRoot,
-        state.integrationRef ?? `refs/heads/${state.manifest.integration_branch}`,
-        config,
-      ),
-    );
+    specs.push(...specsAt(repoRoot, integrationRefForState(repoRoot, state, config), config));
   } else if (fs.existsSync(specsDir)) {
     for (const name of fs.readdirSync(specsDir).sort()) {
       if (!name.endsWith('.md')) continue;
@@ -337,13 +343,7 @@ export async function loadRepoAsync(start = process.cwd()) {
   const specs = [];
   const specsDir = resolveSpecsDir(repoRoot, config);
   if (state) {
-    specs.push(
-      ...specsAt(
-        repoRoot,
-        state.integrationRef ?? `refs/heads/${state.manifest.integration_branch}`,
-        config,
-      ),
-    );
+    specs.push(...specsAt(repoRoot, integrationRefForState(repoRoot, state, config), config));
   } else
     try {
       const names = (await fs.promises.readdir(specsDir)).sort();

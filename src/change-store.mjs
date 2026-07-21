@@ -47,3 +47,14 @@ export function mutateResolvedChange(
   });
   return { file: resolved.file, ...result };
 }
+
+export function assertResolvedOwner(resolved, actor) {
+  if (!stateConfig(resolved.config)) return;
+  const owner = resolved.change.frontmatter.owner;
+  if (!owner) throw new Error(`change #${resolved.change.frontmatter.id} has no owner`);
+  if (!actor || actor !== owner) {
+    throw new Error(
+      `change #${resolved.change.frontmatter.id} is owned by "${owner}"; transfer ownership explicitly before continuing`,
+    );
+  }
+}
