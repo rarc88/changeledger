@@ -2,9 +2,10 @@
 id: "20260721-195319"
 title: Evitar graduaciones legacy parcialmente aplicadas
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-21T19:53:19Z
 depends_on: []
+owner: Roberto Ruiz
 related_to: ["20260613-205854"]
 release_impact: patch
 ---
@@ -86,3 +87,5 @@ segunda arquitectura transitoria sin evidencia que la justifique.
 
 - **2026-07-21T19:53:19Z** `[note]` Extraído del prototipo como corrección legacy independiente; la atomicidad ante crash queda deliberadamente reservada al snapshot Git v2.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
+- **2026-07-21T21:02:23Z** `[status]` approved → in-progress
+- **2026-07-21T21:02:23Z** `[owner]` set: Roberto Ruiz (auto)
