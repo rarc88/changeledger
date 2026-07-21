@@ -67,6 +67,67 @@ function seedSpec(root, name, body) {
   return file;
 }
 
+function fsWithRenameFailures({
+  changeFile,
+  specFile,
+  failChange,
+  failSpecWrite = false,
+  failSpecRollback = false,
+}) {
+  let specRenames = 0;
+  return {
+    ...fs,
+    renameSync(from, to) {
+      if (to === specFile) {
+        specRenames += 1;
+        if (failSpecWrite && specRenames === 1) throw failSpecWrite;
+        if (failSpecRollback && specRenames === 2) throw failSpecRollback;
+      }
+      if (to === changeFile && failChange) throw failChange;
+      return fs.renameSync(from, to);
+    },
+  };
+}
+
+function fsWithChangeLockCleanupFailure(changeFile, cleanupError) {
+  const lockFile = path.join(path.dirname(changeFile), `.${path.basename(changeFile)}.lock`);
+  let lockFd;
+  return {
+    ...fs,
+    openSync(file, flags, mode) {
+      const fd = fs.openSync(file, flags, mode);
+      if (file === lockFile) lockFd = fd;
+      return fd;
+    },
+    closeSync(fd) {
+      if (fd === lockFd) {
+        lockFd = undefined;
+        fs.closeSync(fd);
+        throw cleanupError;
+      }
+      return fs.closeSync(fd);
+    },
+  };
+}
+
+function fsWithFailedChangeWriteAndUnreadableChange(changeFile, changeError, readError) {
+  let changeWriteFailed = false;
+  return {
+    ...fs,
+    readFileSync(file, encoding) {
+      if (file === changeFile && changeWriteFailed) throw readError;
+      return fs.readFileSync(file, encoding);
+    },
+    renameSync(from, to) {
+      if (to === changeFile) {
+        changeWriteFailed = true;
+        throw changeError;
+      }
+      return fs.renameSync(from, to);
+    },
+  };
+}
+
 function refineScaffold(file) {
   fs.writeFileSync(
     file,
@@ -124,6 +185,141 @@ test('CR1: graduate --into links an existing spec without touching its body', ()
     /`\[graduation\]` spec: `architecture.md`/,
   );
   assert.equal(change.frontmatter.reviewed, true);
+});
+
+test('195319 CR1: a change write failure restores the original legacy spec', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const before = {
+    change: fs.readFileSync(file, 'utf8'),
+    spec: fs.readFileSync(specFile, 'utf8'),
+  };
+  const changeError = new Error('change rename failed');
+
+  assert.throws(
+    () =>
+      graduate(id, 'architecture', root, {
+        into: true,
+        fsImpl: fsWithRenameFailures({ changeFile: file, specFile, failChange: changeError }),
+      }),
+    (error) => error === changeError,
+  );
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+  assert.equal(fs.readFileSync(file, 'utf8'), before.change);
+  const change = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(change.frontmatter.reviewed, undefined);
+  assert.doesNotMatch(change.stages.find((stage) => stage.key === 'log').body, /`\[graduation\]`/);
+});
+
+test('195319 CR2: a spec write failure leaves both legacy files byte-for-byte unchanged', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const before = {
+    change: fs.readFileSync(file, 'utf8'),
+    spec: fs.readFileSync(specFile, 'utf8'),
+  };
+  const specError = new Error('spec rename failed');
+
+  assert.throws(
+    () =>
+      graduate(id, 'architecture', root, {
+        into: true,
+        fsImpl: fsWithRenameFailures({ changeFile: file, specFile, failSpecWrite: specError }),
+      }),
+    (error) => error === specError,
+  );
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+  assert.equal(fs.readFileSync(file, 'utf8'), before.change);
+});
+
+test('195319 CR4: a rollback failure preserves both diagnostic causes', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const changeError = new Error('change rename failed');
+  const rollbackError = new Error('spec rollback rename failed');
+
+  let error;
+  try {
+    graduate(id, 'architecture', root, {
+      into: true,
+      fsImpl: fsWithRenameFailures({
+        changeFile: file,
+        specFile,
+        failChange: changeError,
+        failSpecRollback: rollbackError,
+      }),
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error instanceof AggregateError);
+  assert.equal(error.message, `graduation failed and spec rollback failed: ${specFile}`);
+  assert.equal(error.cause, changeError);
+  assert.deepEqual(error.errors, [changeError, rollbackError]);
+});
+
+test('195319 correction P1: cleanup failure after change commit keeps the linked spec', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const cleanupError = new Error('change lock cleanup failed');
+
+  assert.throws(
+    () =>
+      graduate(id, 'architecture', root, {
+        into: true,
+        fsImpl: fsWithChangeLockCleanupFailure(file, cleanupError),
+      }),
+    (error) => error === cleanupError,
+  );
+  assert.deepEqual(parseSpec(fs.readFileSync(specFile, 'utf8')).frontmatter.graduated_from, [id]);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, true);
+});
+
+test('195319 correction P1: a failed change write still rolls back when its later read fails', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const beforeSpec = fs.readFileSync(specFile, 'utf8');
+  const changeError = new Error('change rename failed');
+  const readError = new Error('change read failed');
+
+  assert.throws(
+    () =>
+      graduate(id, 'architecture', root, {
+        into: true,
+        fsImpl: fsWithFailedChangeWriteAndUnreadableChange(file, changeError, readError),
+      }),
+    (error) => error === changeError,
+  );
+  assert.equal(fs.readFileSync(specFile, 'utf8'), beforeSpec);
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.reviewed, undefined);
+});
+
+test('195319 correction P2: the spec lock remains held until a failed change write is rolled back', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
+  const specLock = path.join(path.dirname(specFile), `.${path.basename(specFile)}.lock`);
+  const changeError = new Error('change rename failed');
+  let specLockHeldDuringChangeWrite = false;
+  const fsImpl = {
+    ...fs,
+    renameSync(from, to) {
+      if (to === file) {
+        specLockHeldDuringChangeWrite = fs.existsSync(specLock);
+        throw changeError;
+      }
+      return fs.renameSync(from, to);
+    },
+  };
+
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true, fsImpl }),
+    (error) => error === changeError,
+  );
+  assert.equal(specLockHeldDuringChangeWrite, true);
+  assert.deepEqual(
+    parseSpec(fs.readFileSync(specFile, 'utf8')).frontmatter.graduated_from ?? [],
+    [],
+  );
 });
 
 test('CR2: graduate --into on a missing spec errors without writing', () => {

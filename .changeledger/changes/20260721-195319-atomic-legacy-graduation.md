@@ -2,7 +2,7 @@
 id: "20260721-195319"
 title: Evitar graduaciones legacy parcialmente aplicadas
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:53:19Z
 depends_on: []
 owner: Roberto Ruiz
@@ -78,10 +78,14 @@ segunda arquitectura transitoria sin evidencia que la justifique.
 
 ## Plan
 
-- [ ] Añadir seams de inyección en `src/commands/graduate.mjs` y tests fallidos de spec/change en `test/graduate.test.mjs` sin alterar la API pública; verify: `node --test test/graduate.test.mjs` (CR1, CR2)
-- [ ] Capturar los bytes originales y restaurarlos en el orquestador legacy de `src/commands/graduate.mjs`, fuera del callback de transformación; verify: `node --test test/graduate.test.mjs` (CR1, CR2, CR3)
-- [ ] Añadir un fallo doble y preservar ambas causas en `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs` (CR4)
-- [ ] Ejecutar regresiones de `src/commands/graduate.mjs` para scaffold/skip/schema y el gate completo; verify: `node --test test/graduate.test.mjs test/config-migration.test.mjs && pnpm verify` (CR3, CR5)
+- [x] Añadir seams de inyección en `src/commands/graduate.mjs` y tests fallidos de spec/change en `test/graduate.test.mjs` sin alterar la API pública; verify: `node --test test/graduate.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-21T21:05:27Z`
+- [x] Capturar los bytes originales y restaurarlos en el orquestador legacy de `src/commands/graduate.mjs`, fuera del callback de transformación; verify: `node --test test/graduate.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-21T21:05:27Z`
+- [x] Añadir un fallo doble y preservar ambas causas en `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs` (CR4)
+  - **Resolved:** `2026-07-21T21:05:28Z`
+- [x] Ejecutar regresiones de `src/commands/graduate.mjs` para scaffold/skip/schema y el gate completo; verify: `node --test test/graduate.test.mjs test/config-migration.test.mjs && pnpm verify` (CR3, CR5)
+  - **Resolved:** `2026-07-21T21:07:00Z`
 
 ## Log
 
@@ -89,3 +93,11 @@ segunda arquitectura transitoria sin evidencia que la justifique.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
 - **2026-07-21T21:02:23Z** `[status]` approved → in-progress
 - **2026-07-21T21:02:23Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-21T21:05:28Z** `[note]` Implementada compensación legacy: la spec se restaura tras un fallo del change y el fallo doble conserva ambas causas diagnósticas.
+- **2026-07-21T21:07:00Z** `[status]` in-progress → in-review
+- **2026-07-21T21:10:11Z** `[review]` in-review → in-progress (retry): P1: no distinguir error de cleanup posterior al commit del change puede restaurar la spec y recrear inconsistencia; P2: falta lock de spec durante change y rollback.
+- **2026-07-21T21:12:10Z** `[status]` in-progress → in-review
+- **2026-07-21T21:14:13Z** `[review]` in-review → in-progress (retry): P1: inferir el commit releyendo el change falla si esa lectura falla; se requiere señal explícita después del reemplazo atómico.
+- **2026-07-21T21:15:09Z** `[note]` Corrección tras dos revisiones: el commit del change se señala tras su rename atómico y la spec queda bloqueada durante escritura y rollback.
+- **2026-07-21T21:15:32Z** `[status]` in-progress → in-review
+- **2026-07-21T21:17:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
