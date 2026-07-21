@@ -9,6 +9,7 @@ import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -145,6 +146,33 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    const snapshot = store.load();
+    const change = snapshot.changes.find(
+      (candidate) => String(candidate.frontmatter.id) === String(id),
+    );
+    if (!change) throw new Error(`No change with id "${id}"`);
+    assertSupportedSchema(snapshot.config);
+    const after = store.mutate(
+      { message: `changeledger: graduate skip ${id}` },
+      ({ snapshot, write }) => {
+        const current = snapshot.changes.find(
+          (candidate) => candidate.statePath === change.statePath,
+        );
+        if (!current) throw new Error(`No change with id "${id}" in the state snapshot`);
+        requireGraduationReady(snapshot.config, current.file, current.text);
+        const text = appendLogEvent(current.text, {
+          at: nowUtc(),
+          type: 'graduation',
+          outcome: 'skipped',
+          reason,
+        });
+        write(current.statePath, setReviewed(text, true));
+      },
+    );
+    return after.changes.find((candidate) => String(candidate.frontmatter.id) === String(id))?.file;
+  }
   const { config, file: changeFile } = resolveChange(cwd, id);
   assertSupportedSchema(config);
   mutateFileAtomic(changeFile, (text) => {

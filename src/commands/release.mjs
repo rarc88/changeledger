@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
   bumpVersion,
@@ -17,42 +18,7 @@ const IMPACT_RANK = new Map(RELEASE_IMPACTS.map((impact, index) => [impact, inde
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 export function releasePlan(cwd = process.cwd()) {
-  const repo = loadRepo(cwd);
-  if (!repo.releases.length) {
-    throw new Error(
-      'Release history is not initialized. Run `changeledger release init <version>`.',
-    );
-  }
-
-  const currentVersion = latestVersion(repo.releases);
-  const releasedIds = new Set(
-    repo.releases.flatMap((release) => release.changes ?? []).map(String),
-  );
-  const changes = repo.changes
-    .filter((change) => change.frontmatter.status === 'done')
-    .filter((change) => !releasedIds.has(String(change.frontmatter.id)))
-    .map((change) => ({
-      id: String(change.frontmatter.id),
-      title: change.frontmatter.title,
-      type: change.frontmatter.type,
-      releaseImpact: effectiveImpact(change, repo.config),
-    }));
-
-  const impact = changes.reduce(
-    (highest, change) =>
-      IMPACT_RANK.get(change.releaseImpact) > IMPACT_RANK.get(highest)
-        ? change.releaseImpact
-        : highest,
-    'none',
-  );
-
-  return {
-    currentVersion,
-    nextVersion: impact === 'none' ? null : bumpVersion(currentVersion, impact),
-    impact,
-    releasable: impact !== 'none',
-    changes,
-  };
+  return planFor(loadRepo(cwd));
 }
 
 export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc()) {
@@ -60,6 +26,30 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    if (initial.releases.length) throw new Error('Release history is already initialized.');
+    const manifest = {
+      version,
+      created: now,
+      baseline: true,
+      changes: initial.changes
+        .filter((change) => change.frontmatter.status === 'done')
+        .map((change) => String(change.frontmatter.id)),
+    };
+    const statePath = `.changeledger-state/releases/${version}.yml`;
+    const after = store.mutate(
+      { message: `changeledger: release init ${version}` },
+      ({ snapshot, write }) => {
+        if (snapshot.releases.length) throw new Error('Release history is already initialized.');
+        write(statePath, stringifyYaml(manifest));
+      },
+    );
+    return {
+      file: after.releases.find((release) => release.name === `${version}.yml`)?.file,
+      manifest,
+    };
+  }
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   const historyLock = path.join(releasesDir, '.history');
@@ -86,6 +76,34 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    const plan = releasePlan(cwd);
+    if (!plan.releasable) throw new Error('No releasable changes (highest impact is none).');
+    if (version !== plan.nextVersion) {
+      throw new Error(`Version "${version}" does not match the calculated ${plan.nextVersion}.`);
+    }
+    const manifest = { version, created: now, changes: plan.changes.map((change) => change.id) };
+    const statePath = `.changeledger-state/releases/${version}.yml`;
+    const after = store.mutate(
+      { message: `changeledger: release ${version}` },
+      ({ snapshot, write }) => {
+        const currentPlan = planFor(snapshot);
+        if (!currentPlan.releasable || currentPlan.nextVersion !== version) {
+          throw new Error('release plan changed concurrently; retry the operation');
+        }
+        if (snapshot.releases.some((release) => release.name === `${version}.yml`)) {
+          throw new Error(`Release manifest already exists: ${version}.yml`);
+        }
+        write(statePath, stringifyYaml(manifest));
+      },
+    );
+    return {
+      file: after.releases.find((release) => release.name === `${version}.yml`)?.file,
+      manifest,
+      plan,
+    };
+  }
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   const historyLock = path.join(releasesDir, '.history');
 
@@ -104,6 +122,41 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
     writeNewManifest(file, manifest);
     return { file, manifest, plan };
   });
+}
+
+function planFor(repo) {
+  if (!repo.releases.length) {
+    throw new Error(
+      'Release history is not initialized. Run `changeledger release init <version>`.',
+    );
+  }
+  const currentVersion = latestVersion(repo.releases);
+  const releasedIds = new Set(
+    repo.releases.flatMap((release) => release.changes ?? []).map(String),
+  );
+  const changes = repo.changes
+    .filter((change) => change.frontmatter.status === 'done')
+    .filter((change) => !releasedIds.has(String(change.frontmatter.id)))
+    .map((change) => ({
+      id: String(change.frontmatter.id),
+      title: change.frontmatter.title,
+      type: change.frontmatter.type,
+      releaseImpact: effectiveImpact(change, repo.config),
+    }));
+  const impact = changes.reduce(
+    (highest, change) =>
+      IMPACT_RANK.get(change.releaseImpact) > IMPACT_RANK.get(highest)
+        ? change.releaseImpact
+        : highest,
+    'none',
+  );
+  return {
+    currentVersion,
+    nextVersion: impact === 'none' ? null : bumpVersion(currentVersion, impact),
+    impact,
+    releasable: impact !== 'none',
+    changes,
+  };
 }
 
 function latestVersion(releases) {
