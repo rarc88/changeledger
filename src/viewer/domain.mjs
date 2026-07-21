@@ -196,6 +196,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
   try {
+    assertSupportedSchema(repo.config);
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
+  try {
     resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
     resolveSpecsDir(repo.repoRoot, candidate);
   } catch (error) {
@@ -332,6 +337,11 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
   }
 
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  try {
+    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
 
   let result;
   try {
@@ -419,6 +429,11 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
     return { code: 400, body: { error: 'revision is required' } };
   }
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  try {
+    buildMigration(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
 
   let result;
   try {

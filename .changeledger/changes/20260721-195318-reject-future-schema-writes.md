@@ -2,7 +2,7 @@
 id: "20260721-195318"
 title: Rechazar toda escritura con schemas futuros
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-21T19:53:18Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -107,3 +107,6 @@ modificará `SUPPORTED_SCHEMA_VERSION` ni se portará el schema 4 del prototipo.
 - **2026-07-21T20:03:52Z** `[status]` approved → in-progress
 - **2026-07-21T20:03:52Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-21T20:10:03Z** `[status]` in-progress → in-review
+- **2026-07-21T20:16:00Z** `[review]` in-review → in-progress (retry): El viewer adquiere locks de config antes del guard de schema futuro; mover el guard antes de mutateFileAtomic y conservarlo dentro para TOCTOU.
+- **2026-07-21T20:17:21Z** `[status]` in-progress → in-review
+- **2026-07-21T20:18:55Z** `[review]` in-review → in-validation (delegated subagent, clean context)
