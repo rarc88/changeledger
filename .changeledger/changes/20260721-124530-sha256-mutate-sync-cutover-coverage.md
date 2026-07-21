@@ -2,7 +2,7 @@
 id: "20260721-124530"
 title: Cobertura SHA-256 en mutate, sync y cutover del almacén de estado
 type: quick
-status: in-validation
+status: done
 created: 2026-07-21T12:45:30Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -33,3 +33,4 @@ si algo falla, corregirlo dentro del mismo alcance (mismo patrón que ya usa
 - **2026-07-21T12:53:01Z** `[note]` Rama creada desde codex/global-state-branch, no desde dev: dev todavía no tiene el código de 20260720-124231 (done, sin graduar/mergear). Desviación intencional del formato estándar, documentada aquí por trazabilidad.
 - **2026-07-21T12:59:30Z** `[note]` Added SHA-256 regression coverage for mutate/CAS retry and syncStateStore's disjoint-retry path (test/state-store.test.mjs), and for the cutover flow preview/init/activate plus abort/recover (test/state-command.test.mjs). All new tests pass on the first run; no SHA-256 bug found in state-store.mjs/state-migration.mjs/commands/state.mjs, so this closes the coverage gap with no code fix needed. pnpm test (794 pass), pnpm lint and changeledger check all clean.
 - **2026-07-21T12:59:36Z** `[status]` in-progress → in-validation
+- **2026-07-21T15:50:25Z** `[validation]` in-validation → done (human accepted)

@@ -2,7 +2,7 @@
 id: "20260721-000706"
 title: changeledger check resuelve mal repoRoot bajo git hooks con multi-worktree
 type: bug
-status: in-validation
+status: done
 created: 2026-07-21T00:07:06Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -94,3 +94,4 @@ fix solo a `check`.
 - **2026-07-21T13:22:08Z** `[note]` [note] Resultado de implementacion: NO se requiere cambio en src/. CR1 y CR2 ya se cumplen en el codigo actual; el defecto de la premisa (check resuelve mal repoRoot bajo hook) no existe de forma independiente. Entregable: cobertura de regresion permanente en test/repo-root-hook.test.mjs — CR1 (worktrees reales compartiendo .git + hook pre-commit real que ejecuta el CLI + git commit real en el worktree enlazado invocador con AGENTS.md al dia mientras el hermano esta stale: el commit pasa y check==interactivo, el hermano no influye) y CR2 (readStateStore/publishStateStore anclados en repoRoot son inmunes a GIT_DIR/GIT_WORK_TREE heredados apuntando a un repo ajeno; caso red-sin-guard/green-con-guard verificado). Gate completo verde: biome lint limpio, 791/791 node --test, changeledger check 207 valid. El sintoma original pertenece a la clase ya corregida de fuga de GIT_DIR en fixtures de test.
 - **2026-07-21T13:22:20Z** `[status]` in-progress → in-review
 - **2026-07-21T13:27:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T15:50:23Z** `[validation]` in-validation → done (human accepted)
