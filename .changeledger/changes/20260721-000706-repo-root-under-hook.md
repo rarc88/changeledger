@@ -57,6 +57,10 @@ pendiente.
 
 ## Plan
 
+- [ ] Write a failing reproduction against `src/check.mjs`'s current resolution: a fixture with 2+ `git worktree` off one `.git`, each with its own AGENTS.md at a different bootstrap version, that installs a real `pre-commit` hook invoking the built CLI's `check` and runs an actual `git commit` in one worktree; assert the result differs from running `check` directly in that same worktree (red, proving today's bug — do not assume the cause, let the test show it); verify: `node --test test/repo-root-hook.test.mjs` (CR1)
+- [ ] Trace the exact repoRoot/file resolution `check` uses under the hook's inherited `GIT_DIR`/`GIT_WORK_TREE` (start in `src/repo.mjs` and wherever `check` locates AGENTS.md), fix the resolution so it always targets the invoking worktree, and turn the reproduction test green; verify: `node --test test/repo-root-hook.test.mjs test/check.test.mjs` (CR1)
+- [ ] Run the full gate to confirm no other command sharing this resolution path regressed; verify: `pnpm verify` (support)
+
 ## Log
 
 - **2026-07-21T00:07:06Z** `[note]` Change creado a partir de un hallazgo de sesión (chip de tarea), no de una investigación de código todavía. Reemplaza ese chip.
