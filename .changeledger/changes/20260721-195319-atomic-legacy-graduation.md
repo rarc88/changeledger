@@ -2,7 +2,7 @@
 id: "20260721-195319"
 title: Evitar graduaciones legacy parcialmente aplicadas
 type: bug
-status: in-validation
+status: done
 created: 2026-07-21T19:53:19Z
 depends_on: []
 owner: Roberto Ruiz
@@ -101,3 +101,4 @@ segunda arquitectura transitoria sin evidencia que la justifique.
 - **2026-07-21T21:15:09Z** `[note]` Corrección tras dos revisiones: el commit del change se señala tras su rename atómico y la spec queda bloqueada durante escritura y rollback.
 - **2026-07-21T21:15:32Z** `[status]` in-progress → in-review
 - **2026-07-21T21:17:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T21:21:30Z** `[validation]` in-validation → done (human accepted via conversation)
