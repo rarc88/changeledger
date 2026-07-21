@@ -2,7 +2,7 @@
 id: "20260721-000706"
 title: changeledger check resuelve mal repoRoot bajo git hooks con multi-worktree
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-21T00:07:06Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -73,10 +73,14 @@ fix solo a `check`.
 
 ## Plan
 
-- [ ] Write a failing reproduction against `src/check.mjs`'s current resolution: a fixture with 2+ `git worktree` off one `.git`, each with its own AGENTS.md at a different bootstrap version, that installs a real `pre-commit` hook invoking the built CLI's `check` and runs an actual `git commit` in one worktree; assert the result differs from running `check` directly in that same worktree (red, proving today's bug — do not assume the cause, let the test show it); verify: `node --test test/repo-root-hook.test.mjs` (CR1)
-- [ ] Trace the exact repoRoot/file resolution `check` uses under the hook's inherited `GIT_DIR`/`GIT_WORK_TREE` (start in `src/repo.mjs` and wherever `check` locates AGENTS.md); in the same pass, run `readStateStore`/`syncStateStore`/`publishStateStore` from `src/state-store.mjs` under the same hook fixture and record in the Log whether they share the bug; verify: `node --test test/repo-root-hook.test.mjs` (CR2)
-- [ ] Fix the resolution so it always targets the invoking worktree — extending the fix to `src/state-store.mjs` too if CR2's trace found it exposed — and turn the reproduction test green; verify: `node --test test/repo-root-hook.test.mjs test/check.test.mjs` (CR1)
-- [ ] Run the full gate to confirm no other command sharing this resolution path regressed; verify: `pnpm verify` (support)
+- [x] Write a failing reproduction against `src/check.mjs`'s current resolution: a fixture with 2+ `git worktree` off one `.git`, each with its own AGENTS.md at a different bootstrap version, that installs a real `pre-commit` hook invoking the built CLI's `check` and runs an actual `git commit` in one worktree; assert the result differs from running `check` directly in that same worktree (red, proving today's bug — do not assume the cause, let the test show it); verify: `node --test test/repo-root-hook.test.mjs` (CR1)
+  - **Resolved:** `2026-07-21T13:21:54Z`
+- [x] Trace the exact repoRoot/file resolution `check` uses under the hook's inherited `GIT_DIR`/`GIT_WORK_TREE` (start in `src/repo.mjs` and wherever `check` locates AGENTS.md); in the same pass, run `readStateStore`/`syncStateStore`/`publishStateStore` from `src/state-store.mjs` under the same hook fixture and record in the Log whether they share the bug; verify: `node --test test/repo-root-hook.test.mjs` (CR2)
+  - **Resolved:** `2026-07-21T13:21:55Z`
+- [x] Fix the resolution so it always targets the invoking worktree — extending the fix to `src/state-store.mjs` too if CR2's trace found it exposed — and turn the reproduction test green; verify: `node --test test/repo-root-hook.test.mjs test/check.test.mjs` (CR1)
+  - **Resolved:** `2026-07-21T13:21:55Z`
+- [x] Run the full gate to confirm no other command sharing this resolution path regressed; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-21T13:21:56Z`
 
 ## Log
 
@@ -85,3 +89,8 @@ fix solo a `check`.
 - **2026-07-21T13:02:40Z** `[status]` approved → in-progress
 - **2026-07-21T13:02:40Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-21T13:02:41Z** `[note]` Rama creada desde codex/global-state-branch, no desde dev: dev todavía no tiene el código de 20260720-124231 (done, sin graduar/mergear).
+- **2026-07-21T13:17:57Z** `[note]` [note] Trace CR2: readStateStore/syncStateStore/publishStateStore in src/state-store.mjs son SEGUROS, no comparten resolucion defectuosa. Reciben repoRoot como parametro explicito y enrutan el 100% de git por objectRun/objectRunBuffer -> sanitizedEnv() (src/git.mjs:24), que elimina GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/GIT_OBJECT_DIRECTORY/GIT_ALTERNATE_OBJECT_DIRECTORIES/GIT_COMMON_DIR/GIT_CEILING_DIRECTORIES. Demostrado con evidencia red/green: con GIT_DIR heredado apuntando a un repo NO relacionado y cwd=repoRoot, readStateStore(repoRoot) lee correctamente la rama de estado del repoRoot; al neutralizar la linea de stripping en sanitizedEnv, git usa el GIT_DIR heredado y falla ('state branch does not exist'). repoRoot en si viene de findChangeledgerDir(cwd) (walk-up de filesystem), correcto bajo un hook.
+- **2026-07-21T13:18:21Z** `[note]` [note] Causa raiz CR1: NO existe defecto independiente de resolucion de repoRoot en check/repo.mjs/state-store.mjs. La deteccion de 'outdated AGENTS.md' vive en checkContract (src/contract.mjs:251), que lee AGENTS.md/CLAUDE.md SOLO del sistema de archivos en repo.repoRoot = path.dirname(findChangeledgerDir(cwd)) (src/config.mjs:10, src/repo.mjs:152); no invoca git, asi que ninguna variable GIT_* heredada puede redirigirla. Bajo un git hook (incluido un worktree enlazado, donde git fija GIT_DIR=.git/worktrees/<n> y GIT_INDEX_FILE) el cwd es el top del worktree invocador, por lo que repoRoot y la lectura de AGENTS.md son correctos: check en hook == check interactivo. Reproducido de verdad: worktrees reales compartiendo un .git + hook pre-commit real que ejecuta el CLI + git commit real; y forzando GIT_DIR/GIT_WORK_TREE hacia un hermano/repo ajeno. Todos identicos al interactivo. El sintoma original (falso 'outdated' en hook pero limpio interactivo) solo puede darse si el AGENTS.md del working tree ya estaba stale al correr el hook: el hook corre 'pnpm test' antes de 'changeledger check', y los fixtures pre-fix filtraban GIT_DIR/GIT_WORK_TREE a comandos git en tmpdirs (bug ya corregido aparte), pudiendo alterar el working tree real del invocador. Esa es la clase real, ya arreglada; no un defecto de check.
+- **2026-07-21T13:22:08Z** `[note]` [note] Resultado de implementacion: NO se requiere cambio en src/. CR1 y CR2 ya se cumplen en el codigo actual; el defecto de la premisa (check resuelve mal repoRoot bajo hook) no existe de forma independiente. Entregable: cobertura de regresion permanente en test/repo-root-hook.test.mjs — CR1 (worktrees reales compartiendo .git + hook pre-commit real que ejecuta el CLI + git commit real en el worktree enlazado invocador con AGENTS.md al dia mientras el hermano esta stale: el commit pasa y check==interactivo, el hermano no influye) y CR2 (readStateStore/publishStateStore anclados en repoRoot son inmunes a GIT_DIR/GIT_WORK_TREE heredados apuntando a un repo ajeno; caso red-sin-guard/green-con-guard verificado). Gate completo verde: biome lint limpio, 791/791 node --test, changeledger check 207 valid. El sintoma original pertenece a la clase ya corregida de fuga de GIT_DIR en fixtures de test.
+- **2026-07-21T13:22:20Z** `[status]` in-progress → in-review
+- **2026-07-21T13:27:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)
