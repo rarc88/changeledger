@@ -871,10 +871,14 @@ stateCommand
   .command('doctor')
   .description('validate local append-only state and print provider-neutral protection guidance')
   .option('--branch <name>', 'candidate branch when the state store is not active')
+  .option(
+    '--confirm-strong',
+    'empirically verify remote pre-receive protection (pushes a throwaway probe to origin)',
+  )
   .option('--json', 'print JSON')
   .action(
     action((options) => {
-      const result = doctorState({ branch: options.branch });
+      const result = doctorState({ branch: options.branch, confirmStrong: options.confirmStrong });
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else {
         console.log(`${result.branch} ${result.head} append-only (${result.remote_protection})`);
@@ -888,11 +892,16 @@ stateCommand
   .description('stage a cutover on the integration branch after validating the candidate')
   .option('--branch <name>', 'candidate branch', 'changeledger/state')
   .option('--advisory <reason>', 'explicit reason when remote protection cannot be verified')
+  .option(
+    '--confirm-strong',
+    'empirically verify remote pre-receive protection (pushes a throwaway probe to origin)',
+  )
   .action(
     action((options) => {
       const result = activateState({
         branch: options.branch,
         advisoryReason: options.advisory,
+        confirmStrong: options.confirmStrong,
       });
       console.log(
         `Prepared cutover to ${result.branch} at ${result.baseline}; review and commit the integration branch changes.`,

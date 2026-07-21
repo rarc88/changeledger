@@ -84,11 +84,15 @@ For content protection ChangeLedger ships a `pre-receive` validator: install
 repository's `pre-receive` hook (push the integration branch before the state
 commit so the hook can read the canonical config). It rejects invalid documents,
 rewritten history and files outside the state layout on the server, using the
-same engine as the CLI. When `state doctor` confirms that hook is installed and
-working — it reports `remote_protection: enforced` after a live probe — `state
-activate` completes without `--advisory`; otherwise the explicit advisory reason
-is still required. A failed publication remains visibly pending; `changeledger
-state sync` publishes it or replays it only when remote edits touched different
+same engine as the CLI. Confirming the hook is a network mutation (it pushes a
+throwaway probe commit to origin), so it only runs when you pass
+`--confirm-strong` to `state doctor` or `state activate`; by default protection
+is reported `not-checked` and `state activate` still requires `--advisory`.
+With `--confirm-strong`, `state doctor` reports `remote_protection: enforced`
+after a live probe, and `state activate` completes without `--advisory` when
+that probe confirms the hook; otherwise the explicit advisory reason is still
+required. A failed publication remains visibly pending; `changeledger state
+sync` publishes it or replays it only when remote edits touched different
 change documents.
 
 Before the first post-cutover state write, `changeledger state abort` restores

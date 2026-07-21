@@ -140,7 +140,7 @@ function verifyWorkingChanges(changesDir, store) {
 }
 
 export function activateState(
-  { branch = DEFAULT_STATE_BRANCH, advisoryReason } = {},
+  { branch = DEFAULT_STATE_BRANCH, advisoryReason, confirmStrong = false } = {},
   cwd = process.cwd(),
   { gitEnv = {} } = {},
 ) {
@@ -160,9 +160,15 @@ export function activateState(
   }
 
   // Strong protection (an installed, working pre-receive validator) substitutes
-  // for the explicit advisory acceptance. Without an advisory reason we require
-  // that protection to be empirically confirmed; a probe that is not clearly
-  // rejected keeps today's `--advisory`-required behavior unchanged.
+  // for the explicit advisory acceptance. The probe pushes to the remote, so it
+  // only runs when the human explicitly opts in with --confirm-strong; a probe
+  // that is not clearly rejected keeps today's `--advisory`-required behavior
+  // unchanged.
+  if (!advisory && !confirmStrong) {
+    throw new Error(
+      'remote protection was not checked; pass --advisory <reason>, or --confirm-strong to empirically verify it (pushes a throwaway probe to origin)',
+    );
+  }
   const remoteProtected = advisory ? false : confirmRemoteProtection(repoRoot, { gitEnv });
   if (!advisory && !remoteProtected) {
     throw new Error(
@@ -242,7 +248,11 @@ export function activateState(
   return { branch, baseline: store.head, advisory: Boolean(advisory), remoteProtected };
 }
 
-export function doctorState({ branch } = {}, cwd = process.cwd(), { gitEnv = {} } = {}) {
+export function doctorState(
+  { branch, confirmStrong = false } = {},
+  cwd = process.cwd(),
+  { gitEnv = {} } = {},
+) {
   const { repoRoot, config } = project(cwd);
   assertCurrentSchema(config);
   const active = stateConfig(config);
@@ -269,9 +279,14 @@ export function doctorState({ branch } = {}, cwd = process.cwd(), { gitEnv = {} 
   } catch (error) {
     if (!/requires remote "origin"/.test(error.message)) throw error;
   }
-  const remoteProtection = confirmRemoteProtection(repoRoot, { gitEnv })
-    ? 'enforced'
-    : 'unverified';
+  // The probe pushes a throwaway commit to origin, so it only runs when the
+  // human explicitly opts in with --confirm-strong; otherwise doctor stays a
+  // read-only diagnostic.
+  const remoteProtection = !confirmStrong
+    ? 'not-checked'
+    : confirmRemoteProtection(repoRoot, { gitEnv })
+      ? 'enforced'
+      : 'unverified';
   return {
     branch: selectedBranch,
     head: store.head,
@@ -363,18 +378,22 @@ export function confirmRemoteProtection(repoRoot, { gitEnv = {} } = {}) {
   } catch {
     return false;
   }
+  let accepted = false;
   try {
     objectRun(['push', '--force', 'origin', `${commit}:${PROTECTION_PROBE_REF}`], repoRoot, {
       env: gitEnv,
     });
+    accepted = true;
   } catch (error) {
-    return /pre-receive hook declined|outside the state layout/.test(error.message);
+    if (!/pre-receive hook declined|outside the state layout/.test(error.message)) return false;
   }
-  // Accepted: the remote does not validate content — clean up the probe ref.
+  if (!accepted) return true;
+  // Accepted: the remote does not validate content — clean up the probe ref
+  // unconditionally so an unprotected remote never keeps the throwaway ref.
   try {
     objectRun(['push', 'origin', `:${PROTECTION_PROBE_REF}`], repoRoot, { env: gitEnv });
   } catch {
-    // best-effort cleanup; the ref is throwaway
+    // best-effort cleanup; the ref is throwaway and harmless if it lingers
   }
   return false;
 }

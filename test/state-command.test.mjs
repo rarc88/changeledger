@@ -181,7 +181,10 @@ test('124231 CR16: provider-neutral activation never claims unverifiable remote 
     fs.readFileSync(path.join(dir, '.changeledger', 'changes', 'STATE_MOVED'), 'utf8'),
     /Advisory cutover: provider protection is externally managed/,
   );
-  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'unverified');
+  assert.equal(
+    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
+    'unverified',
+  );
 });
 
 function installReceiveHook(bare) {
@@ -199,9 +202,12 @@ test('223228 CR4: a confirmed pre-receive hook activates strong protection witho
   const bare = publishCandidate(dir);
   installReceiveHook(bare);
 
-  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'enforced');
+  assert.equal(
+    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
+    'enforced',
+  );
 
-  const activated = activateState({}, dir, { gitEnv: ENV });
+  const activated = activateState({ confirmStrong: true }, dir, { gitEnv: ENV });
   assert.equal(activated.advisory, false);
   assert.equal(activated.remoteProtected, true);
   assert.match(
@@ -214,8 +220,37 @@ test('223228 CR4: an unprotected remote keeps the --advisory requirement unchang
   const dir = root();
   initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
   publishCandidate(dir); // bare remote without the validator hook
-  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'unverified');
-  assert.throws(() => activateState({}, dir, { gitEnv: ENV }), /--advisory/);
+  assert.equal(
+    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
+    'unverified',
+  );
+  assert.throws(() => activateState({ confirmStrong: true }, dir, { gitEnv: ENV }), /--advisory/);
+});
+
+test('223228 CR4 correction: doctor and activate never push a probe without --confirm-strong', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  installReceiveHook(bare);
+
+  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'not-checked');
+  assert.throws(
+    () => activateState({}, dir, { gitEnv: ENV }),
+    /--advisory.*--confirm-strong|--confirm-strong.*--advisory/s,
+  );
+  assert.equal(git(bare, ['for-each-ref', 'refs/changeledger/protection-probe']).trim(), '');
+});
+
+test('223228 CR4 correction: an accepted probe never leaves the throwaway ref on origin', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir); // no hook installed: probe push is accepted
+
+  assert.equal(
+    doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
+    'unverified',
+  );
+  assert.equal(git(bare, ['for-each-ref', 'refs/changeledger/protection-probe']).trim(), '');
 });
 
 test('124231 CR11: doctor validates the complete inactive candidate layout', () => {
