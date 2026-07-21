@@ -29,19 +29,20 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
     if (initial.releases.length) throw new Error('Release history is already initialized.');
-    const manifest = {
-      version,
-      created: now,
-      baseline: true,
-      changes: initial.changes
-        .filter((change) => change.frontmatter.status === 'done')
-        .map((change) => String(change.frontmatter.id)),
-    };
+    let manifest;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
       { message: `changeledger: release init ${version}` },
       ({ snapshot, write }) => {
         if (snapshot.releases.length) throw new Error('Release history is already initialized.');
+        manifest = {
+          version,
+          created: now,
+          baseline: true,
+          changes: snapshot.changes
+            .filter((change) => change.frontmatter.status === 'done')
+            .map((change) => String(change.frontmatter.id)),
+        };
         write(statePath, stringifyYaml(manifest));
       },
     );
@@ -83,7 +84,8 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
     if (version !== plan.nextVersion) {
       throw new Error(`Version "${version}" does not match the calculated ${plan.nextVersion}.`);
     }
-    const manifest = { version, created: now, changes: plan.changes.map((change) => change.id) };
+    let manifest;
+    let committedPlan;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
       { message: `changeledger: release ${version}` },
@@ -95,13 +97,19 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
         if (snapshot.releases.some((release) => release.name === `${version}.yml`)) {
           throw new Error(`Release manifest already exists: ${version}.yml`);
         }
+        committedPlan = currentPlan;
+        manifest = {
+          version,
+          created: now,
+          changes: currentPlan.changes.map((change) => change.id),
+        };
         write(statePath, stringifyYaml(manifest));
       },
     );
     return {
       file: after.releases.find((release) => release.name === `${version}.yml`)?.file,
       manifest,
-      plan,
+      plan: committedPlan,
     };
   }
   const releasesDir = resolveReleasesDir(initial.repoRoot);

@@ -7,8 +7,10 @@ import { parseChange } from '../src/change.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
+import { changeText, createStateRepo, git } from './helpers/state-repo.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -134,6 +136,57 @@ function refineScaffold(file) {
     fs.readFileSync(file, 'utf8').replace('<!-- changeledger:spec-scaffold -->\n\n', ''),
   );
 }
+
+test('193101 CR4: state --new exports locally and --into imports one atomic successor', () => {
+  const id = '20260721-000000';
+  const { root } = createStateRepo({ changes: [changeText({ id, status: 'done' })] });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+  const prepared = path.join(root, 'drafts', 'architecture.md');
+
+  assert.equal(scaffoldSpec(id, 'architecture', root, { to: prepared }), prepared);
+  assert.equal(store.load().revision, before.revision, '--new must not move the state ref');
+  refineScaffold(prepared);
+  fs.appendFileSync(prepared, '\nDurable final truth.\n');
+
+  const result = graduate(id, 'architecture', root, { into: true, from: prepared });
+  const after = store.load();
+  assert.match(result, /^git:/);
+  assert.notEqual(after.revision, before.revision);
+  assert.equal(git(root, ['rev-list', '--count', `${before.revision}..${after.revision}`]), '1');
+  assert.equal(
+    git(root, ['rev-list', '--parents', '-n', '1', after.revision]).split(' ').length,
+    2,
+  );
+  assert.match(after.specs[0].body, /Durable final truth/);
+  assert.deepEqual(after.specs[0].frontmatter.graduated_from, [id]);
+  assert.equal(after.changes[0].frontmatter.reviewed, true);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'specs')), false);
+});
+
+test('193101 CR4: invalid state import publishes neither spec nor change', () => {
+  const id = '20260721-000000';
+  const { root } = createStateRepo({ changes: [changeText({ id, status: 'done' })] });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+  const prepared = path.join(root, 'broken.md');
+  fs.writeFileSync(prepared, 'not a spec\n');
+
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true, from: prepared }),
+    /missing frontmatter|Ledger state validation failed/,
+  );
+  const after = store.load();
+  assert.equal(after.revision, before.revision);
+  assert.equal(after.specs.length, 0);
+  assert.equal(after.changes[0].frontmatter.reviewed, undefined);
+});
+
+test('193101 CR4: state graduation requires explicit editing paths', () => {
+  const { root } = createStateRepo({ changes: [changeText({ status: 'done' })] });
+  assert.throws(() => scaffoldSpec('20260721-000000', 'arch', root), /requires --to/);
+  assert.throws(() => graduate('20260721-000000', 'arch', root, { into: true }), /requires --from/);
+});
 
 test('195318 CR3: every graduation write rejects a future schema before writing', () => {
   const mutators = [

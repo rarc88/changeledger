@@ -2,7 +2,7 @@
 id: "20260721-193101"
 title: Centralizar el snapshot completo del ledger
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-21T19:31:01Z
 depends_on: ["20260721-195318", "20260721-195659"]
 owner: Roberto Ruiz
@@ -187,11 +187,16 @@ es una superficie de edición, nunca una segunda autoridad.
   - **Resolved:** `2026-07-21T21:30:19Z`
 - [x] Migrar `src/repo.mjs`, `src/commands/search.mjs`, `src/commands/check.mjs` y el payload del viewer al snapshot único; verify: `node --test test/repo.test.mjs test/search.test.mjs test/check.test.mjs test/view.test.mjs` (CR2, CR3, CR6)
   - **Resolved:** `2026-07-21T21:33:11Z`
-- [ ] Añadir una prueba parametrizada de la matriz mutadora y migrar `src/commands/new.mjs`, `src/commands/agent.mjs`, `src/commands/fix.mjs` y las mutaciones de config del viewer a `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/agent.test.mjs test/fix.test.mjs test/view.test.mjs` (CR3, CR8)
-- [ ] Añadir primero tests de mutación atómica y adaptar graduación/specs en `src/commands/graduate.mjs` al snapshot único y al flujo `--to/--from`; verify: `node --test test/graduate.test.mjs test/ledger-store.test.mjs` (CR4)
-- [ ] Añadir primero tests de release atómico y adaptar `src/commands/release.mjs`; verify: `node --test test/release.test.mjs test/ledger-store.test.mjs` (CR5)
-- [ ] Validar layout y object format en fixtures SHA-1/SHA-256 y documentar el formato en `.changeledger/specs/architecture.md` y `.changeledger/specs/data-model.md`; verify: `node --test test/ledger-store.test.mjs && changeledger check` (CR1, CR7)
-- [ ] Ejecutar regresiones legacy y el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir una prueba parametrizada de la matriz mutadora y migrar `src/commands/new.mjs`, `src/commands/agent.mjs`, `src/commands/fix.mjs` y las mutaciones de config del viewer a `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/agent.test.mjs test/fix.test.mjs test/view.test.mjs` (CR3, CR8)
+  - **Resolved:** `2026-07-21T22:38:55Z`
+- [x] Añadir primero tests de mutación atómica y adaptar graduación/specs en `src/commands/graduate.mjs` al snapshot único y al flujo `--to/--from`; verify: `node --test test/graduate.test.mjs test/ledger-store.test.mjs` (CR4)
+  - **Resolved:** `2026-07-21T22:38:55Z`
+- [x] Añadir primero tests de release atómico y adaptar `src/commands/release.mjs`; verify: `node --test test/release.test.mjs test/ledger-store.test.mjs` (CR5)
+  - **Resolved:** `2026-07-21T22:38:55Z`
+- [x] Validar layout y object format en fixtures SHA-1/SHA-256 y documentar el formato en `.changeledger/specs/architecture.md` y `.changeledger/specs/data-model.md`; verify: `node --test test/ledger-store.test.mjs && changeledger check` (CR1, CR7)
+  - **Resolved:** `2026-07-21T22:38:55Z`
+- [x] Ejecutar regresiones legacy y el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-21T22:41:40Z`
 
 ## Log
 
@@ -208,3 +213,6 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T22:06:14Z** `[note]` El viewer resuelve decisiones de lifecycle desde LedgerStore en modo state y conserva la tolerancia legacy a documentos ajenos no parseables.
 - **2026-07-21T22:18:10Z** `[note]` Añadidas transacciones state para release init/record y graduation --skip; graduación --into queda como siguiente unidad atómica.
 - **2026-07-21T22:19:23Z** `[note]` Graduation --into en modo state actualiza change y spec en un único sucesor validado.
+- **2026-07-21T22:38:55Z** `[note]` Completada la matriz mutadora state: lifecycle, bulk, config CLI/viewer, graduación --to/--from y releases publican un único sucesor; añadidos fixtures SHA-1/SHA-256 y documentación del layout.
+- **2026-07-21T22:41:40Z** `[note]` Gate completo superado: pnpm verify (774 tests, lint y check).
+- **2026-07-21T22:41:41Z** `[status]` in-progress → in-review

@@ -12,6 +12,7 @@ import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { serialize } from '../src/viewer/domain.mjs';
+import { changeText, createStateRepo } from './helpers/state-repo.mjs';
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -297,4 +298,28 @@ test('193101 CR8: new creates a change only in the state successor', () => {
   assert.notEqual(after.revision, before.revision);
   assert.ok(after.changes.some((change) => change.frontmatter.id === '20260721-010000'));
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
+});
+
+test('193101 CR7: state snapshots and mutations are portable across SHA-1 and SHA-256', () => {
+  for (const objectFormat of ['sha1', 'sha256']) {
+    let created;
+    try {
+      created = createStateRepo({ objectFormat, changes: [changeText()] });
+    } catch (error) {
+      if (
+        objectFormat === 'sha256' &&
+        /unknown option|unsupported|not supported/i.test(error.message)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+    const store = loadLedgerStore(created.root);
+    const before = store.load();
+    status('20260721-000000', 'approved', created.root);
+    const after = store.load();
+    assert.notEqual(after.revision, before.revision, objectFormat);
+    assert.equal(after.changes[0].frontmatter.status, 'approved', objectFormat);
+    assert.equal(after.revision.length, objectFormat === 'sha256' ? 64 : 40);
+  }
 });

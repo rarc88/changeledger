@@ -20,6 +20,7 @@ import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
+import { migrateConfig } from '../src/commands/config.mjs';
 import { context } from '../src/commands/context.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
@@ -29,8 +30,6 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
 import { view } from '../src/commands/view.mjs';
-import { findChangeledgerDir } from '../src/config.mjs';
-import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
@@ -653,13 +652,15 @@ program
   .option('--new', 'create a spec scaffold without resolving graduation')
   .option('--into', 'finalize graduation into an existing refined spec')
   .option('--skip', 'mark graduation reviewed without a spec')
+  .option('--to <file>', 'export the --new scaffold to an editable local file')
+  .option('--from <file>', 'import the final spec for --into')
   .addHelpText(
     'after',
     [
       '',
       'Examples:',
-      '  changeledger graduate <change-id> <spec-slug> --new',
-      '  changeledger graduate <change-id> <spec-slug> --into',
+      '  changeledger graduate <change-id> <spec-slug> --new --to <file>',
+      '  changeledger graduate <change-id> <spec-slug> --into --from <file>',
       '  changeledger graduate <change-id> --skip [reason]',
       '  changeledger list --pending graduation   # list unresolved decisions',
     ].join('\n'),
@@ -670,6 +671,8 @@ program
       const modeUsage =
         'Usage: changeledger graduate requires exactly one mode: --new, --into, or --skip';
       if (modeCount !== 1) throw new Error(modeUsage);
+      if (options.to && !options.new) throw new Error('--to requires --new');
+      if (options.from && !options.into) throw new Error('--from requires --into');
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
@@ -680,13 +683,13 @@ program
 
       if (!id || !slug || reasonParts.length) throw new Error(modeUsage);
       if (options.new) {
-        const file = scaffoldSpec(id, slug);
+        const file = scaffoldSpec(id, slug, process.cwd(), { to: options.to });
         console.log(
-          `Created spec scaffold ${file}. Refine it, then run: changeledger graduate ${id} ${slug} --into`,
+          `Created spec scaffold ${file}. Refine it, then run: changeledger graduate ${id} ${slug} --into --from ${file}`,
         );
         return;
       }
-      const file = graduate(id, slug, process.cwd(), { into: options.into });
+      const file = graduate(id, slug, process.cwd(), { into: options.into, from: options.from });
       console.log(`Graduated #${id} → ${file}`);
     }),
   );
@@ -701,10 +704,7 @@ configCommand
   .option('--dry-run', 'show the migration plan and candidate YAML without writing')
   .action(
     action((options) => {
-      const changeledgerDir = findChangeledgerDir();
-      if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
-      const configFile = `${changeledgerDir}/config.yml`;
-      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      const result = migrateConfig(process.cwd(), { dryRun: options.dryRun ?? false });
       console.log(result);
     }),
   );

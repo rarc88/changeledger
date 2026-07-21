@@ -10,7 +10,7 @@ import {
   status as applyStatusCmd,
   validation as applyValidation,
 } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import { findChangeledgerDir, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
   assertSupportedSchema,
   buildMigration,
@@ -58,7 +58,55 @@ export function serialize(repo) {
   };
 }
 
-const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
+const isAlive = (projectPath) => {
+  try {
+    const store = loadLedgerStore(projectPath);
+    if (store.mode === 'state') store.load();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+function projectConfigSource(projectPath) {
+  const store = loadLedgerStore(projectPath);
+  const snapshot = store.load();
+  return {
+    store,
+    snapshot,
+    content: snapshot.configText,
+    file: snapshot.configFile,
+  };
+}
+
+function candidateRepoForValidation(source, candidate) {
+  const repo = source.snapshot;
+  resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
+  resolveSpecsDir(repo.repoRoot, candidate);
+  if (repo.mode === 'state') return { ...repo, config: candidate };
+  return loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+}
+
+function mutateConfigSource(source, expectedRevision, message, transform, mutateConfig) {
+  const apply = (before, snapshot = source.snapshot) => {
+    if (revision(before) !== expectedRevision) {
+      throw new Error('configuration changed on disk; reload before saving');
+    }
+    return transform(before, snapshot);
+  };
+  if (source.store.mode === 'state') {
+    let changed = false;
+    const after = source.store.mutate({ message }, ({ snapshot, write }) => {
+      const next = apply(snapshot.configText, snapshot);
+      if (next === undefined) return;
+      write(snapshot.configStatePath, next);
+      changed = true;
+    });
+    return { ledgerRevision: after.revision, changed };
+  }
+  const result = mutateConfig(source.file, apply);
+  return { ledgerRevision: null, changed: result !== undefined };
+}
 
 // The project list and which one is "current" (the repo the command ran in).
 export function resolveProjects(cwd, localOnly) {
@@ -67,7 +115,7 @@ export function resolveProjects(cwd, localOnly) {
 
   if (localOnly) {
     if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-    const config = loadConfig(changeledgerDir);
+    const config = loadRepo(repoRoot).config;
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
     return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
@@ -148,14 +196,15 @@ export function changeStatus(projects, { project, id, status, reason }) {
     return { code: 400, body: { error: e.message } };
   }
   try {
+    let mutationFile;
     if (current === 'draft' && status === 'approved') {
-      applyStatusCmd(id, status, proj.path, { actor: 'human' });
+      mutationFile = applyStatusCmd(id, status, proj.path, { actor: 'human' });
     } else if (current === 'in-validation' && status === 'done') {
-      applyValidation(id, 'pass', {}, proj.path);
+      mutationFile = applyValidation(id, 'pass', {}, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
-      applyValidation(id, 'fail', { reason }, proj.path);
+      mutationFile = applyValidation(id, 'fail', { reason }, proj.path);
     } else if (current === 'done' && status === 'in-progress') {
-      applyReopen(id, reason, proj.path);
+      mutationFile = applyReopen(id, reason, proj.path);
     } else {
       return {
         code: 403,
@@ -165,7 +214,8 @@ export function changeStatus(projects, { project, id, status, reason }) {
         },
       };
     }
-    return { code: 200, body: { ok: true, id, status } };
+    const ledgerRevision = String(mutationFile ?? '').match(/^git:([^:]+):/)?.[1] ?? null;
+    return { code: 200, body: { ok: true, id, status, ledger_revision: ledgerRevision } };
   } catch (e) {
     return { code: 400, body: { error: e.message } };
   }
@@ -183,9 +233,19 @@ function projectFor(projects, id) {
 export function readProjectConfig(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
-  return { code: 200, body: { content, revision: revision(content) } };
+  try {
+    const source = projectConfigSource(found.project.path);
+    return {
+      code: 200,
+      body: {
+        content: source.content,
+        revision: revision(source.content),
+        ledger_revision: source.snapshot.revision,
+      },
+    };
+  } catch {
+    return { code: 400, body: { error: 'unable to load the current project configuration' } };
+  }
 }
 
 export function saveProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
@@ -205,26 +265,20 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     return { code: 400, body: { error: 'project_id cannot be changed from the viewer' } };
   }
 
-  let repo;
+  let source;
   try {
-    repo = loadRepo(found.project.path);
+    source = projectConfigSource(found.project.path);
   } catch {
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
   try {
-    assertSupportedSchema(repo.config);
-  } catch (error) {
-    return { code: 400, body: { error: error.message } };
-  }
-  try {
-    resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
-    resolveSpecsDir(repo.repoRoot, candidate);
+    assertSupportedSchema(source.snapshot.config);
   } catch (error) {
     return { code: 400, body: { error: error.message } };
   }
   let candidateRepo;
   try {
-    candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
+    candidateRepo = candidateRepoForValidation(source, candidate);
   } catch {
     return { code: 400, body: { error: 'candidate configuration cannot load the repository' } };
   }
@@ -239,19 +293,26 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
   }
   if (errors.length) return { code: 400, body: { error: errors[0].message } };
 
-  const file = path.join(repo.changeledgerDir, 'config.yml');
   const projectName =
     typeof candidate.project_name === 'string' && candidate.project_name.trim()
       ? candidate.project_name
       : found.project.name;
+  let mutation;
   try {
-    mutateConfig(file, (before) => {
-      if (revision(before) !== payload.revision) {
-        throw new Error('configuration changed on disk; reload before saving');
-      }
-      assertSupportedSchema(parseYaml(before));
-      return payload.content;
-    });
+    mutation = mutateConfigSource(
+      source,
+      payload.revision,
+      'changeledger: save config',
+      (before, snapshot) => {
+        assertSupportedSchema(parseYaml(before));
+        const currentSource = { ...source, snapshot };
+        const currentRepo = candidateRepoForValidation(currentSource, candidate);
+        const { errors: currentErrors } = checkRepo(currentRepo);
+        if (currentErrors.length) throw new Error(currentErrors[0].message);
+        return payload.content;
+      },
+      mutateConfig,
+    );
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -267,7 +328,12 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
   }
   return {
     code: 200,
-    body: { ok: true, name: projectName, revision: revision(payload.content) },
+    body: {
+      ok: true,
+      name: projectName,
+      revision: revision(payload.content),
+      ledger_revision: mutation.ledgerRevision,
+    },
   };
 }
 
@@ -282,7 +348,7 @@ export function repairProjectPath(projects, payload, { localOnly = false } = {})
   const root = path.resolve(payload.path);
   let config;
   try {
-    config = loadConfig(path.join(root, '.changeledger'));
+    config = loadRepo(root).config;
   } catch {
     return { code: 400, body: { error: 'project path is not a ChangeLedger repository' } };
   }
@@ -317,8 +383,13 @@ export function unregisterProject(projects, payload, { localOnly = false } = {})
 export function readProjectConfigStructured(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  let source;
+  try {
+    source = projectConfigSource(found.project.path);
+  } catch {
+    return { code: 400, body: { error: 'unable to load the current project configuration' } };
+  }
+  const content = source.content;
   const config = parseYaml(content);
   const schemaVersion = getSchemaVersion(config);
   return {
@@ -329,6 +400,7 @@ export function readProjectConfigStructured(projects, id) {
       schemaVersion,
       supported: SUPPORTED_SCHEMA_VERSION,
       config,
+      ledger_revision: source.snapshot.revision,
     },
   };
 }
@@ -352,46 +424,43 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
     return { code: 400, body: { error: 'schema_version cannot be changed via patch' } };
   }
 
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  let source;
   try {
-    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
+    source = projectConfigSource(found.project.path);
+    assertSupportedSchema(source.snapshot.config);
   } catch (error) {
     return { code: 400, body: { error: error.message } };
   }
 
   let result;
+  let mutation;
   try {
-    mutateConfig(file, (before) => {
-      if (revision(before) !== payload.revision) {
-        throw new Error('configuration changed on disk; reload before saving');
-      }
+    mutation = mutateConfigSource(
+      source,
+      payload.revision,
+      'changeledger: patch config',
+      (before, snapshot) => {
+        const doc = parseDocument(before, { merge: false });
+        const config = doc.toJS() ?? {};
 
-      const doc = parseDocument(before, { merge: false });
-      const config = doc.toJS() ?? {};
+        assertSupportedSchema(config);
+        applyPatch(doc, payload.patch, config);
 
-      assertSupportedSchema(config);
+        const patched = doc.toString();
+        const candidate = parseYaml(patched);
+        if (String(candidate.project_id ?? '') !== String(found.project.id)) {
+          throw new Error('project_id cannot be changed from the viewer');
+        }
 
-      applyPatch(doc, payload.patch, config);
+        const candidateRepo = candidateRepoForValidation({ ...source, snapshot }, candidate);
+        const { errors } = checkRepo(candidateRepo);
+        if (errors.length) throw new Error(errors[0].message);
 
-      const patched = doc.toString();
-      const candidate = parseYaml(patched);
-
-      // Identity guard
-      if (String(candidate.project_id ?? '') !== String(found.project.id)) {
-        throw new Error('project_id cannot be changed from the viewer');
-      }
-
-      // Structural validation
-      const repo = loadRepo(found.project.path);
-      resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
-      resolveSpecsDir(repo.repoRoot, candidate);
-      const candidateRepo = loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
-      const { errors } = checkRepo(candidateRepo);
-      if (errors.length) throw new Error(errors[0].message);
-
-      result = { content: patched, rev: revision(patched) };
-      return patched;
-    });
+        result = { rev: revision(patched) };
+        return patched;
+      },
+      mutateConfig,
+    );
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -399,15 +468,23 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
     return { code: 400, body: { error: error.message } };
   }
 
-  return { code: 200, body: { ok: true, revision: result.rev } };
+  return {
+    code: 200,
+    body: { ok: true, revision: result.rev, ledger_revision: mutation.ledgerRevision },
+  };
 }
 
 // Preview the migration without writing. Returns summary + candidate YAML.
 export function previewConfigMigration(projects, id, rev) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  let source;
+  try {
+    source = projectConfigSource(found.project.path);
+  } catch {
+    return { code: 400, body: { error: 'unable to load the current project configuration' } };
+  }
+  const content = source.content;
   if (rev && revision(content) !== rev) {
     return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
   }
@@ -423,6 +500,7 @@ export function previewConfigMigration(projects, id, rev) {
       body: {
         already_current: true,
         message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
+        ledger_revision: source.snapshot.revision,
       },
     };
   }
@@ -432,6 +510,7 @@ export function previewConfigMigration(projects, id, rev) {
       summary: `Config migration ${migrationResult.fromVersion} → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
       changes: migrationResult.changes,
       yaml: migrationResult.yaml,
+      ledger_revision: source.snapshot.revision,
     },
   };
 }
@@ -444,32 +523,32 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
   if (typeof payload.revision !== 'string') {
     return { code: 400, body: { error: 'revision is required' } };
   }
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
+  let source;
   try {
-    buildMigration(fs.readFileSync(file, 'utf8'));
+    source = projectConfigSource(found.project.path);
+    buildMigration(source.content);
   } catch (error) {
     return { code: 400, body: { error: error.message } };
   }
 
   let result;
+  let mutation;
   try {
-    mutateConfig(file, (before) => {
-      if (revision(before) !== payload.revision) {
-        throw new Error('configuration changed on disk; reload before saving');
-      }
-      let migrationResult;
-      try {
-        migrationResult = buildMigration(before);
-      } catch (e) {
-        throw new Error(e.message);
-      }
-      if (!migrationResult) {
-        result = { already_current: true, rev: payload.revision };
-        return undefined; // no write needed
-      }
-      result = { ok: true, rev: revision(migrationResult.yaml) };
-      return migrationResult.yaml;
-    });
+    mutation = mutateConfigSource(
+      source,
+      payload.revision,
+      'changeledger: migrate config',
+      (before) => {
+        const migrationResult = buildMigration(before);
+        if (!migrationResult) {
+          result = { already_current: true, rev: payload.revision };
+          return undefined;
+        }
+        result = { ok: true, rev: revision(migrationResult.yaml) };
+        return migrationResult.yaml;
+      },
+      mutateConfig,
+    );
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -478,9 +557,19 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
   }
 
   if (result.already_current) {
-    return { code: 200, body: { already_current: true, revision: result.rev } };
+    return {
+      code: 200,
+      body: {
+        already_current: true,
+        revision: result.rev,
+        ledger_revision: mutation.ledgerRevision,
+      },
+    };
   }
-  return { code: 200, body: { ok: true, revision: result.rev } };
+  return {
+    code: 200,
+    body: { ok: true, revision: result.rev, ledger_revision: mutation.ledgerRevision },
+  };
 }
 
 // Allowlisted fields the form patch may update.

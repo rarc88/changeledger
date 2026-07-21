@@ -40,22 +40,12 @@ function requireGraduationReady(config, changeFile, changeText) {
   return change;
 }
 
-export function scaffoldSpec(id, slug, cwd = process.cwd()) {
-  const {
-    config,
-    file: changeFile,
-    specsDir,
-    specName,
-    specFile,
-  } = graduationTarget(id, slug, cwd);
-  const change = requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
-  if (fs.existsSync(specFile)) throw new Error(`Spec "${specName}" already exists`);
-
+function scaffoldContent(change, id) {
   const seedStage =
     change.stages.find((stage) => stage.key === 'specification') ??
     change.stages.find((stage) => stage.key === 'proposal');
   const seed = seedStage ? seedStage.body : '';
-  const content = `---
+  return `---
 title: ${serializeScalar(change.frontmatter.title)}
 updated: ${nowUtc()}
 tags: [${change.frontmatter.type}]
@@ -70,20 +60,55 @@ ${SPEC_SCAFFOLD_MARKER}
 
 ${seed}
 `;
+}
 
-  fs.mkdirSync(specsDir, { recursive: true });
-  writeFileAtomic(specFile, content);
-  return specFile;
+export function scaffoldSpec(id, slug, cwd = process.cwd(), { to } = {}) {
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    if (!to) throw new Error('state graduation --new requires --to <file>');
+    const snapshot = store.load();
+    assertSupportedSchema(snapshot.config);
+    const candidate = snapshot.changes.find(
+      (change) => String(change.frontmatter.id) === String(id),
+    );
+    if (!candidate) throw new Error(`No change with id "${id}"`);
+    const change = requireGraduationReady(snapshot.config, candidate.file, candidate.text);
+    const output = path.resolve(cwd, to);
+    if (fs.existsSync(output)) throw new Error(`Scaffold target already exists: ${output}`);
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    writeFileAtomic(output, scaffoldContent(change, id));
+    return output;
+  }
+  const {
+    config,
+    file: changeFile,
+    specsDir,
+    specName,
+    specFile,
+  } = graduationTarget(id, slug, cwd);
+  const change = requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
+  const output = to ? path.resolve(cwd, to) : specFile;
+  if (fs.existsSync(output)) throw new Error(`Spec "${specName}" already exists`);
+
+  fs.mkdirSync(to ? path.dirname(output) : specsDir, { recursive: true });
+  writeFileAtomic(output, scaffoldContent(change, id));
+  return output;
 }
 
 // Finalizes graduation into an EXISTING, manually refined spec. The command
 // refreshes `updated` and links it back, but never overwrites the body.
-export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl = fs } = {}) {
+export function graduate(id, slug, cwd = process.cwd(), { into = false, from, fsImpl = fs } = {}) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
+    if (!from) throw new Error('state graduation --into requires --from <file>');
+    const sourceFile = path.resolve(cwd, from);
+    const importedSpec = fsImpl.readFileSync(sourceFile, 'utf8');
+    if (importedSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+      throw new Error('prepared spec still contains the scaffold marker — refine it before --into');
+    }
     const snapshot = store.load();
     assertSupportedSchema(snapshot.config);
     const change = snapshot.changes.find(
@@ -91,28 +116,17 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
     );
     if (!change) throw new Error(`No change with id "${id}"`);
     const specName = `${slugify(slug)}.md`;
-    const spec = snapshot.specs.find((candidate) => candidate.name === specName);
-    if (!spec)
-      throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
     const after = store.mutate(
       { message: `changeledger: graduate ${id}` },
       ({ snapshot, write }) => {
         const currentChange = snapshot.changes.find(
           (candidate) => candidate.statePath === change.statePath,
         );
-        const currentSpec = snapshot.specs.find(
-          (candidate) => candidate.statePath === spec.statePath,
-        );
-        if (!currentChange || !currentSpec)
-          throw new Error('graduation target changed concurrently; retry');
+        const currentSpec = snapshot.specs.find((candidate) => candidate.name === specName);
+        if (!currentChange) throw new Error('graduation target changed concurrently; retry');
         requireGraduationReady(snapshot.config, currentChange.file, currentChange.text);
-        if (currentSpec.text.includes(SPEC_SCAFFOLD_MARKER)) {
-          throw new Error(
-            `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
-          );
-        }
         const timestamp = nowUtc();
-        const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(currentSpec.text, timestamp), id);
+        const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(importedSpec, timestamp), id);
         let updatedChange = appendLogEvent(currentChange.text, {
           at: timestamp,
           type: 'graduation',
@@ -120,7 +134,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
           spec: specName,
         });
         updatedChange = setReviewed(updatedChange, true);
-        write(currentSpec.statePath, updatedSpec);
+        write(currentSpec?.statePath ?? `.changeledger-state/specs/${specName}`, updatedSpec);
         write(currentChange.statePath, updatedChange);
       },
     );

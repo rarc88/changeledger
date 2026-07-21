@@ -1,6 +1,6 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-07-20T22:30:15Z
+updated: 2026-07-21T23:15:00Z
 tags: [ data-model ]
 graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457", "20260718-105456", "20260720-125007"]
 ---
@@ -23,6 +23,15 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
 - **release**: manifiesto YAML inmutable en `.changeledger/releases/<version>.yml` con
   versión SemVer estable, timestamp y ids de changes. La pertenencia se deriva
   solo de estos manifiestos y no se duplica en cada change.
+- **snapshot**: revisión indivisible que reúne manifest, configuración, changes,
+  specs y releases. En modo state sus paths lógicos están bajo
+  `.changeledger-state/` y cada documento conserva su formato de dominio; el
+  prefijo físico no forma parte de las referencias entre documentos.
+
+Un `LedgerSnapshot` identifica siempre su modo y revisión. En legacy la revisión
+es `null` y los paths son archivos del worktree. En state la revisión es el
+object id exacto del commit y los paths expuestos usan la forma
+`git:<oid>:<path>`; no se presupone longitud ni algoritmo del oid.
 
 ## Identidad
 
@@ -66,6 +75,15 @@ mientras cambios distintos usan locks distintos y no comparten un bloqueo global
 El lock se borra en `finally`; si otro proceso encuentra un lock existente, espera
 hasta un timeout y falla sin borrarlo, porque expirar un lock solo por edad puede
 romper la exclusión si una mutación legítima tarda más de lo esperado.
+
+Cuando la autoridad state está activa, la unidad atómica deja de ser un archivo
+y pasa a ser el snapshot completo. `LedgerStore.mutate` recibe la revisión
+actual, acumula escrituras y eliminaciones dentro del layout cerrado, valida el
+repositorio candidato con su propia config y publica un solo commit sucesor por
+compare-and-swap. Así una graduación no puede dejar la spec sin su resolución,
+un release no puede aparecer separado de sus decisiones y una reparación bulk
+no puede aplicar solo un subconjunto. Los writers de worktree quedan reservados
+al adaptador legacy y a superficies locales deliberadas como `--to <file>`.
 
 Antes de mutar una tarea, el parser valida el bloque completo y falla sin
 escribir ante metadatos ausentes, duplicados, desconocidos o huérfanos. Completar

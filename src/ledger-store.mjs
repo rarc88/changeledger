@@ -27,6 +27,7 @@ function listWorktreeFiles(dir, extension) {
 }
 
 function loadWorktreeSnapshot(repoRoot, changeledgerDir) {
+  const configFile = path.join(changeledgerDir, 'config.yml');
   const config = loadConfig(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
   const changes = listWorktreeFiles(changesDir, '.md').map((name) => {
@@ -53,6 +54,8 @@ function loadWorktreeSnapshot(repoRoot, changeledgerDir) {
     manifest: null,
     repoRoot,
     changeledgerDir,
+    configFile,
+    configText: fs.readFileSync(configFile, 'utf8'),
     config,
     changes,
     specs,
@@ -124,7 +127,8 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
   const names = statePaths(repoRoot, revision, run);
   const read = (file) => readStateFile(repoRoot, revision, file, run);
   const manifest = parseYaml(read(MANIFEST));
-  const config = parseYaml(read(CONFIG));
+  const configText = read(CONFIG);
+  const config = parseYaml(configText);
   if (manifest?.format_version !== 1) throw new Error('Unsupported ledger state format_version');
   if (
     manifest?.project_id !== authority.project_id ||
@@ -152,6 +156,9 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
     manifest,
     repoRoot,
     changeledgerDir,
+    configFile: `git:${revision}:${CONFIG}`,
+    configStatePath: CONFIG,
+    configText,
     config,
     changes,
     specs,

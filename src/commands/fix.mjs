@@ -53,6 +53,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   let anyChanged = false;
   let anyManual = false;
   const candidates = [];
+  let ledgerRevision = null;
 
   for (const c of targets) {
     const { text: fixedText, applied, manual, changed } = computeFixes(c.text);
@@ -80,17 +81,21 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
 
   if (!dryRun && candidates.length) {
     if (store.mode === 'state') {
-      store.mutate({ message: 'changeledger: fix changes' }, ({ snapshot, write }) => {
-        for (const candidate of candidates) {
-          const current = snapshot.changes.find(
-            (change) => change.statePath === candidate.change.statePath,
-          );
-          if (!current || current.text !== candidate.change.text) {
-            throw new Error('fix target changed concurrently; retry the operation');
+      const after = store.mutate(
+        { message: 'changeledger: fix changes' },
+        ({ snapshot, write }) => {
+          for (const candidate of candidates) {
+            const current = snapshot.changes.find(
+              (change) => change.statePath === candidate.change.statePath,
+            );
+            if (!current || current.text !== candidate.change.text) {
+              throw new Error('fix target changed concurrently; retry the operation');
+            }
+            write(current.statePath, candidate.text);
           }
-          write(current.statePath, candidate.text);
-        }
-      });
+        },
+      );
+      ledgerRevision = after.revision;
     } else {
       for (const candidate of candidates) writeFileAtomic(candidate.change.file, candidate.text);
     }
@@ -100,6 +105,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     }
   }
 
+  if (ledgerRevision) output.log(`Ledger revision: ${ledgerRevision}`);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -108,6 +114,7 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
   let anyChanged = false;
   let anyManual = false;
   const candidates = [];
+  let ledgerRevision = null;
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
     if (result.manual.length) {
@@ -127,17 +134,21 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
   }
   if (!dryRun && candidates.length) {
     if (store.mode === 'state') {
-      store.mutate({ message: 'changeledger: fix structured sections' }, ({ snapshot, write }) => {
-        for (const candidate of candidates) {
-          const current = snapshot.changes.find(
-            (change) => change.statePath === candidate.change.statePath,
-          );
-          if (!current || current.text !== candidate.change.text) {
-            throw new Error('fix target changed concurrently; retry the operation');
+      const after = store.mutate(
+        { message: 'changeledger: fix structured sections' },
+        ({ snapshot, write }) => {
+          for (const candidate of candidates) {
+            const current = snapshot.changes.find(
+              (change) => change.statePath === candidate.change.statePath,
+            );
+            if (!current || current.text !== candidate.change.text) {
+              throw new Error('fix target changed concurrently; retry the operation');
+            }
+            write(current.statePath, candidate.result.text);
           }
-          write(current.statePath, candidate.result.text);
-        }
-      });
+        },
+      );
+      ledgerRevision = after.revision;
     } else {
       for (const candidate of candidates)
         writeFileAtomic(candidate.change.file, candidate.result.text);
@@ -147,6 +158,7 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
       for (const message of candidate.result.applied) output.log(`  - ${message}`);
     }
   }
+  if (ledgerRevision) output.log(`Ledger revision: ${ledgerRevision}`);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
@@ -198,16 +210,23 @@ function fixGraduationLinks(repo, { dryRun, output, store }) {
     output.log('nothing to fix');
     return 0;
   }
+  let ledgerRevision = null;
   if (!dryRun && candidates.length && store.mode === 'state') {
-    store.mutate({ message: 'changeledger: fix graduation links' }, ({ snapshot, write }) => {
-      for (const candidate of candidates) {
-        const current = snapshot.specs.find((spec) => spec.statePath === candidate.spec.statePath);
-        if (!current || current.text !== candidate.before) {
-          throw new Error('fix target changed concurrently; retry the operation');
+    const after = store.mutate(
+      { message: 'changeledger: fix graduation links' },
+      ({ snapshot, write }) => {
+        for (const candidate of candidates) {
+          const current = snapshot.specs.find(
+            (spec) => spec.statePath === candidate.spec.statePath,
+          );
+          if (!current || current.text !== candidate.before) {
+            throw new Error('fix target changed concurrently; retry the operation');
+          }
+          write(current.statePath, candidate.after);
         }
-        write(current.statePath, candidate.after);
-      }
-    });
+      },
+    );
+    ledgerRevision = after.revision;
   }
   for (const { spec, before, after } of candidates) {
     if (dryRun) {
@@ -221,6 +240,7 @@ function fixGraduationLinks(repo, { dryRun, output, store }) {
       output.log('  - migrated graduation provenance to graduated_from');
     }
   }
+  if (ledgerRevision) output.log(`Ledger revision: ${ledgerRevision}`);
   return 0;
 }
 
