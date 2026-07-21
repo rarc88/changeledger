@@ -45,6 +45,15 @@ confirmada en código. La investigación real (leer `src/repo.mjs`/resolución d
 `repoRoot`, reproducir con un hook mínimo, aislar la variable exacta) queda
 pendiente.
 
+**Pregunta abierta de alcance, sin responder todavía:** solo se observó el
+síntoma en `check`. No se verificó si la misma resolución de `repoRoot` la
+comparten las operaciones reales del almacén global (`readStateStore`,
+`syncStateStore`, `publishStateStore` en `src/state-store.mjs`) — que son el
+corazón del feature de `20260720-124231`, no un comando auxiliar. Si el mismo
+bug alcanza esas rutas, el riesgo es mayor que un falso positivo de `check`. La
+tarea de trace del Plan debe responder esto explícitamente antes de acotar el
+fix solo a `check`.
+
 ## Specification
 
 ### CR1 — `check` resuelve el repoRoot del invocador, no de otro worktree
@@ -55,10 +64,17 @@ pendiente.
   interactiva desde ese worktree
 - **And** ningún archivo de un worktree distinto influye en el resultado
 
+### CR2 — Alcance confirmado sobre las operaciones del almacén global
+- **Given** el mismo fixture multi-worktree bajo un hook
+- **When** se ejecutan `readStateStore`, `syncStateStore` o `publishStateStore` desde `src/state-store.mjs` dentro de ese hook
+- **Then** el resultado documenta explícitamente si comparten o no la resolución defectuosa de `repoRoot`
+- **And** si la comparten, este change extiende su fix a esas rutas; si no, el Log deja constancia de por qué están a salvo
+
 ## Plan
 
 - [ ] Write a failing reproduction against `src/check.mjs`'s current resolution: a fixture with 2+ `git worktree` off one `.git`, each with its own AGENTS.md at a different bootstrap version, that installs a real `pre-commit` hook invoking the built CLI's `check` and runs an actual `git commit` in one worktree; assert the result differs from running `check` directly in that same worktree (red, proving today's bug — do not assume the cause, let the test show it); verify: `node --test test/repo-root-hook.test.mjs` (CR1)
-- [ ] Trace the exact repoRoot/file resolution `check` uses under the hook's inherited `GIT_DIR`/`GIT_WORK_TREE` (start in `src/repo.mjs` and wherever `check` locates AGENTS.md), fix the resolution so it always targets the invoking worktree, and turn the reproduction test green; verify: `node --test test/repo-root-hook.test.mjs test/check.test.mjs` (CR1)
+- [ ] Trace the exact repoRoot/file resolution `check` uses under the hook's inherited `GIT_DIR`/`GIT_WORK_TREE` (start in `src/repo.mjs` and wherever `check` locates AGENTS.md); in the same pass, run `readStateStore`/`syncStateStore`/`publishStateStore` from `src/state-store.mjs` under the same hook fixture and record in the Log whether they share the bug; verify: `node --test test/repo-root-hook.test.mjs` (CR2)
+- [ ] Fix the resolution so it always targets the invoking worktree — extending the fix to `src/state-store.mjs` too if CR2's trace found it exposed — and turn the reproduction test green; verify: `node --test test/repo-root-hook.test.mjs test/check.test.mjs` (CR1)
 - [ ] Run the full gate to confirm no other command sharing this resolution path regressed; verify: `pnpm verify` (support)
 
 ## Log

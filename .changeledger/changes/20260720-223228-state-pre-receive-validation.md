@@ -81,12 +81,19 @@ romper esta ruta sin que ningún test lo note.
 - **When** la suite de regresión ejecuta un `git push` genuino con una actualización inválida y otra válida
 - **Then** el rechazo y la aceptación se verifican contra el resultado real del push, no contra una llamada directa a la función de validación con objetos precargados
 
+### CR4 — Reconexión del modo fuerte en `20260720-124231`
+- **Given** el hook `pre-receive` de este change instalado y confirmado (`state doctor` lo detecta funcionando)
+- **When** el humano ejecuta `state activate`
+- **Then** la activación puede completarse sin exigir `--advisory`, reconociendo la protección fuerte disponible
+- **And** si el hook no está confirmado, `state activate` sigue exigiendo `--advisory` como hoy — el comportamiento actual de `20260720-124231` no cambia por defecto
+
 ## Plan
 
 - [ ] Add a failing test that installs a real `pre-receive` hook (invoking the built CLI) in a bare remote and pushes a state update through it while the object quarantine is active, confirming it fails closed on a valid update today; then give the receive path its own git env inheriting `GIT_OBJECT_DIRECTORY`/`GIT_ALTERNATE_OBJECT_DIRECTORIES` from the hook process instead of stripping them, in `src/git.mjs` and `src/commands/state.mjs`; verify: `node --test test/state-receive.test.mjs` (CR1)
 - [ ] Add a test asserting every client-facing command in `src/git.mjs`'s consumers (`list`, `show`, `status`, `state doctor`) still runs with the fully sanitized env after the receive path gets its own; verify: `node --test test/git.test.mjs` (CR2)
 - [ ] Reintroduce the `state validate-receive` CLI command in `bin/changeledger.mjs`, wired to the fixed validation path, plus the README `pre-receive` hook install instructions removed with CR11; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR1)
 - [ ] Add the real-push integration test described in the Proposal (install the hook from `bin/changeledger.mjs`, `git push` against a bare remote, assert on the push's real accept/reject outcome) as permanent regression coverage; verify: `node --test test/state-receive.test.mjs` (CR3)
+- [ ] Add a test where `state doctor` confirms a working installed hook, then update `activateState` in `src/commands/state.mjs` to accept activation without `--advisory` in that case only, keeping today's `--advisory`-required path unchanged otherwise; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs` (CR4)
 - [ ] Run the full gate and update `templates/contract/`/README wording that still describes pre-receive validation as unavailable; verify: `pnpm verify` (support)
 
 ## Log
