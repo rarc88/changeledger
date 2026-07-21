@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { applyMigration, assertSupportedSchema, buildMigration } from '../src/config-migration.mjs';
+import { parseYaml } from '../src/yaml.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
@@ -64,6 +66,18 @@ test('225637 CR2: schema 2 preserves an existing git section and custom comments
   );
   assert.equal(result.changes.includes('added git section'), false);
   assert.equal(buildMigration(result.yaml), null);
+});
+
+test('195659 CR4: migration preserves custom Git keys and its null integration branch is valid', () => {
+  const source = `${SCHEMA_2_CONFIG}\ngit:\n  integration_branch:\n  custom: keep\n`;
+  const result = buildMigration(source);
+  assert.ok(result);
+  assert.match(result.yaml, /git:\n {2}integration_branch:\n {2}custom: keep/);
+  const { errors } = checkRepo({ config: parseYaml(result.yaml), changes: [] });
+  assert.equal(
+    errors.some((error) => error.message.includes('git')),
+    false,
+  );
 });
 
 function tmp() {

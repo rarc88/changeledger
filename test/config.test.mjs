@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { checkRepo } from '../src/check.mjs';
 import { integrationBranch } from '../src/config.mjs';
 
 // 20260711-210115 CR1: optional `git.integration_branch` resolves from config.
@@ -22,4 +23,32 @@ test('210115 CR1: integrationBranch fails fast on a non-string or empty value', 
       /config "git\.integration_branch" must be a non-empty string/,
     );
   }
+});
+
+test('195659 CR3: integrationBranch and check reject the same branch forms', () => {
+  const base = {
+    changes_dir: '.changeledger/changes',
+    statuses: ['draft', 'approved', 'in-progress', 'in-validation', 'blocked', 'done'],
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: { feature: { stages: ['request', 'plan', 'log'] } },
+  };
+  for (const value of [undefined, null, 'dev', ' dev ', '', ' ', 7, true, [], {}]) {
+    const accessorAccepts = (() => {
+      try {
+        integrationBranch({ git: { integration_branch: value } });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    const { errors } = checkRepo({
+      config: { ...base, git: { integration_branch: value } },
+      changes: [],
+    });
+    const checkerAccepts = !errors.some(
+      (error) => error.message === 'config "git.integration_branch" must be a non-empty string',
+    );
+    assert.equal(checkerAccepts, accessorAccepts, String(value));
+  }
+  assert.equal(integrationBranch({ git: { integration_branch: ' dev ' } }), 'dev');
 });

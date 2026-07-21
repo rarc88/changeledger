@@ -42,6 +42,37 @@ function change(over = {}) {
 const run = (changes) => checkRepo({ config, changes });
 const msgs = (list) => list.map((e) => e.message);
 
+test('195659 CR1: check rejects a git section that is not a mapping', () => {
+  for (const git of ['dev', [], true]) {
+    const { errors } = checkRepo({ config: { ...config, git }, changes: [] });
+    assert.ok(msgs(errors).includes('config "git" must be a mapping'));
+  }
+});
+
+test('195659 CR2/CR4: check validates integration_branch but keeps null and custom Git keys', () => {
+  for (const integration_branch of ['', '   ', 7, true, ['dev'], {}]) {
+    const { errors } = checkRepo({
+      config: { ...config, git: { integration_branch } },
+      changes: [],
+    });
+    assert.ok(msgs(errors).includes('config "git.integration_branch" must be a non-empty string'));
+  }
+
+  for (const git of [
+    {},
+    { integration_branch: null, custom: 'keep' },
+    { integration_branch: 'dev' },
+    { integration_branch: ' dev ' },
+  ]) {
+    const { errors } = checkRepo({ config: { ...config, git }, changes: [] });
+    assert.equal(
+      msgs(errors).includes('config "git.integration_branch" must be a non-empty string'),
+      false,
+    );
+    assert.equal(msgs(errors).includes('config "git" must be a mapping'), false);
+  }
+});
+
 test('config changes_dir escaping the repo is an error', () => {
   for (const dir of ['../outside', '/abs/path', 'a/../../b']) {
     const { errors } = checkRepo({ config: { ...config, changes_dir: dir }, changes: [] });

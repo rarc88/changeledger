@@ -2,7 +2,7 @@
 id: "20260721-195659"
 title: Validar la estructura de git en changeledger check
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:56:59Z
 depends_on: []
 owner: Roberto Ruiz
@@ -63,9 +63,12 @@ permitidas para preservar extensibilidad y configuración específica del repo.
 
 ## Plan
 
-- [ ] Añadir una tabla fallida en `test/config.test.mjs` y después implementar `checkGitConfig` en `src/check.mjs`, alineado con `src/config.mjs`; verify: `node --test test/config.test.mjs test/check.test.mjs` (CR1, CR2, CR3)
-- [ ] Añadir regresión de config migrada/claves custom y preservar ese comportamiento en `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs test/config.test.mjs` (CR4)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir una tabla fallida en `test/config.test.mjs` y después implementar `checkGitConfig` en `src/check.mjs`, alineado con `src/config.mjs`; verify: `node --test test/config.test.mjs test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-21T20:55:12Z`
+- [x] Añadir regresión de config migrada/claves custom y preservar ese comportamiento en `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs test/config.test.mjs` (CR4)
+  - **Resolved:** `2026-07-21T20:55:12Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-21T20:55:44Z`
 
 ## Log
 
@@ -73,3 +76,5 @@ permitidas para preservar extensibilidad y configuración específica del repo.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
 - **2026-07-21T20:53:19Z** `[status]` approved → in-progress
 - **2026-07-21T20:53:19Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-21T20:55:45Z** `[status]` in-progress → in-review
+- **2026-07-21T20:57:52Z** `[review]` in-review → in-validation (delegated subagent, clean context)

@@ -2,6 +2,7 @@
 // { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
 
 import { parseChange } from './change.mjs';
+import { integrationBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
@@ -664,6 +665,7 @@ function checkConfig(config, err) {
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
+  if ('git' in c) checkGitConfig(c.git, err);
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const configuredTypes = isMapping(c.types) ? c.types : {};
   if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
@@ -688,6 +690,18 @@ function checkConfig(config, err) {
 
 function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function checkGitConfig(git, err) {
+  if (!isMapping(git)) {
+    err(null, 'config "git" must be a mapping');
+    return;
+  }
+  try {
+    integrationBranch({ git });
+  } catch (error) {
+    err(null, error.message);
+  }
 }
 
 function checkReleaseConfig(release, types, err) {
