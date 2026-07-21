@@ -11,7 +11,7 @@ import {
   stateConfig,
 } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
-import { objectRun } from '../git.mjs';
+import { objectRun, receiveGitEnv } from '../git.mjs';
 import { previewStateMigration } from '../state-migration.mjs';
 import {
   initializeStateStore,
@@ -23,6 +23,13 @@ import {
 } from '../state-store.mjs';
 
 const DEFAULT_STATE_BRANCH = 'changeledger/state';
+
+// Reserved ref the strong-protection probe pushes to. `doctorState` and
+// `activateState` push a deliberately invalid update here to confirm the remote
+// runs the ChangeLedger `pre-receive` validator: a working hook rejects it, an
+// unprotected remote accepts it (and the throwaway ref is deleted afterwards).
+const PROTECTION_PROBE_REF = 'refs/changeledger/protection-probe';
+const PROTECTION_PROBE_FILE = 'protection-probe.txt';
 
 function project(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
@@ -133,18 +140,13 @@ function verifyWorkingChanges(changesDir, store) {
 }
 
 export function activateState(
-  { branch = DEFAULT_STATE_BRANCH, advisoryReason } = {},
+  { branch = DEFAULT_STATE_BRANCH, advisoryReason, confirmStrong = false } = {},
   cwd = process.cwd(),
   { gitEnv = {} } = {},
 ) {
   const advisory = String(advisoryReason ?? '')
     .replace(/[\r\n]+/g, ' ')
     .trim();
-  if (!advisory) {
-    throw new Error(
-      'remote protection could not be verified; pass --advisory <reason> to record an explicit advisory cutover',
-    );
-  }
   const { changeledgerDir, repoRoot, config } = project(cwd);
   assertCurrentSchema(config);
   if (stateConfig(config)) throw new Error('state store is already active');
@@ -154,6 +156,23 @@ export function activateState(
   if (current !== integration) {
     throw new Error(
       `state activate must run on integration branch "${integration}" (current: ${current})`,
+    );
+  }
+
+  // Strong protection (an installed, working pre-receive validator) substitutes
+  // for the explicit advisory acceptance. The probe pushes to the remote, so it
+  // only runs when the human explicitly opts in with --confirm-strong; a probe
+  // that is not clearly rejected keeps today's `--advisory`-required behavior
+  // unchanged.
+  if (!advisory && !confirmStrong) {
+    throw new Error(
+      'remote protection was not checked; pass --advisory <reason>, or --confirm-strong to empirically verify it (pushes a throwaway probe to origin)',
+    );
+  }
+  const remoteProtected = advisory ? false : confirmRemoteProtection(repoRoot, { gitEnv });
+  if (!advisory && !remoteProtected) {
+    throw new Error(
+      'remote protection could not be verified; pass --advisory <reason> to record an explicit advisory cutover',
     );
   }
 
@@ -211,7 +230,9 @@ export function activateState(
       marker,
       [
         `Changes moved to refs/heads/${branch} at ${store.head}.`,
-        `Advisory cutover: ${advisory}`,
+        advisory
+          ? `Advisory cutover: ${advisory}`
+          : 'Remote-validated cutover: pre-receive protection confirmed',
         '',
       ].join('\n'),
     );
@@ -224,10 +245,14 @@ export function activateState(
     throw error;
   }
 
-  return { branch, baseline: store.head, advisory: true };
+  return { branch, baseline: store.head, advisory: Boolean(advisory), remoteProtected };
 }
 
-export function doctorState({ branch } = {}, cwd = process.cwd(), { gitEnv = {} } = {}) {
+export function doctorState(
+  { branch, confirmStrong = false } = {},
+  cwd = process.cwd(),
+  { gitEnv = {} } = {},
+) {
   const { repoRoot, config } = project(cwd);
   assertCurrentSchema(config);
   const active = stateConfig(config);
@@ -254,6 +279,14 @@ export function doctorState({ branch } = {}, cwd = process.cwd(), { gitEnv = {} 
   } catch (error) {
     if (!/requires remote "origin"/.test(error.message)) throw error;
   }
+  // The probe pushes a throwaway commit to origin, so it only runs when the
+  // human explicitly opts in with --confirm-strong; otherwise doctor stays a
+  // read-only diagnostic.
+  const remoteProtection = !confirmStrong
+    ? 'not-checked'
+    : confirmRemoteProtection(repoRoot, { gitEnv })
+      ? 'enforced'
+      : 'unverified';
   return {
     branch: selectedBranch,
     head: store.head,
@@ -261,10 +294,11 @@ export function doctorState({ branch } = {}, cwd = process.cwd(), { gitEnv = {} 
     active: Boolean(active),
     append_only: true,
     remote_state: remoteState,
-    remote_protection: 'unverified',
+    remote_protection: remoteProtection,
     instructions: [
       'Disable force-push and branch deletion.',
       'Allow only fast-forward updates from authorized writers.',
+      'Install the ChangeLedger pre-receive validator (changeledger state validate-receive) when the server supports hooks.',
     ],
   };
 }
@@ -280,6 +314,88 @@ export function syncState(cwd = process.cwd(), { gitEnv = {} } = {}) {
   });
   assertWritableStore(store);
   return syncStateStore(repoRoot, active.branch, { gitEnv });
+}
+
+// Server-side `pre-receive` entry point. Parses old/new/ref lines from stdin
+// and validates every update to the protected state branch (and the reserved
+// protection probe) with the same engine the CLI uses. Unlike a client command,
+// it defaults its git env to `receiveGitEnv()` so the push's quarantined objects
+// are visible; tests may inject an explicit `gitEnv`. Throwing rejects the push.
+export function validateReceive(
+  input,
+  cwd = process.cwd(),
+  { actor, humanOverride = false, branch = DEFAULT_STATE_BRANCH, gitEnv } = {},
+) {
+  const repoRoot = path.resolve(cwd);
+  const receiveEnv = gitEnv ?? receiveGitEnv();
+  const validatedRefs = new Set([`refs/heads/${branch}`, PROTECTION_PROBE_REF]);
+  const results = [];
+  for (const line of String(input).split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [oldHead, newHead, ref] = trimmed.split(/\s+/);
+    if (!oldHead || !newHead || !ref) throw new Error(`invalid pre-receive input: ${line}`);
+    if (validatedRefs.has(ref)) {
+      results.push(
+        validateStateRange(repoRoot, {
+          oldHead,
+          newHead,
+          actor,
+          humanOverride,
+          gitEnv: receiveEnv,
+        }),
+      );
+    }
+  }
+  return results;
+}
+
+// Empirically confirms the remote runs the ChangeLedger `pre-receive` validator
+// by pushing an intentionally invalid update to the reserved probe ref. A
+// working hook declines it (fails closed); an unprotected remote accepts it,
+// so the throwaway ref is deleted and the probe reports no protection. Only a
+// clear pre-receive rejection counts — transient push failures stay unverified
+// so the default advisory requirement is never silently weakened.
+export function confirmRemoteProtection(repoRoot, { gitEnv = {} } = {}) {
+  try {
+    objectRun(['remote', 'get-url', 'origin'], repoRoot, { env: gitEnv });
+  } catch {
+    return false;
+  }
+  let commit;
+  try {
+    const blob = objectRun(['hash-object', '-w', '--stdin'], repoRoot, {
+      input: 'changeledger remote protection probe\n',
+      env: gitEnv,
+    }).trim();
+    const tree = objectRun(['mktree'], repoRoot, {
+      input: `100644 blob ${blob}\t${PROTECTION_PROBE_FILE}\n`,
+      env: gitEnv,
+    }).trim();
+    commit = objectRun(['commit-tree', tree, '-m', 'changeledger protection probe'], repoRoot, {
+      env: gitEnv,
+    }).trim();
+  } catch {
+    return false;
+  }
+  let accepted = false;
+  try {
+    objectRun(['push', '--force', 'origin', `${commit}:${PROTECTION_PROBE_REF}`], repoRoot, {
+      env: gitEnv,
+    });
+    accepted = true;
+  } catch (error) {
+    if (!/pre-receive hook declined|outside the state layout/.test(error.message)) return false;
+  }
+  if (!accepted) return true;
+  // Accepted: the remote does not validate content — clean up the probe ref
+  // unconditionally so an unprotected remote never keeps the throwaway ref.
+  try {
+    objectRun(['push', 'origin', `:${PROTECTION_PROBE_REF}`], repoRoot, { env: gitEnv });
+  } catch {
+    // best-effort cleanup; the ref is throwaway and harmless if it lingers
+  }
+  return false;
 }
 
 export function abortState(cwd = process.cwd(), { gitEnv = {} } = {}) {

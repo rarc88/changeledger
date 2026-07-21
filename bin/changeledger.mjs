@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -38,6 +39,7 @@ import {
   publishState,
   recoverState,
   syncState,
+  validateReceive,
 } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
@@ -843,13 +845,40 @@ stateCommand
   );
 
 stateCommand
+  .command('validate-receive')
+  .description('validate pre-receive old/new/ref lines from stdin without checkout')
+  .option('--actor <handle>', 'authenticated remote actor (or CHANGELEDGER_AUTHENTICATED_ACTOR)')
+  .option('--human-override', 'authorize this update as an explicit human decision')
+  .option('--branch <name>', 'protected state branch', 'changeledger/state')
+  .action(
+    action((options) => {
+      const input = fs.readFileSync(0, 'utf8');
+      const results = validateReceive(input, process.cwd(), {
+        actor: options.actor ?? process.env.CHANGELEDGER_AUTHENTICATED_ACTOR,
+        humanOverride: options.humanOverride,
+        branch: options.branch,
+      });
+      console.log(`Validated ${results.length} state update(s)`);
+      if (results.some((result) => result.owner_enforcement === 'unavailable')) {
+        console.error(
+          'Warning: authenticated remote identity is unavailable; owner exclusivity was not enforced.',
+        );
+      }
+    }),
+  );
+
+stateCommand
   .command('doctor')
   .description('validate local append-only state and print provider-neutral protection guidance')
   .option('--branch <name>', 'candidate branch when the state store is not active')
+  .option(
+    '--confirm-strong',
+    'empirically verify remote pre-receive protection (pushes a throwaway probe to origin)',
+  )
   .option('--json', 'print JSON')
   .action(
     action((options) => {
-      const result = doctorState({ branch: options.branch });
+      const result = doctorState({ branch: options.branch, confirmStrong: options.confirmStrong });
       if (options.json) console.log(JSON.stringify(result, null, 2));
       else {
         console.log(`${result.branch} ${result.head} append-only (${result.remote_protection})`);
@@ -863,11 +892,16 @@ stateCommand
   .description('stage a cutover on the integration branch after validating the candidate')
   .option('--branch <name>', 'candidate branch', 'changeledger/state')
   .option('--advisory <reason>', 'explicit reason when remote protection cannot be verified')
+  .option(
+    '--confirm-strong',
+    'empirically verify remote pre-receive protection (pushes a throwaway probe to origin)',
+  )
   .action(
     action((options) => {
       const result = activateState({
         branch: options.branch,
         advisoryReason: options.advisory,
+        confirmStrong: options.confirmStrong,
       });
       console.log(
         `Prepared cutover to ${result.branch} at ${result.baseline}; review and commit the integration branch changes.`,

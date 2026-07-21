@@ -69,15 +69,29 @@ changeledger config migrate
 changeledger state preview --ref dev --ref refs/remotes/origin/dev
 changeledger state init --ref dev --ref refs/remotes/origin/dev
 changeledger state publish
+# Optionally install the receive validator on the bare remote, then:
 changeledger state doctor
 changeledger state activate --advisory "remote protection is managed outside ChangeLedger"
 ```
 
 Protect the state branch against deletion and force-push, permit only
-fast-forward writes, and restrict writers. Provider-neutral ChangeLedger
-cannot inspect hosting-provider branch rules, so activation always requires
-`--advisory <reason>` and `state doctor` reports remote protection as
-unverified. A failed publication remains visibly pending; `changeledger state
+fast-forward writes, and restrict writers. Provider-neutral ChangeLedger cannot
+inspect hosting-provider branch rules, so branch protection stays an advisory
+you record with `--advisory <reason>`.
+
+For content protection ChangeLedger ships a `pre-receive` validator: install
+`changeledger state validate-receive --branch changeledger/state` as the bare
+repository's `pre-receive` hook (push the integration branch before the state
+commit so the hook can read the canonical config). It rejects invalid documents,
+rewritten history and files outside the state layout on the server, using the
+same engine as the CLI. Confirming the hook is a network mutation (it pushes a
+throwaway probe commit to origin), so it only runs when you pass
+`--confirm-strong` to `state doctor` or `state activate`; by default protection
+is reported `not-checked` and `state activate` still requires `--advisory`.
+With `--confirm-strong`, `state doctor` reports `remote_protection: enforced`
+after a live probe, and `state activate` completes without `--advisory` when
+that probe confirms the hook; otherwise the explicit advisory reason is still
+required. A failed publication remains visibly pending; `changeledger state
 sync` publishes it or replays it only when remote edits touched different
 change documents.
 
