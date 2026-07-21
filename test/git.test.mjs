@@ -4,7 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import {
+  githubLogin,
+  gitRefs,
+  mutatingRun,
+  objectRun,
+  ownerHandle,
+  receiveGitEnv,
+} from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -153,6 +160,45 @@ test('131022: mutatingRun ignores inherited hook locations when writing config',
     'Fixture User',
   );
   assert.throws(() => mutatingRun(['config', '--local', '--get', 'user.name'], host));
+});
+
+// --- 223228 CR2: client sanitization vs. the receive path's quarantine env ---
+
+function committedRepo() {
+  const root = scratchGitRepo();
+  mutatingRun(['config', 'user.email', 'test@example.com'], root);
+  mutatingRun(['config', 'user.name', 'Test'], root);
+  mutatingRun(['config', 'commit.gpgsign', 'false'], root);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  mutatingRun(['add', 'a.txt'], root);
+  mutatingRun(['commit', '-qm', 'seed'], root);
+  return { root, head: mutatingRun(['rev-parse', 'HEAD'], root).trim() };
+}
+
+test('223228 CR2: client object reads stay sanitized even when quarantine vars are exported', () => {
+  const { root, head } = committedRepo();
+  const emptyObjects = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-quarantine-'));
+  const inherited = process.env.GIT_OBJECT_DIRECTORY;
+  process.env.GIT_OBJECT_DIRECTORY = emptyObjects;
+  try {
+    // A client command must ignore the exported quarantine dir and still find
+    // the commit in the repo's own object store.
+    assert.doesNotThrow(() => objectRun(['cat-file', '-e', head], root, {}));
+    // receiveGitEnv extracts exactly the exported var; passing it through makes
+    // git honour the (empty) quarantine dir, so the object is no longer found.
+    assert.deepEqual(receiveGitEnv(), { GIT_OBJECT_DIRECTORY: emptyObjects });
+    assert.throws(() => objectRun(['cat-file', '-e', head], root, { env: receiveGitEnv() }));
+  } finally {
+    if (inherited === undefined) delete process.env.GIT_OBJECT_DIRECTORY;
+    else process.env.GIT_OBJECT_DIRECTORY = inherited;
+  }
+});
+
+test('223228 CR2: receiveGitEnv omits vars that are not exported', () => {
+  assert.deepEqual(receiveGitEnv({}), {});
+  assert.deepEqual(receiveGitEnv({ GIT_ALTERNATE_OBJECT_DIRECTORIES: '/q/alt' }), {
+    GIT_ALTERNATE_OBJECT_DIRECTORIES: '/q/alt',
+  });
 });
 
 test('225638 CR5: gitRefs finds a body marker and returns the clean subject', () => {

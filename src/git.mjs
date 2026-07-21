@@ -27,6 +27,25 @@ function sanitizedEnv() {
   return env;
 }
 
+// The subset of location vars Git exports to a `pre-receive` hook to point at
+// the push's quarantined object directory. A client command must never inherit
+// them (that is what sanitizedEnv guarantees); the receive-validation path is
+// the sole exception — without them it cannot read the very objects it must
+// validate before Git decides whether to accept the push.
+const GIT_QUARANTINE_ENV_VARS = ['GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'];
+
+// Builds the `gitEnv` override the receive path passes to `objectRun`: only the
+// quarantine vars that are actually present, re-added on top of the otherwise
+// sanitized base so incoming objects become visible. Returns an empty object
+// outside a real push (no quarantine exported), which reads objects normally.
+export function receiveGitEnv(env = process.env) {
+  const gitEnv = {};
+  for (const key of GIT_QUARANTINE_ENV_VARS) {
+    if (env[key] != null) gitEnv[key] = env[key];
+  }
+  return gitEnv;
+}
+
 // Exported so other commands (e.g. `changeledger commit`) share the same
 // GIT_* sanitization instead of re-implementing it.
 export function defaultRun(args, cwd) {

@@ -69,16 +69,26 @@ changeledger config migrate
 changeledger state preview --ref dev --ref refs/remotes/origin/dev
 changeledger state init --ref dev --ref refs/remotes/origin/dev
 changeledger state publish
+# Optionally install the receive validator on the bare remote, then:
 changeledger state doctor
 changeledger state activate --advisory "remote protection is managed outside ChangeLedger"
 ```
 
 Protect the state branch against deletion and force-push, permit only
-fast-forward writes, and restrict writers. Provider-neutral ChangeLedger
-cannot inspect hosting-provider branch rules, so activation always requires
-`--advisory <reason>` and `state doctor` reports remote protection as
-unverified. A failed publication remains visibly pending; `changeledger state
-sync` publishes it or replays it only when remote edits touched different
+fast-forward writes, and restrict writers. Provider-neutral ChangeLedger cannot
+inspect hosting-provider branch rules, so branch protection stays an advisory
+you record with `--advisory <reason>`.
+
+For content protection ChangeLedger ships a `pre-receive` validator: install
+`changeledger state validate-receive --branch changeledger/state` as the bare
+repository's `pre-receive` hook (push the integration branch before the state
+commit so the hook can read the canonical config). It rejects invalid documents,
+rewritten history and files outside the state layout on the server, using the
+same engine as the CLI. When `state doctor` confirms that hook is installed and
+working — it reports `remote_protection: enforced` after a live probe — `state
+activate` completes without `--advisory`; otherwise the explicit advisory reason
+is still required. A failed publication remains visibly pending; `changeledger
+state sync` publishes it or replays it only when remote edits touched different
 change documents.
 
 Before the first post-cutover state write, `changeledger state abort` restores

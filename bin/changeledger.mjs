@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -38,6 +39,7 @@ import {
   publishState,
   recoverState,
   syncState,
+  validateReceive,
 } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
@@ -839,6 +841,29 @@ stateCommand
           ? `State remains pending at ${result.head}`
           : `State confirmed at ${result.head}${result.replayed ? ` (${result.replayed} replayed)` : ''}`,
       );
+    }),
+  );
+
+stateCommand
+  .command('validate-receive')
+  .description('validate pre-receive old/new/ref lines from stdin without checkout')
+  .option('--actor <handle>', 'authenticated remote actor (or CHANGELEDGER_AUTHENTICATED_ACTOR)')
+  .option('--human-override', 'authorize this update as an explicit human decision')
+  .option('--branch <name>', 'protected state branch', 'changeledger/state')
+  .action(
+    action((options) => {
+      const input = fs.readFileSync(0, 'utf8');
+      const results = validateReceive(input, process.cwd(), {
+        actor: options.actor ?? process.env.CHANGELEDGER_AUTHENTICATED_ACTOR,
+        humanOverride: options.humanOverride,
+        branch: options.branch,
+      });
+      console.log(`Validated ${results.length} state update(s)`);
+      if (results.some((result) => result.owner_enforcement === 'unavailable')) {
+        console.error(
+          'Warning: authenticated remote identity is unavailable; owner exclusivity was not enforced.',
+        );
+      }
     }),
   );
 

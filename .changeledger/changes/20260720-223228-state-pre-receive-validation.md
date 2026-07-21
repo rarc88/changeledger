@@ -2,7 +2,7 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
 owner: raruiz-hiberuscom
@@ -90,12 +90,18 @@ romper esta ruta sin que ningún test lo note.
 
 ## Plan
 
-- [ ] Add a failing test that installs a real `pre-receive` hook (invoking the built CLI) in a bare remote and pushes a state update through it while the object quarantine is active, confirming it fails closed on a valid update today; then give the receive path its own git env inheriting `GIT_OBJECT_DIRECTORY`/`GIT_ALTERNATE_OBJECT_DIRECTORIES` from the hook process instead of stripping them, in `src/git.mjs` and `src/commands/state.mjs`; verify: `node --test test/state-receive.test.mjs` (CR1)
-- [ ] Add a test asserting every client-facing command in `src/git.mjs`'s consumers (`list`, `show`, `status`, `state doctor`) still runs with the fully sanitized env after the receive path gets its own; verify: `node --test test/git.test.mjs` (CR2)
-- [ ] Reintroduce the `state validate-receive` CLI command in `bin/changeledger.mjs`, wired to the fixed validation path, plus the README `pre-receive` hook install instructions removed with CR11; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR1)
-- [ ] Add the real-push integration test described in the Proposal (install the hook from `bin/changeledger.mjs`, `git push` against a bare remote, assert on the push's real accept/reject outcome) as permanent regression coverage; verify: `node --test test/state-receive.test.mjs` (CR3)
-- [ ] Add a test where `state doctor` confirms a working installed hook, then update `activateState` in `src/commands/state.mjs` to accept activation without `--advisory` in that case only, keeping today's `--advisory`-required path unchanged otherwise; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs` (CR4)
-- [ ] Run the full gate and update `templates/contract/`/README wording that still describes pre-receive validation as unavailable; verify: `pnpm verify` (support)
+- [x] Add a failing test that installs a real `pre-receive` hook (invoking the built CLI) in a bare remote and pushes a state update through it while the object quarantine is active, confirming it fails closed on a valid update today; then give the receive path its own git env inheriting `GIT_OBJECT_DIRECTORY`/`GIT_ALTERNATE_OBJECT_DIRECTORIES` from the hook process instead of stripping them, in `src/git.mjs` and `src/commands/state.mjs`; verify: `node --test test/state-receive.test.mjs` (CR1)
+  - **Resolved:** `2026-07-21T13:58:13Z`
+- [x] Add a test asserting every client-facing command in `src/git.mjs`'s consumers (`list`, `show`, `status`, `state doctor`) still runs with the fully sanitized env after the receive path gets its own; verify: `node --test test/git.test.mjs` (CR2)
+  - **Resolved:** `2026-07-21T13:58:13Z`
+- [x] Reintroduce the `state validate-receive` CLI command in `bin/changeledger.mjs`, wired to the fixed validation path, plus the README `pre-receive` hook install instructions removed with CR11; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR1)
+  - **Resolved:** `2026-07-21T13:58:14Z`
+- [x] Add the real-push integration test described in the Proposal (install the hook from `bin/changeledger.mjs`, `git push` against a bare remote, assert on the push's real accept/reject outcome) as permanent regression coverage; verify: `node --test test/state-receive.test.mjs` (CR3)
+  - **Resolved:** `2026-07-21T13:58:15Z`
+- [x] Add a test where `state doctor` confirms a working installed hook, then update `activateState` in `src/commands/state.mjs` to accept activation without `--advisory` in that case only, keeping today's `--advisory`-required path unchanged otherwise; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs` (CR4)
+  - **Resolved:** `2026-07-21T13:58:16Z`
+- [x] Run the full gate and update `templates/contract/`/README wording that still describes pre-receive validation as unavailable; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-21T13:58:16Z`
 
 ## Log
 
@@ -104,3 +110,6 @@ romper esta ruta sin que ningún test lo note.
 - **2026-07-21T13:31:45Z** `[status]` approved → in-progress
 - **2026-07-21T13:31:45Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-21T13:31:45Z** `[note]` Rama creada desde codex/global-state-branch, no desde dev: dev todavía no tiene el código de 20260720-124231 (done, sin graduar/mergear).
+- **2026-07-21T13:58:37Z** `[note]` Implemented CR1-CR4. Env design: new receiveGitEnv() in src/git.mjs re-adds only GIT_OBJECT_DIRECTORY/GIT_ALTERNATE_OBJECT_DIRECTORIES on top of the sanitized base; validateReceive defaults its gitEnv to receiveGitEnv() so the pre-receive path sees the push quarantine while every client command stays fully sanitized. Rebuilt a lean validateReceive over the shared validateStateRange engine (no cutover/legacy-rollback machinery: that was 124231 CR16, now advisory-only). CR4 mechanism: doctorState/activateState confirm strong protection via a negative probe pushing an invalid commit to a reserved refs/changeledger/protection-probe ref; only a clear pre-receive rejection counts as enforced, so the default --advisory path is never silently weakened. Gate: 794 tests, biome clean, check 207 valid.
+- **2026-07-21T13:58:51Z** `[status]` in-progress → in-review
+- **2026-07-21T14:04:55Z** `[review]` in-review → in-validation (delegated subagent, clean context)

@@ -184,6 +184,40 @@ test('124231 CR16: provider-neutral activation never claims unverifiable remote 
   assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'unverified');
 });
 
+function installReceiveHook(bare) {
+  const hook = path.join(bare, 'hooks', 'pre-receive');
+  fs.writeFileSync(
+    hook,
+    `#!/bin/sh\nexec "${process.execPath}" "${BIN}" state validate-receive --branch changeledger/state\n`,
+  );
+  fs.chmodSync(hook, 0o755);
+}
+
+test('223228 CR4: a confirmed pre-receive hook activates strong protection without --advisory', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  installReceiveHook(bare);
+
+  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'enforced');
+
+  const activated = activateState({}, dir, { gitEnv: ENV });
+  assert.equal(activated.advisory, false);
+  assert.equal(activated.remoteProtected, true);
+  assert.match(
+    fs.readFileSync(path.join(dir, '.changeledger', 'changes', 'STATE_MOVED'), 'utf8'),
+    /Remote-validated cutover: pre-receive protection confirmed/,
+  );
+});
+
+test('223228 CR4: an unprotected remote keeps the --advisory requirement unchanged', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  publishCandidate(dir); // bare remote without the validator hook
+  assert.equal(doctorState({}, dir, { gitEnv: ENV }).remote_protection, 'unverified');
+  assert.throws(() => activateState({}, dir, { gitEnv: ENV }), /--advisory/);
+});
+
 test('124231 CR11: doctor validates the complete inactive candidate layout', () => {
   const dir = root();
   initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
