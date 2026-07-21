@@ -2,9 +2,10 @@
 id: "20260721-195318"
 title: Rechazar toda escritura con schemas futuros
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-21T19:53:18Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260628-113219", "20260628-113924"]
 release_impact: patch
 ---
@@ -97,3 +98,5 @@ modificará `SUPPORTED_SCHEMA_VERSION` ni se portará el schema 4 del prototipo.
 
 - **2026-07-21T19:53:18Z** `[note]` Extraído del prototipo de estado como bug general: se porta la invariante y su cobertura, no el schema 4 ni los adaptadores de estado v1.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
+- **2026-07-21T20:03:52Z** `[status]` approved → in-progress
+- **2026-07-21T20:03:52Z** `[owner]` set: raruiz-hiberuscom (auto)
