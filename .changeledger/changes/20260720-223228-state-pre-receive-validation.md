@@ -2,9 +2,10 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
+owner: raruiz-hiberuscom
 related_to: ["20260720-124231"]
 ---
 
@@ -100,3 +101,6 @@ romper esta ruta sin que ningún test lo note.
 
 - **2026-07-20T22:32:28Z** `[note]` Extraído de `20260720-124231` tras revisión independiente: el hook pre-receive original no ve los objetos en cuarentena de un push real porque reutiliza el entorno Git saneado del cliente. Draft pendiente de refinar y aprobar por el humano.
 - **2026-07-21T12:49:07Z** `[status]` draft → approved
+- **2026-07-21T13:31:45Z** `[status]` approved → in-progress
+- **2026-07-21T13:31:45Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-21T13:31:45Z** `[note]` Rama creada desde codex/global-state-branch, no desde dev: dev todavía no tiene el código de 20260720-124231 (done, sin graduar/mergear).
