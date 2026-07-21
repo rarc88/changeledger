@@ -7,6 +7,7 @@ import path from 'node:path';
 import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
@@ -16,6 +17,7 @@ import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../wr
 
 function locate(cwd, id) {
   const { config, file, repoRoot } = resolveChange(cwd, id);
+  assertSupportedSchema(config);
   return { config, file, repoRoot };
 }
 
@@ -307,7 +309,8 @@ export function selectArchivableGraduated(changes, filters = {}) {
 }
 
 export function archiveGraduated(filters = {}, cwd = process.cwd()) {
-  const { changes } = loadRepo(cwd);
+  const { config, changes } = loadRepo(cwd);
+  assertSupportedSchema(config);
   const selected = selectArchivableGraduated(changes, filters);
   for (const c of selected) {
     mutateFileAtomic(c.file, (text) => {

@@ -66,6 +66,27 @@ test('CR1: release init creates one baseline with all current done changes', () 
   assert.equal(loadRepo(root).releases.length, 1);
 });
 
+test('195318 CR4: release writes reject a future schema before creating history', () => {
+  for (const [name, record] of [
+    ['init', (root) => initReleaseHistory('0.1.0', root, '2026-07-21T20:00:00Z')],
+    ['record', (root) => recordRelease('0.1.1', root, '2026-07-21T20:00:00Z')],
+  ]) {
+    const root = fixture();
+    const configFile = path.join(root, '.changeledger', 'config.yml');
+    fs.writeFileSync(
+      configFile,
+      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 4'),
+    );
+    const releasesDir = path.join(root, '.changeledger', 'releases');
+    assert.throws(
+      () => record(root),
+      /^Error: config schema 4 is newer than supported schema 3; update ChangeLedger before writing$/,
+      name,
+    );
+    assert.equal(fs.existsSync(releasesDir), false, name);
+  }
+});
+
 test('CR2/CR3: plan includes unreleased done changes and resolves overrides', () => {
   const root = fixture();
   writeChange(root, '20260624-000001');

@@ -74,6 +74,38 @@ function refineScaffold(file) {
   );
 }
 
+test('195318 CR3: every graduation write rejects a future schema before writing', () => {
+  const mutators = [
+    ['--new', ({ id, root }) => scaffoldSpec(id, 'future', root)],
+    ['--into', ({ id, root }) => graduate(id, 'future', root, { into: true })],
+    ['--skip', ({ id, root }) => skipGraduation(id, 'no durable truth', root)],
+  ];
+
+  for (const [name, mutate] of mutators) {
+    const fixture = repo();
+    const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
+    fs.writeFileSync(
+      configFile,
+      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 4'),
+    );
+    const before = {
+      change: fs.readFileSync(fixture.file, 'utf8'),
+      specs: fs.existsSync(path.join(fixture.root, '.changeledger', 'specs')),
+    };
+    assert.throws(
+      () => mutate(fixture),
+      /^Error: config schema 4 is newer than supported schema 3; update ChangeLedger before writing$/,
+      name,
+    );
+    assert.equal(fs.readFileSync(fixture.file, 'utf8'), before.change, name);
+    assert.equal(
+      fs.existsSync(path.join(fixture.root, '.changeledger', 'specs')),
+      before.specs,
+      name,
+    );
+  }
+});
+
 test('CR1: graduate --into links an existing spec without touching its body', () => {
   const { root, file, id } = repo();
   const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');

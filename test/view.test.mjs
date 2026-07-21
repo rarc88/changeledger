@@ -1379,7 +1379,10 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 4 is newer than supported schema 3/);
+  assert.equal(
+    direct.body.error,
+    'config schema 4 is newer than supported schema 3; update ChangeLedger before writing',
+  );
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1394,7 +1397,30 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 4 is newer than supported schema 3/);
+  assert.match(
+    response.body,
+    /config schema 4 is newer than supported schema 3; update ChangeLedger before writing/,
+  );
+  assert.equal(fs.readFileSync(configFile, 'utf8'), future);
+});
+
+test('195318 CR5: viewer reads and migration preview preserve a future config', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const future = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/schema_version: \d+/, 'schema_version: 4');
+  fs.writeFileSync(configFile, future);
+
+  assert.equal(readProjectConfig(projects, current).code, 200);
+  const preview = previewConfigMigration(projects, current);
+  assert.equal(preview.code, 400);
+  assert.equal(
+    preview.body.error,
+    'config schema 4 is newer than supported schema 3; update ChangeLedger before writing',
+  );
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 

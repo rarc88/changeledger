@@ -2,7 +2,7 @@
 id: "20260721-195318"
 title: Rechazar toda escritura con schemas futuros
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-21T19:53:18Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -87,12 +87,18 @@ modificará `SUPPORTED_SCHEMA_VERSION` ni se portará el schema 4 del prototipo.
 
 ## Plan
 
-- [ ] Añadir tests fallidos del guard puro y exportar `assertSupportedSchema` desde `src/config-migration.mjs` sin cambiar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR1, CR6)
-- [ ] Añadir una matriz de lifecycle futuro en `test/agent.test.mjs` y aplicar el guard compartido en la resolución mutadora de `src/commands/agent.mjs`; verify: `node --test test/agent.test.mjs` (CR2, CR6)
-- [ ] Añadir regresiones de creación, fix y graduación en `test/cli.test.mjs`, `test/fix.test.mjs` y `test/graduate.test.mjs`; aplicar el guard en `src/commands/new.mjs`, `src/commands/fix.mjs` y `src/commands/graduate.mjs`; verify: `node --test test/cli.test.mjs test/fix.test.mjs test/graduate.test.mjs` (CR1, CR3, CR6)
-- [ ] Añadir regresiones de releases y aplicar el guard antes de cualquier mkdir/lock en `src/commands/release.mjs`; verify: `node --test test/release.test.mjs` (CR4, CR6)
-- [ ] Cubrir lecturas, dry-run y acciones del viewer en `test/context.test.mjs` y `test/view.test.mjs`, reutilizando el guard desde `src/viewer/domain.mjs`; verify: `node --test test/context.test.mjs test/view.test.mjs` (CR2, CR5, CR6)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos del guard puro y exportar `assertSupportedSchema` desde `src/config-migration.mjs` sin cambiar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR1, CR6)
+  - **Resolved:** `2026-07-21T20:09:07Z`
+- [x] Añadir una matriz de lifecycle futuro en `test/agent.test.mjs` y aplicar el guard compartido en la resolución mutadora de `src/commands/agent.mjs`; verify: `node --test test/agent.test.mjs` (CR2, CR6)
+  - **Resolved:** `2026-07-21T20:09:08Z`
+- [x] Añadir regresiones de creación, fix y graduación en `test/cli.test.mjs`, `test/fix.test.mjs` y `test/graduate.test.mjs`; aplicar el guard en `src/commands/new.mjs`, `src/commands/fix.mjs` y `src/commands/graduate.mjs`; verify: `node --test test/cli.test.mjs test/fix.test.mjs test/graduate.test.mjs` (CR1, CR3, CR6)
+  - **Resolved:** `2026-07-21T20:09:08Z`
+- [x] Añadir regresiones de releases y aplicar el guard antes de cualquier mkdir/lock en `src/commands/release.mjs`; verify: `node --test test/release.test.mjs` (CR4, CR6)
+  - **Resolved:** `2026-07-21T20:09:08Z`
+- [x] Cubrir lecturas, dry-run y acciones del viewer en `test/context.test.mjs` y `test/view.test.mjs`, reutilizando el guard desde `src/viewer/domain.mjs`; verify: `node --test test/context.test.mjs test/view.test.mjs` (CR2, CR5, CR6)
+  - **Resolved:** `2026-07-21T20:09:08Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-21T20:10:03Z`
 
 ## Log
 
@@ -100,3 +106,4 @@ modificará `SUPPORTED_SCHEMA_VERSION` ni se portará el schema 4 del prototipo.
 - **2026-07-21T20:03:17Z** `[status]` draft → approved (human via conversation)
 - **2026-07-21T20:03:52Z** `[status]` approved → in-progress
 - **2026-07-21T20:03:52Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-21T20:10:03Z** `[status]` in-progress → in-review

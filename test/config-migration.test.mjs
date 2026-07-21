@@ -7,7 +7,7 @@ import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { applyMigration, buildMigration } from '../src/config-migration.mjs';
+import { applyMigration, assertSupportedSchema, buildMigration } from '../src/config-migration.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
@@ -31,6 +31,16 @@ release:
 project_id: "abc123"
 project_name: myrepo
 `;
+
+test('195318 CR6: shared write guard rejects only future schemas', () => {
+  assert.equal(assertSupportedSchema({}), 0);
+  assert.equal(assertSupportedSchema({ schema_version: 2 }), 2);
+  assert.equal(assertSupportedSchema({ schema_version: 3 }), 3);
+  assert.throws(
+    () => assertSupportedSchema({ schema_version: 4 }),
+    /^Error: config schema 4 is newer than supported schema 3; update ChangeLedger before writing$/,
+  );
+});
 
 test('225637 CR1: schema 2 gains a documented blank integration branch at schema 3', () => {
   const result = buildMigration(SCHEMA_2_CONFIG);

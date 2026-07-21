@@ -46,6 +46,55 @@ function repoWithChange() {
   return { root, file, id };
 }
 
+function futureSchemaRepo() {
+  const fixture = repoWithChange();
+  const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 4'),
+  );
+  fs.mkdirSync(path.join(fixture.root, '.changeledger', 'specs'), { recursive: true });
+  fs.mkdirSync(path.join(fixture.root, '.changeledger', 'releases'), { recursive: true });
+  return fixture;
+}
+
+function futureSchemaSnapshot({ root, file }) {
+  const ledger = path.join(root, '.changeledger');
+  return {
+    change: fs.readFileSync(file, 'utf8'),
+    config: fs.readFileSync(path.join(ledger, 'config.yml'), 'utf8'),
+    releases: fs.readdirSync(path.join(ledger, 'releases')),
+    specs: fs.readdirSync(path.join(ledger, 'specs')),
+  };
+}
+
+test('195318 CR2: every lifecycle mutation rejects a future schema before writing', () => {
+  const mutators = [
+    ['status', ({ id, root }) => status(id, 'approved', root)],
+    ['approve', ({ id, root }) => approve(id, root)],
+    ['review', ({ id, root }) => review(id, 'pass', {}, root)],
+    ['validation', ({ id, root }) => validation(id, 'pass', {}, root)],
+    ['reopen', ({ id, root }) => reopen(id, 'reason', root)],
+    ['owner', ({ id, root }) => owner(id, 'ana', root)],
+    ['discard', ({ id, root }) => discard(id, 'reason', root)],
+    ['archive', ({ id, root }) => archive(id, root)],
+    ['archive --graduated', ({ root }) => archiveGraduated({}, root)],
+    ['log', ({ id, root }) => log(id, 'note', root)],
+    ['task', ({ id, root }) => task(id, 'done', 1, '', root)],
+  ];
+
+  for (const [name, mutate] of mutators) {
+    const fixture = futureSchemaRepo();
+    const before = futureSchemaSnapshot(fixture);
+    assert.throws(
+      () => mutate(fixture),
+      /^Error: config schema 4 is newer than supported schema 3; update ChangeLedger before writing$/,
+      name,
+    );
+    assert.deepEqual(futureSchemaSnapshot(fixture), before, name);
+  }
+});
+
 test('status moves the lifecycle and logs the transition', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);

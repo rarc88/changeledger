@@ -12,6 +12,7 @@ import {
 } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
+  assertSupportedSchema,
   buildMigration,
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
@@ -227,19 +228,18 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
       }
-      const currentSchema = getSchemaVersion(parseYaml(before));
-      if (currentSchema > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${currentSchema} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
-      }
+      assertSupportedSchema(parseYaml(before));
       return payload.content;
     });
   } catch (error) {
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
-    if (/^config schema \d+ is newer than supported schema \d+$/.test(error.message)) {
+    if (
+      /^config schema \d+ is newer than supported schema \d+; update ChangeLedger before writing$/.test(
+        error.message,
+      )
+    ) {
       return { code: 400, body: { error: error.message } };
     }
     return { code: 400, body: { error: 'unable to save project configuration' } };
@@ -343,13 +343,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
       const doc = parseDocument(before, { merge: false });
       const config = doc.toJS() ?? {};
 
-      // Fail closed for future schema
-      const schemaVersion = getSchemaVersion(config);
-      if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${schemaVersion} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
-      }
+      assertSupportedSchema(config);
 
       applyPatch(doc, payload.patch, config);
 

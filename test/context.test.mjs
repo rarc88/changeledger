@@ -139,6 +139,19 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assertWithinBudget('core', first, contextBudgets.base.core);
 });
 
+test('195318 CR5: context remains read-only for a future schema', () => {
+  const root = repo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 4'),
+  );
+  const before = fs.readFileSync(configFile, 'utf8');
+
+  assert.match(buildContext(undefined, root), /mode: core/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+});
+
 test('213942 CR1-CR4: core teaches operational discovery without embedding or mutating state', () => {
   const root = repo();
   const id = addChange(root, 'approved');

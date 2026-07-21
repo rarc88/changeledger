@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { loadRepo } from '../repo.mjs';
@@ -16,6 +17,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   let repo;
   try {
     repo = loadRepo(cwd);
+    if (!dryRun) assertSupportedSchema(repo.config);
   } catch (e) {
     output.error(`  error  (repo): ${e.message}`);
     return 1;

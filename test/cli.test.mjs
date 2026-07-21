@@ -51,6 +51,28 @@ test('init creates .changeledger/ with config and no per-machine contract artifa
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'AGENTS.md')), false);
 });
 
+test('195318 CR1: new rejects a future schema before creating files or locks', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 4'),
+  );
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const before = fs.readdirSync(changesDir);
+
+  assert.throws(
+    () =>
+      newChange(
+        { type: 'feature', slug: 'future', title: 'Future', now: '2026-07-21T20:00:00Z' },
+        root,
+      ),
+    /^Error: config schema 4 is newer than supported schema 3; update ChangeLedger before writing$/,
+  );
+  assert.deepEqual(fs.readdirSync(changesDir), before);
+});
+
 test('init preserves the root AGENTS.md and appends a reference (CR1)', () => {
   const root = tmp();
   init(root);

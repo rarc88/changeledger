@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
   bumpVersion,
@@ -58,6 +59,7 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   parseVersion(version);
   assertTimestamp(now);
   const initial = loadRepo(cwd);
+  assertSupportedSchema(initial.config);
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   const historyLock = path.join(releasesDir, '.history');
@@ -83,6 +85,7 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
   parseVersion(version);
   assertTimestamp(now);
   const initial = loadRepo(cwd);
+  assertSupportedSchema(initial.config);
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   const historyLock = path.join(releasesDir, '.history');
 
