@@ -2,16 +2,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseYaml } from './yaml.mjs';
 
-// Walk up from `start` looking for a project `.changeledger/config.yml`. The
-// config file is the marker: `~/.changeledger/` may exist only as global state
-// and must not be mistaken for a repository (notably when Windows temp dirs
-// live below the user's home). Returns the project data directory or null.
+// Walk up from `start` looking for project-owned legacy config or a state
+// authority receipt. The global registry alone must never look like a repo.
+// Returns the project data directory or null.
 export function findChangeledgerDir(start = process.cwd()) {
   let dir = path.resolve(start);
   for (;;) {
     const candidate = path.join(dir, '.changeledger');
     const config = path.join(candidate, 'config.yml');
-    if (fs.existsSync(config) && fs.statSync(config).isFile()) return candidate;
+    const authority = path.join(candidate, 'authority.yml');
+    if (
+      (fs.existsSync(config) && fs.statSync(config).isFile()) ||
+      (fs.existsSync(authority) && fs.statSync(authority).isFile())
+    ) {
+      return candidate;
+    }
     const parent = path.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
