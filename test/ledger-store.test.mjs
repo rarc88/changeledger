@@ -25,7 +25,8 @@ function fixture({ mutateState } = {}) {
   git(root, ['add', '.']);
   git(root, ['commit', '-qm', 'chore: base']);
 
-  git(root, ['checkout', '-q', '-b', 'changeledger/state']);
+  git(root, ['checkout', '-q', '--orphan', 'changeledger/state']);
+  git(root, ['rm', '-qrf', '--ignore-unmatch', '.']);
   const state = path.join(root, '.changeledger-state');
   fs.mkdirSync(path.join(state, 'changes'), { recursive: true });
   fs.mkdirSync(path.join(state, 'specs'), { recursive: true });
@@ -153,4 +154,60 @@ test('193101 CR7: the state tree rejects files outside the closed layout', () =>
     },
   });
   assert.throws(() => loadLedgerStore(root).load(), /invalid state path/);
+});
+
+test('193101 CR8: a state mutation validates and publishes one successor without touching legacy files', () => {
+  const { root } = fixture({
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(
+        path.join(state, 'config.yml'),
+        [
+          'project_id: project-1',
+          'changes_dir: .changeledger-state/changes',
+          'statuses: [draft, approved, in-progress, in-validation, blocked, done, discarded]',
+          'stages: [request, log]',
+          'types:',
+          '  feature:',
+          '    stages: [request]',
+          '',
+        ].join('\n'),
+      );
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000000-demo.md'),
+        '---\nid: "20260721-000000"\ntitle: Demo\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo.\n',
+      );
+    },
+  });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+
+  const after = store.mutate({ message: 'test: update ledger snapshot' }, ({ snapshot, write }) => {
+    const change = snapshot.changes[0];
+    write(change.statePath, change.text.replace('title: Demo', 'title: Updated'));
+  });
+
+  assert.notEqual(after.revision, before.revision);
+  assert.equal(after.changes[0].frontmatter.title, 'Updated');
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
+  assert.equal(
+    git(root, ['show', `${before.revision}:.changeledger-state/changes/20260721-000000-demo.md`]),
+    before.changes[0].text.trim(),
+  );
+});
+
+test('193101 CR8: an invalid candidate leaves the state ref at S1', () => {
+  const { root } = fixture();
+  const store = loadLedgerStore(root);
+  const before = store.load();
+
+  assert.throws(
+    () =>
+      store.mutate({ message: 'test: invalid ledger snapshot' }, ({ snapshot, write }) => {
+        write(snapshot.changes[0].statePath, 'not a change document\n');
+      }),
+    /Ledger state validation failed/,
+  );
+  assert.equal(store.load().revision, before.revision);
 });

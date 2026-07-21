@@ -201,3 +201,4 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T21:25:59Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-21T21:30:19Z** `[note]` Añadido LedgerStore de lectura: snapshots state inmutables desde objetos Git, layout cerrado y adaptación worktree legacy.
 - **2026-07-21T21:33:11Z** `[note]` Los lectores loadRepo, search, check y viewer consumen un único snapshot y exponen la revisión state.
+- **2026-07-21T21:43:01Z** `[note]` Añadida transacción LedgerStore: árbol candidato validado, commit Git condicionado a S1 y layout state exclusivo.

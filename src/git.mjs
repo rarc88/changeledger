@@ -21,10 +21,10 @@ const GIT_LOCATION_ENV_VARS = [
   'GIT_CEILING_DIRECTORIES',
 ];
 
-function sanitizedEnv() {
+export function sanitizedGitEnv(overrides = {}) {
   const env = { ...process.env };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return env;
+  return { ...env, ...overrides };
 }
 
 // Exported so other commands (e.g. `changeledger commit`) share the same
@@ -32,7 +32,7 @@ function sanitizedEnv() {
 export function defaultRun(args, cwd) {
   return execFileSync('git', args, {
     cwd,
-    env: sanitizedEnv(),
+    env: sanitizedGitEnv(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
@@ -46,7 +46,7 @@ export function mutatingRun(args, cwd) {
   try {
     return execFileSync('git', args, {
       cwd,
-      env: sanitizedEnv(),
+      env: sanitizedGitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
