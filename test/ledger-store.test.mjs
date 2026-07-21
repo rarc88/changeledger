@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { status } from '../src/commands/agent.mjs';
+import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { check } from '../src/commands/check.mjs';
 import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
@@ -245,4 +246,11 @@ test('193101 CR8: lifecycle status writes only the state successor', () => {
   assert.notEqual(after.revision, before.revision);
   assert.equal(after.changes[0].frontmatter.status, 'approved');
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
+});
+
+test('193101 CR2: agent context selects its change from the state snapshot', () => {
+  const { root } = fixture();
+  const context = buildAgentContext('investigation', '20260721-000000', root);
+  assert.match(context, /title: Demo/);
+  assert.match(context, /Effective policy: language=es/);
 });

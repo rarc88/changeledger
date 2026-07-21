@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findChangeledgerDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
-import { resolveChange } from '../repo.mjs';
+import { loadRepo } from '../repo.mjs';
 import { transversalPolicy } from './context.mjs';
 
 const ROLES = ['investigation', 'implementation', 'review', 'audit'];
@@ -26,14 +26,21 @@ function capsule(role) {
     .trim();
 }
 
-function selectedChange(role, changeId, cwd) {
+function selectedChange(role, changeId, repo) {
   if (role !== 'investigation' && !changeId) {
     throw new Error(`role ${role} requires a change id`);
   }
   if (!changeId) return undefined;
 
-  const resolved = resolveChange(cwd, changeId);
-  const text = fs.readFileSync(resolved.file, 'utf8');
+  const selected = repo.changes.find(
+    (change) => String(change.frontmatter.id) === String(changeId),
+  );
+  if (!selected) {
+    throw new Error(
+      `No change with id "${changeId}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
+    );
+  }
+  const text = selected.text;
   const { id, status } = parseChange(text).frontmatter;
   const allowed = ALLOWED_STATUSES[role];
   if (allowed && !allowed.includes(status)) {
@@ -47,12 +54,13 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
   if (!ROLES.includes(role)) {
     throw new Error(`Unknown role "${role}" — valid roles: ${ROLES.join(', ')}`);
   }
-  const changeledgerDir = requireRepo(cwd);
-  const selected = selectedChange(role, changeId, cwd);
+  requireRepo(cwd);
+  const repo = loadRepo(cwd);
+  const selected = selectedChange(role, changeId, repo);
   const change = selected ? ` — change: #${selected.id}` : '';
   const sections = [
     beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),
-    transversalPolicy(loadConfig(changeledgerDir)),
+    transversalPolicy(repo.config),
     capsule(role),
   ];
   if (selected) sections.push('---\n\n# Selected change', selected.text.trim());

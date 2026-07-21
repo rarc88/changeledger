@@ -54,7 +54,7 @@ function mutateChange(located, id, action, mutate) {
         (candidate) => candidate.statePath === located.statePath,
       );
       if (!change) throw new Error(`No change with id "${id}" in the state snapshot`);
-      const text = mutate(change.text);
+      const text = mutate(change.text, snapshot);
       if (text !== undefined) write(change.statePath, text);
     },
   );
@@ -141,8 +141,8 @@ export function approve(id, cwd = process.cwd()) {
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
 export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+  const located = locate(cwd, id);
+  return mutateChange(located, id, 'review', (text) => {
     const { status: current } = parseChange(text).frontmatter;
     if (current !== 'in-review') {
       throw new Error(`review requires status in-review (current: ${current})`);
@@ -191,7 +191,6 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 
     return text;
   });
-  return file;
 }
 
 // Records a validation verdict while keeping the deciding actor and interaction
@@ -202,8 +201,9 @@ export function validation(
   { reason, actor = 'human', channel = 'viewer' } = {},
   cwd = process.cwd(),
 ) {
-  const { config, file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+  const located = locate(cwd, id);
+  const { config, file } = located;
+  return mutateChange(located, id, 'validation', (text) => {
     const fm = parseChange(text).frontmatter;
     const current = fm.status;
     let target;
@@ -242,43 +242,47 @@ export function validation(
     if (verdict === 'pass') assertChangeTextValid(config, path.basename(file), text);
     return text;
   });
-  return file;
 }
 
 // Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
 export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const { config, file, repoRoot } = locate(cwd, id);
+  const located = locate(cwd, id);
+  const { config, file, repoRoot } = located;
+  const apply = (text, snapshot) => {
+    const released = snapshot.releases.some((release) =>
+      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
+    );
+    const change = { ...parseChange(text), text };
+    const fm = change.frontmatter;
+    if (fm.status !== 'done')
+      throw new Error(`reopen requires status done (current: ${fm.status})`);
+    if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
+    if (hasGraduationResolution(change))
+      throw new Error('cannot reopen: graduation is already resolved');
+    if (fm.archived === true) throw new Error('cannot reopen: change is archived');
+    if (released) throw new Error('cannot reopen: change belongs to a recorded release');
+    assertTransition('done', 'in-progress', {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    });
+    text = setStatus(text, 'in-progress');
+    return appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'status',
+      from: 'done',
+      to: 'in-progress',
+      detail: `${actor} reopened`,
+      reason,
+    });
+  };
+  if (located.store) return mutateChange(located, id, 'reopen', apply);
   const releasesDir = resolveReleasesDir(repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   return withFileLock(path.join(releasesDir, '.history'), () => {
-    const released = loadRepo(cwd).releases.some((release) =>
-      (release.changes ?? []).some((changeId) => String(changeId) === String(id)),
-    );
     mutateFileAtomic(file, (text) => {
-      const change = { ...parseChange(text), text };
-      const fm = change.frontmatter;
-      if (fm.status !== 'done')
-        throw new Error(`reopen requires status done (current: ${fm.status})`);
-      if (fm.reviewed === true) throw new Error('cannot reopen: graduation is already reviewed');
-      if (hasGraduationResolution(change))
-        throw new Error('cannot reopen: graduation is already resolved');
-      if (fm.archived === true) throw new Error('cannot reopen: change is archived');
-      if (released) throw new Error('cannot reopen: change belongs to a recorded release');
-      assertTransition('done', 'in-progress', {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
-      text = setStatus(text, 'in-progress');
-      return appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'status',
-        from: 'done',
-        to: 'in-progress',
-        detail: `${actor} reopened`,
-        reason,
-      });
+      return apply(text, loadRepo(cwd));
     });
     return file;
   });
@@ -286,13 +290,12 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}
 
 // name '-' clears the owner.
 export function owner(id, name, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
+  const located = locate(cwd, id);
   const next = name === '-' ? null : name;
-  mutateFileAtomic(file, (text) => {
+  return mutateChange(located, id, 'owner', (text) => {
     text = setOwner(text, next);
     return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
   });
-  return file;
 }
 
 // Discards a change: a terminal lifecycle move that keeps the file and its
@@ -302,8 +305,9 @@ export function discard(id, reason, cwd = process.cwd()) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const { config, file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+  const located = locate(cwd, id);
+  const { config } = located;
+  return mutateChange(located, id, 'discard', (text) => {
     const fm = parseChange(text).frontmatter;
     // Validate before any mutation so an illegal discard leaves the file untouched.
     assertTransition(fm.status, 'discarded', {
@@ -319,16 +323,14 @@ export function discard(id, reason, cwd = process.cwd()) {
       reason,
     });
   });
-  return file;
 }
 
 export function archive(id, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+  const located = locate(cwd, id);
+  return mutateChange(located, id, 'archive', (text) => {
     text = setArchived(text, true);
     return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
   });
-  return file;
 }
 
 function assertOwnerFilter({ owner: byOwner, unowned = false } = {}) {
@@ -349,9 +351,33 @@ export function selectArchivableGraduated(changes, filters = {}) {
 }
 
 export function archiveGraduated(filters = {}, cwd = process.cwd()) {
-  const { config, changes } = loadRepo(cwd);
+  const store = loadLedgerStore(cwd);
+  const { config, changes } = store.load();
   assertSupportedSchema(config);
   const selected = selectArchivableGraduated(changes, filters);
+  if (store.mode === 'state' && selected.length) {
+    const selectedPaths = new Set(selected.map((change) => change.statePath));
+    const after = store.mutate(
+      { message: 'changeledger: archive graduated' },
+      ({ snapshot, write }) => {
+        for (const change of snapshot.changes) {
+          if (!selectedPaths.has(change.statePath)) continue;
+          const current = { ...parseChange(change.text), text: change.text };
+          if (!isArchivableGraduated(current) || !matchesOwner(current, filters)) {
+            throw new Error('archivable state changed concurrently; retry the operation');
+          }
+          let text = setArchived(change.text, true);
+          text = appendLogEvent(text, { at: nowUtc(), type: 'archive' });
+          write(change.statePath, text);
+        }
+      },
+    );
+    return selected.map((change) => ({
+      id: change.frontmatter.id,
+      title: change.frontmatter.title,
+      file: after.changes.find((current) => current.statePath === change.statePath)?.file,
+    }));
+  }
   for (const c of selected) {
     mutateFileAtomic(c.file, (text) => {
       const current = { ...parseChange(text), text };
@@ -382,19 +408,19 @@ function hasGraduationResolution(c) {
 }
 
 export function log(id, message, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message }));
-  return file;
+  const located = locate(cwd, id);
+  return mutateChange(located, id, 'log', (text) =>
+    appendLogEvent(text, { at: nowUtc(), type: 'note', message }),
+  );
 }
 
 export function task(id, action, n, reason, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
-  mutateFileAtomic(file, (text) => {
+  const located = locate(cwd, id);
+  return mutateChange(located, id, 'task', (text) => {
     if (action === 'done') return setTask(text, n, 'done', { iso: nowUtc() });
     if (action === 'block') return setTask(text, n, 'blocked', { reason });
     throw new Error(`Unknown task action "${action}" (use done|block)`);
   });
-  return file;
 }
 
 export function list(
