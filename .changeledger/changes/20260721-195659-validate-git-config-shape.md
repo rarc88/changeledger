@@ -2,7 +2,7 @@
 id: "20260721-195659"
 title: Validar la estructura de git en changeledger check
 type: bug
-status: in-validation
+status: done
 created: 2026-07-21T19:56:59Z
 depends_on: []
 owner: Roberto Ruiz
@@ -78,3 +78,4 @@ permitidas para preservar extensibilidad y configuración específica del repo.
 - **2026-07-21T20:53:19Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-21T20:55:45Z** `[status]` in-progress → in-review
 - **2026-07-21T20:57:52Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-21T21:01:07Z** `[validation]` in-validation → done (human accepted via conversation)
