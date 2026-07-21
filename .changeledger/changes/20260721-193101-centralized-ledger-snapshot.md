@@ -207,3 +207,4 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T22:00:18Z** `[note]` Migrado new al snapshot state y convertido fix, incluidas variantes bulk, en operaciones de un único sucesor.
 - **2026-07-21T22:06:14Z** `[note]` El viewer resuelve decisiones de lifecycle desde LedgerStore en modo state y conserva la tolerancia legacy a documentos ajenos no parseables.
 - **2026-07-21T22:18:10Z** `[note]` Añadidas transacciones state para release init/record y graduation --skip; graduación --into queda como siguiente unidad atómica.
+- **2026-07-21T22:19:23Z** `[note]` Graduation --into en modo state actualiza change y spec en un único sucesor validado.

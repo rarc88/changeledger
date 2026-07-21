@@ -82,6 +82,50 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'state') {
+    const snapshot = store.load();
+    assertSupportedSchema(snapshot.config);
+    const change = snapshot.changes.find(
+      (candidate) => String(candidate.frontmatter.id) === String(id),
+    );
+    if (!change) throw new Error(`No change with id "${id}"`);
+    const specName = `${slugify(slug)}.md`;
+    const spec = snapshot.specs.find((candidate) => candidate.name === specName);
+    if (!spec)
+      throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
+    const after = store.mutate(
+      { message: `changeledger: graduate ${id}` },
+      ({ snapshot, write }) => {
+        const currentChange = snapshot.changes.find(
+          (candidate) => candidate.statePath === change.statePath,
+        );
+        const currentSpec = snapshot.specs.find(
+          (candidate) => candidate.statePath === spec.statePath,
+        );
+        if (!currentChange || !currentSpec)
+          throw new Error('graduation target changed concurrently; retry');
+        requireGraduationReady(snapshot.config, currentChange.file, currentChange.text);
+        if (currentSpec.text.includes(SPEC_SCAFFOLD_MARKER)) {
+          throw new Error(
+            `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
+          );
+        }
+        const timestamp = nowUtc();
+        const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(currentSpec.text, timestamp), id);
+        let updatedChange = appendLogEvent(currentChange.text, {
+          at: timestamp,
+          type: 'graduation',
+          outcome: 'spec',
+          spec: specName,
+        });
+        updatedChange = setReviewed(updatedChange, true);
+        write(currentSpec.statePath, updatedSpec);
+        write(currentChange.statePath, updatedChange);
+      },
+    );
+    return after.specs.find((candidate) => candidate.name === specName)?.file;
+  }
   const { config, file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
   requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
 
