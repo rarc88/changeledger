@@ -185,7 +185,8 @@ es una superficie de edición, nunca una segunda autoridad.
 
 - [x] Añadir tests fallidos del contrato `LedgerSnapshot` y crear `src/ledger-store.mjs` con adaptadores worktree/state de solo lectura; verify: `node --test test/ledger-store.test.mjs` (CR1, CR2, CR3, CR6, CR7)
   - **Resolved:** `2026-07-21T21:30:19Z`
-- [ ] Migrar `src/repo.mjs`, `src/commands/search.mjs`, `src/commands/check.mjs` y el payload del viewer al snapshot único; verify: `node --test test/repo.test.mjs test/search.test.mjs test/check.test.mjs test/view.test.mjs` (CR2, CR3, CR6)
+- [x] Migrar `src/repo.mjs`, `src/commands/search.mjs`, `src/commands/check.mjs` y el payload del viewer al snapshot único; verify: `node --test test/repo.test.mjs test/search.test.mjs test/check.test.mjs test/view.test.mjs` (CR2, CR3, CR6)
+  - **Resolved:** `2026-07-21T21:33:11Z`
 - [ ] Añadir una prueba parametrizada de la matriz mutadora y migrar `src/commands/new.mjs`, `src/commands/agent.mjs`, `src/commands/fix.mjs` y las mutaciones de config del viewer a `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/agent.test.mjs test/fix.test.mjs test/view.test.mjs` (CR3, CR8)
 - [ ] Añadir primero tests de mutación atómica y adaptar graduación/specs en `src/commands/graduate.mjs` al snapshot único y al flujo `--to/--from`; verify: `node --test test/graduate.test.mjs test/ledger-store.test.mjs` (CR4)
 - [ ] Añadir primero tests de release atómico y adaptar `src/commands/release.mjs`; verify: `node --test test/release.test.mjs test/ledger-store.test.mjs` (CR5)
@@ -199,3 +200,4 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T21:25:59Z** `[status]` approved → in-progress
 - **2026-07-21T21:25:59Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-21T21:30:19Z** `[note]` Añadido LedgerStore de lectura: snapshots state inmutables desde objetos Git, layout cerrado y adaptación worktree legacy.
+- **2026-07-21T21:33:11Z** `[note]` Los lectores loadRepo, search, check y viewer consumen un único snapshot y exponen la revisión state.

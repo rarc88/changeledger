@@ -4,7 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { check } from '../src/commands/check.mjs';
+import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
+import { loadRepo } from '../src/repo.mjs';
+import { serialize } from '../src/viewer/domain.mjs';
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -73,6 +77,21 @@ test('193101 CR1/CR2/CR6: state store loads one complete Git snapshot, not workt
   assert.equal(snapshot.releases[0].name, '1.0.0.yml');
   assert.match(snapshot.changes[0].file, new RegExp(`^git:${baseline}:`));
   assert.equal(fs.existsSync(path.join(root, '.changeledger', 'changes')), false);
+});
+
+test('193101 CR2: repository readers use the selected snapshot instead of legacy paths', () => {
+  const { root, baseline } = fixture();
+  const repo = loadRepo(root);
+  assert.equal(repo.mode, 'state');
+  assert.equal(repo.revision, baseline);
+  assert.equal(serialize(repo).ledger_revision, baseline);
+  assert.deepEqual(
+    search('Demo', {}, root).map((hit) => hit.ref),
+    ['spec:demo', '#20260721-000000'],
+  );
+  const output = { log: (text) => (output.text = text), warn() {}, error() {} };
+  check(['--json'], root, output);
+  assert.equal(JSON.parse(output.text).revision, baseline);
 });
 
 test('193101 CR1: missing collections are empty, but manifest and config are mandatory', () => {

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
+import { loadLedgerStore } from './ledger-store.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 
@@ -39,15 +40,7 @@ export function resolveChange(start, id) {
 // Loads a ChangeLedger repo: locates .changeledger/, reads config and every change file.
 // Shared by `changeledger view` and `changeledger check`.
 export function loadRepo(start = process.cwd()) {
-  const changeledgerDir = findChangeledgerDir(start);
-  if (!changeledgerDir) {
-    throw new Error(
-      'Not a ChangeLedger repo (no .changeledger/ found). Run `changeledger init` first.',
-    );
-  }
-  const repoRoot = path.dirname(changeledgerDir);
-  const config = loadConfig(changeledgerDir);
-  return loadRepoWithConfig(repoRoot, changeledgerDir, config);
+  return loadLedgerStore(start).load();
 }
 
 // Loads repository content using an already parsed candidate config. The viewer
@@ -86,6 +79,8 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config) {
 // loop while reading large change/spec histories. The synchronous loader remains
 // the command API for CLI code.
 export async function loadRepoAsync(start = process.cwd()) {
+  const store = loadLedgerStore(start);
+  if (store.mode === 'state') return store.load();
   const changeledgerDir = findChangeledgerDir(start);
   if (!changeledgerDir) {
     throw new Error(

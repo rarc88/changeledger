@@ -96,14 +96,16 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   }
 
   if (json) {
-    output.log(JSON.stringify({ errors, warnings }, null, 2));
+    output.log(JSON.stringify({ errors, warnings, revision: repo.revision ?? null }, null, 2));
     return errors.length ? 1 : 0;
   }
 
   for (const w of warnings) output.warn(`  warn   ${w.file}: ${w.message}`);
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
 
-  const scope = id ? `change ${id}` : `${repo.changes.length} change(s)`;
+  const scope = `${id ? `change ${id}` : `${repo.changes.length} change(s)`}${
+    repo.revision ? ` @ ${repo.revision}` : ''
+  }`;
   if (!errors.length && !warnings.length) {
     output.log(`✓ ${scope} valid`);
   } else {

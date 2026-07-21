@@ -26,6 +26,8 @@ import { parseYaml } from '../yaml.mjs';
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
   return {
+    ledger_mode: repo.mode ?? 'worktree',
+    ledger_revision: repo.revision ?? null,
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
     types: Object.keys(repo.config.types ?? {}),
