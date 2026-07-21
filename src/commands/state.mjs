@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
@@ -24,12 +25,13 @@ import {
 
 const DEFAULT_STATE_BRANCH = 'changeledger/state';
 
-// Reserved ref the strong-protection probe pushes to. `doctorState` and
-// `activateState` push a deliberately invalid update here to confirm the remote
-// runs the ChangeLedger `pre-receive` validator: a working hook rejects it, an
-// unprotected remote accepts it (and the throwaway ref is deleted afterwards).
-const PROTECTION_PROBE_REF = 'refs/changeledger/protection-probe';
-const PROTECTION_PROBE_FILE = 'protection-probe.txt';
+// A strong-protection probe gets a unique ref and nonce. The receive validator
+// echoes both the nonce and its configured branch only after it has recognized
+// the deliberately invalid probe layout. This makes a generic hook rejection
+// insufficient evidence and proves which configured state branch answered.
+const PROTECTION_PROBE_PREFIX = 'refs/changeledger/protection-probe/';
+const PROTECTION_PROBE_FILE_PREFIX = 'changeledger-protection-probe-';
+const PROTECTION_ATTESTATION = 'CHANGELEDGER_PROTECTION_ATTESTATION';
 
 function project(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
@@ -169,10 +171,13 @@ export function activateState(
       'remote protection was not checked; pass --advisory <reason>, or --confirm-strong to empirically verify it (pushes a throwaway probe to origin)',
     );
   }
-  const remoteProtected = advisory ? false : confirmRemoteProtection(repoRoot, { gitEnv });
+  const protection = advisory
+    ? { enforced: false }
+    : confirmRemoteProtection(repoRoot, { branch, gitEnv });
+  const remoteProtected = protection.enforced;
   if (!advisory && !remoteProtected) {
     throw new Error(
-      'remote protection could not be verified; pass --advisory <reason> to record an explicit advisory cutover',
+      `remote protection could not be verified${protection.probeRef ? `; probe ${protection.probeRef} was accepted and must be removed by an authorized remote administrator` : ''}; pass --advisory <reason> to record an explicit advisory cutover`,
     );
   }
 
@@ -282,9 +287,12 @@ export function doctorState(
   // The probe pushes a throwaway commit to origin, so it only runs when the
   // human explicitly opts in with --confirm-strong; otherwise doctor stays a
   // read-only diagnostic.
+  const protection = confirmStrong
+    ? confirmRemoteProtection(repoRoot, { branch: selectedBranch, gitEnv })
+    : undefined;
   const remoteProtection = !confirmStrong
     ? 'not-checked'
-    : confirmRemoteProtection(repoRoot, { gitEnv })
+    : protection.enforced
       ? 'enforced'
       : 'unverified';
   return {
@@ -295,6 +303,7 @@ export function doctorState(
     append_only: true,
     remote_state: remoteState,
     remote_protection: remoteProtection,
+    ...(protection?.probeRef ? { protection_probe: protection.probeRef } : {}),
     instructions: [
       'Disable force-push and branch deletion.',
       'Allow only fast-forward updates from authorized writers.',
@@ -328,14 +337,13 @@ export function validateReceive(
 ) {
   const repoRoot = path.resolve(cwd);
   const receiveEnv = gitEnv ?? receiveGitEnv();
-  const validatedRefs = new Set([`refs/heads/${branch}`, PROTECTION_PROBE_REF]);
   const results = [];
   for (const line of String(input).split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     const [oldHead, newHead, ref] = trimmed.split(/\s+/);
     if (!oldHead || !newHead || !ref) throw new Error(`invalid pre-receive input: ${line}`);
-    if (validatedRefs.has(ref)) {
+    if (ref === `refs/heads/${branch}`) {
       results.push(
         validateStateRange(repoRoot, {
           oldHead,
@@ -345,23 +353,53 @@ export function validateReceive(
           gitEnv: receiveEnv,
         }),
       );
+      continue;
+    }
+    if (ref.startsWith(PROTECTION_PROBE_PREFIX)) {
+      const nonce = ref.slice(PROTECTION_PROBE_PREFIX.length);
+      if (!/^[0-9a-f]{32}$/.test(nonce)) {
+        throw new Error(`invalid ChangeLedger protection probe ref: ${ref}`);
+      }
+      results.push(
+        validateProtectionProbe(repoRoot, { oldHead, newHead, nonce, branch, gitEnv: receiveEnv }),
+      );
     }
   }
   return results;
 }
 
-// Empirically confirms the remote runs the ChangeLedger `pre-receive` validator
-// by pushing an intentionally invalid update to the reserved probe ref. A
-// working hook declines it (fails closed); an unprotected remote accepts it,
-// so the throwaway ref is deleted and the probe reports no protection. Only a
-// clear pre-receive rejection counts — transient push failures stay unverified
-// so the default advisory requirement is never silently weakened.
-export function confirmRemoteProtection(repoRoot, { gitEnv = {} } = {}) {
+function validateProtectionProbe(repoRoot, { oldHead, newHead, nonce, branch, gitEnv }) {
+  if (!/^0+$/.test(oldHead) || /^0+$/.test(newHead)) {
+    throw new Error('ChangeLedger protection probes must create a new ref');
+  }
+  const expectedFile = `${PROTECTION_PROBE_FILE_PREFIX}${nonce}.txt`;
+  try {
+    validateStateRange(repoRoot, { oldHead, newHead, gitEnv });
+  } catch (error) {
+    if (String(error.message).includes(`contains file outside the state layout: ${expectedFile}`)) {
+      throw new Error(`${PROTECTION_ATTESTATION} ${nonce} ${branch}`);
+    }
+    throw error;
+  }
+  throw new Error('ChangeLedger protection probe unexpectedly passed state validation');
+}
+
+// Empirically confirms the remote runs this validator for exactly `branch`.
+// A nonce-bound response from the receive hook is the only success condition;
+// generic rejections remain unverified. The probe never force-pushes or deletes
+// refs. If an unprotected remote accepts it, the retained unique ref is returned
+// as an explicit recovery diagnostic for an authorized administrator.
+export function confirmRemoteProtection(
+  repoRoot,
+  { branch = DEFAULT_STATE_BRANCH, gitEnv = {} } = {},
+) {
   try {
     objectRun(['remote', 'get-url', 'origin'], repoRoot, { env: gitEnv });
   } catch {
-    return false;
+    return { enforced: false };
   }
+  const nonce = randomBytes(16).toString('hex');
+  const probeRef = `${PROTECTION_PROBE_PREFIX}${nonce}`;
   let commit;
   try {
     const blob = objectRun(['hash-object', '-w', '--stdin'], repoRoot, {
@@ -369,33 +407,25 @@ export function confirmRemoteProtection(repoRoot, { gitEnv = {} } = {}) {
       env: gitEnv,
     }).trim();
     const tree = objectRun(['mktree'], repoRoot, {
-      input: `100644 blob ${blob}\t${PROTECTION_PROBE_FILE}\n`,
+      input: `100644 blob ${blob}\t${PROTECTION_PROBE_FILE_PREFIX}${nonce}.txt\n`,
       env: gitEnv,
     }).trim();
     commit = objectRun(['commit-tree', tree, '-m', 'changeledger protection probe'], repoRoot, {
       env: gitEnv,
     }).trim();
   } catch {
-    return false;
+    return { enforced: false };
   }
-  let accepted = false;
   try {
-    objectRun(['push', '--force', 'origin', `${commit}:${PROTECTION_PROBE_REF}`], repoRoot, {
+    objectRun(['push', 'origin', `${commit}:${probeRef}`], repoRoot, {
       env: gitEnv,
     });
-    accepted = true;
   } catch (error) {
-    if (!/pre-receive hook declined|outside the state layout/.test(error.message)) return false;
+    return {
+      enforced: String(error.message).includes(`${PROTECTION_ATTESTATION} ${nonce} ${branch}`),
+    };
   }
-  if (!accepted) return true;
-  // Accepted: the remote does not validate content — clean up the probe ref
-  // unconditionally so an unprotected remote never keeps the throwaway ref.
-  try {
-    objectRun(['push', 'origin', `:${PROTECTION_PROBE_REF}`], repoRoot, { env: gitEnv });
-  } catch {
-    // best-effort cleanup; the ref is throwaway and harmless if it lingers
-  }
-  return false;
+  return { enforced: false, probeRef };
 }
 
 export function abortState(cwd = process.cwd(), { gitEnv = {} } = {}) {

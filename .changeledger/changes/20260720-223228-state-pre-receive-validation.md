@@ -2,7 +2,7 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: done
+status: in-progress
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
 owner: raruiz-hiberuscom
@@ -63,6 +63,20 @@ contra un remoto bare, en vez de pre-cargar los objetos y llamar a la función
 de validación directamente. Sin esa prueba, un cambio futuro puede volver a
 romper esta ruta sin que ningún test lo note.
 
+La auditoría posterior a la aceptación encontró que el probe negativo no
+identifica al validador que produjo el rechazo. El cliente acepta el diagnóstico
+genérico `pre-receive hook declined`, por lo que un hook ajeno que rechaza todo
+se presenta como protección ChangeLedger. Además, el probe reservado se valida
+independientemente de `--branch`: un hook instalado para `changeledger/state`
+puede certificar falsamente un repositorio cuya autoridad real sea otra rama.
+
+La corrección debe tratar la confirmación como una atestación ligada al
+validador, a un desafío no reutilizable y al nombre exacto de la rama candidata.
+La investigación de implementación debe escoger el mecanismo Git mínimo que
+permita hacerlo sin interpretar mensajes genéricos ni alterar la rama de estado.
+Hasta que esa prueba exista, `--confirm-strong` debe fallar cerrado y nunca
+degradarse silenciosamente a una afirmación de protección.
+
 ## Specification
 
 ### CR1 — Validación visible durante la cuarentena de un push real
@@ -89,6 +103,22 @@ romper esta ruta sin que ningún test lo note.
 - **And** si el hook no está confirmado, `state activate` sigue exigiendo `--advisory` como hoy — el comportamiento actual de `20260720-124231` no cambia por defecto
 - **And** sin `--confirm-strong`, ni `state doctor` ni `state activate` empujan el probe al remoto: `doctor` reporta `not-checked` y `activate` exige `--advisory` o `--confirm-strong` explícitamente — la confirmación nunca es un efecto colateral implícito de un diagnóstico o de una activación
 
+### CR5 — Atestación inequívoca del validador y de la rama
+- **Given** un hook ajeno que rechaza todos los pushes o cualquier rechazo remoto genérico
+- **When** se ejecuta `state doctor --confirm-strong` o `state activate --confirm-strong`
+- **Then** ChangeLedger reporta protección no verificada y no acepta el rechazo como evidencia propia
+- **Given** un validador ChangeLedger configurado para una rama diferente de `git.state_branch` o de `--branch`
+- **When** se solicita confirmación fuerte
+- **Then** la confirmación falla indicando la discrepancia exacta
+- **And** solo una respuesta ligada al desafío actual, al protocolo soportado y a la rama exacta puede producir `remote_protection: enforced`
+
+### CR6 — Confirmación sin incumplir el contrato append-only
+- **Given** un remoto protegido, no protegido o parcialmente disponible
+- **When** se ejecuta una confirmación fuerte
+- **Then** el mecanismo no usa force-push ni modifica, elimina o rebasa la rama de estado
+- **And** cualquier referencia auxiliar y su política de limpieza se definen antes de la implementación, sin prometer limpieza garantizada mediante una operación best-effort
+- **And** una confirmación interrumpida conserva un diagnóstico recuperable y nunca se presenta como protección verificada
+
 ## Plan
 
 - [x] Add a failing test that installs a real `pre-receive` hook (invoking the built CLI) in a bare remote and pushes a state update through it while the object quarantine is active, confirming it fails closed on a valid update today; then give the receive path its own git env inheriting `GIT_OBJECT_DIRECTORY`/`GIT_ALTERNATE_OBJECT_DIRECTORIES` from the hook process instead of stripping them, in `src/git.mjs` and `src/commands/state.mjs`; verify: `node --test test/state-receive.test.mjs` (CR1)
@@ -105,6 +135,10 @@ romper esta ruta sin que ningún test lo note.
   - **Resolved:** `2026-07-21T13:58:16Z`
 - [x] Gate `confirmRemoteProtection` behind an explicit `--confirm-strong` flag on `state doctor`/`state activate` in `src/commands/state.mjs` and `bin/changeledger.mjs` so the probe push never runs implicitly; guarantee the throwaway `refs/changeledger/protection-probe` ref is deleted whenever the probe is accepted, with test coverage proving no ref lingers on origin either way; verify: `node --test test/state-command.test.mjs` (CR4)
   - **Resolved:** `2026-07-21T15:39:04Z`
+- [x] Add failing regressions in `test/state-command.test.mjs` and `test/state-receive.test.mjs` for an unrelated reject-all hook and for a ChangeLedger hook configured for a different custom state branch, then replace the generic-error inference in `src/commands/state.mjs` with an exact branch-bound attestation; verify: `node --test test/state-command.test.mjs test/state-receive.test.mjs` (CR5)
+  - **Resolved:** `2026-07-21T16:31:50Z`
+- [x] Remove force-push from the confirmation path in `src/commands/state.mjs`, specify and test interruption/cleanup semantics for any auxiliary ref, and align `README.md` with the implemented append-only behavior; verify: `node --test test/state-command.test.mjs && changeledger check` (CR6)
+  - **Resolved:** `2026-07-21T16:31:51Z`
 
 ## Log
 
@@ -121,3 +155,4 @@ romper esta ruta sin que ningún test lo note.
 - **2026-07-21T15:39:15Z** `[status]` in-progress → in-review
 - **2026-07-21T15:44:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-21T15:50:22Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-21T16:17:54Z** `[status]` done → in-progress (agent reopened): La auditoría posterior demostró que --confirm-strong puede certificar un hook ajeno o un hook configurado para otra rama de estado

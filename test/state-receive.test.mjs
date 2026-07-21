@@ -176,6 +176,31 @@ test('223228 CR1/CR3: real pre-receive hook validates quarantined objects on pus
   assert.match(rejected.stderr, /outside the state layout|pre-receive hook declined/);
   assert.equal(remoteStateHead(bare), mutationHead);
 
+  // The strong-protection handshake is also exercised through the real hook:
+  // only this validator emits a nonce and its configured branch after seeing
+  // the intentionally invalid probe object in the receive quarantine.
+  const nonce = 'a'.repeat(32);
+  const probeBlob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: root,
+    env: ENV,
+    input: 'probe\n',
+    encoding: 'utf8',
+  }).trim();
+  const probeTree = execFileSync('git', ['mktree'], {
+    cwd: root,
+    env: ENV,
+    input: `100644 blob ${probeBlob}\tchangeledger-protection-probe-${nonce}.txt\n`,
+    encoding: 'utf8',
+  }).trim();
+  const probeCommit = execFileSync('git', ['commit-tree', probeTree, '-m', 'protection probe'], {
+    cwd: root,
+    env: ENV,
+    encoding: 'utf8',
+  }).trim();
+  const probe = pushState(root, bare, `${probeCommit}:refs/changeledger/protection-probe/${nonce}`);
+  assert.notEqual(probe.status, 0);
+  assert.match(probe.stderr, new RegExp(`CHANGELEDGER_PROTECTION_ATTESTATION ${nonce} ${BRANCH}`));
+
   // Sanity: the working store still resolves the mutated head locally.
   assert.equal(readStateStore(root, BRANCH, { gitEnv: ENV }).head, mutationHead);
 });

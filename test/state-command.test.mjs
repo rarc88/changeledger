@@ -150,7 +150,7 @@ depends_on: []
   return dir;
 }
 
-function publishCandidate(dir, { objectFormat } = {}) {
+function publishCandidate(dir, { branch = 'changeledger/state', objectFormat } = {}) {
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-state-command-origin-'));
   git(
     bare,
@@ -159,7 +159,7 @@ function publishCandidate(dir, { objectFormat } = {}) {
       : ['init', '--bare', '-q'],
   );
   git(dir, ['remote', 'add', 'origin', bare]);
-  const published = publishState({}, dir, { gitEnv: ENV });
+  const published = publishState({ branch }, dir, { gitEnv: ENV });
   assert.equal(published.confirmed, true);
   return bare;
 }
@@ -245,11 +245,11 @@ test('124231 CR16: provider-neutral activation never claims unverifiable remote 
   );
 });
 
-function installReceiveHook(bare) {
+function installReceiveHook(bare, branch = 'changeledger/state') {
   const hook = path.join(bare, 'hooks', 'pre-receive');
   fs.writeFileSync(
     hook,
-    `#!/bin/sh\nexec "${process.execPath}" "${BIN}" state validate-receive --branch changeledger/state\n`,
+    `#!/bin/sh\nexec "${process.execPath}" "${BIN}" state validate-receive --branch ${branch}\n`,
   );
   fs.chmodSync(hook, 0o755);
 }
@@ -299,16 +299,45 @@ test('223228 CR4 correction: doctor and activate never push a probe without --co
   assert.equal(git(bare, ['for-each-ref', 'refs/changeledger/protection-probe']).trim(), '');
 });
 
-test('223228 CR4 correction: an accepted probe never leaves the throwaway ref on origin', () => {
+test('223228 CR6: an accepted probe is retained as an explicit recovery diagnostic', () => {
   const dir = root();
   initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
   const bare = publishCandidate(dir); // no hook installed: probe push is accepted
+
+  const result = doctorState({ confirmStrong: true }, dir, { gitEnv: ENV });
+  assert.equal(result.remote_protection, 'unverified');
+  assert.match(result.protection_probe, /^refs\/changeledger\/protection-probe\/[0-9a-f]{32}$/);
+  assert.match(
+    git(bare, ['for-each-ref', result.protection_probe]),
+    /refs\/changeledger\/protection-probe\//,
+  );
+});
+
+test('223228 CR5: a generic reject-all hook is not certified as ChangeLedger protection', () => {
+  const dir = root();
+  initState({ refs: ['dev'] }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir);
+  const hook = path.join(bare, 'hooks', 'pre-receive');
+  fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+  fs.chmodSync(hook, 0o755);
 
   assert.equal(
     doctorState({ confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
     'unverified',
   );
-  assert.equal(git(bare, ['for-each-ref', 'refs/changeledger/protection-probe']).trim(), '');
+});
+
+test('223228 CR5: a validator configured for another state branch is not certified', () => {
+  const dir = root();
+  const branch = 'team/custom-state';
+  initState({ refs: ['dev'], branch }, dir, { gitEnv: ENV });
+  const bare = publishCandidate(dir, { branch });
+  installReceiveHook(bare, 'changeledger/state');
+
+  assert.equal(
+    doctorState({ branch, confirmStrong: true }, dir, { gitEnv: ENV }).remote_protection,
+    'unverified',
+  );
 });
 
 test('124231 CR11: doctor validates the complete inactive candidate layout', () => {

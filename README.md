@@ -85,13 +85,18 @@ repository's `pre-receive` hook (push the integration branch before the state
 commit so the hook can read the canonical config). It rejects invalid documents,
 rewritten history and files outside the state layout on the server, using the
 same engine as the CLI. Confirming the hook is a network mutation (it pushes a
-throwaway probe commit to origin), so it only runs when you pass
+nonce-bound invalid probe to origin), so it only runs when you pass
 `--confirm-strong` to `state doctor` or `state activate`; by default protection
 is reported `not-checked` and `state activate` still requires `--advisory`.
-With `--confirm-strong`, `state doctor` reports `remote_protection: enforced`
-after a live probe, and `state activate` completes without `--advisory` when
-that probe confirms the hook; otherwise the explicit advisory reason is still
-required. A failed publication remains visibly pending; `changeledger state
+The hook certifies only a response that echoes that nonce and its exact configured
+state branch: a generic rejection or a validator installed for another branch is
+not evidence. Probes never force-push or delete refs. If an unprotected remote
+accepts a probe, `state doctor` reports its `protection_probe` ref so an
+authorized remote administrator can remove it; that result is always
+`unverified`. With `--confirm-strong`, `state doctor` reports
+`remote_protection: enforced` only after the branch-bound attestation, and
+`state activate` completes without `--advisory` only in that case. A failed
+publication remains visibly pending; `changeledger state
 sync` publishes it or replays it only when remote edits touched different
 change documents.
 
