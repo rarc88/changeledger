@@ -2,7 +2,7 @@
 id: "20260720-223228"
 title: Validación server-side del estado vía pre-receive
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-20T22:32:28Z
 depends_on: ["20260720-124231"]
 owner: raruiz-hiberuscom
@@ -119,3 +119,4 @@ romper esta ruta sin que ningún test lo note.
 - **2026-07-21T15:33:51Z** `[validation]` in-validation → in-progress (agent rejected): CR4 correction requested by human before acceptance: gate confirmRemoteProtection probe behind an explicit flag (never run implicitly inside activate/doctor), and guarantee cleanup of refs/changeledger/protection-probe with test coverage.
 - **2026-07-21T15:38:57Z** `[note]` CR4 correction applied: confirmRemoteProtection now gated behind --confirm-strong on both state doctor and state activate (never implicit); doctor defaults to remote_protection: not-checked. Hardened confirmRemoteProtection so the throwaway probe-ref is only left when the remote actually accepted it (unprotected), and is always cleaned up in that case. Added test coverage: no push happens without --confirm-strong, and no ref lingers on origin whether the probe is rejected or accepted. Updated CR4 spec, README, and CLI help text. Gate: 796 tests, biome clean, check 207 valid.
 - **2026-07-21T15:39:15Z** `[status]` in-progress → in-review
+- **2026-07-21T15:44:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
