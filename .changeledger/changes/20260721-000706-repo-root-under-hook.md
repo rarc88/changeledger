@@ -2,9 +2,10 @@
 id: "20260721-000706"
 title: changeledger check resuelve mal repoRoot bajo git hooks con multi-worktree
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-21T00:07:06Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260720-124231"]
 ---
 
@@ -81,3 +82,6 @@ fix solo a `check`.
 
 - **2026-07-21T00:07:06Z** `[note]` Change creado a partir de un hallazgo de sesión (chip de tarea), no de una investigación de código todavía. Reemplaza ese chip.
 - **2026-07-21T12:49:15Z** `[status]` draft → approved
+- **2026-07-21T13:02:40Z** `[status]` approved → in-progress
+- **2026-07-21T13:02:40Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-21T13:02:41Z** `[note]` Rama creada desde codex/global-state-branch, no desde dev: dev todavía no tiene el código de 20260720-124231 (done, sin graduar/mergear).
