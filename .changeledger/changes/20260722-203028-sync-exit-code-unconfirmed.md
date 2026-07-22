@@ -2,7 +2,7 @@
 id: "20260722-203028"
 title: Exit code no cero cuando sync no confirma la publicación
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T20:30:28Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -68,3 +68,4 @@ Semántica de salida elegida — tres valores distinguibles:
 - **2026-07-22T21:04:56Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T21:37:00Z** `[note]` La acción de `state sync` en `bin/changeledger.mjs` fija `process.exitCode = 2` cuando `result.pending && !result.confirmed`. Verificado con push denegado por permisos (remoto bare de solo lectura): exit 2, pending intacto, confirmed sin avanzar. Un sync convergente y un error fatal de authority conservan exit 0/1 respectivamente (test dedicado). Rojo confirmado antes del fix; verde después: 44/44 en `cli-bin.test.mjs`, 57/57 en la suite ampliada con `state-command.test.mjs`. Gate completo: 924/924 tests, lint y 234 changes válidos.
 - **2026-07-22T21:12:58Z** `[status]` in-progress → in-review
+- **2026-07-22T21:17:56Z** `[review]` in-review → in-validation (delegated subagent, clean context)
