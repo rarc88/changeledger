@@ -50,7 +50,7 @@ function runner(
     try {
       return execFileSync('git', args, {
         cwd,
-        env,
+        env: { ...env, GIT_NO_LAZY_FETCH: '1' },
         input,
         timeout: remaining,
         encoding: 'utf8',
@@ -65,7 +65,7 @@ function runner(
       throw new Error(cleanError(error), { cause: error });
     }
   };
-  return { run, budget, now, started };
+  return { run, budget, now, started, usage: { commits: 0, objectBytes: 0, objects: new Set() } };
 }
 
 function objectFormat(run, repoRoot) {
@@ -82,11 +82,14 @@ function assertOid(value, length, label) {
 
 function resolveRef(run, repoRoot, ref) {
   try {
-    return run(['rev-parse', '--verify', ref], repoRoot).trim();
+    return run(['rev-parse', '--verify', '--quiet', ref], repoRoot).trim();
   } catch (error) {
     const timeout = timeoutError(error);
     if (timeout) throw timeout;
-    return null;
+    let current = error;
+    while (current?.cause) current = current.cause;
+    if (current?.status === 1) return null;
+    throw new Error(`cannot resolve protected ref ${ref}: ${cleanError(error)}`, { cause: error });
   }
 }
 
@@ -110,26 +113,28 @@ function assertFastForward(run, repoRoot, oldOid, newOid) {
   }
 }
 
-function commitsInRange(run, repoRoot, oldOid, newOid, maxCommits) {
+function commitsInRange(run, repoRoot, oldOid, newOid, budget, usage) {
   const range = /^0+$/.test(oldOid) ? newOid : `${oldOid}..${newOid}`;
-  const commits = run(['rev-list', '--reverse', `--max-count=${maxCommits + 1}`, range], repoRoot)
+  const commits = run(
+    ['rev-list', '--reverse', `--max-count=${budget.max_commits + 1}`, range],
+    repoRoot,
+  )
     .trim()
     .split('\n')
     .filter(Boolean);
-  if (commits.length > maxCommits) throw new Error(`commit limit ${maxCommits} exceeded`);
+  usage.commits += commits.length;
+  if (usage.commits > budget.max_commits)
+    throw new Error(`commit limit ${budget.max_commits} exceeded`);
   return { commits, range };
 }
 
-function countObjectBytes(run, repoRoot, range, maxBytes) {
-  const objects = [
-    ...new Set(
-      run(['rev-list', '--objects', '--no-object-names', range], repoRoot)
-        .trim()
-        .split('\n')
-        .filter(Boolean),
-    ),
-  ];
+function countObjectBytes(run, repoRoot, range, budget, usage) {
+  const objects = run(['rev-list', '--objects', '--no-object-names', range], repoRoot)
+    .trim()
+    .split('\n')
+    .filter((oid) => oid && !usage.objects.has(oid));
   if (!objects.length) return 0;
+  for (const oid of objects) usage.objects.add(oid);
   const output = run(['cat-file', '--batch-check=%(objectname) %(objectsize)'], repoRoot, {
     input: `${objects.join('\n')}\n`,
   });
@@ -138,7 +143,9 @@ function countObjectBytes(run, repoRoot, range, maxBytes) {
     const match = line.match(/^[0-9a-f]+ (\d+)$/);
     if (!match) throw new Error(`invalid object metadata: ${line}`);
     bytes += Number(match[1]);
-    if (bytes > maxBytes) throw new Error(`object byte limit ${maxBytes} exceeded`);
+    usage.objectBytes += Number(match[1]);
+    if (usage.objectBytes > budget.max_object_bytes)
+      throw new Error(`object byte limit ${budget.max_object_bytes} exceeded`);
   }
   return bytes;
 }
@@ -157,8 +164,8 @@ function readAuthority(run, repoRoot, revision) {
   return { authority, text };
 }
 
-function readConfirmedConfig(run, repoRoot, authority, stateRef, integrationRef) {
-  const stateRevision = resolveRef(run, repoRoot, stateRef);
+function readConfirmedConfig(run, repoRoot, authority, stateRef, integrationRef, fallbackRevision) {
+  const stateRevision = resolveRef(run, repoRoot, stateRef) ?? fallbackRevision;
   if (!stateRevision) throw new Error(`protected state ref ${stateRef} is unavailable`);
   const snapshot = validateServerStateRevision(repoRoot, authority, stateRevision, run);
   const configured = integrationBranch(snapshot.config);
@@ -168,13 +175,24 @@ function readConfirmedConfig(run, repoRoot, authority, stateRef, integrationRef)
   return snapshot.config;
 }
 
+function assertProtectedRefs(ctx, fallbackStateRevision) {
+  const source = resolveRef(ctx.run, ctx.repoRoot, ctx.integrationRef);
+  if (!source) throw new Error('integration protection is not active');
+  const active = readAuthority(ctx.run, ctx.repoRoot, source);
+  readConfirmedConfig(
+    ctx.run,
+    ctx.repoRoot,
+    active.authority,
+    ctx.stateRef,
+    ctx.integrationRef,
+    fallbackStateRevision,
+  );
+}
+
 function legacyRoots(config) {
-  return [
-    LEGACY_CONFIG_PATH,
-    config.changes_dir,
-    config.specs_dir,
-    '.changeledger/releases',
-  ].filter((value) => typeof value === 'string' && value.length > 0);
+  return [LEGACY_CONFIG_PATH, config.changes_dir, config.specs_dir, '.changeledger/releases']
+    .filter((value) => typeof value === 'string' && value.length > 0)
+    .map((value) => path.posix.normalize(value.replaceAll('\\', '/')).replace(/^\.\//, ''));
 }
 
 function protectedPath(file, roots) {
@@ -201,7 +219,7 @@ function commitParents(run, repoRoot, commit) {
 }
 
 function validateStateRef(ctx, update, authority) {
-  const { run, repoRoot, length, budget } = ctx;
+  const { run, repoRoot, length, budget, usage } = ctx;
   const zero = zeroOid(length);
   if (update.newOid === zero) throw new Error(`state ref ${update.ref} cannot be deleted`);
   assertCommit(run, repoRoot, update.newOid);
@@ -222,9 +240,10 @@ function validateStateRef(ctx, update, authority) {
     repoRoot,
     update.oldOid,
     update.newOid,
-    budget.max_commits,
+    budget,
+    usage,
   );
-  const objectBytes = countObjectBytes(run, repoRoot, range, budget.max_object_bytes);
+  const objectBytes = countObjectBytes(run, repoRoot, range, budget, usage);
   for (const commit of commits) {
     try {
       validateServerStateRevision(repoRoot, authority, commit, run);
@@ -236,7 +255,7 @@ function validateStateRef(ctx, update, authority) {
 }
 
 function validateIntegrationRef(ctx, update) {
-  const { run, repoRoot, length, budget } = ctx;
+  const { run, repoRoot, length, budget, usage } = ctx;
   const zero = zeroOid(length);
   if (update.oldOid === zero || update.newOid === zero) {
     throw new Error('integration protection is not active');
@@ -256,9 +275,10 @@ function validateIntegrationRef(ctx, update) {
     repoRoot,
     update.oldOid,
     update.newOid,
-    budget.max_commits,
+    budget,
+    usage,
   );
-  const objectBytes = countObjectBytes(run, repoRoot, range, budget.max_object_bytes);
+  const objectBytes = countObjectBytes(run, repoRoot, range, budget, usage);
   for (const commit of commits) {
     for (const parent of commitParents(run, repoRoot, commit)) {
       for (const file of changedPaths(run, repoRoot, parent, commit)) {
@@ -322,10 +342,17 @@ export function validateStateUpdate({
   const ctx = validationContext(repoRoot, { stateRef, integrationRef, env, limits, now });
   let result;
   try {
+    assertProtectedRefs(ctx, ref === stateRef && /^0+$/.test(oldOid) ? newOid : undefined);
     result = validateWithContext(ctx, { oldOid, newOid, ref });
   } catch (error) {
     const normalized = timeoutError(error) ?? error;
-    normalized.receipt = { oldOid, newOid, protectedRef: ref };
+    normalized.receipt = {
+      oldOid,
+      newOid,
+      protectedRef: ref,
+      commits: ctx.usage.commits,
+      object_bytes: ctx.usage.objectBytes,
+    };
     throw normalized;
   }
   return { ok: true, ...result, network: false, written: false };
@@ -345,8 +372,14 @@ export function parseReceiveBatch(input, { oidLength }) {
     const match = line.match(/^([0-9a-f]+) ([0-9a-f]+) (refs\/[^\s\0]+)$/);
     if (!match) throw new Error(`invalid pre-receive input at line ${index + 1}`);
     const [, oldOid, newOid, ref] = match;
-    assertOid(oldOid, oidLength, 'old');
-    assertOid(newOid, oidLength, 'new');
+    try {
+      assertOid(oldOid, oidLength, 'old');
+      assertOid(newOid, oidLength, 'new');
+    } catch (error) {
+      throw new Error(`invalid pre-receive input at line ${index + 1}: ${error.message}`, {
+        cause: error,
+      });
+    }
     updates.push({ oldOid, newOid, ref, line: index + 1 });
   }
   return updates;
@@ -355,27 +388,35 @@ export function parseReceiveBatch(input, { oidLength }) {
 export function validateReceiveBatch(input, options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const ctx = validationContext(repoRoot, options);
-  const updates = parseReceiveBatch(input, { oidLength: ctx.length });
-  const protectedRefs = new Set([ctx.stateRef, ctx.integrationRef]);
-  const relevant = updates.filter((update) => protectedRefs.has(update.ref));
-  const seen = new Set();
-  for (const update of relevant) {
-    if (seen.has(update.ref))
-      throw new Error(`duplicate protected ref ${update.ref} at line ${update.line}`);
-    seen.add(update.ref);
-  }
-  return relevant.map((update) => {
-    try {
+  let updates = [];
+  let relevant = [];
+  try {
+    updates = parseReceiveBatch(input, { oidLength: ctx.length });
+    const protectedRefs = new Set([ctx.stateRef, ctx.integrationRef]);
+    relevant = updates.filter((update) => protectedRefs.has(update.ref));
+    const creation = relevant.find(
+      (update) => update.ref === ctx.stateRef && /^0+$/.test(update.oldOid),
+    );
+    assertProtectedRefs(ctx, creation?.newOid);
+    const seen = new Set();
+    for (const update of relevant) {
+      if (seen.has(update.ref))
+        throw new Error(`duplicate protected ref ${update.ref} at line ${update.line}`);
+      seen.add(update.ref);
+    }
+    return relevant.map((update) => {
       const result = validateWithContext(ctx, update);
       return { ok: true, ...result, network: false, written: false };
-    } catch (error) {
-      const normalized = timeoutError(error) ?? error;
-      normalized.receipt = {
-        oldOid: update.oldOid,
-        newOid: update.newOid,
-        protectedRef: update.ref,
-      };
-      throw normalized;
-    }
-  });
+    });
+  } catch (error) {
+    const normalized = timeoutError(error) ?? error;
+    const update = relevant[0] ?? updates[0];
+    normalized.receipt = {
+      ...(normalized.receipt ?? {}),
+      ...(update ? { oldOid: update.oldOid, newOid: update.newOid, protectedRef: update.ref } : {}),
+      commits: ctx.usage.commits,
+      object_bytes: ctx.usage.objectBytes,
+    };
+    throw normalized;
+  }
 }

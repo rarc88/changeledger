@@ -43,7 +43,7 @@ function unavailable(name, reason) {
   };
 }
 
-export function stateCapabilities(evidence = []) {
+export function stateCapabilities(evidence = [], observation = {}) {
   const result = Object.fromEntries(
     Object.keys(DEFINITIONS).map((name) => [
       name,
@@ -53,9 +53,14 @@ export function stateCapabilities(evidence = []) {
   for (const item of evidence) {
     const definition = DEFINITIONS[item?.capability];
     if (!definition) continue;
-    const complete = [item.provider, item.ref, item.oid, item.mechanism, item.evidence].every(
-      (value) => typeof value === 'string' && value.length > 0,
-    );
+    const complete =
+      [item.provider, item.ref, item.oid, item.mechanism, item.evidence].every(
+        (value) => typeof value === 'string' && value.length > 0,
+      ) &&
+      /^refs\/[^\s\0]+$/.test(item.ref) &&
+      /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(item.oid) &&
+      (!observation.ref || item.ref === observation.ref) &&
+      (!observation.oid || item.oid === observation.oid);
     if (!complete || !definition.values.includes(item.value)) {
       result[item.capability] = unavailable(item.capability, 'evidence is incomplete or invalid');
       continue;

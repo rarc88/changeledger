@@ -12,8 +12,8 @@ import { createStateRepo, git, stateConfig } from './helpers/state-repo.mjs';
 
 const INTEGRATION_REF = 'refs/heads/dev';
 
-function fixture(objectFormat = 'sha1') {
-  const configText = stateConfig().replace(
+function fixture(objectFormat = 'sha1', overrideConfig) {
+  const configText = (overrideConfig ?? stateConfig()).replace(
     'statuses:',
     'git:\n  integration_branch: dev\nstatuses:',
   );
@@ -51,6 +51,10 @@ const roomy = { max_commits: 20, max_object_bytes: 1_000_000, timeout_ms: 5000 }
 test('193104 CR1: strict batch framing and duplicate protected refs fail closed', () => {
   assert.throws(() => parseReceiveBatch('a b refs/heads/x', { oidLength: 40 }), /truncated line/);
   assert.throws(
+    () => parseReceiveBatch(`a ${'b'.repeat(40)} refs/heads/x\n`, { oidLength: 40 }),
+    /line 1: invalid old OID/,
+  );
+  assert.throws(
     () =>
       parseReceiveBatch(
         `${'a'.repeat(40)} ${'b'.repeat(40)} refs/heads/x\n\n${'a'.repeat(40)} ${'b'.repeat(40)} refs/heads/y\n`,
@@ -84,6 +88,34 @@ test('193104 CR1: strict batch framing and duplicate protected refs fail closed'
     }),
     [],
   );
+});
+
+test('193104 correction CR1: configured protected ref is validated before filtering', () => {
+  const created = fixture();
+  git(created.root, ['update-ref', 'refs/heads/main', created.integration]);
+  assert.throws(
+    () =>
+      validateReceiveBatch(`${created.integration} ${created.integration} refs/heads/topic\n`, {
+        repoRoot: created.root,
+        stateRef: STATE_REF,
+        integrationRef: 'refs/heads/main',
+        limits: roomy,
+      }),
+    /does not match confirmed state config/,
+  );
+});
+
+test('193104 correction CR2: exact authority baseline can create an absent state ref', () => {
+  const created = fixture();
+  git(created.root, ['update-ref', '-d', STATE_REF]);
+  const zero = '0'.repeat(40);
+  const result = validateReceiveBatch(`${zero} ${created.baseline} ${STATE_REF}\n`, {
+    repoRoot: created.root,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  assert.equal(result[0].newOid, created.baseline);
 });
 
 for (const objectFormat of ['sha1', 'sha256']) {
@@ -251,6 +283,29 @@ test('193104 CR3: integration ref must match config and merge side commits canno
   );
 });
 
+test('193104 correction CR3: normalized legacy roots cannot bypass protection', () => {
+  const config = stateConfig().replace(
+    'changes_dir: .changeledger/changes',
+    'changes_dir: ./.changeledger/changes',
+  );
+  const created = fixture('sha1', config);
+  const next = advanceIntegration(created, '.changeledger/changes/bypass.md', 'bypass\n');
+  git(created.root, ['update-ref', INTEGRATION_REF, created.integration]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.integration,
+        newOid: next,
+        ref: INTEGRATION_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /protected path changed.*bypass\.md/,
+  );
+});
+
 test('193104 CR7: operational limits have stable diagnostics', () => {
   const created = fixture();
   const one = advanceState(created, (state) => {
@@ -339,5 +394,64 @@ test('193104 CR1/CR7: one receive batch shares a single monotonic deadline', () 
         now: () => tick++ * 100,
       }),
     /validation timeout 1000ms exceeded/,
+  );
+});
+
+test('193104 correction CR7: commit and object budgets are aggregate across a batch', () => {
+  const created = fixture();
+  const stateNext = advanceState(created, (state) => {
+    fs.writeFileSync(
+      path.join(state, 'specs', 'aggregate.md'),
+      '---\ntitle: Aggregate\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n',
+    );
+  });
+  const integrationNext = advanceIntegration(
+    created,
+    'src/aggregate.mjs',
+    'export const aggregate = true;\n',
+  );
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  git(created.root, ['update-ref', INTEGRATION_REF, created.integration]);
+  const input = `${created.baseline} ${stateNext} ${STATE_REF}\n${created.integration} ${integrationNext} ${INTEGRATION_REF}\n`;
+  assert.throws(
+    () =>
+      validateReceiveBatch(input, {
+        repoRoot: created.root,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: { ...roomy, max_commits: 1 },
+      }),
+    /commit limit 1 exceeded/,
+  );
+  const state = validateStateUpdate({
+    repoRoot: created.root,
+    oldOid: created.baseline,
+    newOid: stateNext,
+    ref: STATE_REF,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  const integration = validateStateUpdate({
+    repoRoot: created.root,
+    oldOid: created.integration,
+    newOid: integrationNext,
+    ref: INTEGRATION_REF,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  assert.throws(
+    () =>
+      validateReceiveBatch(input, {
+        repoRoot: created.root,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: {
+          ...roomy,
+          max_object_bytes: Math.max(state.object_bytes, integration.object_bytes),
+        },
+      }),
+    /object byte limit .* exceeded/,
   );
 });

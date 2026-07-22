@@ -9,6 +9,7 @@ import { STATE_REF } from '../src/ledger-store.mjs';
 import { createStateRepo, git, stateConfig } from './helpers/state-repo.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+const PACKAGED_HOOK = fileURLToPath(new URL('../hooks/pre-receive', import.meta.url));
 const INTEGRATION_REF = 'refs/heads/dev';
 
 function fixture(objectFormat) {
@@ -31,12 +32,21 @@ function fixture(objectFormat) {
   git(created.root, ['push', '-q', remote, INTEGRATION_REF]);
   git(created.root, ['push', '-q', remote, STATE_REF]);
   const hook = path.join(remote, 'hooks', 'pre-receive');
-  fs.writeFileSync(
-    hook,
-    `#!/bin/sh\nexec "${process.execPath}" "${BIN}" state validate-receive --state-ref "${STATE_REF}" --integration-ref "${INTEGRATION_REF}"\n`,
-  );
+  fs.copyFileSync(PACKAGED_HOOK, hook);
   fs.chmodSync(hook, 0o755);
-  return { ...created, remote };
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-hook-bin-'));
+  const shim = path.join(binDir, 'changeledger');
+  fs.writeFileSync(shim, `#!/bin/sh\nexec "${process.execPath}" "${BIN}" "$@"\n`);
+  fs.chmodSync(shim, 0o755);
+  return {
+    ...created,
+    remote,
+    hookEnv: {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH}`,
+      CHANGELEDGER_INTEGRATION_REF: INTEGRATION_REF,
+    },
+  };
 }
 
 for (const objectFormat of ['sha1', 'sha256']) {
@@ -56,6 +66,7 @@ for (const objectFormat of ['sha1', 'sha256']) {
     const valid = spawnSync('git', ['push', created.remote, STATE_REF], {
       cwd: created.root,
       encoding: 'utf8',
+      env: created.hookEnv,
     });
     assert.equal(valid.status, 0, valid.stderr);
 
@@ -65,9 +76,35 @@ for (const objectFormat of ['sha1', 'sha256']) {
     const invalid = spawnSync('git', ['push', created.remote, STATE_REF], {
       cwd: created.root,
       encoding: 'utf8',
+      env: created.hookEnv,
     });
     assert.notEqual(invalid.status, 0);
     assert.match(invalid.stderr, /invalid state path|pre-receive hook declined/);
+
+    git(created.root, ['checkout', '-q', 'dev']);
+    fs.mkdirSync(path.join(created.root, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(created.root, 'src', 'hook-valid.mjs'),
+      'export const valid = true;\n',
+    );
+    git(created.root, ['add', 'src/hook-valid.mjs']);
+    git(created.root, ['commit', '-qm', 'test: valid integration']);
+    const validIntegration = spawnSync('git', ['push', created.remote, INTEGRATION_REF], {
+      cwd: created.root,
+      encoding: 'utf8',
+      env: created.hookEnv,
+    });
+    assert.equal(validIntegration.status, 0, validIntegration.stderr);
+    fs.appendFileSync(path.join(created.root, '.changeledger', 'config.yml'), '\n# forbidden\n');
+    git(created.root, ['add', '.changeledger/config.yml']);
+    git(created.root, ['commit', '-qm', 'test: invalid integration']);
+    const invalidIntegration = spawnSync('git', ['push', created.remote, INTEGRATION_REF], {
+      cwd: created.root,
+      encoding: 'utf8',
+      env: created.hookEnv,
+    });
+    assert.notEqual(invalidIntegration.status, 0);
+    assert.match(invalidIntegration.stderr, /protected path changed|pre-receive hook declined/);
   });
 }
 
@@ -78,4 +115,39 @@ test('193104 CR4/CR9: validation help has no actor, override, probe or provider 
   assert.doesNotMatch(output, /--actor|--human-override|--probe|detect-provider/);
   assert.match(output, /--state-ref/);
   assert.match(output, /--integration-ref/);
+});
+
+test('193104 correction CR9: validation receipts expose provider, capabilities and observed budgets', () => {
+  const created = fixture('sha1');
+  const args = [
+    BIN,
+    'state',
+    'validate-update',
+    created.baseline,
+    created.baseline,
+    STATE_REF,
+    '--state-ref',
+    STATE_REF,
+    '--integration-ref',
+    INTEGRATION_REF,
+  ];
+  const human = execFileSync(process.execPath, args, { cwd: created.root, encoding: 'utf8' });
+  assert.match(human, /provider: local-validator/);
+  assert.match(human, /"capabilities":/);
+  const failed = spawnSync(
+    process.execPath,
+    [...args.slice(0, 4), 'f'.repeat(40), ...args.slice(5), '--json'],
+    {
+      cwd: created.root,
+      encoding: 'utf8',
+    },
+  );
+  assert.notEqual(failed.status, 0);
+  const receipt = JSON.parse(failed.stderr);
+  assert.equal(receipt.provider, 'local-validator');
+  assert.equal(receipt.commits, 0);
+  assert.equal(receipt.object_bytes, 0);
+  assert.ok(receipt.capabilities);
+  assert.equal(receipt.network, false);
+  assert.equal(receipt.written, false);
 });

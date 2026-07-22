@@ -81,6 +81,13 @@ function stateReceiptDetails(receipt) {
     branch: receipt.branch ?? null,
     ref: receipt.ref ?? null,
     inventoryDigest: receipt.inventoryDigest ?? null,
+    protectedRef: receipt.protectedRef ?? receipt.ref ?? null,
+    oldOid: receipt.oldOid ?? null,
+    newOid: receipt.newOid ?? null,
+    commits: receipt.commits ?? 0,
+    objectBytes: receipt.object_bytes ?? receipt.objectBytes ?? 0,
+    provider: receipt.provider ?? null,
+    capabilities: receipt.capabilities ?? null,
     network: Boolean(receipt.network),
     written: Boolean(receipt.written),
   })}`;
@@ -130,6 +137,9 @@ function stateFailureReceipt(command, options, error, activity) {
     ...(activity.oldOid ? { oldOid: activity.oldOid } : {}),
     ...(activity.newOid ? { newOid: activity.newOid } : {}),
     ...(activity.protectedRef ? { protectedRef: activity.protectedRef } : {}),
+    commits: activity.commits ?? 0,
+    object_bytes: activity.object_bytes ?? 0,
+    provider: activity.provider ?? null,
     ...(activity.capabilities ? { capabilities: activity.capabilities } : {}),
   };
 }
@@ -1128,7 +1138,7 @@ stateCommand
         activity.capabilities = result.capabilities;
         if (!selected.json) {
           console.log(
-            `Accepted ${result.ref}: ${result.oldOid} -> ${result.newOid} (${result.commits} commits, ${result.object_bytes} bytes; network: ${result.network}; written: ${result.written})`,
+            `Accepted ${result.ref}: ${result.oldOid} -> ${result.newOid} (${result.commits} commits, ${result.object_bytes} bytes; provider: ${result.provider}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
           );
         }
         return result;
@@ -1141,8 +1151,8 @@ stateCommand
   .description('validate a pre-receive batch while preserving Git quarantine')
   .requiredOption('--state-ref <ref>', 'protected full state ref')
   .requiredOption('--integration-ref <ref>', 'protected full integration ref')
-  .option('--max-commits <n>', 'maximum commits inspected per update')
-  .option('--max-object-bytes <n>', 'maximum unique object bytes inspected per update')
+  .option('--max-commits <n>', 'maximum commits inspected across the batch')
+  .option('--max-object-bytes <n>', 'maximum unique object bytes across the batch')
   .option('--timeout-ms <n>', 'monotonic validation deadline in milliseconds')
   .option('--json', 'print a stable JSON receipt')
   .action(
@@ -1157,7 +1167,7 @@ stateCommand
         if (!selected.json) {
           for (const receipt of result) {
             console.log(
-              `Accepted ${receipt.ref}: ${receipt.oldOid} -> ${receipt.newOid} (${receipt.commits} commits, ${receipt.object_bytes} bytes; provider: ${receipt.provider}; network: ${receipt.network}; written: ${receipt.written})`,
+              `Accepted ${receipt.ref}: ${receipt.oldOid} -> ${receipt.newOid} (${receipt.commits} commits, ${receipt.object_bytes} bytes; provider: ${receipt.provider}; network: ${receipt.network}; written: ${receipt.written})\n${stateReceiptDetails(receipt)}`,
             );
           }
         }

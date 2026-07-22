@@ -63,3 +63,22 @@ test('193104 CR5/CR6: self-managed receipts report only capabilities actually ev
   assert.equal(integration.legacy_path_protection.value, 'verified');
   assert.equal(integration.actor_authentication.value, 'unavailable');
 });
+
+test('193104 correction CR5: trusted evidence requires valid and observed ref/OID binding', () => {
+  for (const invalid of [{ ref: 'not-a-full-ref' }, { oid: 'not-an-oid' }]) {
+    const capabilities = stateCapabilities([
+      trustedAdapterEvidence({
+        ...evidence,
+        ...invalid,
+        capability: 'history_protection',
+        value: 'enforced',
+      }),
+    ]);
+    assert.equal(capabilities.history_protection.value, 'unknown');
+  }
+  const mismatched = stateCapabilities(
+    [trustedAdapterEvidence({ ...evidence, capability: 'history_protection', value: 'enforced' })],
+    { ref: 'refs/heads/main', oid: 'b'.repeat(40) },
+  );
+  assert.equal(mismatched.history_protection.value, 'unknown');
+});

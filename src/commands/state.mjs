@@ -60,7 +60,13 @@ export function stateActivate(
 export function stateDoctor(cwd = process.cwd(), options = {}, activity = {}) {
   if (!options.activationRef) throw new Error('state doctor requires --activation-ref');
   const result = doctorStateMigration(options, cwd, activity);
-  return { ...result, capabilities: stateCapabilities(options.adapterEvidence) };
+  return {
+    ...result,
+    capabilities: stateCapabilities(options.adapterEvidence, {
+      ref: result.ref,
+      oid: result.activation,
+    }),
+  };
 }
 
 export function stateValidateUpdate(cwd = process.cwd(), options = {}) {

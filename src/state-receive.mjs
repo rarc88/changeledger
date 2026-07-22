@@ -16,15 +16,34 @@ function withServerCapabilities(receipt, stateRef) {
 }
 
 export function validateReceive(input, options = {}) {
-  return validateReceiveBatch(input, { ...options, env: options.env ?? receiveGitEnv() }).map(
-    (receipt) => withServerCapabilities(receipt, options.stateRef),
-  );
+  try {
+    return validateReceiveBatch(input, { ...options, env: options.env ?? receiveGitEnv() }).map(
+      (receipt) => withServerCapabilities(receipt, options.stateRef),
+    );
+  } catch (error) {
+    const receipt = error.receipt ?? {};
+    error.receipt = {
+      ...receipt,
+      provider: 'self-managed-git',
+      capabilities: stateCapabilities(),
+    };
+    throw error;
+  }
 }
 
 export function validateUpdate(options = {}) {
-  return {
-    ...validateStateUpdate(options),
-    provider: 'local-validator',
-    capabilities: stateCapabilities(),
-  };
+  try {
+    return {
+      ...validateStateUpdate(options),
+      provider: 'local-validator',
+      capabilities: stateCapabilities(),
+    };
+  } catch (error) {
+    error.receipt = {
+      ...(error.receipt ?? {}),
+      provider: 'local-validator',
+      capabilities: stateCapabilities(),
+    };
+    throw error;
+  }
 }

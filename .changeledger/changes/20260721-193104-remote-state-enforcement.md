@@ -2,7 +2,7 @@
 id: "20260721-193104"
 title: Desacoplar el enforcement remoto del almacén global
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:04Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -208,3 +208,8 @@ añadirlos sin cambiar `LedgerStore`, `state sync` ni el formato del snapshot.
 - **2026-07-22T14:52:42Z** `[status]` draft → approved (human via conversation)
 - **2026-07-22T14:52:42Z** `[status]` approved → in-progress
 - **2026-07-22T14:52:42Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-22T15:21:36Z** `[status]` in-progress → in-review
+- **2026-07-22T15:30:37Z** `[review]` in-review → in-progress (retry): Corregir bypass de roots normalizados, presupuestos agregados por batch, refs/Git fail-closed, procedencia vinculada, receipts completos y pruebas del hook empaquetado
+- **2026-07-22T15:36:31Z** `[note]` Corrección integral: normaliza roots legacy, agrega budgets por batch, valida refs antes de filtrar, vincula evidencia, completa receipts y prueba el hook empaquetado en state/integración SHA-1/SHA-256
+- **2026-07-22T15:36:31Z** `[status]` in-progress → in-review
+- **2026-07-22T15:45:07Z** `[review]` in-review → in-validation (delegated subagent, clean context)
