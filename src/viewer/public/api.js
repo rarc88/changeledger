@@ -44,6 +44,9 @@ export const postStatus = (target, id, status, reason) =>
     }),
   });
 
+export const postStateSync = (project) =>
+  postProject('/api/state-sync', { project }).then(jsonOrThrow);
+
 const postProject = (route, body) =>
   fetch(route, {
     method: 'POST',

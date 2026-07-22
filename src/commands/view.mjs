@@ -17,6 +17,7 @@ export {
   saveProjectConfig,
   searchProjects,
   serialize,
+  syncProjectState,
   unregisterProject,
 } from '../viewer/domain.mjs';
 export { createRequestListener, hostnameOf, isAuthorizedWrite, isLocalHost, staticFile };

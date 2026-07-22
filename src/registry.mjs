@@ -47,6 +47,7 @@ export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
     let revision = null;
+    let freshness = null;
     try {
       const store = loadLedgerStore(value.path);
       let config;
@@ -54,6 +55,7 @@ export function listProjects() {
         const snapshot = store.load();
         config = snapshot.config;
         revision = snapshot.revision;
+        freshness = snapshot.ledgerFreshness ?? 'local';
       } else {
         config = loadConfig(path.join(value.path, '.changeledger'));
       }
@@ -68,7 +70,7 @@ export function listProjects() {
       name,
       path: value.path,
       ledger_revision: revision,
-      ledger_freshness: revision ? 'local' : null,
+      ledger_freshness: freshness,
     };
   });
 }

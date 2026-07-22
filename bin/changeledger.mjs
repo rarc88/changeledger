@@ -29,7 +29,9 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
+import { stateAbort, stateStatus, stateSync } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
+import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
@@ -41,7 +43,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
 
   changeledger init | register | new | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
-  changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger archive | log | task | list | show | search | graduate | state | config | release
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -82,7 +84,21 @@ function ledgerRevisionFromResult(result) {
 
 function printLedgerRevision(result) {
   const revision = ledgerRevisionFromResult(result);
-  if (revision) console.log(`Ledger revision: ${revision} (freshness: local)`);
+  if (!revision) return;
+  let freshness = 'local';
+  let confirmation = 'local';
+  try {
+    const snapshot = loadLedgerStore().load();
+    if (snapshot.revision === revision) {
+      freshness = snapshot.ledgerFreshness ?? freshness;
+      confirmation = snapshot.ledgerConfirmation ?? confirmation;
+    }
+  } catch {
+    // The mutation result remains a valid receipt even if a subsequent read fails.
+  }
+  console.log(
+    `Ledger revision: ${revision} (freshness: ${freshness}) (confirmation: ${confirmation})`,
+  );
 }
 
 program
@@ -123,6 +139,7 @@ program
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to unassigned)')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -134,7 +151,14 @@ program
   .action(
     action((type, slug, titleParts, options) => {
       const title = titleParts.join(' ').trim();
-      const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
+      const file = newChange({
+        type,
+        slug,
+        title,
+        owner: options.owner,
+        now: nowUtc(),
+        offline: options.offline,
+      });
       console.log(`Created ${file}`);
       printLedgerRevision(file);
     }),
@@ -195,6 +219,7 @@ program
   .option('--dry-run', 'print the proposed diff without writing')
   .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
   .option('--structured-sections', 'migrate task metadata and typed Log events')
+  .option('--offline', 'create one local pending mutation without network access')
   .action((id, options) => {
     try {
       const args = [
@@ -202,6 +227,7 @@ program
         ...(options.dryRun ? ['--dry-run'] : []),
         ...(options.graduationLinks ? ['--graduation-links'] : []),
         ...(options.structuredSections ? ['--structured-sections'] : []),
+        ...(options.offline ? ['--offline'] : []),
       ];
       process.exit(fix(args));
     } catch (e) {
@@ -248,6 +274,7 @@ program
     '[mode-or-change-id]',
     'spec|implement|review|release, or a change id (pack inferred from its status)',
   )
+  .option('--offline', 'create one local pending mutation without network access')
   .option(
     '--have <rev>',
     'skip the full reload when this matches the current rev (short `unchanged` confirmation instead)',
@@ -362,8 +389,11 @@ program
     ].join('\n'),
   )
   .action(
-    action((id, st) => {
-      const file = status(id, st, process.cwd(), { actor: 'agent' });
+    action((id, st, options) => {
+      const file = status(id, st, process.cwd(), {
+        actor: 'agent',
+        offline: options.offline,
+      });
       console.log(`#${id} → ${st}`);
       printLedgerRevision(file);
     }),
@@ -373,6 +403,7 @@ program
   .command('approve')
   .description('transmit an explicit human decision to approve a draft via conversation')
   .argument('<id>')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -385,8 +416,8 @@ program
     ].join('\n'),
   )
   .action(
-    action((id) => {
-      const file = approve(id);
+    action((id, options) => {
+      const file = approve(id, process.cwd(), { offline: options.offline });
       console.log(`#${id} → approved (human via conversation)`);
       printLedgerRevision(file);
     }),
@@ -399,6 +430,7 @@ program
   .argument('<verdict>', 'pass|fail')
   .argument('[reason...]')
   .option('--human', 'attribute a fail verdict to an explicit human decision via conversation')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -420,12 +452,17 @@ program
       if (verdict === 'pass') {
         if (reason) throw new Error('validation pass does not accept a reason');
         if (options.human) throw new Error('validation pass is already human-owned; omit --human');
-        file = validation(id, 'pass', { actor: 'human', channel: 'conversation' });
+        file = validation(id, 'pass', {
+          actor: 'human',
+          channel: 'conversation',
+          offline: options.offline,
+        });
       } else if (verdict === 'fail') {
         file = validation(id, 'fail', {
           reason,
           actor: options.human ? 'human' : 'agent',
           channel: options.human ? 'conversation' : 'agent',
+          offline: options.offline,
         });
       } else {
         throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
@@ -440,9 +477,13 @@ program
   .description('reopen a provisional done change with a reason')
   .argument('<id>')
   .argument('<reason...>')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
-    action((id, reasonParts) => {
-      const file = reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
+    action((id, reasonParts, options) => {
+      const file = reopen(id, reasonParts.join(' ').trim(), process.cwd(), {
+        actor: 'agent',
+        offline: options.offline,
+      });
       console.log(`#${id} → in-progress`);
       printLedgerRevision(file);
     }),
@@ -453,9 +494,12 @@ program
   .description('discard a change (terminal; keeps the record and reason)')
   .argument('<id>')
   .argument('<reason...>')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
-    action((id, reasonParts) => {
-      const file = discard(id, reasonParts.join(' ').trim());
+    action((id, reasonParts, options) => {
+      const file = discard(id, reasonParts.join(' ').trim(), process.cwd(), {
+        offline: options.offline,
+      });
       console.log(`#${id} → discarded`);
       printLedgerRevision(file);
     }),
@@ -469,6 +513,7 @@ program
   .argument('[reason...]')
   .option('--retry', 'route a failed review back to in-progress')
   .option('--block', 'route a failed review to blocked')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -483,7 +528,7 @@ program
     action((id, verdict, reasonParts, options) => {
       const mode = options.retry ? 'retry' : options.block ? 'block' : undefined;
       const reason = reasonParts.join(' ').trim() || undefined;
-      const file = review(id, verdict, { mode, reason });
+      const file = review(id, verdict, { mode, reason, offline: options.offline });
       console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
       printLedgerRevision(file);
     }),
@@ -494,6 +539,7 @@ program
   .description("set or clear a change's owner")
   .argument('<id>')
   .argument('<name>', 'owner handle, or "-" to clear it')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -504,8 +550,8 @@ program
     ].join('\n'),
   )
   .action(
-    action((id, name) => {
-      const file = owner(id, name);
+    action((id, name, options) => {
+      const file = owner(id, name, process.cwd(), { offline: options.offline });
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
       printLedgerRevision(file);
     }),
@@ -518,6 +564,7 @@ program
   .option('--graduated', 'archive every done change already graduated or skipped (takes no id)')
   .option('--owner <name>', 'with --graduated, filter by exact owner name')
   .option('--unowned', 'with --graduated, filter changes without an owner')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -541,14 +588,18 @@ program
       }
       if (options.graduated) {
         if (id) throw new Error('archive --graduated does not take an id');
-        const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
+        const archived = archiveGraduated({
+          owner: options.owner,
+          unowned: options.unowned,
+          offline: options.offline,
+        });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
         printLedgerRevision(archived);
         return;
       }
       if (!id) throw new Error('archive requires <id> or --graduated');
-      const file = archive(id);
+      const file = archive(id, process.cwd(), { offline: options.offline });
       console.log(`#${id} archived`);
       printLedgerRevision(file);
     }),
@@ -559,9 +610,12 @@ program
   .description('append a timestamped Log entry')
   .argument('<id>')
   .argument('<message...>')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
-    action((id, messageParts) => {
-      const file = log(id, messageParts.join(' ').trim());
+    action((id, messageParts, options) => {
+      const file = log(id, messageParts.join(' ').trim(), process.cwd(), {
+        offline: options.offline,
+      });
       console.log(`logged on #${id}`);
       printLedgerRevision(file);
     }),
@@ -574,6 +628,7 @@ program
   .argument('<action>', 'done|block')
   .argument('<n>', 'the Plan task index, 1-based, in document order')
   .argument('[reason...]', 'required when action is block; ignored when action is done')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -584,9 +639,11 @@ program
     ].join('\n'),
   )
   .action(
-    action((id, taskAction, nStr, reasonParts) => {
+    action((id, taskAction, nStr, reasonParts, options) => {
       const n = Number(nStr);
-      const file = task(id, taskAction, n, reasonParts.join(' ').trim());
+      const file = task(id, taskAction, n, reasonParts.join(' ').trim(), process.cwd(), {
+        offline: options.offline,
+      });
       console.log(`task #${n} on #${id} → ${taskAction}`);
       printLedgerRevision(file);
     }),
@@ -706,6 +763,7 @@ program
   .option('--skip', 'mark graduation reviewed without a spec')
   .option('--to <file>', 'export the --new scaffold to an editable local file')
   .option('--from <file>', 'import the final spec for --into')
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -728,7 +786,7 @@ program
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
-        const file = skipGraduation(id, reason);
+        const file = skipGraduation(id, reason, process.cwd(), { offline: options.offline });
         console.log(`#${id} graduation skipped`);
         printLedgerRevision(file);
         return;
@@ -749,7 +807,11 @@ program
         printLedgerRevision(ledger ?? file);
         return;
       }
-      const file = graduate(id, slug, process.cwd(), { into: options.into, from: options.from });
+      const file = graduate(id, slug, process.cwd(), {
+        into: options.into,
+        from: options.from,
+        offline: options.offline,
+      });
       console.log(`Graduated #${id} → ${file}`);
       printLedgerRevision(file);
     }),
@@ -763,10 +825,64 @@ configCommand
   .command('migrate')
   .description('migrate .changeledger/config.yml to the current schema')
   .option('--dry-run', 'show the migration plan and candidate YAML without writing')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
     action((options) => {
-      const result = migrateConfig(process.cwd(), { dryRun: options.dryRun ?? false });
+      const result = migrateConfig(process.cwd(), {
+        dryRun: options.dryRun ?? false,
+        offline: options.offline,
+      });
       console.log(result);
+    }),
+  );
+
+const stateCommand = program
+  .command('state')
+  .description('inspect and synchronize the global ledger state replica');
+
+stateCommand
+  .command('status')
+  .description('show local replica refs and freshness without network access')
+  .action(
+    action(() => {
+      const result = stateStatus();
+      console.log(`Remote: ${result.remote}`);
+      console.log(`Condition: ${result.condition}`);
+      console.log(`Effective: ${result.effective ?? '(none)'}`);
+      console.log(`Confirmed: ${result.confirmed ?? '(none)'}`);
+      console.log(`Observed: ${result.observed ?? '(none)'}`);
+      console.log(`Pending: ${result.pending ?? '(none)'}`);
+      console.log(`Observed at: ${result.observedAt ?? 'unknown'}`);
+    }),
+  );
+
+stateCommand
+  .command('sync')
+  .description('fetch, reconcile and publish one pending mutation when safe')
+  .action(
+    action(() => {
+      const result = stateSync();
+      const confirmation = result.pending ? 'local, pending publication' : 'confirmed';
+      console.log(`State ${result.action}: ${result.effective} (${confirmation})`);
+      if (result.error) console.log(`Publication result ambiguous: ${result.error}`);
+    }),
+  );
+
+stateCommand
+  .command('abort')
+  .description('discard one pending local mutation after checking the remote')
+  .option('--pending', 'confirm that the pending mutation is the abort target')
+  .option('--offline', 'discard only the local pending ref without checking the remote')
+  .action(
+    action((options) => {
+      const result = stateAbort(process.cwd(), options);
+      if (result.confirmed) {
+        console.log(`Pending was already published and is now confirmed at ${result.effective}`);
+      } else {
+        console.log(
+          `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
+        );
+      }
     }),
   );
 
@@ -778,9 +894,12 @@ releaseCommand
   .command('init')
   .description('initialize release history from the current published version')
   .argument('<version>')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
-    action((version) => {
-      const { file, manifest } = initReleaseHistory(version);
+    action((version, options) => {
+      const { file, manifest } = initReleaseHistory(version, process.cwd(), nowUtc(), {
+        offline: options.offline,
+      });
       console.log(`Initialized release ${manifest.version} baseline → ${file}`);
       printLedgerRevision(file);
     }),
@@ -819,9 +938,12 @@ releaseCommand
   .command('record')
   .description('record the currently calculated release')
   .argument('<version>')
+  .option('--offline', 'create one local pending mutation without network access')
   .action(
-    action((version) => {
-      const { file, manifest } = recordRelease(version);
+    action((version, options) => {
+      const { file, manifest } = recordRelease(version, process.cwd(), nowUtc(), {
+        offline: options.offline,
+      });
       console.log(`Recorded release ${manifest.version} → ${file}`);
       printLedgerRevision(file);
     }),

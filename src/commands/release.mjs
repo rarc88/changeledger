@@ -21,11 +21,22 @@ export function releasePlan(cwd = process.cwd()) {
   const repo = loadRepo(cwd);
   return {
     ...planFor(repo),
-    ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
+    ...(repo.revision
+      ? {
+          ledger_revision: repo.revision,
+          ledger_freshness: repo.ledgerFreshness ?? 'local',
+          ledger_confirmation: repo.ledgerConfirmation ?? 'local',
+        }
+      : {}),
   };
 }
 
-export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc()) {
+export function initReleaseHistory(
+  version,
+  cwd = process.cwd(),
+  now = nowUtc(),
+  { offline = false } = {},
+) {
   parseVersion(version);
   assertTimestamp(now);
   const initial = loadRepo(cwd);
@@ -36,7 +47,11 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
     let manifest;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
-      { message: `changeledger: release init ${version}`, expectedRevision: initial.revision },
+      {
+        message: `changeledger: release init ${version}`,
+        expectedRevision: initial.revision,
+        offline,
+      },
       ({ snapshot, write }) => {
         if (snapshot.releases.length) throw new Error('Release history is already initialized.');
         manifest = {
@@ -76,7 +91,12 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   });
 }
 
-export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
+export function recordRelease(
+  version,
+  cwd = process.cwd(),
+  now = nowUtc(),
+  { offline = false } = {},
+) {
   parseVersion(version);
   assertTimestamp(now);
   const initial = loadRepo(cwd);
@@ -92,7 +112,11 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
     let committedPlan;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
-      { message: `changeledger: release ${version}`, expectedRevision: plan.ledger_revision },
+      {
+        message: `changeledger: release ${version}`,
+        expectedRevision: plan.ledger_revision,
+        offline,
+      },
       ({ snapshot, write }) => {
         const currentPlan = planFor(snapshot);
         if (!currentPlan.releasable || currentPlan.nextVersion !== version) {

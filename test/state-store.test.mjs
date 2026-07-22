@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
+  abortStatePending,
   CONFIRMED_REF,
   OBSERVED_REF,
   PENDING_REF,
@@ -22,7 +23,12 @@ function replicaFixture(objectFormat) {
     `---\ntitle: ${title}\nupdated: 2026-07-22T00:00:00Z\ntags: [replica]\n---\n\n# ${title}\n`;
   const created = createStateRepo({
     objectFormat,
-    specs: { 'A.md': spec('A'), 'B.md': spec('B'), 'line\nbreak.md': spec('Line') },
+    specs: {
+      'A.md': spec('A'),
+      'B.md': spec('B'),
+      'line\nbreak.md': spec('Line'),
+      ':(magic).md': spec('Magic'),
+    },
   });
   const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-remote-'));
   const init = ['init', '--bare', '-q'];
@@ -134,9 +140,34 @@ test('193102 CR3/CR4: sync replays one disjoint pending delta with NUL-framed pa
   );
   assert.deepEqual(validated, [
     remote,
+    pending,
     git(created.root, ['rev-parse', `${result.effective}^{tree}`]),
   ]);
   assert.equal(readStateReplica(created.root).pending, null);
+});
+
+test('193102 CR4: replay treats Git pathspec-looking filenames as exact literals', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(
+    created.root,
+    'specs/:(magic).md',
+    '# Magic',
+    '# Local literal',
+    'literal path pending',
+  );
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+  const result = syncStateReplica(created.root);
+
+  assert.equal(result.action, 'replay-pending');
+  assert.match(
+    git(created.root, ['show', `${result.effective}:.changeledger-state/specs/:(magic).md`]),
+    /# Local literal/,
+  );
 });
 
 test('193102 CR5: overlap or invalid replay preserves pending and confirmed refs', () => {
@@ -161,7 +192,9 @@ test('193102 CR5: overlap or invalid replay preserves pending and confirmed refs
       () =>
         syncStateReplica(created.root, {
           validateRevision(revision) {
-            if (invalidCandidate && revision !== remote) throw new Error('combined invalid');
+            if (invalidCandidate && revision !== remote && revision !== pending) {
+              throw new Error('combined invalid');
+            }
           },
         }),
       invalidCandidate ? /combined invalid/ : /state replica conflict.*specs\/A\.md/,
@@ -171,4 +204,60 @@ test('193102 CR5: overlap or invalid replay preserves pending and confirmed refs
     assert.equal(refs.observed, remote);
     assert.equal(refs.pending, pending);
   }
+});
+
+test('193102 CR6: timeout preserves pending and a lost accepted response is confirmed next time', () => {
+  for (const accepted of [false, true]) {
+    const created = replicaFixture('sha1');
+    const pending = advanceState(created.root, accepted ? 'Accepted' : 'Timeout');
+    git(created.root, ['update-ref', PENDING_REF, pending]);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+    const ambiguous = syncStateReplica(created.root, {
+      pushState(root, remote, refspec) {
+        if (accepted) git(root, ['push', remote, refspec]);
+        throw new Error(accepted ? 'response lost' : 'timed out');
+      },
+    });
+    assert.equal(ambiguous.pending, true);
+    assert.equal(ambiguous.confirmed, false);
+    assert.equal(readStateReplica(created.root).pending, pending);
+    assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+
+    if (accepted) {
+      const recovered = syncStateReplica(created.root);
+      assert.equal(recovered.action, 'confirm-observed');
+      assert.equal(readStateReplica(created.root).confirmed, pending);
+      assert.equal(readStateReplica(created.root).pending, null);
+    } else {
+      assert.equal(
+        git(created.remote, ['rev-parse', 'refs/heads/changeledger/state']),
+        created.baseline,
+      );
+    }
+  }
+});
+
+test('193102 CR6: abort confirms published pending and requires explicit offline fallback', () => {
+  const published = replicaFixture('sha1');
+  const pending = advanceState(published.root, 'Published before abort');
+  git(published.root, ['update-ref', PENDING_REF, pending]);
+  git(published.root, ['push', '-q', 'origin', `${PENDING_REF}:refs/heads/changeledger/state`]);
+  const confirmed = abortStatePending(published.root);
+  assert.equal(confirmed.confirmed, true);
+  assert.equal(confirmed.aborted, false);
+  assert.equal(readStateReplica(published.root).confirmed, pending);
+  assert.equal(readStateReplica(published.root).pending, null);
+
+  const unavailable = replicaFixture('sha1');
+  const local = advanceState(unavailable.root, 'Local only');
+  git(unavailable.root, ['update-ref', PENDING_REF, local]);
+  fs.rmSync(unavailable.remote, { recursive: true });
+  assert.throws(() => abortStatePending(unavailable.root), /use --offline/);
+  assert.equal(readStateReplica(unavailable.root).pending, local);
+  const aborted = abortStatePending(unavailable.root, { offline: true });
+  assert.equal(aborted.aborted, true);
+  assert.equal(aborted.confirmed, false);
+  assert.equal(readStateReplica(unavailable.root).pending, null);
+  assert.equal(readStateReplica(unavailable.root).confirmed, unavailable.baseline);
 });

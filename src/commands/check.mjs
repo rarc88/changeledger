@@ -145,7 +145,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
 
   const scope = `${id ? `change ${id}` : `${repo.changes.length} change(s)`}${
-    repo.revision ? ` @ ${repo.revision} (freshness: local)` : ''
+    repo.revision ? ` @ ${repo.revision} (freshness: ${repo.ledgerFreshness ?? 'local'})` : ''
   }`;
   if (!errors.length && !warnings.length) {
     output.log(`✓ ${scope} valid`);

@@ -111,6 +111,28 @@ changeledger archive --graduated                              # without a filter
 
 Run `changeledger --help` or `changeledger <command> --help` for the complete command reference.
 
+## Shared state replica
+
+Repositories activated with `authority.yml format_version: 2` keep changes,
+specifications and release manifests in one committed ledger snapshot shared
+through `refs/heads/changeledger/state`. The checked-out code branch is never
+the ledger authority. Each clone reads internal `confirmed`, `observed` and
+single-operation `pending` refs, so ordinary reads stay local and deterministic.
+
+```sh
+changeledger state status               # inspect refs and freshness; no network
+changeledger state sync                 # fetch, reconcile and publish when safe
+changeledger state abort --pending      # verify the remote before discarding pending
+changeledger state abort --pending --offline # discard only the local ref, explicitly
+```
+
+Online mutations synchronize before constructing the operation and publish its
+successor with an ordinary fast-forward push. Add `--offline` to a mutating CLI
+command only when intentionally creating one local pending operation. A second
+mutation is rejected until that pending operation is synchronized or aborted.
+The viewer exposes the same explicit “Actualizar estado” action and never
+refreshes over the network merely to render a page.
+
 ## Release planning
 
 ChangeLedger can calculate a portable SemVer release from completed changes

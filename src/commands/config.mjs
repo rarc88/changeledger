@@ -9,7 +9,7 @@ function summary(result, dryRun) {
   return dryRun ? `${details}\n\n--- candidate YAML ---\n${result.yaml}` : details;
 }
 
-export function migrateConfig(cwd = process.cwd(), { dryRun = false } = {}) {
+export function migrateConfig(cwd = process.cwd(), { dryRun = false, offline = false } = {}) {
   const store = loadLedgerStore(cwd);
   const snapshot = store.load();
   if (store.mode === 'worktree') return applyMigration(snapshot.configFile, { dryRun });
@@ -19,21 +19,30 @@ export function migrateConfig(cwd = process.cwd(), { dryRun = false } = {}) {
     const confirmed = dryRun
       ? snapshot
       : store.mutate(
-          { message: 'changeledger: migrate config', expectedRevision: snapshot.revision },
+          {
+            message: 'changeledger: migrate config',
+            expectedRevision: snapshot.revision,
+            offline,
+          },
           () => {},
         );
-    return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.\nLedger revision: ${confirmed.revision} (freshness: local)`;
+    return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.\nLedger revision: ${confirmed.revision} (freshness: ${confirmed.ledgerFreshness ?? 'local'})`;
   }
   const text = summary(migration, dryRun);
-  if (dryRun) return `${text}\nLedger revision: ${snapshot.revision} (freshness: local)`;
+  if (dryRun)
+    return `${text}\nLedger revision: ${snapshot.revision} (freshness: ${snapshot.ledgerFreshness ?? 'local'})`;
 
   const next = store.mutate(
-    { message: 'changeledger: migrate config', expectedRevision: snapshot.revision },
+    {
+      message: 'changeledger: migrate config',
+      expectedRevision: snapshot.revision,
+      offline,
+    },
     ({ snapshot, write }) => {
       const current = buildMigration(snapshot.configText);
       if (!current) return;
       write(snapshot.configStatePath, current.yaml);
     },
   );
-  return `${text}\nLedger revision: ${next.revision} (freshness: local)`;
+  return `${text}\nLedger revision: ${next.revision} (freshness: ${next.ledgerFreshness ?? 'local'})`;
 }

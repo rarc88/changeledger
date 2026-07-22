@@ -6,8 +6,8 @@ import { loadLedgerStore } from '../ledger-store.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
-function printLedgerSnapshot(output, revision) {
-  if (revision) output.log(`Ledger revision: ${revision} (freshness: local)`);
+function printLedgerSnapshot(output, revision, freshness = 'local') {
+  if (revision) output.log(`Ledger revision: ${revision} (freshness: ${freshness})`);
 }
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).
@@ -16,6 +16,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   const dryRun = args.includes('--dry-run');
   const graduationLinks = args.includes('--graduation-links');
   const structuredSections = args.includes('--structured-sections');
+  const offline = args.includes('--offline');
   const id = args.find((a) => !a.startsWith('--'));
 
   let repo;
@@ -32,19 +33,19 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   if (graduationLinks) {
     if (id) {
       output.error('  error  --graduation-links cannot be combined with a change id');
-      printLedgerSnapshot(output, repo.revision);
+      printLedgerSnapshot(output, repo.revision, repo.ledgerFreshness ?? 'local');
       return 1;
     }
-    return fixGraduationLinks(repo, { dryRun, output, store });
+    return fixGraduationLinks(repo, { dryRun, output, store, offline });
   }
 
   if (structuredSections) {
     if (id) {
       output.error('  error  --structured-sections cannot be combined with a change id');
-      printLedgerSnapshot(output, repo.revision);
+      printLedgerSnapshot(output, repo.revision, repo.ledgerFreshness ?? 'local');
       return 1;
     }
-    return fixStructuredSections(repo, { dryRun, output, store });
+    return fixStructuredSections(repo, { dryRun, output, store, offline });
   }
 
   let targets = repo.changes;
@@ -52,7 +53,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     targets = repo.changes.filter((c) => String(c.frontmatter?.id) === String(id));
     if (!targets.length) {
       output.error(`  error  no change with id "${id}"`);
-      printLedgerSnapshot(output, repo.revision);
+      printLedgerSnapshot(output, repo.revision, repo.ledgerFreshness ?? 'local');
       return 1;
     }
   }
@@ -61,6 +62,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   let anyManual = false;
   const candidates = [];
   let ledgerRevision = null;
+  let ledgerFreshness = repo.ledgerFreshness ?? 'local';
 
   for (const c of targets) {
     const { text: fixedText, applied, manual, changed } = computeFixes(c.text);
@@ -89,7 +91,11 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   if (!dryRun) {
     if (store.mode === 'state') {
       const after = store.mutate(
-        { message: 'changeledger: fix changes', expectedRevision: repo.revision },
+        {
+          message: 'changeledger: fix changes',
+          expectedRevision: repo.revision,
+          offline,
+        },
         ({ snapshot, write }) => {
           for (const candidate of candidates) {
             const current = snapshot.changes.find(
@@ -103,6 +109,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
         },
       );
       ledgerRevision = after.revision;
+      ledgerFreshness = after.ledgerFreshness ?? 'local';
     } else if (candidates.length) {
       for (const candidate of candidates) writeFileAtomic(candidate.change.file, candidate.text);
     }
@@ -112,16 +119,17 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     }
   }
 
-  printLedgerSnapshot(output, ledgerRevision ?? repo.revision);
+  printLedgerSnapshot(output, ledgerRevision ?? repo.revision, ledgerFreshness);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
 
-function fixStructuredSections(repo, { dryRun, output, store }) {
+function fixStructuredSections(repo, { dryRun, output, store, offline }) {
   let anyChanged = false;
   let anyManual = false;
   const candidates = [];
   let ledgerRevision = null;
+  let ledgerFreshness = repo.ledgerFreshness ?? 'local';
   for (const change of repo.changes) {
     const result = migrateStructuredSections(change.text);
     if (result.manual.length) {
@@ -142,7 +150,11 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
   if (!dryRun) {
     if (store.mode === 'state') {
       const after = store.mutate(
-        { message: 'changeledger: fix structured sections', expectedRevision: repo.revision },
+        {
+          message: 'changeledger: fix structured sections',
+          expectedRevision: repo.revision,
+          offline,
+        },
         ({ snapshot, write }) => {
           for (const candidate of candidates) {
             const current = snapshot.changes.find(
@@ -156,6 +168,7 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
         },
       );
       ledgerRevision = after.revision;
+      ledgerFreshness = after.ledgerFreshness ?? 'local';
     } else if (candidates.length) {
       for (const candidate of candidates)
         writeFileAtomic(candidate.change.file, candidate.result.text);
@@ -165,12 +178,12 @@ function fixStructuredSections(repo, { dryRun, output, store }) {
       for (const message of candidate.result.applied) output.log(`  - ${message}`);
     }
   }
-  printLedgerSnapshot(output, ledgerRevision ?? repo.revision);
+  printLedgerSnapshot(output, ledgerRevision ?? repo.revision, ledgerFreshness);
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }
 
-function fixGraduationLinks(repo, { dryRun, output, store }) {
+function fixGraduationLinks(repo, { dryRun, output, store, offline }) {
   const eventsBySpec = graduationEventsBySpec(repo.changes);
   const candidates = [];
   const errors = [];
@@ -211,13 +224,18 @@ function fixGraduationLinks(repo, { dryRun, output, store }) {
 
   if (errors.length) {
     for (const message of errors) output.error(`  error  ${message}`);
-    printLedgerSnapshot(output, repo.revision);
+    printLedgerSnapshot(output, repo.revision, repo.ledgerFreshness ?? 'local');
     return 1;
   }
   let ledgerRevision = null;
+  let ledgerFreshness = repo.ledgerFreshness ?? 'local';
   if (!dryRun && store.mode === 'state') {
     const after = store.mutate(
-      { message: 'changeledger: fix graduation links', expectedRevision: repo.revision },
+      {
+        message: 'changeledger: fix graduation links',
+        expectedRevision: repo.revision,
+        offline,
+      },
       ({ snapshot, write }) => {
         for (const candidate of candidates) {
           const current = snapshot.specs.find(
@@ -231,6 +249,7 @@ function fixGraduationLinks(repo, { dryRun, output, store }) {
       },
     );
     ledgerRevision = after.revision;
+    ledgerFreshness = after.ledgerFreshness ?? 'local';
   }
   for (const { spec, before, after } of candidates) {
     if (dryRun) {
@@ -245,7 +264,7 @@ function fixGraduationLinks(repo, { dryRun, output, store }) {
     }
   }
   if (!candidates.length) output.log('nothing to fix');
-  printLedgerSnapshot(output, ledgerRevision ?? repo.revision);
+  printLedgerSnapshot(output, ledgerRevision ?? repo.revision, ledgerFreshness);
   return 0;
 }
 

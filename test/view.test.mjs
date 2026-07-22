@@ -27,7 +27,7 @@ import {
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
-import { createStateRepo, stateConfig } from './helpers/state-repo.mjs';
+import { createStateRepo, git, stateConfig } from './helpers/state-repo.mjs';
 
 const TOKEN = 'test-token';
 
@@ -158,6 +158,35 @@ test('CR2: an authorized write succeeds', async () => {
   });
   assert.equal(res.status, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+test('193102 CR1/CR7: viewer state sync invokes the replica protocol explicitly', async () => {
+  isolatedHome();
+  const created = createStateRepo();
+  fs.writeFileSync(
+    path.join(created.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: refs/heads/changeledger/state\nbaseline: ${created.baseline}\nproject_id: project-1\n`,
+  );
+  git(created.root, ['update-ref', 'refs/changeledger/confirmed', created.baseline]);
+  git(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-view-state-'));
+  git(remote, ['init', '--bare', '-q']);
+  git(created.root, ['remote', 'add', 'origin', remote]);
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+
+  const res = await memoryRequest(created.root, {
+    method: 'POST',
+    path: '/api/state-sync',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({ project: 'project-1' }),
+  });
+
+  assert.equal(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.action, 'current');
+  assert.equal(body.ledger_revision, created.baseline);
+  assert.equal(body.ledger_freshness, 'fresh');
+  assert.equal(body.ledger_confirmation, 'confirmed');
 });
 
 test('CR3: a write to an unknown project is a 404, not a fallback', async () => {

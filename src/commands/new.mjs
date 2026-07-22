@@ -14,9 +14,10 @@ const LOCK_MTIME_STALE_MS = 30_000;
 // Scaffolds a new change file with the active stages for its type.
 // `slug` is the English filename slug (structure); `title` is the content title
 // (repo language). See `changeledger context spec`.
-export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()) {
+export function newChange({ type, slug, title, owner, now, offline = false }, cwd = process.cwd()) {
   const store = loadLedgerStore(cwd);
-  if (store.mode === 'state') return newStateChange(store, { type, slug, title, owner, now });
+  if (store.mode === 'state')
+    return newStateChange(store, { type, slug, title, owner, now, offline });
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
@@ -81,7 +82,7 @@ export function newChange({ type, slug, title, owner, now }, cwd = process.cwd()
   }
 }
 
-function newStateChange(store, { type, slug, title, owner, now }) {
+function newStateChange(store, { type, slug, title, owner, now, offline }) {
   const normalizedSlug = slugify(slug);
   let created = now;
   for (;;) {
@@ -102,7 +103,11 @@ function newStateChange(store, { type, slug, title, owner, now }) {
     const statePath = `.changeledger-state/changes/${id}-${normalizedSlug}.md`;
     try {
       const after = store.mutate(
-        { message: `changeledger: new ${id}`, expectedRevision: snapshot.revision },
+        {
+          message: `changeledger: new ${id}`,
+          expectedRevision: snapshot.revision,
+          offline,
+        },
         ({ snapshot: current, write }) => {
           if (current.changes.some((change) => String(change.frontmatter.id) === id)) {
             throw new Error('state id changed concurrently; retry the operation');

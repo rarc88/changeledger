@@ -9,9 +9,9 @@ export const PUBLIC_STATE_REF = 'refs/heads/changeledger/state';
 export const CONFIRMED_REF = 'refs/changeledger/confirmed';
 export const OBSERVED_REF = 'refs/changeledger/observed';
 export const PENDING_REF = 'refs/changeledger/pending';
-const FETCHED_REF = 'refs/changeledger/fetched';
+const NETWORK_TIMEOUT_MS = 30_000;
 
-function gitOutput(repoRoot, args, { input, env } = {}) {
+function gitOutput(repoRoot, args, { input, env, timeout } = {}) {
   try {
     return execFileSync('git', args, {
       cwd: repoRoot,
@@ -19,6 +19,7 @@ function gitOutput(repoRoot, args, { input, env } = {}) {
       input,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout,
     });
   } catch (error) {
     const detail = [error.stderr, error.stdout]
@@ -124,7 +125,11 @@ function isAncestor(repoRoot, ancestor, descendant) {
 function pendingState(repoRoot, refs) {
   if (!refs.pending) return null;
   const base = resolveRef(repoRoot, `${refs.pending}^`);
-  return { head: refs.pending, base, paths: changedPaths(repoRoot, base, refs.pending) };
+  return {
+    head: refs.pending,
+    base,
+    paths: base ? changedPaths(repoRoot, base, refs.pending) : [],
+  };
 }
 
 function changedPaths(repoRoot, before, after) {
@@ -152,7 +157,7 @@ function replayPending(repoRoot, pending, observed, validateRevision) {
   try {
     git(repoRoot, ['read-tree', observed], { env });
     for (const file of pending.paths) {
-      const entry = gitOutput(repoRoot, ['ls-tree', '-z', pending.head, '--', file]);
+      const entry = gitOutput(repoRoot, ['ls-tree', '-z', pending.head, '--', `:(literal)${file}`]);
       if (entry === '') {
         git(repoRoot, ['update-index', '--force-remove', '--', file], { env });
         continue;
@@ -174,7 +179,7 @@ function replayPending(repoRoot, pending, observed, validateRevision) {
   }
 }
 
-function remoteName(repoRoot) {
+export function stateRemote(repoRoot) {
   const configured = (() => {
     try {
       return git(repoRoot, ['config', '--get', 'changeledger.remote']);
@@ -198,23 +203,39 @@ function recordObserved(repoRoot, before, observed, at) {
 
 export function syncStateReplica(
   repoRoot,
-  { now = () => new Date().toISOString(), validateRevision = () => {} } = {},
+  {
+    now = () => new Date().toISOString(),
+    validateRevision = () => {},
+    pushState = (root, remote, refspec) =>
+      git(root, ['push', remote, refspec], { timeout: NETWORK_TIMEOUT_MS }),
+  } = {},
 ) {
-  const remote = remoteName(repoRoot);
+  const remote = stateRemote(repoRoot);
   const before = readStateReplica(repoRoot);
-  git(repoRoot, ['fetch', '--no-tags', remote, `+${PUBLIC_STATE_REF}:${FETCHED_REF}`]);
-  const fetched = resolveRef(repoRoot, FETCHED_REF);
+  git(repoRoot, ['fetch', '--no-tags', remote, PUBLIC_STATE_REF], {
+    timeout: NETWORK_TIMEOUT_MS,
+  });
+  const fetched = resolveRef(repoRoot, 'FETCH_HEAD');
   if (!fetched) throw new Error(`remote "${remote}" has no ${PUBLIC_STATE_REF}`);
+  const at = now();
   validateRevision(fetched);
+  if (before.pending) {
+    try {
+      validateRevision(before.pending);
+    } catch (error) {
+      recordObserved(repoRoot, before.observed, fetched, at);
+      throw new Error(`invalid pending state ${before.pending}: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
 
   const pending = pendingState(repoRoot, before);
-  const observedPaths = pending ? changedPaths(repoRoot, pending.base, fetched) : [];
+  const observedPaths = pending?.base ? changedPaths(repoRoot, pending.base, fetched) : [];
   const plan = planReplicaSync(
     { confirmed: before.confirmed, observed: fetched, pending, observedPaths },
     { isAncestor: (ancestor, descendant) => isAncestor(repoRoot, ancestor, descendant) },
   );
-  const at = now();
-
   if (['adopt-observed', 'advance-confirmed', 'current'].includes(plan.action)) {
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
@@ -226,7 +247,7 @@ export function syncStateReplica(
 
   if (plan.action === 'publish-pending') {
     try {
-      git(repoRoot, ['push', remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`]);
+      pushState(repoRoot, remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`);
     } catch (error) {
       recordObserved(repoRoot, before.observed, fetched, at);
       return {
@@ -269,7 +290,10 @@ export function syncStateReplica(
       replay = replayPending(repoRoot, pending, fetched, validateRevision);
     } catch (error) {
       recordObserved(repoRoot, before.observed, fetched, at);
-      throw error;
+      throw new Error(
+        `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; cause=${error.message}`,
+        { cause: error },
+      );
     }
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
@@ -278,7 +302,7 @@ export function syncStateReplica(
     ]);
     writeObservation(repoRoot, fetched, at);
     try {
-      git(repoRoot, ['push', remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`]);
+      pushState(repoRoot, remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`);
     } catch (error) {
       return {
         ...plan,
@@ -312,7 +336,81 @@ export function syncStateReplica(
   }
   if (plan.action === 'conflict') {
     const overlap = pending.paths.filter((file) => observedPaths.includes(file));
-    throw new Error(`state replica conflict on paths: ${overlap.join(', ')}`);
+    throw new Error(
+      `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; overlap=${JSON.stringify(overlap)}`,
+    );
   }
   throw new Error(`state sync cannot continue: ${plan.action}`);
+}
+
+export function stateReplicaStatus(repoRoot) {
+  const remote = stateRemote(repoRoot);
+  const refs = readStateReplica(repoRoot);
+  let condition = 'unknown';
+  if (refs.pending) {
+    const pending = pendingState(repoRoot, refs);
+    if (!pending.base || pending.base !== refs.confirmed) {
+      condition = 'conflict';
+    } else if (refs.observed && refs.observed !== pending.base) {
+      const observedPaths = changedPaths(repoRoot, pending.base, refs.observed);
+      const overlaps = pending.paths.some((file) => observedPaths.includes(file));
+      condition =
+        overlaps || !isAncestor(repoRoot, pending.base, refs.observed) ? 'conflict' : 'pending';
+    } else {
+      condition = 'pending';
+    }
+  } else if (refs.confirmed && refs.observed) {
+    if (refs.confirmed === refs.observed) condition = refs.observedAt ? 'fresh' : 'unknown';
+    else if (isAncestor(repoRoot, refs.confirmed, refs.observed)) {
+      condition = refs.observedAt ? 'stale' : 'unknown';
+    } else condition = 'conflict';
+  }
+  return { ...refs, remote, condition };
+}
+
+export function abortStatePending(
+  repoRoot,
+  { offline = false, now = () => new Date().toISOString(), validateRevision = () => {} } = {},
+) {
+  const before = readStateReplica(repoRoot);
+  if (!before.pending) throw new Error('there is no pending state to abort');
+  if (offline) {
+    transaction(repoRoot, [
+      { ref: CONFIRMED_REF, before: before.confirmed, after: before.confirmed },
+      { ref: OBSERVED_REF, before: before.observed, after: before.observed },
+      { ref: PENDING_REF, before: before.pending, after: null },
+    ]);
+    return { aborted: true, confirmed: false, offline: true, effective: before.confirmed };
+  }
+
+  const remote = stateRemote(repoRoot);
+  let fetched;
+  try {
+    git(repoRoot, ['fetch', '--no-tags', remote, PUBLIC_STATE_REF], {
+      timeout: NETWORK_TIMEOUT_MS,
+    });
+    fetched = resolveRef(repoRoot, 'FETCH_HEAD');
+    if (!fetched) throw new Error(`remote "${remote}" has no ${PUBLIC_STATE_REF}`);
+    validateRevision(fetched);
+  } catch (error) {
+    throw new Error(
+      `cannot verify whether pending reached the remote; retry or use --offline to discard only the local ref: ${error.message}`,
+      { cause: error },
+    );
+  }
+
+  const published = isAncestor(repoRoot, before.pending, fetched);
+  transaction(repoRoot, [
+    { ref: CONFIRMED_REF, before: before.confirmed, after: published ? fetched : before.confirmed },
+    { ref: OBSERVED_REF, before: before.observed, after: fetched },
+    { ref: PENDING_REF, before: before.pending, after: null },
+  ]);
+  writeObservation(repoRoot, fetched, now());
+  return {
+    aborted: !published,
+    confirmed: published,
+    offline: false,
+    effective: published ? fetched : before.confirmed,
+    remote,
+  };
 }

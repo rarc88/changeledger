@@ -10,6 +10,7 @@ import {
   postProjectConfig,
   postProjectPath,
   postProjectRemove,
+  postStateSync,
   postStatus,
   searchAllProjects,
 } from './api.js';
@@ -853,8 +854,14 @@ export function syncViewerShell(root = document, renderContent = true) {
     ledgerSnapshot.textContent = ledgerProvenanceLabel(
       state.repo?.ledger_revision,
       state.repo?.ledger_freshness,
+      state.repo?.ledger_confirmation,
+      state.repo?.ledger_observed_at,
     );
     ledgerSnapshot.classList.toggle('hidden', !state.repo?.ledger_revision);
+  }
+  const syncStateButton = root.querySelector('#sync-state');
+  if (syncStateButton) {
+    syncStateButton.classList.toggle('hidden', state.repo?.ledger_mode !== 'replica');
   }
   for (const name of VIEWS) {
     root.querySelector(`#view-${name}`).classList.toggle('active', name === state.currentView);
@@ -1604,13 +1611,21 @@ function activateView(v) {
   render();
 }
 
-export function ledgerProvenanceLabel(revision, freshness) {
+export function ledgerProvenanceLabel(revision, freshness, confirmation, observedAt) {
   if (!revision) return '';
-  return `Ledger ${revision} (freshness: ${freshness ?? 'unknown'})`;
+  const details = [`freshness: ${freshness ?? 'unknown'}`];
+  if (confirmation) details.push(`confirmation: ${confirmation}`);
+  if (observedAt || confirmation) details.push(`observed: ${observedAt ?? 'unknown'}`);
+  return `Ledger ${revision} (${details.join('; ')})`;
 }
 
 function ledgerProvenanceTemplate(ledger) {
-  const label = ledgerProvenanceLabel(ledger.ledger_revision, ledger.ledger_freshness);
+  const label = ledgerProvenanceLabel(
+    ledger.ledger_revision,
+    ledger.ledger_freshness,
+    ledger.ledger_confirmation,
+    ledger.ledger_observed_at,
+  );
   if (!label) return nothing;
   return html`<div class="ledger-provenance" data-project=${ledger.project ?? ''}>
     ${ledger.project ? `${ledger.project}: ` : ''}${label}
@@ -1723,6 +1738,20 @@ function bootstrap() {
     e.target.classList.toggle('active', active);
     if (active) enterGlobal();
     else activateView(state.currentView);
+  };
+  $('#sync-state').onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await postStateSync(state.currentProject);
+      invalidateCache();
+      await load();
+      showToast('Estado actualizado');
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
   };
   document.addEventListener('pointerdown', (event) => {
     closeFilterMenusOnOutsideClick(

@@ -9,14 +9,14 @@ import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
-import { loadLedgerStore } from '../ledger-store.mjs';
+import { ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
-function locate(cwd, id, { expectedRevision } = {}) {
+function locate(cwd, id, { expectedRevision, offline = false } = {}) {
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
     const snapshot = store.load();
@@ -37,6 +37,7 @@ function locate(cwd, id, { expectedRevision } = {}) {
       file: change.file,
       repoRoot: snapshot.repoRoot,
       revision: snapshot.revision,
+      offline,
       statePath: change.statePath,
       store,
     };
@@ -52,7 +53,11 @@ function mutateChange(located, id, action, mutate) {
     return located.file;
   }
   const after = located.store.mutate(
-    { message: `changeledger: ${action} ${id}`, expectedRevision: located.revision },
+    {
+      message: `changeledger: ${action} ${id}`,
+      expectedRevision: located.revision,
+      offline: located.offline,
+    },
     ({ snapshot, write }) => {
       const change = snapshot.changes.find(
         (candidate) => candidate.statePath === located.statePath,
@@ -69,9 +74,15 @@ export function status(
   id,
   newStatus,
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer', expectedRevision } = {},
+  {
+    ownerHandle = defaultOwnerHandle,
+    actor = 'human',
+    channel = 'viewer',
+    expectedRevision,
+    offline = false,
+  } = {},
 ) {
-  const located = locate(cwd, id, { expectedRevision });
+  const located = locate(cwd, id, { expectedRevision, offline });
   const { config, repoRoot } = located;
   if (newStatus === 'discarded') {
     throw new Error(
@@ -135,8 +146,8 @@ export function status(
 
 // Transmits an explicit human approval received through the host conversation.
 // The lifecycle guard remains owned by status(); this only selects attribution.
-export function approve(id, cwd = process.cwd()) {
-  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation' });
+export function approve(id, cwd = process.cwd(), { offline = false } = {}) {
+  return status(id, 'approved', cwd, { actor: 'human', channel: 'conversation', offline });
 }
 
 // Records the verdict of the independent review (run by a delegated subagent
@@ -144,8 +155,8 @@ export function approve(id, cwd = process.cwd()) {
 // `fail` routes it back: `retry` for a defect inside the contract (the
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
-export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const located = locate(cwd, id);
+export function review(id, verdict, { mode, reason, offline = false } = {}, cwd = process.cwd()) {
+  const located = locate(cwd, id, { offline });
   return mutateChange(located, id, 'review', (text) => {
     const { status: current } = parseChange(text).frontmatter;
     if (current !== 'in-review') {
@@ -202,10 +213,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 export function validation(
   id,
   verdict,
-  { reason, actor = 'human', channel = 'viewer', expectedRevision } = {},
+  { reason, actor = 'human', channel = 'viewer', expectedRevision, offline = false } = {},
   cwd = process.cwd(),
 ) {
-  const located = locate(cwd, id, { expectedRevision });
+  const located = locate(cwd, id, { expectedRevision, offline });
   const { config, file } = located;
   return mutateChange(located, id, 'validation', (text) => {
     const fm = parseChange(text).frontmatter;
@@ -254,10 +265,10 @@ export function reopen(
   id,
   reason,
   cwd = process.cwd(),
-  { actor = 'human', expectedRevision } = {},
+  { actor = 'human', expectedRevision, offline = false } = {},
 ) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const located = locate(cwd, id, { expectedRevision });
+  const located = locate(cwd, id, { expectedRevision, offline });
   const { config, file, repoRoot } = located;
   const apply = (text, snapshot) => {
     const released = snapshot.releases.some((release) =>
@@ -298,8 +309,8 @@ export function reopen(
 }
 
 // name '-' clears the owner.
-export function owner(id, name, cwd = process.cwd()) {
-  const located = locate(cwd, id);
+export function owner(id, name, cwd = process.cwd(), { offline = false } = {}) {
+  const located = locate(cwd, id, { offline });
   const next = name === '-' ? null : name;
   return mutateChange(located, id, 'owner', (text) => {
     text = setOwner(text, next);
@@ -310,11 +321,11 @@ export function owner(id, name, cwd = process.cwd()) {
 // Discards a change: a terminal lifecycle move that keeps the file and its
 // reasoning instead of deleting it. The reason is mandatory and recorded in the
 // Log; the transition graph rejects discarding a done or in-review change.
-export function discard(id, reason, cwd = process.cwd()) {
+export function discard(id, reason, cwd = process.cwd(), { offline = false } = {}) {
   if (!reason) {
     throw new Error('discard requires a reason — changeledger discard <id> "<reason>"');
   }
-  const located = locate(cwd, id);
+  const located = locate(cwd, id, { offline });
   const { config } = located;
   return mutateChange(located, id, 'discard', (text) => {
     const fm = parseChange(text).frontmatter;
@@ -334,8 +345,8 @@ export function discard(id, reason, cwd = process.cwd()) {
   });
 }
 
-export function archive(id, cwd = process.cwd()) {
-  const located = locate(cwd, id);
+export function archive(id, cwd = process.cwd(), { offline = false } = {}) {
+  const located = locate(cwd, id, { offline });
   return mutateChange(located, id, 'archive', (text) => {
     text = setArchived(text, true);
     return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
@@ -359,10 +370,10 @@ export function selectArchivableGraduated(changes, filters = {}) {
   return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
 }
 
-function archiveResult(items, revision) {
+function archiveResult(items, revision, freshness = 'local') {
   Object.defineProperties(items, {
     ledgerRevision: { value: revision ?? null },
-    ledgerFreshness: { value: revision ? 'local' : null },
+    ledgerFreshness: { value: revision ? freshness : null },
   });
   return items;
 }
@@ -379,6 +390,7 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
       {
         message: 'changeledger: archive graduated',
         expectedRevision: loaded.revision,
+        offline: filters.offline === true,
       },
       ({ snapshot, write }) => {
         for (const change of snapshot.changes) {
@@ -400,6 +412,7 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
         file: after.changes.find((current) => current.statePath === change.statePath)?.file,
       })),
       after.revision,
+      after.ledgerFreshness ?? 'local',
     );
   }
   for (const c of selected) {
@@ -417,6 +430,7 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
       file: c.file,
     })),
     loaded.revision,
+    loaded.ledgerFreshness ?? 'local',
   );
 }
 
@@ -434,15 +448,15 @@ function hasGraduationResolution(c) {
   return logBody.split('\n').some((line) => parseLogEvent(line)?.type === 'graduation');
 }
 
-export function log(id, message, cwd = process.cwd()) {
-  const located = locate(cwd, id);
+export function log(id, message, cwd = process.cwd(), { offline = false } = {}) {
+  const located = locate(cwd, id, { offline });
   return mutateChange(located, id, 'log', (text) =>
     appendLogEvent(text, { at: nowUtc(), type: 'note', message }),
   );
 }
 
-export function task(id, action, n, reason, cwd = process.cwd()) {
-  const located = locate(cwd, id);
+export function task(id, action, n, reason, cwd = process.cwd(), { offline = false } = {}) {
+  const located = locate(cwd, id, { offline });
   return mutateChange(located, id, 'task', (text) => {
     if (action === 'done') return setTask(text, n, 'done', { iso: nowUtc() });
     if (action === 'block') return setTask(text, n, 'blocked', { reason });
@@ -496,7 +510,7 @@ export function list(
     }));
   Object.defineProperties(items, {
     ledgerRevision: { value: repo.revision ?? null },
-    ledgerFreshness: { value: repo.revision ? 'local' : null },
+    ledgerFreshness: { value: repo.revision ? (repo.ledgerFreshness ?? 'local') : null },
   });
   return items;
 }
@@ -511,6 +525,6 @@ export function show(id, cwd = process.cwd()) {
     stages: c.stages,
     tasks: c.tasks,
     progress: c.progress,
-    ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
+    ...ledgerReceipt(repo),
   };
 }

@@ -147,6 +147,7 @@ test('193102 CR1/CR3/CR7: replica authority requires confirmed state without fal
   );
 
   const { root, baseline } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  git(root, ['remote', 'add', 'origin', root]);
   git(root, ['checkout', '-q', 'changeledger/state']);
   const changeFile = path.join(root, '.changeledger-state', 'changes', '20260721-000000-demo.md');
   fs.writeFileSync(
@@ -180,11 +181,12 @@ test('193102 CR3: a replica mutation creates one pending successor without movin
       fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
     },
   });
+  git(root, ['remote', 'add', 'origin', root]);
   const store = loadLedgerStore(root);
   const before = store.load();
 
   const after = store.mutate(
-    { message: 'test: offline pending', expectedRevision: before.revision },
+    { message: 'test: offline pending', expectedRevision: before.revision, offline: true },
     ({ snapshot, write }) => {
       write(
         snapshot.changes[0].statePath,
@@ -200,10 +202,52 @@ test('193102 CR3: a replica mutation creates one pending successor without movin
   assert.equal(git(root, ['rev-parse', PUBLIC_STATE_REF]), baseline);
   assert.throws(
     () =>
-      store.mutate({ message: 'test: second pending', expectedRevision: after.revision }, () => {}),
+      store.mutate(
+        {
+          message: 'test: second pending',
+          expectedRevision: after.revision,
+          offline: true,
+        },
+        () => {},
+      ),
     /resolve the existing pending state before mutating again/,
   );
   assert.equal(git(root, ['rev-parse', PENDING_REF]), after.revision);
+});
+
+test('193102 CR2/CR7: an online replica mutation preflights and publishes through CAS', () => {
+  const { root, baseline } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+    },
+  });
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-ledger-store-remote-'));
+  git(remote, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', remote]);
+  git(root, ['push', '-q', 'origin', PUBLIC_STATE_REF]);
+  const store = loadLedgerStore(root);
+  const before = store.load();
+
+  const after = store.mutate(
+    { message: 'test: online mutation', expectedRevision: before.revision },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Published'),
+      );
+    },
+  );
+
+  assert.notEqual(after.revision, baseline);
+  assert.equal(after.changes[0].frontmatter.title, 'Published');
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), after.revision);
+  assert.equal(git(remote, ['rev-parse', PUBLIC_STATE_REF]), after.revision);
+  assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
 });
 
 test('193101 correction CR3: authority baseline must be an exact full commit OID', () => {

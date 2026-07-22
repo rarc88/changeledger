@@ -185,12 +185,16 @@ de frescura inventada.
   - **Resolved:** `2026-07-22T10:20:29Z`
 - [x] Hacer que `src/ledger-store.mjs` seleccione autoridad v1 local o v2 réplica, resuelva en v2 exclusivamente pending/confirmed y falle sin autoridad efectiva; añadir fixtures sin fallback a la rama pública; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR1, CR3, CR7)
   - **Resolved:** `2026-07-22T10:33:36Z`
-- [ ] Implementar refs transaccionales, fetch, fast-forward y metadata de observación en `src/state-store.mjs` con repositorios reales SHA-1/SHA-256; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR6, CR7)
+- [x] Implementar refs transaccionales, fetch, fast-forward y metadata de observación en `src/state-store.mjs` con repositorios reales SHA-1/SHA-256; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR6, CR7)
+  - **Resolved:** `2026-07-22T10:57:17Z`
 - [x] Implementar pending único y replay del delta NUL-framed en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-replica.test.mjs` (CR3, CR4, CR5)
   - **Resolved:** `2026-07-22T10:33:36Z`
-- [ ] Propagar preflight online y `--offline` por la matriz mutadora mediante `bin/changeledger.mjs`, `src/commands/*.mjs` y `src/viewer/domain.mjs` hasta `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/cli-bin.test.mjs test/view.test.mjs` (CR2, CR3, CR7)
-- [ ] Añadir tests de timeout, push aceptado con respuesta perdida y aborto online/offline antes de implementar `sync`/`abort` en `src/commands/state.mjs`; verify: `node --test test/state-command.test.mjs test/state-store.test.mjs` (CR6)
-- [ ] Integrar frescura en lecturas, `context` y viewer mediante `src/repo.mjs` y `src/viewer/server/router.mjs`; verify: `node --test test/repo.test.mjs test/context.test.mjs test/view.test.mjs` (CR1, CR3, CR7)
+- [x] Propagar preflight online y `--offline` por la matriz mutadora mediante `bin/changeledger.mjs`, `src/commands/*.mjs` y `src/viewer/domain.mjs` hasta `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/cli-bin.test.mjs test/view.test.mjs` (CR2, CR3, CR7)
+  - **Resolved:** `2026-07-22T10:57:17Z`
+- [x] Añadir tests de timeout, push aceptado con respuesta perdida y aborto online/offline antes de implementar `sync`/`abort` en `src/commands/state.mjs`; verify: `node --test test/state-command.test.mjs test/state-store.test.mjs` (CR6)
+  - **Resolved:** `2026-07-22T10:57:18Z`
+- [x] Integrar frescura en lecturas, `context` y viewer mediante `src/repo.mjs` y `src/viewer/server/router.mjs`; verify: `node --test test/repo.test.mjs test/context.test.mjs test/view.test.mjs` (CR1, CR3, CR7)
+  - **Resolved:** `2026-07-22T10:57:18Z`
 - [ ] Documentar el protocolo y ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
@@ -202,3 +206,4 @@ de frescura inventada.
 - **2026-07-22T10:18:05Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-22T10:20:29Z** `[note]` Modelo puro de réplica completado con tabla de decisiones para inicialización, fast-forward, publicación, confirmación ambigua, replay, conflicto, rewind remoto e invariantes locales; paths exactos independientes de delimitadores.
 - **2026-07-22T10:33:37Z** `[note]` Autoridad v2 lee exclusivamente pending/confirmed; mutaciones crean un único pending transaccional. Sync cubre avance, CAS ordinario, replay exacto NUL-framed y conflicto sin tocar confirmed; 43 pruebas afectadas pasan.
+- **2026-07-22T10:57:18Z** `[note]` Protocolo integrado de extremo a extremo: mutaciones online preflight+publicación, --offline explícito, status/sync/abort, viewer sync, receipts de frescura y confirmación. Auditoría adversarial añadió timeout, validación de pending, paths Git literales y diagnósticos completos; 266 pruebas afectadas pasan.

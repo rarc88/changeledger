@@ -12,7 +12,7 @@ export function search(query, { limit, type, status } = {}, cwd = process.cwd())
   const hits = searchDocuments(corpus, query, { limit, type, status });
   Object.defineProperties(hits, {
     ledgerRevision: { value: repo.revision ?? null },
-    ledgerFreshness: { value: repo.revision ? 'local' : null },
+    ledgerFreshness: { value: repo.revision ? (repo.ledgerFreshness ?? 'local') : null },
   });
   return hits;
 }

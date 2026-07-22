@@ -12,7 +12,14 @@ import { assertSupportedSchema } from './config-migration.mjs';
 import { defaultRun, sanitizedGitEnv } from './git.mjs';
 import { DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
-import { CONFIRMED_REF, createStatePending, PENDING_REF } from './state-store.mjs';
+import {
+  abortStatePending,
+  CONFIRMED_REF,
+  createStatePending,
+  PENDING_REF,
+  stateReplicaStatus,
+  syncStateReplica,
+} from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 export const STATE_REF = 'refs/heads/changeledger/state';
@@ -36,7 +43,9 @@ export class LedgerConflictError extends Error {
 export function ledgerReceipt(snapshot) {
   return Object.freeze({
     ledger_revision: snapshot?.revision ?? null,
-    ledger_freshness: snapshot?.revision ? 'local' : null,
+    ledger_freshness: snapshot?.revision ? (snapshot.ledgerFreshness ?? 'local') : null,
+    ...(snapshot?.ledgerConfirmation ? { ledger_confirmation: snapshot.ledgerConfirmation } : {}),
+    ...(snapshot?.ledgerObservedAt ? { ledger_observed_at: snapshot.ledgerObservedAt } : {}),
   });
 }
 
@@ -248,13 +257,24 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
 }
 
 function loadStateSnapshot(repoRoot, changeledgerDir, authority, run) {
-  return loadStateSnapshotAt(
+  const snapshot = loadStateSnapshotAt(
     repoRoot,
     changeledgerDir,
     authority,
     gitStateRevision(repoRoot, authority, run),
     run,
   );
+  if (authority.format_version === 1) {
+    return { ...snapshot, ledgerFreshness: 'local', ledgerConfirmation: 'local' };
+  }
+  const replica = stateReplicaStatus(repoRoot);
+  return {
+    ...snapshot,
+    ledgerFreshness: replica.condition,
+    ledgerConfirmation: replica.pending ? 'pending publication' : 'confirmed',
+    ledgerObservedAt: replica.observedAt,
+    ledgerReplica: replica,
+  };
 }
 
 function statePathIsValid(file) {
@@ -298,6 +318,23 @@ function keepStateRevision(repoRoot, revision, ref, run) {
   }
 }
 
+function validateStateRevision(repoRoot, changeledgerDir, authority, revision, run) {
+  let snapshot;
+  try {
+    snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
+  } catch (error) {
+    throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
+  }
+  assertSupportedSchema(snapshot.config);
+  const { errors } = checkRepo(snapshot);
+  if (errors.length) {
+    throw new Error(
+      `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
+    );
+  }
+  return snapshot;
+}
+
 function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate) {
   if (!options?.message || typeof options.message !== 'string') {
     throw new Error('Ledger state mutation requires a commit message');
@@ -308,7 +345,13 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
     throw new Error('Ledger state mutation expectedRevision is required');
   }
 
-  if (authority.format_version === 2) {
+  const replica = authority.format_version === 2;
+  const validateRevision = (revision) =>
+    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
+  if (replica && options.offline !== true) {
+    syncStateReplica(repoRoot, { validateRevision });
+  }
+  if (replica) {
     try {
       run(['rev-parse', '--verify', PENDING_REF], repoRoot);
       throw new Error('resolve the existing pending state before mutating again');
@@ -320,7 +363,7 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
   if (options.expectedRevision !== revision) {
     throw new LedgerConflictError('Ledger state changed concurrently; retry the operation');
   }
-  const snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
+  const snapshot = loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
   assertSupportedSchema(snapshot.config);
   const writes = new Map();
   const removals = new Set();
@@ -339,12 +382,7 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
   };
   mutate({ snapshot, write, remove });
   if (!writes.size && !removals.size) {
-    keepStateRevision(
-      repoRoot,
-      revision,
-      authority.format_version === 2 ? CONFIRMED_REF : STATE_REF,
-      run,
-    );
+    keepStateRevision(repoRoot, revision, replica ? CONFIRMED_REF : STATE_REF, run);
     return snapshot;
   }
 
@@ -368,41 +406,28 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
     }
     const tree = runIndexedGit(['write-tree'], repoRoot, indexFile).trim();
     if (tree === sourceTree) {
-      keepStateRevision(
-        repoRoot,
-        revision,
-        authority.format_version === 2 ? CONFIRMED_REF : STATE_REF,
-        run,
-      );
+      keepStateRevision(repoRoot, revision, replica ? CONFIRMED_REF : STATE_REF, run);
       return snapshot;
     }
-    let candidate;
-    try {
-      candidate = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, tree, run);
-    } catch (error) {
-      throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
-    }
-    assertSupportedSchema(candidate.config);
-    const { errors } = checkRepo(candidate);
-    if (errors.length) {
-      throw new Error(
-        `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
-      );
-    }
+    validateRevision(tree);
     const commit = runIndexedGit(
       ['commit-tree', tree, '-p', revision, '-m', options.message],
       repoRoot,
       indexFile,
     ).trim();
     try {
-      if (authority.format_version === 2) createStatePending(repoRoot, revision, commit);
+      if (replica) createStatePending(repoRoot, revision, commit);
       else runIndexedGit(['update-ref', STATE_REF, commit, revision], repoRoot, indexFile);
     } catch (error) {
       throw new LedgerConflictError('Ledger state changed concurrently; retry the operation', {
         cause: error,
       });
     }
-    return loadStateSnapshotAt(repoRoot, changeledgerDir, authority, commit, run);
+    if (replica && options.offline !== true) {
+      syncStateReplica(repoRoot, { validateRevision });
+      return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
+    }
+    return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
   } finally {
     fs.rmSync(indexDir, { recursive: true, force: true });
   }
@@ -430,5 +455,22 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     load: () => loadStateSnapshot(repoRoot, changeledgerDir, authority, run),
     mutate: (options, mutate) =>
       mutateState(repoRoot, changeledgerDir, authority, run, options, mutate),
+    replica:
+      authority.format_version === 2
+        ? {
+            status: () => stateReplicaStatus(repoRoot),
+            sync: () =>
+              syncStateReplica(repoRoot, {
+                validateRevision: (revision) =>
+                  validateStateRevision(repoRoot, changeledgerDir, authority, revision, run),
+              }),
+            abort: ({ offline = false } = {}) =>
+              abortStatePending(repoRoot, {
+                offline,
+                validateRevision: (revision) =>
+                  validateStateRevision(repoRoot, changeledgerDir, authority, revision, run),
+              }),
+          }
+        : null,
   };
 }

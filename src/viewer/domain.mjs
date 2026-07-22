@@ -33,7 +33,7 @@ import { parseYaml } from '../yaml.mjs';
 // Serializes a loaded repo into the flat shape the UI consumes.
 export function serialize(repo) {
   return {
-    ledger_mode: repo.mode ?? 'worktree',
+    ledger_mode: repo.ledgerReplica ? 'replica' : (repo.mode ?? 'worktree'),
     ...ledgerReceipt(repo),
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
@@ -117,7 +117,7 @@ function mutateConfigSource(
         changed = true;
       },
     );
-    return { ledgerRevision: after.revision, changed };
+    return { ledgerRevision: after.revision, receipt: ledgerReceipt(after), changed };
   }
   const result = mutateConfig(source.file, apply);
   return { ledgerRevision: null, changed: result !== undefined };
@@ -141,8 +141,7 @@ export function resolveProjects(cwd, localOnly) {
           name,
           path: repoRoot,
           alive: true,
-          ledger_revision: repo.revision ?? null,
-          ledger_freshness: repo.revision ? 'local' : null,
+          ...ledgerReceipt(repo),
         },
       ],
       current: id,
@@ -177,11 +176,7 @@ export function searchProjects(projects, q, load = loadRepo) {
       continue;
     }
     if (repo.revision) {
-      ledgers.push({
-        project: p.id,
-        ledger_revision: repo.revision,
-        ledger_freshness: 'local',
-      });
+      ledgers.push({ project: p.id, ...ledgerReceipt(repo) });
     }
     const matches = repo.changes
       .filter((c) => `${c.text ?? ''} ${c.frontmatter?.title ?? ''}`.toLowerCase().includes(needle))
@@ -195,11 +190,26 @@ export function searchProjects(projects, q, load = loadRepo) {
       groups.push({
         project: { id: p.id, name: p.name },
         matches,
-        ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
+        ...(repo.revision ? ledgerReceipt(repo) : {}),
       });
     }
   }
   return { groups, ledgers };
+}
+
+export function syncProjectState(projects, id) {
+  const found = projectFor(projects, id);
+  if (!found.project) return found;
+  try {
+    const store = loadLedgerStore(found.project.path);
+    if (!store.replica) {
+      return { code: 400, body: { error: 'project does not use state replica format_version 2' } };
+    }
+    const result = store.replica.sync();
+    return { code: 200, body: { ...result, ...ledgerReceipt(store.load()) } };
+  } catch (error) {
+    return { code: 409, body: { error: error.message } };
+  }
 }
 
 // Applies a status move requested from the viewer. Returns { code, body } so the
@@ -221,10 +231,11 @@ export function changeStatus(
   // the UI is bypassable.
   let current;
   let observedRevision;
+  let ledgerStore;
   try {
-    const store = loadLedgerStore(proj.path);
-    if (store.mode === 'state') {
-      const snapshot = store.load();
+    ledgerStore = loadLedgerStore(proj.path);
+    if (ledgerStore.mode === 'state') {
+      const snapshot = ledgerStore.load();
       observedRevision = assertLedgerRevision(snapshot, ledger_revision);
       const change = snapshot.changes.find(
         (candidate) => String(candidate.frontmatter.id) === String(id),
@@ -277,14 +288,24 @@ export function changeStatus(
       };
     }
     const ledgerRevision = String(mutationFile ?? '').match(/^git:([^:]+):/)?.[1] ?? null;
+    const replica = ledgerStore?.replica?.status();
+    const receipt = {
+      ledger_revision: ledgerRevision,
+      ledger_freshness: ledgerRevision ? (replica?.condition ?? 'local') : null,
+      ...(replica
+        ? {
+            ledger_confirmation: replica.pending ? 'pending publication' : 'confirmed',
+            ...(replica.observedAt ? { ledger_observed_at: replica.observedAt } : {}),
+          }
+        : {}),
+    };
     return {
       code: 200,
       body: {
         ok: true,
         id,
         status,
-        ledger_revision: ledgerRevision,
-        ledger_freshness: ledgerRevision ? 'local' : null,
+        ...receipt,
       },
     };
   } catch (e) {
@@ -424,8 +445,10 @@ export function saveProjectConfig(
       name: projectName,
       revision: revision(payload.content),
       config_revision: revision(payload.content),
-      ledger_revision: mutation.ledgerRevision,
-      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      ...(mutation.receipt ?? {
+        ledger_revision: mutation.ledgerRevision,
+        ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      }),
     },
   };
 }
@@ -582,8 +605,10 @@ export function patchProjectConfig(
       ok: true,
       revision: result.rev,
       config_revision: result.rev,
-      ledger_revision: mutation.ledgerRevision,
-      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      ...(mutation.receipt ?? {
+        ledger_revision: mutation.ledgerRevision,
+        ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      }),
     },
   };
 }
@@ -626,8 +651,7 @@ export function previewConfigMigration(projects, id, configRevision, ledgerRevis
         already_current: true,
         message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
         config_revision: revision(content),
-        ledger_revision: source.snapshot.revision,
-        ledger_freshness: source.snapshot.revision ? 'local' : null,
+        ...ledgerReceipt(source.snapshot),
       },
     };
   }
@@ -638,8 +662,7 @@ export function previewConfigMigration(projects, id, configRevision, ledgerRevis
       changes: migrationResult.changes,
       yaml: migrationResult.yaml,
       config_revision: revision(content),
-      ledger_revision: source.snapshot.revision,
-      ledger_freshness: source.snapshot.revision ? 'local' : null,
+      ...ledgerReceipt(source.snapshot),
     },
   };
 }
@@ -705,8 +728,10 @@ export function applyConfigMigration(
         already_current: true,
         revision: result.rev,
         config_revision: result.rev,
-        ledger_revision: mutation.ledgerRevision,
-        ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+        ...(mutation.receipt ?? {
+          ledger_revision: mutation.ledgerRevision,
+          ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+        }),
       },
     };
   }
@@ -716,8 +741,10 @@ export function applyConfigMigration(
       ok: true,
       revision: result.rev,
       config_revision: result.rev,
-      ledger_revision: mutation.ledgerRevision,
-      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      ...(mutation.receipt ?? {
+        ledger_revision: mutation.ledgerRevision,
+        ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+      }),
     },
   };
 }

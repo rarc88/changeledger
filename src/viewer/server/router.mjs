@@ -16,6 +16,7 @@ import {
   saveProjectConfig,
   searchProjects,
   serialize,
+  syncProjectState,
   unregisterProject,
 } from '../domain.mjs';
 import { isAuthorizedWrite, isLocalHost } from './security.mjs';
@@ -104,6 +105,7 @@ export function createRequestListener(cwd, localOnly, token) {
 
       const WRITE_ROUTES = new Set([
         '/api/status',
+        '/api/state-sync',
         '/api/project-config',
         '/api/project-config-patch',
         '/api/project-config-migrate-apply',
@@ -141,6 +143,8 @@ export function createRequestListener(cwd, localOnly, token) {
             const options = { localOnly };
             let result;
             if (route === '/api/status') result = changeStatus(projects, payload);
+            else if (route === '/api/state-sync')
+              result = syncProjectState(projects, payload.project);
             else if (route === '/api/project-config')
               result = saveProjectConfig(projects, payload, options);
             else if (route === '/api/project-config-patch')

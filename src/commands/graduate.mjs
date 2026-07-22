@@ -68,7 +68,11 @@ export function scaffoldSpec(id, slug, cwd = process.cwd(), { to, onSnapshot } =
     if (!to) throw new Error('state graduation --new requires --to <file>');
     slugify(slug);
     const snapshot = store.load();
-    onSnapshot?.({ ledger_revision: snapshot.revision, ledger_freshness: 'local' });
+    onSnapshot?.({
+      ledger_revision: snapshot.revision,
+      ledger_freshness: snapshot.ledgerFreshness ?? 'local',
+      ledger_confirmation: snapshot.ledgerConfirmation ?? 'local',
+    });
     assertSupportedSchema(snapshot.config);
     const candidate = snapshot.changes.find(
       (change) => String(change.frontmatter.id) === String(id),
@@ -99,7 +103,12 @@ export function scaffoldSpec(id, slug, cwd = process.cwd(), { to, onSnapshot } =
 
 // Finalizes graduation into an EXISTING, manually refined spec. The command
 // refreshes `updated` and links it back, but never overwrites the body.
-export function graduate(id, slug, cwd = process.cwd(), { into = false, from, fsImpl = fs } = {}) {
+export function graduate(
+  id,
+  slug,
+  cwd = process.cwd(),
+  { into = false, from, fsImpl = fs, offline = false } = {},
+) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
@@ -119,7 +128,11 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, from, fs
     if (!change) throw new Error(`No change with id "${id}"`);
     const specName = `${slugify(slug)}.md`;
     const after = store.mutate(
-      { message: `changeledger: graduate ${id}`, expectedRevision: snapshot.revision },
+      {
+        message: `changeledger: graduate ${id}`,
+        expectedRevision: snapshot.revision,
+        offline,
+      },
       ({ snapshot, write }) => {
         const currentChange = snapshot.changes.find(
           (candidate) => candidate.statePath === change.statePath,
@@ -205,7 +218,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, from, fs
 
 // Marks a done change's graduation as reviewed without creating a spec (e.g. a
 // bug/chore with no persistent truth). Records the reason in the Log.
-export function skipGraduation(id, reason, cwd = process.cwd()) {
+export function skipGraduation(id, reason, cwd = process.cwd(), { offline = false } = {}) {
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
     const snapshot = store.load();
@@ -215,7 +228,11 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
     if (!change) throw new Error(`No change with id "${id}"`);
     assertSupportedSchema(snapshot.config);
     const after = store.mutate(
-      { message: `changeledger: graduate skip ${id}`, expectedRevision: snapshot.revision },
+      {
+        message: `changeledger: graduate skip ${id}`,
+        expectedRevision: snapshot.revision,
+        offline,
+      },
       ({ snapshot, write }) => {
         const current = snapshot.changes.find(
           (candidate) => candidate.statePath === change.statePath,
