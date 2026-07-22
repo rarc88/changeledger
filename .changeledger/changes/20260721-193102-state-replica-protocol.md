@@ -177,7 +177,8 @@ de frescura inventada.
 
 ## Plan
 
-- [ ] Añadir una tabla de tests fallidos para todas las combinaciones confirmed/observed/pending en `test/state-replica.test.mjs` y crear el modelo puro en `src/state-replica.mjs`; verify: `node --test test/state-replica.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Añadir una tabla de tests fallidos para todas las combinaciones confirmed/observed/pending en `test/state-replica.test.mjs` y crear el modelo puro en `src/state-replica.mjs`; verify: `node --test test/state-replica.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-22T10:20:29Z`
 - [ ] Hacer que `src/ledger-store.mjs` resuelva exclusivamente pending/confirmed y falle sin autoridad efectiva; actualizar fixtures state sin fallback a la rama pública; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR1, CR3, CR7)
 - [ ] Implementar refs transaccionales, fetch, fast-forward y metadata de observación en `src/state-store.mjs` con repositorios reales SHA-1/SHA-256; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR6, CR7)
 - [ ] Implementar pending único y replay del delta NUL-framed en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-replica.test.mjs` (CR3, CR4, CR5)
@@ -193,3 +194,4 @@ de frescura inventada.
 - **2026-07-22T10:17:29Z** `[note]` Readiness pre-implementación cerró los huecos que generaban riesgo de review-loop: la operación reproducible es el delta Git NUL-framed, las refs multiestado cambian transaccionalmente, no existe fallback a la rama pública local y online/offline cubre toda la matriz mutadora.
 - **2026-07-22T10:18:05Z** `[status]` approved → in-progress
 - **2026-07-22T10:18:05Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-22T10:20:29Z** `[note]` Modelo puro de réplica completado con tabla de decisiones para inicialización, fast-forward, publicación, confirmación ambigua, replay, conflicto, rewind remoto e invariantes locales; paths exactos independientes de delimitadores.
