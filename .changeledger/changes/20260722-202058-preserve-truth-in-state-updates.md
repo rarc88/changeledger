@@ -2,7 +2,7 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T20:20:58Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -100,3 +100,4 @@ más allá de esta política.
 - **2026-07-22T23:20:00Z** `[note]` Reviewer de contexto limpio devolvió `RETRY`: el test de merge original no distinguía "solo primer padre" de "todos los padres" — el identidad borrada faltaba en ambos padres, así que una implementación con el bug original (solo primer padre) también habría pasado el test. Corregido: la nueva identidad (`20260722-000001`) existe **solo** en la rama side (mainline nunca la tuvo), así que comparar solo contra el primer padre no encuentra nada que desaparezca; solo comparar contra el segundo padre lo revela. Verificado empíricamente mutando temporalmente el código a `.slice(0, 1)` en `commitParentsOrRoot` — el test nuevo falla como se espera, confirmando que sí prueba la propiedad multi-padre; restaurado el código correcto. Gate re-ejecutado: 141/141 en la suite ampliada.
 - **2026-07-22T22:22:33Z** `[review]` in-review → in-progress (retry): Merge test did not distinguish first-parent-only from all-parents checking; corrected and re-verified
 - **2026-07-22T22:22:39Z** `[status]` in-progress → in-review
+- **2026-07-22T22:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
