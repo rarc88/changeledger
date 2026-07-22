@@ -219,13 +219,20 @@ la branch; nunca reabre copias anteriores al head confirmado.
 
 - [x] Añadir fixtures de sources remotas/locales y plan determinista en `test/state-migration.test.mjs`; implementar parser/inventario lógico puro en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR2, CR4)
   - **Resolved:** `2026-07-22T13:04:33Z`
-- [ ] Añadir repos Git reales SHA-1/SHA-256 con paths hostiles antes de implementar lectura NUL-framed de trees en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR3)
-- [ ] Implementar revalidación TOCTOU, construcción del snapshot y publicación CAS/idempotente en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/ledger-store.test.mjs` (CR4, CR5)
-- [ ] Añadir tests de Git real para commit/ref de activación y revert antes de implementar prepare en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR6, CR8)
-- [ ] Endurecer parsing fail-closed de authority/provenance en `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR7)
-- [ ] Añadir tests de pending/stale/colisión antes de implementar recovery branch en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/state-store.test.mjs` (CR9)
-- [ ] Implementar doctor local/online y categorías de compatibilidad en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR10)
-- [ ] Cablear migrate/activate/doctor/export y `--json` en `src/commands/state.mjs` y `bin/changeledger.mjs`, separados del guard replica-only; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR11, CR12)
+- [x] Añadir repos Git reales SHA-1/SHA-256 con paths hostiles antes de implementar lectura NUL-framed de trees en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-22T13:15:56Z`
+- [x] Implementar revalidación TOCTOU, construcción del snapshot y publicación CAS/idempotente en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/ledger-store.test.mjs` (CR4, CR5)
+  - **Resolved:** `2026-07-22T13:15:57Z`
+- [x] Añadir tests de Git real para commit/ref de activación y revert antes de implementar prepare en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR6, CR8)
+  - **Resolved:** `2026-07-22T13:15:57Z`
+- [x] Endurecer parsing fail-closed de authority/provenance en `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR7)
+  - **Resolved:** `2026-07-22T13:15:57Z`
+- [x] Añadir tests de pending/stale/colisión antes de implementar recovery branch en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/state-store.test.mjs` (CR9)
+  - **Resolved:** `2026-07-22T13:15:57Z`
+- [x] Implementar doctor local/online y categorías de compatibilidad en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR10)
+  - **Resolved:** `2026-07-22T13:15:58Z`
+- [x] Cablear migrate/activate/doctor/export y `--json` en `src/commands/state.mjs` y `bin/changeledger.mjs`, separados del guard replica-only; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR11, CR12)
+  - **Resolved:** `2026-07-22T13:15:58Z`
 - [ ] Actualizar `README.md` y `templates/contract/` con sintaxis, receipts y frontera con enforcement/rollout; verify: `node --test test/context.test.mjs && changeledger check` (CR10, CR11, CR12)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 

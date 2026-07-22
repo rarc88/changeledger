@@ -15,7 +15,7 @@ function fixture(options) {
   const created = createStateRepo(options);
   fs.writeFileSync(
     path.join(created.root, '.changeledger', 'authority.yml'),
-    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${created.baseline}\nproject_id: project-1\n`,
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${created.baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
   );
   git(created.root, ['add', '.changeledger/authority.yml']);
   git(created.root, ['commit', '-qm', 'test: replica authority']);

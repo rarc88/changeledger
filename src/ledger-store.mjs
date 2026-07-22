@@ -9,8 +9,9 @@ import { parseChange } from './change.mjs';
 import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
 import { assertSupportedSchema } from './config-migration.mjs';
+import { VERSION } from './framing.mjs';
 import { defaultRun, sanitizedGitEnv } from './git.mjs';
-import { DEFAULT_RELEASES_DIR } from './release.mjs';
+import { compareVersions, DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 import {
   abortStatePending,
@@ -33,6 +34,7 @@ const STATE_COLLECTION_EXTENSIONS = new Map([
   ['releases', '.yml'],
 ]);
 const EXACT_COMMIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i;
+const SHA256_DIGEST = /^[0-9a-f]{64}$/;
 
 export class LedgerConflictError extends Error {
   constructor(message = 'Ledger state changed concurrently; reload before saving', options) {
@@ -140,6 +142,25 @@ function authorityFor(changeledgerDir) {
   if (typeof authority.project_id !== 'string' || authority.project_id === '') {
     throw new Error('Invalid state authority project_id');
   }
+  if (authority.format_version === 2) {
+    if (!SHA256_DIGEST.test(authority.inventory_digest ?? '')) {
+      throw new Error('Invalid state authority inventory_digest');
+    }
+    if (
+      typeof authority.minimum_client_version !== 'string' ||
+      authority.minimum_client_version === ''
+    ) {
+      throw new Error('Invalid state authority minimum_client_version');
+    }
+    try {
+      if (compareVersions(VERSION, authority.minimum_client_version) < 0) {
+        throw new Error(`state authority requires client >= ${authority.minimum_client_version}`);
+      }
+    } catch (error) {
+      if (/requires client/.test(error.message)) throw error;
+      throw new Error('Invalid state authority minimum_client_version', { cause: error });
+    }
+  }
   return authority;
 }
 
@@ -235,6 +256,14 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
     config?.project_id !== authority.project_id
   ) {
     throw new Error('state project_id does not match authority');
+  }
+  if (authority.format_version === 2) {
+    if (manifest?.inventory_digest !== authority.inventory_digest) {
+      throw new Error('state inventory_digest does not match authority');
+    }
+    if (manifest?.minimum_client_version !== authority.minimum_client_version) {
+      throw new Error('state minimum_client_version does not match authority');
+    }
   }
 
   const entries = (dir, extension, parse) =>

@@ -122,7 +122,10 @@ export function createStateRepo({
   fs.mkdirSync(path.join(state, 'changes'), { recursive: true });
   fs.mkdirSync(path.join(state, 'specs'), { recursive: true });
   fs.mkdirSync(path.join(state, 'releases'), { recursive: true });
-  fs.writeFileSync(path.join(state, 'manifest.yml'), 'format_version: 1\nproject_id: project-1\n');
+  fs.writeFileSync(
+    path.join(state, 'manifest.yml'),
+    `format_version: 1\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
   fs.writeFileSync(path.join(state, 'config.yml'), configText);
   changes.forEach((text, index) => {
     const id = text.match(/^id: "([^"]+)"$/m)?.[1] ?? String(index);

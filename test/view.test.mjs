@@ -165,7 +165,7 @@ test('193102 CR1/CR7: viewer state sync invokes the replica protocol explicitly'
   const created = createStateRepo();
   fs.writeFileSync(
     path.join(created.root, '.changeledger', 'authority.yml'),
-    `format_version: 2\nstate_ref: refs/heads/changeledger/state\nbaseline: ${created.baseline}\nproject_id: project-1\n`,
+    `format_version: 2\nstate_ref: refs/heads/changeledger/state\nbaseline: ${created.baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
   );
   git(created.root, ['update-ref', 'refs/changeledger/confirmed', created.baseline]);
   git(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);

@@ -40,7 +40,10 @@ function fixture({ mutateState, objectFormat, authorityFormat = 1, seedConfirmed
   fs.mkdirSync(path.join(state, 'changes'), { recursive: true });
   fs.mkdirSync(path.join(state, 'specs'), { recursive: true });
   fs.mkdirSync(path.join(state, 'releases'), { recursive: true });
-  fs.writeFileSync(path.join(state, 'manifest.yml'), 'format_version: 1\nproject_id: project-1\n');
+  fs.writeFileSync(
+    path.join(state, 'manifest.yml'),
+    `format_version: 1\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
   fs.writeFileSync(
     path.join(state, 'config.yml'),
     'project_id: project-1\nlanguage: es\nchanges_dir: ignored\ntypes:\n  feature:\n    stages: [request]\n',
@@ -65,9 +68,13 @@ function fixture({ mutateState, objectFormat, authorityFormat = 1, seedConfirmed
 
   git(root, ['checkout', '-q', 'dev']);
   fs.rmSync(path.join(root, '.changeledger', 'config.yml'));
+  const replicaFields =
+    authorityFormat === 2
+      ? `inventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`
+      : '';
   fs.writeFileSync(
     path.join(root, '.changeledger', 'authority.yml'),
-    `format_version: ${authorityFormat}\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n`,
+    `format_version: ${authorityFormat}\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n${replicaFields}`,
   );
   git(root, ['add', '.']);
   git(root, ['commit', '-qm', 'chore: authority']);
@@ -168,6 +175,38 @@ test('193102 CR1/CR3/CR7: replica authority requires confirmed state without fal
   const pending = loadLedgerStore(root).load();
   assert.equal(pending.revision, publicHead);
   assert.equal(pending.changes[0].frontmatter.title, 'New');
+});
+
+test('193103 CR7: replica authority requires immutable provenance and a compatible client', () => {
+  const missingDigest = fixture({ authorityFormat: 2, seedConfirmed: true });
+  fs.writeFileSync(
+    path.join(missingDigest.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${missingDigest.baseline}\nproject_id: project-1\nminimum_client_version: 0.13.0\n`,
+  );
+  assert.throws(
+    () => loadLedgerStore(missingDigest.root).load(),
+    /Invalid state authority inventory_digest/,
+  );
+
+  const futureClient = fixture({ authorityFormat: 2, seedConfirmed: true });
+  fs.writeFileSync(
+    path.join(futureClient.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${futureClient.baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 99.0.0\n`,
+  );
+  assert.throws(
+    () => loadLedgerStore(futureClient.root).load(),
+    /state authority requires client >= 99\.0\.0/,
+  );
+
+  const mismatched = fixture({ authorityFormat: 2, seedConfirmed: true });
+  fs.writeFileSync(
+    path.join(mismatched.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${mismatched.baseline}\nproject_id: project-1\ninventory_digest: ${'b'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  assert.throws(
+    () => loadLedgerStore(mismatched.root).load(),
+    /state inventory_digest does not match authority/,
+  );
 });
 
 test('193102 CR3: a replica mutation creates one pending successor without moving confirmed', () => {

@@ -252,6 +252,19 @@ function groupCandidates(inventories) {
     });
 }
 
+function migrationInventory({ project_id, minimum_client_version, sources, documents }) {
+  return {
+    project_id,
+    minimum_client_version,
+    sources,
+    documents: documents.map(({ identity, kind, candidates }) => ({
+      identity,
+      kind,
+      candidates,
+    })),
+  };
+}
+
 export function previewStateMigration({ sources, output } = {}, start = process.cwd()) {
   if (!Array.isArray(sources) || sources.length === 0) {
     throw new Error('state migrate --preview requires at least one --source');
@@ -264,26 +277,25 @@ export function previewStateMigration({ sources, output } = {}, start = process.
     throw new Error('migration sources must share one non-empty project_id');
   }
   const documents = groupCandidates(inventories);
-  const inventory = {
-    sources: observed.map(({ name, kind, remote, ref, commit }) => ({
-      name,
-      kind,
-      ...(remote ? { remote } : {}),
-      ref,
-      commit,
-    })),
-    documents: documents.map(({ identity, kind, candidates }) => ({
-      identity,
-      kind,
-      candidates,
-    })),
-  };
-  const plan = {
-    format_version: 1,
+  const sourceInventory = observed.map(({ name, kind, remote, ref, commit }) => ({
+    name,
+    kind,
+    ...(remote ? { remote } : {}),
+    ref,
+    commit,
+  }));
+  const inventory = migrationInventory({
     project_id: [...projectIds][0],
     minimum_client_version: VERSION,
+    sources: sourceInventory,
+    documents,
+  });
+  const plan = {
+    format_version: 1,
+    project_id: inventory.project_id,
+    minimum_client_version: VERSION,
     inventory_digest: digest(inventory),
-    sources: inventory.sources,
+    sources: sourceInventory,
     documents,
   };
   const text = stringifyYaml(plan);
@@ -306,6 +318,12 @@ function loadPlan(planFile) {
     throw new Error('Invalid migration plan structure');
   }
   if (!SHA256.test(plan.inventory_digest ?? '')) throw new Error('Invalid inventory_digest');
+  const actualDigest = digest(migrationInventory(plan));
+  if (actualDigest !== plan.inventory_digest) {
+    throw new Error(
+      'migration plan integrity check failed: inventory_digest does not match inventory',
+    );
+  }
   return { file, plan };
 }
 
@@ -557,7 +575,12 @@ function createBranchCommit({ repoRoot, base, branch, writes, removals, message 
   }
   if (existing) {
     const existingTree = git(repoRoot, ['rev-parse', `${existing}^{tree}`]);
-    const existingParent = git(repoRoot, ['rev-parse', `${existing}^`]);
+    let existingParent = null;
+    try {
+      existingParent = git(repoRoot, ['rev-parse', '--verify', `${existing}^`]);
+    } catch {
+      existingParent = null;
+    }
     if (existingTree === tree && existingParent === base) return { commit: existing, reused: true };
     throw new Error(
       `branch ${branch.replace('refs/heads/', '')} already exists with different content`,

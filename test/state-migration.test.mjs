@@ -13,6 +13,9 @@ import {
   previewStateMigration,
 } from '../src/state-migration.mjs';
 import { CONFIRMED_REF, OBSERVED_REF } from '../src/state-store.mjs';
+import { stringifyYaml } from '../src/yaml.mjs';
+
+const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function git(root, args, input) {
   return execFileSync('git', args, {
@@ -121,6 +124,55 @@ test('193103 CR1/CR2: preview is deterministic and groups logical identities', (
   assert.equal(git(root, ['for-each-ref', '--format=%(refname) %(objectname)']), beforeRefs);
 });
 
+test('193103 CR11/CR12: CLI works before and after authority with JSON receipts', () => {
+  const { root } = legacyRepo();
+  const cli = path.resolve('bin/changeledger.mjs');
+  const runJson = (...args) =>
+    JSON.parse(
+      execFileSync(process.execPath, [cli, ...args, '--json'], {
+        cwd: root,
+        encoding: 'utf8',
+      }),
+    );
+
+  const planFile = path.join(root, 'migration-plan.yml');
+  const preview = runJson(
+    'state',
+    'migrate',
+    '--preview',
+    '--source',
+    'local:refs/heads/dev',
+    '--output',
+    planFile,
+  );
+  assert.equal(preview.plan.sources[0].name, 'local:refs/heads/dev');
+  assert.equal(preview.written, true);
+  assert.equal(preview.network, false);
+
+  const baseline = runJson('state', 'migrate', '--create', '--plan', planFile);
+  assert.match(baseline.baseline, OID_PATTERN);
+  assert.match(baseline.inventoryDigest, /^[0-9a-f]{64}$/);
+  assert.equal(baseline.network, true);
+
+  const activation = runJson('state', 'activate', '--prepare', '--baseline', baseline.baseline);
+  assert.match(activation.commit, OID_PATTERN);
+  assert.equal(activation.baseline, baseline.baseline);
+
+  const diagnosis = runJson('state', 'doctor', '--activation-ref', activation.branch);
+  assert.equal(diagnosis.ok, true);
+  assert.equal(diagnosis.network, false);
+
+  git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+  const recovery = runJson('state', 'export', '--recovery-branch');
+  assert.equal(recovery.confirmed, baseline.baseline);
+  assert.equal(recovery.network, false);
+  assert.equal(recovery.written, true);
+});
+
 test('193103 CR2/CR4: divergent identity and stale plans fail before publication', () => {
   const { root } = legacyRepo();
   git(root, ['checkout', '-qb', 'other']);
@@ -154,6 +206,62 @@ test('193103 CR2/CR4: divergent identity and stale plans fail before publication
     /migration plan is stale.*expected.*actual/s,
   );
   assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+});
+
+test('193103 CR4: edited inventory cannot retain the preview digest', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  preview.plan.documents[0].candidates[0].path = '.changeledger/changes/forged.md';
+
+  assert.throws(
+    () => createStateBaseline({ planFile: writePlan(root, stringifyYaml(preview.plan)) }, root),
+    /migration plan integrity check failed: inventory_digest does not match inventory/,
+  );
+  assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+});
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`193103 CR1/CR3: tree inventory preserves NUL-framed names with ${objectFormat}`, (t) => {
+    let fixture;
+    try {
+      fixture = legacyRepo(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+    const oddName = 'line\nbreak.md';
+    fs.writeFileSync(
+      path.join(root, '.changeledger', 'specs', oddName),
+      '---\ntitle: Odd\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n\nOdd.\n',
+    );
+    git(root, ['add', '.changeledger/specs']);
+    git(root, ['commit', '-qm', 'test: odd path']);
+
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const odd = preview.plan.documents.find((entry) => entry.identity === 'spec:line\nbreak');
+    assert.equal(odd.resolution.basename, oddName);
+    const result = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+    const tree = git(root, ['ls-tree', '-r', '-z', '--name-only', result.baseline]);
+    assert.ok(tree.split('\0').includes(`.changeledger-state/specs/${oddName}`));
+  });
+}
+
+test('193103 CR3: symlinks and gitlinks fail closed without checkout', () => {
+  const { root } = legacyRepo();
+  fs.symlinkSync('demo.md', path.join(root, '.changeledger', 'specs', 'alias.md'));
+  git(root, ['add', '.changeledger/specs/alias.md']);
+  git(root, ['commit', '-qm', 'test: symlink']);
+  const branch = git(root, ['branch', '--show-current']);
+
+  assert.throws(
+    () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+    /unsupported Git entry 120000 blob.*alias\.md/,
+  );
+  assert.equal(git(root, ['branch', '--show-current']), branch);
 });
 
 test('193103 CR5/CR6/CR8: baseline and activation are idempotent without checkout', () => {
@@ -194,6 +302,13 @@ test('193103 CR5/CR6/CR8: baseline and activation are idempotent without checkou
   assert.equal(parent, git(root, ['rev-parse', 'dev']));
   assert.match(inverse, /D\s+\.changeledger\/config\.yml/);
   assert.match(inverse, /A\s+\.changeledger\/authority\.yml/);
+
+  git(root, ['branch', '-f', activation.branch, parent]);
+  assert.throws(
+    () => prepareStateActivation({ baseline: first.baseline }, root),
+    /already exists with different content/,
+  );
+  assert.equal(git(root, ['rev-parse', activation.branch]), parent);
 });
 
 test('193103 CR9/CR10: doctor inspects activation and recovery exports confirmed state', () => {
@@ -216,4 +331,31 @@ test('193103 CR9/CR10: doctor inspects activation and recovery exports confirmed
   assert.equal(git(root, ['branch', '--show-current']), 'dev');
   assert.equal(git(root, ['show', `${recovery.commit}:.changeledger/config.yml`]), config().trim());
   assert.throws(() => git(root, ['show', `${recovery.commit}:.changeledger/authority.yml`]));
+});
+
+test('193103 CR9: recovery rejects pending, stale observation and branch collision atomically', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+  const before = git(root, ['status', '--porcelain=v1']);
+
+  git(root, ['update-ref', 'refs/changeledger/pending', baseline.baseline]);
+  assert.throws(() => exportStateRecovery(root), /requires no refs\/changeledger\/pending/);
+  git(root, ['update-ref', '-d', 'refs/changeledger/pending']);
+
+  git(root, ['update-ref', OBSERVED_REF, activation.commit]);
+  assert.throws(() => exportStateRecovery(root), /requires a fresh confirmed state/);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+
+  const branch = `changeledger/recover-${baseline.baseline.slice(0, 12)}`;
+  git(root, ['branch', branch, activation.commit]);
+  assert.throws(() => exportStateRecovery(root), /already exists with different content/);
+  assert.equal(git(root, ['rev-parse', branch]), activation.commit);
+  assert.equal(git(root, ['status', '--porcelain=v1']), before);
 });

@@ -29,7 +29,15 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
-import { stateAbort, stateStatus, stateSync } from '../src/commands/state.mjs';
+import {
+  stateAbort,
+  stateActivate,
+  stateDoctor,
+  stateExport,
+  stateMigrate,
+  stateStatus,
+  stateSync,
+} from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
 import { formatLedgerReceipt, loadLedgerStore } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
@@ -893,6 +901,88 @@ stateCommand
           `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
         );
       }
+    }),
+  );
+
+stateCommand
+  .command('migrate')
+  .description('preview or create a global state baseline from explicit legacy refs')
+  .option('--preview', 'write no state; emit a deterministic migration plan')
+  .option('--create', 'validate a saved plan and publish its initial baseline')
+  .option('--source <source>', 'repeatable local:<full-ref> or <remote>:<full-ref>', collect, [])
+  .option('--output <file>', 'write preview YAML to this local file')
+  .option('--plan <file>', 'resolved preview plan consumed by --create')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((options) => {
+      const result = stateMigrate(process.cwd(), {
+        preview: options.preview,
+        create: options.create,
+        sources: options.source,
+        output: options.output,
+        plan: options.plan,
+      });
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else if (options.preview) console.log(result.text);
+      else
+        console.log(
+          `State baseline ${result.baseline} at ${result.remote}:${result.stateRef} (inventory ${result.inventoryDigest}; written: ${result.written})`,
+        );
+    }),
+  );
+
+stateCommand
+  .command('activate')
+  .description('prepare one local activation branch without checkout, push or merge')
+  .option('--prepare', 'create the local activation branch')
+  .requiredOption('--baseline <oid>', 'published state baseline commit OID')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((options) => {
+      const result = stateActivate(process.cwd(), options);
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else
+        console.log(
+          `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; written: ${result.written})`,
+        );
+    }),
+  );
+
+stateCommand
+  .command('doctor')
+  .description('diagnose an activation locally, with optional explicit remote observation')
+  .requiredOption('--activation-ref <ref>', 'activation branch or commit to inspect')
+  .option('--online', 'observe remote state and migration sources without publication')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((options) => {
+      const result = stateDoctor(process.cwd(), options);
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log(`Activation: ${result.activation}`);
+        console.log(`Baseline: ${result.baseline}`);
+        console.log(`Inventory: ${result.inventoryDigest}`);
+        console.log(`Network: ${result.network}`);
+        console.log(`Result: ${result.ok ? 'ready' : 'not ready'}`);
+        for (const problem of result.problems) console.log(`- ${problem}`);
+      }
+      if (!result.ok) process.exitCode = 1;
+    }),
+  );
+
+stateCommand
+  .command('export')
+  .description('prepare a local recovery branch from the confirmed state')
+  .option('--recovery-branch', 'materialize confirmed state in legacy layout')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((options) => {
+      const result = stateExport(process.cwd(), options);
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      else
+        console.log(
+          `Prepared ${result.branch} at ${result.commit} from ${result.integration} (confirmed ${result.confirmed}; written: ${result.written})`,
+        );
     }),
   );
 
