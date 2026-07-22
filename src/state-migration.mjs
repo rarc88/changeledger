@@ -1,3 +1,4 @@
+import { isUtf8 } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -45,18 +46,19 @@ function recordSourceActivity(activity, source) {
   });
 }
 
-function gitOutput(repoRoot, args, { input, env, timeout } = {}) {
+function gitOutput(repoRoot, args, { input, env, timeout, encoding = 'utf8' } = {}) {
   try {
     return execFileSync('git', args, {
       cwd: repoRoot,
       env: sanitizedGitEnv(env),
       input,
-      encoding: 'utf8',
+      encoding,
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout,
     });
   } catch (error) {
     const detail = [error.stderr, error.stdout]
+      .map((value) => (Buffer.isBuffer(value) ? value.toString('utf8') : value))
       .map((value) => (typeof value === 'string' ? value.trim() : ''))
       .filter(Boolean)
       .join('\n');
@@ -168,7 +170,9 @@ function regularBlob(entry, sourceName) {
 
 function blobText(repoRoot, blob) {
   if (!OID.test(blob)) throw new Error(`invalid Git blob OID: ${blob}`);
-  return gitOutput(repoRoot, ['cat-file', 'blob', blob]);
+  const buffer = gitOutput(repoRoot, ['cat-file', 'blob', blob], { encoding: null });
+  if (!isUtf8(buffer)) throw new Error(`blob ${blob} is not valid UTF-8`);
+  return buffer.toString('utf8');
 }
 
 function basename(file) {

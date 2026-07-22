@@ -450,6 +450,72 @@ test('193103 CR3: invalid documents report source, commit and path', () => {
   );
 });
 
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`163405 CR1/CR2/CR3: blob fidelity holds with ${objectFormat}`, (t) => {
+    let fixture;
+    try {
+      fixture = legacyRepo(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+
+    const validFile = '.changeledger/specs/tilde.md';
+    fs.writeFileSync(
+      path.join(root, validFile),
+      '---\ntitle: café\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n\n✓ válido.\n',
+    );
+    git(root, ['add', validFile]);
+    git(root, ['commit', '-qm', 'test: valid utf8']);
+    const sourceBlob = git(root, ['rev-parse', `HEAD:${validFile}`]);
+
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+    const stateBlob = git(root, [
+      'rev-parse',
+      `${baseline.baseline}:.changeledger-state/specs/tilde.md`,
+    ]);
+    assert.equal(stateBlob, sourceBlob, 'valid UTF-8 content must keep its exact source blob OID');
+
+    prepareStateActivation({ baseline: baseline.baseline }, root);
+
+    const brokenRoot = legacyRepo(objectFormat).root;
+    const brokenFile = '.changeledger/specs/broken-encoding.md';
+    const bytes = Buffer.concat([
+      Buffer.from('---\ntitle: '),
+      Buffer.from([0xe9]),
+      Buffer.from('\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n\nBroken.\n'),
+    ]);
+    fs.writeFileSync(path.join(brokenRoot, brokenFile), bytes);
+    git(brokenRoot, ['add', brokenFile]);
+    git(brokenRoot, ['commit', '-qm', 'test: invalid encoding']);
+    const brokenHead = git(brokenRoot, ['rev-parse', 'HEAD']);
+    const brokenBlob = git(brokenRoot, ['rev-parse', `HEAD:${brokenFile}`]);
+
+    let caught;
+    try {
+      previewStateMigration({ sources: ['local:refs/heads/dev'] }, brokenRoot);
+      assert.fail('expected preview to reject invalid UTF-8');
+    } catch (error) {
+      caught = error;
+    }
+    assert.match(
+      caught.message,
+      new RegExp(`local:refs/heads/dev at ${brokenHead}:${brokenFile.replaceAll('.', '\\.')}`),
+    );
+    assert.match(caught.message, new RegExp(brokenBlob));
+    assert.match(caught.message, /not valid UTF-8/);
+    assert.equal(
+      git(brokenRoot, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']),
+      '',
+    );
+  });
+}
+
 test('193103 CR5/CR6/CR8: baseline and activation are idempotent without checkout', () => {
   const { root } = legacyRepo();
   const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
