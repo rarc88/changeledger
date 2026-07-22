@@ -508,11 +508,12 @@ test('202058 CR1: archiving or discarding a change keeps its identity and is acc
 });
 
 test('202058 CR1: a merge commit is checked against every one of its parents', () => {
-  // Neither branch alone removes the change -- both parents individually
-  // still have it, so they validate cleanly on their own. Only the MERGE
-  // commit's own conflict resolution deletes it (hidden alongside resolving
-  // an unrelated real conflict), so catching this requires comparing the
-  // merge against both of its parents, not just skipping straight through.
+  // The dropped identity ("20260722-000001") exists ONLY on the side branch --
+  // mainline never has it, so comparing the merge against mainline alone shows
+  // no disappearance (mainline never had it to lose). Only comparing against
+  // the SIDE parent reveals it. A first-parent-only implementation would miss
+  // this entirely and pass. The merge also resolves a real, unrelated conflict
+  // on conflict.md so the dropped identity is hidden alongside legitimate work.
   const created = fixture();
   git(created.root, ['checkout', '-q', 'changeledger/state']);
   git(created.root, ['branch', 'state-side']);
@@ -526,8 +527,12 @@ test('202058 CR1: a merge commit is checked against every one of its parents', (
   git(created.root, ['checkout', '-q', 'state-side']);
   fs.mkdirSync(path.join(created.state, 'specs'), { recursive: true });
   fs.writeFileSync(path.join(created.state, 'specs', 'conflict.md'), conflictSpec('Side'));
+  fs.writeFileSync(
+    path.join(created.state, 'changes', '20260722-000001-change.md'),
+    '---\nid: "20260722-000001"\ntitle: Side only\ntype: feature\nstatus: draft\ncreated: 2026-07-22T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nSide only.\n\n## Plan\n\n- [ ] Do it\n\n## Log\n',
+  );
   git(created.root, ['add', '.changeledger-state']);
-  git(created.root, ['commit', '-qm', 'test: side edits conflict.md']);
+  git(created.root, ['commit', '-qm', 'test: side edits conflict.md and adds a change']);
   const sideHead = git(created.root, ['rev-parse', 'HEAD']);
   git(created.root, ['checkout', '-q', 'changeledger/state']);
   git(created.root, ['reset', '-q', '--hard', mainHead]);
@@ -536,7 +541,7 @@ test('202058 CR1: a merge commit is checked against every one of its parents', (
   });
   assert.notEqual(mergeResult.status, 0, 'expected a real merge conflict on conflict.md');
   fs.writeFileSync(path.join(created.state, 'specs', 'conflict.md'), conflictSpec('Resolved'));
-  fs.rmSync(path.join(created.state, 'changes', '20260721-000000-change.md'));
+  fs.rmSync(path.join(created.state, 'changes', '20260722-000001-change.md'));
   git(created.root, ['add', '.changeledger-state']);
   git(created.root, ['commit', '--no-edit']);
   const merge = git(created.root, ['rev-parse', 'HEAD']);
@@ -544,6 +549,12 @@ test('202058 CR1: a merge commit is checked against every one of its parents', (
     .split(' ')
     .slice(1);
   assert.deepEqual(parents, [mainHead, sideHead]);
+  // Confirm the property the test relies on: mainline never had the identity,
+  // so a first-parent-only comparison would find nothing missing.
+  assert.equal(
+    fs.existsSync(path.join(created.state, 'changes', '20260722-000001-change.md')),
+    false,
+  );
   git(created.root, ['checkout', '-q', 'dev']);
   git(created.root, ['update-ref', STATE_REF, created.baseline]);
   assert.throws(
@@ -557,7 +568,7 @@ test('202058 CR1: a merge commit is checked against every one of its parents', (
         integrationRef: INTEGRATION_REF,
         limits: roomy,
       }),
-    /removes changes identity "20260721-000000"/,
+    /removes changes identity "20260722-000001"/,
   );
 });
 
