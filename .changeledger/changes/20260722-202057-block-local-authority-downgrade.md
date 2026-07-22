@@ -2,9 +2,10 @@
 id: "20260722-202057"
 title: Bloquear el downgrade local de authority v2
 type: bug
-status: draft
+status: in-review
 created: 2026-07-22T20:20:57Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260721-193101", "20260722-203030"]
 release_impact: patch
 ---
@@ -59,9 +60,16 @@ authority es push/hook, no local) pertenece a `20260722-203030`, no a este fix.
 
 ## Plan
 
-- [ ] Añadir tests fallidos del downgrade con refs v2 presentes (lectura y mutación) y del repo v1 genuino intacto, y añadir la detección en `gitStateRevision` de `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/state-command.test.mjs` (CR1, CR2)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos del downgrade con refs v2 presentes (lectura y mutación) y del repo v1 genuino intacto, y añadir la detección en `gitStateRevision` de `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/state-command.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-22T21:10:00Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T21:12:00Z`
 
 ## Log
 
 - **2026-07-22T20:20:57Z** `[note]` Draft creado desde la unión de las dos ejecuciones de 20260721-193106: hallado por la ejecución paralela (UPG-3c) y confirmado independientemente por el auditor principal. Crítico por los gates del audit: bypass/fallback de authority sirviendo verdad obsoleta en silencio.
+- **2026-07-22T20:56:25Z** `[status]` draft → approved (human via conversation)
+- **2026-07-22T20:56:26Z** `[status]` approved → in-progress
+- **2026-07-22T20:56:26Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-22T21:12:00Z** `[note]` `gitStateRevision` (`src/ledger-store.mjs`) detecta, en la rama de authority v1, la presencia de cualquiera de `refs/changeledger/{confirmed,observed,pending}` y falla cerrado antes de resolver `authority.state_ref`, en lectura y mutación (ambas pasan por la misma función). Un repo v1 genuino sin esas refs no cambia de comportamiento. Rojo confirmado antes del fix (CR1 fallaba, CR2 ya pasaba por no tocar código); verde después: 32/32 en `ledger-store.test.mjs`, 111/111 en la suite ampliada (`state-command`/`state-store`/`ledger-mutations`). Gate completo: 922/922 tests, lint y 234 changes válidos.
+- **2026-07-22T21:03:27Z** `[status]` in-progress → in-review

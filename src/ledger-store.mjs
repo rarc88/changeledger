@@ -18,6 +18,7 @@ import {
   CONFIRMED_REF,
   createStatePending,
   keepStateReplicaRevision,
+  OBSERVED_REF,
   PENDING_REF,
   stateReplicaStatus,
   syncStateReplica,
@@ -200,6 +201,19 @@ function gitStateRevision(repoRoot, authority, run) {
       }
       revision = pending ?? confirmed;
     } else {
+      const hasReplicaRef = [CONFIRMED_REF, OBSERVED_REF, PENDING_REF].some((ref) => {
+        try {
+          run(['rev-parse', '--verify', ref], repoRoot);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (hasReplicaRef) {
+        throw new Error(
+          'state authority v1 conflicts with local replica v2 refs; resolve the mismatch before reading or mutating the ledger',
+        );
+      }
       revision = run(['rev-parse', '--verify', authority.state_ref], repoRoot).trim();
     }
     baseline = run(['rev-parse', '--verify', authority.baseline], repoRoot).trim();
@@ -207,7 +221,8 @@ function gitStateRevision(repoRoot, authority, run) {
   } catch (error) {
     if (
       error.message.startsWith('state replica') ||
-      error.message.startsWith('invalid state replica')
+      error.message.startsWith('invalid state replica') ||
+      error.message.startsWith('state authority v1 conflicts')
     ) {
       throw error;
     }

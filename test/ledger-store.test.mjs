@@ -309,6 +309,43 @@ test('193102 CR3: a replica no-op rejects a pending state created during its mut
   assert.equal(git(root, ['rev-parse', PENDING_REF]), pending);
 });
 
+test('202057 CR1: a v1 authority with local v2 replica refs fails closed on read and mutation', () => {
+  const { root } = fixture({ authorityFormat: 1, seedConfirmed: true });
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    /authority v1.*replica v2|replica v2.*authority v1/i,
+  );
+  assert.throws(
+    () =>
+      loadLedgerStore(root).mutate(
+        { message: 'test: downgrade mutation', expectedRevision: 'irrelevant' },
+        () => {},
+      ),
+    /authority v1.*replica v2|replica v2.*authority v1/i,
+  );
+
+  const observedOnly = fixture({ authorityFormat: 1 });
+  git(observedOnly.root, ['update-ref', 'refs/changeledger/observed', observedOnly.baseline]);
+  assert.throws(
+    () => loadLedgerStore(observedOnly.root).load(),
+    /authority v1.*replica v2|replica v2.*authority v1/i,
+  );
+
+  const pendingOnly = fixture({ authorityFormat: 1, seedConfirmed: true });
+  git(pendingOnly.root, ['update-ref', 'refs/changeledger/pending', pendingOnly.baseline]);
+  assert.throws(
+    () => loadLedgerStore(pendingOnly.root).load(),
+    /authority v1.*replica v2|replica v2.*authority v1/i,
+  );
+});
+
+test('202057 CR2: a genuine v1 repo without any v2 replica ref is unaffected', () => {
+  const { root, baseline } = fixture({ authorityFormat: 1 });
+  const snapshot = loadLedgerStore(root).load();
+  assert.equal(snapshot.revision, baseline);
+  assert.equal(snapshot.ledgerFreshness, 'local');
+});
+
 test('193101 correction CR3: authority baseline must be an exact full commit OID', () => {
   const { root } = fixture();
   fs.writeFileSync(
