@@ -9,8 +9,15 @@ import { findChangeledgerDir, integrationBranch } from './config.mjs';
 import { VERSION } from './framing.mjs';
 import { sanitizedGitEnv } from './git.mjs';
 import { loadLedgerStore, STATE_REF } from './ledger-store.mjs';
+import { compareVersions } from './release.mjs';
 import { parseSpec } from './spec.mjs';
-import { PENDING_REF, readStateReplica, stateRemote } from './state-store.mjs';
+import {
+  CONFIRMED_REF,
+  OBSERVED_REF,
+  PENDING_REF,
+  readStateReplica,
+  stateRemote,
+} from './state-store.mjs';
 import { parseYaml, stringifyYaml } from './yaml.mjs';
 
 const STATE_ROOT = '.changeledger-state';
@@ -21,6 +28,22 @@ const LEGACY_AUTHORITY_PATH = '.changeledger/authority.yml';
 const RELEASES_DIR = '.changeledger/releases';
 const OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+
+function recordActivity(activity, values) {
+  Object.assign(activity, values);
+}
+
+function recordSourceActivity(activity, source) {
+  if (!activity) return;
+  const sources = [...(activity.sources ?? [])];
+  const index = sources.findIndex((item) => item.name === source.name);
+  if (index === -1) sources.push(source);
+  else sources[index] = { ...sources[index], ...source };
+  recordActivity(activity, {
+    sources,
+    sourceOids: { ...(activity.sourceOids ?? {}), [source.name]: source.commit },
+  });
+}
 
 function gitOutput(repoRoot, args, { input, env, timeout } = {}) {
   try {
@@ -80,19 +103,28 @@ function parseSource(value) {
   return { name: value, kind: 'remote', remote, ref };
 }
 
-function observeSource(repoRoot, value) {
+function observeSource(repoRoot, value, activity) {
   const source = parseSource(value);
-  if (source.kind === 'local') return { ...source, commit: exactCommit(repoRoot, source.ref) };
+  if (source.kind === 'local') {
+    const observed = { ...source, commit: exactCommit(repoRoot, source.ref) };
+    recordSourceActivity(activity, observed);
+    return observed;
+  }
   const configured = stateRemote(repoRoot);
   if (source.remote !== configured) {
     throw new Error(`migration source remote must be configured state remote "${configured}"`);
   }
-  const commit = parseRemoteLine(
-    gitOutput(repoRoot, ['ls-remote', '--refs', source.remote, source.ref]),
-    source.name,
-  );
-  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', source.remote, source.ref]);
+  const commit = remoteRef(repoRoot, source.remote, source.ref, activity);
+  if (!commit) throw new Error(`source ${source.name} did not resolve to exactly one ref`);
+  recordSourceActivity(activity, { ...source, commit });
+  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', source.remote, commit]);
   exactCommit(repoRoot, commit);
+  const current = remoteRef(repoRoot, source.remote, source.ref, activity);
+  if (current !== commit) {
+    throw new Error(
+      `source ${source.name} changed while fetching: expected ${commit} actual ${current ?? '(missing)'}`,
+    );
+  }
   return { ...source, commit };
 }
 
@@ -148,40 +180,45 @@ function basename(file) {
 }
 
 function candidateFromEntry(repoRoot, source, entry, kind) {
-  regularBlob(entry, source.name);
-  const content = blobText(repoRoot, entry.blob);
-  const name = basename(entry.path);
-  let identity;
-  if (kind === 'change') {
-    const parsed = parseChange(content);
-    identity = `change:${parsed.frontmatter.id}`;
-    if (!name.startsWith(`${parsed.frontmatter.id}-`) || !name.endsWith('.md')) {
-      throw new Error(
-        `migration source ${source.name} has invalid change filename at ${entry.path}`,
-      );
+  try {
+    regularBlob(entry, source.name);
+    const content = blobText(repoRoot, entry.blob);
+    const name = basename(entry.path);
+    let identity;
+    if (kind === 'change') {
+      const parsed = parseChange(content);
+      identity = `change:${parsed.frontmatter.id}`;
+      if (!name.startsWith(`${parsed.frontmatter.id}-`) || !name.endsWith('.md')) {
+        throw new Error('change filename does not match its id');
+      }
+    } else if (kind === 'spec') {
+      parseSpec(content);
+      if (!name.endsWith('.md')) throw new Error('spec filename must end in .md');
+      identity = `spec:${name.slice(0, -3)}`;
+    } else if (kind === 'release') {
+      const release = parseYaml(content);
+      const version = release.version ?? name.replace(/\.ya?ml$/, '');
+      identity = `release:${version}`;
+    } else {
+      parseYaml(content);
+      identity = 'config';
     }
-  } else if (kind === 'spec') {
-    parseSpec(content);
-    if (!name.endsWith('.md')) throw new Error(`invalid spec filename: ${entry.path}`);
-    identity = `spec:${name.slice(0, -3)}`;
-  } else if (kind === 'release') {
-    const release = parseYaml(content);
-    const version = release.version ?? name.replace(/\.ya?ml$/, '');
-    identity = `release:${version}`;
-  } else {
-    parseYaml(content);
-    identity = 'config';
+    return {
+      identity,
+      kind,
+      source: source.name,
+      commit: source.commit,
+      path: entry.path,
+      mode: entry.mode,
+      blob: entry.blob,
+      basename: kind === 'config' ? 'config.yml' : name,
+    };
+  } catch (error) {
+    throw new Error(
+      `migration source ${source.name} at ${source.commit}:${entry.path}: ${error.message}`,
+      { cause: error },
+    );
   }
-  return {
-    identity,
-    kind,
-    source: source.name,
-    commit: source.commit,
-    path: entry.path,
-    mode: entry.mode,
-    blob: entry.blob,
-    basename: kind === 'config' ? 'config.yml' : name,
-  };
 }
 
 function inventorySource(repoRoot, observed) {
@@ -191,8 +228,17 @@ function inventorySource(repoRoot, observed) {
     throw new Error(`migration source ${observed.name} has no ${LEGACY_CONFIG_PATH}`);
   const configCandidate = candidateFromEntry(repoRoot, observed, configEntry, 'config');
   const config = parseYaml(blobText(repoRoot, configEntry.blob));
-  const changesDir = normalizedRepoPath(config.changes_dir, 'changes_dir');
-  const specsDir = normalizedRepoPath(config.specs_dir ?? '.changeledger/specs', 'specs_dir');
+  let changesDir;
+  let specsDir;
+  try {
+    changesDir = normalizedRepoPath(config.changes_dir, 'changes_dir');
+    specsDir = normalizedRepoPath(config.specs_dir ?? '.changeledger/specs', 'specs_dir');
+  } catch (error) {
+    throw new Error(
+      `migration source ${observed.name} at ${observed.commit}:${LEGACY_CONFIG_PATH}: ${error.message}`,
+      { cause: error },
+    );
+  }
   const collections = [
     ['change', changesDir, '.md'],
     ['spec', specsDir, '.md'],
@@ -202,7 +248,20 @@ function inventorySource(repoRoot, observed) {
   for (const [kind, dir, extension] of collections) {
     const entries = treeEntries(repoRoot, observed.commit, [dir]);
     for (const entry of entries) {
-      if (!entry.path.startsWith(`${dir}/`) || !entry.path.endsWith(extension)) continue;
+      if (!entry.path.startsWith(`${dir}/`)) {
+        throw new Error(
+          `migration source ${observed.name} at ${observed.commit}:${entry.path}: path escapes ${dir}`,
+        );
+      }
+      try {
+        regularBlob(entry, observed.name);
+      } catch (error) {
+        throw new Error(
+          `migration source ${observed.name} at ${observed.commit}:${entry.path}: ${error.message}`,
+          { cause: error },
+        );
+      }
+      if (!entry.path.endsWith(extension)) continue;
       candidates.push(candidateFromEntry(repoRoot, observed, entry, kind));
     }
   }
@@ -224,6 +283,17 @@ function digest(value) {
     .createHash('sha256')
     .update(JSON.stringify(canonical(value)))
     .digest('hex');
+}
+
+function assertClientCompatible(minimum, label) {
+  try {
+    if (compareVersions(VERSION, minimum) < 0) {
+      throw new Error(`${label} requires client >= ${minimum}`);
+    }
+  } catch (error) {
+    if (error.message.includes('requires client')) throw error;
+    throw new Error(`${label} has invalid minimum_client_version`, { cause: error });
+  }
 }
 
 function groupCandidates(inventories) {
@@ -265,12 +335,27 @@ function migrationInventory({ project_id, minimum_client_version, sources, docum
   };
 }
 
-export function previewStateMigration({ sources, output } = {}, start = process.cwd()) {
+export function previewStateMigration(
+  { sources, output } = {},
+  start = process.cwd(),
+  activity = {},
+) {
+  const requestedSources = Array.isArray(sources) ? [...new Set(sources)].sort() : [];
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: requestedSources.map((name) => ({ name, commit: null })),
+    sourceOids: Object.fromEntries(requestedSources.map((name) => [name, null])),
+    baseline: null,
+    branch: null,
+    ref: null,
+    inventoryDigest: null,
+  });
   if (!Array.isArray(sources) || sources.length === 0) {
     throw new Error('state migrate --preview requires at least one --source');
   }
   const { repoRoot } = repoFor(start);
-  const observed = [...new Set(sources)].sort().map((source) => observeSource(repoRoot, source));
+  const observed = requestedSources.map((source) => observeSource(repoRoot, source, activity));
   const inventories = observed.map((source) => inventorySource(repoRoot, source));
   const projectIds = new Set(inventories.map((item) => item.projectId));
   if (projectIds.size !== 1 || ![...projectIds][0]) {
@@ -299,13 +384,27 @@ export function previewStateMigration({ sources, output } = {}, start = process.
     documents,
   };
   const text = stringifyYaml(plan);
-  if (output) fs.writeFileSync(path.resolve(repoRoot, output), text);
+  if (output) {
+    fs.writeFileSync(path.resolve(repoRoot, output), text);
+    activity.written = true;
+  }
+  recordActivity(activity, {
+    sources: sourceInventory,
+    sourceOids: Object.fromEntries(sourceInventory.map((source) => [source.name, source.commit])),
+    inventoryDigest: plan.inventory_digest,
+  });
   return {
     plan,
     text,
     output: output ? path.resolve(repoRoot, output) : null,
-    network: observed.some((s) => s.kind === 'remote'),
-    written: Boolean(output),
+    sources: sourceInventory,
+    sourceOids: Object.fromEntries(sourceInventory.map((source) => [source.name, source.commit])),
+    baseline: null,
+    branch: null,
+    ref: null,
+    inventoryDigest: plan.inventory_digest,
+    network: activity.network,
+    written: activity.written,
   };
 }
 
@@ -318,6 +417,7 @@ function loadPlan(planFile) {
     throw new Error('Invalid migration plan structure');
   }
   if (!SHA256.test(plan.inventory_digest ?? '')) throw new Error('Invalid inventory_digest');
+  assertClientCompatible(plan.minimum_client_version, 'migration plan');
   const actualDigest = digest(migrationInventory(plan));
   if (actualDigest !== plan.inventory_digest) {
     throw new Error(
@@ -327,14 +427,37 @@ function loadPlan(planFile) {
   return { file, plan };
 }
 
-function revalidatePlan(repoRoot, plan) {
+function revalidatePlan(repoRoot, plan, activity) {
+  const inventories = [];
+  const sources = [];
   for (const source of plan.sources) {
-    const actual = observeSource(repoRoot, source.name).commit;
-    if (actual !== source.commit) {
+    const observed = observeSource(repoRoot, source.name, activity);
+    if (observed.commit !== source.commit) {
       throw new Error(
-        `migration plan is stale: source ${source.name} expected ${source.commit} actual ${actual}`,
+        `migration plan is stale: source ${source.name} expected ${source.commit} actual ${observed.commit}`,
       );
     }
+    inventories.push(inventorySource(repoRoot, observed));
+    sources.push({
+      name: observed.name,
+      kind: observed.kind,
+      ...(observed.remote ? { remote: observed.remote } : {}),
+      ref: observed.ref,
+      commit: observed.commit,
+    });
+  }
+  const projectIds = new Set(inventories.map((item) => item.projectId));
+  const actualInventory = migrationInventory({
+    project_id: projectIds.size === 1 ? [...projectIds][0] : null,
+    minimum_client_version: plan.minimum_client_version,
+    sources,
+    documents: groupCandidates(inventories),
+  });
+  const actualDigest = digest(actualInventory);
+  if (actualDigest !== plan.inventory_digest) {
+    throw new Error(
+      `migration plan is stale: inventory expected ${plan.inventory_digest} actual ${actualDigest}`,
+    );
   }
 }
 
@@ -422,7 +545,8 @@ function candidateSnapshot(repoRoot, planFile, plan) {
     project_id: plan.project_id,
     inventory_digest: plan.inventory_digest,
     minimum_client_version: plan.minimum_client_version,
-    sources: plan.sources.map(({ name, commit }) => ({ name, commit })),
+    sources: plan.sources,
+    inventory: migrationInventory(plan),
     decisions,
   };
   writes.set(MANIFEST_PATH, stringifyYaml(manifest));
@@ -456,24 +580,48 @@ function treeFromWrites(repoRoot, writes, base) {
   });
 }
 
-function remoteRef(repoRoot, remote, ref) {
+function remoteRef(repoRoot, remote, ref, activity) {
+  if (activity) activity.network = true;
   const output = gitOutput(repoRoot, ['ls-remote', '--refs', remote, ref]);
   if (output.trim() === '') return null;
   return parseRemoteLine(output, `${remote}:${ref}`);
 }
 
-function fetchRef(repoRoot, remote, ref) {
-  const oid = remoteRef(repoRoot, remote, ref);
+function fetchRef(repoRoot, remote, ref, activity) {
+  const oid = remoteRef(repoRoot, remote, ref, activity);
   if (!oid) return null;
-  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', remote, ref]);
+  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', remote, oid]);
   exactCommit(repoRoot, oid);
+  const current = remoteRef(repoRoot, remote, ref, activity);
+  if (current !== oid) {
+    throw new Error(
+      `remote ref ${remote}:${ref} changed while fetching: expected ${oid} actual ${current ?? '(missing)'}`,
+    );
+  }
   return oid;
 }
 
-export function createStateBaseline({ planFile } = {}, start = process.cwd()) {
+export function createStateBaseline({ planFile } = {}, start = process.cwd(), activity = {}) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: STATE_REF.replace('refs/heads/', ''),
+    ref: STATE_REF,
+    inventoryDigest: null,
+  });
   const { repoRoot } = repoFor(start);
   const loaded = loadPlan(planFile);
-  revalidatePlan(repoRoot, loaded.plan);
+  recordActivity(activity, {
+    sources: loaded.plan.sources,
+    sourceOids: Object.fromEntries(
+      loaded.plan.sources.map((source) => [source.name, source.commit]),
+    ),
+    inventoryDigest: loaded.plan.inventory_digest,
+  });
+  revalidatePlan(repoRoot, loaded.plan, activity);
   const candidate = candidateSnapshot(repoRoot, loaded.file, loaded.plan);
   const tree = treeFromWrites(repoRoot, candidate.writes);
   const commit = git(repoRoot, [
@@ -482,10 +630,10 @@ export function createStateBaseline({ planFile } = {}, start = process.cwd()) {
     '-m',
     `chore(state): migration baseline ${loaded.plan.inventory_digest}`,
   ]);
+  activity.baseline = commit;
   const remote = stateRemote(repoRoot);
-  const existing = fetchRef(repoRoot, remote, STATE_REF);
+  const existing = fetchRef(repoRoot, remote, STATE_REF, activity);
   let baseline = commit;
-  let created = false;
   if (existing) {
     const existingTree = git(repoRoot, ['rev-parse', `${existing}^{tree}`]);
     if (existingTree !== tree)
@@ -494,20 +642,27 @@ export function createStateBaseline({ planFile } = {}, start = process.cwd()) {
   } else {
     try {
       git(repoRoot, ['push', remote, `${commit}:${STATE_REF}`]);
-      created = true;
+      activity.written = true;
     } catch (error) {
-      const raced = fetchRef(repoRoot, remote, STATE_REF);
+      const raced = fetchRef(repoRoot, remote, STATE_REF, activity);
       if (!raced || git(repoRoot, ['rev-parse', `${raced}^{tree}`]) !== tree) throw error;
       baseline = raced;
     }
   }
+  activity.baseline = baseline;
   return {
     baseline,
     remote,
     stateRef: STATE_REF,
     inventoryDigest: loaded.plan.inventory_digest,
-    network: true,
-    written: created,
+    sources: loaded.plan.sources,
+    sourceOids: Object.fromEntries(
+      loaded.plan.sources.map((source) => [source.name, source.commit]),
+    ),
+    branch: STATE_REF.replace('refs/heads/', ''),
+    ref: STATE_REF,
+    network: activity.network,
+    written: activity.written,
   };
 }
 
@@ -515,23 +670,170 @@ function treeEntry(repoRoot, commit, file) {
   return treeEntries(repoRoot, commit, [file]).find((entry) => entry.path === file) ?? null;
 }
 
-function stateFiles(repoRoot, revision) {
-  return treeEntries(repoRoot, revision, [STATE_ROOT]);
+function validateManifestDecisions(repoRoot, manifest, entries) {
+  const inventory = manifest.inventory;
+  if (
+    inventory.minimum_client_version !== manifest.minimum_client_version ||
+    !Array.isArray(inventory.documents)
+  ) {
+    throw new Error('state manifest inventory metadata mismatch');
+  }
+  const sources = new Map(inventory.sources.map((source) => [source.name, source]));
+  const decisions = new Map();
+  for (const decision of manifest.decisions) {
+    if (
+      typeof decision?.identity !== 'string' ||
+      typeof decision?.target !== 'string' ||
+      decisions.has(decision.identity)
+    ) {
+      throw new Error('state manifest has invalid or duplicate decisions');
+    }
+    decisions.set(decision.identity, decision);
+  }
+  const entryByPath = new Map(entries.map((entry) => [entry.path, entry]));
+  const targets = new Set();
+  const identities = new Set();
+  for (const document of inventory.documents) {
+    if (
+      typeof document?.identity !== 'string' ||
+      !['change', 'config', 'release', 'spec'].includes(document?.kind) ||
+      !Array.isArray(document.candidates) ||
+      identities.has(document.identity)
+    ) {
+      throw new Error('state manifest has invalid inventory documents');
+    }
+    identities.add(document.identity);
+    for (const candidate of document.candidates) {
+      const source = sources.get(candidate.source);
+      if (
+        !source ||
+        candidate.commit !== source.commit ||
+        !OID.test(candidate.blob ?? '') ||
+        !['100644', '100755'].includes(candidate.mode)
+      ) {
+        throw new Error(`state manifest has invalid candidate for ${document.identity}`);
+      }
+    }
+    const decision = decisions.get(document.identity);
+    if (!decision) throw new Error(`state manifest has no decision for ${document.identity}`);
+    const targetName = path.posix.basename(decision.target);
+    if (statePath(document, targetName) !== decision.target || targets.has(decision.target)) {
+      throw new Error(`state manifest has invalid target for ${document.identity}`);
+    }
+    targets.add(decision.target);
+    const target = entryByPath.get(decision.target);
+    if (!target) throw new Error(`state manifest target is missing: ${decision.target}`);
+    if (decision.replacement) {
+      const actual = crypto
+        .createHash('sha256')
+        .update(blobText(repoRoot, target.blob))
+        .digest('hex');
+      if (!SHA256.test(decision.sha256 ?? '') || actual !== decision.sha256) {
+        throw new Error(`state manifest replacement mismatch for ${document.identity}`);
+      }
+      continue;
+    }
+    const selected = document.candidates.find(
+      (candidate) =>
+        candidate.source === decision.source &&
+        candidate.commit === decision.commit &&
+        candidate.path === decision.path &&
+        candidate.blob === decision.blob &&
+        candidate.basename === targetName,
+    );
+    if (!selected || target.blob !== selected.blob) {
+      throw new Error(`state manifest decision mismatch for ${document.identity}`);
+    }
+  }
+  if (decisions.size !== identities.size) throw new Error('state manifest has unknown decisions');
+  const actualTargets = entries
+    .map((entry) => entry.path)
+    .filter((file) => file !== MANIFEST_PATH)
+    .sort();
+  if (JSON.stringify(actualTargets) !== JSON.stringify([...targets].sort())) {
+    throw new Error('state manifest decisions do not cover the complete snapshot');
+  }
 }
 
 function readStateMetadata(repoRoot, revision) {
   exactCommit(repoRoot, revision);
-  const manifestEntry = treeEntry(repoRoot, revision, MANIFEST_PATH);
-  const configEntry = treeEntry(repoRoot, revision, CONFIG_PATH);
+  const entries = treeEntries(repoRoot, revision, []);
+  const allowed = (file) =>
+    file === MANIFEST_PATH ||
+    file === CONFIG_PATH ||
+    [
+      [`${STATE_ROOT}/changes/`, '.md'],
+      [`${STATE_ROOT}/specs/`, '.md'],
+      [`${STATE_ROOT}/releases/`, '.yml'],
+    ].some(
+      ([prefix, extension]) =>
+        file.startsWith(prefix) &&
+        !file.slice(prefix.length).includes('/') &&
+        file.length > prefix.length + extension.length &&
+        file.endsWith(extension),
+    );
+  for (const entry of entries) {
+    regularBlob(entry, revision);
+    if (!allowed(entry.path)) throw new Error(`invalid state path: ${entry.path}`);
+  }
+  const manifestEntry = entries.find((entry) => entry.path === MANIFEST_PATH);
+  const configEntry = entries.find((entry) => entry.path === CONFIG_PATH);
   if (!manifestEntry || !configEntry)
     throw new Error('state baseline is missing manifest or config');
-  regularBlob(manifestEntry, revision);
-  regularBlob(configEntry, revision);
-  return {
-    manifest: parseYaml(blobText(repoRoot, manifestEntry.blob)),
-    config: parseYaml(blobText(repoRoot, configEntry.blob)),
-    configText: blobText(repoRoot, configEntry.blob),
-  };
+  const manifest = parseYaml(blobText(repoRoot, manifestEntry.blob));
+  const configText = blobText(repoRoot, configEntry.blob);
+  const config = parseYaml(configText);
+  if (
+    manifest?.format_version !== 1 ||
+    typeof manifest.project_id !== 'string' ||
+    !SHA256.test(manifest.inventory_digest ?? '') ||
+    typeof manifest.minimum_client_version !== 'string' ||
+    !Array.isArray(manifest.sources) ||
+    !manifest.inventory ||
+    !Array.isArray(manifest.decisions)
+  ) {
+    throw new Error('invalid state manifest structure');
+  }
+  const inventoryDigest = digest(manifest.inventory);
+  if (inventoryDigest !== manifest.inventory_digest) {
+    throw new Error(
+      `state manifest inventory_digest mismatch: expected ${manifest.inventory_digest} actual ${inventoryDigest}`,
+    );
+  }
+  if (
+    JSON.stringify(canonical(manifest.sources)) !==
+    JSON.stringify(canonical(manifest.inventory.sources))
+  ) {
+    throw new Error('state manifest sources do not match inventory');
+  }
+  if (
+    manifest.project_id !== config.project_id ||
+    manifest.inventory.project_id !== config.project_id
+  ) {
+    throw new Error('state baseline project_id mismatch');
+  }
+  validateManifestDecisions(repoRoot, manifest, entries);
+  const changes = [];
+  const specs = [];
+  const releases = [];
+  for (const entry of entries) {
+    const text = blobText(repoRoot, entry.blob);
+    const name = path.posix.basename(entry.path);
+    if (entry.path.startsWith(`${STATE_ROOT}/changes/`)) {
+      changes.push({ name, text, ...parseChange(text) });
+    } else if (entry.path.startsWith(`${STATE_ROOT}/specs/`)) {
+      specs.push({ name, text, ...parseSpec(text) });
+    } else if (entry.path.startsWith(`${STATE_ROOT}/releases/`)) {
+      releases.push({ name, text, ...parseYaml(text) });
+    }
+  }
+  const { errors } = checkRepo({ config, changes, specs, releases });
+  if (errors.length) {
+    throw new Error(
+      `state baseline validation failed: ${errors.map((error) => error.message).join('; ')}`,
+    );
+  }
+  return { manifest, config, configText, entries, changes, specs, releases };
 }
 
 function authorityText({ baseline, manifest }) {
@@ -545,19 +847,78 @@ function authorityText({ baseline, manifest }) {
   });
 }
 
-function collectionLegacyPath(config, stateFile) {
-  const name = path.posix.basename(stateFile);
-  if (stateFile.startsWith(`${STATE_ROOT}/changes/`)) {
-    return `${normalizedRepoPath(config.changes_dir, 'changes_dir')}/${name}`;
+function activationRemovals(repoRoot, base, manifest) {
+  const inventory = manifest.inventory;
+  if (!inventory?.sources?.some((source) => source.commit === base)) {
+    throw new Error(`integration head ${base} is not a migration source commit`);
   }
-  if (stateFile.startsWith(`${STATE_ROOT}/specs/`)) {
-    return `${normalizedRepoPath(config.specs_dir ?? '.changeledger/specs', 'specs_dir')}/${name}`;
+  const removals = new Map();
+  for (const document of inventory.documents ?? []) {
+    for (const candidate of document.candidates ?? []) {
+      if (candidate.commit !== base) continue;
+      const previous = removals.get(candidate.path);
+      if (previous && (previous.blob !== candidate.blob || previous.mode !== candidate.mode)) {
+        throw new Error(`baseline inventory conflicts at ${candidate.path}`);
+      }
+      removals.set(candidate.path, candidate);
+    }
   }
-  if (stateFile.startsWith(`${STATE_ROOT}/releases/`)) return `${RELEASES_DIR}/${name}`;
-  return null;
+  if (!removals.has(LEGACY_CONFIG_PATH)) {
+    throw new Error(`baseline inventory has no integration ${LEGACY_CONFIG_PATH}`);
+  }
+  for (const [file, candidate] of removals) {
+    const current = treeEntry(repoRoot, base, file);
+    if (!current || current.mode !== candidate.mode || current.blob !== candidate.blob) {
+      throw new Error(
+        `integration legacy inventory diverged at ${file}: expected ${candidate.mode} ${candidate.blob} actual ${current ? `${current.mode} ${current.blob}` : '(missing)'}`,
+      );
+    }
+  }
+  return [...removals.keys()].sort();
 }
 
-function createBranchCommit({ repoRoot, base, branch, writes, removals, message }) {
+function deterministicCommit(repoRoot, tree, base, message) {
+  const date = git(repoRoot, ['show', '-s', '--format=%cI', base]);
+  return git(repoRoot, ['commit-tree', tree, '-p', base, '-m', message], {
+    env: {
+      GIT_AUTHOR_NAME: 'ChangeLedger',
+      GIT_AUTHOR_EMAIL: 'changeledger@local',
+      GIT_COMMITTER_NAME: 'ChangeLedger',
+      GIT_COMMITTER_EMAIL: 'changeledger@local',
+      GIT_AUTHOR_DATE: date,
+      GIT_COMMITTER_DATE: date,
+    },
+  });
+}
+
+function guardedRefTransaction(repoRoot, commands) {
+  const lines = ['start'];
+  lines.push(...commands, 'prepare', 'commit', '');
+  try {
+    git(repoRoot, ['update-ref', '--stdin'], { input: lines.join('\n') });
+  } catch (error) {
+    throw new Error('state refs changed concurrently; branch was not created', {
+      cause: error,
+    });
+  }
+}
+
+function verifyCommand({ ref, expected }) {
+  return expected ? `verify ${ref} ${expected}` : `verify ${ref}`;
+}
+
+function createBranchCommit({
+  repoRoot,
+  base,
+  branch,
+  writes,
+  removals,
+  message,
+  guards = [],
+  allowExactReuse = false,
+  beforeRefTransaction,
+  activity,
+}) {
   const tree = withIndex(repoRoot, ({ git: indexed }) => {
     indexed(['read-tree', base]);
     for (const file of removals) indexed(['update-index', '--force-remove', '--', file]);
@@ -567,6 +928,7 @@ function createBranchCommit({ repoRoot, base, branch, writes, removals, message 
     }
     return indexed(['write-tree']);
   });
+  const commit = deterministicCommit(repoRoot, tree, base, message);
   let existing = null;
   try {
     existing = exactCommit(repoRoot, branch);
@@ -574,33 +936,81 @@ function createBranchCommit({ repoRoot, base, branch, writes, removals, message 
     existing = null;
   }
   if (existing) {
-    const existingTree = git(repoRoot, ['rev-parse', `${existing}^{tree}`]);
-    let existingParent = null;
-    try {
-      existingParent = git(repoRoot, ['rev-parse', '--verify', `${existing}^`]);
-    } catch {
-      existingParent = null;
+    if (allowExactReuse && existing === commit) {
+      guardedRefTransaction(repoRoot, [`verify ${branch} ${commit}`, ...guards.map(verifyCommand)]);
+      return { commit, reused: true };
     }
-    if (existingTree === tree && existingParent === base) return { commit: existing, reused: true };
     throw new Error(
       `branch ${branch.replace('refs/heads/', '')} already exists with different content`,
     );
   }
-  const commit = git(repoRoot, ['commit-tree', tree, '-p', base, '-m', message]);
-  git(repoRoot, ['update-ref', branch, commit, '']);
+  beforeRefTransaction?.();
+  if (guards.length) {
+    guardedRefTransaction(repoRoot, [...guards.map(verifyCommand), `create ${branch} ${commit}`]);
+  } else {
+    try {
+      git(repoRoot, ['update-ref', branch, commit, '']);
+    } catch (error) {
+      throw new Error(`branch ${branch.replace('refs/heads/', '')} changed concurrently`, {
+        cause: error,
+      });
+    }
+  }
+  if (activity) activity.written = true;
   return { commit, reused: false };
 }
 
-export function prepareStateActivation({ baseline } = {}, start = process.cwd()) {
+function expectedActivation(repoRoot, base, baseline, metadata) {
+  const removals = activationRemovals(repoRoot, base, metadata.manifest);
+  const writes = new Map([
+    [LEGACY_AUTHORITY_PATH, authorityText({ baseline, manifest: metadata.manifest })],
+  ]);
+  const tree = withIndex(repoRoot, ({ git: indexed }) => {
+    indexed(['read-tree', base]);
+    for (const file of removals) indexed(['update-index', '--force-remove', '--', file]);
+    for (const [file, content] of writes) {
+      const blob = indexed(['hash-object', '-w', '--stdin'], { input: content });
+      indexed(['update-index', '--add', '--cacheinfo', `100644,${blob},${file}`]);
+    }
+    return indexed(['write-tree']);
+  });
+  return { removals, writes, tree };
+}
+
+export function prepareStateActivation(
+  { baseline, beforeRefTransaction } = {},
+  start = process.cwd(),
+  activity = {},
+) {
+  const branchName = OID.test(baseline ?? '')
+    ? `changeledger/activate-${baseline.slice(0, 12)}`
+    : null;
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: baseline ?? null,
+    branch: branchName,
+    ref: branchName ? `refs/heads/${branchName}` : null,
+    inventoryDigest: null,
+  });
   const { repoRoot } = repoFor(start);
   if (!OID.test(baseline ?? '')) throw new Error('--baseline must be an exact commit OID');
   const remote = stateRemote(repoRoot);
-  const published = fetchRef(repoRoot, remote, STATE_REF);
+  const published = fetchRef(repoRoot, remote, STATE_REF, activity);
   if (published !== baseline)
     throw new Error(
       `published state baseline is ${published ?? '(missing)'}, expected ${baseline}`,
     );
-  const { manifest, config } = readStateMetadata(repoRoot, baseline);
+  const metadata = readStateMetadata(repoRoot, baseline);
+  const { manifest, config } = metadata;
+  recordActivity(activity, {
+    sources: manifest.sources,
+    sourceOids: Object.fromEntries(manifest.sources.map((source) => [source.name, source.commit])),
+    inventoryDigest: manifest.inventory_digest,
+  });
+  assertClientCompatible(manifest.minimum_client_version, 'state baseline');
   if (manifest.project_id !== config.project_id) throw new Error('baseline project_id mismatch');
   const integration = integrationBranch(config);
   if (!integration) throw new Error('state activation requires git.integration_branch');
@@ -608,36 +1018,19 @@ export function prepareStateActivation({ baseline } = {}, start = process.cwd())
   if (treeEntry(repoRoot, base, LEGACY_AUTHORITY_PATH)) {
     throw new Error('integration branch already contains state authority');
   }
-  const removals = [];
-  const stateEntries = stateFiles(repoRoot, baseline);
-  for (const stateEntry of stateEntries) {
-    const legacy = collectionLegacyPath(config, stateEntry.path);
-    if (!legacy) continue;
-    const current = treeEntry(repoRoot, base, legacy);
-    if (!current) continue;
-    regularBlob(current, integration);
-    if (blobText(repoRoot, current.blob) !== blobText(repoRoot, stateEntry.blob)) {
-      throw new Error(`integration legacy file diverged from baseline: ${legacy}`);
-    }
-    removals.push(legacy);
-  }
-  const legacyConfig = treeEntry(repoRoot, base, LEGACY_CONFIG_PATH);
-  const stateConfig = treeEntry(repoRoot, baseline, CONFIG_PATH);
-  if (legacyConfig) {
-    if (blobText(repoRoot, legacyConfig.blob) !== blobText(repoRoot, stateConfig.blob)) {
-      throw new Error(`integration legacy file diverged from baseline: ${LEGACY_CONFIG_PATH}`);
-    }
-    removals.push(LEGACY_CONFIG_PATH);
-  }
-  const branchName = `changeledger/activate-${baseline.slice(0, 12)}`;
+  const expected = expectedActivation(repoRoot, base, baseline, metadata);
   const branch = `refs/heads/${branchName}`;
   const created = createBranchCommit({
     repoRoot,
     base,
     branch,
-    removals,
-    writes: new Map([[LEGACY_AUTHORITY_PATH, authorityText({ baseline, manifest })]]),
+    removals: expected.removals,
+    writes: expected.writes,
     message: `feat(state): activate baseline ${baseline}`,
+    guards: [{ ref: `refs/heads/${integration}`, expected: base }],
+    allowExactReuse: true,
+    beforeRefTransaction,
+    activity,
   });
   return {
     branch: branchName,
@@ -645,60 +1038,171 @@ export function prepareStateActivation({ baseline } = {}, start = process.cwd())
     baseline,
     integration,
     inventoryDigest: manifest.inventory_digest,
-    network: true,
-    written: !created.reused,
+    sources: manifest.sources,
+    sourceOids: Object.fromEntries(manifest.sources.map((source) => [source.name, source.commit])),
+    ref: branch,
+    network: activity.network,
+    written: activity.written,
   };
 }
 
 function authorityAt(repoRoot, revision) {
   const entry = treeEntry(repoRoot, revision, LEGACY_AUTHORITY_PATH);
   if (!entry) throw new Error(`activation ref has no ${LEGACY_AUTHORITY_PATH}`);
-  return parseYaml(blobText(repoRoot, entry.blob));
+  regularBlob(entry, revision);
+  try {
+    return parseYaml(blobText(repoRoot, entry.blob));
+  } catch (error) {
+    throw new Error(`invalid activation authority: ${error.message}`, { cause: error });
+  }
+}
+
+function authorityProblems(authority, metadata) {
+  const compatibility = [];
+  const divergence = [];
+  if (authority?.format_version !== 2) compatibility.push('authority format is not v2');
+  if (authority?.state_ref !== STATE_REF)
+    compatibility.push('state_ref is not the public state ref');
+  if (!OID.test(authority?.baseline ?? ''))
+    compatibility.push('baseline is not an exact commit OID');
+  for (const key of ['project_id', 'inventory_digest', 'minimum_client_version']) {
+    if (authority?.[key] !== metadata.manifest[key]) {
+      divergence.push(`${key} does not match baseline`);
+    }
+  }
+  try {
+    if (compareVersions(VERSION, authority.minimum_client_version) < 0) {
+      compatibility.push(`client ${VERSION} is older than ${authority.minimum_client_version}`);
+    }
+  } catch {
+    compatibility.push('minimum_client_version is invalid');
+  }
+  return { compatibility, divergence };
+}
+
+function integrationSourceMayBeActivation(source, actual, revision, parent, integration) {
+  if (actual === source.commit) return true;
+  const parsed = parseSource(source.name);
+  return (
+    parsed.ref === `refs/heads/${integration}` && source.commit === parent && actual === revision
+  );
 }
 
 export function doctorStateMigration(
   { activationRef = 'HEAD', online = false } = {},
   start = process.cwd(),
+  activity = {},
 ) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: activationRef,
+    ref: activationRef,
+    inventoryDigest: null,
+  });
   const { repoRoot } = repoFor(start);
   const revision = exactCommit(repoRoot, activationRef);
   const authority = authorityAt(repoRoot, revision);
+  recordActivity(activity, {
+    baseline: authority.baseline ?? null,
+    inventoryDigest: authority.inventory_digest ?? null,
+  });
   const metadata = readStateMetadata(repoRoot, authority.baseline);
-  const problems = [];
-  if (authority.format_version !== 2) problems.push('authority format is not v2');
-  for (const key of ['project_id', 'inventory_digest', 'minimum_client_version']) {
-    if (authority[key] !== metadata.manifest[key]) problems.push(`${key} does not match baseline`);
-  }
+  recordActivity(activity, {
+    sources: metadata.manifest.sources ?? [],
+    sourceOids: Object.fromEntries(
+      (metadata.manifest.sources ?? []).map((source) => [source.name, source.commit]),
+    ),
+  });
+  const categories = {
+    compatibility: [],
+    data_divergence: [],
+    permissions: [online ? 'not-provable-without-provider-enforcement' : 'not-checked'],
+    enforcement: ['absent; tracked by change 20260721-193104'],
+  };
+  const authorityIssues = authorityProblems(authority, metadata);
+  categories.compatibility.push(...authorityIssues.compatibility);
+  categories.data_divergence.push(...authorityIssues.divergence);
   const parents = git(repoRoot, ['rev-list', '--parents', '-n', '1', revision]).split(' ');
-  if (parents.length !== 2) problems.push('activation must be a single-parent commit');
+  if (parents.length !== 2)
+    categories.data_divergence.push('activation must be a single-parent commit');
+  const parent = parents[1] ?? null;
   const integration = integrationBranch(metadata.config);
   const integrationHead = exactCommit(repoRoot, `refs/heads/${integration}`);
-  if (parents[1] !== integrationHead && revision !== integrationHead) {
-    problems.push('activation parent does not match integration head');
+  if (parent !== integrationHead && revision !== integrationHead) {
+    categories.data_divergence.push('activation parent does not match integration head');
+  }
+  if (parent) {
+    try {
+      const expected = expectedActivation(repoRoot, parent, authority.baseline, metadata);
+      const actualTree = git(repoRoot, ['rev-parse', `${revision}^{tree}`]);
+      if (actualTree !== expected.tree) {
+        categories.data_divergence.push('activation tree does not match exact cutover');
+      }
+    } catch (error) {
+      categories.data_divergence.push(`activation cannot be reconstructed: ${error.message}`);
+    }
   }
   const refs = readStateReplica(repoRoot);
-  if (refs.pending) problems.push(`pending state exists at ${refs.pending}`);
+  if (refs.pending) categories.data_divergence.push(`pending state exists at ${refs.pending}`);
   const observed = [];
+  for (const source of metadata.manifest.sources ?? []) {
+    const parsed = parseSource(source.name);
+    if (parsed.kind !== 'local') {
+      observed.push({
+        name: source.name,
+        commit: source.commit,
+        expected: source.commit,
+        actual: null,
+        network: false,
+        observed: false,
+      });
+      continue;
+    }
+    let actual = null;
+    try {
+      actual = exactCommit(repoRoot, parsed.ref);
+    } catch {
+      actual = null;
+    }
+    observed.push({
+      name: source.name,
+      commit: source.commit,
+      expected: source.commit,
+      actual,
+      network: false,
+      observed: true,
+    });
+    if (!integrationSourceMayBeActivation(source, actual, revision, parent, integration)) {
+      categories.data_divergence.push(`source advanced or disappeared: ${source.name}`);
+    }
+  }
   if (online) {
     const remote = stateRemote(repoRoot);
-    const state = remoteRef(repoRoot, remote, STATE_REF);
-    if (!state) problems.push('remote state is missing');
+    const state = fetchRef(repoRoot, remote, STATE_REF, activity);
+    if (!state) categories.data_divergence.push('remote state is missing');
     else {
-      git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', remote, STATE_REF]);
       try {
         git(repoRoot, ['merge-base', '--is-ancestor', authority.baseline, state]);
       } catch {
-        problems.push('remote state does not descend from baseline');
+        categories.data_divergence.push('remote state does not descend from baseline');
       }
     }
     for (const source of metadata.manifest.sources ?? []) {
       if (!source.name || source.name.startsWith('local:')) continue;
       const parsed = parseSource(source.name);
-      const actual = remoteRef(repoRoot, parsed.remote, parsed.ref);
-      observed.push({ name: source.name, expected: source.commit, actual });
-      if (actual !== source.commit) problems.push(`source advanced: ${source.name}`);
+      const actual = remoteRef(repoRoot, parsed.remote, parsed.ref, activity);
+      const observation = observed.find((item) => item.name === source.name);
+      Object.assign(observation, { actual, network: true, observed: true });
+      if (!integrationSourceMayBeActivation(source, actual, revision, parent, integration)) {
+        categories.data_divergence.push(`source advanced or disappeared: ${source.name}`);
+      }
     }
   }
+  const problems = [...categories.compatibility, ...categories.data_divergence];
   return {
     ok: problems.length === 0,
     problems,
@@ -707,11 +1211,31 @@ export function doctorStateMigration(
     inventoryDigest: authority.inventory_digest,
     minimumClientVersion: authority.minimum_client_version,
     integration,
-    network: online,
+    network: activity.network,
+    written: false,
     enforcement: 'absent',
     permissions: online ? 'not-provable-without-provider-enforcement' : 'not-checked',
+    categories,
     sources: observed,
+    sourceOids: Object.fromEntries(observed.map((source) => [source.name, source.commit])),
+    branch: activationRef,
+    ref: activationRef,
   };
+}
+
+function assertIntegrationAuthority(repoRoot, base, expected) {
+  const entry = treeEntry(repoRoot, base, LEGACY_AUTHORITY_PATH);
+  if (!entry) throw new Error('integration authority is missing');
+  regularBlob(entry, base);
+  let actual;
+  try {
+    actual = parseYaml(blobText(repoRoot, entry.blob));
+  } catch (error) {
+    throw new Error(`integration authority is invalid: ${error.message}`, { cause: error });
+  }
+  if (JSON.stringify(canonical(actual)) !== JSON.stringify(canonical(expected))) {
+    throw new Error('integration authority does not match active authority');
+  }
 }
 
 function assertRecoveryTargetsEmpty(repoRoot, base, config) {
@@ -727,22 +1251,53 @@ function assertRecoveryTargetsEmpty(repoRoot, base, config) {
   }
 }
 
-export function exportStateRecovery(start = process.cwd()) {
+export function exportStateRecovery(
+  start = process.cwd(),
+  { beforeRefTransaction } = {},
+  activity = {},
+) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: null,
+    ref: null,
+    inventoryDigest: null,
+  });
   const { repoRoot } = repoFor(start);
   const store = loadLedgerStore(repoRoot);
   if (!store.replica)
     throw new Error('state recovery export requires authority.yml format_version: 2');
+  const authoritySnapshot = store.validateAuthority();
+  recordActivity(activity, {
+    baseline: authoritySnapshot.authority.baseline,
+    inventoryDigest: authoritySnapshot.authority.inventory_digest,
+    sources: authoritySnapshot.manifest.sources ?? [],
+    sourceOids: Object.fromEntries(
+      (authoritySnapshot.manifest.sources ?? []).map((source) => [source.name, source.commit]),
+    ),
+  });
   const refs = readStateReplica(repoRoot);
+  if (refs.confirmed) {
+    const branchName = `changeledger/recover-${refs.confirmed.slice(0, 12)}`;
+    recordActivity(activity, {
+      branch: branchName,
+      ref: `refs/heads/${branchName}`,
+    });
+  }
   if (refs.pending) throw new Error(`state recovery export requires no ${PENDING_REF}`);
   if (!refs.confirmed || refs.observed !== refs.confirmed) {
     throw new Error(
       'state recovery export requires a fresh confirmed state; run `changeledger state sync`',
     );
   }
-  const snapshot = store.load();
+  const snapshot = store.loadRevision(refs.confirmed);
   const integration = integrationBranch(snapshot.config);
   if (!integration) throw new Error('state recovery export requires git.integration_branch');
   const base = exactCommit(repoRoot, `refs/heads/${integration}`);
+  assertIntegrationAuthority(repoRoot, base, authoritySnapshot.authority);
   assertRecoveryTargetsEmpty(repoRoot, base, snapshot.config);
   const writes = new Map([[LEGACY_CONFIG_PATH, snapshot.configText]]);
   const changesDir = normalizedRepoPath(snapshot.config.changes_dir, 'changes_dir');
@@ -762,13 +1317,28 @@ export function exportStateRecovery(start = process.cwd()) {
     writes,
     removals: [LEGACY_AUTHORITY_PATH],
     message: `feat(state): recover confirmed ${refs.confirmed}`,
+    guards: [
+      { ref: CONFIRMED_REF, expected: refs.confirmed },
+      { ref: OBSERVED_REF, expected: refs.observed },
+      { ref: PENDING_REF, expected: null },
+      { ref: `refs/heads/${integration}`, expected: base },
+    ],
+    beforeRefTransaction,
+    activity,
   });
   return {
     branch: branchName,
     commit: created.commit,
     confirmed: refs.confirmed,
+    baseline: snapshot.authority.baseline,
     integration,
-    network: false,
-    written: !created.reused,
+    inventoryDigest: snapshot.manifest.inventory_digest,
+    sources: snapshot.manifest.sources ?? [],
+    sourceOids: Object.fromEntries(
+      (snapshot.manifest.sources ?? []).map((source) => [source.name, source.commit]),
+    ),
+    ref: `refs/heads/${branchName}`,
+    network: activity.network,
+    written: activity.written,
   };
 }

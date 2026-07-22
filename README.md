@@ -152,12 +152,23 @@ changeledger state doctor --activation-ref changeledger/activate-<S0-prefix> --o
 ```
 
 `--preview` fetches only explicitly named remote refs without updating user
-branches or remote-tracking refs. `--create` revalidates every source and plan
-digest, validates the complete candidate, then publishes the initial state with
-create-only CAS. `activate --prepare` creates one local branch and commit without
-checkout, push or merge; review and merge that branch through the repository's
-normal workflow. Add `--json` to any migration, activation, doctor or recovery
-command for a machine-readable receipt with OIDs, digest, network use and writes.
+branches or remote-tracking refs. `--create` reconstructs the complete inventory
+from the fixed source commits, rejects any stale path/mode/blob or replacement,
+validates the closed snapshot, then publishes the initial state with create-only
+CAS. Its manifest keeps every candidate and source OID—not only the selected
+documents—so later cutover checks do not depend on the local plan.
+
+`activate --prepare` removes the exact legacy inventory belonging to the fixed
+integration commit, preserves every unrelated path, and creates one
+deterministic local commit/ref without checkout, push or merge. A repeated
+activation may reuse only that exact commit. Doctor reconstructs the expected
+tree byte-for-byte; local mode also checks local source refs, while `--online`
+observes the public baseline and remote sources. Review and merge the activation
+branch through the repository's normal workflow.
+
+Add `--json` to migration, activation, doctor or recovery commands for a stable
+success or failure receipt containing sources/OIDs, baseline, affected
+branch/ref, inventory digest, network use and whether anything was written.
 
 Before the first state mutation, reverting the activation commit restores the
 legacy files. After state advances, synchronize first and prepare a recovery
@@ -168,8 +179,11 @@ changeledger state sync
 changeledger state export --recovery-branch
 ```
 
-Recovery refuses pending or stale replicas and never checks out, merges or
-publishes its branch. These commands prove the cutover data and client version;
+Recovery loads the exact confirmed OID, refuses pending or stale replicas and
+atomically verifies all three replica refs while creating a collision-free local
+branch. It never checks out, merges or publishes that branch. State status,
+sync, abort and export validate authority against its baseline before reading or
+mutating replica refs. These commands prove the cutover data and client version;
 they do not enforce remote path policy against old clients or perform a
 production rollout. Those remain separate deployment controls.
 

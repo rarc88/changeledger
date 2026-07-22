@@ -600,7 +600,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // code written inside its authorized scope. No lifecycle rule is retired.
     // 20260721-193103: additive — operational discovery gains the compact
     // recoverable state-cutover sequence and its enforcement/rollout boundary.
-    'core.md': 'a30f91112e80b33672698c14bef13ae7b44b9c41c5d6fa232a27df25555402dd',
+    // 20260721-193103 correction: that sequence now names durable inventory,
+    // exact-tree diagnosis, atomic recovery guards and complete receipts; its
+    // syntax and enforcement/rollout boundary are preserved.
+    'core.md': '0f395e5562428c4aee3f0866a29f0b8df1dce872da16be03af9c696438447c83',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.

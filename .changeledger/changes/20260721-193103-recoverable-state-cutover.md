@@ -2,7 +2,7 @@
 id: "20260721-193103"
 title: Migrar al estado global mediante un cutover recuperable
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:03Z
 depends_on: ["20260721-193101", "20260721-193102"]
 owner: Roberto Ruiz
@@ -235,7 +235,8 @@ la branch; nunca reabre copias anteriores al head confirmado.
   - **Resolved:** `2026-07-22T13:15:58Z`
 - [x] Actualizar `README.md` y `templates/contract/` con sintaxis, receipts y frontera con enforcement/rollout; verify: `node --test test/context.test.mjs && changeledger check` (CR10, CR11, CR12)
   - **Resolved:** `2026-07-22T13:21:41Z`
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T13:25:22Z`
 
 ## Log
 
@@ -244,3 +245,17 @@ la branch; nunca reabre copias anteriores al head confirmado.
 - **2026-07-22T12:57:36Z** `[status]` draft → approved (human via conversation)
 - **2026-07-22T12:58:42Z** `[status]` approved → in-progress
 - **2026-07-22T12:58:42Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-22T13:25:28Z** `[status]` in-progress → in-review
+- **2026-07-22T13:38:19Z** `[review]` in-review → in-progress (retry): Activation inventory, doctor tree verification, recovery CAS, hostile Git entries, authority guards and JSON receipts are incomplete
+- **2026-07-22T14:02:16Z** `[note]` Correction makes the full source inventory durable, reconstructs exact activation trees, guards integration and replica refs atomically, validates authority before replica operations, and emits complete JSON receipts
+- **2026-07-22T14:02:22Z** `[status]` in-progress → in-review
+- **2026-07-22T14:13:30Z** `[review]` in-review → in-progress (retry): Recovery does not require matching active authority on integration, and failure receipts infer network intent instead of reporting actual execution
+- **2026-07-22T14:24:25Z** `[note]` Correction now requires exact active authority on the guarded integration head and derives complete success/failure receipts from progressively recorded network and write activity
+- **2026-07-22T14:24:26Z** `[status]` in-progress → in-review
+- **2026-07-22T14:31:34Z** `[review]` in-review → in-progress (retry): Failure receipts lose source OIDs observed before a later source fails
+- **2026-07-22T14:33:09Z** `[note]` Failure receipts now preserve each source OID immediately when observed, including partial multi-source failures
+- **2026-07-22T14:33:10Z** `[status]` in-progress → in-review
+- **2026-07-22T14:39:04Z** `[review]` in-review → in-progress (retry): Required state options fail in Commander before complete JSON receipts can be emitted
+- **2026-07-22T14:40:32Z** `[note]` Required activate and doctor options now validate inside stateAction so JSON and human failures retain complete receipts
+- **2026-07-22T14:40:32Z** `[status]` in-progress → in-review
+- **2026-07-22T14:44:05Z** `[review]` in-review → in-validation (delegated subagent, clean context)

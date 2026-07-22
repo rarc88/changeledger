@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command } from 'commander';
 import {
   approve,
@@ -41,6 +43,7 @@ import {
 import { view } from '../src/commands/view.mjs';
 import { formatLedgerReceipt, loadLedgerStore } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
+import { parseYaml } from '../src/yaml.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -64,6 +67,85 @@ function action(fn) {
     } catch (e) {
       console.error(`Error: ${e.message}`);
       process.exit(1);
+    }
+  };
+}
+
+function stateReceiptDetails(receipt) {
+  return `Receipt: ${JSON.stringify({
+    sources: receipt.sources ?? [],
+    sourceOids: receipt.sourceOids ?? {},
+    baseline: receipt.baseline ?? null,
+    branch: receipt.branch ?? null,
+    ref: receipt.ref ?? null,
+    inventoryDigest: receipt.inventoryDigest ?? null,
+    network: Boolean(receipt.network),
+    written: Boolean(receipt.written),
+  })}`;
+}
+
+function stateFailureReceipt(command, options, error, activity) {
+  let sources = (options.source ?? []).map((name) => ({ name, commit: null }));
+  let inventoryDigest = null;
+  if (command === 'migrate' && options.plan) {
+    try {
+      const plan = parseYaml(fs.readFileSync(path.resolve(process.cwd(), options.plan), 'utf8'));
+      if (Array.isArray(plan.sources)) sources = plan.sources;
+      if (typeof plan.inventory_digest === 'string') inventoryDigest = plan.inventory_digest;
+    } catch {
+      // The primary error still owns the failure; absent plan context remains explicit null.
+    }
+  }
+  if (Array.isArray(activity.sources) && activity.sources.length > 0) sources = activity.sources;
+  const baseline = activity.baseline ?? options.baseline ?? null;
+  const branch =
+    command === 'activate' && /^[0-9a-f]{40,64}$/.test(baseline ?? '')
+      ? `changeledger/activate-${baseline.slice(0, 12)}`
+      : null;
+  const ref =
+    command === 'migrate' && options.create
+      ? 'refs/heads/changeledger/state'
+      : command === 'doctor'
+        ? (options.activationRef ?? null)
+        : branch
+          ? `refs/heads/${branch}`
+          : null;
+  return {
+    ok: false,
+    command,
+    error: error.message,
+    sources,
+    sourceOids:
+      activity.sourceOids && Object.keys(activity.sourceOids).length > 0
+        ? activity.sourceOids
+        : Object.fromEntries(sources.map((source) => [source.name, source.commit])),
+    baseline,
+    branch: activity.branch ?? branch,
+    ref: activity.ref ?? ref,
+    inventoryDigest: activity.inventoryDigest ?? inventoryDigest,
+    network: Boolean(activity.network),
+    written: Boolean(activity.written),
+  };
+}
+
+function stateAction(command, fn) {
+  return async (options) => {
+    const activity = { network: false, written: false };
+    try {
+      const result = await fn(options, activity);
+      if (options.json) {
+        console.log(JSON.stringify({ ok: result.ok ?? true, command, ...result }, null, 2));
+      }
+      return result;
+    } catch (error) {
+      const receipt = stateFailureReceipt(command, options, error, activity);
+      if (!options.json) {
+        console.error(stateReceiptDetails(receipt));
+        throw error;
+      }
+      console.error(JSON.stringify(receipt, null, 2));
+      process.exitCode = 1;
+      return null;
     }
   };
 }
@@ -914,60 +996,79 @@ stateCommand
   .option('--plan <file>', 'resolved preview plan consumed by --create')
   .option('--json', 'print a stable JSON receipt')
   .action(
-    action((options) => {
-      const result = stateMigrate(process.cwd(), {
-        preview: options.preview,
-        create: options.create,
-        sources: options.source,
-        output: options.output,
-        plan: options.plan,
-      });
-      if (options.json) console.log(JSON.stringify(result, null, 2));
-      else if (options.preview) console.log(result.text);
-      else
-        console.log(
-          `State baseline ${result.baseline} at ${result.remote}:${result.stateRef} (inventory ${result.inventoryDigest}; written: ${result.written})`,
+    action(
+      stateAction('migrate', (options, activity) => {
+        const result = stateMigrate(
+          process.cwd(),
+          {
+            preview: options.preview,
+            create: options.create,
+            sources: options.source,
+            output: options.output,
+            plan: options.plan,
+          },
+          activity,
         );
-    }),
+        if (!options.json && options.preview) {
+          console.log(result.text);
+          console.error(stateReceiptDetails(result));
+        } else if (!options.json)
+          console.log(
+            `State baseline ${result.baseline} at ${result.remote}:${result.stateRef} (inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+          );
+        return result;
+      }),
+    ),
   );
 
 stateCommand
   .command('activate')
   .description('prepare one local activation branch without checkout, push or merge')
   .option('--prepare', 'create the local activation branch')
-  .requiredOption('--baseline <oid>', 'published state baseline commit OID')
+  .option('--baseline <oid>', 'published state baseline commit OID (required)')
   .option('--json', 'print a stable JSON receipt')
   .action(
-    action((options) => {
-      const result = stateActivate(process.cwd(), options);
-      if (options.json) console.log(JSON.stringify(result, null, 2));
-      else
-        console.log(
-          `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; written: ${result.written})`,
-        );
-    }),
+    action(
+      stateAction('activate', (options, activity) => {
+        const result = stateActivate(process.cwd(), options, activity);
+        if (!options.json)
+          console.log(
+            `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+          );
+        return result;
+      }),
+    ),
   );
 
 stateCommand
   .command('doctor')
   .description('diagnose an activation locally, with optional explicit remote observation')
-  .requiredOption('--activation-ref <ref>', 'activation branch or commit to inspect')
+  .option('--activation-ref <ref>', 'activation branch or commit to inspect (required)')
   .option('--online', 'observe remote state and migration sources without publication')
   .option('--json', 'print a stable JSON receipt')
   .action(
-    action((options) => {
-      const result = stateDoctor(process.cwd(), options);
-      if (options.json) console.log(JSON.stringify(result, null, 2));
-      else {
-        console.log(`Activation: ${result.activation}`);
-        console.log(`Baseline: ${result.baseline}`);
-        console.log(`Inventory: ${result.inventoryDigest}`);
-        console.log(`Network: ${result.network}`);
-        console.log(`Result: ${result.ok ? 'ready' : 'not ready'}`);
-        for (const problem of result.problems) console.log(`- ${problem}`);
-      }
-      if (!result.ok) process.exitCode = 1;
-    }),
+    action(
+      stateAction('doctor', (options, activity) => {
+        const result = stateDoctor(process.cwd(), options, activity);
+        if (!options.json) {
+          console.log(`Activation: ${result.activation}`);
+          console.log(`Baseline: ${result.baseline}`);
+          console.log(`Inventory: ${result.inventoryDigest}`);
+          console.log(`Network: ${result.network}`);
+          console.log(`Written: ${result.written}`);
+          console.log(`Result: ${result.ok ? 'ready' : 'not ready'}`);
+          for (const source of result.sources) {
+            console.log(
+              `Source: ${source.name} expected ${source.expected} actual ${source.actual}`,
+            );
+          }
+          for (const problem of result.problems) console.log(`- ${problem}`);
+          console.log(stateReceiptDetails(result));
+        }
+        if (!result.ok) process.exitCode = 1;
+        return result;
+      }),
+    ),
   );
 
 stateCommand
@@ -976,14 +1077,16 @@ stateCommand
   .option('--recovery-branch', 'materialize confirmed state in legacy layout')
   .option('--json', 'print a stable JSON receipt')
   .action(
-    action((options) => {
-      const result = stateExport(process.cwd(), options);
-      if (options.json) console.log(JSON.stringify(result, null, 2));
-      else
-        console.log(
-          `Prepared ${result.branch} at ${result.commit} from ${result.integration} (confirmed ${result.confirmed}; written: ${result.written})`,
-        );
-    }),
+    action(
+      stateAction('export', (options, activity) => {
+        const result = stateExport(process.cwd(), options, activity);
+        if (!options.json)
+          console.log(
+            `Prepared ${result.branch} at ${result.commit} from ${result.integration} (confirmed ${result.confirmed}; baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+          );
+        return result;
+      }),
+    ),
   );
 
 const releaseCommand = program

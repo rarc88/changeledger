@@ -282,6 +282,7 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
   return {
     mode: 'state',
     revision,
+    authority,
     manifest,
     repoRoot,
     changeledgerDir,
@@ -531,6 +532,7 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
   if (!authority)
     return {
       mode: 'worktree',
+      validateAuthority: () => null,
       load: () => loadWorktreeSnapshot(repoRoot, changeledgerDir),
       prepareMutation: () => loadWorktreeSnapshot(repoRoot, changeledgerDir),
       mutate: () => {
@@ -544,16 +546,26 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     });
   const validateCandidate = (revision) =>
     validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
-  const syncReplica = () =>
-    syncStateReplica(repoRoot, {
+  const validateAuthority = () =>
+    validateStateRevision(repoRoot, changeledgerDir, authority, authority.baseline, run, {
+      requireBaseline: true,
+    });
+  const syncReplica = () => {
+    return syncStateReplica(repoRoot, {
       validateRevision: validateReplicaRevision,
       validateCandidate,
     });
+  };
   const load = () => loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
   let prepared = null;
   return {
     mode: 'state',
+    validateAuthority,
     load,
+    loadRevision: (revision) =>
+      validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
+        requireBaseline: true,
+      }),
     prepareMutation: ({ offline = false } = {}) => {
       if (replica && !offline) syncReplica();
       const snapshot = load();
@@ -572,13 +584,18 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     },
     replica: replica
       ? {
-          status: () => stateReplicaStatus(repoRoot),
+          status: () => {
+            validateAuthority();
+            return stateReplicaStatus(repoRoot);
+          },
           sync: syncReplica,
-          abort: ({ offline = false } = {}) =>
-            abortStatePending(repoRoot, {
+          abort: ({ offline = false } = {}) => {
+            validateAuthority();
+            return abortStatePending(repoRoot, {
               offline,
               validateRevision: validateReplicaRevision,
-            }),
+            });
+          },
         }
       : null,
   };

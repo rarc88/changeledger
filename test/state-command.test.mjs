@@ -69,6 +69,25 @@ test('193102 CR1/CR7: state status is local-only and state sync advances the eff
   );
 });
 
+test('193103 CR7/CR11: replica commands validate authority before reading or mutating refs', () => {
+  const created = fixture();
+  const authority = path.join(created.root, '.changeledger', 'authority.yml');
+  fs.writeFileSync(
+    authority,
+    fs.readFileSync(authority, 'utf8').replace('inventory_digest: a', 'inventory_digest: b'),
+  );
+  git(created.root, ['update-ref', PENDING_REF, created.baseline]);
+
+  assert.throws(() => stateStatus(created.root), /inventory_digest does not match authority/);
+  assert.throws(
+    () => stateAbort(created.root, { pending: true, offline: true }),
+    /inventory_digest does not match authority/,
+  );
+  assert.throws(() => stateSync(created.root), /inventory_digest does not match authority/);
+  assert.equal(git(created.root, ['rev-parse', PENDING_REF]), created.baseline);
+  assert.equal(git(created.root, ['rev-parse', CONFIRMED_REF]), created.baseline);
+});
+
 test('193102 CR7: initial sync rejects a valid state outside the authority baseline', () => {
   const created = fixture();
   git(created.root, ['update-ref', '-d', CONFIRMED_REF]);
@@ -85,6 +104,25 @@ test('193102 CR7: initial sync rejects a valid state outside the authority basel
   assert.throws(() => stateSync(created.root), /does not descend from authority baseline/);
   assert.throws(() => git(created.root, ['rev-parse', '--verify', CONFIRMED_REF]));
   assert.throws(() => loadLedgerStore(created.root).load(), /run `changeledger state sync`/);
+});
+
+test('193103 CR7/CR11: initial sync validates authority after fetching an absent baseline', () => {
+  const created = fixture();
+  git(created.root, ['push', '-q', 'origin', 'dev']);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-fresh-clone-'));
+  const clone = path.join(parent, 'clone');
+  execFileSync(
+    'git',
+    ['clone', '-q', '--no-local', '--single-branch', '-b', 'dev', created.remote, clone],
+    { cwd: parent, encoding: 'utf8' },
+  );
+  assert.throws(() => git(clone, ['cat-file', '-e', `${created.baseline}^{commit}`]));
+
+  const result = stateSync(clone);
+
+  assert.equal(result.effective, created.baseline);
+  assert.equal(git(clone, ['rev-parse', CONFIRMED_REF]), created.baseline);
+  assert.equal(loadLedgerStore(clone).load().revision, created.baseline);
 });
 
 test('193102 CR3: CLI mutation preflight initializes a replica before constructing the change', () => {

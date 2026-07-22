@@ -31,30 +31,36 @@ export function stateAbort(cwd = process.cwd(), { pending = false, offline = fal
 export function stateMigrate(
   cwd = process.cwd(),
   { preview = false, create = false, sources = [], output, plan } = {},
+  activity = {},
 ) {
   if (preview === create) {
     throw new Error('state migrate requires exactly one mode: --preview or --create');
   }
   if (preview) {
     if (plan) throw new Error('state migrate --preview does not accept --plan');
-    return previewStateMigration({ sources, output }, cwd);
+    return previewStateMigration({ sources, output }, cwd, activity);
   }
   if (sources.length || output) {
     throw new Error('state migrate --create accepts --plan only');
   }
-  return createStateBaseline({ planFile: plan }, cwd);
+  return createStateBaseline({ planFile: plan }, cwd, activity);
 }
 
-export function stateActivate(cwd = process.cwd(), { prepare = false, baseline } = {}) {
+export function stateActivate(
+  cwd = process.cwd(),
+  { prepare = false, baseline } = {},
+  activity = {},
+) {
   if (!prepare) throw new Error('state activate requires --prepare');
-  return prepareStateActivation({ baseline }, cwd);
+  return prepareStateActivation({ baseline }, cwd, activity);
 }
 
-export function stateDoctor(cwd = process.cwd(), options = {}) {
-  return doctorStateMigration(options, cwd);
+export function stateDoctor(cwd = process.cwd(), options = {}, activity = {}) {
+  if (!options.activationRef) throw new Error('state doctor requires --activation-ref');
+  return doctorStateMigration(options, cwd, activity);
 }
 
-export function stateExport(cwd = process.cwd(), { recoveryBranch = false } = {}) {
+export function stateExport(cwd = process.cwd(), { recoveryBranch = false } = {}, activity = {}) {
   if (!recoveryBranch) throw new Error('state export requires --recovery-branch');
-  return exportStateRecovery(cwd);
+  return exportStateRecovery(cwd, {}, activity);
 }
