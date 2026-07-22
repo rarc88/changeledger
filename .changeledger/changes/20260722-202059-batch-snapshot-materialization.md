@@ -2,7 +2,7 @@
 id: "20260722-202059"
 title: Materializar snapshots e inventarios Git en lote
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-07-22T20:20:59Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -81,3 +81,4 @@ operación (`20260722-202100`); validación incremental de batches
 - **2026-07-22T22:09:22Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T22:48:00Z** `[note]` Abstracción compartida `src/git-batch.mjs`: `treeEntries` (un `ls-tree -r -z --full-tree`) + `batchBlobReader` (un `cat-file --batch` binario, validación UTF-8 estricta por blob antes del decode lossy, dedup de OIDs). `src/ledger-store.mjs`'s `loadStateTree` la usa para el snapshot de estado, sustituyendo un `git show` por documento; mismos errores ante blob/path/UTF-8 inválido, verificado con la suite existente (SHA-1/SHA-256, framing NUL). `src/state-migration.mjs` la aplica en `inventorySource` (un batch por fuente en vez de N `git show`), `candidateSnapshot`/`chosenContent` (un batch de candidatos resueltos en vez de N), y `readStateMetadata` (activación/doctor: un batch para manifest+config+changes+specs+releases). También se batcheó el lookup de árbol en `activationRemovals` (antes N `ls-tree` sueltos en el loop de remociones legacy, ahora uno). Los lookups verdaderamente O(1) (`authorityAt`, `assertIntegrationAuthority`, el config del plan) se dejaron con lectura directa por blob — no son el patrón N+1 que este cambio ataca. Benchmark reproducible en `scripts/bench-state-load.mjs` (fixture sintética con git real, compara N `git show` por archivo contra `treeEntries`+`batchBlobReader` en el mismo proceso): 250 docs 3103,2 ms → 58,8 ms (52,8x), 1.000 12297,9 ms → 170,3 ms (72,2x), 5.000 61602,5 ms → 784,9 ms (78,5x) — p50, 5 repeticiones (3 para la ruta `git show` a 1.000/5.000 por costo). Objetivo de carga ≤2 s a 5.000 changes cumplido con margen (0,78 s materialización pura, sin contar `checkRepo`). Suite ampliada 137/137 (`ledger-store`/`state-validation`/`state-store`/`state-command`/`ledger-mutations`/`state-capabilities`) y 39/39 en `state-migration`/`state-receive`, incluida cobertura SHA-1/SHA-256 existente. Gate completo: lint, tests y `changeledger check` verdes.
 - **2026-07-22T22:47:09Z** `[status]` in-progress → in-review
+- **2026-07-22T22:52:24Z** `[review]` in-review → in-validation (delegated subagent, clean context)
