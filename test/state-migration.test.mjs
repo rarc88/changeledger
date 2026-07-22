@@ -691,6 +691,25 @@ test('163406 CR2: recovery succeeds and preserves a file left out of the invento
   assert.equal(git(root, ['show', `${recovery.commit}:.changeledger/config.yml`]), config().trim());
 });
 
+test('181234 CR1: an identical recovery retry reuses the branch instead of failing', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+
+  git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+
+  const first = exportStateRecovery(root);
+  const retry = exportStateRecovery(root);
+  assert.equal(retry.commit, first.commit);
+  assert.equal(retry.branch, first.branch);
+  assert.equal(git(root, ['rev-parse', retry.ref]), first.commit);
+});
+
 test('163406 CR3: recovery still fails closed on a real path collision', () => {
   const { root } = legacyRepo();
   const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);

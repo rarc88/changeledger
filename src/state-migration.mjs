@@ -1341,6 +1341,7 @@ export function exportStateRecovery(
       { ref: PENDING_REF, expected: null },
       { ref: `refs/heads/${integration}`, expected: base },
     ],
+    allowExactReuse: true,
     beforeRefTransaction,
     activity,
   });
