@@ -113,6 +113,21 @@ export function createStatePending(repoRoot, confirmed, head) {
   return readStateReplica(repoRoot);
 }
 
+export function keepStateReplicaRevision(repoRoot, confirmed) {
+  const refs = readStateReplica(repoRoot);
+  if (refs.pending) {
+    throw new Error('resolve the existing pending state before mutating again');
+  }
+  if (!confirmed || refs.confirmed !== confirmed) {
+    throw new Error('confirmed state changed concurrently; retry the operation');
+  }
+  transaction(repoRoot, [
+    { ref: CONFIRMED_REF, before: confirmed, after: confirmed },
+    { ref: PENDING_REF, before: null, after: null },
+  ]);
+  return readStateReplica(repoRoot);
+}
+
 function isAncestor(repoRoot, ancestor, descendant) {
   try {
     git(repoRoot, ['merge-base', '--is-ancestor', ancestor, descendant]);

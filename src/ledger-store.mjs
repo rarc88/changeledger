@@ -16,6 +16,7 @@ import {
   abortStatePending,
   CONFIRMED_REF,
   createStatePending,
+  keepStateReplicaRevision,
   PENDING_REF,
   stateReplicaStatus,
   syncStateReplica,
@@ -318,6 +319,18 @@ function keepStateRevision(repoRoot, revision, ref, run) {
   }
 }
 
+function keepMutationRevision(repoRoot, revision, replica, run) {
+  try {
+    if (replica) keepStateReplicaRevision(repoRoot, revision);
+    else keepStateRevision(repoRoot, revision, STATE_REF, run);
+  } catch (error) {
+    if (error instanceof LedgerConflictError) throw error;
+    throw new LedgerConflictError('Ledger state changed concurrently; retry the operation', {
+      cause: error,
+    });
+  }
+}
+
 function validateStateRevision(repoRoot, changeledgerDir, authority, revision, run) {
   let snapshot;
   try {
@@ -382,7 +395,7 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
   };
   mutate({ snapshot, write, remove });
   if (!writes.size && !removals.size) {
-    keepStateRevision(repoRoot, revision, replica ? CONFIRMED_REF : STATE_REF, run);
+    keepMutationRevision(repoRoot, revision, replica, run);
     return snapshot;
   }
 
@@ -406,7 +419,7 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
     }
     const tree = runIndexedGit(['write-tree'], repoRoot, indexFile).trim();
     if (tree === sourceTree) {
-      keepStateRevision(repoRoot, revision, replica ? CONFIRMED_REF : STATE_REF, run);
+      keepMutationRevision(repoRoot, revision, replica, run);
       return snapshot;
     }
     validateRevision(tree);

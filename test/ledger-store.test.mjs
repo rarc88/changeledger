@@ -250,6 +250,26 @@ test('193102 CR2/CR7: an online replica mutation preflights and publishes throug
   assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
 });
 
+test('193102 CR3: a replica no-op rejects a pending state created during its mutation', () => {
+  const { root, baseline } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  git(root, ['remote', 'add', 'origin', root]);
+  const pending = git(root, ['rev-parse', PUBLIC_STATE_REF]);
+  const store = loadLedgerStore(root);
+  const before = store.load();
+
+  assert.equal(before.revision, baseline);
+  assert.throws(
+    () =>
+      store.mutate(
+        { message: 'test: replica no-op race', expectedRevision: before.revision, offline: true },
+        () => git(root, ['update-ref', PENDING_REF, pending]),
+      ),
+    /Ledger state changed concurrently/,
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), pending);
+});
+
 test('193101 correction CR3: authority baseline must be an exact full commit OID', () => {
   const { root } = fixture();
   fs.writeFileSync(
