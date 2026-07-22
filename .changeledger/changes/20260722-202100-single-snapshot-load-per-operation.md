@@ -2,7 +2,7 @@
 id: "20260722-202100"
 title: Una carga de snapshot por operación con caché por OID
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-07-22T20:21:00Z
 depends_on: ["20260722-202059"]
 owner: raruiz-hiberuscom
@@ -54,15 +54,21 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 
 ## Plan
 
-- [ ] Añadir tests de conteo de materializaciones (espía sobre la abstracción batch) que capturen las 3–5 cargas actuales por mutación y fijen el presupuesto de una carga fuente más candidato en memoria, y refactorizar `prepareMutation`/`mutateState` en `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/ledger-mutations.test.mjs` (CR de equivalencia)
-- [ ] Reutilizar revisiones validadas por OID dentro de `syncStateReplica` en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-command.test.mjs` (CR de equivalencia)
-- [ ] Re-ejecutar el benchmark de `20260722-202059` midiendo la mutación por volumen contra el objetivo; verify: benchmark comparativo en el Log (support)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests de conteo de materializaciones (espía sobre la abstracción batch) que capturen las 3–5 cargas actuales por mutación y fijen el presupuesto de una carga fuente más candidato en memoria, y refactorizar `prepareMutation`/`mutateState` en `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/ledger-mutations.test.mjs` (CR de equivalencia)
+  - **Resolved:** `2026-07-22T23:05:00Z`
+- [x] Reutilizar revisiones validadas por OID dentro de `syncStateReplica` en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-command.test.mjs` (CR de equivalencia)
+  - **Resolved:** `2026-07-22T23:08:00Z`
+- [x] Re-ejecutar el benchmark de `20260722-202059` midiendo la mutación por volumen contra el objetivo; verify: benchmark comparativo en el Log (support)
+  - **Resolved:** `2026-07-22T23:16:00Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T23:20:00Z`
 
 ## Log
 
 - **2026-07-22T20:21:00Z** `[note]` Draft creado desde la unión de las dos ejecuciones de 20260721-193106 (mutación 62 s de mediana a 250 changes medida por la ejecución paralela; multiplicador 3–5× de recargas confirmado por ambos auditores). Depende de 20260722-202059.
 - **2026-07-22T20:35:00Z** `[note]` Ajustado por revisión del auditor principal: alcance limitado con honestidad a la reutilización intra-operación (una carga fuente + candidato en memoria, presupuesto explícito); la validación incremental de batches multi-commit se separa en 20260722-203027 porque un caché por OID de commit no evita N snapshots distintos en un batch de N commits.
+- **2026-07-22T23:20:00Z** `[note]` Implementado en `src/ledger-store.mjs`: `deriveCandidateSnapshot` construye el snapshot candidato en memoria a partir del snapshot fuente ya cargado más el delta `writes`/`removals` (parseando solo los documentos tocados; los intactos solo se re-etiquetan con la nueva revisión, sin recargarlos de Git); `validateSnapshotContent` factoriza el chequeo schema+`checkRepo` que antes solo corría dentro de `validateStateRevision`, para que el candidato en memoria pase exactamente la misma validación sin releer su árbol de Git. `mutateState` ya no llama `validateCandidate(tree)` (lectura Git) salvo que el delta toque el manifest (caso no usado por ningún mutador real hoy; cae al camino Git completo por seguridad). El retorno final evita la recarga completa: `finalizeMutationSnapshot` reetiqueta el candidato ya validado con el OID del commit y reconstruye los metadatos de frescura vía `stateReplicaStatus` (barato, sin materialización); la comprobación de no-desaparición de 20260722-202058 corre en memoria contra el snapshot fuente ya cargado (su único padre) en vez de recargar el padre desde Git. Excepción de seguridad: si `syncStateReplica` termina en `replay-pending` o falla su publicación (`result.effective !== commit`), se descarta el candidato en memoria y se recarga desde Git — nunca se sirve contenido que no sea exactamente lo que el ref activo terminó teniendo. En `src/state-store.mjs`-adyacente: `syncStateReplica` se invoca hasta dos veces por mutación online (antes y después de crear el pending); un caché por OID (`replicaValidationCache`, vive solo dentro de `mutateState`) evita revalidar el mismo `fetched` dos veces cuando el remoto no avanzó entre ambas llamadas — memoización pura, sin cambiar qué se valida. Tests de presupuesto (espía sobre `cat-file --batch`) añadidos en `test/ledger-store.test.mjs`: v1 confirmado ≤1 materialización por mutación (RED inicial: 3), réplica offline ≤2 (RED inicial: 4). Benchmark reproducible extendido en `scripts/bench-mutation.mjs` (v1/v2-offline/v2-online, 250/1000/5000 vía la API real `store.mutate`): v1 372,3/470,5/1432,1 ms (1 materialización en los tres volúmenes); v2-offline 492,1/667,9/1644,3 ms (1 materialización — el baseline es la raíz del historial de estado y no tiene padre que recargar); v2-online 1209,7/1596,5/4753,0 ms (3 materializaciones: sync pre-mutación + carga fuente + sync post-mutación, el caché por OID evita una cuarta). Objetivo "mutación ≈ una carga batch más el delta" cumplido para v1 y réplica offline; v2-online retiene sync remoto genuino (dos fetches, no eliminables sin arriesgar la garantía de reconciliación) documentado como costo aceptado, no comparable 1:1 con el objetivo del CR. Bug lateral encontrado y corregido durante el benchmark: `defaultRun` (`src/git.mjs`) y el `run` del hook (`src/state-validation.mjs`) no fijaban `maxBuffer` en su `execFileSync`; con lecturas por-archivo esto nunca se topaba con el límite de 1 MiB de Node, pero una lectura batch de 5.000 changes sí (`ENOBUFS` reproducido y corregido). Se añadió `GIT_MAX_BUFFER` compartido en `git.mjs` (reemplaza la constante duplicada en `state-migration.mjs`); en `state-validation.mjs` el techo se fija a `Math.max(GIT_MAX_BUFFER, budget.max_object_bytes)` para no interferir con el chequeo de aplicación existente sobre `max_object_bytes` (que debe poder disparar su propio mensaje incluso con un presupuesto configurado pequeño), y `cleanError` ahora acota el detalle a 2000 caracteres (mismo patrón que 20260722-202101) para que un error de `ENOBUFS` con buffer parcial no produzca un mensaje de decenas de MB. Suite completa: 936/936, más 79/79 (`state-store`/`state-command`) y 222/222 en la suite ampliada de validación/migración/capabilities/receive/cli-bin. Gate completo: lint, tests y `changeledger check` verdes.
 - **2026-07-22T22:53:26Z** `[status]` draft → approved (human via conversation)
 - **2026-07-22T22:53:27Z** `[status]` approved → in-progress
 - **2026-07-22T22:53:27Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-22T23:18:19Z** `[status]` in-progress → in-review

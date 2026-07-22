@@ -7,6 +7,14 @@ import { execFileSync } from 'node:child_process';
 const SEP = String.fromCharCode(31); // ASCII unit separator — safe field delimiter
 const RECORD_SEP = String.fromCharCode(30);
 
+// execFileSync's default maxBuffer is 1 MiB; a batch `cat-file --batch` read
+// (src/git-batch.mjs) returns every requested blob's content in one response,
+// so it can exceed that default well before any single file would have.
+// Shared so every consumer that feeds git-batch.mjs a `run` (this file's
+// defaultRun, plus state-validation.mjs's own execFileSync call) agrees on
+// the same ceiling instead of each guessing its own.
+export const GIT_MAX_BUFFER = 16 * 1024 * 1024;
+
 // Repo-location env vars git itself exports while running a hook (e.g. this
 // project's own pre-commit). Left inherited, a child `git` call would silently
 // target the hook's repo/worktree instead of the given `cwd` — strip them so
@@ -53,6 +61,7 @@ export function defaultRun(args, cwd, { encoding = 'utf8', input } = {}) {
     env: sanitizedGitEnv(),
     encoding,
     input,
+    maxBuffer: GIT_MAX_BUFFER,
     stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'ignore'],
   });
 }

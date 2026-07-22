@@ -11,6 +11,7 @@ import { buildContext } from '../src/commands/context.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { search } from '../src/commands/search.mjs';
+import { defaultRun } from '../src/git.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
@@ -304,6 +305,75 @@ test('193102 CR2/CR7: an online replica mutation preflights and publishes throug
   assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), after.revision);
   assert.equal(git(remote, ['rev-parse', PUBLIC_STATE_REF]), after.revision);
   assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
+});
+
+function countingRun() {
+  const spy = { batchReads: 0 };
+  const run = (args, cwd, options) => {
+    if (args[0] === 'cat-file' && args[1] === '--batch') spy.batchReads++;
+    return defaultRun(args, cwd, options);
+  };
+  return { run, spy };
+}
+
+test('202100: a v1 mutation batch-materializes the snapshot at most once', () => {
+  const { root } = fixture({
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+    },
+  });
+  const { run, spy } = countingRun();
+  const store = loadLedgerStore(root, { run });
+  const before = store.load();
+  spy.batchReads = 0;
+  const after = store.mutate(
+    { message: 'test: budget', expectedRevision: before.revision },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Budgeted'),
+      );
+    },
+  );
+  assert.equal(after.changes[0].frontmatter.title, 'Budgeted');
+  assert.ok(
+    spy.batchReads <= 1,
+    `expected at most one batch materialization per mutation, got ${spy.batchReads}`,
+  );
+});
+
+test('202100: an offline replica mutation batch-materializes the snapshot at most twice', () => {
+  const { root } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+    },
+  });
+  const { run, spy } = countingRun();
+  const store = loadLedgerStore(root, { run });
+  const before = store.load();
+  spy.batchReads = 0;
+  const after = store.mutate(
+    { message: 'test: offline budget', expectedRevision: before.revision, offline: true },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Budgeted'),
+      );
+    },
+  );
+  assert.equal(after.changes[0].frontmatter.title, 'Budgeted');
+  assert.ok(
+    spy.batchReads <= 2,
+    `expected at most two batch materializations (source + its parent) per offline replica mutation, got ${spy.batchReads}`,
+  );
 });
 
 test('193102 CR3: a replica no-op rejects a pending state created during its mutation', () => {

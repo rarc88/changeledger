@@ -416,6 +416,19 @@ function keepMutationRevision(repoRoot, revision, replica, run) {
   }
 }
 
+// Same content checks `validateStateRevision` runs after a git-backed load,
+// factored out so an in-memory candidate (already parsed, never re-read from
+// git) can be validated identically instead of duplicating the checks.
+function validateSnapshotContent(snapshot) {
+  assertSupportedSchema(snapshot.config);
+  const { errors } = checkRepo(snapshot);
+  if (errors.length) {
+    throw new Error(
+      `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
+    );
+  }
+}
+
 export function validateStateRevision(
   repoRoot,
   changeledgerDir,
@@ -430,13 +443,7 @@ export function validateStateRevision(
   } catch (error) {
     throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
   }
-  assertSupportedSchema(snapshot.config);
-  const { errors } = checkRepo(snapshot);
-  if (errors.length) {
-    throw new Error(
-      `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
-    );
-  }
+  validateSnapshotContent(snapshot);
   if (requireBaseline) {
     try {
       run(['merge-base', '--is-ancestor', authority.baseline, revision], repoRoot);
@@ -461,6 +468,90 @@ export function validateServerStateRevision(repoRoot, authority, revision, run =
   );
 }
 
+const STATE_COLLECTION_PARSERS = { changes: parseChange, specs: parseSpec, releases: parseYaml };
+
+function stateCollectionOf(file) {
+  for (const collection of Object.keys(STATE_COLLECTION_PARSERS)) {
+    if (file.startsWith(`${STATE_ROOT}/${collection}/`)) return collection;
+  }
+  return null;
+}
+
+// Builds the post-mutation snapshot from the already-loaded source snapshot
+// plus the write/remove delta the mutator produced, entirely in memory: the
+// candidate tree's exact content is already known from `writes`/`removals`,
+// so re-reading it from git would just reparse what this function already
+// has. Does not replicate `loadStateSnapshotAt`'s manifest/authority
+// consistency checks -- callers must fall back to a git-backed validation
+// when `writes` touches the manifest (see `mutateState`).
+function deriveCandidateSnapshot(snapshot, revision, writes, removals) {
+  const candidate = { ...snapshot, revision };
+  for (const [collection, parse] of Object.entries(STATE_COLLECTION_PARSERS)) {
+    const survivors = snapshot[collection]
+      .filter((doc) => !removals.has(doc.statePath) && !writes.has(doc.statePath))
+      .map((doc) => ({ ...doc, file: `git:${revision}:${doc.statePath}` }));
+    const added = [...writes]
+      .filter(([file]) => stateCollectionOf(file) === collection)
+      .map(([file, text]) => {
+        try {
+          return {
+            file: `git:${revision}:${file}`,
+            statePath: file,
+            name: path.posix.basename(file),
+            text,
+            ...parse(text),
+          };
+        } catch (error) {
+          throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
+        }
+      });
+    candidate[collection] = [...survivors, ...added];
+  }
+  candidate.changes = [...candidate.changes].sort((a, b) =>
+    String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)),
+  );
+  if (writes.has(CONFIG)) {
+    candidate.configText = writes.get(CONFIG);
+    try {
+      candidate.config = parseYaml(candidate.configText);
+    } catch (error) {
+      throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
+    }
+  }
+  candidate.configFile = `git:${revision}:${CONFIG}`;
+  return candidate;
+}
+
+// Cheaply relabels an already-validated in-memory snapshot for a new
+// revision string (e.g. the tree OID validated pre-commit vs. the commit OID
+// it ends up under) -- pure string substitution, no reparsing.
+function restampRevision(snapshot, revision) {
+  const restamp = (doc) => ({ ...doc, file: `git:${revision}:${doc.statePath}` });
+  return {
+    ...snapshot,
+    revision,
+    configFile: `git:${revision}:${CONFIG}`,
+    changes: snapshot.changes.map(restamp),
+    specs: snapshot.specs.map(restamp),
+    releases: snapshot.releases.map(restamp),
+  };
+}
+
+function finalizeMutationSnapshot(repoRoot, authority, candidate, commit) {
+  const stamped = restampRevision(candidate, commit);
+  if (authority.format_version === 1) {
+    return { ...stamped, ledgerFreshness: 'local', ledgerConfirmation: 'local' };
+  }
+  const replica = stateReplicaStatus(repoRoot);
+  return {
+    ...stamped,
+    ledgerFreshness: replica.condition,
+    ledgerConfirmation: replica.pending ? 'pending publication' : 'confirmed',
+    ledgerObservedAt: replica.observedAt,
+    ledgerReplica: replica,
+  };
+}
+
 function mutateState(
   repoRoot,
   changeledgerDir,
@@ -482,10 +573,19 @@ function mutateState(
   const replica = authority.format_version === 2;
   const validateCandidate = (revision) =>
     validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
-  const validateReplicaRevision = (revision) =>
-    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
+  // syncStateReplica runs at most twice per mutation (before and after
+  // creating the pending commit); when the remote hasn't moved between the
+  // two, it revalidates the same fetched OID -- memoize so the second call
+  // reuses that result instead of re-materializing it from git.
+  const replicaValidationCache = new Map();
+  const validateReplicaRevision = (revision) => {
+    if (replicaValidationCache.has(revision)) return replicaValidationCache.get(revision);
+    const snapshot = validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
       requireBaseline: true,
     });
+    replicaValidationCache.set(revision, snapshot);
+    return snapshot;
+  };
   if (replica && options.offline !== true && !preflighted) {
     syncStateReplica(repoRoot, {
       validateRevision: validateReplicaRevision,
@@ -550,7 +650,18 @@ function mutateState(
       keepMutationRevision(repoRoot, revision, replica, run);
       return snapshot;
     }
-    validateCandidate(tree);
+    // The candidate's exact content is already known from `writes`/`removals`
+    // -- validate it in memory instead of re-reading `tree` back from git,
+    // unless it touches the manifest (see `deriveCandidateSnapshot`).
+    const canDeriveInMemory = !writes.has(MANIFEST);
+    let candidate;
+    if (canDeriveInMemory) {
+      candidate = deriveCandidateSnapshot(snapshot, tree, writes, removals);
+      validateSnapshotContent(candidate);
+      if (replica) assertNoDisappearance(snapshot, candidate, tree);
+    } else {
+      candidate = validateCandidate(tree);
+    }
     const commit = runIndexedGit(
       ['commit-tree', tree, '-p', revision, '-m', options.message],
       repoRoot,
@@ -565,12 +676,19 @@ function mutateState(
       });
     }
     if (replica && options.offline !== true) {
-      syncStateReplica(repoRoot, {
+      const result = syncStateReplica(repoRoot, {
         validateRevision: validateReplicaRevision,
         validateCandidate,
       });
+      // A replay or a failed publish means the effective state is not
+      // exactly our commit (it was replaced or is still pending under a
+      // different OID) -- reload from git rather than serve stale content.
+      if (canDeriveInMemory && result.effective === commit) {
+        return finalizeMutationSnapshot(repoRoot, authority, candidate, commit);
+      }
       return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
     }
+    if (canDeriveInMemory) return finalizeMutationSnapshot(repoRoot, authority, candidate, commit);
     return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
   } finally {
     fs.rmSync(indexDir, { recursive: true, force: true });

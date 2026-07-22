@@ -8,7 +8,7 @@ import { parseChange } from './change.mjs';
 import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, integrationBranch } from './config.mjs';
 import { VERSION } from './framing.mjs';
-import { sanitizedGitEnv } from './git.mjs';
+import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
 import { batchBlobReader } from './git-batch.mjs';
 import { loadLedgerStore, STATE_REF } from './ledger-store.mjs';
 import { compareVersions } from './release.mjs';
@@ -30,7 +30,6 @@ const LEGACY_AUTHORITY_PATH = '.changeledger/authority.yml';
 const RELEASES_DIR = '.changeledger/releases';
 const OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const GIT_MAX_BUFFER = 16 * 1024 * 1024;
 const GIT_ERROR_DETAIL_LIMIT = 2000;
 
 function recordActivity(activity, values) {

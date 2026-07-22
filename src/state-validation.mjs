@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { integrationBranch } from './config.mjs';
-import { sanitizedGitEnv } from './git.mjs';
+import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
 import {
   assertNoDisappearance,
   parseStateAuthority,
@@ -19,6 +19,12 @@ export const DEFAULT_STATE_LIMITS = Object.freeze({
 const AUTHORITY_PATH = '.changeledger/authority.yml';
 const LEGACY_CONFIG_PATH = '.changeledger/config.yml';
 const STATE_CONFIG_PATH = '.changeledger-state/config.yml';
+// A maxBuffer-exceeded execFileSync error still carries the truncated
+// stdout/stderr captured so far; with a batch `cat-file --batch` read this
+// can be up to `max_object_bytes` (64 MiB default) of raw object content, so
+// cap the diagnostic the same way 20260722-202101 already bounds
+// state-migration.mjs's git-output errors.
+const GIT_ERROR_DETAIL_LIMIT = 2000;
 
 class ValidationTimeoutError extends Error {}
 
@@ -37,6 +43,11 @@ function cleanError(error) {
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean)
     .join('\n');
+  if (detail.length > GIT_ERROR_DETAIL_LIMIT) {
+    const omitted = detail.length - GIT_ERROR_DETAIL_LIMIT;
+    const code = error?.code ? ` (${error.code})` : '';
+    return `${detail.slice(0, GIT_ERROR_DETAIL_LIMIT)}... (${omitted} more bytes omitted)${code}`;
+  }
   return detail || error?.message || String(error);
 }
 
@@ -62,6 +73,16 @@ function runner(
         input,
         timeout: remaining,
         encoding,
+        // A batch `cat-file --batch` read (git-batch.mjs) returns every
+        // requested blob in one response, which a single small object would
+        // never have hit under execFileSync's 1 MiB default. This is a
+        // subprocess-pipe ceiling, deliberately independent of the semantic
+        // `budget.max_object_bytes` check below (line ~171): it must stay at
+        // least that large (a configured budget larger than 16 MiB must still
+        // be readable) without shrinking to match a small configured budget,
+        // which would fail the subprocess with an opaque ENOBUFS before that
+        // check ever ran.
+        maxBuffer: Math.max(GIT_MAX_BUFFER, budget.max_object_bytes),
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (error) {
