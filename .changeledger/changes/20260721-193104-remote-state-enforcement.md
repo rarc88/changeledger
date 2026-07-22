@@ -182,15 +182,24 @@ añadirlos sin cambiar `LedgerStore`, `state sync` ni el formato del snapshot.
 
 ## Plan
 
-- [ ] Añadir fixtures SHA-1/SHA-256 y parser de batch/input estricto en `test/state-validation.test.mjs` y `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR1)
-- [ ] Extraer validación server-safe de snapshots v2 desde `src/ledger-store.mjs` y validar cada commit de state en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs test/ledger-store.test.mjs` (CR2)
-- [ ] Implementar protección post-cutover de authority y roots legacy de integración en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR3, CR8)
-- [ ] Implementar contadores de commits/objetos únicos y deadline por subproceso en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR7)
-- [ ] Añadir modelo puro de capacidades con procedencia y composición de doctor en `src/state-capabilities.mjs` y `src/commands/state.mjs`; verify: `node --test test/state-capabilities.test.mjs test/state-command.test.mjs` (CR4, CR5)
-- [ ] Crear `src/state-receive.mjs` y wrapper self-managed `hooks/pre-receive` sin actor/override/probe; verify: `node --test test/state-receive.test.mjs test/git.test.mjs` (CR1, CR4, CR6)
-- [ ] Cablear `state validate-update`/`validate-receive`, help y receipts en `bin/changeledger.mjs`; verify: `node --test test/state-receive.test.mjs test/cli-bin.test.mjs` (CR4, CR9)
-- [ ] Documentar instalación post-activation, recovery administrativa y matriz provider/advisory en `README.md` y `templates/contract/core.md`; verify: `node --test test/context.test.mjs && changeledger check` (CR5, CR8, CR9)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir fixtures SHA-1/SHA-256 y parser de batch/input estricto en `test/state-validation.test.mjs` y `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR1)
+  - **Resolved:** `2026-07-22T15:14:35Z`
+- [x] Extraer validación server-safe de snapshots v2 desde `src/ledger-store.mjs` y validar cada commit de state en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs test/ledger-store.test.mjs` (CR2)
+  - **Resolved:** `2026-07-22T15:14:35Z`
+- [x] Implementar protección post-cutover de authority y roots legacy de integración en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR3, CR8)
+  - **Resolved:** `2026-07-22T15:14:35Z`
+- [x] Implementar contadores de commits/objetos únicos y deadline por subproceso en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs` (CR7)
+  - **Resolved:** `2026-07-22T15:14:35Z`
+- [x] Añadir modelo puro de capacidades con procedencia y composición de doctor en `src/state-capabilities.mjs` y `src/commands/state.mjs`; verify: `node --test test/state-capabilities.test.mjs test/state-command.test.mjs` (CR4, CR5)
+  - **Resolved:** `2026-07-22T15:14:35Z`
+- [x] Crear `src/state-receive.mjs` y wrapper self-managed `hooks/pre-receive` sin actor/override/probe; verify: `node --test test/state-receive.test.mjs test/git.test.mjs` (CR1, CR4, CR6)
+  - **Resolved:** `2026-07-22T15:14:36Z`
+- [x] Cablear `state validate-update`/`validate-receive`, help y receipts en `bin/changeledger.mjs`; verify: `node --test test/state-receive.test.mjs test/cli-bin.test.mjs` (CR4, CR9)
+  - **Resolved:** `2026-07-22T15:14:36Z`
+- [x] Documentar instalación post-activation, recovery administrativa y matriz provider/advisory en `README.md` y `templates/contract/core.md`; verify: `node --test test/context.test.mjs && changeledger check` (CR5, CR8, CR9)
+  - **Resolved:** `2026-07-22T15:14:36Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T15:18:59Z`
 
 ## Log
 

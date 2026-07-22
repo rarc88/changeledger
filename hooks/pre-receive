@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+: "${CHANGELEDGER_INTEGRATION_REF:?set CHANGELEDGER_INTEGRATION_REF to the protected full ref}"
+exec changeledger state validate-receive \
+  --state-ref "${CHANGELEDGER_STATE_REF:-refs/heads/changeledger/state}" \
+  --integration-ref "$CHANGELEDGER_INTEGRATION_REF"

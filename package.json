@@ -48,6 +48,7 @@
   },
   "files": [
     "bin",
+    "hooks",
     "src",
     "templates",
     "AGENTS.md"

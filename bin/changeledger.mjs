@@ -39,6 +39,8 @@ import {
   stateMigrate,
   stateStatus,
   stateSync,
+  stateValidateReceive,
+  stateValidateUpdate,
 } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
 import { formatLedgerReceipt, loadLedgerStore } from '../src/ledger-store.mjs';
@@ -125,7 +127,29 @@ function stateFailureReceipt(command, options, error, activity) {
     inventoryDigest: activity.inventoryDigest ?? inventoryDigest,
     network: Boolean(activity.network),
     written: Boolean(activity.written),
+    ...(activity.oldOid ? { oldOid: activity.oldOid } : {}),
+    ...(activity.newOid ? { newOid: activity.newOid } : {}),
+    ...(activity.protectedRef ? { protectedRef: activity.protectedRef } : {}),
+    ...(activity.capabilities ? { capabilities: activity.capabilities } : {}),
   };
+}
+
+function validationLimits(options) {
+  const limits = {};
+  for (const [option, key] of [
+    ['maxCommits', 'max_commits'],
+    ['maxObjectBytes', 'max_object_bytes'],
+    ['timeoutMs', 'timeout_ms'],
+  ]) {
+    if (options[option] === undefined) continue;
+    const value = Number(options[option]);
+    if (!Number.isSafeInteger(value) || value <= 0)
+      throw new Error(
+        `--${option.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)} must be a positive integer`,
+      );
+    limits[key] = value;
+  }
+  return limits;
 }
 
 function stateAction(command, fn) {
@@ -138,6 +162,7 @@ function stateAction(command, fn) {
       }
       return result;
     } catch (error) {
+      if (error?.receipt) Object.assign(activity, error.receipt);
       const receipt = stateFailureReceipt(command, options, error, activity);
       if (!options.json) {
         console.error(stateReceiptDetails(receipt));
@@ -1057,6 +1082,11 @@ stateCommand
           console.log(`Network: ${result.network}`);
           console.log(`Written: ${result.written}`);
           console.log(`Result: ${result.ok ? 'ready' : 'not ready'}`);
+          for (const capability of Object.values(result.capabilities)) {
+            console.log(
+              `Capability: ${capability.capability}=${capability.value} (${capability.reason ?? capability.mechanism})`,
+            );
+          }
           for (const source of result.sources) {
             console.log(
               `Source: ${source.name} expected ${source.expected} actual ${source.actual}`,
@@ -1068,6 +1098,71 @@ stateCommand
         if (!result.ok) process.exitCode = 1;
         return result;
       }),
+    ),
+  );
+
+stateCommand
+  .command('validate-update')
+  .description('validate one protected ref update using local Git objects only')
+  .argument('<old-oid>')
+  .argument('<new-oid>')
+  .argument('<ref>')
+  .requiredOption('--state-ref <ref>', 'protected full state ref')
+  .requiredOption('--integration-ref <ref>', 'protected full integration ref')
+  .option('--max-commits <n>', 'maximum commits inspected')
+  .option('--max-object-bytes <n>', 'maximum unique object bytes inspected')
+  .option('--timeout-ms <n>', 'monotonic validation deadline in milliseconds')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((oldOid, newOid, ref, options) =>
+      stateAction('validate-update', (selected, activity) => {
+        Object.assign(activity, { oldOid, newOid, protectedRef: ref });
+        const result = stateValidateUpdate(process.cwd(), {
+          oldOid,
+          newOid,
+          ref,
+          stateRef: selected.stateRef,
+          integrationRef: selected.integrationRef,
+          limits: validationLimits(selected),
+        });
+        activity.capabilities = result.capabilities;
+        if (!selected.json) {
+          console.log(
+            `Accepted ${result.ref}: ${result.oldOid} -> ${result.newOid} (${result.commits} commits, ${result.object_bytes} bytes; network: ${result.network}; written: ${result.written})`,
+          );
+        }
+        return result;
+      })(options),
+    ),
+  );
+
+stateCommand
+  .command('validate-receive')
+  .description('validate a pre-receive batch while preserving Git quarantine')
+  .requiredOption('--state-ref <ref>', 'protected full state ref')
+  .requiredOption('--integration-ref <ref>', 'protected full integration ref')
+  .option('--max-commits <n>', 'maximum commits inspected per update')
+  .option('--max-object-bytes <n>', 'maximum unique object bytes inspected per update')
+  .option('--timeout-ms <n>', 'monotonic validation deadline in milliseconds')
+  .option('--json', 'print a stable JSON receipt')
+  .action(
+    action((options) =>
+      stateAction('validate-receive', (selected, activity) => {
+        const result = stateValidateReceive(fs.readFileSync(0, 'utf8'), process.cwd(), {
+          stateRef: selected.stateRef,
+          integrationRef: selected.integrationRef,
+          limits: validationLimits(selected),
+        });
+        activity.capabilities = result.flatMap((item) => Object.values(item.capabilities));
+        if (!selected.json) {
+          for (const receipt of result) {
+            console.log(
+              `Accepted ${receipt.ref}: ${receipt.oldOid} -> ${receipt.newOid} (${receipt.commits} commits, ${receipt.object_bytes} bytes; provider: ${receipt.provider}; network: ${receipt.network}; written: ${receipt.written})`,
+            );
+          }
+        }
+        return { updates: result, network: false, written: false };
+      })(options),
     ),
   );
 

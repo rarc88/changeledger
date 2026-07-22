@@ -27,6 +27,22 @@ export function sanitizedGitEnv(overrides = {}) {
   return { ...env, ...overrides };
 }
 
+// Server hooks must retain Git's quarantine object locations so incoming
+// commits are visible before refs are updated. Worktree/index routing remains
+// stripped because a bare receive has no trusted worktree.
+export function receiveGitEnv(overrides = {}) {
+  const env = { ...process.env };
+  for (const key of [
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_COMMON_DIR',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  return { ...env, ...overrides };
+}
+
 // Exported so other commands (e.g. `changeledger commit`) share the same
 // GIT_* sanitization instead of re-implementing it.
 export function defaultRun(args, cwd) {

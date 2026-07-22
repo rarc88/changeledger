@@ -118,12 +118,10 @@ function loadWorktreeSnapshot(repoRoot, changeledgerDir) {
   };
 }
 
-function authorityFor(changeledgerDir) {
-  const file = path.join(changeledgerDir, 'authority.yml');
-  if (!fs.existsSync(file)) return null;
+export function parseStateAuthority(text) {
   let authority;
   try {
-    authority = parseYaml(fs.readFileSync(file, 'utf8'));
+    authority = parseYaml(text);
   } catch (error) {
     throw new Error(`Invalid state authority: ${error.message}`);
   }
@@ -162,6 +160,12 @@ function authorityFor(changeledgerDir) {
     }
   }
   return authority;
+}
+
+function authorityFor(changeledgerDir) {
+  const file = path.join(changeledgerDir, 'authority.yml');
+  if (!fs.existsSync(file)) return null;
+  return parseStateAuthority(fs.readFileSync(file, 'utf8'));
 }
 
 function gitStateRevision(repoRoot, authority, run) {
@@ -224,8 +228,8 @@ function statePaths(repoRoot, revision, run) {
   let output;
   try {
     output = run(['ls-tree', '-r', '-z', '--name-only', revision], repoRoot);
-  } catch {
-    throw new Error('state authority is unavailable or has no readable tree');
+  } catch (error) {
+    throw new Error('state authority is unavailable or has no readable tree', { cause: error });
   }
   if (output !== '' && (typeof output !== 'string' || !output.endsWith('\0'))) {
     throw new Error('state authority returned malformed path framing');
@@ -370,7 +374,7 @@ function keepMutationRevision(repoRoot, revision, replica, run) {
   }
 }
 
-function validateStateRevision(
+export function validateStateRevision(
   repoRoot,
   changeledgerDir,
   authority,
@@ -402,6 +406,17 @@ function validateStateRevision(
     }
   }
   return snapshot;
+}
+
+export function validateServerStateRevision(repoRoot, authority, revision, run = defaultRun) {
+  return validateStateRevision(
+    repoRoot,
+    path.join(repoRoot, '.changeledger'),
+    authority,
+    revision,
+    run,
+    { requireBaseline: true },
+  );
 }
 
 function mutateState(

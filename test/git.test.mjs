@@ -4,7 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import {
+  githubLogin,
+  gitRefs,
+  mutatingRun,
+  ownerHandle,
+  receiveGitEnv,
+  sanitizedGitEnv,
+} from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -153,6 +160,26 @@ test('131022: mutatingRun ignores inherited hook locations when writing config',
     'Fixture User',
   );
   assert.throws(() => mutatingRun(['config', '--local', '--get', 'user.name'], host));
+});
+
+test('193104 CR6: client sanitization drops quarantine while receive hooks preserve it', () => {
+  const before = {
+    object: process.env.GIT_OBJECT_DIRECTORY,
+    alternates: process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES,
+  };
+  process.env.GIT_OBJECT_DIRECTORY = '/quarantine/objects';
+  process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = '/main/objects';
+  try {
+    assert.equal(sanitizedGitEnv().GIT_OBJECT_DIRECTORY, undefined);
+    assert.equal(sanitizedGitEnv().GIT_ALTERNATE_OBJECT_DIRECTORIES, undefined);
+    assert.equal(receiveGitEnv().GIT_OBJECT_DIRECTORY, '/quarantine/objects');
+    assert.equal(receiveGitEnv().GIT_ALTERNATE_OBJECT_DIRECTORIES, '/main/objects');
+  } finally {
+    if (before.object === undefined) delete process.env.GIT_OBJECT_DIRECTORY;
+    else process.env.GIT_OBJECT_DIRECTORY = before.object;
+    if (before.alternates === undefined) delete process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES;
+    else process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = before.alternates;
+  }
 });
 
 test('225638 CR5: gitRefs finds a body marker and returns the clean subject', () => {

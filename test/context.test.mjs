@@ -603,7 +603,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260721-193103 correction: that sequence now names durable inventory,
     // exact-tree diagnosis, atomic recovery guards and complete receipts; its
     // syntax and enforcement/rollout boundary are preserved.
-    'core.md': '0f395e5562428c4aee3f0866a29f0b8df1dce872da16be03af9c696438447c83',
+    // 20260721-193104: the remote-enforcement boundary is preserved and refined:
+    // hooks follow activation and recovery remains an administrative operation.
+    'core.md': '4df0264d429cf49d94d794b5b9c74564e285b4389cb98f562bdf391b1c5a85e2',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.

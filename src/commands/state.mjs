@@ -1,4 +1,5 @@
 import { loadLedgerStore } from '../ledger-store.mjs';
+import { stateCapabilities } from '../state-capabilities.mjs';
 import {
   createStateBaseline,
   doctorStateMigration,
@@ -6,6 +7,7 @@ import {
   prepareStateActivation,
   previewStateMigration,
 } from '../state-migration.mjs';
+import { validateReceive, validateUpdate } from '../state-receive.mjs';
 
 function replicaStore(cwd) {
   const store = loadLedgerStore(cwd);
@@ -57,7 +59,16 @@ export function stateActivate(
 
 export function stateDoctor(cwd = process.cwd(), options = {}, activity = {}) {
   if (!options.activationRef) throw new Error('state doctor requires --activation-ref');
-  return doctorStateMigration(options, cwd, activity);
+  const result = doctorStateMigration(options, cwd, activity);
+  return { ...result, capabilities: stateCapabilities(options.adapterEvidence) };
+}
+
+export function stateValidateUpdate(cwd = process.cwd(), options = {}) {
+  return validateUpdate({ repoRoot: cwd, ...options });
+}
+
+export function stateValidateReceive(input, cwd = process.cwd(), options = {}) {
+  return validateReceive(input, { repoRoot: cwd, ...options });
 }
 
 export function stateExport(cwd = process.cwd(), { recoveryBranch = false } = {}, activity = {}) {

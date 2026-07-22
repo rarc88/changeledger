@@ -166,6 +166,42 @@ tree byte-for-byte; local mode also checks local source refs, while `--online`
 observes the public baseline and remote sources. Review and merge the activation
 branch through the repository's normal workflow.
 
+### Remote enforcement after cutover
+
+Install remote protection only after the activation commit is present on the
+integration ref. A self-managed bare Git server can install the packaged
+`hooks/pre-receive` and set both full refs explicitly:
+
+```sh
+export CHANGELEDGER_STATE_REF=refs/heads/changeledger/state
+export CHANGELEDGER_INTEGRATION_REF=refs/heads/dev
+cp hooks/pre-receive <bare-repository>/hooks/pre-receive
+chmod +x <bare-repository>/hooks/pre-receive
+```
+
+The hook validates every incoming state snapshot from Git's receive quarantine.
+It also rejects non-fast-forward integration updates and any commit that changes
+the active authority or reintroduces legacy config, changes, specs or releases.
+It has no portable authenticated actor identity: `owner` remains responsibility
+metadata, not an access-control list. There is no actor, human-override, probe or
+provider-autodetection option.
+
+Protection capabilities are reported independently:
+
+| Deployment | History | Content | Actor | Legacy paths |
+|---|---|---|---|---|
+| Self-managed `pre-receive` | server policy | verified | unavailable | verified |
+| Hosted branch/ruleset API | enforced only with authenticated adapter evidence | unavailable | provider-specific | configured or unavailable |
+| No trusted adapter | unknown | unavailable | unavailable | unavailable |
+
+A static config file, user-supplied JSON, stderr text or generic push rejection
+cannot produce a `verified` capability. Each verified result carries provider,
+exact ref/OID, mechanism and evidence; ChangeLedger never collapses the rows
+into a single “strong” claim. `state validate-update` and `state
+validate-receive` emit human or `--json` receipts with refs, OIDs, inspected
+commits/bytes, provider, capabilities, and explicit `network: false` and
+`written: false`.
+
 Add `--json` to migration, activation, doctor or recovery commands for a stable
 success or failure receipt containing sources/OIDs, baseline, affected
 branch/ref, inventory digest, network use and whether anything was written.
@@ -186,6 +222,13 @@ sync, abort and export validate authority against its baseline before reading or
 mutating replica refs. These commands prove the cutover data and client version;
 they do not enforce remote path policy against old clients or perform a
 production rollout. Those remain separate deployment controls.
+
+Remote protection deliberately rejects a normal push that removes
+`.changeledger/authority.yml`, including a generated recovery branch. Recovery
+therefore requires a visible provider-administration operation: temporarily
+remove or bypass the integration protection rule, merge the reviewed recovery
+commit, and immediately restore the rule/hook. No flag in a pushed payload can
+bypass validation.
 
 ## Release planning
 
