@@ -5,7 +5,7 @@ type: bug
 status: draft
 created: 2026-07-22T20:20:57Z
 depends_on: []
-related_to: ["20260721-193106", "20260721-193101"]
+related_to: ["20260721-193106", "20260721-193101", "20260722-203030"]
 release_impact: patch
 ---
 
@@ -38,14 +38,15 @@ al commit anterior (`approved`), `list --json` y `show` devolvieron el estado
 Mitigante verificado: el hook remoto rechaza el downgrade vía push (`protected
 path changed: .changeledger/authority.yml`). Pero el camino local de lectura no
 tiene defensa análoga y es alcanzable con cualquier checkout/rebase/edición
-manual o remoto sin hook.
+manual o remoto sin hook. La documentación de este alcance (protección de
+authority es push/hook, no local) pertenece a `20260722-203030`, no a este fix.
 
 ## Specification
 
 ### CR1 — La presencia de refs v2 invalida el modo v1
 - **Given** un repo cuyo `authority.yml` declara una forma distinta de
-  `format_version: 2` mientras existen `refs/changeledger/confirmed` u
-  `observed` locales
+  `format_version: 2` mientras existe cualquiera de las refs de réplica v2
+  locales (`refs/changeledger/confirmed`, `observed` o `pending`)
 - **When** cualquier comando lee o muta el ledger
 - **Then** falla cerrado con un error que nombra el conflicto (authority v1 con
   réplica v2 presente) y cómo resolverlo

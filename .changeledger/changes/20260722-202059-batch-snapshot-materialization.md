@@ -5,7 +5,7 @@ type: refactor
 status: draft
 created: 2026-07-22T20:20:59Z
 depends_on: []
-related_to: ["20260721-193106", "20260721-193101", "20260721-193103", "20260722-202100"]
+related_to: ["20260721-193106", "20260721-193101", "20260721-193103", "20260722-202100", "20260722-203027"]
 release_impact: patch
 ---
 
@@ -32,27 +32,39 @@ centralizado.
 
 Alcance:
 
+- **Una abstracción compartida de lectura batch** (un módulo/función única que
+  encapsula `ls-tree -r -z` + `cat-file --batch` binario) con contrato
+  explícito: framing NUL en la enumeración, lectura binaria por longitud
+  declarada en la respuesta de `--batch` (nunca split por delimitadores sobre
+  contenido), validación UTF-8 estricta por blob, propagación del entorno de
+  quarantine (`receiveGitEnv`) y del presupuesto `timeout_ms` del hook. Todos
+  los consumidores usan esta abstracción; nadie reimplementa el patrón.
 - `loadStateSnapshotAt`/`statePaths`/`readStateFile` en `src/ledger-store.mjs`:
-  sustituir el `git show` por documento por enumeración `ls-tree` + un
-  `cat-file --batch` único, conservando la validación y los errores actuales
-  (blob inexistente, path inválido, UTF-8 estricto).
+  sustituir el `git show` por documento por la abstracción, conservando la
+  validación y los errores actuales (blob inexistente, path inválido, UTF-8
+  estricto).
 - El inventario de migración/activación en `src/state-migration.mjs`
   (`inventorySource`, `candidateSnapshot` y la materialización de activación):
-  mismo patrón batch.
-- Compatibilidad explícita con SHA-1/SHA-256, quarantine de `pre-receive`
-  (`receiveGitEnv`) y los presupuestos del hook (`timeout_ms`).
+  misma abstracción.
+- Compatibilidad explícita con SHA-1/SHA-256.
 - Sin cambio de contrato observable: mismos receipts, mismos errores, mismos
   OIDs; la suite existente debe pasar sin reescrituras semánticas.
 
+Objetivo del hook acotado con honestidad: este refactor deja **un update de un
+solo commit** dentro del presupuesto de 30 s a 5.000 changes. Batches de N
+commits siguen costando N validaciones y dependen de `20260722-203027`
+(validación incremental por blob OID).
+
 No-goals: caché entre operaciones y reutilización del snapshot dentro de una
-operación (van en `20260722-202100`); aumentar timeouts para tapar el síntoma.
+operación (`20260722-202100`); validación incremental de batches
+(`20260722-203027`); aumentar timeouts para tapar el síntoma.
 
 ## Plan
 
 - [ ] Añadir un benchmark reproducible (fixture sintética 250/1000/5000) que capture la latencia de carga antes del cambio como base de comparación en `test/` o script versionado; verify: ejecución del benchmark sobre el baseline con resultados registrados en el Log (support)
 - [ ] Implementar la materialización batch en `src/ledger-store.mjs` conservando validación y errores, con tests de equivalencia (mismo snapshot, mismos errores ante blob/path/UTF-8 inválidos) en SHA-1/SHA-256; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs test/state-command.test.mjs` (CR de equivalencia)
 - [ ] Aplicar el mismo patrón al inventario de migración/activación en `src/state-migration.mjs` incluida la ruta con quarantine; verify: `node --test test/state-migration.test.mjs test/state-receive.test.mjs` (CR de equivalencia)
-- [ ] Re-ejecutar el benchmark y registrar p50/p95 por volumen contra el objetivo (carga ≤2 s y hook dentro de 30 s a 5.000); verify: benchmark comparativo en el Log (support)
+- [ ] Re-ejecutar el benchmark y registrar p50/p95 por volumen contra el objetivo (carga ≤2 s y update de un commit dentro de 30 s a 5.000); verify: benchmark comparativo en el Log (support)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log

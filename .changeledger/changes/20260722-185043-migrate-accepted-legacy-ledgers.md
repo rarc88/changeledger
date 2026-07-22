@@ -54,12 +54,16 @@ hallazgo alto: un ledger soportado carece de migración segura.
 ## Specification
 
 ### CR1 — El preview diagnostica compatibilidad por documento
-- **Given** una source con metadata de tareas antigua o eventos de Log no tipados
-  aceptados por una versión anterior
+- **Given** una source con cualquier documento que `--create` rechazaría —
+  metadata de tareas antigua, eventos de Log no tipados u otra incompatibilidad
+  estructural
 - **When** se ejecuta `state migrate --preview`
-- **Then** el plan identifica cada documento incompatible, su source, commit,
-  path y blob originales, y la transformación segura disponible o el motivo por
-  el que requiere resolución humana
+- **Then** el plan clasifica cada documento como válido, legacy normalizable
+  (con la transformación segura disponible) o inválido nunca soportado (con el
+  motivo que exige resolución humana), identificando source, commit, path y
+  blob originales
+- **And** preview y create coinciden: ningún documento verde en preview puede
+  fallar en create por la misma regla
 - **And** no modifica objetos, refs, worktree, config ni estado público
 
 ### CR2 — La normalización es explícita e inmutable
