@@ -18,6 +18,7 @@ related_to:
   - "20260722-181234"
   - "20260722-181235"
   - "20260722-185043"
+  - "20260722-190137"
 ---
 
 ## Request
@@ -165,6 +166,8 @@ para poder cerrar el audit.
 | FIX-01 | Las siete correcciones externas representan sus defectos | Revisar commits `2d188f69`, `ec1d9b50`, `76ee346d`, `076a8336`, `5334d38a`, `eedb74a6`, `ba1bfbba`; tests focalizados y `pnpm verify` | Baseline `da24a644`; seis bugs y un chore en `done` | Cada fix corresponde a su causa y no rompe el gate | 64/64 focalizados y 920/920 completos; lint y 220 changes válidos | Log `18:43:15Z` | pass |
 | LEGACY-01 | Preview real es read-only y expone divergencias | En `backend-laravel`: `changeledger state migrate --preview --source local:refs/heads/dev --source local:refs/heads/chore/graduate-trip-active-flag --json` | HEAD `87337cf4`; dev `7ee1c69e`; graduation `d73df41f`; worktree limpio; digest de refs `c3c897f3…` | Inventario sin escrituras y divergencias visibles | 229 documentos, 14 sin resolución, incluye `20260716-124623`; digest `94be746a…`; `network:false`, `written:false`; refs, HEAD y worktree iguales; 5.13 s | Receipt JSON capturado por runner y comprobación before/after | pass |
 | LEGACY-02 | Crear baseline desde un ledger aceptado previamente | Clon SHA-1 y bare remote desechables; preview `--source local:refs/heads/audit-source --output plan.yml --json`; luego `changeledger state migrate --create --plan plan.yml --json` | Source `d73df41f`; 184 documentos, cero divergencias; digest `79e1b65c…`; state ref remota ausente | Baseline válido o compatibilidad legacy explícita y segura | `--create` abortó por metadata antigua de tareas, timestamps ausentes y Log no tipado; `baseline:null`, `written:false`, `network:false`, 0 commits/bytes publicados; state ref siguió ausente; 3.45 s | Receipts `preview.json`/`create.out`, stderr y `for-each-ref` del runner desechable | **fail — alto, owner `20260722-185043`** |
+| ISOL-01 | Mutaciones concurrentes viewer A / CLI cwd B | Dos repos v2 SHA-1 con `project-a`/`project-b`; target viewer A capturado, selección cambia a B y `changeStatus(A)` intercala `changeledger log` en cwd B | A `c5e040d6`, draft; B `599bd41c`, draft; ambos worktrees limpios | Cada superficie modifica solo su target | A avanzó a `fd4b1ce2`/approved; B a `435dcded`/draft con solo la nota CLI; receipts coinciden y ambos worktrees siguen limpios; 3.26 s | Runner `/tmp/changeledger-audit-cross-project.mjs`, asserts de contenido, refs y receipts | pass para aislamiento de mutación; sync queda pendiente |
+| ISOL-02 | Respuesta asíncrona conserva proyecto/revisión | App real bajo JSDOM; retener respuesta `/api/repo` de A, cambiar selector a B, resolver B y luego A | Tras B: `selected=project-b`, `rendered=project-b`, `revision-b` | A tardía se descarta | Tras A tardía: `selected=project-b`, pero `rendered=project-a`, `revision-a`; 1.18 s | Runner `/tmp/changeledger-audit-viewer-race.mjs` y flujo `app.js:93-111` | **fail — crítico, owner `20260722-190137`** |
 
 ## Log
 
@@ -176,3 +179,4 @@ para poder cerrar el audit.
 - **2026-07-22T18:45:06Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-22T18:45:28Z** `[note]` Baseline congelado: code/contract/config da24a644525c9945481ab766ece7e31d821559f5; ChangeLedger 0.13.0; Node v24.18.0; pnpm 11.13.0; Git 2.50.1 Apple Git-155; macOS 26.5.2 Darwin 25.5.0 arm64; repo SHA-1, integration dev, origin GitHub, authority local ausente. La implementación se audita en repos desechables activados SHA-1/SHA-256 y bare self-managed; el worktree de desarrollo no se presenta como deployment v2.
 - **2026-07-22T18:50:43Z** `[note]` LEGACY-02 alto: un ledger real aceptado por versiones anteriores produce un preview determinista, pero `--create` lo rechaza por estructuras históricas y no ofrece compatibilidad segura dentro del cutover. No hubo publicación ni mutación de sources. Owner: bug draft 20260722-185043; Beta/GA quedan bloqueados mientras permanezca abierto.
+- **2026-07-22T19:01:37Z** `[note]` ISOL-01 confirmó que el CLI resuelve exclusivamente su cwd y que las mutaciones viewer A / CLI B no cruzan repositorios. ISOL-02 encontró una carrera crítica en el cliente: una respuesta tardía de A reemplaza el repo visible mientras el selector permanece en B. Owner: bug draft 20260722-190137; cualquier release público queda bloqueado mientras permanezca abierto.
