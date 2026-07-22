@@ -330,6 +330,175 @@ test('193103 CR2/CR4: divergent identity and stale plans fail before publication
   assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
 });
 
+test('202101 CR4: a large blob read no longer throws with an unbounded git-output message', () => {
+  const { root } = legacyRepo();
+  const changeFile = path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md');
+  const padded = `${change('20260722-000000')}\n<!-- ${'x'.repeat(2 * 1024 * 1024)} -->\n`;
+  fs.writeFileSync(changeFile, padded);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'test: pad blob to 2MiB']);
+
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const document = preview.plan.documents.find(
+    (entry) => entry.identity === 'change:20260722-000000',
+  );
+  assert.ok(document);
+});
+
+test('202101 CR4: an oversized git-output failure stays bounded with code and byte count', () => {
+  const { root } = legacyRepo();
+  const changeFile = path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md');
+  const padded = `${change('20260722-000000')}\n<!-- ${'x'.repeat(18 * 1024 * 1024)} -->\n`;
+  fs.writeFileSync(changeFile, padded);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'test: pad blob past the buffer limit']);
+
+  assert.throws(
+    () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+    (error) => {
+      assert.ok(error.message.length <= 2200, `message too long: ${error.message.length}`);
+      assert.match(error.message, /more bytes omitted/);
+      assert.match(error.message, /\(ENOBUFS\)|\(E2BIG\)/);
+      return true;
+    },
+  );
+});
+
+test('202101 CR1: create with many invalid documents produces a bounded diagnostic', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-migration-'));
+  const init = ['init', '-q', '-b', 'dev'];
+  git(root, init);
+  git(root, ['config', 'user.name', 'Test User']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# contract\n');
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), config());
+  for (let i = 0; i < 7; i += 1) {
+    const id = `20260722-00000${i}`;
+    fs.writeFileSync(
+      path.join(root, '.changeledger', 'changes', `${id}-invalid.md`),
+      `---\nid: "${id}"\ntype: quick\nstatus: draft\ncreated: 2026-07-22T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMissing title.\n\n## Log\n`,
+    );
+  }
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'chore: legacy with many invalid changes']);
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-migration-remote-'));
+  git(remote, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', remote]);
+  git(root, ['push', '-q', '-u', 'origin', 'dev']);
+
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+
+  assert.throws(
+    () => createStateBaseline({ planFile: writePlan(root, preview.text) }, root),
+    (error) => {
+      assert.ok(error.message.length <= 4000, `message too long: ${error.message.length}`);
+      assert.match(error.message, /migration candidate validation failed/);
+      const shown = [...error.message.matchAll(/missing frontmatter "title"/g)];
+      assert.equal(shown.length, 5);
+      assert.match(error.message, /and 2 more errors/);
+      return true;
+    },
+  );
+  assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+});
+
+test('202101 CR2: activation re-validation of a forged manifest produces a bounded diagnostic', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-migration-forged-'));
+  git(root, ['init', '-q', '-b', 'dev']);
+  git(root, ['config', 'user.name', 'Test User']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# contract\n');
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'chore: base']);
+
+  const canonicalValue = (value) => {
+    if (Array.isArray(value)) return value.map(canonicalValue);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalValue(value[key])]),
+    );
+  };
+  const digestValue = (value) =>
+    crypto
+      .createHash('sha256')
+      .update(JSON.stringify(canonicalValue(value)))
+      .digest('hex');
+  const sha256Of = (text) => crypto.createHash('sha256').update(text).digest('hex');
+
+  git(root, ['checkout', '-q', '--orphan', 'changeledger/state']);
+  git(root, ['rm', '-qrf', '--ignore-unmatch', '.']);
+  const state = path.join(root, '.changeledger-state');
+  fs.mkdirSync(path.join(state, 'changes'), { recursive: true });
+  const configText = config();
+  fs.writeFileSync(path.join(state, 'config.yml'), configText);
+  const documents = [
+    { identity: 'config:project-1', kind: 'config', name: 'config.yml', text: configText },
+  ];
+  for (let i = 0; i < 7; i += 1) {
+    const id = `20260722-0001${i}0`;
+    const text = `---\nid: "${id}"\ntype: quick\nstatus: draft\ncreated: 2026-07-22T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMissing title.\n\n## Log\n`;
+    const name = `${id}-forged.md`;
+    fs.writeFileSync(path.join(state, 'changes', name), text);
+    documents.push({ identity: `change:${id}`, kind: 'change', name, text });
+  }
+  const inventory = {
+    project_id: 'project-1',
+    minimum_client_version: '0.13.0',
+    sources: [],
+    documents: documents.map(({ identity, kind }) => ({ identity, kind, candidates: [] })),
+  };
+  const inventoryDigest = digestValue(inventory);
+  const decisions = documents.map(({ identity, kind, name, text }) => ({
+    identity,
+    target:
+      kind === 'config' ? '.changeledger-state/config.yml' : `.changeledger-state/changes/${name}`,
+    replacement: true,
+    sha256: sha256Of(text),
+  }));
+  fs.writeFileSync(
+    path.join(state, 'manifest.yml'),
+    stringifyYaml({
+      format_version: 1,
+      project_id: 'project-1',
+      inventory_digest: inventoryDigest,
+      minimum_client_version: '0.13.0',
+      sources: [],
+      inventory,
+      decisions,
+    }),
+  );
+  git(root, ['add', '.changeledger-state']);
+  git(root, ['commit', '-qm', 'chore: forged state']);
+  const baseline = git(root, ['rev-parse', 'HEAD']);
+
+  git(root, ['checkout', '-q', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'authority.yml'),
+    `format_version: 1\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n`,
+  );
+  git(root, ['add', '.changeledger/authority.yml']);
+  git(root, ['commit', '-qm', 'chore: authority']);
+
+  assert.throws(
+    () => doctorStateMigration({ activationRef: 'refs/heads/dev' }, root),
+    (error) => {
+      assert.ok(error.message.length <= 4000, `message too long: ${error.message.length}`);
+      assert.match(error.message, /state baseline validation failed/);
+      const shown = [...error.message.matchAll(/missing frontmatter "title"/g)];
+      assert.equal(shown.length, 5);
+      assert.match(error.message, /and 2 more errors/);
+      return true;
+    },
+  );
+});
+
 test('193103 CR4: edited inventory cannot retain the preview digest', () => {
   const { root } = legacyRepo();
   const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);

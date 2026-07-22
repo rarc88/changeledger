@@ -29,9 +29,23 @@ const LEGACY_AUTHORITY_PATH = '.changeledger/authority.yml';
 const RELEASES_DIR = '.changeledger/releases';
 const OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const GIT_MAX_BUFFER = 16 * 1024 * 1024;
+const GIT_ERROR_DETAIL_LIMIT = 2000;
 
 function recordActivity(activity, values) {
   Object.assign(activity, values);
+}
+
+function boundedErrorSummary(prefix, errors) {
+  const shown = errors
+    .slice(0, 5)
+    .map((error) => `${error.file}: ${error.message}`)
+    .join('; ');
+  const remaining = errors.length - 5;
+  const suffix = remaining > 0 ? `; and ${remaining} more error${remaining === 1 ? '' : 's'}` : '';
+  const message = `${prefix}: ${shown}${suffix}`;
+  const LIMIT = 4000;
+  return message.length <= LIMIT ? message : `${message.slice(0, LIMIT)}... (truncated)`;
 }
 
 function recordSourceActivity(activity, source) {
@@ -46,7 +60,11 @@ function recordSourceActivity(activity, source) {
   });
 }
 
-function gitOutput(repoRoot, args, { input, env, timeout, encoding = 'utf8' } = {}) {
+function gitOutput(
+  repoRoot,
+  args,
+  { input, env, timeout, encoding = 'utf8', maxBuffer = GIT_MAX_BUFFER } = {},
+) {
   try {
     return execFileSync('git', args, {
       cwd: repoRoot,
@@ -55,6 +73,7 @@ function gitOutput(repoRoot, args, { input, env, timeout, encoding = 'utf8' } = 
       encoding,
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout,
+      maxBuffer,
     });
   } catch (error) {
     const detail = [error.stderr, error.stdout]
@@ -62,6 +81,14 @@ function gitOutput(repoRoot, args, { input, env, timeout, encoding = 'utf8' } = 
       .map((value) => (typeof value === 'string' ? value.trim() : ''))
       .filter(Boolean)
       .join('\n');
+    if (detail.length > GIT_ERROR_DETAIL_LIMIT) {
+      const omitted = detail.length - GIT_ERROR_DETAIL_LIMIT;
+      const code = error.code ? ` (${error.code})` : '';
+      throw new Error(
+        `git ${args[0]} failed${code}: ${detail.slice(0, GIT_ERROR_DETAIL_LIMIT)}... (${omitted} more bytes omitted)`,
+        { cause: error },
+      );
+    }
     throw new Error(detail || error.message, { cause: error });
   }
 }
@@ -554,9 +581,7 @@ function candidateSnapshot(repoRoot, planFile, plan) {
   }
   const { errors } = checkRepo({ config, changes, specs, releases });
   if (errors.length) {
-    throw new Error(
-      `migration candidate validation failed: ${errors.map((error) => error.message).join('; ')}`,
-    );
+    throw new Error(boundedErrorSummary('migration candidate validation failed', errors));
   }
   const manifest = {
     format_version: 1,
@@ -847,9 +872,7 @@ function readStateMetadata(repoRoot, revision) {
   }
   const { errors } = checkRepo({ config, changes, specs, releases });
   if (errors.length) {
-    throw new Error(
-      `state baseline validation failed: ${errors.map((error) => error.message).join('; ')}`,
-    );
+    throw new Error(boundedErrorSummary('state baseline validation failed', errors));
   }
   return { manifest, config, configText, entries, changes, specs, releases };
 }
