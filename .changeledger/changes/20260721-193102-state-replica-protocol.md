@@ -2,7 +2,7 @@
 id: "20260721-193102"
 title: Sincronizar el estado global con un protocolo de réplica simple
 type: feature
-status: in-validation
+status: done
 created: 2026-07-21T19:31:02Z
 depends_on: ["20260721-193101"]
 owner: Roberto Ruiz
@@ -222,3 +222,4 @@ de frescura inventada.
 - **2026-07-22T12:09:26Z** `[note]` correction La sesión preparada ahora discrimina explícitamente ausencia de token antes de comparar revision/offline; mutate(null) conserva su error contractual y 39 pruebas store+réplica pasan.
 - **2026-07-22T12:09:26Z** `[status]` in-progress → in-review
 - **2026-07-22T12:18:02Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T12:46:03Z** `[validation]` in-validation → done (human accepted via conversation)
