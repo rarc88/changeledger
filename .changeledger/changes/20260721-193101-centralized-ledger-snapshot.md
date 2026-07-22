@@ -2,7 +2,7 @@
 id: "20260721-193101"
 title: Centralizar el snapshot completo del ledger
 type: feature
-status: in-validation
+status: done
 created: 2026-07-21T19:31:01Z
 depends_on: ["20260721-195318", "20260721-195659"]
 owner: Roberto Ruiz
@@ -255,3 +255,4 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-22T09:56:55Z** `[note]` Corregida CR7 en la frontera Git: ls-tree usa framing NUL raw y una gramática explícita de paths. La matriz adversarial cubre Unicode, comillas, backslash, tab, CR, newline y dos puntos con core.quotePath true/false en SHA-1/SHA-256; lectura y mutación pasan.
 - **2026-07-22T09:58:14Z** `[status]` in-progress → in-review
 - **2026-07-22T10:07:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T10:13:29Z** `[validation]` in-validation → done (human accepted)
