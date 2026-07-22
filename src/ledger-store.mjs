@@ -12,6 +12,7 @@ import { assertSupportedSchema } from './config-migration.mjs';
 import { defaultRun, sanitizedGitEnv } from './git.mjs';
 import { DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
+import { CONFIRMED_REF, createStatePending, PENDING_REF } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 export const STATE_REF = 'refs/heads/changeledger/state';
@@ -106,7 +107,9 @@ function authorityFor(changeledgerDir) {
     throw new Error(`Invalid state authority: ${error.message}`);
   }
   if (!authority || typeof authority !== 'object') throw new Error('Invalid state authority');
-  if (authority.format_version !== 1) throw new Error('Unsupported state authority format_version');
+  if (![1, 2].includes(authority.format_version)) {
+    throw new Error('Unsupported state authority format_version');
+  }
   if (authority.state_ref !== STATE_REF)
     throw new Error(`Unsupported state authority ref: ${authority.state_ref}`);
   if (typeof authority.baseline !== 'string' || authority.baseline === '') {
@@ -126,10 +129,44 @@ function gitStateRevision(repoRoot, authority, run) {
   let baseline;
   let baselineType;
   try {
-    revision = run(['rev-parse', '--verify', authority.state_ref], repoRoot).trim();
+    if (authority.format_version === 2) {
+      let confirmed;
+      let pending;
+      try {
+        confirmed = run(['rev-parse', '--verify', CONFIRMED_REF], repoRoot).trim();
+      } catch {
+        confirmed = null;
+      }
+      try {
+        pending = run(['rev-parse', '--verify', PENDING_REF], repoRoot).trim();
+      } catch {
+        pending = null;
+      }
+      if (!confirmed && !pending) {
+        throw new Error('state replica is unavailable; run `changeledger state sync`');
+      }
+      if (pending) {
+        if (!confirmed) throw new Error('invalid state replica: pending has no confirmed base');
+        const parent = run(['rev-parse', '--verify', `${pending}^`], repoRoot).trim();
+        if (parent !== confirmed) {
+          throw new Error(
+            'invalid state replica: pending does not descend directly from confirmed',
+          );
+        }
+      }
+      revision = pending ?? confirmed;
+    } else {
+      revision = run(['rev-parse', '--verify', authority.state_ref], repoRoot).trim();
+    }
     baseline = run(['rev-parse', '--verify', authority.baseline], repoRoot).trim();
     baselineType = run(['cat-file', '-t', baseline], repoRoot).trim();
-  } catch {
+  } catch (error) {
+    if (
+      error.message.startsWith('state replica') ||
+      error.message.startsWith('invalid state replica')
+    ) {
+      throw error;
+    }
     throw new Error('state authority is unavailable or does not descend from its baseline');
   }
   if (baseline.toLowerCase() !== authority.baseline.toLowerCase() || baselineType !== 'commit') {
@@ -248,12 +285,12 @@ function runIndexedGit(args, cwd, indexFile, { input } = {}) {
   }
 }
 
-function keepStateRevision(repoRoot, revision, run) {
+function keepStateRevision(repoRoot, revision, ref, run) {
   try {
     // A no-op transaction still needs a linearization point. Updating a ref to
     // its existing value with the same expected old value acquires Git's ref
     // lock and fails atomically if another writer already published a successor.
-    run(['update-ref', STATE_REF, revision, revision], repoRoot);
+    run(['update-ref', ref, revision, revision], repoRoot);
   } catch (error) {
     throw new LedgerConflictError('Ledger state changed concurrently; retry the operation', {
       cause: error,
@@ -271,6 +308,14 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
     throw new Error('Ledger state mutation expectedRevision is required');
   }
 
+  if (authority.format_version === 2) {
+    try {
+      run(['rev-parse', '--verify', PENDING_REF], repoRoot);
+      throw new Error('resolve the existing pending state before mutating again');
+    } catch (error) {
+      if (error.message === 'resolve the existing pending state before mutating again') throw error;
+    }
+  }
   const revision = gitStateRevision(repoRoot, authority, run);
   if (options.expectedRevision !== revision) {
     throw new LedgerConflictError('Ledger state changed concurrently; retry the operation');
@@ -294,7 +339,12 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
   };
   mutate({ snapshot, write, remove });
   if (!writes.size && !removals.size) {
-    keepStateRevision(repoRoot, revision, run);
+    keepStateRevision(
+      repoRoot,
+      revision,
+      authority.format_version === 2 ? CONFIRMED_REF : STATE_REF,
+      run,
+    );
     return snapshot;
   }
 
@@ -318,7 +368,12 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
     }
     const tree = runIndexedGit(['write-tree'], repoRoot, indexFile).trim();
     if (tree === sourceTree) {
-      keepStateRevision(repoRoot, revision, run);
+      keepStateRevision(
+        repoRoot,
+        revision,
+        authority.format_version === 2 ? CONFIRMED_REF : STATE_REF,
+        run,
+      );
       return snapshot;
     }
     let candidate;
@@ -340,7 +395,8 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
       indexFile,
     ).trim();
     try {
-      runIndexedGit(['update-ref', STATE_REF, commit, revision], repoRoot, indexFile);
+      if (authority.format_version === 2) createStatePending(repoRoot, revision, commit);
+      else runIndexedGit(['update-ref', STATE_REF, commit, revision], repoRoot, indexFile);
     } catch (error) {
       throw new LedgerConflictError('Ledger state changed concurrently; retry the operation', {
         cause: error,

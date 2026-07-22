@@ -1,0 +1,174 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { test } from 'node:test';
+import {
+  CONFIRMED_REF,
+  OBSERVED_REF,
+  PENDING_REF,
+  readStateReplica,
+  syncStateReplica,
+} from '../src/state-store.mjs';
+import { createStateRepo } from './helpers/state-repo.mjs';
+
+function git(root, args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+}
+
+function replicaFixture(objectFormat) {
+  const spec = (title) =>
+    `---\ntitle: ${title}\nupdated: 2026-07-22T00:00:00Z\ntags: [replica]\n---\n\n# ${title}\n`;
+  const created = createStateRepo({
+    objectFormat,
+    specs: { 'A.md': spec('A'), 'B.md': spec('B'), 'line\nbreak.md': spec('Line') },
+  });
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-remote-'));
+  const init = ['init', '--bare', '-q'];
+  if (objectFormat !== 'sha1') init.push(`--object-format=${objectFormat}`);
+  git(remote, init);
+  git(created.root, ['remote', 'add', 'origin', remote]);
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+  git(created.root, ['update-ref', CONFIRMED_REF, created.baseline]);
+  git(created.root, ['update-ref', OBSERVED_REF, created.baseline]);
+  return { ...created, remote };
+}
+
+function editStateFile(root, relative, before, after, message) {
+  git(root, ['checkout', '-q', 'changeledger/state']);
+  const file = path.join(root, '.changeledger-state', relative);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(before, after));
+  git(root, ['add', file]);
+  git(root, ['commit', '-qm', `test: ${message}`]);
+  const head = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  return head;
+}
+
+function advanceState(root, title) {
+  git(root, ['checkout', '-q', 'changeledger/state']);
+  const file = path.join(root, '.changeledger-state', 'changes', '20260721-000000-change.md');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^title: .*$/m, `title: ${title}`));
+  git(root, ['add', file]);
+  git(root, ['commit', '-qm', `test: ${title}`]);
+  const head = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  return head;
+}
+
+test('193102 CR1/CR2/CR6/CR7: sync advances and publishes transactionally in both formats', () => {
+  for (const objectFormat of ['sha1', 'sha256']) {
+    let created;
+    try {
+      created = replicaFixture(objectFormat);
+    } catch (error) {
+      if (
+        objectFormat === 'sha256' &&
+        /unknown option|unsupported|not supported/i.test(error.message)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+
+    const remoteAdvance = advanceState(created.root, 'Remote');
+    git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+    const advanced = syncStateReplica(created.root, {
+      now: () => '2026-07-22T10:30:00Z',
+      validateRevision: () => {},
+    });
+    assert.equal(advanced.action, 'advance-confirmed', objectFormat);
+    assert.equal(advanced.effective, remoteAdvance, objectFormat);
+    assert.equal(readStateReplica(created.root).confirmed, remoteAdvance, objectFormat);
+    assert.equal(readStateReplica(created.root).observedAt, '2026-07-22T10:30:00Z');
+
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', remoteAdvance]);
+    const pending = advanceState(created.root, 'Pending');
+    git(created.root, ['update-ref', PENDING_REF, pending]);
+    const published = syncStateReplica(created.root, {
+      now: () => '2026-07-22T10:31:00Z',
+      validateRevision: () => {},
+    });
+    assert.equal(published.action, 'publish-pending', objectFormat);
+    assert.equal(published.effective, pending, objectFormat);
+    assert.equal(git(created.remote, ['rev-parse', 'refs/heads/changeledger/state']), pending);
+    assert.equal(readStateReplica(created.root).pending, null);
+    assert.equal(readStateReplica(created.root).confirmed, pending);
+    assert.equal(readStateReplica(created.root).observed, pending);
+  }
+});
+
+test('193102 CR3/CR4: sync replays one disjoint pending delta with NUL-framed paths', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(
+    created.root,
+    'specs/line\nbreak.md',
+    '# Line',
+    '# Local',
+    'local pending',
+  );
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  const remote = editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  const validated = [];
+
+  const result = syncStateReplica(created.root, {
+    validateRevision: (revision) => validated.push(revision),
+  });
+
+  assert.equal(result.action, 'replay-pending');
+  assert.equal(result.replayedFrom, pending);
+  assert.equal(git(created.root, ['rev-parse', `${result.effective}^`]), remote);
+  assert.match(
+    git(created.root, ['show', `${result.effective}:.changeledger-state/specs/line\nbreak.md`]),
+    /# Local/,
+  );
+  assert.match(
+    git(created.root, ['show', `${result.effective}:.changeledger-state/specs/B.md`]),
+    /# Remote/,
+  );
+  assert.deepEqual(validated, [
+    remote,
+    git(created.root, ['rev-parse', `${result.effective}^{tree}`]),
+  ]);
+  assert.equal(readStateReplica(created.root).pending, null);
+});
+
+test('193102 CR5: overlap or invalid replay preserves pending and confirmed refs', () => {
+  for (const invalidCandidate of [false, true]) {
+    const created = replicaFixture('sha1');
+    const localPath = invalidCandidate ? 'specs/A.md' : 'specs/A.md';
+    const remotePath = invalidCandidate ? 'specs/B.md' : 'specs/A.md';
+    const pending = editStateFile(created.root, localPath, '# A', '# Local', 'local pending');
+    git(created.root, ['update-ref', PENDING_REF, pending]);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+    const remote = editStateFile(
+      created.root,
+      remotePath,
+      invalidCandidate ? '# B' : '# A',
+      '# Remote',
+      'remote advance',
+    );
+    git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+    assert.throws(
+      () =>
+        syncStateReplica(created.root, {
+          validateRevision(revision) {
+            if (invalidCandidate && revision !== remote) throw new Error('combined invalid');
+          },
+        }),
+      invalidCandidate ? /combined invalid/ : /state replica conflict.*specs\/A\.md/,
+    );
+    const refs = readStateReplica(created.root);
+    assert.equal(refs.confirmed, created.baseline);
+    assert.equal(refs.observed, remote);
+    assert.equal(refs.pending, pending);
+  }
+});

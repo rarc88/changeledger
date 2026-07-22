@@ -13,6 +13,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { search } from '../src/commands/search.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
+import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { serialize } from '../src/viewer/domain.mjs';
 import { changeText, createStateRepo, stateConfig } from './helpers/state-repo.mjs';
 
@@ -20,7 +21,7 @@ function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
 
-function fixture({ mutateState, objectFormat } = {}) {
+function fixture({ mutateState, objectFormat, authorityFormat = 1, seedConfirmed = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-store-'));
   const initArgs = ['init', '-q', '-b', 'dev'];
   if (objectFormat) initArgs.push(`--object-format=${objectFormat}`);
@@ -60,12 +61,13 @@ function fixture({ mutateState, objectFormat } = {}) {
   git(root, ['add', '.changeledger-state']);
   git(root, ['commit', '-qm', 'chore: state']);
   const baseline = git(root, ['rev-parse', 'HEAD']);
+  if (seedConfirmed) git(root, ['update-ref', 'refs/changeledger/confirmed', baseline]);
 
   git(root, ['checkout', '-q', 'dev']);
   fs.rmSync(path.join(root, '.changeledger', 'config.yml'));
   fs.writeFileSync(
     path.join(root, '.changeledger', 'authority.yml'),
-    `format_version: 1\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n`,
+    `format_version: ${authorityFormat}\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n`,
   );
   git(root, ['add', '.']);
   git(root, ['commit', '-qm', 'chore: authority']);
@@ -135,6 +137,73 @@ test('193101 CR1/CR3: invalid state authority fails closed without loading legac
     `format_version: 1\nstate_ref: refs/heads/changeledger/state\nbaseline: ${'d'.repeat(40)}\nproject_id: project-1\n`,
   );
   assert.throws(() => loadLedgerStore(root).load(), /state authority is unavailable/);
+});
+
+test('193102 CR1/CR3/CR7: replica authority requires confirmed state without fallback', () => {
+  const missing = fixture({ authorityFormat: 2 });
+  assert.throws(
+    () => loadLedgerStore(missing.root).load(),
+    /state replica is unavailable; run `changeledger state sync`/,
+  );
+
+  const { root, baseline } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  git(root, ['checkout', '-q', 'changeledger/state']);
+  const changeFile = path.join(root, '.changeledger-state', 'changes', '20260721-000000-demo.md');
+  fs.writeFileSync(
+    changeFile,
+    fs.readFileSync(changeFile, 'utf8').replace('title: Demo', 'title: New'),
+  );
+  git(root, ['add', changeFile]);
+  git(root, ['commit', '-qm', 'test: advance public state']);
+  const publicHead = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', 'refs/changeledger/observed', publicHead]);
+
+  const confirmed = loadLedgerStore(root).load();
+  assert.equal(confirmed.revision, baseline);
+  assert.equal(confirmed.changes[0].frontmatter.title, 'Demo');
+
+  git(root, ['update-ref', 'refs/changeledger/pending', publicHead]);
+  const pending = loadLedgerStore(root).load();
+  assert.equal(pending.revision, publicHead);
+  assert.equal(pending.changes[0].frontmatter.title, 'New');
+});
+
+test('193102 CR3: a replica mutation creates one pending successor without moving confirmed', () => {
+  const { root, baseline } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'specs'), { recursive: true });
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+    },
+  });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+
+  const after = store.mutate(
+    { message: 'test: offline pending', expectedRevision: before.revision },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Pending'),
+      );
+    },
+  );
+
+  assert.notEqual(after.revision, baseline);
+  assert.equal(after.changes[0].frontmatter.title, 'Pending');
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), after.revision);
+  assert.equal(git(root, ['rev-parse', PUBLIC_STATE_REF]), baseline);
+  assert.throws(
+    () =>
+      store.mutate({ message: 'test: second pending', expectedRevision: after.revision }, () => {}),
+    /resolve the existing pending state before mutating again/,
+  );
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), after.revision);
 });
 
 test('193101 correction CR3: authority baseline must be an exact full commit OID', () => {

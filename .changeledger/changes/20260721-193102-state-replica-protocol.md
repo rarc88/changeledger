@@ -63,13 +63,15 @@ viewer tendrá una acción explícita “Actualizar estado” que invoca el mism
 protocolo. Los comandos de mutación ejecutan `sync` antes de construir su
 operación salvo `--offline` explícito.
 
-Desde este protocolo, un repositorio con autoridad activa deja de leer la rama
-pública local: la revisión efectiva es exclusivamente `pending` o, en su
-ausencia, `confirmed`. `observed` nunca es autoridad de lectura. Si no existe
-ninguna revisión confirmada, las lecturas fallan indicando que se necesita
-`state sync`; no vuelven a `refs/heads/changeledger/state`, al baseline ni al
-worktree. El cutover posterior publica el baseline y cada clon inicializa
-`confirmed` mediante sincronización.
+La selección es explícita en el recibo de autoridad. `authority.yml` con
+`format_version: 1` conserva el almacén local de `193101`; el cutover posterior
+escribe `format_version: 2`, que activa este protocolo. En v2 la revisión
+efectiva es exclusivamente `pending` o, en su ausencia, `confirmed`.
+`observed` nunca es autoridad de lectura. Si no existe ninguna revisión
+confirmada, las lecturas fallan indicando que se necesita `state sync`; no
+vuelven a `refs/heads/changeledger/state`, al baseline ni al worktree. La mera
+existencia de refs internas tampoco activa réplica. El cutover publica el
+baseline y cada clon inicializa `confirmed` mediante sincronización.
 
 El algoritmo usa ancestry y el diff por paths de Git:
 
@@ -174,14 +176,18 @@ de frescura inventada.
 - **And** identifica el único remoto configurado o falla si no puede resolverlo
 - **And** una autoridad sin `confirmed` ni `pending` falla indicando `state sync`
   y nunca usa la rama pública local como fallback
+- **And** solo `authority.yml format_version: 2` activa estas reglas; v1 conserva
+  explícitamente el almacén local de `193101`
 
 ## Plan
 
 - [x] Añadir una tabla de tests fallidos para todas las combinaciones confirmed/observed/pending en `test/state-replica.test.mjs` y crear el modelo puro en `src/state-replica.mjs`; verify: `node --test test/state-replica.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
   - **Resolved:** `2026-07-22T10:20:29Z`
-- [ ] Hacer que `src/ledger-store.mjs` resuelva exclusivamente pending/confirmed y falle sin autoridad efectiva; actualizar fixtures state sin fallback a la rama pública; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR1, CR3, CR7)
+- [x] Hacer que `src/ledger-store.mjs` seleccione autoridad v1 local o v2 réplica, resuelva en v2 exclusivamente pending/confirmed y falle sin autoridad efectiva; añadir fixtures sin fallback a la rama pública; verify: `node --test test/ledger-store.test.mjs test/repo.test.mjs` (CR1, CR3, CR7)
+  - **Resolved:** `2026-07-22T10:33:36Z`
 - [ ] Implementar refs transaccionales, fetch, fast-forward y metadata de observación en `src/state-store.mjs` con repositorios reales SHA-1/SHA-256; verify: `node --test test/state-store.test.mjs` (CR1, CR2, CR6, CR7)
-- [ ] Implementar pending único y replay del delta NUL-framed en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-replica.test.mjs` (CR3, CR4, CR5)
+- [x] Implementar pending único y replay del delta NUL-framed en `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs test/state-replica.test.mjs` (CR3, CR4, CR5)
+  - **Resolved:** `2026-07-22T10:33:36Z`
 - [ ] Propagar preflight online y `--offline` por la matriz mutadora mediante `bin/changeledger.mjs`, `src/commands/*.mjs` y `src/viewer/domain.mjs` hasta `LedgerStore.mutate`; verify: `node --test test/ledger-mutations.test.mjs test/cli-bin.test.mjs test/view.test.mjs` (CR2, CR3, CR7)
 - [ ] Añadir tests de timeout, push aceptado con respuesta perdida y aborto online/offline antes de implementar `sync`/`abort` en `src/commands/state.mjs`; verify: `node --test test/state-command.test.mjs test/state-store.test.mjs` (CR6)
 - [ ] Integrar frescura en lecturas, `context` y viewer mediante `src/repo.mjs` y `src/viewer/server/router.mjs`; verify: `node --test test/repo.test.mjs test/context.test.mjs test/view.test.mjs` (CR1, CR3, CR7)
@@ -195,3 +201,4 @@ de frescura inventada.
 - **2026-07-22T10:18:05Z** `[status]` approved → in-progress
 - **2026-07-22T10:18:05Z** `[owner]` set: Roberto Ruiz (auto)
 - **2026-07-22T10:20:29Z** `[note]` Modelo puro de réplica completado con tabla de decisiones para inicialización, fast-forward, publicación, confirmación ambigua, replay, conflicto, rewind remoto e invariantes locales; paths exactos independientes de delimitadores.
+- **2026-07-22T10:33:37Z** `[note]` Autoridad v2 lee exclusivamente pending/confirmed; mutaciones crean un único pending transaccional. Sync cubre avance, CAS ordinario, replay exacto NUL-framed y conflicto sin tocar confirmed; 43 pruebas afectadas pasan.
