@@ -3,6 +3,7 @@ import path from 'node:path';
 import { integrationBranch } from './config.mjs';
 import { sanitizedGitEnv } from './git.mjs';
 import { parseStateAuthority, STATE_REF, validateServerStateRevision } from './ledger-store.mjs';
+import { parseYaml } from './yaml.mjs';
 
 export const DEFAULT_STATE_LIMITS = Object.freeze({
   max_commits: 256,
@@ -12,6 +13,7 @@ export const DEFAULT_STATE_LIMITS = Object.freeze({
 
 const AUTHORITY_PATH = '.changeledger/authority.yml';
 const LEGACY_CONFIG_PATH = '.changeledger/config.yml';
+const STATE_CONFIG_PATH = '.changeledger-state/config.yml';
 
 class ValidationTimeoutError extends Error {}
 
@@ -189,15 +191,49 @@ function assertProtectedRefs(ctx, fallbackStateRevision) {
   );
 }
 
+// A batch that touches no protected ref must not pay for a full snapshot
+// validation, but a hook whose configured integration ref name has drifted
+// from the confirmed config must still be caught -- otherwise the real
+// integration branch silently loses protection until someone happens to push
+// to it directly. This reads only config.yml (not the whole state tree) and
+// tolerates "not active yet" the same way the full check does.
+function assertConfiguredIntegrationRefCheap(ctx) {
+  const source = resolveRef(ctx.run, ctx.repoRoot, ctx.integrationRef);
+  if (!source) return;
+  try {
+    readAuthority(ctx.run, ctx.repoRoot, source);
+  } catch (error) {
+    if (timeoutError(error)) throw error;
+    return;
+  }
+  const stateRevision = resolveRef(ctx.run, ctx.repoRoot, ctx.stateRef);
+  if (!stateRevision) return;
+  let config;
+  try {
+    config = parseYaml(ctx.run(['show', `${stateRevision}:${STATE_CONFIG_PATH}`], ctx.repoRoot));
+  } catch (error) {
+    if (timeoutError(error)) throw error;
+    return;
+  }
+  const configured = integrationBranch(config);
+  if (!configured || ctx.integrationRef !== `refs/heads/${configured}`) {
+    throw new Error(`integration ref ${ctx.integrationRef} does not match confirmed state config`);
+  }
+}
+
 function legacyRoots(config) {
   return [LEGACY_CONFIG_PATH, config.changes_dir, config.specs_dir, '.changeledger/releases']
     .filter((value) => typeof value === 'string' && value.length > 0)
-    .map((value) => path.posix.normalize(value.replaceAll('\\', '/')).replace(/^\.\//, ''));
+    .map((value) =>
+      path.posix.normalize(value.replaceAll('\\', '/')).replace(/^\.\//, '').toLowerCase(),
+    );
 }
 
 function protectedPath(file, roots) {
+  const folded = file.toLowerCase();
   return (
-    file === AUTHORITY_PATH || roots.some((root) => file === root || file.startsWith(`${root}/`))
+    folded === AUTHORITY_PATH.toLowerCase() ||
+    roots.some((root) => folded === root || folded.startsWith(`${root}/`))
   );
 }
 
@@ -245,10 +281,17 @@ function validateStateRef(ctx, update, authority) {
   );
   const objectBytes = countObjectBytes(run, repoRoot, range, budget, usage);
   for (const commit of commits) {
+    let snapshot;
     try {
-      validateServerStateRevision(repoRoot, authority, commit, run);
+      snapshot = validateServerStateRevision(repoRoot, authority, commit, run);
     } catch (error) {
       throw new Error(`invalid state snapshot at ${commit}: ${error.message}`, { cause: error });
+    }
+    const configured = integrationBranch(snapshot.config);
+    if (!configured || ctx.integrationRef !== `refs/heads/${configured}`) {
+      throw new Error(
+        `state update changes integration_branch away from protected ref ${ctx.integrationRef}`,
+      );
     }
   }
   return { ...update, commits: commits.length, object_bytes: objectBytes };
@@ -397,7 +440,8 @@ export function validateReceiveBatch(input, options = {}) {
     const creation = relevant.find(
       (update) => update.ref === ctx.stateRef && /^0+$/.test(update.oldOid),
     );
-    assertProtectedRefs(ctx, creation?.newOid);
+    if (relevant.length > 0) assertProtectedRefs(ctx, creation?.newOid);
+    else assertConfiguredIntegrationRefCheap(ctx);
     const seen = new Set();
     for (const update of relevant) {
       if (seen.has(update.ref))

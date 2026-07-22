@@ -306,6 +306,110 @@ test('193104 correction CR3: normalized legacy roots cannot bypass protection', 
   );
 });
 
+test('163408 CR1: an unrelated-ref batch skips full snapshot validation even if the state is broken', () => {
+  const created = fixture();
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  fs.writeFileSync(path.join(created.state, 'manifest.yml'), 'not: valid: yaml: [');
+  git(created.root, ['add', '.changeledger-state']);
+  git(created.root, ['commit', '-qm', 'test: corrupt manifest']);
+  const corrupted = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'dev']);
+  git(created.root, ['update-ref', STATE_REF, corrupted]);
+
+  const result = validateReceiveBatch(
+    `${created.integration} ${created.integration} refs/heads/topic\n`,
+    {
+      repoRoot: created.root,
+      stateRef: STATE_REF,
+      integrationRef: INTEGRATION_REF,
+      limits: roomy,
+    },
+  );
+  assert.deepEqual(result, []);
+});
+
+test('163408 CR1: an unrelated-ref batch is accepted while integration protection is not yet active', () => {
+  const created = fixture();
+  fs.rmSync(path.join(created.root, '.changeledger', 'authority.yml'));
+  git(created.root, ['add', '.changeledger']);
+  git(created.root, ['commit', '-qm', 'test: revert authority']);
+  const reverted = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['update-ref', INTEGRATION_REF, reverted]);
+
+  const result = validateReceiveBatch(`${reverted} ${reverted} refs/heads/topic\n`, {
+    repoRoot: created.root,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  assert.deepEqual(result, []);
+});
+
+test('163408 CR2: the legacy-path filter is case-insensitive', () => {
+  const created = fixture();
+  const next = advanceIntegration(created, '.changeledger/CHANGES/bypass.md', 'bypass\n');
+  git(created.root, ['update-ref', INTEGRATION_REF, created.integration]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.integration,
+        newOid: next,
+        ref: INTEGRATION_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /protected path changed.*bypass\.md/,
+  );
+});
+
+test('163408 CR3: a state update cannot rewrite integration_branch away mid-range', () => {
+  const created = fixture();
+  const drifted = advanceState(
+    created,
+    (state) => {
+      const file = path.join(state, 'config.yml');
+      fs.writeFileSync(
+        file,
+        fs
+          .readFileSync(file, 'utf8')
+          .replace('integration_branch: dev', 'integration_branch: other'),
+      );
+    },
+    'test: drift integration_branch',
+  );
+  const restored = advanceState(
+    created,
+    (state) => {
+      const file = path.join(state, 'config.yml');
+      fs.writeFileSync(
+        file,
+        fs
+          .readFileSync(file, 'utf8')
+          .replace('integration_branch: other', 'integration_branch: dev'),
+      );
+    },
+    'test: restore integration_branch',
+  );
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: restored,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /state update changes integration_branch away from protected ref refs\/heads\/dev/,
+  );
+  assert.ok(drifted);
+});
+
 test('193104 CR7: operational limits have stable diagnostics', () => {
   const created = fixture();
   const one = advanceState(created, (state) => {
