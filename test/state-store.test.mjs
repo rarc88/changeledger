@@ -11,6 +11,7 @@ import {
   PENDING_REF,
   readStateReplica,
   stateRemote,
+  stateReplicaStatus,
   syncStateReplica,
 } from '../src/state-store.mjs';
 import { createStateRepo } from './helpers/state-repo.mjs';
@@ -353,4 +354,30 @@ test('163407 CR1: an ambiguous changeledger.remote fails closed naming the value
 test('163407 CR2: an absent changeledger.remote keeps the documented origin fallback', () => {
   const created = replicaFixture('sha1');
   assert.equal(stateRemote(created.root), 'origin');
+});
+
+test('181235 CR1: reading local replica status works without a resolvable remote', () => {
+  const created = replicaFixture('sha1');
+  git(created.root, ['remote', 'remove', 'origin']);
+
+  const status = stateReplicaStatus(created.root);
+  assert.equal(status.remote, null);
+  assert.equal(status.confirmed, created.baseline);
+  assert.equal(status.condition, 'unknown');
+
+  assert.throws(
+    () => syncStateReplica(created.root),
+    /state sync requires configured remote "origin"/,
+  );
+});
+
+test('181235 CR2: an explicitly empty changeledger.remote fails closed', () => {
+  const created = replicaFixture('sha1');
+  git(created.root, ['config', 'changeledger.remote', '']);
+
+  assert.throws(
+    () => stateRemote(created.root),
+    /changeledger\.remote is configured with an empty value/,
+  );
+  assert.equal(stateRemote(created.root, { required: false }), null);
 });

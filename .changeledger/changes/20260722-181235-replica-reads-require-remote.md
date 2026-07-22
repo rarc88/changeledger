@@ -2,9 +2,10 @@
 id: "20260722-181235"
 title: Las lecturas v2 exigen un remoto resoluble
 type: bug
-status: draft
+status: in-review
 created: 2026-07-22T18:12:35Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193102", "20260722-163407"]
 release_impact: patch
 ---
@@ -60,10 +61,18 @@ Dos causas raíz en la misma superficie:
 
 ## Plan
 
-- [ ] Añadir test fallido de lectura offline sin remoto resoluble; desacoplar la resolución del remoto de `stateReplicaStatus` (o del camino de lectura de `loadStateSnapshot`) en `src/state-store.mjs`/`src/ledger-store.mjs` manteniendo el fail-closed en sync/publicación; verify: `node --test test/state-store.test.mjs test/state-command.test.mjs` (CR1)
-- [ ] Añadir test fallido del valor vacío y rechazarlo en `stateRemote` de `src/state-store.mjs` conservando el fallback por ausencia; verify: `node --test test/state-store.test.mjs` (CR2)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir test fallido de lectura offline sin remoto resoluble; desacoplar la resolución del remoto de `stateReplicaStatus` (o del camino de lectura de `loadStateSnapshot`) en `src/state-store.mjs`/`src/ledger-store.mjs` manteniendo el fail-closed en sync/publicación; verify: `node --test test/state-store.test.mjs test/state-command.test.mjs` (CR1)
+  - **Resolved:** `2026-07-22T18:40:00Z`
+- [x] Añadir test fallido del valor vacío y rechazarlo en `stateRemote` de `src/state-store.mjs` conservando el fallback por ausencia; verify: `node --test test/state-store.test.mjs` (CR2)
+  - **Resolved:** `2026-07-22T18:40:00Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T18:45:00Z`
 
 ## Log
 
 - **2026-07-22T18:12:35Z** `[note]` Draft creado desde la re-auditoría integral post-fixes (agente adversarial de contexto limpio sobre la capa de réplica/sync). CR1 riesgo medio de disponibilidad local-first; CR2 borde bajo de fail-closed. Divisible antes de aprobar si el humano lo prefiere.
+- **2026-07-22T18:16:47Z** `[status]` draft → approved
+- **2026-07-22T18:17:16Z** `[status]` approved → in-progress
+- **2026-07-22T18:17:16Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-22T18:40:00Z** `[note]` CR1: `stateRemote` acepta `{ required: false }`; `stateReplicaStatus` la usa así, así que ya no lanza si el remoto no resuelve — devuelve `remote: null` y calcula frescura/confirmación solo desde las refs locales. `syncStateReplica` y el resto de llamadas (migración, activación) conservan el default estricto. CLI `state status` imprime `(unresolved)` en vez de `null`, igual que el resto de valores en inglés de ese comando (`(none)`, `unknown`). CR2: `stateRemote` usa `git config --null --get-all` para distinguir valor-presente-vacío de clave-ausente; un valor vacío explícito falla cerrado nombrando el problema, la ausencia real conserva el fallback a `origin`. Rojo confirmado para ambos tests antes del fix; verde después: 13/13 en `state-store.test.mjs`, sin regresión en `state-command.test.mjs`/`state-migration.test.mjs`/`ledger-mutations.test.mjs`/`cli-bin.test.mjs` (139/139). Gate completo: 920/920 tests, lint y 220 changes válidos.
+- **2026-07-22T18:26:49Z** `[status]` in-progress → in-review

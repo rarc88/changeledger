@@ -195,24 +195,29 @@ function replayPending(repoRoot, pending, observed, validateRevision) {
   }
 }
 
-export function stateRemote(repoRoot) {
+export function stateRemote(repoRoot, { required = true } = {}) {
   const configuredValues = (() => {
     try {
-      return gitOutput(repoRoot, ['config', '--get-all', 'changeledger.remote'])
-        .split('\n')
-        .filter(Boolean);
+      const output = gitOutput(repoRoot, ['config', '--null', '--get-all', 'changeledger.remote']);
+      return output.endsWith('\0') ? output.slice(0, -1).split('\0') : [];
     } catch {
       return [];
     }
   })();
   const distinct = [...new Set(configuredValues)];
   if (distinct.length > 1) {
+    if (!required) return null;
     throw new Error(`ambiguous changeledger.remote configuration: ${distinct.join(', ')}`);
+  }
+  if (distinct.length === 1 && distinct[0] === '') {
+    if (!required) return null;
+    throw new Error('changeledger.remote is configured with an empty value');
   }
   const remote = distinct[0] || 'origin';
   try {
     git(repoRoot, ['remote', 'get-url', remote]);
   } catch {
+    if (!required) return null;
     throw new Error(`state sync requires configured remote "${remote}"`);
   }
   return remote;
@@ -372,7 +377,7 @@ export function syncStateReplica(
 }
 
 export function stateReplicaStatus(repoRoot) {
-  const remote = stateRemote(repoRoot);
+  const remote = stateRemote(repoRoot, { required: false });
   const refs = readStateReplica(repoRoot);
   let condition = 'unknown';
   if (refs.pending) {

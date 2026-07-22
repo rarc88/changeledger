@@ -982,7 +982,7 @@ stateCommand
   .action(
     action(() => {
       const result = stateStatus();
-      console.log(`Remote: ${result.remote}`);
+      console.log(`Remote: ${result.remote ?? '(unresolved)'}`);
       console.log(`Condition: ${result.condition}`);
       console.log(`Effective: ${result.effective ?? '(none)'}`);
       console.log(`Confirmed: ${result.confirmed ?? '(none)'}`);
