@@ -113,7 +113,8 @@ export function selfManagedCapabilities({
         ref,
         oid,
         mechanism: 'pre-receive',
-        evidence: 'ChangeLedger validator completed inside receive quarantine',
+        evidence:
+          'ChangeLedger validator (schema and identity-continuity contract) completed inside receive quarantine; not an actor authentication',
       }),
     );
   }

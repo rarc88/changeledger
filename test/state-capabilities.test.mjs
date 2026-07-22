@@ -64,6 +64,16 @@ test('193104 CR5/CR6: self-managed receipts report only capabilities actually ev
   assert.equal(integration.actor_authentication.value, 'unavailable');
 });
 
+test('202058 CR3: verified content_validation evidence does not claim actor authentication', () => {
+  const state = selfManagedCapabilities({
+    ref: 'refs/heads/changeledger/state',
+    oid: 'c'.repeat(40),
+    contentValidated: true,
+  });
+  assert.equal(state.content_validation.value, 'verified');
+  assert.match(state.content_validation.evidence, /not an actor authentication/);
+});
+
 test('193104 correction CR5: trusted evidence requires valid and observed ref/OID binding', () => {
   for (const invalid of [{ ref: 'not-a-full-ref' }, { oid: 'not-an-oid' }]) {
     const capabilities = stateCapabilities([

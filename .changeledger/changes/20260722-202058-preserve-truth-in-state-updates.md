@@ -2,9 +2,10 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: draft
+status: in-review
 created: 2026-07-22T20:20:58Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260721-193104", "20260721-193101"]
 release_impact: patch
 ---
@@ -78,12 +79,21 @@ más allá de esta política.
 
 ## Plan
 
-- [ ] Añadir tests fallidos de borrado de change/spec/release en un update (rechazo nombrando colección e identidad, evaluado contra cada padre) y de archivado/descartado aceptados, e implementar la comparación de identidades entre snapshots consecutivos en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs test/state-receive.test.mjs` (CR1)
-- [ ] Añadir test fallido del `confirmed` forjado servido en lectura y aplicar la misma política en la validación de revisión de `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR2)
-- [ ] Ajustar receipts y documentación para la semántica declarada de `content_validation` en `src/state-capabilities.mjs` y `README.md`; verify: `node --test test/state-capabilities.test.mjs` (CR3)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos de borrado de change/spec/release en un update (rechazo nombrando colección e identidad, evaluado contra cada padre) y de archivado/descartado aceptados, e implementar la comparación de identidades entre snapshots consecutivos en `src/state-validation.mjs`; verify: `node --test test/state-validation.test.mjs test/state-receive.test.mjs` (CR1)
+  - **Resolved:** `2026-07-22T22:55:00Z`
+- [x] Añadir test fallido del `confirmed` forjado servido en lectura y aplicar la misma política en la validación de revisión de `src/ledger-store.mjs`; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR2)
+  - **Resolved:** `2026-07-22T23:05:00Z`
+- [x] Ajustar receipts y documentación para la semántica declarada de `content_validation` en `src/state-capabilities.mjs` y `README.md`; verify: `node --test test/state-capabilities.test.mjs` (CR3)
+  - **Resolved:** `2026-07-22T23:10:00Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T23:15:00Z`
 
 ## Log
 
 - **2026-07-22T20:20:58Z** `[note]` Draft creado desde la unión de las dos ejecuciones de 20260721-193106 (THR-1a/THR-8-A, confirmadas por ambos auditores). La dirección es política semántica de no-desaparición entre snapshots, no un recomputo de hash que un escritor autorizado podría regenerar; incluye honestidad del receipt.
 - **2026-07-22T20:35:00Z** `[note]` Ajustado por revisión del auditor principal: identidad exacta por colección (id/nombre/versión), comparación contra cada padre del rango, política estricta sin excepción de archivado (verificado en código: `archive` y `discard` conservan el documento), release_impact corregido a patch.
+- **2026-07-22T21:45:37Z** `[status]` draft → approved (human via conversation)
+- **2026-07-22T21:45:38Z** `[status]` approved → in-progress
+- **2026-07-22T21:45:38Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-22T23:15:00Z** `[note]` CR1: `validateStateRef` (`src/state-validation.mjs`) compara, para cada commit nuevo del rango, sus identidades (`changes` por id, `specs`/`releases` por nombre) contra las de **cada** uno de sus padres (`git rev-list --parents`, no solo el primero) usando un caché de snapshots por OID; rechaza nombrando colección e identidad si algo desaparece. Un commit merge cuya resolución oculta un borrado ya inexistente en un padre pero presente en el otro se detecta (test dedicado con un conflicto real de dos ramas). Archivar/descartar solo cambia campos del frontmatter, nunca hace desaparecer el documento — verificado, sigue aceptándose. CR2: `loadStateSnapshot` (`src/ledger-store.mjs`) aplica la misma comparación contra el padre git de la revisión leída (confirmed o pending) antes de servirla; un `confirmed` local forjado que borra un change ahora falla cerrado en lugar de servirse con exit 0. Los helpers `snapshotIdentities`/`assertNoDisappearance` viven en `ledger-store.mjs` (nivel más bajo) y `state-validation.mjs` los importa, evitando un ciclo de imports. CR3: evidencia de `content_validation=verified` en `src/state-capabilities.mjs` aclara explícitamente "not an actor authentication"; README documenta la garantía de continuidad de identidad y su límite. Rojo confirmado en los 6 tests nuevos antes del fix; verde después: 141/141 en la suite ampliada (`state-validation`/`ledger-store`/`state-receive`/`state-store`/`state-command`/`ledger-mutations`/`state-capabilities`). Gate completo: 934/934 tests, lint y 234 changes válidos.
+- **2026-07-22T22:07:21Z** `[status]` in-progress → in-review

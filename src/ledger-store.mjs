@@ -315,16 +315,48 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
   };
 }
 
+export function snapshotIdentities(snapshot) {
+  return {
+    changes: new Set(snapshot.changes.map((change) => change.frontmatter.id)),
+    specs: new Set(snapshot.specs.map((spec) => spec.name)),
+    releases: new Set(snapshot.releases.map((release) => release.name)),
+  };
+}
+
+// No lifecycle transition (archive, discard, graduation) ever removes a
+// document from its collection -- it only changes fields within it. A
+// snapshot transition that drops an identity present in any parent is either
+// data loss or tampering; content_validation must not report "verified" for
+// it, and a read must not serve it as current truth either.
+export function assertNoDisappearance(parentSnapshot, childSnapshot, revision) {
+  const parent = snapshotIdentities(parentSnapshot);
+  const child = snapshotIdentities(childSnapshot);
+  for (const [collection, parentIdentities] of Object.entries(parent)) {
+    const childIdentities = child[collection];
+    for (const identity of parentIdentities) {
+      if (!childIdentities.has(identity)) {
+        throw new Error(`state revision ${revision} removes ${collection} identity "${identity}"`);
+      }
+    }
+  }
+}
+
+// A root commit (the initial state baseline) has no parent and nothing prior
+// to compare against.
+function gitParentsOrRoot(repoRoot, commit, run) {
+  const fields = run(['rev-list', '--parents', '-n', '1', commit], repoRoot).trim().split(/\s+/);
+  return fields.slice(1);
+}
+
 function loadStateSnapshot(repoRoot, changeledgerDir, authority, run) {
-  const snapshot = loadStateSnapshotAt(
-    repoRoot,
-    changeledgerDir,
-    authority,
-    gitStateRevision(repoRoot, authority, run),
-    run,
-  );
+  const revision = gitStateRevision(repoRoot, authority, run);
+  const snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
   if (authority.format_version === 1) {
     return { ...snapshot, ledgerFreshness: 'local', ledgerConfirmation: 'local' };
+  }
+  for (const parent of gitParentsOrRoot(repoRoot, revision, run)) {
+    const parentSnapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, parent, run);
+    assertNoDisappearance(parentSnapshot, snapshot, revision);
   }
   const replica = stateReplicaStatus(repoRoot);
   return {

@@ -2,7 +2,12 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { integrationBranch } from './config.mjs';
 import { sanitizedGitEnv } from './git.mjs';
-import { parseStateAuthority, STATE_REF, validateServerStateRevision } from './ledger-store.mjs';
+import {
+  assertNoDisappearance,
+  parseStateAuthority,
+  STATE_REF,
+  validateServerStateRevision,
+} from './ledger-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 export const DEFAULT_STATE_LIMITS = Object.freeze({
@@ -254,6 +259,14 @@ function commitParents(run, repoRoot, commit) {
   return fields.slice(1);
 }
 
+// Root commits (the initial state baseline) have no parent and nothing prior
+// to compare against; every other commit's parents are whatever `rev-list`
+// reports, independent of whether they fall inside the validated range.
+function commitParentsOrRoot(run, repoRoot, commit) {
+  const fields = run(['rev-list', '--parents', '-n', '1', commit], repoRoot).trim().split(/\s+/);
+  return fields.slice(1);
+}
+
 function validateStateRef(ctx, update, authority) {
   const { run, repoRoot, length, budget, usage } = ctx;
   const zero = zeroOid(length);
@@ -280,18 +293,28 @@ function validateStateRef(ctx, update, authority) {
     usage,
   );
   const objectBytes = countObjectBytes(run, repoRoot, range, budget, usage);
-  for (const commit of commits) {
+  const snapshotCache = new Map();
+  const loadSnapshot = (commit) => {
+    if (snapshotCache.has(commit)) return snapshotCache.get(commit);
     let snapshot;
     try {
       snapshot = validateServerStateRevision(repoRoot, authority, commit, run);
     } catch (error) {
       throw new Error(`invalid state snapshot at ${commit}: ${error.message}`, { cause: error });
     }
+    snapshotCache.set(commit, snapshot);
+    return snapshot;
+  };
+  for (const commit of commits) {
+    const snapshot = loadSnapshot(commit);
     const configured = integrationBranch(snapshot.config);
     if (!configured || ctx.integrationRef !== `refs/heads/${configured}`) {
       throw new Error(
         `state update changes integration_branch away from protected ref ${ctx.integrationRef}`,
       );
+    }
+    for (const parent of commitParentsOrRoot(run, repoRoot, commit)) {
+      assertNoDisappearance(loadSnapshot(parent), snapshot, commit);
     }
   }
   return { ...update, commits: commits.length, object_bytes: objectBytes };

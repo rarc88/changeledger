@@ -177,6 +177,23 @@ test('193102 CR1/CR3/CR7: replica authority requires confirmed state without fal
   assert.equal(pending.changes[0].frontmatter.title, 'New');
 });
 
+test('202058 CR2: a confirmed ref forged to drop a change identity fails closed on read', () => {
+  const { root, baseline } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  git(root, ['update-ref', 'refs/changeledger/observed', baseline]);
+  git(root, ['checkout', '-q', 'changeledger/state']);
+  fs.rmSync(path.join(root, '.changeledger-state', 'changes', '20260721-000000-demo.md'));
+  git(root, ['add', '.changeledger-state']);
+  git(root, ['commit', '-qm', 'test: forged snapshot drops the change']);
+  const forged = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', 'refs/changeledger/confirmed', forged]);
+
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    /state revision .* removes changes identity "20260721-000000"/,
+  );
+});
+
 test('193103 CR7: replica authority requires immutable provenance and a compatible client', () => {
   const missingDigest = fixture({ authorityFormat: 2, seedConfirmed: true });
   fs.writeFileSync(

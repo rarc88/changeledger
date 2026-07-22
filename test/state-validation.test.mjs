@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -408,6 +409,156 @@ test('163408 CR3: a state update cannot rewrite integration_branch away mid-rang
     /state update changes integration_branch away from protected ref refs\/heads\/dev/,
   );
   assert.ok(drifted);
+});
+
+test('202058 CR1: a state update that deletes a change identity is rejected', () => {
+  const created = fixture();
+  const deleted = advanceState(created, (state) => {
+    fs.rmSync(path.join(state, 'changes', '20260721-000000-change.md'));
+  });
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: deleted,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /removes changes identity "20260721-000000"/,
+  );
+});
+
+test('202058 CR1: a state update that deletes a spec or release identity is rejected', () => {
+  const created = fixture();
+  const withSpecAndRelease = advanceState(created, (state) => {
+    fs.mkdirSync(path.join(state, 'specs'), { recursive: true });
+    fs.writeFileSync(
+      path.join(state, 'specs', 'one.md'),
+      '---\ntitle: One\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n',
+    );
+    fs.mkdirSync(path.join(state, 'releases'), { recursive: true });
+    fs.writeFileSync(
+      path.join(state, 'releases', '1.0.0.yml'),
+      'version: 1.0.0\ncreated: 2026-07-22T00:00:00Z\nchanges: []\n',
+    );
+  });
+  git(created.root, ['update-ref', STATE_REF, withSpecAndRelease]);
+  const specDeleted = advanceState(created, (state) => {
+    fs.rmSync(path.join(state, 'specs', 'one.md'));
+  });
+  git(created.root, ['update-ref', STATE_REF, withSpecAndRelease]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: withSpecAndRelease,
+        newOid: specDeleted,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /removes specs identity "one\.md"/,
+  );
+
+  git(created.root, ['update-ref', STATE_REF, withSpecAndRelease]);
+  const releaseDeleted = advanceState(created, (state) => {
+    fs.rmSync(path.join(state, 'releases', '1.0.0.yml'));
+  });
+  git(created.root, ['update-ref', STATE_REF, withSpecAndRelease]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: withSpecAndRelease,
+        newOid: releaseDeleted,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /removes releases identity "1\.0\.0\.yml"/,
+  );
+});
+
+test('202058 CR1: archiving or discarding a change keeps its identity and is accepted', () => {
+  const created = fixture();
+  const archived = advanceState(created, (state) => {
+    const file = path.join(state, 'changes', '20260721-000000-change.md');
+    fs.writeFileSync(
+      file,
+      fs.readFileSync(file, 'utf8').replace('depends_on: []\n', 'depends_on: []\narchived: true\n'),
+    );
+  });
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  const receipt = validateStateUpdate({
+    repoRoot: created.root,
+    oldOid: created.baseline,
+    newOid: archived,
+    ref: STATE_REF,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  assert.equal(receipt.commits, 1);
+});
+
+test('202058 CR1: a merge commit is checked against every one of its parents', () => {
+  // Neither branch alone removes the change -- both parents individually
+  // still have it, so they validate cleanly on their own. Only the MERGE
+  // commit's own conflict resolution deletes it (hidden alongside resolving
+  // an unrelated real conflict), so catching this requires comparing the
+  // merge against both of its parents, not just skipping straight through.
+  const created = fixture();
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  git(created.root, ['branch', 'state-side']);
+  const conflictSpec = (title) =>
+    `---\ntitle: ${title}\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n\n# ${title}\n`;
+  fs.mkdirSync(path.join(created.state, 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(created.state, 'specs', 'conflict.md'), conflictSpec('Main'));
+  git(created.root, ['add', '.changeledger-state']);
+  git(created.root, ['commit', '-qm', 'test: mainline edits conflict.md']);
+  const mainHead = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'state-side']);
+  fs.mkdirSync(path.join(created.state, 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(created.state, 'specs', 'conflict.md'), conflictSpec('Side'));
+  git(created.root, ['add', '.changeledger-state']);
+  git(created.root, ['commit', '-qm', 'test: side edits conflict.md']);
+  const sideHead = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  git(created.root, ['reset', '-q', '--hard', mainHead]);
+  const mergeResult = spawnSync('git', ['merge', '--no-ff', sideHead, '-m', 'test: merge sides'], {
+    cwd: created.root,
+  });
+  assert.notEqual(mergeResult.status, 0, 'expected a real merge conflict on conflict.md');
+  fs.writeFileSync(path.join(created.state, 'specs', 'conflict.md'), conflictSpec('Resolved'));
+  fs.rmSync(path.join(created.state, 'changes', '20260721-000000-change.md'));
+  git(created.root, ['add', '.changeledger-state']);
+  git(created.root, ['commit', '--no-edit']);
+  const merge = git(created.root, ['rev-parse', 'HEAD']);
+  const parents = git(created.root, ['rev-list', '--parents', '-n', '1', merge])
+    .split(' ')
+    .slice(1);
+  assert.deepEqual(parents, [mainHead, sideHead]);
+  git(created.root, ['checkout', '-q', 'dev']);
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: merge,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /removes changes identity "20260721-000000"/,
+  );
 });
 
 test('193104 CR7: operational limits have stable diagnostics', () => {

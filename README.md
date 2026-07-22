@@ -179,12 +179,16 @@ cp hooks/pre-receive <bare-repository>/hooks/pre-receive
 chmod +x <bare-repository>/hooks/pre-receive
 ```
 
-The hook validates every incoming state snapshot from Git's receive quarantine.
-It also rejects non-fast-forward integration updates and any commit that changes
-the active authority or reintroduces legacy config, changes, specs or releases.
-It has no portable authenticated actor identity: `owner` remains responsibility
-metadata, not an access-control list. There is no actor, human-override, probe or
-provider-autodetection option.
+The hook validates every incoming state snapshot from Git's receive quarantine,
+including that no change, spec or release identity present in a parent snapshot
+disappears from its child — archiving or discarding a document keeps it in its
+collection, so only data loss or tampering trips this check. It also rejects
+non-fast-forward integration updates and any commit that changes the active
+authority or reintroduces legacy config, changes, specs or releases. `content_validation: verified`
+means this contract held for the inspected snapshots; it is not an
+authentication of who pushed them. There is no portable authenticated actor
+identity: `owner` remains responsibility metadata, not an access-control list.
+There is no actor, human-override, probe or provider-autodetection option.
 
 Protection capabilities are reported independently:
 
