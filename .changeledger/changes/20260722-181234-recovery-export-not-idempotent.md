@@ -2,7 +2,7 @@
 id: "20260722-181234"
 title: El export de recuperación no es idempotente
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T18:12:34Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -65,3 +65,4 @@ recuperación.
 - **2026-07-22T18:17:16Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T18:26:26Z** `[status]` in-progress → in-review
 - **2026-07-22T18:31:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T18:34:39Z** `[validation]` in-validation → done (human accepted)

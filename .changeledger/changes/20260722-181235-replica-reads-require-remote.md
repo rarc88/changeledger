@@ -2,7 +2,7 @@
 id: "20260722-181235"
 title: Las lecturas v2 exigen un remoto resoluble
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T18:12:35Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -77,3 +77,4 @@ Dos causas raíz en la misma superficie:
 - **2026-07-22T18:40:00Z** `[note]` CR1: `stateRemote` acepta `{ required: false }`; `stateReplicaStatus` la usa así, así que ya no lanza si el remoto no resuelve — devuelve `remote: null` y calcula frescura/confirmación solo desde las refs locales. `syncStateReplica` y el resto de llamadas (migración, activación) conservan el default estricto. CLI `state status` imprime `(unresolved)` en vez de `null`, igual que el resto de valores en inglés de ese comando (`(none)`, `unknown`). CR2: `stateRemote` usa `git config --null --get-all` para distinguir valor-presente-vacío de clave-ausente; un valor vacío explícito falla cerrado nombrando el problema, la ausencia real conserva el fallback a `origin`. Rojo confirmado para ambos tests antes del fix; verde después: 13/13 en `state-store.test.mjs`, sin regresión en `state-command.test.mjs`/`state-migration.test.mjs`/`ledger-mutations.test.mjs`/`cli-bin.test.mjs` (139/139). Gate completo: 920/920 tests, lint y 220 changes válidos.
 - **2026-07-22T18:26:49Z** `[status]` in-progress → in-review
 - **2026-07-22T18:32:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T18:34:41Z** `[validation]` in-validation → done (human accepted)
