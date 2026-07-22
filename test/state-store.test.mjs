@@ -10,6 +10,7 @@ import {
   OBSERVED_REF,
   PENDING_REF,
   readStateReplica,
+  stateRemote,
   syncStateReplica,
 } from '../src/state-store.mjs';
 import { createStateRepo } from './helpers/state-repo.mjs';
@@ -336,4 +337,20 @@ test('193102 CR6: abort fails closed when ancestry cannot be established', () =>
   );
   assert.equal(readStateReplica(created.root).pending, pending);
   assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+});
+
+test('163407 CR1: an ambiguous changeledger.remote fails closed naming the values', () => {
+  const created = replicaFixture('sha1');
+  git(created.root, ['config', '--add', 'changeledger.remote', 'origin']);
+  git(created.root, ['config', '--add', 'changeledger.remote', 'backup']);
+
+  assert.throws(
+    () => stateRemote(created.root),
+    /ambiguous changeledger\.remote configuration: origin, backup/,
+  );
+});
+
+test('163407 CR2: an absent changeledger.remote keeps the documented origin fallback', () => {
+  const created = replicaFixture('sha1');
+  assert.equal(stateRemote(created.root), 'origin');
 });

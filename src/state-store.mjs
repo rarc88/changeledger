@@ -196,14 +196,20 @@ function replayPending(repoRoot, pending, observed, validateRevision) {
 }
 
 export function stateRemote(repoRoot) {
-  const configured = (() => {
+  const configuredValues = (() => {
     try {
-      return git(repoRoot, ['config', '--get', 'changeledger.remote']);
+      return gitOutput(repoRoot, ['config', '--get-all', 'changeledger.remote'])
+        .split('\n')
+        .filter(Boolean);
     } catch {
-      return '';
+      return [];
     }
   })();
-  const remote = configured || 'origin';
+  const distinct = [...new Set(configuredValues)];
+  if (distinct.length > 1) {
+    throw new Error(`ambiguous changeledger.remote configuration: ${distinct.join(', ')}`);
+  }
+  const remote = distinct[0] || 'origin';
   try {
     git(repoRoot, ['remote', 'get-url', remote]);
   } catch {
