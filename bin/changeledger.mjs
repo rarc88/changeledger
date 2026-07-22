@@ -63,6 +63,28 @@ function collect(value, previous) {
   return previous.concat([value]);
 }
 
+function ledgerRevisionFromResult(result) {
+  if (Array.isArray(result)) {
+    if (result.ledgerRevision) return result.ledgerRevision;
+    for (const item of result) {
+      const revision = ledgerRevisionFromResult(item);
+      if (revision) return revision;
+    }
+    return undefined;
+  }
+  if (result && typeof result === 'object') {
+    if (result.ledger_revision) return result.ledger_revision;
+    return ledgerRevisionFromResult(result.file);
+  }
+  if (typeof result !== 'string') return undefined;
+  return /^git:([^:]+):/.exec(result)?.[1];
+}
+
+function printLedgerRevision(result) {
+  const revision = ledgerRevisionFromResult(result);
+  if (revision) console.log(`Ledger revision: ${revision} (freshness: local)`);
+}
+
 program
   .name('changeledger')
   .description('ChangeLedger (changeledger)')
@@ -114,6 +136,7 @@ program
       const title = titleParts.join(' ').trim();
       const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
       console.log(`Created ${file}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -340,8 +363,9 @@ program
   )
   .action(
     action((id, st) => {
-      status(id, st, process.cwd(), { actor: 'agent' });
+      const file = status(id, st, process.cwd(), { actor: 'agent' });
       console.log(`#${id} → ${st}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -362,8 +386,9 @@ program
   )
   .action(
     action((id) => {
-      approve(id);
+      const file = approve(id);
       console.log(`#${id} → approved (human via conversation)`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -391,12 +416,13 @@ program
   .action(
     action((id, verdict, reasonParts, options) => {
       const reason = (reasonParts ?? []).join(' ').trim();
+      let file;
       if (verdict === 'pass') {
         if (reason) throw new Error('validation pass does not accept a reason');
         if (options.human) throw new Error('validation pass is already human-owned; omit --human');
-        validation(id, 'pass', { actor: 'human', channel: 'conversation' });
+        file = validation(id, 'pass', { actor: 'human', channel: 'conversation' });
       } else if (verdict === 'fail') {
-        validation(id, 'fail', {
+        file = validation(id, 'fail', {
           reason,
           actor: options.human ? 'human' : 'agent',
           channel: options.human ? 'conversation' : 'agent',
@@ -405,6 +431,7 @@ program
         throw new Error(`Unknown validation verdict "${verdict}" (use pass|fail)`);
       }
       console.log(`#${id} validation ${verdict}${options.human ? ' --human' : ''}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -415,8 +442,9 @@ program
   .argument('<reason...>')
   .action(
     action((id, reasonParts) => {
-      reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
+      const file = reopen(id, reasonParts.join(' ').trim(), process.cwd(), { actor: 'agent' });
       console.log(`#${id} → in-progress`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -427,8 +455,9 @@ program
   .argument('<reason...>')
   .action(
     action((id, reasonParts) => {
-      discard(id, reasonParts.join(' ').trim());
+      const file = discard(id, reasonParts.join(' ').trim());
       console.log(`#${id} → discarded`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -454,8 +483,9 @@ program
     action((id, verdict, reasonParts, options) => {
       const mode = options.retry ? 'retry' : options.block ? 'block' : undefined;
       const reason = reasonParts.join(' ').trim() || undefined;
-      review(id, verdict, { mode, reason });
+      const file = review(id, verdict, { mode, reason });
       console.log(`#${id} review ${verdict}${mode ? ` --${mode}` : ''}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -475,8 +505,9 @@ program
   )
   .action(
     action((id, name) => {
-      owner(id, name);
+      const file = owner(id, name);
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -513,11 +544,13 @@ program
         const archived = archiveGraduated({ owner: options.owner, unowned: options.unowned });
         for (const c of archived) console.log(`#${c.id} ${c.title}`);
         console.log(`Archived ${archived.length} change(s)`);
+        printLedgerRevision(archived);
         return;
       }
       if (!id) throw new Error('archive requires <id> or --graduated');
-      archive(id);
+      const file = archive(id);
       console.log(`#${id} archived`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -528,8 +561,9 @@ program
   .argument('<message...>')
   .action(
     action((id, messageParts) => {
-      log(id, messageParts.join(' ').trim());
+      const file = log(id, messageParts.join(' ').trim());
       console.log(`logged on #${id}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -552,8 +586,9 @@ program
   .action(
     action((id, taskAction, nStr, reasonParts) => {
       const n = Number(nStr);
-      task(id, taskAction, n, reasonParts.join(' ').trim());
+      const file = task(id, taskAction, n, reasonParts.join(' ').trim());
       console.log(`task #${n} on #${id} → ${taskAction}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -597,8 +632,20 @@ program
         all: options.all,
       });
       if (options.json) {
-        console.log(JSON.stringify(items, null, 2));
+        const output = items.ledgerRevision
+          ? {
+              ledger_revision: items.ledgerRevision,
+              ledger_freshness: items.ledgerFreshness,
+              changes: items,
+            }
+          : items;
+        console.log(JSON.stringify(output, null, 2));
       } else {
+        if (items.ledgerRevision) {
+          console.log(
+            `Ledger revision: ${items.ledgerRevision} (freshness: ${items.ledgerFreshness})`,
+          );
+        }
         for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
       }
     }),
@@ -613,7 +660,12 @@ program
     action((id, options) => {
       const c = show(id);
       if (options.json) console.log(JSON.stringify(c, null, 2));
-      else console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+      else {
+        if (c.ledger_revision) {
+          console.log(`Ledger revision: ${c.ledger_revision} (freshness: ${c.ledger_freshness})`);
+        }
+        console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
+      }
     }),
   );
 
@@ -676,21 +728,30 @@ program
       if (options.skip) {
         if (!id) throw new Error('Usage: changeledger graduate <change-id> --skip [reason]');
         const reason = [slug, ...reasonParts].filter(Boolean).join(' ').trim();
-        skipGraduation(id, reason);
+        const file = skipGraduation(id, reason);
         console.log(`#${id} graduation skipped`);
+        printLedgerRevision(file);
         return;
       }
 
       if (!id || !slug || reasonParts.length) throw new Error(modeUsage);
       if (options.new) {
-        const file = scaffoldSpec(id, slug, process.cwd(), { to: options.to });
+        let ledger;
+        const file = scaffoldSpec(id, slug, process.cwd(), {
+          to: options.to,
+          onSnapshot(snapshot) {
+            ledger = snapshot;
+          },
+        });
         console.log(
           `Created spec scaffold ${file}. Refine it, then run: changeledger graduate ${id} ${slug} --into --from ${file}`,
         );
+        printLedgerRevision(ledger ?? file);
         return;
       }
       const file = graduate(id, slug, process.cwd(), { into: options.into, from: options.from });
       console.log(`Graduated #${id} → ${file}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -721,6 +782,7 @@ releaseCommand
     action((version) => {
       const { file, manifest } = initReleaseHistory(version);
       console.log(`Initialized release ${manifest.version} baseline → ${file}`);
+      printLedgerRevision(file);
     }),
   );
 
@@ -734,6 +796,11 @@ releaseCommand
       if (options.json) {
         console.log(JSON.stringify(plan, null, 2));
         return;
+      }
+      if (plan.ledger_revision) {
+        console.log(
+          `Ledger revision: ${plan.ledger_revision} (freshness: ${plan.ledger_freshness})`,
+        );
       }
       if (!plan.releasable) {
         console.log(
@@ -756,6 +823,7 @@ releaseCommand
     action((version) => {
       const { file, manifest } = recordRelease(version);
       console.log(`Recorded release ${manifest.version} → ${file}`);
+      printLedgerRevision(file);
     }),
   );
 

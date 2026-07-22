@@ -62,11 +62,13 @@ ${seed}
 `;
 }
 
-export function scaffoldSpec(id, slug, cwd = process.cwd(), { to } = {}) {
+export function scaffoldSpec(id, slug, cwd = process.cwd(), { to, onSnapshot } = {}) {
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
     if (!to) throw new Error('state graduation --new requires --to <file>');
+    slugify(slug);
     const snapshot = store.load();
+    onSnapshot?.({ ledger_revision: snapshot.revision, ledger_freshness: 'local' });
     assertSupportedSchema(snapshot.config);
     const candidate = snapshot.changes.find(
       (change) => String(change.frontmatter.id) === String(id),
@@ -117,7 +119,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, from, fs
     if (!change) throw new Error(`No change with id "${id}"`);
     const specName = `${slugify(slug)}.md`;
     const after = store.mutate(
-      { message: `changeledger: graduate ${id}` },
+      { message: `changeledger: graduate ${id}`, expectedRevision: snapshot.revision },
       ({ snapshot, write }) => {
         const currentChange = snapshot.changes.find(
           (candidate) => candidate.statePath === change.statePath,
@@ -213,7 +215,7 @@ export function skipGraduation(id, reason, cwd = process.cwd()) {
     if (!change) throw new Error(`No change with id "${id}"`);
     assertSupportedSchema(snapshot.config);
     const after = store.mutate(
-      { message: `changeledger: graduate skip ${id}` },
+      { message: `changeledger: graduate skip ${id}`, expectedRevision: snapshot.revision },
       ({ snapshot, write }) => {
         const current = snapshot.changes.find(
           (candidate) => candidate.statePath === change.statePath,

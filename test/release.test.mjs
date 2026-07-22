@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { checkRepo } from '../src/check.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { bumpVersion } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
+import { changeText, createStateRepo } from './helpers/state-repo.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -213,4 +215,25 @@ test('CR9: check rejects repeated baselines and non-done released changes', () =
   const messages = checkRepo(repo).errors.map((error) => error.message);
   assert.ok(messages.some((message) => /status is not done/.test(message)));
   assert.ok(messages.some((message) => /multiple baselines/.test(message)));
+});
+
+test('193101 correction CR2: state release plan exposes revision and freshness', () => {
+  const { root, baseline } = createStateRepo({
+    changes: [changeText({ type: 'bug', status: 'done' })],
+    releases: {
+      '1.0.0.yml': 'version: 1.0.0\ncreated: 2026-07-21T00:00:00Z\nbaseline: true\nchanges: []\n',
+    },
+  });
+  const plan = releasePlan(root);
+  assert.equal(plan.ledger_revision, baseline);
+  assert.equal(plan.ledger_freshness, 'local');
+  const cli = path.join(projectRoot, 'bin', 'changeledger.mjs');
+  const output = JSON.parse(
+    execFileSync(process.execPath, [cli, 'release', 'plan', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+    }),
+  );
+  assert.equal(output.ledger_revision, baseline);
+  assert.equal(output.ledger_freshness, 'local');
 });

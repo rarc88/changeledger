@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { createStateRepo, stateConfig } from './helpers/state-repo.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -1812,4 +1813,20 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
     out.calls.some((line) => line.includes('commits main..HEAD')),
     out.calls.join('\n'),
   );
+});
+
+test('193101 correction CR2/CR3/CR6: check --commits uses state config and reports its snapshot', () => {
+  const configText = stateConfig().replace(
+    'statuses:',
+    'git:\n  integration_branch: dev\nstatuses:',
+  );
+  const { root, baseline } = createStateRepo({ configText });
+  const out = captureOutput();
+  const code = check(['--commits', '--json'], root, out);
+
+  assert.equal(code, 0);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.revision, baseline);
+  assert.equal(parsed.freshness, 'local');
 });

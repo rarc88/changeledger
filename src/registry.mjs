@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
 import { loadConfig } from './config.mjs';
+import { loadLedgerStore } from './ledger-store.mjs';
 
 export function registryDir() {
   return path.join(process.env.CHANGELEDGER_HOME || os.homedir(), '.changeledger');
@@ -45,15 +46,30 @@ export function register({ id, name, path: repoPath }) {
 export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
+    let revision = null;
     try {
-      const config = loadConfig(path.join(value.path, '.changeledger'));
+      const store = loadLedgerStore(value.path);
+      let config;
+      if (store.mode === 'state') {
+        const snapshot = store.load();
+        config = snapshot.config;
+        revision = snapshot.revision;
+      } else {
+        config = loadConfig(path.join(value.path, '.changeledger'));
+      }
       if (String(config.project_id) === id && typeof config.project_name === 'string') {
         name = config.project_name;
       }
     } catch {
       // Missing projects keep their last registered display name.
     }
-    return { id, name, path: value.path };
+    return {
+      id,
+      name,
+      path: value.path,
+      ledger_revision: revision,
+      ledger_freshness: revision ? 'local' : null,
+    };
   });
 }
 

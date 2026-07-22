@@ -1,4 +1,5 @@
 import {
+  captureLedgerTarget,
   getConfigMigrationPreview,
   getGitRefs,
   getProjectConfigStructured,
@@ -269,6 +270,7 @@ function render() {
 function renderBoard() {
   const changes = visibleChanges();
   const board = $('#board');
+  const mutationTarget = captureLedgerTarget(state.currentProject, state.repo);
   litRender(
     boardStatuses(state.repo.statuses, state.filters.showDiscarded).map((status) => {
       const items = changes.filter((c) => c.status === status);
@@ -305,15 +307,15 @@ function renderBoard() {
       approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
       const c = state.repo.changes.find((x) => String(x.id) === String(id));
-      if (c && c.status === 'draft') moveStatus(id, 'approved');
+      if (c && c.status === 'draft') moveStatus(mutationTarget, id, 'approved');
     };
   }
 }
 
 // Persist a human-owned lifecycle move, then refresh the board.
-async function moveStatus(id, status, reason) {
+async function moveStatus(target, id, status, reason) {
   try {
-    const res = await postStatus(state.currentProject, id, status, reason);
+    const res = await postStatus(target, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
       showToast(out.error || 'status change failed');
@@ -437,11 +439,11 @@ export function bindDetailPresentation(root = document) {
   });
 }
 
-async function submitValidation(id, status, reason) {
+async function submitValidation(target, id, status, reason) {
   const root = $('#detail');
   await runValidationSubmission({
     root,
-    request: () => postStatus(state.currentProject, id, status, reason),
+    request: () => postStatus(target, id, status, reason),
     onSuccess: async () => {
       closeDetail();
       invalidateCache();
@@ -475,6 +477,7 @@ function renderOpenedDetail(content) {
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
+  const mutationTarget = captureLedgerTarget(state.currentProject, state.repo);
   const changes = state.repo.changes || [];
   const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
   const incoming = changes
@@ -514,7 +517,7 @@ function openDetail(id) {
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   const accept = $('#detail').querySelector('[data-validation="pass"]');
-  if (accept) accept.onclick = () => submitValidation(c.id, 'done');
+  if (accept) accept.onclick = () => submitValidation(mutationTarget, c.id, 'done');
   const reject = $('#detail').querySelector('[data-validation="fail"]');
   if (reject) {
     reject.onclick = () => {
@@ -525,12 +528,12 @@ function openDetail(id) {
         input?.focus();
         return;
       }
-      submitValidation(c.id, 'in-progress', reason);
+      submitValidation(mutationTarget, c.id, 'in-progress', reason);
     };
   }
   bindReopenAction({
     root: $('#detail'),
-    request: (reason) => postStatus(state.currentProject, c.id, 'in-progress', reason),
+    request: (reason) => postStatus(mutationTarget, c.id, 'in-progress', reason),
     onSuccess: async () => {
       invalidateCache();
       await load();
@@ -845,6 +848,14 @@ async function renderMetrics() {
 export function syncViewerShell(root = document, renderContent = true) {
   root.querySelector('#search').value = state.filters.text;
   root.querySelector('#toggle-global').classList.toggle('active', state.globalMode);
+  const ledgerSnapshot = root.querySelector('#ledger-snapshot');
+  if (ledgerSnapshot) {
+    ledgerSnapshot.textContent = ledgerProvenanceLabel(
+      state.repo?.ledger_revision,
+      state.repo?.ledger_freshness,
+    );
+    ledgerSnapshot.classList.toggle('hidden', !state.repo?.ledger_revision);
+  }
   for (const name of VIEWS) {
     root.querySelector(`#view-${name}`).classList.toggle('active', name === state.currentView);
     root
@@ -1270,7 +1281,7 @@ async function openManagedProject(id, { reload = false } = {}) {
       configMode = 'form';
     }
   } catch (error) {
-    managedConfig = { id, content: '', revision: '', error: error.message };
+    managedConfig = { id, content: '', config_revision: '', error: error.message };
   }
   renderProjects();
 }
@@ -1423,6 +1434,7 @@ export function collectFormPatch(formEl, currentConfig) {
 
 function renderProjects() {
   const root = $('#projects');
+  const configTarget = captureLedgerTarget(managedProject, managedConfig);
   litRender(
     projectsViewTemplate(state.projectsList, managedProject, managedConfig, state.localOnly),
     root,
@@ -1457,10 +1469,16 @@ function renderProjects() {
     saveRaw: (content, configForm) =>
       projectMutation(
         configForm,
-        () => postProjectConfig(managedProject, content, managedConfig.revision),
+        () => postProjectConfig(configTarget, content, managedConfig.config_revision),
         async (body) => {
           configDirty = false;
-          managedConfig = { ...managedConfig, content, revision: body.revision };
+          managedConfig = {
+            ...managedConfig,
+            content,
+            config_revision: body.config_revision,
+            ledger_revision: body.ledger_revision,
+            ledger_freshness: body.ledger_freshness,
+          };
           await refreshProjectRegistry();
           renderProjects();
         },
@@ -1470,7 +1488,7 @@ function renderProjects() {
         configForm,
         () => {
           const patch = collectFormPatch(formEl, managedConfig.config ?? {});
-          return patchProjectConfigApi(managedProject, patch, managedConfig.revision);
+          return patchProjectConfigApi(configTarget, patch, managedConfig.config_revision);
         },
         async (_body) => {
           configDirty = false;
@@ -1479,7 +1497,7 @@ function renderProjects() {
       ),
     previewMigration: async () => {
       try {
-        const result = await getConfigMigrationPreview(managedProject, managedConfig.revision);
+        const result = await getConfigMigrationPreview(configTarget, managedConfig.config_revision);
         migrationPreview = result;
       } catch (e) {
         migrationPreview = { error: e.message };
@@ -1492,7 +1510,7 @@ function renderProjects() {
       );
       if (!ok) return;
       try {
-        await postConfigMigrationApply(managedProject, managedConfig.revision);
+        await postConfigMigrationApply(configTarget, managedConfig.config_revision);
         await openManagedProject(managedProject, { reload: true });
       } catch (e) {
         migrationPreview = { error: e.message };
@@ -1586,6 +1604,62 @@ function activateView(v) {
   render();
 }
 
+export function ledgerProvenanceLabel(revision, freshness) {
+  if (!revision) return '';
+  return `Ledger ${revision} (freshness: ${freshness ?? 'unknown'})`;
+}
+
+function ledgerProvenanceTemplate(ledger) {
+  const label = ledgerProvenanceLabel(ledger.ledger_revision, ledger.ledger_freshness);
+  if (!label) return nothing;
+  return html`<div class="ledger-provenance" data-project=${ledger.project ?? ''}>
+    ${ledger.project ? `${ledger.project}: ` : ''}${label}
+  </div>`;
+}
+
+export function globalSearchTemplate(result, query) {
+  const groups = result.groups ?? [];
+  const ledgers = result.ledgers ?? [];
+  return html`
+    ${
+      ledgers.length
+        ? html`<div class="ledger-provenance-list" aria-label="Ledger snapshots">
+          ${ledgers.map(ledgerProvenanceTemplate)}
+        </div>`
+        : nothing
+    }
+    ${
+      groups.length
+        ? groups.map(
+            (group) => html`
+            <div class="search-group">
+              <h3>
+                ${group.project.name} <span class="count">${group.matches.length}</span>
+              </h3>
+              ${group.matches.map(
+                (match) => html`<div
+                    class="search-hit"
+                    data-proj=${group.project.id}
+                    data-id=${match.id}
+                  >
+                    <span class="card-id">#${match.id}</span>
+                    <span
+                      class="type-tag"
+                      style=${`--type-color: var(--${cssIdent(match.type)})`}
+                      >${match.type}</span
+                    >
+                    <span>${match.title}</span>
+                    <span class="pill">${match.status}</span>
+                  </div>`,
+              )}
+            </div>
+          `,
+          )
+        : html`<p class="empty" style="padding:20px">No matches for “${query}”.</p>`
+    }
+  `;
+}
+
 // Global search: query every project server-side, render grouped results.
 async function renderGlobal() {
   const q = state.filters.text.trim();
@@ -1597,34 +1671,14 @@ async function renderGlobal() {
     );
     return;
   }
-  let groups;
+  let result;
   try {
-    groups = await searchAllProjects(q);
+    result = await searchAllProjects(q);
   } catch (e) {
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, el);
     return;
   }
-  if (!groups.length) {
-    litRender(html`<p class="empty" style="padding:20px">No matches for “${q}”.</p>`, el);
-    return;
-  }
-  litRender(
-    groups.map(
-      (g) => html`
-      <div class="search-group">
-        <h3>${g.project.name} <span class="count">${g.matches.length}</span></h3>
-        ${g.matches.map(
-          (m) => html`<div class="search-hit" data-proj=${g.project.id} data-id=${m.id}>
-              <span class="card-id">#${m.id}</span>
-              <span class="type-tag" style=${`--type-color: var(--${cssIdent(m.type)})`}>${m.type}</span>
-              <span>${m.title}</span>
-              <span class="pill">${m.status}</span>
-            </div>`,
-        )}
-      </div>`,
-    ),
-    el,
-  );
+  litRender(globalSearchTemplate(result, q), el);
   el.querySelectorAll('.search-hit').forEach((hit) => {
     hit.onclick = () => gotoChange(hit.dataset.proj, hit.dataset.id);
   });

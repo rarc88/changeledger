@@ -8,6 +8,7 @@ import {
   removeLegacyGitignore,
   rootContract,
 } from '../contract.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { register } from '../registry.mjs';
 
 // Refreshes the repo bootstrap and registry path. Also migrates the per-machine
@@ -16,7 +17,8 @@ export function registerRepo(cwd = process.cwd(), output = console) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
-  const config = loadConfig(changeledgerDir);
+  const store = loadLedgerStore(cwd);
+  const config = store.mode === 'state' ? store.load().config : loadConfig(changeledgerDir);
   if (!config.project_id) {
     throw new Error('config.yml has no project_id. Run `changeledger init` to create one.');
   }

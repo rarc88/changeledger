@@ -102,7 +102,7 @@ function newStateChange(store, { type, slug, title, owner, now }) {
     const statePath = `.changeledger-state/changes/${id}-${normalizedSlug}.md`;
     try {
       const after = store.mutate(
-        { message: `changeledger: new ${id}` },
+        { message: `changeledger: new ${id}`, expectedRevision: snapshot.revision },
         ({ snapshot: current, write }) => {
           if (current.changes.some((change) => String(change.frontmatter.id) === id)) {
             throw new Error('state id changed concurrently; retry the operation');

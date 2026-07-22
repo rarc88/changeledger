@@ -16,10 +16,13 @@ import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
-function locate(cwd, id) {
+function locate(cwd, id, { expectedRevision } = {}) {
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
     const snapshot = store.load();
+    if (expectedRevision !== undefined && expectedRevision !== snapshot.revision) {
+      throw new Error('Ledger state changed concurrently; reload before saving');
+    }
     const change = snapshot.changes.find(
       (candidate) => String(candidate.frontmatter.id) === String(id),
     );
@@ -33,6 +36,7 @@ function locate(cwd, id) {
       config: snapshot.config,
       file: change.file,
       repoRoot: snapshot.repoRoot,
+      revision: snapshot.revision,
       statePath: change.statePath,
       store,
     };
@@ -48,7 +52,7 @@ function mutateChange(located, id, action, mutate) {
     return located.file;
   }
   const after = located.store.mutate(
-    { message: `changeledger: ${action} ${id}` },
+    { message: `changeledger: ${action} ${id}`, expectedRevision: located.revision },
     ({ snapshot, write }) => {
       const change = snapshot.changes.find(
         (candidate) => candidate.statePath === located.statePath,
@@ -65,9 +69,9 @@ export function status(
   id,
   newStatus,
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer' } = {},
+  { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer', expectedRevision } = {},
 ) {
-  const located = locate(cwd, id);
+  const located = locate(cwd, id, { expectedRevision });
   const { config, repoRoot } = located;
   if (newStatus === 'discarded') {
     throw new Error(
@@ -198,10 +202,10 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
 export function validation(
   id,
   verdict,
-  { reason, actor = 'human', channel = 'viewer' } = {},
+  { reason, actor = 'human', channel = 'viewer', expectedRevision } = {},
   cwd = process.cwd(),
 ) {
-  const located = locate(cwd, id);
+  const located = locate(cwd, id, { expectedRevision });
   const { config, file } = located;
   return mutateChange(located, id, 'validation', (text) => {
     const fm = parseChange(text).frontmatter;
@@ -246,9 +250,14 @@ export function validation(
 
 // Correction path while `done` is still provisional. Graduation,
 // skip, archive and release membership are durable boundaries and fail closed.
-export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}) {
+export function reopen(
+  id,
+  reason,
+  cwd = process.cwd(),
+  { actor = 'human', expectedRevision } = {},
+) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const located = locate(cwd, id);
+  const located = locate(cwd, id, { expectedRevision });
   const { config, file, repoRoot } = located;
   const apply = (text, snapshot) => {
     const released = snapshot.releases.some((release) =>
@@ -350,15 +359,27 @@ export function selectArchivableGraduated(changes, filters = {}) {
   return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
 }
 
+function archiveResult(items, revision) {
+  Object.defineProperties(items, {
+    ledgerRevision: { value: revision ?? null },
+    ledgerFreshness: { value: revision ? 'local' : null },
+  });
+  return items;
+}
+
 export function archiveGraduated(filters = {}, cwd = process.cwd()) {
   const store = loadLedgerStore(cwd);
-  const { config, changes } = store.load();
+  const loaded = store.load();
+  const { config, changes } = loaded;
   assertSupportedSchema(config);
   const selected = selectArchivableGraduated(changes, filters);
-  if (store.mode === 'state' && selected.length) {
+  if (store.mode === 'state') {
     const selectedPaths = new Set(selected.map((change) => change.statePath));
     const after = store.mutate(
-      { message: 'changeledger: archive graduated' },
+      {
+        message: 'changeledger: archive graduated',
+        expectedRevision: loaded.revision,
+      },
       ({ snapshot, write }) => {
         for (const change of snapshot.changes) {
           if (!selectedPaths.has(change.statePath)) continue;
@@ -372,11 +393,14 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
         }
       },
     );
-    return selected.map((change) => ({
-      id: change.frontmatter.id,
-      title: change.frontmatter.title,
-      file: after.changes.find((current) => current.statePath === change.statePath)?.file,
-    }));
+    return archiveResult(
+      selected.map((change) => ({
+        id: change.frontmatter.id,
+        title: change.frontmatter.title,
+        file: after.changes.find((current) => current.statePath === change.statePath)?.file,
+      })),
+      after.revision,
+    );
   }
   for (const c of selected) {
     mutateFileAtomic(c.file, (text) => {
@@ -386,11 +410,14 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
       return appendLogEvent(text, { at: nowUtc(), type: 'archive' });
     });
   }
-  return selected.map((c) => ({
-    id: c.frontmatter.id,
-    title: c.frontmatter.title,
-    file: c.file,
-  }));
+  return archiveResult(
+    selected.map((c) => ({
+      id: c.frontmatter.id,
+      title: c.frontmatter.title,
+      file: c.file,
+    })),
+    loaded.revision,
+  );
 }
 
 function isArchivableGraduated(c) {
@@ -441,12 +468,13 @@ export function list(
     throw new Error(`Invalid --pending "${pending}". Valid: graduation, archive`);
   }
 
-  let candidates = loadRepo(cwd).changes;
+  const repo = loadRepo(cwd);
+  let candidates = repo.changes;
   if (pending === 'archive') {
     candidates = selectArchivableGraduated(candidates, { owner: byOwner, unowned });
   }
 
-  return candidates
+  const items = candidates
     .filter((c) => {
       const fm = c.frontmatter;
       if (!all && archived !== (fm.archived === true)) return false;
@@ -466,10 +494,16 @@ export function list(
       archived: c.frontmatter.archived === true,
       progress: c.progress,
     }));
+  Object.defineProperties(items, {
+    ledgerRevision: { value: repo.revision ?? null },
+    ledgerFreshness: { value: repo.revision ? 'local' : null },
+  });
+  return items;
 }
 
 export function show(id, cwd = process.cwd()) {
-  const c = loadRepo(cwd).changes.find((x) => String(x.frontmatter.id) === String(id));
+  const repo = loadRepo(cwd);
+  const c = repo.changes.find((x) => String(x.frontmatter.id) === String(id));
   if (!c) throw new Error(`No change with id "${id}"`);
   return {
     id: c.frontmatter.id,
@@ -477,5 +511,6 @@ export function show(id, cwd = process.cwd()) {
     stages: c.stages,
     tasks: c.tasks,
     progress: c.progress,
+    ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
   };
 }

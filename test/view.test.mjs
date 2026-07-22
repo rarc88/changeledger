@@ -25,8 +25,9 @@ import {
   view,
 } from '../src/commands/view.mjs';
 import { publicDir } from '../src/paths.mjs';
-import { readRegistry } from '../src/registry.mjs';
+import { readRegistry, register } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { createStateRepo, stateConfig } from './helpers/state-repo.mjs';
 
 const TOKEN = 'test-token';
 
@@ -375,6 +376,86 @@ test('190009 CR3: getRepo rejects when server returns 410', async () => {
   }
 });
 
+test('193101 correction CR8: status client carries the observed ledger revision', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  let request;
+  globalThis.window = { __CHANGELEDGER_TOKEN__: 'test-token' };
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return { ok: true };
+  };
+  try {
+    const { captureLedgerTarget, postStatus } = await import('../src/viewer/public/api.js');
+    const repo = { ledger_revision: 'observed-revision' };
+    const target = captureLedgerTarget('project-id', repo);
+    repo.ledger_revision = 'newer-revision';
+    await postStatus(target, 'change-id', 'approved');
+    assert.equal(request.url, '/api/status');
+    assert.deepEqual(JSON.parse(request.options.body), {
+      project: 'project-id',
+      id: 'change-id',
+      status: 'approved',
+      ledger_revision: 'observed-revision',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
+test('193101 hardening CR8: config clients carry one immutable ledger target', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const requests = [];
+  globalThis.window = { __CHANGELEDGER_TOKEN__: 'test-token' };
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url, body: options.body ? JSON.parse(options.body) : null });
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
+  try {
+    const {
+      captureLedgerTarget,
+      getConfigMigrationPreview,
+      patchProjectConfigApi,
+      postConfigMigrationApply,
+      postProjectConfig,
+    } = await import('../src/viewer/public/api.js');
+    const config = { ledger_revision: 'observed-ledger' };
+    const target = captureLedgerTarget('project-id', config);
+    config.ledger_revision = 'newer-ledger';
+    await postProjectConfig(target, 'yaml', 'config-revision');
+    await patchProjectConfigApi(target, { language: 'es' }, 'config-revision');
+    await getConfigMigrationPreview(target, 'config-revision');
+    await postConfigMigrationApply(target, 'config-revision');
+
+    assert.deepEqual(requests[0].body, {
+      project: 'project-id',
+      ledger_revision: 'observed-ledger',
+      content: 'yaml',
+      config_revision: 'config-revision',
+    });
+    assert.deepEqual(requests[1].body, {
+      project: 'project-id',
+      ledger_revision: 'observed-ledger',
+      patch: { language: 'es' },
+      config_revision: 'config-revision',
+    });
+    assert.match(requests[2].url, /config_revision=config-revision/);
+    assert.match(requests[2].url, /ledger_revision=observed-ledger/);
+    assert.deepEqual(requests[3].body, {
+      project: 'project-id',
+      ledger_revision: 'observed-ledger',
+      config_revision: 'config-revision',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 test('113924 CR6: migration apply client rejects HTTP conflict with server message', async () => {
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
@@ -387,7 +468,7 @@ test('113924 CR6: migration apply client rejects HTTP conflict with server messa
   try {
     const { postConfigMigrationApply } = await import('../src/viewer/public/api.js');
     await assert.rejects(
-      () => postConfigMigrationApply('project-id', 'stale-revision'),
+      () => postConfigMigrationApply({ project: 'project-id' }, 'stale-revision'),
       /configuration changed on disk; reload before saving/,
     );
   } finally {
@@ -452,6 +533,7 @@ test('a project whose path is gone is marked not alive', () => {
 
 test('searchProjects groups matches and drops projects with none', () => {
   const fakeRepo = (titles) => ({
+    revision: 'state-revision',
     changes: titles.map((t, i) => ({
       text: `body ${t}`,
       frontmatter: { id: `2026010${i}-000000`, title: t, type: 'feature', status: 'draft' },
@@ -463,17 +545,56 @@ test('searchProjects groups matches and drops projects with none', () => {
     { id: 'c', name: 'C', path: '/c', alive: false },
   ];
   const load = (p) => fakeRepo(p === '/a' ? ['login flow', 'logout'] : ['unrelated']);
-  const groups = searchProjects(projects, 'log', load);
+  const result = searchProjects(projects, 'log', load);
+  const groups = result.groups;
   assert.equal(groups.length, 1);
   assert.equal(groups[0].project.id, 'a');
   assert.equal(groups[0].matches.length, 2);
+  assert.equal(groups[0].ledger_revision, 'state-revision');
+  assert.equal(groups[0].ledger_freshness, 'local');
+  assert.deepEqual(result.ledgers, [
+    { project: 'a', ledger_revision: 'state-revision', ledger_freshness: 'local' },
+    { project: 'b', ledger_revision: 'state-revision', ledger_freshness: 'local' },
+  ]);
 });
 
 test('searchProjects returns nothing for an empty query', () => {
   assert.deepEqual(
     searchProjects([{ id: 'a', path: '/a', alive: true }], '  ', () => ({})),
-    [],
+    {
+      groups: [],
+      ledgers: [],
+    },
   );
+});
+
+test('193101 correction CR2: viewer no-match search reports every inspected state snapshot', () => {
+  const result = searchProjects([{ id: 'a', path: '/a', alive: true }], 'missing', () => ({
+    revision: 'state-revision',
+    changes: [],
+  }));
+  assert.deepEqual(result.groups, []);
+  assert.deepEqual(result.ledgers, [
+    { project: 'a', ledger_revision: 'state-revision', ledger_freshness: 'local' },
+  ]);
+});
+
+test('193101 correction CR2: global viewer discovery reads canonical state project metadata', () => {
+  isolatedHome();
+  const configText = stateConfig().replace(
+    'project_id: project-1',
+    'project_id: project-1\nproject_name: Canonical State',
+  );
+  const { root, baseline } = createStateRepo({ configText });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'project_id: project-1\nproject_name: Branch Local\n',
+  );
+  register({ id: 'project-1', name: 'Registered', path: root });
+  const resolved = resolveProjects(root, false);
+  assert.equal(resolved.projects[0].name, 'Canonical State');
+  assert.equal(resolved.projects[0].ledger_revision, baseline);
+  assert.equal(resolved.projects[0].ledger_freshness, 'local');
 });
 
 test('CR1: changeStatus moves the lifecycle and logs it', () => {
@@ -1282,7 +1403,8 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
   fs.writeFileSync(configFile, text);
   const before = fs.readFileSync(configFile, 'utf8');
 
-  const result = previewConfigMigration(projects, current);
+  const configRevision = readProjectConfigStructured(projects, current).body.config_revision;
+  const result = previewConfigMigration(projects, current, configRevision);
   assert.equal(result.code, 200);
   assert.ok(result.body.yaml.includes('schema_version: 3'));
   assert.ok(result.body.changes.length > 0);
@@ -1294,7 +1416,8 @@ test('113924 CR7: previewConfigMigration returns already_current when schema is 
   const root = newRepo();
   const { projects, current } = resolveProjects(root, false);
 
-  const result = previewConfigMigration(projects, current);
+  const configRevision = readProjectConfigStructured(projects, current).body.config_revision;
+  const result = previewConfigMigration(projects, current, configRevision);
   assert.equal(result.code, 200);
   assert.equal(result.body.already_current, true);
 });
@@ -1334,8 +1457,8 @@ test('113924 CR9: read never triggers migration implicitly', () => {
 
   // Multiple reads must not trigger any write
   readProjectConfig(projects, current);
-  readProjectConfigStructured(projects, current);
-  previewConfigMigration(projects, current);
+  const structured = readProjectConfigStructured(projects, current);
+  previewConfigMigration(projects, current, structured.body.config_revision);
 
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'reads must not modify config');
 });
@@ -1414,8 +1537,9 @@ test('195318 CR5: viewer reads and migration preview preserve a future config', 
     .replace(/schema_version: \d+/, 'schema_version: 4');
   fs.writeFileSync(configFile, future);
 
-  assert.equal(readProjectConfig(projects, current).code, 200);
-  const preview = previewConfigMigration(projects, current);
+  const read = readProjectConfig(projects, current);
+  assert.equal(read.code, 200);
+  const preview = previewConfigMigration(projects, current, read.body.config_revision);
   assert.equal(preview.code, 400);
   assert.equal(
     preview.body.error,
@@ -1515,7 +1639,7 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   assert.equal(structured.body.schemaVersion, 1);
   assert.equal(structured.body.supported, 3);
 
-  const preview = previewConfigMigration(projects, current);
+  const preview = previewConfigMigration(projects, current, structured.body.config_revision);
   assert.equal(preview.code, 200);
   assert.match(preview.body.summary, /Config migration 1 → 3/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
@@ -1533,6 +1657,6 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   assert.match(after, /^schema_version: 3$/m);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
-  const again = previewConfigMigration(projects, current);
+  const again = previewConfigMigration(projects, current, applied.body.config_revision);
   assert.equal(again.body.already_current, true);
 });

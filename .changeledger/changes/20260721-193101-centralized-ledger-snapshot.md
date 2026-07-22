@@ -2,7 +2,7 @@
 id: "20260721-193101"
 title: Centralizar el snapshot completo del ledger
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-21T19:31:01Z
 depends_on: ["20260721-195318", "20260721-195659"]
 owner: Roberto Ruiz
@@ -146,6 +146,7 @@ es una superficie de edición, nunca una segunda autoridad.
 - **Given** un repositorio con autoridad de estado activa pero inaccesible o inválida
 - **When** intenta leer o mutar el ledger
 - **Then** falla cerrado y no usa los archivos legacy como fallback
+- **And** el baseline debe ser un OID completo que nombre directamente un objeto commit, nunca un tag, tree, blob, ref o expresión de revisión
 
 ### CR4 — Graduación atómica y editable
 - **Given** un change `done` de `S1` y una spec preparada en `<file>`
@@ -180,6 +181,9 @@ es una superficie de edición, nunca una segunda autoridad.
 - **And** todo su conjunto de documentos aparece en un único sucesor válido o no aparece ninguno
 - **And** un fallo no modifica archivos legacy del worktree ni deja parte de una operación bulk aplicada
 - **And** el resultado identifica la revisión creada para que el protocolo de réplica determine si está confirmada o pendiente
+- **And** toda mutación state exige la revisión exacta observada y rechaza que la autoridad avance antes o después de su preflight
+- **And** el viewer captura ese recibo al renderizar cada decisión y distingue la revisión del snapshot de la revisión del contenido de configuración
+- **And** una invocación con intención de escritura y preflight vacío linealiza `S1 → S1` sin crear commit, mientras dry-runs, previews y exportaciones locales permanecen read-only
 
 ## Plan
 
@@ -194,7 +198,9 @@ es una superficie de edición, nunca una segunda autoridad.
 - [x] Añadir primero tests de release atómico y adaptar `src/commands/release.mjs`; verify: `node --test test/release.test.mjs test/ledger-store.test.mjs` (CR5)
   - **Resolved:** `2026-07-21T22:38:55Z`
 - [x] Validar layout y object format en fixtures SHA-1/SHA-256 y documentar el formato en `.changeledger/specs/architecture.md` y `.changeledger/specs/data-model.md`; verify: `node --test test/ledger-store.test.mjs && changeledger check` (CR1, CR7)
-  - **Resolved:** `2026-07-21T22:38:55Z`
+  - **Resolved:** `2026-07-22T09:56:55Z`
+- [x] Hacer que `src/ledger-store.mjs` derive el delta efectivo del árbol y que `src/viewer/domain.mjs` preserve config semánticamente idéntica, manteniendo dry-runs y exportaciones read-only; verify: `node --test --test-name-pattern='effective identity|already-resolved task|identical raw config|config (empty patch|identity value patch)' test/ledger-store.test.mjs test/ledger-mutations.test.mjs` (CR8)
+  - **Resolved:** `2026-07-22T09:37:08Z`
 - [x] Ejecutar regresiones legacy y el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-21T22:41:40Z`
 
@@ -216,3 +222,36 @@ es una superficie de edición, nunca una segunda autoridad.
 - **2026-07-21T22:38:55Z** `[note]` Completada la matriz mutadora state: lifecycle, bulk, config CLI/viewer, graduación --to/--from y releases publican un único sucesor; añadidos fixtures SHA-1/SHA-256 y documentación del layout.
 - **2026-07-21T22:41:40Z** `[note]` Gate completo superado: pnpm verify (774 tests, lint y check).
 - **2026-07-21T22:41:41Z** `[status]` in-progress → in-review
+- **2026-07-21T22:53:34Z** `[review]` in-review → in-progress (retry): La revisión independiente confirmó cinco incumplimientos: guard de schema futuro no ligado a la transacción, context/register fuera de la autoridad state, regex de layout no escapada, revisiones ausentes en salidas y slug no validado en --new --to.
+- **2026-07-21T23:00:22Z** `[note]` Corregidas las cinco observaciones de revisión: guards de schema transaccionales, context/register ligados al snapshot state, layout literal cerrado, revisión/frescura en salidas y validación de slug al exportar.
+- **2026-07-21T23:00:22Z** `[status]` in-progress → in-review
+- **2026-07-21T23:10:05Z** `[review]` in-review → in-progress (retry): check --commits aún elude la autoridad state; las salidas de lectura state no exponen revisión/frescura de forma consistente; y el preflight bulk no está ligado al único snapshot que LedgerStore.mutate publica.
+- **2026-07-21T23:15:56Z** `[note]` Corregida la segunda revisión: check --commits usa la autoridad state, todas las superficies de lectura detectadas reportan revisión/frescura y los preflights bulk exigen la revisión exacta S1.
+- **2026-07-21T23:15:56Z** `[status]` in-progress → in-review
+- **2026-07-21T23:24:55Z** `[review]` in-review → in-progress (retry): El descubrimiento global del viewer aún lee config legacy; lifecycle puede cruzar de S1 a S2 concurrente; y algunas salidas state sin resultados, incluido archive --graduated y graduate --new --to, omiten revisión/frescura.
+- **2026-07-21T23:28:36Z** `[note]` Corregida la tercera revisión: discovery y búsquedas globales del viewer conservan autoridad/procedencia state, todas las mutaciones fijan su S1 y los no-op/export reportan revisión y frescura.
+- **2026-07-21T23:28:36Z** `[status]` in-progress → in-review
+- **2026-07-21T23:36:25Z** `[review]` in-review → in-progress (retry): El viewer no enlaza al mutar la revisión observada ni muestra revisión/frescura, y authority.baseline acepta referencias simbólicas móviles; corregir CAS de viewer, procedencia visible y OID exacto con regresiones.
+- **2026-07-21T23:44:57Z** `[note]` Corregida la cuarta revisión: el viewer transmite y fija la revisión observada para lifecycle, muestra revisión/frescura en vistas normales y búsquedas globales incluso vacías, y el recibo exige un OID completo de commit; arquitectura y regresiones actualizadas.
+- **2026-07-21T23:44:57Z** `[status]` in-progress → in-review
+- **2026-07-21T23:50:52Z** `[review]` in-review → in-progress (retry): El baseline debe ser un objeto commit, no un tag/blob/tree pelable; el viewer debe capturar la revisión al renderizar cada decisión lifecycle y enlazar también todas las lecturas/mutaciones de config a ese snapshot, con matriz de carreras completa.
+- **2026-07-22T00:12:04Z** `[note]` Refactor de hardening completado: baseline validado como objeto commit directo, LedgerStore exige expectedRevision, y el viewer captura recibos inmutables separados para ledger/config con matriz completa de carreras antes/después del preload. Gate completo: pnpm verify (811 tests, lint y 211 changes válidos).
+- **2026-07-22T00:12:08Z** `[status]` in-progress → in-review
+- **2026-07-22T00:20:30Z** `[review]` in-review → in-progress (retry): CR8 permite éxito obsoleto si una transacción no-op cruza un avance concurrente interno, y migration preview no exige ni devuelve config_revision junto con ledger_revision.
+- **2026-07-22T00:25:13Z** `[note]` Cerrados los dos huecos CR8 finales: las transacciones state sin escrituras linealizan mediante CAS S1→S1, y migration preview exige y devuelve config_revision junto con ledger_revision. Gate completo: pnpm verify (814 tests, lint y 211 changes válidos).
+- **2026-07-22T00:25:17Z** `[status]` in-progress → in-review
+- **2026-07-22T00:33:19Z** `[review]` in-review → blocked: CR8: archive --graduated sin selección y las variantes de fix sin candidatos omiten LedgerStore.mutate, por lo que no linealizan el no-op y pueden devolver el recibo S1 después de que la autoridad publique S2. Stop-loss alcanzado: requiere decidir si se autoriza una corrección transversal final de todos los bypasses no-op.
+- **2026-07-22T00:36:14Z** `[status]` blocked → in-progress
+- **2026-07-22T00:46:35Z** `[note]` Auditoría transversal final completada: todo write-intent state, incluidos archive --graduated vacío, las tres variantes de fix sin candidatos y config migrate ya vigente, linealiza S1 mediante CAS; dry-runs, previews y exportación local permanecen read-only. Gate: Biome, 821 tests y 211 changes válidos.
+- **2026-07-22T00:46:40Z** `[status]` in-progress → in-review
+- **2026-07-22T01:01:28Z** `[review]` in-review → blocked: CR8 sigue incompleto: escrituras de contenido idéntico (por ejemplo task done ya resuelto y saves de config sin cambios) se registran como writes y crean commits de árbol idéntico, en vez de linealizar S1 → S1; el inventario y sus regresiones no cubren esta clase general de no-op.
+- **2026-07-22T09:30:51Z** `[note]` El humano autoriza reanudar tras el stop-loss. La corrección se limita a la propiedad transversal de delta efectivo en LedgerStore y a impedir reserializaciones semánticamente vacías; no se ampliará con parches por entrypoint.
+- **2026-07-22T09:30:54Z** `[status]` blocked → in-progress
+- **2026-07-22T09:37:20Z** `[note]` Corrección de frontera completada: LedgerStore compara árbol fuente y candidato para colapsar todo delta efectivo vacío a CAS S1→S1; config evita writes byte-idénticos y preserva YAML ante patches semánticamente idénticos. Verificación: 6/6 invariantes y 207/207 familias afectadas.
+- **2026-07-22T09:37:23Z** `[status]` in-progress → in-review
+- **2026-07-22T09:47:34Z** `[review]` in-review → blocked: CR7 no es portable: LedgerStore enumera con git ls-tree --name-only y separa por salto de línea, por lo que core.quotePath altera nombres no ASCII y los paths con newline rompen el framing; el mismo snapshot puede cargar o fallar según la configuración Git local en SHA-1 y SHA-256.
+- **2026-07-22T09:51:58Z** `[note]` El humano autoriza corregir CR7 y exige terminar el descubrimiento antes del review. Se auditarán todas las fronteras Git que emiten o consumen paths y se usará framing NUL independiente de core.quotePath.
+- **2026-07-22T09:52:03Z** `[status]` blocked → in-progress
+- **2026-07-22T09:56:55Z** `[note]` Corregida CR7 en la frontera Git: ls-tree usa framing NUL raw y una gramática explícita de paths. La matriz adversarial cubre Unicode, comillas, backslash, tab, CR, newline y dos puntos con core.quotePath true/false en SHA-1/SHA-256; lectura y mutación pasan.
+- **2026-07-22T09:58:14Z** `[status]` in-progress → in-review
+- **2026-07-22T10:07:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)

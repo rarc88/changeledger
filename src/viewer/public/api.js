@@ -21,14 +21,27 @@ export const getGitRefs = (project, id) =>
 export const searchAllProjects = (query) =>
   fetch(`/api/search?q=${encodeURIComponent(query)}`).then((r) => r.json());
 
-export const postStatus = (project, id, status, reason) =>
+export function captureLedgerTarget(project, source) {
+  const ledgerRevision = source?.ledger_revision;
+  return Object.freeze({
+    project,
+    ...(ledgerRevision ? { ledger_revision: ledgerRevision } : {}),
+  });
+}
+
+export const postStatus = (target, id, status, reason) =>
   fetch('/api/status', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-changeledger-token': window.__CHANGELEDGER_TOKEN__,
     },
-    body: JSON.stringify({ project, id, status, ...(reason ? { reason } : {}) }),
+    body: JSON.stringify({
+      ...target,
+      id,
+      status,
+      ...(reason ? { reason } : {}),
+    }),
   });
 
 const postProject = (route, body) =>
@@ -47,8 +60,8 @@ const jsonOrThrow = async (response) => {
   return body;
 };
 
-export const postProjectConfig = (project, content, revision) =>
-  postProject('/api/project-config', { project, content, revision });
+export const postProjectConfig = (target, content, configRevision) =>
+  postProject('/api/project-config', { ...target, content, config_revision: configRevision });
 
 export const getProjectConfigStructured = (project) =>
   fetch(`/api/project-config-structured?project=${encodeURIComponent(project)}`).then(async (r) => {
@@ -57,20 +70,23 @@ export const getProjectConfigStructured = (project) =>
     return body;
   });
 
-export const patchProjectConfigApi = (project, patch, revision) =>
-  postProject('/api/project-config-patch', { project, patch, revision });
+export const patchProjectConfigApi = (target, patch, configRevision) =>
+  postProject('/api/project-config-patch', { ...target, patch, config_revision: configRevision });
 
-export const getConfigMigrationPreview = (project, revision) =>
+export const getConfigMigrationPreview = (target, configRevision) =>
   fetch(
-    `/api/project-config-migrate-preview?project=${encodeURIComponent(project)}&revision=${encodeURIComponent(revision ?? '')}`,
+    `/api/project-config-migrate-preview?project=${encodeURIComponent(target.project)}&config_revision=${encodeURIComponent(configRevision ?? '')}&ledger_revision=${encodeURIComponent(target.ledger_revision ?? '')}`,
   ).then(async (r) => {
     const body = await r.json();
     if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
     return body;
   });
 
-export const postConfigMigrationApply = (project, revision) =>
-  postProject('/api/project-config-migrate-apply', { project, revision }).then(jsonOrThrow);
+export const postConfigMigrationApply = (target, configRevision) =>
+  postProject('/api/project-config-migrate-apply', {
+    ...target,
+    config_revision: configRevision,
+  }).then(jsonOrThrow);
 
 export const postProjectPath = (project, path) =>
   postProject('/api/project-path', { project, path });

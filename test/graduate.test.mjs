@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -186,6 +187,30 @@ test('193101 CR4: state graduation requires explicit editing paths', () => {
   const { root } = createStateRepo({ changes: [changeText({ status: 'done' })] });
   assert.throws(() => scaffoldSpec('20260721-000000', 'arch', root), /requires --to/);
   assert.throws(() => graduate('20260721-000000', 'arch', root, { into: true }), /requires --from/);
+});
+
+test('193101 correction CR4: state scaffold validates the spec slug before exporting', () => {
+  const { root } = createStateRepo({ changes: [changeText({ status: 'done' })] });
+  const target = path.join(root, 'draft.md');
+  assert.throws(
+    () => scaffoldSpec('20260721-000000', '!!!', root, { to: target }),
+    /slug must contain at least one ASCII letter or number/,
+  );
+  assert.equal(fs.existsSync(target), false);
+});
+
+test('193101 correction CR2/CR4: state scaffold CLI reports the S1 it exported', () => {
+  const { root, baseline } = createStateRepo({
+    changes: [changeText({ status: 'done' })],
+  });
+  const cli = path.resolve('bin/changeledger.mjs');
+  const target = path.join(root, 'draft.md');
+  const output = execFileSync(
+    process.execPath,
+    [cli, 'graduate', '20260721-000000', 'architecture', '--new', '--to', target],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.match(output, new RegExp(`Ledger revision: ${baseline} \\(freshness: local\\)`));
 });
 
 test('195318 CR3: every graduation write rejects a future schema before writing', () => {

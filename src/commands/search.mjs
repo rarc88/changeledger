@@ -7,9 +7,14 @@ import { buildCorpus, searchDocuments } from '../search.mjs';
 // Runs the search against the repo at `cwd` and returns ranked hits. Pure
 // query, no mutation.
 export function search(query, { limit, type, status } = {}, cwd = process.cwd()) {
-  const { changes, specs } = loadRepo(cwd);
-  const corpus = buildCorpus({ changes, specs });
-  return searchDocuments(corpus, query, { limit, type, status });
+  const repo = loadRepo(cwd);
+  const corpus = buildCorpus(repo);
+  const hits = searchDocuments(corpus, query, { limit, type, status });
+  Object.defineProperties(hits, {
+    ledgerRevision: { value: repo.revision ?? null },
+    ledgerFreshness: { value: repo.revision ? 'local' : null },
+  });
+  return hits;
 }
 
 function formatLabel(hit) {
@@ -34,14 +39,30 @@ export function runSearch(queryParts, options = {}, cwd = process.cwd()) {
   const hits = search(query, { limit, type: options.type, status: options.status }, cwd);
 
   if (options.json) {
+    const formatted = hits.map(({ ref, title, score, snippet }) => ({
+      ref,
+      title,
+      score,
+      snippet,
+    }));
     console.log(
       JSON.stringify(
-        hits.map(({ ref, title, score, snippet }) => ({ ref, title, score, snippet })),
+        hits.ledgerRevision
+          ? {
+              ledger_revision: hits.ledgerRevision,
+              ledger_freshness: hits.ledgerFreshness,
+              hits: formatted,
+            }
+          : formatted,
         null,
         2,
       ),
     );
     return;
+  }
+
+  if (hits.ledgerRevision) {
+    console.log(`Ledger revision: ${hits.ledgerRevision} (freshness: ${hits.ledgerFreshness})`);
   }
 
   if (!hits.length) {

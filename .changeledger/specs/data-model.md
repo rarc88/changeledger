@@ -1,6 +1,6 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-07-21T23:15:00Z
+updated: 2026-07-22T09:56:03Z
 tags: [ data-model ]
 graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457", "20260718-105456", "20260720-125007"]
 ---
@@ -28,10 +28,31 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
   `.changeledger-state/` y cada documento conserva su formato de dominio; el
   prefijo físico no forma parte de las referencias entre documentos.
 
+El layout state enumera paths con framing NUL y los valida como nombres lógicos,
+sin interpretar la salida quoted de Git ni separar por líneas. Manifest y config
+son nombres exactos; cada entrada de `changes`, `specs` o `releases` tiene un solo
+basename no vacío y la extensión de su colección. NUL y subdirectorios se
+rechazan, mientras Unicode y otros caracteres válidos de Git no cambian de
+significado por `core.quotePath`.
+
 Un `LedgerSnapshot` identifica siempre su modo y revisión. En legacy la revisión
 es `null` y los paths son archivos del worktree. En state la revisión es el
 object id exacto del commit y los paths expuestos usan la forma
 `git:<oid>:<path>`; no se presupone longitud ni algoritmo del oid.
+
+En una mutación state, la identidad se determina comparando el árbol candidato
+con el árbol fuente, no contando llamadas a `write` o `remove`. Un delta
+efectivamente vacío conserva la revisión mediante CAS `S1 → S1` y no crea un
+commit de árbol idéntico. Los patches de configuración que no alteran su valor
+semántico conservan también los bytes YAML originales.
+
+Una lectura state entrega además un recibo `{ ledger_revision,
+ledger_freshness }`. Toda decisión interactiva conserva ese recibo hasta su
+mutación; no vuelve a tomarlo de estado global mutable al hacer clic. La edición
+de configuración añade un `config_revision` independiente, calculado sobre el
+YAML exacto. El primero protege el snapshot completo y el segundo el contenido
+específico: ambos deben coincidir para guardar, parchear, previsualizar o aplicar
+una migración.
 
 ## Identidad
 
@@ -78,11 +99,14 @@ romper la exclusión si una mutación legítima tarda más de lo esperado.
 
 Cuando la autoridad state está activa, la unidad atómica deja de ser un archivo
 y pasa a ser el snapshot completo. `LedgerStore.mutate` recibe la revisión
-actual, acumula escrituras y eliminaciones dentro del layout cerrado, valida el
+observada de forma obligatoria, acumula escrituras y eliminaciones dentro del layout cerrado, valida el
 repositorio candidato con su propia config y publica un solo commit sucesor por
 compare-and-swap. Así una graduación no puede dejar la spec sin su resolución,
 un release no puede aparecer separado de sus decisiones y una reparación bulk
-no puede aplicar solo un subconjunto. Los writers de worktree quedan reservados
+no puede aplicar solo un subconjunto. Si el preflight de una orden con intención
+de escritura queda vacío, el compare-and-swap confirma igualmente la revisión
+sin crear un commit; un dry-run o preview se mantiene como lectura y no toma ese
+lock. Los writers de worktree quedan reservados
 al adaptador legacy y a superficies locales deliberadas como `--to <file>`.
 
 Antes de mutar una tarea, el parser valida el bloque completo y falla sin

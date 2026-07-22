@@ -5,7 +5,7 @@ import { findChangeledgerDir } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
-import { transversalPolicy } from './context.mjs';
+import { ledgerSnapshotPolicy, transversalPolicy } from './context.mjs';
 
 const ROLES = ['investigation', 'implementation', 'review', 'audit'];
 const ALLOWED_STATUSES = {
@@ -61,8 +61,9 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
   const sections = [
     beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),
     transversalPolicy(repo.config),
+    ledgerSnapshotPolicy(repo),
     capsule(role),
-  ];
+  ].filter(Boolean);
   if (selected) sections.push('---\n\n# Selected change', selected.text.trim());
   sections.push(endSentinel('AGENT CONTEXT'));
   return `${sections.join('\n\n')}\n`;

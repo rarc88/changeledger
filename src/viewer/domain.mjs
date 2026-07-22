@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { parseDocument } from 'yaml';
 import { mutateFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
@@ -17,7 +18,12 @@ import {
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
 } from '../config-migration.mjs';
-import { loadLedgerStore } from '../ledger-store.mjs';
+import {
+  assertLedgerRevision,
+  LedgerConflictError,
+  ledgerReceipt,
+  loadLedgerStore,
+} from '../ledger-store.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
@@ -28,7 +34,7 @@ import { parseYaml } from '../yaml.mjs';
 export function serialize(repo) {
   return {
     ledger_mode: repo.mode ?? 'worktree',
-    ledger_revision: repo.revision ?? null,
+    ...ledgerReceipt(repo),
     language: repo.config.language ?? 'en',
     statuses: repo.config.statuses ?? [],
     types: Object.keys(repo.config.types ?? {}),
@@ -87,21 +93,30 @@ function candidateRepoForValidation(source, candidate) {
   return loadRepoWithConfig(repo.repoRoot, repo.changeledgerDir, candidate);
 }
 
-function mutateConfigSource(source, expectedRevision, message, transform, mutateConfig) {
+function mutateConfigSource(
+  source,
+  { configRevision, ledgerRevision, message, transform, mutateConfig, beforeMutation },
+) {
+  assertLedgerRevision(source.snapshot, ledgerRevision);
   const apply = (before, snapshot = source.snapshot) => {
-    if (revision(before) !== expectedRevision) {
+    if (revision(before) !== configRevision) {
       throw new Error('configuration changed on disk; reload before saving');
     }
-    return transform(before, snapshot);
+    const after = transform(before, snapshot);
+    return after === before ? undefined : after;
   };
   if (source.store.mode === 'state') {
     let changed = false;
-    const after = source.store.mutate({ message }, ({ snapshot, write }) => {
-      const next = apply(snapshot.configText, snapshot);
-      if (next === undefined) return;
-      write(snapshot.configStatePath, next);
-      changed = true;
-    });
+    beforeMutation?.();
+    const after = source.store.mutate(
+      { message, expectedRevision: source.snapshot.revision },
+      ({ snapshot, write }) => {
+        const next = apply(snapshot.configText, snapshot);
+        if (next === undefined) return;
+        write(snapshot.configStatePath, next);
+        changed = true;
+      },
+    );
     return { ledgerRevision: after.revision, changed };
   }
   const result = mutateConfig(source.file, apply);
@@ -115,10 +130,23 @@ export function resolveProjects(cwd, localOnly) {
 
   if (localOnly) {
     if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-    const config = loadRepo(repoRoot).config;
+    const repo = loadRepo(repoRoot);
+    const config = repo.config;
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
-    return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
+    return {
+      projects: [
+        {
+          id,
+          name,
+          path: repoRoot,
+          alive: true,
+          ledger_revision: repo.revision ?? null,
+          ledger_freshness: repo.revision ? 'local' : null,
+        },
+      ],
+      current: id,
+    };
   }
 
   const projects = listProjects().map((p) => ({ ...p, alive: isAlive(p.path) }));
@@ -131,13 +159,15 @@ export function resolveProjects(cwd, localOnly) {
 }
 
 // Full-text search across the given (alive) projects. `load` maps a project path
-// to a loaded repo (loadRepo by default). Returns groups with at least one match.
+// to a loaded repo (loadRepo by default). Returns matching groups plus provenance
+// for every state snapshot inspected, including no-match queries.
 export function searchProjects(projects, q, load = loadRepo) {
   const needle = String(q ?? '')
     .trim()
     .toLowerCase();
-  if (!needle) return [];
+  if (!needle) return { groups: [], ledgers: [] };
   const groups = [];
+  const ledgers = [];
   for (const p of projects) {
     if (!p.alive) continue;
     let repo;
@@ -145,6 +175,13 @@ export function searchProjects(projects, q, load = loadRepo) {
       repo = load(p.path);
     } catch {
       continue;
+    }
+    if (repo.revision) {
+      ledgers.push({
+        project: p.id,
+        ledger_revision: repo.revision,
+        ledger_freshness: 'local',
+      });
     }
     const matches = repo.changes
       .filter((c) => `${c.text ?? ''} ${c.frontmatter?.title ?? ''}`.toLowerCase().includes(needle))
@@ -154,15 +191,25 @@ export function searchProjects(projects, q, load = loadRepo) {
         type: c.frontmatter.type,
         status: c.frontmatter.status,
       }));
-    if (matches.length) groups.push({ project: { id: p.id, name: p.name }, matches });
+    if (matches.length) {
+      groups.push({
+        project: { id: p.id, name: p.name },
+        matches,
+        ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
+      });
+    }
   }
-  return groups;
+  return { groups, ledgers };
 }
 
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-export function changeStatus(projects, { project, id, status, reason }) {
+export function changeStatus(
+  projects,
+  { project, id, status, reason, ledger_revision },
+  { beforeMutation } = {},
+) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
@@ -173,12 +220,15 @@ export function changeStatus(projects, { project, id, status, reason }) {
   // The viewer is the human's surface. Enforce the human/agent boundary here —
   // the UI is bypassable.
   let current;
+  let observedRevision;
   try {
     const store = loadLedgerStore(proj.path);
     if (store.mode === 'state') {
-      const change = store
-        .load()
-        .changes.find((candidate) => String(candidate.frontmatter.id) === String(id));
+      const snapshot = store.load();
+      observedRevision = assertLedgerRevision(snapshot, ledger_revision);
+      const change = snapshot.changes.find(
+        (candidate) => String(candidate.frontmatter.id) === String(id),
+      );
       if (!change) {
         throw new Error(
           `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
@@ -190,21 +240,33 @@ export function changeStatus(projects, { project, id, status, reason }) {
       current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
     }
   } catch (e) {
+    if (e instanceof LedgerConflictError) return { code: 409, body: { error: e.message } };
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
     }
     return { code: 400, body: { error: e.message } };
   }
   try {
+    beforeMutation?.();
     let mutationFile;
     if (current === 'draft' && status === 'approved') {
-      mutationFile = applyStatusCmd(id, status, proj.path, { actor: 'human' });
+      mutationFile = applyStatusCmd(id, status, proj.path, {
+        actor: 'human',
+        expectedRevision: observedRevision,
+      });
     } else if (current === 'in-validation' && status === 'done') {
-      mutationFile = applyValidation(id, 'pass', {}, proj.path);
+      mutationFile = applyValidation(id, 'pass', { expectedRevision: observedRevision }, proj.path);
     } else if (current === 'in-validation' && status === 'in-progress') {
-      mutationFile = applyValidation(id, 'fail', { reason }, proj.path);
+      mutationFile = applyValidation(
+        id,
+        'fail',
+        { reason, expectedRevision: observedRevision },
+        proj.path,
+      );
     } else if (current === 'done' && status === 'in-progress') {
-      mutationFile = applyReopen(id, reason, proj.path);
+      mutationFile = applyReopen(id, reason, proj.path, {
+        expectedRevision: observedRevision,
+      });
     } else {
       return {
         code: 403,
@@ -215,13 +277,28 @@ export function changeStatus(projects, { project, id, status, reason }) {
       };
     }
     const ledgerRevision = String(mutationFile ?? '').match(/^git:([^:]+):/)?.[1] ?? null;
-    return { code: 200, body: { ok: true, id, status, ledger_revision: ledgerRevision } };
+    return {
+      code: 200,
+      body: {
+        ok: true,
+        id,
+        status,
+        ledger_revision: ledgerRevision,
+        ledger_freshness: ledgerRevision ? 'local' : null,
+      },
+    };
   } catch (e) {
-    return { code: 400, body: { error: e.message } };
+    const code =
+      e instanceof LedgerConflictError ||
+      /changed concurrently; reload|changed concurrently; retry/.test(e.message)
+        ? 409
+        : 400;
+    return { code, body: { error: e.message } };
   }
 }
 
 const revision = (text) => crypto.createHash('sha256').update(text).digest('hex');
+const configRevisionFrom = (payload) => payload.config_revision ?? payload.revision;
 
 function projectFor(projects, id) {
   const project = projects.find((item) => item.id === id);
@@ -240,7 +317,8 @@ export function readProjectConfig(projects, id) {
       body: {
         content: source.content,
         revision: revision(source.content),
-        ledger_revision: source.snapshot.revision,
+        config_revision: revision(source.content),
+        ...ledgerReceipt(source.snapshot),
       },
     };
   } catch {
@@ -248,11 +326,16 @@ export function readProjectConfig(projects, id) {
   }
 }
 
-export function saveProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+export function saveProjectConfig(
+  projects,
+  payload,
+  { mutateConfig = mutateFileAtomic, beforeMutation } = {},
+) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
-  if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
-    return { code: 400, body: { error: 'content and revision are required' } };
+  const configRevision = configRevisionFrom(payload);
+  if (typeof payload.content !== 'string' || typeof configRevision !== 'string') {
+    return { code: 400, body: { error: 'content and config_revision are required' } };
   }
 
   let candidate;
@@ -272,8 +355,12 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
   try {
+    assertLedgerRevision(source.snapshot, payload.ledger_revision);
     assertSupportedSchema(source.snapshot.config);
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: error.message } };
   }
   let candidateRepo;
@@ -299,11 +386,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       : found.project.name;
   let mutation;
   try {
-    mutation = mutateConfigSource(
-      source,
-      payload.revision,
-      'changeledger: save config',
-      (before, snapshot) => {
+    mutation = mutateConfigSource(source, {
+      configRevision,
+      ledgerRevision: payload.ledger_revision,
+      message: 'changeledger: save config',
+      transform: (before, snapshot) => {
         assertSupportedSchema(parseYaml(before));
         const currentSource = { ...source, snapshot };
         const currentRepo = candidateRepoForValidation(currentSource, candidate);
@@ -312,9 +399,13 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
         return payload.content;
       },
       mutateConfig,
-    );
+      beforeMutation,
+    });
   } catch (error) {
-    if (error.message === 'configuration changed on disk; reload before saving') {
+    if (
+      error instanceof LedgerConflictError ||
+      error.message === 'configuration changed on disk; reload before saving'
+    ) {
       return { code: 409, body: { error: error.message } };
     }
     if (
@@ -332,7 +423,9 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       ok: true,
       name: projectName,
       revision: revision(payload.content),
+      config_revision: revision(payload.content),
       ledger_revision: mutation.ledgerRevision,
+      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
     },
   };
 }
@@ -397,24 +490,30 @@ export function readProjectConfigStructured(projects, id) {
     body: {
       content,
       revision: revision(content),
+      config_revision: revision(content),
       schemaVersion,
       supported: SUPPORTED_SCHEMA_VERSION,
       config,
-      ledger_revision: source.snapshot.revision,
+      ...ledgerReceipt(source.snapshot),
     },
   };
 }
 
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-export function patchProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+export function patchProjectConfig(
+  projects,
+  payload,
+  { mutateConfig = mutateFileAtomic, beforeMutation } = {},
+) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
     return { code: 400, body: { error: 'patch must be an object' } };
   }
-  if (typeof payload.revision !== 'string') {
-    return { code: 400, body: { error: 'revision is required' } };
+  const configRevision = configRevisionFrom(payload);
+  if (typeof configRevision !== 'string') {
+    return { code: 400, body: { error: 'config_revision is required' } };
   }
   // Explicitly reject attempts to change identity fields via patch.
   if ('project_id' in payload.patch) {
@@ -427,19 +526,23 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
   let source;
   try {
     source = projectConfigSource(found.project.path);
+    assertLedgerRevision(source.snapshot, payload.ledger_revision);
     assertSupportedSchema(source.snapshot.config);
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: error.message } };
   }
 
   let result;
   let mutation;
   try {
-    mutation = mutateConfigSource(
-      source,
-      payload.revision,
-      'changeledger: patch config',
-      (before, snapshot) => {
+    mutation = mutateConfigSource(source, {
+      configRevision,
+      ledgerRevision: payload.ledger_revision,
+      message: 'changeledger: patch config',
+      transform: (before, snapshot) => {
         const doc = parseDocument(before, { merge: false });
         const config = doc.toJS() ?? {};
 
@@ -456,13 +559,18 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
         const { errors } = checkRepo(candidateRepo);
         if (errors.length) throw new Error(errors[0].message);
 
-        result = { rev: revision(patched) };
-        return patched;
+        const next = isDeepStrictEqual(candidate, config) ? before : patched;
+        result = { rev: revision(next) };
+        return next;
       },
       mutateConfig,
-    );
+      beforeMutation,
+    });
   } catch (error) {
-    if (error.message === 'configuration changed on disk; reload before saving') {
+    if (
+      error instanceof LedgerConflictError ||
+      error.message === 'configuration changed on disk; reload before saving'
+    ) {
       return { code: 409, body: { error: error.message } };
     }
     return { code: 400, body: { error: error.message } };
@@ -470,14 +578,23 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
   return {
     code: 200,
-    body: { ok: true, revision: result.rev, ledger_revision: mutation.ledgerRevision },
+    body: {
+      ok: true,
+      revision: result.rev,
+      config_revision: result.rev,
+      ledger_revision: mutation.ledgerRevision,
+      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+    },
   };
 }
 
 // Preview the migration without writing. Returns summary + candidate YAML.
-export function previewConfigMigration(projects, id, rev) {
+export function previewConfigMigration(projects, id, configRevision, ledgerRevision) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
+  if (typeof configRevision !== 'string' || configRevision === '') {
+    return { code: 400, body: { error: 'config_revision is required' } };
+  }
   let source;
   try {
     source = projectConfigSource(found.project.path);
@@ -485,7 +602,15 @@ export function previewConfigMigration(projects, id, rev) {
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
   const content = source.content;
-  if (rev && revision(content) !== rev) {
+  try {
+    assertLedgerRevision(source.snapshot, ledgerRevision);
+  } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: error.message } };
+    }
+    throw error;
+  }
+  if (revision(content) !== configRevision) {
     return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
   }
   let migrationResult;
@@ -500,7 +625,9 @@ export function previewConfigMigration(projects, id, rev) {
       body: {
         already_current: true,
         message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
+        config_revision: revision(content),
         ledger_revision: source.snapshot.revision,
+        ledger_freshness: source.snapshot.revision ? 'local' : null,
       },
     };
   }
@@ -510,47 +637,62 @@ export function previewConfigMigration(projects, id, rev) {
       summary: `Config migration ${migrationResult.fromVersion} → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
       changes: migrationResult.changes,
       yaml: migrationResult.yaml,
+      config_revision: revision(content),
       ledger_revision: source.snapshot.revision,
+      ledger_freshness: source.snapshot.revision ? 'local' : null,
     },
   };
 }
 
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
 // Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
-export function applyConfigMigration(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+export function applyConfigMigration(
+  projects,
+  payload,
+  { mutateConfig = mutateFileAtomic, beforeMutation } = {},
+) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
-  if (typeof payload.revision !== 'string') {
-    return { code: 400, body: { error: 'revision is required' } };
+  const configRevision = configRevisionFrom(payload);
+  if (typeof configRevision !== 'string') {
+    return { code: 400, body: { error: 'config_revision is required' } };
   }
   let source;
   try {
     source = projectConfigSource(found.project.path);
+    assertLedgerRevision(source.snapshot, payload.ledger_revision);
     buildMigration(source.content);
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: error.message } };
   }
 
   let result;
   let mutation;
   try {
-    mutation = mutateConfigSource(
-      source,
-      payload.revision,
-      'changeledger: migrate config',
-      (before) => {
+    mutation = mutateConfigSource(source, {
+      configRevision,
+      ledgerRevision: payload.ledger_revision,
+      message: 'changeledger: migrate config',
+      transform: (before) => {
         const migrationResult = buildMigration(before);
         if (!migrationResult) {
-          result = { already_current: true, rev: payload.revision };
+          result = { already_current: true, rev: configRevision };
           return undefined;
         }
         result = { ok: true, rev: revision(migrationResult.yaml) };
         return migrationResult.yaml;
       },
       mutateConfig,
-    );
+      beforeMutation,
+    });
   } catch (error) {
-    if (error.message === 'configuration changed on disk; reload before saving') {
+    if (
+      error instanceof LedgerConflictError ||
+      error.message === 'configuration changed on disk; reload before saving'
+    ) {
       return { code: 409, body: { error: error.message } };
     }
     return { code: 400, body: { error: error.message } };
@@ -562,13 +704,21 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
       body: {
         already_current: true,
         revision: result.rev,
+        config_revision: result.rev,
         ledger_revision: mutation.ledgerRevision,
+        ledger_freshness: mutation.ledgerRevision ? 'local' : null,
       },
     };
   }
   return {
     code: 200,
-    body: { ok: true, revision: result.rev, ledger_revision: mutation.ledgerRevision },
+    body: {
+      ok: true,
+      revision: result.rev,
+      config_revision: result.rev,
+      ledger_revision: mutation.ledgerRevision,
+      ledger_freshness: mutation.ledgerRevision ? 'local' : null,
+    },
   };
 }
 

@@ -1,10 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseChange } from '../change.mjs';
-import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, integrationBranch } from '../config.mjs';
 import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
-import { loadRepo, resolveChange } from '../repo.mjs';
+import { loadRepo } from '../repo.mjs';
 
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
@@ -67,6 +66,12 @@ export function transversalPolicy(config) {
   return branch ? `${base} — integration_branch=${branch}` : base;
 }
 
+export function ledgerSnapshotPolicy(repo) {
+  return repo.revision
+    ? `Ledger snapshot: ${repo.revision} — freshness: local (no implicit network refresh)`
+    : undefined;
+}
+
 // Type-specific policy for change-id contexts: adds review requirement and the
 // active stages the type actually uses, so the agent does not infer them.
 function changePolicyBlock(config, type) {
@@ -82,40 +87,42 @@ function changePolicyBlock(config, type) {
 
 // One line per local dependency (id, title, status); external `project:id`
 // references stay references, never pretending local resolution.
-function dependencyBlock(dependsOn, cwd) {
+function snapshotChange(repo, id) {
+  return repo.changes.find((change) => String(change.frontmatter.id) === String(id));
+}
+
+function dependencyBlock(dependsOn, repo) {
   if (!Array.isArray(dependsOn) || dependsOn.length === 0) return undefined;
   const lines = dependsOn.map((raw) => {
     const dep = String(raw);
     if (dep.includes(':')) return `- #${dep} — external reference (not resolved locally)`;
-    try {
-      const resolved = resolveChange(cwd, dep);
-      const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+    const resolved = snapshotChange(repo, dep);
+    if (resolved) {
+      const { frontmatter } = resolved;
       return `- #${dep} — ${frontmatter.title} — ${frontmatter.status}`;
-    } catch {
-      return `- #${dep} — unresolved local dependency`;
     }
+    return `- #${dep} — unresolved local dependency`;
   });
   return `## Dependencies\n\n${lines.join('\n')}`;
 }
 
-function relatedChangeLine(direction, raw, cwd) {
+function relatedChangeLine(direction, raw, repo) {
   const reference = String(raw);
   if (reference.includes(':')) {
     return `- ${direction} — #${reference} — external reference (not resolved locally)`;
   }
-  try {
-    const resolved = resolveChange(cwd, reference);
-    const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+  const resolved = snapshotChange(repo, reference);
+  if (resolved) {
+    const { frontmatter } = resolved;
     return `- ${direction} — #${reference} — ${frontmatter.title} — ${frontmatter.status}`;
-  } catch {
-    return `- ${direction} — #${reference} — unresolved local relation`;
   }
+  return `- ${direction} — #${reference} — unresolved local relation`;
 }
 
-function relatedBlock(id, relatedTo, cwd) {
+function relatedBlock(id, relatedTo, repo) {
   const outgoing = Array.isArray(relatedTo) ? relatedTo : [];
-  const incoming = loadRepo(cwd)
-    .changes.filter(
+  const incoming = repo.changes
+    .filter(
       (change) =>
         String(change.frontmatter?.id) !== String(id) &&
         Array.isArray(change.frontmatter?.related_to) &&
@@ -124,8 +131,8 @@ function relatedBlock(id, relatedTo, cwd) {
     .map((change) => String(change.frontmatter.id));
   if (!outgoing.length && !incoming.length) return undefined;
   const lines = [
-    ...outgoing.map((target) => relatedChangeLine('outgoing', target, cwd)),
-    ...incoming.map((source) => relatedChangeLine('incoming', source, cwd)),
+    ...outgoing.map((target) => relatedChangeLine('outgoing', target, repo)),
+    ...incoming.map((source) => relatedChangeLine('incoming', source, repo)),
   ];
   return `## Related changes\n\n${lines.join('\n')}`;
 }
@@ -140,12 +147,14 @@ function composeResult(mode, fragments, options = {}) {
     incremental = true,
     changeId = undefined,
     policy = undefined,
+    ledgerSnapshot = undefined,
     dependencies = undefined,
     relations = undefined,
   } = options;
   const body = [];
   if (incremental) body.push(INCREMENTAL_NOTICE);
   if (policy) body.push(policy);
+  if (ledgerSnapshot) body.push(ledgerSnapshot);
   body.push(...fragments.map(fragment));
   if (dependencies) body.push(dependencies);
   if (relations) body.push(relations);
@@ -161,42 +170,41 @@ function requireRepo(cwd) {
   return dir;
 }
 
-function composeInput(input, cwd, config) {
+function composeInput(input, repo) {
+  const { config } = repo;
+  const ledgerSnapshot = ledgerSnapshotPolicy(repo);
   if (!input) {
     return composeResult('core', ['core'], {
       incremental: false,
       policy: transversalPolicy(config),
+      ledgerSnapshot,
     });
   }
   if (MODES.includes(input)) {
-    return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
+    return composeResult(input, MODE_CONTEXT[input], {
+      policy: transversalPolicy(config),
+      ledgerSnapshot,
+    });
   }
 
-  let resolved;
-  try {
-    resolved = resolveChange(cwd, input);
-  } catch {
+  const resolved = snapshotChange(repo, input);
+  if (!resolved) {
     throw new Error(
       `Unknown context "${input}" — valid modes: ${MODES.join(', ')} (or pass a change id)`,
     );
   }
 
-  const text = fs.readFileSync(resolved.file, 'utf8');
-  const {
-    id,
-    status,
-    type,
-    depends_on: dependsOn,
-    related_to: relatedTo,
-  } = parseChange(text).frontmatter;
+  const text = resolved.text;
+  const { id, status, type, depends_on: dependsOn, related_to: relatedTo } = resolved.frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
   return composeResult(selected.mode, selected.fragments, {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(config, type),
-    dependencies: dependencyBlock(dependsOn, cwd),
-    relations: relatedBlock(id, relatedTo, cwd),
+    ledgerSnapshot,
+    dependencies: dependencyBlock(dependsOn, repo),
+    relations: relatedBlock(id, relatedTo, repo),
   });
 }
 
@@ -204,9 +212,8 @@ function composeInput(input, cwd, config) {
 // framed `unchanged` confirmation instead of the full contract body; any
 // mismatch (stale or invented) falls back to the complete normal output.
 export function buildContext(input, cwd = process.cwd(), options = {}) {
-  const changeledgerDir = requireRepo(cwd);
-  const config = loadConfig(changeledgerDir);
-  const result = composeInput(input, cwd, config);
+  requireRepo(cwd);
+  const result = composeInput(input, loadRepo(cwd));
   if (options.have && options.have === result.rev) {
     const sections = [
       beginDelimiter(result.mode, result.changeId, result.rev, ' — unchanged'),

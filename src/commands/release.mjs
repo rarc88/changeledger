@@ -18,7 +18,11 @@ const IMPACT_RANK = new Map(RELEASE_IMPACTS.map((impact, index) => [impact, inde
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 export function releasePlan(cwd = process.cwd()) {
-  return planFor(loadRepo(cwd));
+  const repo = loadRepo(cwd);
+  return {
+    ...planFor(repo),
+    ...(repo.revision ? { ledger_revision: repo.revision, ledger_freshness: 'local' } : {}),
+  };
 }
 
 export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc()) {
@@ -32,7 +36,7 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
     let manifest;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
-      { message: `changeledger: release init ${version}` },
+      { message: `changeledger: release init ${version}`, expectedRevision: initial.revision },
       ({ snapshot, write }) => {
         if (snapshot.releases.length) throw new Error('Release history is already initialized.');
         manifest = {
@@ -88,7 +92,7 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
     let committedPlan;
     const statePath = `.changeledger-state/releases/${version}.yml`;
     const after = store.mutate(
-      { message: `changeledger: release ${version}` },
+      { message: `changeledger: release ${version}`, expectedRevision: plan.ledger_revision },
       ({ snapshot, write }) => {
         const currentPlan = planFor(snapshot);
         if (!currentPlan.releasable || currentPlan.nextVersion !== version) {

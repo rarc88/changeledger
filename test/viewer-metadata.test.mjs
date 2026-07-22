@@ -25,6 +25,7 @@ const {
   createDiagramLightbox,
   cssIdent,
   esc,
+  globalSearchTemplate,
   isVisible,
   openChangeById,
   passesTombstones,
@@ -78,6 +79,52 @@ const parse = (html) => {
 };
 const XSS = '"><img src=x onerror=alert(1)>';
 const HOUR = 3600000;
+
+test('193101 correction CR2: global search renders ledger provenance with and without matches', () => {
+  const provenance = {
+    project: 'project-1',
+    ledger_revision: '0123456789abcdef',
+    ledger_freshness: 'local',
+  };
+  const matching = parse(
+    globalSearchTemplate(
+      {
+        ledgers: [provenance],
+        groups: [
+          {
+            project: { id: 'project-1', name: 'Project' },
+            ledger_revision: provenance.ledger_revision,
+            ledger_freshness: provenance.ledger_freshness,
+            matches: [{ id: 'change-1', title: 'Match', type: 'feature', status: 'draft' }],
+          },
+        ],
+      },
+      'match',
+    ),
+  );
+  assert.match(matching.textContent, /0123456789abcdef/);
+  assert.match(matching.textContent, /freshness: local/);
+
+  const empty = parse(globalSearchTemplate({ ledgers: [provenance], groups: [] }, 'missing'));
+  assert.match(empty.textContent, /No matches/);
+  assert.match(empty.textContent, /0123456789abcdef/);
+  assert.match(empty.textContent, /freshness: local/);
+});
+
+test('193101 correction CR2: normal viewer shell renders the loaded ledger provenance', () => {
+  const root = parse(
+    fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8'),
+  );
+  appState.repo = {
+    ledger_revision: 'fedcba9876543210',
+    ledger_freshness: 'local',
+  };
+  appState.globalMode = false;
+  appState.currentView = 'board';
+  syncViewerShell(root, false);
+  assert.match(root.querySelector('#ledger-snapshot').textContent, /fedcba9876543210/);
+  assert.match(root.querySelector('#ledger-snapshot').textContent, /freshness: local/);
+});
 
 const baseChange = () => ({
   id: '20260613-120000',

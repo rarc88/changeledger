@@ -16,15 +16,24 @@ export function migrateConfig(cwd = process.cwd(), { dryRun = false } = {}) {
 
   const migration = buildMigration(snapshot.configText);
   if (!migration) {
-    return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.\nLedger revision: ${snapshot.revision}`;
+    const confirmed = dryRun
+      ? snapshot
+      : store.mutate(
+          { message: 'changeledger: migrate config', expectedRevision: snapshot.revision },
+          () => {},
+        );
+    return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.\nLedger revision: ${confirmed.revision} (freshness: local)`;
   }
   const text = summary(migration, dryRun);
-  if (dryRun) return `${text}\nLedger revision: ${snapshot.revision}`;
+  if (dryRun) return `${text}\nLedger revision: ${snapshot.revision} (freshness: local)`;
 
-  const next = store.mutate({ message: 'changeledger: migrate config' }, ({ snapshot, write }) => {
-    const current = buildMigration(snapshot.configText);
-    if (!current) return;
-    write(snapshot.configStatePath, current.yaml);
-  });
-  return `${text}\nLedger revision: ${next.revision}`;
+  const next = store.mutate(
+    { message: 'changeledger: migrate config', expectedRevision: snapshot.revision },
+    ({ snapshot, write }) => {
+      const current = buildMigration(snapshot.configText);
+      if (!current) return;
+      write(snapshot.configStatePath, current.yaml);
+    },
+  );
+  return `${text}\nLedger revision: ${next.revision} (freshness: local)`;
 }

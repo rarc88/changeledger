@@ -81,6 +81,16 @@ body {
   font-weight: 700;
   letter-spacing: 0.3px;
 }
+.ledger-snapshot,
+.ledger-provenance {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.ledger-snapshot {
+  max-width: min(32vw, 440px);
+}
 .spacer {
   flex: 1;
 }
@@ -827,6 +837,15 @@ body {
 .global-view {
   padding: 18px;
   overflow: auto;
+}
+.ledger-provenance-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
 }
 .search-group {
   margin-bottom: 20px;

@@ -186,7 +186,8 @@ export function createRequestListener(cwd, localOnly, token) {
         const { code, body } = previewConfigMigration(
           projects,
           params.get('project'),
-          params.get('revision'),
+          params.get('config_revision') ?? params.get('revision'),
+          params.get('ledger_revision'),
         );
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;

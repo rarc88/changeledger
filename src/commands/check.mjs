@@ -3,16 +3,26 @@ import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mj
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
+import { loadLedgerStore } from '../ledger-store.mjs';
 import { loadRepo } from '../repo.mjs';
 
 // Declared integration branch, when a ChangeLedger repo (and the key) exists.
 // Outside a repo the lint still works on plain git, so absence is undefined,
 // not an error; a malformed declared value still fails fast in
 // `integrationBranch`.
-function configuredIntegrationBranch(cwd) {
+function configuredCommitContext(cwd) {
   const changeledgerDir = findChangeledgerDir(cwd);
-  if (!changeledgerDir) return undefined;
-  return integrationBranch(loadConfig(changeledgerDir));
+  if (!changeledgerDir) return {};
+  const store = loadLedgerStore(cwd);
+  if (store.mode === 'worktree') {
+    return { base: integrationBranch(loadConfig(changeledgerDir)) };
+  }
+  const repo = store.load();
+  return {
+    base: integrationBranch(repo.config),
+    revision: repo.revision ?? null,
+    freshness: repo.revision ? 'local' : null,
+  };
 }
 
 // Lints `base..HEAD` for the canonical `[#id]` commit marker (merges and
@@ -23,14 +33,21 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
 
   let resolvedBase;
   let violations;
+  let ledger = {};
   try {
-    resolvedBase = base ?? configuredIntegrationBranch(cwd) ?? defaultBaseBranch(cwd);
+    ledger = configuredCommitContext(cwd);
+    resolvedBase = base ?? ledger.base ?? defaultBaseBranch(cwd);
     violations = lintCommitRange(cwd, `${resolvedBase}..HEAD`);
   } catch (e) {
     if (json)
       output.log(
         JSON.stringify(
-          { errors: [{ file: '(commits)', message: e.message }], warnings: [] },
+          {
+            errors: [{ file: '(commits)', message: e.message }],
+            warnings: [],
+            revision: ledger.revision ?? null,
+            freshness: ledger.freshness ?? null,
+          },
           null,
           2,
         ),
@@ -45,12 +62,25 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
   }));
 
   if (json) {
-    output.log(JSON.stringify({ errors, warnings: [] }, null, 2));
+    output.log(
+      JSON.stringify(
+        {
+          errors,
+          warnings: [],
+          revision: ledger.revision ?? null,
+          freshness: ledger.freshness ?? null,
+        },
+        null,
+        2,
+      ),
+    );
     return errors.length ? 1 : 0;
   }
 
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
-  const scope = `commits ${resolvedBase}..HEAD`;
+  const scope = `commits ${resolvedBase}..HEAD${
+    ledger.revision ? ` @ ${ledger.revision} (freshness: ${ledger.freshness})` : ''
+  }`;
   if (!errors.length) output.log(`✓ ${scope} valid`);
   else output.log(`\n${errors.length} error(s) — ${scope}`);
   return errors.length ? 1 : 0;
@@ -96,7 +126,18 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   }
 
   if (json) {
-    output.log(JSON.stringify({ errors, warnings, revision: repo.revision ?? null }, null, 2));
+    output.log(
+      JSON.stringify(
+        {
+          errors,
+          warnings,
+          revision: repo.revision ?? null,
+          freshness: repo.revision ? 'local' : null,
+        },
+        null,
+        2,
+      ),
+    );
     return errors.length ? 1 : 0;
   }
 
@@ -104,7 +145,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
 
   const scope = `${id ? `change ${id}` : `${repo.changes.length} change(s)`}${
-    repo.revision ? ` @ ${repo.revision}` : ''
+    repo.revision ? ` @ ${repo.revision} (freshness: local)` : ''
   }`;
   if (!errors.length && !warnings.length) {
     output.log(`✓ ${scope} valid`);
