@@ -2,9 +2,10 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: approved
+status: in-progress
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
+owner: Roberto Ruiz
 related_to:
   - "20260721-193104"
   - "20260627-111218"
@@ -161,3 +162,6 @@ para poder cerrar el audit.
 - **2026-07-22T16:07:03Z** `[note]` Readiness reforzada con baseline y matriz reproducible, severidades y gates explícitos, migración de ledgers legacy reales y aislamiento concurrente entre viewer y CLI por project_id/repositorio/revisión.
 - **2026-07-22T18:43:15Z** `[note]` Pre-auditoría independiente revisada: los fixes 163405–163408 y 181234–181235 corrigen seis bugs reproducibles; 163409 cubre tres guards existentes sin cambiar comportamiento. Verificación propia: 64/64 pruebas focalizadas y gate completo 920/920, lint y 220 changes válidos.
 - **2026-07-22T18:34:47Z** `[status]` draft → approved
+- **2026-07-22T18:45:06Z** `[status]` approved → in-progress
+- **2026-07-22T18:45:06Z** `[owner]` set: Roberto Ruiz (auto)
+- **2026-07-22T18:45:28Z** `[note]` Baseline congelado: code/contract/config da24a644525c9945481ab766ece7e31d821559f5; ChangeLedger 0.13.0; Node v24.18.0; pnpm 11.13.0; Git 2.50.1 Apple Git-155; macOS 26.5.2 Darwin 25.5.0 arm64; repo SHA-1, integration dev, origin GitHub, authority local ausente. La implementación se audita en repos desechables activados SHA-1/SHA-256 y bare self-managed; el worktree de desarrollo no se presenta como deployment v2.
