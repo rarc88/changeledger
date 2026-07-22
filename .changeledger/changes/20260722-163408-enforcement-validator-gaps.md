@@ -2,7 +2,7 @@
 id: "20260722-163408"
 title: Cerrar los huecos del validador remoto de la auditoría externa
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T16:34:08Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -111,3 +111,4 @@ Tres causas raíz independientes en el mismo validador:
 - **2026-07-22T18:35:00Z** `[note]` Implementadas las tres correcciones. CR1: `assertConfiguredIntegrationRefCheap` en `src/state-validation.mjs` — batches sin refs protegidas se aceptan sin validación completa; con autoridad activa hace una lectura barata de `config.yml` para seguir detectando drift de ref mal configurado (test existente de 193104 preservado sin cambios). CR2: `legacyRoots`/`protectedPath` case-fold a minúsculas. CR3: `validateStateRef` verifica `integration_branch` en cada commit nuevo del rango, no solo en los extremos. Rojo confirmado para los 4 tests nuevos antes del fix; verde después, sin regresión en la suite existente (20/20 en state-validation, 59/59 en capabilities/command/cli-bin). Gate completo: 917/917 tests, lint y 218 changes válidos.
 - **2026-07-22T17:46:38Z** `[status]` in-progress → in-review
 - **2026-07-22T17:55:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T17:59:12Z** `[validation]` in-validation → done (human accepted)

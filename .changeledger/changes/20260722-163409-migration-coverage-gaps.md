@@ -2,7 +2,7 @@
 id: "20260722-163409"
 title: Cubrir los guards de migración sin tests
 type: chore
-status: in-validation
+status: done
 created: 2026-07-22T16:34:09Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -48,3 +48,4 @@ Guards descubiertos sin cobertura:
 - **2026-07-22T17:11:42Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T17:45:00Z** `[note]` Añadidos los tres tests de cobertura. Cada uno mutation-tested manualmente: neutralizado temporalmente el guard correspondiente (comparación de árbol divergente, ambas ramas de `doctor --online`, bucle de comparación de `authorityProblems`) y confirmado que el test falla sin él, antes de restaurar el código y confirmar verde. Gate completo: pnpm verify.
 - **2026-07-22T17:24:03Z** `[status]` in-progress → in-validation
+- **2026-07-22T17:59:14Z** `[validation]` in-validation → done (human accepted)

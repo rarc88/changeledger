@@ -2,7 +2,7 @@
 id: "20260722-163407"
 title: Un remoto de estado ambiguo cae en silencio a origin
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T16:34:07Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -73,3 +73,4 @@ legítima conserva el fallback documentado a `origin`.
 - **2026-07-22T18:05:00Z** `[note]` `stateRemote` usa `git config --get-all` y falla cerrado nombrando todos los valores cuando hay más de uno; la ausencia conserva el fallback a `origin`. Verificado empíricamente que el bug real era peor de lo documentado en el draft: `--get` sobre una clave multivalor no falla, devuelve en silencio el último valor añadido sin aviso alguno. Gate completo: 913/913 tests, lint y 218 changes válidos.
 - **2026-07-22T17:29:58Z** `[status]` in-progress → in-review
 - **2026-07-22T17:35:05Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T17:59:11Z** `[validation]` in-validation → done (human accepted)
