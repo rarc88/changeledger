@@ -2,9 +2,10 @@
 id: "20260722-202100"
 title: Una carga de snapshot por operación con caché por OID
 type: refactor
-status: draft
+status: in-progress
 created: 2026-07-22T20:21:00Z
 depends_on: ["20260722-202059"]
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260722-203027"]
 release_impact: patch
 ---
@@ -62,3 +63,6 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 
 - **2026-07-22T20:21:00Z** `[note]` Draft creado desde la unión de las dos ejecuciones de 20260721-193106 (mutación 62 s de mediana a 250 changes medida por la ejecución paralela; multiplicador 3–5× de recargas confirmado por ambos auditores). Depende de 20260722-202059.
 - **2026-07-22T20:35:00Z** `[note]` Ajustado por revisión del auditor principal: alcance limitado con honestidad a la reutilización intra-operación (una carga fuente + candidato en memoria, presupuesto explícito); la validación incremental de batches multi-commit se separa en 20260722-203027 porque un caché por OID de commit no evita N snapshots distintos en un batch de N commits.
+- **2026-07-22T22:53:26Z** `[status]` draft → approved (human via conversation)
+- **2026-07-22T22:53:27Z** `[status]` approved → in-progress
+- **2026-07-22T22:53:27Z** `[owner]` set: raruiz-hiberuscom (auto)
