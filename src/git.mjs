@@ -44,13 +44,16 @@ export function receiveGitEnv(overrides = {}) {
 }
 
 // Exported so other commands (e.g. `changeledger commit`) share the same
-// GIT_* sanitization instead of re-implementing it.
-export function defaultRun(args, cwd) {
+// GIT_* sanitization instead of re-implementing it. `options.encoding: null`
+// returns a raw Buffer (needed by the batch tree/blob reader); `options.input`
+// feeds stdin (e.g. `cat-file --batch`'s object list).
+export function defaultRun(args, cwd, { encoding = 'utf8', input } = {}) {
   return execFileSync('git', args, {
     cwd,
     env: sanitizedGitEnv(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
+    encoding,
+    input,
+    stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'ignore'],
   });
 }
 

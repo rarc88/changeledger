@@ -11,6 +11,7 @@ import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } fro
 import { assertSupportedSchema } from './config-migration.mjs';
 import { VERSION } from './framing.mjs';
 import { defaultRun, sanitizedGitEnv } from './git.mjs';
+import { batchBlobReader, treeEntries } from './git-batch.mjs';
 import { compareVersions, DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 import {
@@ -239,33 +240,27 @@ function gitStateRevision(repoRoot, authority, run) {
   return revision;
 }
 
-function statePaths(repoRoot, revision, run) {
-  let output;
+function loadStateTree(repoRoot, revision, run) {
+  let tree;
   try {
-    output = run(['ls-tree', '-r', '-z', '--name-only', revision], repoRoot);
+    tree = treeEntries(repoRoot, revision, run);
   } catch (error) {
     throw new Error('state authority is unavailable or has no readable tree', { cause: error });
   }
-  if (output !== '' && (typeof output !== 'string' || !output.endsWith('\0'))) {
-    throw new Error('state authority returned malformed path framing');
-  }
-  const names = output === '' ? [] : output.slice(0, -1).split('\0').sort();
+  const names = tree.map((entry) => entry.path).sort();
   for (const name of names) {
     if (!statePathIsValid(name)) throw new Error(`invalid state path: ${name}`);
   }
   for (const required of [MANIFEST, CONFIG]) {
     if (!names.includes(required)) throw new Error(`missing ${required}`);
   }
-  return names;
-}
-
-function readStateFile(repoRoot, revision, file, run) {
-  return run(['show', `${revision}:${file}`], repoRoot);
+  const byPath = new Map(tree.map((entry) => [entry.path, entry]));
+  const readBlob = batchBlobReader(repoRoot, tree, run);
+  return { names, read: (file) => readBlob(byPath.get(file).oid) };
 }
 
 function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run) {
-  const names = statePaths(repoRoot, revision, run);
-  const read = (file) => readStateFile(repoRoot, revision, file, run);
+  const { names, read } = loadStateTree(repoRoot, revision, run);
   const manifest = parseYaml(read(MANIFEST));
   const configText = read(CONFIG);
   const config = parseYaml(configText);

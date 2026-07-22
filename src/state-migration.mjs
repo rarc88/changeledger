@@ -9,6 +9,7 @@ import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, integrationBranch } from './config.mjs';
 import { VERSION } from './framing.mjs';
 import { sanitizedGitEnv } from './git.mjs';
+import { batchBlobReader } from './git-batch.mjs';
 import { loadLedgerStore, STATE_REF } from './ledger-store.mjs';
 import { compareVersions } from './release.mjs';
 import { parseSpec } from './spec.mjs';
@@ -95,6 +96,20 @@ function gitOutput(
 
 function git(repoRoot, args, options) {
   return gitOutput(repoRoot, args, options).trim();
+}
+
+// Adapts `gitOutput`'s (repoRoot, args, options) signature to the (args, cwd,
+// options) contract `git-batch.mjs` expects, so this file's blob reads share
+// its one-`cat-file --batch` abstraction instead of a subprocess per blob.
+function batchRun(args, cwd, options) {
+  return gitOutput(cwd, args, options);
+}
+
+// This file's tree entries carry the blob OID under `.blob` (its own
+// long-standing field name); `git-batch.mjs` expects `.oid`. Adapts one shape
+// to the other rather than duplicating the mapping at every call site.
+function toBatchEntries(entries) {
+  return entries.map((entry) => ({ type: entry.type, oid: entry.blob }));
 }
 
 function repoFor(start) {
@@ -210,10 +225,10 @@ function basename(file) {
   return value;
 }
 
-function candidateFromEntry(repoRoot, source, entry, kind) {
+function candidateFromEntry(readBlob, source, entry, kind) {
   try {
     regularBlob(entry, source.name);
-    const content = blobText(repoRoot, entry.blob);
+    const content = readBlob(entry.blob);
     const name = basename(entry.path);
     let identity;
     if (kind === 'change') {
@@ -257,8 +272,13 @@ function inventorySource(repoRoot, observed) {
   const configEntry = configEntries.find((entry) => entry.path === LEGACY_CONFIG_PATH);
   if (!configEntry)
     throw new Error(`migration source ${observed.name} has no ${LEGACY_CONFIG_PATH}`);
-  const configCandidate = candidateFromEntry(repoRoot, observed, configEntry, 'config');
-  const config = parseYaml(blobText(repoRoot, configEntry.blob));
+  const configText = batchBlobReader(
+    repoRoot,
+    toBatchEntries([configEntry]),
+    batchRun,
+  )(configEntry.blob);
+  const configCandidate = candidateFromEntry(() => configText, observed, configEntry, 'config');
+  const config = parseYaml(configText);
   let changesDir;
   let specsDir;
   try {
@@ -275,10 +295,24 @@ function inventorySource(repoRoot, observed) {
     ['spec', specsDir, '.md'],
     ['release', RELEASES_DIR, '.yml'],
   ];
+  const dirEntries = collections.map(([kind, dir, extension]) => [
+    kind,
+    dir,
+    extension,
+    treeEntries(repoRoot, observed.commit, [dir]),
+  ]);
+  const readBlob = batchBlobReader(
+    repoRoot,
+    toBatchEntries(
+      dirEntries.flatMap(([, , extension, entries]) =>
+        entries.filter((entry) => entry.path.endsWith(extension)),
+      ),
+    ),
+    batchRun,
+  );
   const candidates = [configCandidate];
   const uninventoried = [];
-  for (const [kind, dir, extension] of collections) {
-    const entries = treeEntries(repoRoot, observed.commit, [dir]);
+  for (const [kind, dir, extension, entries] of dirEntries) {
     for (const entry of entries) {
       if (!entry.path.startsWith(`${dir}/`)) {
         throw new Error(
@@ -302,7 +336,7 @@ function inventorySource(repoRoot, observed) {
         });
         continue;
       }
-      candidates.push(candidateFromEntry(repoRoot, observed, entry, kind));
+      candidates.push(candidateFromEntry(readBlob, observed, entry, kind));
     }
   }
   return { source: observed, projectId: config.project_id, candidates, uninventoried };
@@ -506,7 +540,20 @@ function revalidatePlan(repoRoot, plan, activity) {
   }
 }
 
-function chosenContent(repoRoot, planFile, document) {
+function resolvedCandidate(document) {
+  const resolution = document.resolution;
+  if (!resolution || resolution.replacement) return null;
+  const candidate = document.candidates.find(
+    (item) => item.blob === resolution.blob && item.basename === resolution.basename,
+  );
+  if (!candidate)
+    throw new Error(
+      `migration plan is stale: resolution for ${document.identity} is not a candidate`,
+    );
+  return candidate;
+}
+
+function chosenContent(readBlob, planFile, document) {
   const resolution = document.resolution;
   if (!resolution)
     throw new Error(`migration conflict: ${document.identity} has divergent candidates`);
@@ -525,15 +572,9 @@ function chosenContent(repoRoot, planFile, document) {
       provenance: { replacement: resolution.replacement, sha256: actual },
     };
   }
-  const candidate = document.candidates.find(
-    (item) => item.blob === resolution.blob && item.basename === resolution.basename,
-  );
-  if (!candidate)
-    throw new Error(
-      `migration plan is stale: resolution for ${document.identity} is not a candidate`,
-    );
+  const candidate = resolvedCandidate(document);
   return {
-    content: blobText(repoRoot, candidate.blob),
+    content: readBlob(candidate.blob),
     basename: candidate.basename,
     provenance: {
       source: candidate.source,
@@ -553,10 +594,16 @@ function statePath(document, name) {
 }
 
 function candidateSnapshot(repoRoot, planFile, plan) {
+  const resolvedCandidates = plan.documents.map(resolvedCandidate).filter(Boolean);
+  const readBlob = batchBlobReader(
+    repoRoot,
+    resolvedCandidates.map((candidate) => ({ type: 'blob', oid: candidate.blob })),
+    batchRun,
+  );
   const writes = new Map();
   const decisions = [];
   for (const document of plan.documents) {
-    const chosen = chosenContent(repoRoot, planFile, document);
+    const chosen = chosenContent(readBlob, planFile, document);
     const target = statePath(document, chosen.basename);
     if (writes.has(target)) throw new Error(`migration target collision: ${target}`);
     writes.set(target, chosen.content);
@@ -713,7 +760,7 @@ function treeEntry(repoRoot, commit, file) {
   return treeEntries(repoRoot, commit, [file]).find((entry) => entry.path === file) ?? null;
 }
 
-function validateManifestDecisions(repoRoot, manifest, entries) {
+function validateManifestDecisions(readBlob, manifest, entries) {
   const inventory = manifest.inventory;
   if (
     inventory.minimum_client_version !== manifest.minimum_client_version ||
@@ -767,10 +814,7 @@ function validateManifestDecisions(repoRoot, manifest, entries) {
     const target = entryByPath.get(decision.target);
     if (!target) throw new Error(`state manifest target is missing: ${decision.target}`);
     if (decision.replacement) {
-      const actual = crypto
-        .createHash('sha256')
-        .update(blobText(repoRoot, target.blob))
-        .digest('hex');
+      const actual = crypto.createHash('sha256').update(readBlob(target.blob)).digest('hex');
       if (!SHA256.test(decision.sha256 ?? '') || actual !== decision.sha256) {
         throw new Error(`state manifest replacement mismatch for ${document.identity}`);
       }
@@ -823,8 +867,9 @@ function readStateMetadata(repoRoot, revision) {
   const configEntry = entries.find((entry) => entry.path === CONFIG_PATH);
   if (!manifestEntry || !configEntry)
     throw new Error('state baseline is missing manifest or config');
-  const manifest = parseYaml(blobText(repoRoot, manifestEntry.blob));
-  const configText = blobText(repoRoot, configEntry.blob);
+  const readBlob = batchBlobReader(repoRoot, toBatchEntries(entries), batchRun);
+  const manifest = parseYaml(readBlob(manifestEntry.blob));
+  const configText = readBlob(configEntry.blob);
   const config = parseYaml(configText);
   if (
     manifest?.format_version !== 1 ||
@@ -855,12 +900,12 @@ function readStateMetadata(repoRoot, revision) {
   ) {
     throw new Error('state baseline project_id mismatch');
   }
-  validateManifestDecisions(repoRoot, manifest, entries);
+  validateManifestDecisions(readBlob, manifest, entries);
   const changes = [];
   const specs = [];
   const releases = [];
   for (const entry of entries) {
-    const text = blobText(repoRoot, entry.blob);
+    const text = readBlob(entry.blob);
     const name = path.posix.basename(entry.path);
     if (entry.path.startsWith(`${STATE_ROOT}/changes/`)) {
       changes.push({ name, text, ...parseChange(text) });
@@ -907,15 +952,19 @@ function activationRemovals(repoRoot, base, manifest) {
   if (!removals.has(LEGACY_CONFIG_PATH)) {
     throw new Error(`baseline inventory has no integration ${LEGACY_CONFIG_PATH}`);
   }
+  const paths = [...removals.keys()];
+  const currentByPath = new Map(
+    treeEntries(repoRoot, base, paths).map((entry) => [entry.path, entry]),
+  );
   for (const [file, candidate] of removals) {
-    const current = treeEntry(repoRoot, base, file);
+    const current = currentByPath.get(file) ?? null;
     if (!current || current.mode !== candidate.mode || current.blob !== candidate.blob) {
       throw new Error(
         `integration legacy inventory diverged at ${file}: expected ${candidate.mode} ${candidate.blob} actual ${current ? `${current.mode} ${current.blob}` : '(missing)'}`,
       );
     }
   }
-  return [...removals.keys()].sort();
+  return paths.sort();
 }
 
 function deterministicCommit(repoRoot, tree, base, message) {

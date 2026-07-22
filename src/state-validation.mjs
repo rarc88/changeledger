@@ -33,6 +33,7 @@ function timeoutError(error) {
 
 function cleanError(error) {
   const detail = [error?.stderr, error?.stdout]
+    .map((value) => (Buffer.isBuffer(value) ? value.toString('utf8') : value))
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean)
     .join('\n');
@@ -50,7 +51,7 @@ function runner(
     }
   }
   const started = now();
-  const run = (args, cwd = repoRoot, { input } = {}) => {
+  const run = (args, cwd = repoRoot, { input, encoding = 'utf8' } = {}) => {
     const remaining = Math.ceil(budget.timeout_ms - (now() - started));
     if (remaining <= 0)
       throw new ValidationTimeoutError(`validation timeout ${budget.timeout_ms}ms exceeded`);
@@ -60,7 +61,7 @@ function runner(
         env: { ...env, GIT_NO_LAZY_FETCH: '1' },
         input,
         timeout: remaining,
-        encoding: 'utf8',
+        encoding,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (error) {
