@@ -765,6 +765,114 @@ test('193103 CR10: doctor distinguishes local and online source divergence', () 
   assert.equal(online.sources.find((source) => source.name.startsWith('origin:')).network, true);
 });
 
+test('163409: create rejects a divergent existing state baseline without writing', () => {
+  const { root } = legacyRepo();
+  const cli = path.resolve('bin/changeledger.mjs');
+  const runJson = (...args) =>
+    JSON.parse(
+      execFileSync(process.execPath, [cli, ...args, '--json'], { cwd: root, encoding: 'utf8' }),
+    );
+  const planFile = path.join(root, 'migration-plan.yml');
+
+  runJson(
+    'state',
+    'migrate',
+    '--preview',
+    '--source',
+    'local:refs/heads/dev',
+    '--output',
+    planFile,
+  );
+  const baseline1 = runJson('state', 'migrate', '--create', '--plan', planFile);
+
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'specs', 'extra.md'),
+    '---\ntitle: Extra\nupdated: 2026-07-22T00:00:00Z\ntags: []\n---\n\nExtra.\n',
+  );
+  git(root, ['add', '.changeledger/specs/extra.md']);
+  git(root, ['commit', '-qm', 'test: extra spec']);
+  runJson(
+    'state',
+    'migrate',
+    '--preview',
+    '--source',
+    'local:refs/heads/dev',
+    '--output',
+    planFile,
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [cli, 'state', 'migrate', '--create', '--plan', planFile, '--json'],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.notEqual(result.status, 0);
+  const receipt = JSON.parse(result.stderr);
+  assert.match(receipt.error, /state baseline already exists with different content/);
+  assert.equal(receipt.written, false);
+  assert.equal(
+    git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']).split(/\s+/)[0],
+    baseline1.baseline,
+  );
+});
+
+test('163409: doctor --online reports a missing remote state', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['push', 'origin', '--delete', 'refs/heads/changeledger/state']);
+
+  const diagnosis = doctorStateMigration({ activationRef: activation.branch, online: true }, root);
+  assert.equal(diagnosis.ok, false);
+  assert.ok(diagnosis.categories.data_divergence.includes('remote state is missing'));
+});
+
+test('163409: doctor --online reports a remote state that does not descend from baseline', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  const emptyTree = git(root, ['hash-object', '-t', 'tree', '-w', '--stdin'], '');
+  const orphan = git(root, ['commit-tree', emptyTree, '-m', 'orphan']);
+  git(root, ['push', '--force', 'origin', `${orphan}:refs/heads/changeledger/state`]);
+
+  const diagnosis = doctorStateMigration({ activationRef: activation.branch, online: true }, root);
+  assert.equal(diagnosis.ok, false);
+  assert.ok(
+    diagnosis.categories.data_divergence.includes('remote state does not descend from baseline'),
+  );
+});
+
+test('163409: doctor classifies authority.yml divergence from the baseline manifest', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+
+  git(root, ['checkout', '-q', activation.branch]);
+  const tampered = stringifyYaml({
+    format_version: 2,
+    state_ref: 'refs/heads/changeledger/state',
+    baseline: baseline.baseline,
+    project_id: 'wrong-project',
+    inventory_digest: 'f'.repeat(64),
+    minimum_client_version: '0.0.0',
+  });
+  fs.writeFileSync(path.join(root, '.changeledger', 'authority.yml'), tampered);
+  git(root, ['add', '.changeledger/authority.yml']);
+  git(root, ['commit', '-qm', 'test: tamper authority']);
+  const tamperedCommit = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+
+  const diagnosis = doctorStateMigration({ activationRef: tamperedCommit }, root);
+  assert.equal(diagnosis.ok, false);
+  assert.ok(diagnosis.categories.data_divergence.includes('project_id does not match baseline'));
+  assert.ok(
+    diagnosis.categories.data_divergence.includes('inventory_digest does not match baseline'),
+  );
+});
+
 test('193103 CR9: recovery rejects pending, stale observation and branch collision atomically', () => {
   const { root } = legacyRepo();
   const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
