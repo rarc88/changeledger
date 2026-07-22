@@ -2,7 +2,7 @@
 id: "20260722-202100"
 title: Una carga de snapshot por operación con caché por OID
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-07-22T20:21:00Z
 depends_on: ["20260722-202059"]
 owner: raruiz-hiberuscom
@@ -73,3 +73,4 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 - **2026-07-22T22:53:27Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T23:18:19Z** `[status]` in-progress → in-review
 - **2026-07-22T23:35:00Z** `[note]` Reviewer de contexto limpio devolvió `PASS` con dos hallazgos 🟡 no bloqueantes, corregidos antes de la aceptación humana: (1) `deriveCandidateSnapshot` no reordenaba `specs`/`releases` tras agregar un documento nuevo (solo `changes` se reordenaba), rompiendo la equivalencia de orden con una recarga fresca cuando un spec/release nuevo ordena antes de uno existente — corregido reordenando ambas colecciones por `statePath`, verificado empíricamente comentando el fix (el nuevo test falla como se espera) y restaurándolo. (2) el camino en memoria no comprobaba que un `config.yml` reescrito conservara el `project_id` de la autoridad (`loadStateSnapshotAt` sí lo hace en toda carga vía Git) — corregido comparando el `project_id` del candidato contra el del snapshot fuente (ya validado transitivamente contra la autoridad). Tests nuevos: "a mutation adding a spec keeps sort order equivalent to a fresh load" y "a mutation cannot drift config project_id away from the authority". Gate re-ejecutado: 938/938 tests, lint y `changeledger check` verdes.
+- **2026-07-22T23:32:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
