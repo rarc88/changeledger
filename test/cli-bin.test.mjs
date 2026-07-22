@@ -6,6 +6,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, validation } from '../src/commands/agent.mjs';
+import { PUBLIC_STATE_REF } from '../src/state-store.mjs';
+import { createStateRepo, git as gitIn } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -674,4 +676,73 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const after = fs.readFileSync(specFile, 'utf8');
   assert.match(after, /Body kept\./);
   assert.doesNotMatch(after, /2020-01-01T00:00:00Z/);
+});
+
+// 20260722-203028: state sync exit code reflects publication confirmation
+function stateSyncFixture() {
+  const created = createStateRepo();
+  fs.writeFileSync(
+    path.join(created.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${created.baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  gitIn(created.root, ['add', '.changeledger/authority.yml']);
+  gitIn(created.root, ['commit', '-qm', 'test: replica authority']);
+  gitIn(created.root, ['update-ref', 'refs/changeledger/confirmed', created.baseline]);
+  gitIn(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-sync-'));
+  gitIn(remote, ['init', '--bare', '-q']);
+  gitIn(created.root, ['remote', 'add', 'origin', remote]);
+  gitIn(created.root, ['push', '-q', 'origin', PUBLIC_STATE_REF]);
+  return { ...created, remote };
+}
+
+function createOfflinePending(root) {
+  gitIn(root, ['checkout', '-q', 'changeledger/state']);
+  const change = path.join(root, '.changeledger-state', 'changes', '20260721-000000-change.md');
+  fs.writeFileSync(
+    change,
+    fs.readFileSync(change, 'utf8').replace('title: Demo', 'title: Pending'),
+  );
+  gitIn(root, ['add', change]);
+  gitIn(root, ['commit', '-qm', 'test: offline pending']);
+  const pendingOid = gitIn(root, ['rev-parse', 'HEAD']);
+  gitIn(root, ['checkout', '-q', 'dev']);
+  gitIn(root, ['update-ref', 'refs/changeledger/pending', pendingOid]);
+  return pendingOid;
+}
+
+test('203028 CR1: sync exits 2 when a push fails and pending stays unconfirmed', () => {
+  const created = stateSyncFixture();
+  const pendingOid = createOfflinePending(created.root);
+  // Deny writes on the bare remote so `git push` fails while `git fetch` (read) still succeeds.
+  for (const entry of fs.readdirSync(created.remote)) {
+    fs.chmodSync(path.join(created.remote, entry), 0o555);
+  }
+  fs.chmodSync(created.remote, 0o555);
+
+  const result = runIn(created.root, { ...process.env }, 'state', 'sync');
+  fs.chmodSync(created.remote, 0o755);
+  for (const entry of fs.readdirSync(created.remote)) {
+    fs.chmodSync(path.join(created.remote, entry), 0o755);
+  }
+
+  assert.equal(result.code, 2);
+  assert.match(result.out, /Publication result ambiguous/);
+  assert.equal(gitIn(created.root, ['rev-parse', 'refs/changeledger/pending']), pendingOid);
+  assert.equal(gitIn(created.root, ['rev-parse', 'refs/changeledger/confirmed']), created.baseline);
+});
+
+test('203028 CR2: a convergent sync exits 0 and a fatal authority error exits 1', () => {
+  const converged = stateSyncFixture();
+  const noop = runIn(converged.root, { ...process.env }, 'state', 'sync');
+  assert.equal(noop.code, 0);
+
+  const fatal = stateSyncFixture();
+  fs.writeFileSync(
+    path.join(fatal.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${fatal.baseline}\nproject_id: project-1\ninventory_digest: ${'b'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  const rejected = runIn(fatal.root, { ...process.env }, 'state', 'sync');
+  assert.equal(rejected.code, 1);
+  assert.match(rejected.err, /inventory_digest does not match authority/);
 });

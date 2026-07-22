@@ -1001,6 +1001,7 @@ stateCommand
       const confirmation = result.pending ? 'local, pending publication' : 'confirmed';
       console.log(`State ${result.action}: ${result.effective} (${confirmation})`);
       if (result.error) console.log(`Publication result ambiguous: ${result.error}`);
+      if (result.pending && !result.confirmed) process.exitCode = 2;
     }),
   );
 
