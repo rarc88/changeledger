@@ -45,9 +45,18 @@ export function ledgerReceipt(snapshot) {
   return Object.freeze({
     ledger_revision: snapshot?.revision ?? null,
     ledger_freshness: snapshot?.revision ? (snapshot.ledgerFreshness ?? 'local') : null,
-    ...(snapshot?.ledgerConfirmation ? { ledger_confirmation: snapshot.ledgerConfirmation } : {}),
-    ...(snapshot?.ledgerObservedAt ? { ledger_observed_at: snapshot.ledgerObservedAt } : {}),
+    ...(snapshot?.revision
+      ? {
+          ledger_confirmation: snapshot.ledgerConfirmation ?? 'local',
+          ledger_observed_at: snapshot.ledgerObservedAt ?? null,
+        }
+      : {}),
   });
+}
+
+export function formatLedgerReceipt(receipt) {
+  if (!receipt?.ledger_revision) return null;
+  return `Ledger revision: ${receipt.ledger_revision} (freshness: ${receipt.ledger_freshness}) (confirmation: ${receipt.ledger_confirmation}) (observed at: ${receipt.ledger_observed_at ?? 'unknown'})`;
 }
 
 export function assertLedgerRevision(snapshot, observedRevision) {
@@ -331,7 +340,14 @@ function keepMutationRevision(repoRoot, revision, replica, run) {
   }
 }
 
-function validateStateRevision(repoRoot, changeledgerDir, authority, revision, run) {
+function validateStateRevision(
+  repoRoot,
+  changeledgerDir,
+  authority,
+  revision,
+  run,
+  { requireBaseline = false } = {},
+) {
   let snapshot;
   try {
     snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
@@ -345,10 +361,28 @@ function validateStateRevision(repoRoot, changeledgerDir, authority, revision, r
       `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
     );
   }
+  if (requireBaseline) {
+    try {
+      run(['merge-base', '--is-ancestor', authority.baseline, revision], repoRoot);
+    } catch (error) {
+      throw new Error(
+        `Ledger state validation failed: revision ${revision} does not descend from authority baseline ${authority.baseline}`,
+        { cause: error },
+      );
+    }
+  }
   return snapshot;
 }
 
-function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate) {
+function mutateState(
+  repoRoot,
+  changeledgerDir,
+  authority,
+  run,
+  options,
+  mutate,
+  { preflighted = false } = {},
+) {
   if (!options?.message || typeof options.message !== 'string') {
     throw new Error('Ledger state mutation requires a commit message');
   }
@@ -359,10 +393,17 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
   }
 
   const replica = authority.format_version === 2;
-  const validateRevision = (revision) =>
+  const validateCandidate = (revision) =>
     validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
-  if (replica && options.offline !== true) {
-    syncStateReplica(repoRoot, { validateRevision });
+  const validateReplicaRevision = (revision) =>
+    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
+      requireBaseline: true,
+    });
+  if (replica && options.offline !== true && !preflighted) {
+    syncStateReplica(repoRoot, {
+      validateRevision: validateReplicaRevision,
+      validateCandidate,
+    });
   }
   if (replica) {
     try {
@@ -422,7 +463,7 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
       keepMutationRevision(repoRoot, revision, replica, run);
       return snapshot;
     }
-    validateRevision(tree);
+    validateCandidate(tree);
     const commit = runIndexedGit(
       ['commit-tree', tree, '-p', revision, '-m', options.message],
       repoRoot,
@@ -437,7 +478,10 @@ function mutateState(repoRoot, changeledgerDir, authority, run, options, mutate)
       });
     }
     if (replica && options.offline !== true) {
-      syncStateReplica(repoRoot, { validateRevision });
+      syncStateReplica(repoRoot, {
+        validateRevision: validateReplicaRevision,
+        validateCandidate,
+      });
       return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
     }
     return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
@@ -459,31 +503,54 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     return {
       mode: 'worktree',
       load: () => loadWorktreeSnapshot(repoRoot, changeledgerDir),
+      prepareMutation: () => loadWorktreeSnapshot(repoRoot, changeledgerDir),
       mutate: () => {
         throw new Error('LedgerStore mutations require an active state authority');
       },
     };
+  const replica = authority.format_version === 2;
+  const validateReplicaRevision = (revision) =>
+    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
+      requireBaseline: true,
+    });
+  const validateCandidate = (revision) =>
+    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
+  const syncReplica = () =>
+    syncStateReplica(repoRoot, {
+      validateRevision: validateReplicaRevision,
+      validateCandidate,
+    });
+  const load = () => loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
+  let prepared = null;
   return {
     mode: 'state',
-    load: () => loadStateSnapshot(repoRoot, changeledgerDir, authority, run),
-    mutate: (options, mutate) =>
-      mutateState(repoRoot, changeledgerDir, authority, run, options, mutate),
-    replica:
-      authority.format_version === 2
-        ? {
-            status: () => stateReplicaStatus(repoRoot),
-            sync: () =>
-              syncStateReplica(repoRoot, {
-                validateRevision: (revision) =>
-                  validateStateRevision(repoRoot, changeledgerDir, authority, revision, run),
-              }),
-            abort: ({ offline = false } = {}) =>
-              abortStatePending(repoRoot, {
-                offline,
-                validateRevision: (revision) =>
-                  validateStateRevision(repoRoot, changeledgerDir, authority, revision, run),
-              }),
-          }
-        : null,
+    load,
+    prepareMutation: ({ offline = false } = {}) => {
+      if (replica && !offline) syncReplica();
+      const snapshot = load();
+      prepared = { revision: snapshot.revision, offline: Boolean(offline) };
+      return snapshot;
+    },
+    mutate: (options, mutate) => {
+      const preflighted =
+        Boolean(prepared) &&
+        prepared.revision === options?.expectedRevision &&
+        prepared.offline === Boolean(options?.offline);
+      prepared = null;
+      return mutateState(repoRoot, changeledgerDir, authority, run, options, mutate, {
+        preflighted,
+      });
+    },
+    replica: replica
+      ? {
+          status: () => stateReplicaStatus(repoRoot),
+          sync: syncReplica,
+          abort: ({ offline = false } = {}) =>
+            abortStatePending(repoRoot, {
+              offline,
+              validateRevision: validateReplicaRevision,
+            }),
+        }
+      : null,
   };
 }

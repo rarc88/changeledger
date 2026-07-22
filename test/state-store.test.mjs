@@ -107,43 +107,101 @@ test('193102 CR1/CR2/CR6/CR7: sync advances and publishes transactionally in bot
   }
 });
 
-test('193102 CR3/CR4: sync replays one disjoint pending delta with NUL-framed paths', () => {
+test('193102 CR3/CR4: sync replays one disjoint NUL-framed delta in both formats', () => {
+  for (const objectFormat of ['sha1', 'sha256']) {
+    let created;
+    try {
+      created = replicaFixture(objectFormat);
+    } catch (error) {
+      if (
+        objectFormat === 'sha256' &&
+        /unknown option|unsupported|not supported/i.test(error.message)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+    const pending = editStateFile(
+      created.root,
+      'specs/line\nbreak.md',
+      '# Line',
+      '# Local',
+      'local pending',
+    );
+    git(created.root, ['update-ref', PENDING_REF, pending]);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+    const remote = editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+    git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+    git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+    const validated = [];
+
+    const result = syncStateReplica(created.root, {
+      validateRevision: (revision) => validated.push(revision),
+    });
+
+    assert.equal(result.action, 'replay-pending', objectFormat);
+    assert.equal(result.replayedFrom, pending, objectFormat);
+    assert.equal(git(created.root, ['rev-parse', `${result.effective}^`]), remote, objectFormat);
+    assert.match(
+      git(created.root, ['show', `${result.effective}:.changeledger-state/specs/line\nbreak.md`]),
+      /# Local/,
+      objectFormat,
+    );
+    assert.match(
+      git(created.root, ['show', `${result.effective}:.changeledger-state/specs/B.md`]),
+      /# Remote/,
+      objectFormat,
+    );
+    assert.deepEqual(
+      validated,
+      [remote, pending, git(created.root, ['rev-parse', `${result.effective}^{tree}`])],
+      objectFormat,
+    );
+    assert.equal(readStateReplica(created.root).pending, null, objectFormat);
+  }
+});
+
+test('193102 CR1: clean sync CAS rejects a pending created during remote validation', () => {
   const created = replicaFixture('sha1');
-  const pending = editStateFile(
-    created.root,
-    'specs/line\nbreak.md',
-    '# Line',
-    '# Local',
-    'local pending',
-  );
-  git(created.root, ['update-ref', PENDING_REF, pending]);
-  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
-  const remote = editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+  const remote = advanceState(created.root, 'Remote race');
   git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
   git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
-  const validated = [];
+  const pending = advanceState(created.root, 'Local race');
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
 
-  const result = syncStateReplica(created.root, {
-    validateRevision: (revision) => validated.push(revision),
-  });
+  assert.throws(
+    () =>
+      syncStateReplica(created.root, {
+        validateRevision(revision) {
+          if (revision === remote) git(created.root, ['update-ref', PENDING_REF, pending]);
+        },
+      }),
+    /cannot lock ref|reference already exists|changed concurrently/i,
+  );
+  assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+  assert.equal(readStateReplica(created.root).pending, pending);
+  assert.equal(git(created.root, ['rev-parse', `${pending}^`]), created.baseline);
+});
 
-  assert.equal(result.action, 'replay-pending');
-  assert.equal(result.replayedFrom, pending);
-  assert.equal(git(created.root, ['rev-parse', `${result.effective}^`]), remote);
-  assert.match(
-    git(created.root, ['show', `${result.effective}:.changeledger-state/specs/line\nbreak.md`]),
-    /# Local/,
+test('193102 CR2/CR6: publication pushes the exact planned OID, never a mutable ref', () => {
+  const created = replicaFixture('sha1');
+  const planned = advanceState(created.root, 'Planned');
+  git(created.root, ['update-ref', PENDING_REF, planned]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  const replacement = advanceState(created.root, 'Replacement');
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+  assert.throws(() =>
+    syncStateReplica(created.root, {
+      pushState(root, remote, refspec) {
+        git(root, ['update-ref', PENDING_REF, replacement]);
+        git(root, ['push', remote, refspec]);
+      },
+    }),
   );
-  assert.match(
-    git(created.root, ['show', `${result.effective}:.changeledger-state/specs/B.md`]),
-    /# Remote/,
-  );
-  assert.deepEqual(validated, [
-    remote,
-    pending,
-    git(created.root, ['rev-parse', `${result.effective}^{tree}`]),
-  ]);
-  assert.equal(readStateReplica(created.root).pending, null);
+  assert.equal(git(created.remote, ['rev-parse', 'refs/heads/changeledger/state']), planned);
+  assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+  assert.equal(readStateReplica(created.root).pending, replacement);
 });
 
 test('193102 CR4: replay treats Git pathspec-looking filenames as exact literals', () => {
@@ -260,4 +318,22 @@ test('193102 CR6: abort confirms published pending and requires explicit offline
   assert.equal(aborted.confirmed, false);
   assert.equal(readStateReplica(unavailable.root).pending, null);
   assert.equal(readStateReplica(unavailable.root).confirmed, unavailable.baseline);
+});
+
+test('193102 CR6: abort fails closed when ancestry cannot be established', () => {
+  const created = replicaFixture('sha1');
+  const pending = advanceState(created.root, 'Ancestry error');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+
+  assert.throws(
+    () =>
+      abortStatePending(created.root, {
+        isAncestor() {
+          throw new Error('object database unavailable');
+        },
+      }),
+    /object database unavailable/,
+  );
+  assert.equal(readStateReplica(created.root).pending, pending);
+  assert.equal(readStateReplica(created.root).confirmed, created.baseline);
 });

@@ -16,10 +16,14 @@ import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
 
-function locate(cwd, id, { expectedRevision, offline = false } = {}) {
-  const store = loadLedgerStore(cwd);
+function locate(
+  cwd,
+  id,
+  { expectedRevision, offline = false, mutationStore, mutationSnapshot } = {},
+) {
+  const store = mutationStore ?? loadLedgerStore(cwd);
   if (store.mode === 'state') {
-    const snapshot = store.load();
+    const snapshot = mutationSnapshot ?? store.prepareMutation({ offline });
     if (expectedRevision !== undefined && expectedRevision !== snapshot.revision) {
       throw new Error('Ledger state changed concurrently; reload before saving');
     }
@@ -80,9 +84,16 @@ export function status(
     channel = 'viewer',
     expectedRevision,
     offline = false,
+    mutationStore,
+    mutationSnapshot,
   } = {},
 ) {
-  const located = locate(cwd, id, { expectedRevision, offline });
+  const located = locate(cwd, id, {
+    expectedRevision,
+    offline,
+    mutationStore,
+    mutationSnapshot,
+  });
   const { config, repoRoot } = located;
   if (newStatus === 'discarded') {
     throw new Error(
@@ -213,10 +224,23 @@ export function review(id, verdict, { mode, reason, offline = false } = {}, cwd 
 export function validation(
   id,
   verdict,
-  { reason, actor = 'human', channel = 'viewer', expectedRevision, offline = false } = {},
+  {
+    reason,
+    actor = 'human',
+    channel = 'viewer',
+    expectedRevision,
+    offline = false,
+    mutationStore,
+    mutationSnapshot,
+  } = {},
   cwd = process.cwd(),
 ) {
-  const located = locate(cwd, id, { expectedRevision, offline });
+  const located = locate(cwd, id, {
+    expectedRevision,
+    offline,
+    mutationStore,
+    mutationSnapshot,
+  });
   const { config, file } = located;
   return mutateChange(located, id, 'validation', (text) => {
     const fm = parseChange(text).frontmatter;
@@ -265,10 +289,15 @@ export function reopen(
   id,
   reason,
   cwd = process.cwd(),
-  { actor = 'human', expectedRevision, offline = false } = {},
+  { actor = 'human', expectedRevision, offline = false, mutationStore, mutationSnapshot } = {},
 ) {
   if (!String(reason ?? '').trim()) throw new Error('reopen requires a reason');
-  const located = locate(cwd, id, { expectedRevision, offline });
+  const located = locate(cwd, id, {
+    expectedRevision,
+    offline,
+    mutationStore,
+    mutationSnapshot,
+  });
   const { config, file, repoRoot } = located;
   const apply = (text, snapshot) => {
     const released = snapshot.releases.some((release) =>
@@ -380,7 +409,10 @@ function archiveResult(items, revision, freshness = 'local') {
 
 export function archiveGraduated(filters = {}, cwd = process.cwd()) {
   const store = loadLedgerStore(cwd);
-  const loaded = store.load();
+  const loaded =
+    store.mode === 'state'
+      ? store.prepareMutation({ offline: filters.offline === true })
+      : store.load();
   const { config, changes } = loaded;
   assertSupportedSchema(config);
   const selected = selectArchivableGraduated(changes, filters);
@@ -511,6 +543,8 @@ export function list(
   Object.defineProperties(items, {
     ledgerRevision: { value: repo.revision ?? null },
     ledgerFreshness: { value: repo.revision ? (repo.ledgerFreshness ?? 'local') : null },
+    ledgerConfirmation: { value: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null },
+    ledgerObservedAt: { value: repo.revision ? (repo.ledgerObservedAt ?? null) : null },
   });
   return items;
 }

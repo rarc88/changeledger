@@ -129,7 +129,11 @@ test('193101 CR8 matrix bulk: regular fix publishes one state successor', () => 
   const out = output();
   assert.equal(fix([ID], root, out), 0);
   const after = assertSingleSuccessor(root, before);
-  assert.ok(out.lines.includes(`Ledger revision: ${after.revision} (freshness: local)`));
+  assert.ok(
+    out.lines.includes(
+      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    ),
+  );
 });
 
 test('193101 CR8 matrix bulk: structured-sections fix publishes one state successor', () => {
@@ -141,7 +145,11 @@ test('193101 CR8 matrix bulk: structured-sections fix publishes one state succes
   const out = output();
   assert.equal(fix(['--structured-sections'], root, out), 0);
   const after = assertSingleSuccessor(root, before);
-  assert.ok(out.lines.includes(`Ledger revision: ${after.revision} (freshness: local)`));
+  assert.ok(
+    out.lines.includes(
+      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    ),
+  );
 });
 
 test('193101 CR8 matrix bulk: graduation-links fix publishes one state successor', () => {
@@ -156,7 +164,11 @@ test('193101 CR8 matrix bulk: graduation-links fix publishes one state successor
   const out = output();
   assert.equal(fix(['--graduation-links'], root, out), 0);
   const after = assertSingleSuccessor(root, before);
-  assert.ok(out.lines.includes(`Ledger revision: ${after.revision} (freshness: local)`));
+  assert.ok(
+    out.lines.includes(
+      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    ),
+  );
   assert.deepEqual(after.specs[0].frontmatter.graduated_from, [ID]);
 });
 
@@ -207,7 +219,10 @@ test('193101 hardening CR8: successful empty mutations preserve S1 and report it
   assert.equal(fix([], root, output), 0);
   assert.equal(fix(['--structured-sections'], root, output), 0);
   assert.equal(fix(['--graduation-links'], root, output), 0);
-  assert.match(migrateConfig(root), new RegExp(`Ledger revision: ${before.revision}`));
+  const migrationReceipt = migrateConfig(root);
+  assert.match(migrationReceipt, new RegExp(`Ledger revision: ${before.revision}`));
+  assert.match(migrationReceipt, /confirmation: local/);
+  assert.match(migrationReceipt, /observed at: unknown/);
 
   assert.equal(loadLedgerStore(root).load().revision, before.revision);
   assert.ok(
@@ -555,6 +570,9 @@ test('193101 CR8 matrix lifecycle: viewer exposes the state revision it creates'
   assert.equal(result.code, 200);
   const after = assertSingleSuccessor(root, before);
   assert.equal(result.body.ledger_revision, after.revision);
+  assert.equal(result.body.ledger_freshness, 'local');
+  assert.equal(result.body.ledger_confirmation, 'local');
+  assert.equal(result.body.ledger_observed_at, null);
 });
 
 test('193101 correction CR8: viewer rejects a lifecycle action observed on stale state', () => {
@@ -678,7 +696,9 @@ test('193101 correction CR2: state fix dry-run exposes the snapshot it inspected
   const out = output();
   assert.equal(fix(['--dry-run'], root, out), 0);
   assert.ok(
-    out.lines.includes(`Ledger revision: ${baseline} (freshness: local)`),
+    out.lines.includes(
+      `Ledger revision: ${baseline} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    ),
     out.lines.join('\n'),
   );
 });

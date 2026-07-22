@@ -68,7 +68,7 @@ export function transversalPolicy(config) {
 
 export function ledgerSnapshotPolicy(repo) {
   return repo.revision
-    ? `Ledger snapshot: ${repo.revision} — freshness: ${repo.ledgerFreshness ?? 'local'}; confirmation: ${repo.ledgerConfirmation ?? 'local'} (no implicit network refresh)`
+    ? `Ledger snapshot: ${repo.revision} — freshness: ${repo.ledgerFreshness ?? 'local'}; confirmation: ${repo.ledgerConfirmation ?? 'local'}; observed_at: ${repo.ledgerObservedAt ?? 'unknown'} (no implicit network refresh)`
     : undefined;
 }
 

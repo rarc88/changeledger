@@ -86,7 +86,7 @@ function newStateChange(store, { type, slug, title, owner, now, offline }) {
   const normalizedSlug = slugify(slug);
   let created = now;
   for (;;) {
-    const snapshot = store.load();
+    const snapshot = store.prepareMutation({ offline });
     const config = snapshot.config;
     assertSupportedSchema(config);
     const typeDef = config.types?.[type];

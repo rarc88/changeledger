@@ -31,7 +31,7 @@ import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/
 import { runSearch } from '../src/commands/search.mjs';
 import { stateAbort, stateStatus, stateSync } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
-import { loadLedgerStore } from '../src/ledger-store.mjs';
+import { formatLedgerReceipt, loadLedgerStore } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
@@ -85,20 +85,23 @@ function ledgerRevisionFromResult(result) {
 function printLedgerRevision(result) {
   const revision = ledgerRevisionFromResult(result);
   if (!revision) return;
-  let freshness = 'local';
-  let confirmation = 'local';
+  const receipt = {
+    ledger_revision: revision,
+    ledger_freshness: 'local',
+    ledger_confirmation: 'local',
+    ledger_observed_at: null,
+  };
   try {
     const snapshot = loadLedgerStore().load();
     if (snapshot.revision === revision) {
-      freshness = snapshot.ledgerFreshness ?? freshness;
-      confirmation = snapshot.ledgerConfirmation ?? confirmation;
+      receipt.ledger_freshness = snapshot.ledgerFreshness ?? receipt.ledger_freshness;
+      receipt.ledger_confirmation = snapshot.ledgerConfirmation ?? receipt.ledger_confirmation;
+      receipt.ledger_observed_at = snapshot.ledgerObservedAt ?? null;
     }
   } catch {
     // The mutation result remains a valid receipt even if a subsequent read fails.
   }
-  console.log(
-    `Ledger revision: ${revision} (freshness: ${freshness}) (confirmation: ${confirmation})`,
-  );
+  console.log(formatLedgerReceipt(receipt));
 }
 
 program
@@ -274,7 +277,6 @@ program
     '[mode-or-change-id]',
     'spec|implement|review|release, or a change id (pack inferred from its status)',
   )
-  .option('--offline', 'create one local pending mutation without network access')
   .option(
     '--have <rev>',
     'skip the full reload when this matches the current rev (short `unchanged` confirmation instead)',
@@ -375,6 +377,7 @@ program
     '<status>',
     'a status configured in .changeledger/config.yml (statuses:), e.g. in-progress, in-review, blocked',
   )
+  .option('--offline', 'create one local pending mutation without network access')
   .addHelpText(
     'after',
     [
@@ -693,6 +696,8 @@ program
           ? {
               ledger_revision: items.ledgerRevision,
               ledger_freshness: items.ledgerFreshness,
+              ledger_confirmation: items.ledgerConfirmation,
+              ledger_observed_at: items.ledgerObservedAt,
               changes: items,
             }
           : items;
@@ -700,7 +705,12 @@ program
       } else {
         if (items.ledgerRevision) {
           console.log(
-            `Ledger revision: ${items.ledgerRevision} (freshness: ${items.ledgerFreshness})`,
+            formatLedgerReceipt({
+              ledger_revision: items.ledgerRevision,
+              ledger_freshness: items.ledgerFreshness,
+              ledger_confirmation: items.ledgerConfirmation,
+              ledger_observed_at: items.ledgerObservedAt,
+            }),
           );
         }
         for (const c of items) console.log(`${String(c.status).padEnd(12)} #${c.id}  ${c.title}`);
@@ -719,7 +729,7 @@ program
       if (options.json) console.log(JSON.stringify(c, null, 2));
       else {
         if (c.ledger_revision) {
-          console.log(`Ledger revision: ${c.ledger_revision} (freshness: ${c.ledger_freshness})`);
+          console.log(formatLedgerReceipt(c));
         }
         console.log(`#${c.id} ${c.frontmatter.title} [${c.frontmatter.status}]`);
       }
@@ -917,9 +927,7 @@ releaseCommand
         return;
       }
       if (plan.ledger_revision) {
-        console.log(
-          `Ledger revision: ${plan.ledger_revision} (freshness: ${plan.ledger_freshness})`,
-        );
+        console.log(formatLedgerReceipt(plan));
       }
       if (!plan.releasable) {
         console.log(

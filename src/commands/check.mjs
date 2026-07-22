@@ -21,7 +21,9 @@ function configuredCommitContext(cwd) {
   return {
     base: integrationBranch(repo.config),
     revision: repo.revision ?? null,
-    freshness: repo.revision ? 'local' : null,
+    freshness: repo.revision ? (repo.ledgerFreshness ?? 'local') : null,
+    confirmation: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null,
+    observedAt: repo.revision ? (repo.ledgerObservedAt ?? null) : null,
   };
 }
 
@@ -47,6 +49,8 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
             warnings: [],
             revision: ledger.revision ?? null,
             freshness: ledger.freshness ?? null,
+            confirmation: ledger.confirmation ?? null,
+            observed_at: ledger.observedAt ?? null,
           },
           null,
           2,
@@ -69,6 +73,8 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
           warnings: [],
           revision: ledger.revision ?? null,
           freshness: ledger.freshness ?? null,
+          confirmation: ledger.confirmation ?? null,
+          observed_at: ledger.observedAt ?? null,
         },
         null,
         2,
@@ -79,7 +85,9 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
 
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
   const scope = `commits ${resolvedBase}..HEAD${
-    ledger.revision ? ` @ ${ledger.revision} (freshness: ${ledger.freshness})` : ''
+    ledger.revision
+      ? ` @ ${ledger.revision} (freshness: ${ledger.freshness}) (confirmation: ${ledger.confirmation}) (observed at: ${ledger.observedAt ?? 'unknown'})`
+      : ''
   }`;
   if (!errors.length) output.log(`✓ ${scope} valid`);
   else output.log(`\n${errors.length} error(s) — ${scope}`);
@@ -132,7 +140,9 @@ export function check(args = [], cwd = process.cwd(), output = console) {
           errors,
           warnings,
           revision: repo.revision ?? null,
-          freshness: repo.revision ? 'local' : null,
+          freshness: repo.revision ? (repo.ledgerFreshness ?? 'local') : null,
+          confirmation: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null,
+          observed_at: repo.revision ? (repo.ledgerObservedAt ?? null) : null,
         },
         null,
         2,
@@ -145,7 +155,9 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
 
   const scope = `${id ? `change ${id}` : `${repo.changes.length} change(s)`}${
-    repo.revision ? ` @ ${repo.revision} (freshness: ${repo.ledgerFreshness ?? 'local'})` : ''
+    repo.revision
+      ? ` @ ${repo.revision} (freshness: ${repo.ledgerFreshness ?? 'local'}) (confirmation: ${repo.ledgerConfirmation ?? 'local'}) (observed at: ${repo.ledgerObservedAt ?? 'unknown'})`
+      : ''
   }`;
   if (!errors.length && !warnings.length) {
     output.log(`✓ ${scope} valid`);

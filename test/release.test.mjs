@@ -217,7 +217,7 @@ test('CR9: check rejects repeated baselines and non-done released changes', () =
   assert.ok(messages.some((message) => /multiple baselines/.test(message)));
 });
 
-test('193101 correction CR2: state release plan exposes revision and freshness', () => {
+test('193102 CR7: state release plan exposes the complete ledger receipt', () => {
   const { root, baseline } = createStateRepo({
     changes: [changeText({ type: 'bug', status: 'done' })],
     releases: {
@@ -227,6 +227,8 @@ test('193101 correction CR2: state release plan exposes revision and freshness',
   const plan = releasePlan(root);
   assert.equal(plan.ledger_revision, baseline);
   assert.equal(plan.ledger_freshness, 'local');
+  assert.equal(plan.ledger_confirmation, 'local');
+  assert.equal(plan.ledger_observed_at, null);
   const cli = path.join(projectRoot, 'bin', 'changeledger.mjs');
   const output = JSON.parse(
     execFileSync(process.execPath, [cli, 'release', 'plan', '--json'], {
@@ -236,4 +238,12 @@ test('193101 correction CR2: state release plan exposes revision and freshness',
   );
   assert.equal(output.ledger_revision, baseline);
   assert.equal(output.ledger_freshness, 'local');
+  assert.equal(output.ledger_confirmation, 'local');
+  assert.equal(output.ledger_observed_at, null);
+  const text = execFileSync(process.execPath, [cli, 'release', 'plan'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  assert.match(text, /confirmation: local/);
+  assert.match(text, /observed at: unknown/);
 });

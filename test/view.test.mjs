@@ -187,6 +187,7 @@ test('193102 CR1/CR7: viewer state sync invokes the replica protocol explicitly'
   assert.equal(body.ledger_revision, created.baseline);
   assert.equal(body.ledger_freshness, 'fresh');
   assert.equal(body.ledger_confirmation, 'confirmed');
+  assert.equal(typeof body.ledger_observed_at, 'string');
 });
 
 test('CR3: a write to an unknown project is a 404, not a fallback', async () => {
@@ -582,8 +583,20 @@ test('searchProjects groups matches and drops projects with none', () => {
   assert.equal(groups[0].ledger_revision, 'state-revision');
   assert.equal(groups[0].ledger_freshness, 'local');
   assert.deepEqual(result.ledgers, [
-    { project: 'a', ledger_revision: 'state-revision', ledger_freshness: 'local' },
-    { project: 'b', ledger_revision: 'state-revision', ledger_freshness: 'local' },
+    {
+      project: 'a',
+      ledger_revision: 'state-revision',
+      ledger_freshness: 'local',
+      ledger_confirmation: 'local',
+      ledger_observed_at: null,
+    },
+    {
+      project: 'b',
+      ledger_revision: 'state-revision',
+      ledger_freshness: 'local',
+      ledger_confirmation: 'local',
+      ledger_observed_at: null,
+    },
   ]);
 });
 
@@ -604,7 +617,13 @@ test('193101 correction CR2: viewer no-match search reports every inspected stat
   }));
   assert.deepEqual(result.groups, []);
   assert.deepEqual(result.ledgers, [
-    { project: 'a', ledger_revision: 'state-revision', ledger_freshness: 'local' },
+    {
+      project: 'a',
+      ledger_revision: 'state-revision',
+      ledger_freshness: 'local',
+      ledger_confirmation: 'local',
+      ledger_observed_at: null,
+    },
   ]);
 });
 
@@ -624,6 +643,8 @@ test('193101 correction CR2: global viewer discovery reads canonical state proje
   assert.equal(resolved.projects[0].name, 'Canonical State');
   assert.equal(resolved.projects[0].ledger_revision, baseline);
   assert.equal(resolved.projects[0].ledger_freshness, 'local');
+  assert.equal(resolved.projects[0].ledger_confirmation, 'local');
+  assert.equal(resolved.projects[0].ledger_observed_at, null);
 });
 
 test('CR1: changeStatus moves the lifecycle and logs it', () => {

@@ -74,9 +74,9 @@ const isAlive = (projectPath) => {
   }
 };
 
-function projectConfigSource(projectPath) {
+function projectConfigSource(projectPath, { mutation = false } = {}) {
   const store = loadLedgerStore(projectPath);
-  const snapshot = store.load();
+  const snapshot = mutation && store.mode === 'state' ? store.prepareMutation() : store.load();
   return {
     store,
     snapshot,
@@ -232,12 +232,13 @@ export function changeStatus(
   let current;
   let observedRevision;
   let ledgerStore;
+  let mutationSnapshot;
   try {
     ledgerStore = loadLedgerStore(proj.path);
     if (ledgerStore.mode === 'state') {
-      const snapshot = ledgerStore.load();
-      observedRevision = assertLedgerRevision(snapshot, ledger_revision);
-      const change = snapshot.changes.find(
+      mutationSnapshot = ledgerStore.prepareMutation();
+      observedRevision = assertLedgerRevision(mutationSnapshot, ledger_revision);
+      const change = mutationSnapshot.changes.find(
         (candidate) => String(candidate.frontmatter.id) === String(id),
       );
       if (!change) {
@@ -260,23 +261,31 @@ export function changeStatus(
   try {
     beforeMutation?.();
     let mutationFile;
+    const mutationTarget = mutationSnapshot ? { mutationStore: ledgerStore, mutationSnapshot } : {};
     if (current === 'draft' && status === 'approved') {
       mutationFile = applyStatusCmd(id, status, proj.path, {
         actor: 'human',
         expectedRevision: observedRevision,
+        ...mutationTarget,
       });
     } else if (current === 'in-validation' && status === 'done') {
-      mutationFile = applyValidation(id, 'pass', { expectedRevision: observedRevision }, proj.path);
+      mutationFile = applyValidation(
+        id,
+        'pass',
+        { expectedRevision: observedRevision, ...mutationTarget },
+        proj.path,
+      );
     } else if (current === 'in-validation' && status === 'in-progress') {
       mutationFile = applyValidation(
         id,
         'fail',
-        { reason, expectedRevision: observedRevision },
+        { reason, expectedRevision: observedRevision, ...mutationTarget },
         proj.path,
       );
     } else if (current === 'done' && status === 'in-progress') {
       mutationFile = applyReopen(id, reason, proj.path, {
         expectedRevision: observedRevision,
+        ...mutationTarget,
       });
     } else {
       return {
@@ -289,16 +298,16 @@ export function changeStatus(
     }
     const ledgerRevision = String(mutationFile ?? '').match(/^git:([^:]+):/)?.[1] ?? null;
     const replica = ledgerStore?.replica?.status();
-    const receipt = {
-      ledger_revision: ledgerRevision,
-      ledger_freshness: ledgerRevision ? (replica?.condition ?? 'local') : null,
-      ...(replica
-        ? {
-            ledger_confirmation: replica.pending ? 'pending publication' : 'confirmed',
-            ...(replica.observedAt ? { ledger_observed_at: replica.observedAt } : {}),
-          }
-        : {}),
-    };
+    const receipt = ledgerReceipt({
+      revision: ledgerRevision,
+      ledgerFreshness: ledgerRevision ? (replica?.condition ?? 'local') : null,
+      ledgerConfirmation: replica
+        ? replica.pending
+          ? 'pending publication'
+          : 'confirmed'
+        : 'local',
+      ledgerObservedAt: replica?.observedAt ?? null,
+    });
     return {
       code: 200,
       body: {
@@ -371,7 +380,7 @@ export function saveProjectConfig(
 
   let source;
   try {
-    source = projectConfigSource(found.project.path);
+    source = projectConfigSource(found.project.path, { mutation: true });
   } catch {
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
@@ -548,7 +557,7 @@ export function patchProjectConfig(
 
   let source;
   try {
-    source = projectConfigSource(found.project.path);
+    source = projectConfigSource(found.project.path, { mutation: true });
     assertLedgerRevision(source.snapshot, payload.ledger_revision);
     assertSupportedSchema(source.snapshot.config);
   } catch (error) {
@@ -682,7 +691,7 @@ export function applyConfigMigration(
   }
   let source;
   try {
-    source = projectConfigSource(found.project.path);
+    source = projectConfigSource(found.project.path, { mutation: true });
     assertLedgerRevision(source.snapshot, payload.ledger_revision);
     buildMigration(source.content);
   } catch (error) {

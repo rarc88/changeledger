@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { loadLedgerStore } from '../ledger-store.mjs';
+import { ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
   bumpVersion,
@@ -21,13 +21,7 @@ export function releasePlan(cwd = process.cwd()) {
   const repo = loadRepo(cwd);
   return {
     ...planFor(repo),
-    ...(repo.revision
-      ? {
-          ledger_revision: repo.revision,
-          ledger_freshness: repo.ledgerFreshness ?? 'local',
-          ledger_confirmation: repo.ledgerConfirmation ?? 'local',
-        }
-      : {}),
+    ...(repo.revision ? ledgerReceipt(repo) : {}),
   };
 }
 
@@ -39,9 +33,9 @@ export function initReleaseHistory(
 ) {
   parseVersion(version);
   assertTimestamp(now);
-  const initial = loadRepo(cwd);
-  assertSupportedSchema(initial.config);
   const store = loadLedgerStore(cwd);
+  const initial = store.mode === 'state' ? store.prepareMutation({ offline }) : loadRepo(cwd);
+  assertSupportedSchema(initial.config);
   if (store.mode === 'state') {
     if (initial.releases.length) throw new Error('Release history is already initialized.');
     let manifest;
@@ -99,11 +93,11 @@ export function recordRelease(
 ) {
   parseVersion(version);
   assertTimestamp(now);
-  const initial = loadRepo(cwd);
-  assertSupportedSchema(initial.config);
   const store = loadLedgerStore(cwd);
+  const initial = store.mode === 'state' ? store.prepareMutation({ offline }) : loadRepo(cwd);
+  assertSupportedSchema(initial.config);
   if (store.mode === 'state') {
-    const plan = releasePlan(cwd);
+    const plan = { ...planFor(initial), ...ledgerReceipt(initial) };
     if (!plan.releasable) throw new Error('No releasable changes (highest impact is none).');
     if (version !== plan.nextVersion) {
       throw new Error(`Version "${version}" does not match the calculated ${plan.nextVersion}.`);

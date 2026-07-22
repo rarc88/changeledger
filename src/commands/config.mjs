@@ -1,5 +1,10 @@
 import { applyMigration, buildMigration, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
-import { loadLedgerStore } from '../ledger-store.mjs';
+import { formatLedgerReceipt, ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
+
+function withLedgerReceipt(text, snapshot) {
+  const receipt = formatLedgerReceipt(ledgerReceipt(snapshot));
+  return receipt ? `${text}\n${receipt}` : text;
+}
 
 function summary(result, dryRun) {
   const header = dryRun
@@ -11,7 +16,8 @@ function summary(result, dryRun) {
 
 export function migrateConfig(cwd = process.cwd(), { dryRun = false, offline = false } = {}) {
   const store = loadLedgerStore(cwd);
-  const snapshot = store.load();
+  const snapshot =
+    store.mode === 'state' && !dryRun ? store.prepareMutation({ offline }) : store.load();
   if (store.mode === 'worktree') return applyMigration(snapshot.configFile, { dryRun });
 
   const migration = buildMigration(snapshot.configText);
@@ -26,11 +32,13 @@ export function migrateConfig(cwd = process.cwd(), { dryRun = false, offline = f
           },
           () => {},
         );
-    return `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.\nLedger revision: ${confirmed.revision} (freshness: ${confirmed.ledgerFreshness ?? 'local'})`;
+    return withLedgerReceipt(
+      `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}. No changes needed.`,
+      confirmed,
+    );
   }
   const text = summary(migration, dryRun);
-  if (dryRun)
-    return `${text}\nLedger revision: ${snapshot.revision} (freshness: ${snapshot.ledgerFreshness ?? 'local'})`;
+  if (dryRun) return withLedgerReceipt(text, snapshot);
 
   const next = store.mutate(
     {
@@ -44,5 +52,5 @@ export function migrateConfig(cwd = process.cwd(), { dryRun = false, offline = f
       write(snapshot.configStatePath, current.yaml);
     },
   );
-  return `${text}\nLedger revision: ${next.revision} (freshness: ${next.ledgerFreshness ?? 'local'})`;
+  return withLedgerReceipt(text, next);
 }

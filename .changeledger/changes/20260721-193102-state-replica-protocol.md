@@ -2,7 +2,7 @@
 id: "20260721-193102"
 title: Sincronizar el estado global con un protocolo de réplica simple
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:02Z
 depends_on: ["20260721-193101"]
 owner: Roberto Ruiz
@@ -195,7 +195,8 @@ de frescura inventada.
   - **Resolved:** `2026-07-22T10:57:18Z`
 - [x] Integrar frescura en lecturas, `context` y viewer mediante `src/repo.mjs` y `src/viewer/server/router.mjs`; verify: `node --test test/repo.test.mjs test/context.test.mjs test/view.test.mjs` (CR1, CR3, CR7)
   - **Resolved:** `2026-07-22T10:57:18Z`
-- [ ] Documentar el protocolo y ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Documentar el protocolo y ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-22T11:03:30Z`
 
 ## Log
 
@@ -207,3 +208,17 @@ de frescura inventada.
 - **2026-07-22T10:20:29Z** `[note]` Modelo puro de réplica completado con tabla de decisiones para inicialización, fast-forward, publicación, confirmación ambigua, replay, conflicto, rewind remoto e invariantes locales; paths exactos independientes de delimitadores.
 - **2026-07-22T10:33:37Z** `[note]` Autoridad v2 lee exclusivamente pending/confirmed; mutaciones crean un único pending transaccional. Sync cubre avance, CAS ordinario, replay exacto NUL-framed y conflicto sin tocar confirmed; 43 pruebas afectadas pasan.
 - **2026-07-22T10:57:18Z** `[note]` Protocolo integrado de extremo a extremo: mutaciones online preflight+publicación, --offline explícito, status/sync/abort, viewer sync, receipts de frescura y confirmación. Auditoría adversarial añadió timeout, validación de pending, paths Git literales y diagnósticos completos; 266 pruebas afectadas pasan.
+- **2026-07-22T11:03:30Z** `[note]` implementation Full verification passed: Biome clean, 845/845 tests, 211 changes valid; replica no-op CAS now verifies confirmed and absence of pending atomically.
+- **2026-07-22T11:03:30Z** `[status]` in-progress → in-review
+- **2026-07-22T11:18:04Z** `[review]` in-review → in-progress (retry): Corregir seguridad integral del protocolo: fijar push al OID planificado, CAS de pending ausente, ancestry fail-closed y baseline en adopción inicial; cablear status --offline y provenance CLI completa con regresiones de carrera.
+- **2026-07-22T11:27:16Z** `[note]` correction Review retry corrected the full class: pushes bind exact OIDs, every assumed ref participates in CAS, baseline and ancestry fail closed, status owns --offline, and all CLI reads expose freshness/confirmation/observation; 851/851 tests pass.
+- **2026-07-22T11:27:16Z** `[status]` in-progress → in-review
+- **2026-07-22T11:39:54Z** `[review]` in-review → in-progress (retry): Separar validación de commit/ref y árbol de replay para restaurar CR4 en producción; centralizar receipt completo en release, fix, config, graduate, registry y viewer con pruebas de integración SHA-1/SHA-256.
+- **2026-07-22T11:50:59Z** `[status]` in-progress → in-review
+- **2026-07-22T11:59:31Z** `[review]` in-review → in-progress (retry): Hacer alcanzable el preflight online antes de la primera lectura mutadora en clones v2 sin confirmed; centralizar la preparación de mutación y cubrir CLI/viewer sin fallback ni doble autoridad.
+- **2026-07-22T12:07:03Z** `[note]` correction Preflight mutador centralizado antes de la primera lectura: CLI y viewer inicializan clones v2 sin confirmed, la sesión preparada conserva expectedRevision/CAS y evita doble sync en la misma frontera; replay y receipts permanecen cubiertos. pnpm verify pasó completo.
+- **2026-07-22T12:07:03Z** `[status]` in-progress → in-review
+- **2026-07-22T12:08:40Z** `[review]` in-review → in-progress (retry): El gate exacto detectó que mutate(null) desreferencia la sesión preparada antes de emitir el error contractual expectedRevision; preservar validación de argumentos sin debilitar el preflight.
+- **2026-07-22T12:09:26Z** `[note]` correction La sesión preparada ahora discrimina explícitamente ausencia de token antes de comparar revision/offline; mutate(null) conserva su error contractual y 39 pruebas store+réplica pasan.
+- **2026-07-22T12:09:26Z** `[status]` in-progress → in-review
+- **2026-07-22T12:18:02Z** `[review]` in-review → in-validation (delegated subagent, clean context)

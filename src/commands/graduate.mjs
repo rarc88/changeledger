@@ -9,7 +9,7 @@ import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { loadLedgerStore } from '../ledger-store.mjs';
+import { ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -68,11 +68,7 @@ export function scaffoldSpec(id, slug, cwd = process.cwd(), { to, onSnapshot } =
     if (!to) throw new Error('state graduation --new requires --to <file>');
     slugify(slug);
     const snapshot = store.load();
-    onSnapshot?.({
-      ledger_revision: snapshot.revision,
-      ledger_freshness: snapshot.ledgerFreshness ?? 'local',
-      ledger_confirmation: snapshot.ledgerConfirmation ?? 'local',
-    });
+    onSnapshot?.(ledgerReceipt(snapshot));
     assertSupportedSchema(snapshot.config);
     const candidate = snapshot.changes.find(
       (change) => String(change.frontmatter.id) === String(id),
@@ -120,7 +116,7 @@ export function graduate(
     if (importedSpec.includes(SPEC_SCAFFOLD_MARKER)) {
       throw new Error('prepared spec still contains the scaffold marker — refine it before --into');
     }
-    const snapshot = store.load();
+    const snapshot = store.prepareMutation({ offline });
     assertSupportedSchema(snapshot.config);
     const change = snapshot.changes.find(
       (candidate) => String(candidate.frontmatter.id) === String(id),
@@ -221,7 +217,7 @@ export function graduate(
 export function skipGraduation(id, reason, cwd = process.cwd(), { offline = false } = {}) {
   const store = loadLedgerStore(cwd);
   if (store.mode === 'state') {
-    const snapshot = store.load();
+    const snapshot = store.prepareMutation({ offline });
     const change = snapshot.changes.find(
       (candidate) => String(candidate.frontmatter.id) === String(id),
     );

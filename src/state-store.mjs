@@ -132,8 +132,9 @@ function isAncestor(repoRoot, ancestor, descendant) {
   try {
     git(repoRoot, ['merge-base', '--is-ancestor', ancestor, descendant]);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error.cause?.status === 1) return false;
+    throw error;
   }
 }
 
@@ -212,7 +213,11 @@ export function stateRemote(repoRoot) {
 }
 
 function recordObserved(repoRoot, before, observed, at) {
-  transaction(repoRoot, [{ ref: OBSERVED_REF, before, after: observed }]);
+  transaction(repoRoot, [
+    { ref: OBSERVED_REF, before: before.observed, after: observed },
+    { ref: CONFIRMED_REF, before: before.confirmed, after: before.confirmed },
+    { ref: PENDING_REF, before: before.pending, after: before.pending },
+  ]);
   writeObservation(repoRoot, observed, at);
 }
 
@@ -221,6 +226,7 @@ export function syncStateReplica(
   {
     now = () => new Date().toISOString(),
     validateRevision = () => {},
+    validateCandidate = validateRevision,
     pushState = (root, remote, refspec) =>
       git(root, ['push', remote, refspec], { timeout: NETWORK_TIMEOUT_MS }),
   } = {},
@@ -238,7 +244,7 @@ export function syncStateReplica(
     try {
       validateRevision(before.pending);
     } catch (error) {
-      recordObserved(repoRoot, before.observed, fetched, at);
+      recordObserved(repoRoot, before, fetched, at);
       throw new Error(`invalid pending state ${before.pending}: ${error.message}`, {
         cause: error,
       });
@@ -255,6 +261,7 @@ export function syncStateReplica(
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
       { ref: CONFIRMED_REF, before: before.confirmed, after: fetched },
+      { ref: PENDING_REF, before: null, after: null },
     ]);
     writeObservation(repoRoot, fetched, at);
     return { ...plan, effective: fetched, confirmed: true, pending: false, remote };
@@ -262,9 +269,9 @@ export function syncStateReplica(
 
   if (plan.action === 'publish-pending') {
     try {
-      pushState(repoRoot, remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`);
+      pushState(repoRoot, remote, `${before.pending}:${PUBLIC_STATE_REF}`);
     } catch (error) {
-      recordObserved(repoRoot, before.observed, fetched, at);
+      recordObserved(repoRoot, before, fetched, at);
       return {
         ...plan,
         effective: before.pending,
@@ -302,9 +309,9 @@ export function syncStateReplica(
   if (plan.action === 'replay-pending') {
     let replay;
     try {
-      replay = replayPending(repoRoot, pending, fetched, validateRevision);
+      replay = replayPending(repoRoot, pending, fetched, validateCandidate);
     } catch (error) {
-      recordObserved(repoRoot, before.observed, fetched, at);
+      recordObserved(repoRoot, before, fetched, at);
       throw new Error(
         `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; cause=${error.message}`,
         { cause: error },
@@ -317,7 +324,7 @@ export function syncStateReplica(
     ]);
     writeObservation(repoRoot, fetched, at);
     try {
-      pushState(repoRoot, remote, `${PENDING_REF}:${PUBLIC_STATE_REF}`);
+      pushState(repoRoot, remote, `${replay.head}:${PUBLIC_STATE_REF}`);
     } catch (error) {
       return {
         ...plan,
@@ -345,7 +352,7 @@ export function syncStateReplica(
     };
   }
 
-  recordObserved(repoRoot, before.observed, fetched, at);
+  recordObserved(repoRoot, before, fetched, at);
   if (plan.action === 'reject-remote-rewrite') {
     throw new Error(`remote state ${fetched} does not descend from confirmed ${before.confirmed}`);
   }
@@ -385,7 +392,12 @@ export function stateReplicaStatus(repoRoot) {
 
 export function abortStatePending(
   repoRoot,
-  { offline = false, now = () => new Date().toISOString(), validateRevision = () => {} } = {},
+  {
+    offline = false,
+    now = () => new Date().toISOString(),
+    validateRevision = () => {},
+    isAncestor: resolveAncestry = isAncestor,
+  } = {},
 ) {
   const before = readStateReplica(repoRoot);
   if (!before.pending) throw new Error('there is no pending state to abort');
@@ -414,7 +426,7 @@ export function abortStatePending(
     );
   }
 
-  const published = isAncestor(repoRoot, before.pending, fetched);
+  const published = resolveAncestry(repoRoot, before.pending, fetched);
   transaction(repoRoot, [
     { ref: CONFIRMED_REF, before: before.confirmed, after: published ? fetched : before.confirmed },
     { ref: OBSERVED_REF, before: before.observed, after: fetched },

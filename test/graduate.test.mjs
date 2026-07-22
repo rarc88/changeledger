@@ -210,7 +210,12 @@ test('193101 correction CR2/CR4: state scaffold CLI reports the S1 it exported',
     [cli, 'graduate', '20260721-000000', 'architecture', '--new', '--to', target],
     { cwd: root, encoding: 'utf8' },
   );
-  assert.match(output, new RegExp(`Ledger revision: ${baseline} \\(freshness: local\\)`));
+  assert.match(
+    output,
+    new RegExp(
+      `Ledger revision: ${baseline} \\(freshness: local\\) \\(confirmation: local\\) \\(observed at: unknown\\)`,
+    ),
+  );
 });
 
 test('195318 CR3: every graduation write rejects a future schema before writing', () => {
