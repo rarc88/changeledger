@@ -376,6 +376,61 @@ test('202100: an offline replica mutation batch-materializes the snapshot at mos
   );
 });
 
+test('202100: a mutation adding a spec keeps sort order equivalent to a fresh load', () => {
+  const { root } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    mutateState(state) {
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+      fs.writeFileSync(
+        path.join(state, 'specs', 'demo.md'),
+        '---\ntitle: Demo\nupdated: 2026-07-21T00:00:00Z\ntags: [feature]\ngraduated_from: []\n---\n\n# Demo\n',
+      );
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+    },
+  });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+  const after = store.mutate(
+    { message: 'test: add spec', expectedRevision: before.revision, offline: true },
+    ({ write }) => {
+      write(
+        '.changeledger-state/specs/aaa-new.md',
+        '---\ntitle: New\nupdated: 2026-07-21T00:00:00Z\ntags: [feature]\ngraduated_from: []\n---\n\n# New\n',
+      );
+    },
+  );
+  const fresh = loadLedgerStore(root).load();
+  assert.deepEqual(
+    after.specs.map((s) => s.name),
+    fresh.specs.map((s) => s.name),
+  );
+  assert.deepEqual(
+    after.specs.map((s) => s.name),
+    ['aaa-new.md', 'demo.md'],
+  );
+});
+
+test('202100: a mutation cannot drift config project_id away from the authority', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+  assert.throws(
+    () =>
+      store.mutate(
+        { message: 'test: divergent project_id', expectedRevision: before.revision, offline: true },
+        ({ snapshot, write }) => {
+          write(
+            snapshot.configStatePath,
+            snapshot.configText.replace('project_id: project-1', 'project_id: different'),
+          );
+        },
+      ),
+    /project_id/,
+  );
+});
+
 test('193102 CR3: a replica no-op rejects a pending state created during its mutation', () => {
   const { root, baseline } = fixture({ authorityFormat: 2, seedConfirmed: true });
   git(root, ['remote', 'add', 'origin', root]);

@@ -510,12 +510,26 @@ function deriveCandidateSnapshot(snapshot, revision, writes, removals) {
   candidate.changes = [...candidate.changes].sort((a, b) =>
     String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)),
   );
+  // loadStateSnapshotAt derives specs/releases order from the tree's sorted
+  // path listing; match it so a returned candidate is order-equivalent to
+  // what a fresh git-backed load of the same content would produce.
+  candidate.specs = [...candidate.specs].sort((a, b) => a.statePath.localeCompare(b.statePath));
+  candidate.releases = [...candidate.releases].sort((a, b) =>
+    a.statePath.localeCompare(b.statePath),
+  );
   if (writes.has(CONFIG)) {
     candidate.configText = writes.get(CONFIG);
     try {
       candidate.config = parseYaml(candidate.configText);
     } catch (error) {
       throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
+    }
+    // project_id is authority-anchored (loadStateSnapshotAt enforces it
+    // against `authority.project_id` on every git-backed load); the source
+    // snapshot already passed that check, so require the candidate to keep
+    // it stable rather than re-deriving the authority reference here.
+    if (candidate.config.project_id !== snapshot.config.project_id) {
+      throw new Error('Ledger state validation failed: state project_id does not match authority');
     }
   }
   candidate.configFile = `git:${revision}:${CONFIG}`;
