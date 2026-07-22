@@ -2,7 +2,7 @@
 id: "20260722-202057"
 title: Bloquear el downgrade local de authority v2
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T20:20:57Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -73,3 +73,4 @@ authority es push/hook, no local) pertenece a `20260722-203030`, no a este fix.
 - **2026-07-22T20:56:26Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T21:12:00Z** `[note]` `gitStateRevision` (`src/ledger-store.mjs`) detecta, en la rama de authority v1, la presencia de cualquiera de `refs/changeledger/{confirmed,observed,pending}` y falla cerrado antes de resolver `authority.state_ref`, en lectura y mutación (ambas pasan por la misma función). Un repo v1 genuino sin esas refs no cambia de comportamiento. Rojo confirmado antes del fix (CR1 fallaba, CR2 ya pasaba por no tocar código); verde después: 32/32 en `ledger-store.test.mjs`, 111/111 en la suite ampliada (`state-command`/`state-store`/`ledger-mutations`). Gate completo: 922/922 tests, lint y 234 changes válidos.
 - **2026-07-22T21:03:27Z** `[status]` in-progress → in-review
+- **2026-07-22T21:08:18Z** `[review]` in-review → in-validation (delegated subagent, clean context)
