@@ -68,11 +68,11 @@ Dirección del fix, dos frentes coherentes:
 
 ### CR3 — La colisión de path exacta sigue fallando cerrada
 - **Given** el head de integración contiene
-  `.changeledger/changes/20260701-000000-example.md` y `S1` confirma un change
+  `.changeledger/changes/20260722-000000-demo.md` y `S1` confirma un change
   con ese mismo path destino
 - **When** se ejecuta `state export --recovery-branch`
 - **Then** falla con `legacy recovery target is occupied:
-  .changeledger/changes/20260701-000000-example.md`
+  .changeledger/changes/20260722-000000-demo.md`
 - **And** no crea rama ni escribe ningún objeto
 
 ## Plan
@@ -92,3 +92,6 @@ Dirección del fix, dos frentes coherentes:
 - **2026-07-22T16:59:41Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T17:30:00Z** `[note]` `assertRecoveryTargetsEmpty` ahora recibe el set de targets exactos que la recovery va a escribir y solo rechaza colisiones reales; un `.gitkeep` u otro archivo no inventariado sobrevive intacto. `inventorySource` recolecta esas entradas y `previewStateMigration` las expone en `plan.uninventoried` y en el receipt CLI. Reproducido el bug exacto en rojo (mismo mensaje "legacy recovery target is occupied") antes del fix. Gate completo: 907/907 tests, lint y 218 changes válidos.
 - **2026-07-22T17:08:02Z** `[status]` in-progress → in-review
+- **2026-07-22T17:20:39Z** `[review]` in-review → in-progress (retry): Reviewer observed pnpm verify red due to a race with unrelated concurrent 163409 edits sitting unformatted in the same working tree, not a defect in this commit (verified: ec1d9b50's test file alone is biome-clean). Also fixing a cosmetic CR3 spec/test path drift the reviewer flagged as LOW.
+- **2026-07-22T17:50:00Z** `[note]` Aislado `test/state-migration.test.mjs` del commit ec1d9b50 vía stash y corrido `biome check` solo: limpio, confirmando que el gate rojo era ruido del trabajo concurrente de 163409, no un defecto de este commit. Corregido el path de ejemplo del CR3 para que coincida con el id real del fixture. Gate completo re-ejecutado con el árbol de trabajo despejado: 911/911 tests, lint y 218 changes válidos.
+- **2026-07-22T17:21:11Z** `[status]` in-progress → in-review
