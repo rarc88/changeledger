@@ -97,14 +97,29 @@ hallazgo alto: un ledger soportado carece de migración segura.
   byte-a-byte iguales
 - **And** fixtures inválidas que nunca fueron aceptadas siguen fallando cerradas
 
+### CR6 — El preview valida el snapshot candidato cerrado
+- **Given** un plan cuyas resoluciones requeridas están seleccionadas y cuyos
+  documentos son individualmente válidos o normalizables
+- **When** se ejecuta `state migrate --preview`
+- **Then** construye en memoria el mismo snapshot candidato que usaría
+  `--create` y aplica las mismas reglas globales de `checkRepo`, incluidos ids
+  duplicados, dependencias ausentes o cíclicas, graduaciones, releases y config
+- **And** distingue los errores locales de documento de los errores globales y
+  nombra todas las identidades y paths involucrados
+- **And** si sources, plan y resoluciones no cambian, un preview verde no puede
+  fallar en create por ninguna regla de validación local o global ya evaluada
+- **And** no escribe objetos, refs, worktree, config ni estado público
+
 ## Plan
 
 - [ ] Versionar en `test/fixtures/` casos mínimos de tareas/Log legacy y una fixture integral para el comportamiento de `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` en SHA-1/SHA-256 (CR1, CR4, CR5)
 - [ ] Extender `src/state-migration.mjs` con diagnósticos y decisiones de compatibilidad por documento, hashes y reglas versionadas; verify: `node --test test/state-migration.test.mjs` cubriendo determinismo, no-escritura e integridad/TOCTOU (CR1, CR2)
 - [ ] Construir en `src/state-migration.mjs` el snapshot normalizado sin mutar sources/worktree y conservar procedencia en el manifest; verify: `node --test test/state-migration.test.mjs` cubriendo create/activate/recovery y comparación byte-a-byte (CR2, CR3, CR5)
+- [ ] Extender `src/state-migration.mjs` con tests fallidos de incompatibilidades globales entre documentos individualmente válidos y ejecutar sobre el preview el mismo candidato cerrado y `checkRepo` que usa create; verify: `node --test test/state-migration.test.mjs` cubriendo ids duplicados, dependencias/ciclos, graduación, releases y config sin escrituras (CR6)
 - [ ] Mejorar en `src/state-migration.mjs` el error de estructuras no normalizables con identidad y path; verify: `node --test test/state-migration.test.mjs` con resolución humana fail-closed (CR4)
 - [ ] Ejecutar la matriz focalizada y `pnpm verify` (support)
 
 ## Log
 
 - **2026-07-22T18:50:43Z** `[note]` Draft creado por el hallazgo alto LEGACY-02 de la auditoría 20260721-193106; no se implementa dentro del audit.
+- **2026-07-22T20:41:30Z** `[note]` Readiness reforzada: preview debe validar el snapshot candidato cerrado con las mismas reglas locales y globales de create, no solo clasificar documentos individualmente.
