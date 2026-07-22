@@ -2,9 +2,10 @@
 id: "20260721-193103"
 title: Migrar al estado global mediante un cutover recuperable
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-21T19:31:03Z
 depends_on: ["20260721-193101", "20260721-193102"]
+owner: Roberto Ruiz
 related_to: ["20260628-113219", "20260711-210115", "20260721-193104", "20260721-193106"]
 release_impact: major
 ---
@@ -216,7 +217,8 @@ la branch; nunca reabre copias anteriores al head confirmado.
 
 ## Plan
 
-- [ ] Añadir fixtures de sources remotas/locales y plan determinista en `test/state-migration.test.mjs`; implementar parser/inventario lógico puro en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR2, CR4)
+- [x] Añadir fixtures de sources remotas/locales y plan determinista en `test/state-migration.test.mjs`; implementar parser/inventario lógico puro en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR2, CR4)
+  - **Resolved:** `2026-07-22T13:04:33Z`
 - [ ] Añadir repos Git reales SHA-1/SHA-256 con paths hostiles antes de implementar lectura NUL-framed de trees en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1, CR3)
 - [ ] Implementar revalidación TOCTOU, construcción del snapshot y publicación CAS/idempotente en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs test/ledger-store.test.mjs` (CR4, CR5)
 - [ ] Añadir tests de Git real para commit/ref de activación y revert antes de implementar prepare en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR6, CR8)
@@ -232,3 +234,5 @@ la branch; nunca reabre copias anteriores al head confirmado.
 - **2026-07-21T19:31:03Z** `[note]` Draft v2 reemplaza el cutover multiarchivo por un baseline inerte y un único commit normal de activación.
 - **2026-07-22T12:57:04Z** `[note]` Readiness end-to-end cerró identidad lógica, fuentes explícitas, TOCTOU, CAS inicial, paths/OIDs portables, provenance durable, comandos pre-authority y rollback antes/después de la primera mutación.
 - **2026-07-22T12:57:36Z** `[status]` draft → approved (human via conversation)
+- **2026-07-22T12:58:42Z** `[status]` approved → in-progress
+- **2026-07-22T12:58:42Z** `[owner]` set: Roberto Ruiz (auto)
