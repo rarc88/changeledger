@@ -651,6 +651,71 @@ test('193103 CR9/CR10: doctor inspects activation and recovery exports confirmed
   assert.throws(() => git(root, ['show', `${recovery.commit}:.changeledger/authority.yml`]));
 });
 
+test('163406 CR1: preview lists non-inventoried legacy files without failing', () => {
+  const { root } = legacyRepo();
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', '.gitkeep'), '');
+  git(root, ['add', '.changeledger/changes/.gitkeep']);
+  git(root, ['commit', '-qm', 'test: gitkeep']);
+  const blob = git(root, ['rev-parse', 'HEAD:.changeledger/changes/.gitkeep']);
+
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+
+  assert.deepEqual(
+    preview.plan.uninventoried.map((entry) => entry.path),
+    ['.changeledger/changes/.gitkeep'],
+  );
+  assert.equal(preview.plan.uninventoried[0].blob, blob);
+  assert.equal(preview.uninventoried[0].path, '.changeledger/changes/.gitkeep');
+});
+
+test('163406 CR2: recovery succeeds and preserves a file left out of the inventory', () => {
+  const { root } = legacyRepo();
+  fs.writeFileSync(path.join(root, '.changeledger', 'changes', '.gitkeep'), '');
+  git(root, ['add', '.changeledger/changes/.gitkeep']);
+  git(root, ['commit', '-qm', 'test: gitkeep']);
+
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+
+  assert.equal(git(root, ['show', `${activation.commit}:.changeledger/changes/.gitkeep`]), '');
+
+  git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+
+  const recovery = exportStateRecovery(root);
+  assert.equal(git(root, ['show', `${recovery.commit}:.changeledger/changes/.gitkeep`]), '');
+  assert.equal(git(root, ['show', `${recovery.commit}:.changeledger/config.yml`]), config().trim());
+});
+
+test('163406 CR3: recovery still fails closed on a real path collision', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+
+  git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md'),
+    change('20260722-000000', 'Drifted'),
+  );
+  git(root, ['add', '.changeledger/changes']);
+  git(root, ['commit', '-qm', 'test: drifted legacy file']);
+
+  assert.throws(
+    () => exportStateRecovery(root),
+    /legacy recovery target is occupied: \.changeledger\/changes\/20260722-000000-demo\.md/,
+  );
+});
+
 test('193103 CR10: doctor rejects an activation tree with unrelated changes', () => {
   const { root } = legacyRepo();
   const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);

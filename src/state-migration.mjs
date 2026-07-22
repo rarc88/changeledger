@@ -249,6 +249,7 @@ function inventorySource(repoRoot, observed) {
     ['release', RELEASES_DIR, '.yml'],
   ];
   const candidates = [configCandidate];
+  const uninventoried = [];
   for (const [kind, dir, extension] of collections) {
     const entries = treeEntries(repoRoot, observed.commit, [dir]);
     for (const entry of entries) {
@@ -265,11 +266,19 @@ function inventorySource(repoRoot, observed) {
           { cause: error },
         );
       }
-      if (!entry.path.endsWith(extension)) continue;
+      if (!entry.path.endsWith(extension)) {
+        uninventoried.push({
+          source: observed.name,
+          commit: observed.commit,
+          path: entry.path,
+          blob: entry.blob,
+        });
+        continue;
+      }
       candidates.push(candidateFromEntry(repoRoot, observed, entry, kind));
     }
   }
-  return { source: observed, projectId: config.project_id, candidates };
+  return { source: observed, projectId: config.project_id, candidates, uninventoried };
 }
 
 function canonical(value) {
@@ -366,6 +375,9 @@ export function previewStateMigration(
     throw new Error('migration sources must share one non-empty project_id');
   }
   const documents = groupCandidates(inventories);
+  const uninventoried = inventories
+    .flatMap((item) => item.uninventoried)
+    .sort((a, b) => `${a.source}\0${a.path}`.localeCompare(`${b.source}\0${b.path}`));
   const sourceInventory = observed.map(({ name, kind, remote, ref, commit }) => ({
     name,
     kind,
@@ -386,6 +398,7 @@ export function previewStateMigration(
     inventory_digest: digest(inventory),
     sources: sourceInventory,
     documents,
+    uninventoried,
   };
   const text = stringifyYaml(plan);
   if (output) {
@@ -407,6 +420,7 @@ export function previewStateMigration(
     branch: null,
     ref: null,
     inventoryDigest: plan.inventory_digest,
+    uninventoried,
     network: activity.network,
     written: activity.written,
   };
@@ -1242,15 +1256,10 @@ function assertIntegrationAuthority(repoRoot, base, expected) {
   }
 }
 
-function assertRecoveryTargetsEmpty(repoRoot, base, config) {
-  const roots = [
-    LEGACY_CONFIG_PATH,
-    normalizedRepoPath(config.changes_dir, 'changes_dir'),
-    normalizedRepoPath(config.specs_dir ?? '.changeledger/specs', 'specs_dir'),
-    RELEASES_DIR,
-  ];
+function assertRecoveryTargetsEmpty(repoRoot, base, roots, targets) {
   for (const entry of treeEntries(repoRoot, base, roots)) {
     if (entry.path === LEGACY_AUTHORITY_PATH) continue;
+    if (!targets.has(entry.path)) continue;
     throw new Error(`legacy recovery target is occupied: ${entry.path}`);
   }
 }
@@ -1302,17 +1311,22 @@ export function exportStateRecovery(
   if (!integration) throw new Error('state recovery export requires git.integration_branch');
   const base = exactCommit(repoRoot, `refs/heads/${integration}`);
   assertIntegrationAuthority(repoRoot, base, authoritySnapshot.authority);
-  assertRecoveryTargetsEmpty(repoRoot, base, snapshot.config);
-  const writes = new Map([[LEGACY_CONFIG_PATH, snapshot.configText]]);
   const changesDir = normalizedRepoPath(snapshot.config.changes_dir, 'changes_dir');
   const specsDir = normalizedRepoPath(
     snapshot.config.specs_dir ?? '.changeledger/specs',
     'specs_dir',
   );
+  const writes = new Map([[LEGACY_CONFIG_PATH, snapshot.configText]]);
   for (const change of snapshot.changes) writes.set(`${changesDir}/${change.name}`, change.text);
   for (const spec of snapshot.specs) writes.set(`${specsDir}/${spec.name}`, spec.text);
   for (const release of snapshot.releases)
     writes.set(`${RELEASES_DIR}/${release.name}`, release.text);
+  assertRecoveryTargetsEmpty(
+    repoRoot,
+    base,
+    [LEGACY_CONFIG_PATH, changesDir, specsDir, RELEASES_DIR],
+    new Set(writes.keys()),
+  );
   const branchName = `changeledger/recover-${refs.confirmed.slice(0, 12)}`;
   const created = createBranchCommit({
     repoRoot,

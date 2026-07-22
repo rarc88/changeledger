@@ -81,6 +81,7 @@ function stateReceiptDetails(receipt) {
     branch: receipt.branch ?? null,
     ref: receipt.ref ?? null,
     inventoryDigest: receipt.inventoryDigest ?? null,
+    uninventoried: receipt.uninventoried ?? [],
     protectedRef: receipt.protectedRef ?? receipt.ref ?? null,
     oldOid: receipt.oldOid ?? null,
     newOid: receipt.newOid ?? null,
