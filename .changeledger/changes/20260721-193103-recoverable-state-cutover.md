@@ -2,7 +2,7 @@
 id: "20260721-193103"
 title: Migrar al estado global mediante un cutover recuperable
 type: feature
-status: in-validation
+status: done
 created: 2026-07-21T19:31:03Z
 depends_on: ["20260721-193101", "20260721-193102"]
 owner: Roberto Ruiz
@@ -259,3 +259,4 @@ la branch; nunca reabre copias anteriores al head confirmado.
 - **2026-07-22T14:40:32Z** `[note]` Required activate and doctor options now validate inside stateAction so JSON and human failures retain complete receipts
 - **2026-07-22T14:40:32Z** `[status]` in-progress → in-review
 - **2026-07-22T14:44:05Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T14:46:10Z** `[validation]` in-validation → done (human accepted via conversation)
