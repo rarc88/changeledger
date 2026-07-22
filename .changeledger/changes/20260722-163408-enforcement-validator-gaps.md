@@ -2,7 +2,7 @@
 id: "20260722-163408"
 title: Cerrar los huecos del validador remoto de la auditoría externa
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T16:34:08Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -110,3 +110,4 @@ Tres causas raíz independientes en el mismo validador:
 - **2026-07-22T18:20:00Z** `[note]` Durante la implementación de CR1 se detectó que saltar `assertProtectedRefs` por completo para batches sin refs protegidas rompía un test existente de `20260721-193104` ("correction CR1") que depende de detectar cuanto antes un integration ref mal configurado (nombre de rama distinto del `integration_branch` real). El humano decidió en conversación: mantener el skip de CR1 para autoridad no activa, pero añadir una verificación barata adicional (`assertConfiguredIntegrationRefCheap`) que lee solo `config.yml` cuando la autoridad sí está activa, preservando la detección de desconfiguración sin pagar la validación completa del snapshot.
 - **2026-07-22T18:35:00Z** `[note]` Implementadas las tres correcciones. CR1: `assertConfiguredIntegrationRefCheap` en `src/state-validation.mjs` — batches sin refs protegidas se aceptan sin validación completa; con autoridad activa hace una lectura barata de `config.yml` para seguir detectando drift de ref mal configurado (test existente de 193104 preservado sin cambios). CR2: `legacyRoots`/`protectedPath` case-fold a minúsculas. CR3: `validateStateRef` verifica `integration_branch` en cada commit nuevo del rango, no solo en los extremos. Rojo confirmado para los 4 tests nuevos antes del fix; verde después, sin regresión en la suite existente (20/20 en state-validation, 59/59 en capabilities/command/cli-bin). Gate completo: 917/917 tests, lint y 218 changes válidos.
 - **2026-07-22T17:46:38Z** `[status]` in-progress → in-review
+- **2026-07-22T17:55:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
