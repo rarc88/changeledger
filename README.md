@@ -133,6 +133,46 @@ mutation is rejected until that pending operation is synchronized or aborted.
 The viewer exposes the same explicit “Actualizar estado” action and never
 refreshes over the network merely to render a page.
 
+### Recoverable adoption
+
+Adoption is reviewable and does not switch authority while collecting data. Use
+full refs so no branch is discovered or preferred implicitly:
+
+```sh
+changeledger state migrate --preview \
+  --source origin:refs/heads/dev \
+  --source origin:refs/heads/feature/example \
+  --source local:refs/heads/private \
+  --output migration-plan.yml
+# Resolve every divergent logical identity in migration-plan.yml.
+changeledger state migrate --create --plan migration-plan.yml
+changeledger state activate --prepare --baseline <S0>
+changeledger state doctor --activation-ref changeledger/activate-<S0-prefix>
+changeledger state doctor --activation-ref changeledger/activate-<S0-prefix> --online
+```
+
+`--preview` fetches only explicitly named remote refs without updating user
+branches or remote-tracking refs. `--create` revalidates every source and plan
+digest, validates the complete candidate, then publishes the initial state with
+create-only CAS. `activate --prepare` creates one local branch and commit without
+checkout, push or merge; review and merge that branch through the repository's
+normal workflow. Add `--json` to any migration, activation, doctor or recovery
+command for a machine-readable receipt with OIDs, digest, network use and writes.
+
+Before the first state mutation, reverting the activation commit restores the
+legacy files. After state advances, synchronize first and prepare a recovery
+branch from the confirmed head:
+
+```sh
+changeledger state sync
+changeledger state export --recovery-branch
+```
+
+Recovery refuses pending or stale replicas and never checks out, merges or
+publishes its branch. These commands prove the cutover data and client version;
+they do not enforce remote path policy against old clients or perform a
+production rollout. Those remain separate deployment controls.
+
 ## Release planning
 
 ChangeLedger can calculate a portable SemVer release from completed changes

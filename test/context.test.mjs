@@ -524,6 +524,17 @@ test('212659 CR6: pre-existing code/spec divergence is reported for human resolu
   );
 });
 
+test('193103 CR10-CR12: implementation context owns recoverable state cutover syntax', () => {
+  const root = repo();
+  const core = buildContext(undefined, root);
+
+  assert.match(core, /state migrate --preview --source/);
+  assert.match(core, /state migrate --create --plan/);
+  assert.match(core, /state activate --prepare --baseline/);
+  assert.match(core, /state export --recovery-branch/);
+  assert.match(core, /do not provide remote enforcement/);
+});
+
 test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss', () => {
   const expected = {
     'blocked.md': '77efa1acf03835ca8122ff98f3bfbcef05c8fa47769e6b08c073e3ca225b1353',
@@ -587,7 +598,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
     // is reported for human resolution, while an approved change still governs
     // code written inside its authorized scope. No lifecycle rule is retired.
-    'core.md': 'e41c7912f87dd99bb9900db2a8f94b74ab1915f14646911d827262d4c271b3ed',
+    // 20260721-193103: additive — operational discovery gains the compact
+    // recoverable state-cutover sequence and its enforcement/rollout boundary.
+    'core.md': 'a30f91112e80b33672698c14bef13ae7b44b9c41c5d6fa232a27df25555402dd',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.

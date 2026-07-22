@@ -233,7 +233,8 @@ la branch; nunca reabre copias anteriores al head confirmado.
   - **Resolved:** `2026-07-22T13:15:58Z`
 - [x] Cablear migrate/activate/doctor/export y `--json` en `src/commands/state.mjs` y `bin/changeledger.mjs`, separados del guard replica-only; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` (CR11, CR12)
   - **Resolved:** `2026-07-22T13:15:58Z`
-- [ ] Actualizar `README.md` y `templates/contract/` con sintaxis, receipts y frontera con enforcement/rollout; verify: `node --test test/context.test.mjs && changeledger check` (CR10, CR11, CR12)
+- [x] Actualizar `README.md` y `templates/contract/` con sintaxis, receipts y frontera con enforcement/rollout; verify: `node --test test/context.test.mjs && changeledger check` (CR10, CR11, CR12)
+  - **Resolved:** `2026-07-22T13:21:41Z`
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
