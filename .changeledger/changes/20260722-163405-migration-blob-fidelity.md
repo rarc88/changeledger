@@ -2,7 +2,7 @@
 id: "20260722-163405"
 title: La migración transcodifica blobs no UTF-8 y publica un baseline inactivable
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T16:34:05Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -96,3 +96,4 @@ re-hashearse porque la validación lo rechaza primero.
 - **2026-07-22T16:50:49Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-22T17:12:00Z** `[note]` `blobText` valida UTF-8 estricto (`node:buffer#isUtf8`) sobre el buffer crudo de `cat-file blob` antes del decode lossy; contenido inválido falla cerrado nombrando OID y path, contenido válido conserva su OID fuente exacto en el baseline (verificado en SHA-1/SHA-256, activación acepta sin decision mismatch). Gate completo: 904/904 tests, lint y 218 changes válidos.
 - **2026-07-22T16:58:20Z** `[status]` in-progress → in-review
+- **2026-07-22T17:03:35Z** `[review]` in-review → in-validation (delegated subagent, clean context)
