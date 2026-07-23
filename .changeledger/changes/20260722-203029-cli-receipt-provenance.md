@@ -2,9 +2,10 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-22T20:30:29Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260722-190137"]
 release_impact: patch
 ---
@@ -76,3 +77,5 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-22T20:30:29Z** `[note]` Draft creado por la revisión cruzada de los drafts de remediación de 20260721-193106 (fila ISO-1.2 de la ejecución paralela): 20260722-190137 cubre los payloads del viewer; esta es la superficie CLI.
 - **2026-07-22T20:41:30Z** `[note]` Alcance completado tras revisar los productores reales: incluye receipts comunes, comandos de réplica y stateFailureReceipt en éxito/error humano y JSON.
 - **2026-07-23T09:28:25Z** `[status]` draft → approved
+- **2026-07-23T14:31:25Z** `[status]` approved → in-progress
+- **2026-07-23T14:31:25Z** `[owner]` set: raruiz-hiberuscom (auto)
