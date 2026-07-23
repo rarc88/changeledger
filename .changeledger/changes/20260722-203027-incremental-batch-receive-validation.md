@@ -2,7 +2,7 @@
 id: "20260722-203027"
 title: Validación incremental de batches por blob OID
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-07-22T20:30:27Z
 depends_on: ["20260722-202059", "20260722-202058"]
 owner: raruiz-hiberuscom
@@ -84,3 +84,4 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 - **2026-07-23T01:23:29Z** `[note]` Reviewer de contexto limpio devolvió `RETRY`: `logRawEntries` corre `git log --raw --no-abbrev -z` sin `--no-renames`, y git 2.50.1 detecta renames por defecto en `log --raw` — un rename de spec/release (los changes tienen filename atado al id, no pueden renombrarse) produce un registro `R100` de dos paths que `DIFF_TREE_RECORD` (una sola letra de estado) no matchea, lanzando `malformed log --raw record` en el camino incremental en vez del rechazo correcto y ya existente de 20260722-202058 (un rename ES una desaparición de identidad, ya que la identidad de un spec es su nombre de archivo) que el camino frontera sí da. Fail-closed (nunca acepta un push inválido, solo podía rechazar con mensaje opaco un push que de todas formas ya iba a rechazarse por la política de identidad) pero rompía la equivalencia frontera↔incremental que el cambio promete. Corregido añadiendo `--no-renames` al comando; verificado empíricamente quitando la bandera temporalmente (el nuevo test falla exactamente como describe el reviewer) y restaurándola. Test nuevo: "incremental and full validation reject a renamed spec identically" (usa `assertEquivalentRejection`, confirma que ambos caminos dan el mismo mensaje `removes specs identity "one.md"`, no solo que ninguno acepta). Gate re-ejecutado: 947/947 tests, lint y `changeledger check` verdes.
 - **2026-07-23T01:23:54Z** `[review]` in-review → in-progress (retry): logRawEntries missing --no-renames caused an opaque parse error on rename instead of the correct identity-disappearance rejection; fixed and re-verified
 - **2026-07-23T01:24:00Z** `[status]` in-progress → in-review
+- **2026-07-23T09:19:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
