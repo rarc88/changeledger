@@ -2,9 +2,10 @@
 id: "20260722-203031"
 title: Corregir la taxonomía de fallos de la réplica
 type: bug
-status: approved
+status: in-validation
 created: 2026-07-22T20:30:31Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260722-204130", "20260722-204131"]
 release_impact: patch
 ---
@@ -59,10 +60,14 @@ preservar cuál lado falló.
 
 ## Plan
 
-- [ ] Añadir tests fallidos de EACCES/ENOSPC y clasificar esos errores en replay/sync de `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs` conserva operación y causa sin presentarlos como conflicto (CR1)
-- [ ] Añadir un test fallido del CAS de sync y reutilizar en `src/state-store.mjs` el diagnóstico accionable de reintento de mutación; verify: `node --test test/state-store.test.mjs` conserva `cannot lock ref` solo como causa (CR2)
-- [ ] Añadir tests de confirmed local que falla su propia validación (atribución local) y de confirmed válido no-ancestro del remoto (divergencia no resuelta), y corregir la atribución en `src/state-store.mjs` validando confirmed de forma independiente antes de acusar; verify: `node --test test/state-store.test.mjs` distingue ambos casos sin invertir un rewind remoto genuino (CR3)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos de EACCES/ENOSPC y clasificar esos errores en replay/sync de `src/state-store.mjs`; verify: `node --test test/state-store.test.mjs` conserva operación y causa sin presentarlos como conflicto (CR1)
+  - **Resolved:** `2026-07-23T13:04:36Z`
+- [x] Añadir un test fallido del CAS de sync y reutilizar en `src/state-store.mjs` el diagnóstico accionable de reintento de mutación; verify: `node --test test/state-store.test.mjs` conserva `cannot lock ref` solo como causa (CR2)
+  - **Resolved:** `2026-07-23T13:04:37Z`
+- [x] Añadir tests de confirmed local que falla su propia validación (atribución local) y de confirmed válido no-ancestro del remoto (divergencia no resuelta), y corregir la atribución en `src/state-store.mjs` validando confirmed de forma independiente antes de acusar; verify: `node --test test/state-store.test.mjs` distingue ambos casos sin invertir un rewind remoto genuino (CR3)
+  - **Resolved:** `2026-07-23T13:04:37Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T13:10:37Z`
 
 ## Log
 
@@ -70,3 +75,8 @@ preservar cuál lado falló.
 - **2026-07-22T20:41:30Z** `[note]` Paquete dividido y re-tipado: este bug conserva solo la taxonomía de state-store; orientación CLI pasa a 20260722-204130 y borrado de integration ref a 20260722-204131.
 - **2026-07-22T20:50:00Z** `[note]` CR3 endurecida con criterio verificable: solo se acusa al confirmado local cuando falla su propia validación de snapshot (schema/baseline/checkRepo), no por la mera no-ancestría con el remoto — esa señal por sí sola es ambigua (podría ser un rewind remoto genuino) y ahora se reporta como divergencia no resuelta en vez de invertir la acusación.
 - **2026-07-23T09:28:28Z** `[status]` draft → approved
+- **2026-07-23T12:59:03Z** `[status]` approved → in-progress
+- **2026-07-23T12:59:03Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T13:06:13Z** `[note]` Implementado CR1 (fs errors preservan operación/causa sin encabezado conflict), CR2 (transaction() traduce cannot lock ref a mensaje accionable de reintento) y CR3 (reject-remote-rewrite valida confirmed antes de acusar remoto). pnpm verify verde.
+- **2026-07-23T13:06:13Z** `[status]` in-progress → in-review
+- **2026-07-23T13:10:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)

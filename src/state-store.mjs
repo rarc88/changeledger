@@ -93,7 +93,22 @@ function transaction(repoRoot, operations) {
     else lines.push(`update ${ref} ${after} ${before}`);
   }
   lines.push('prepare', 'commit', '');
-  git(repoRoot, ['update-ref', '--stdin'], { input: lines.join('\n') });
+  try {
+    git(repoRoot, ['update-ref', '--stdin'], { input: lines.join('\n') });
+  } catch (error) {
+    if (/cannot lock ref/i.test(error.message)) {
+      throw new Error('confirmed state changed concurrently; retry the operation', {
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
+
+function isFilesystemError(error) {
+  const code = error?.code ?? error?.cause?.code;
+  if (code === 'EACCES' || code === 'ENOSPC') return true;
+  return /ENOSPC|no space left on device|EACCES|permission denied/i.test(error?.message ?? '');
 }
 
 export function createStatePending(repoRoot, confirmed, head) {
@@ -323,6 +338,9 @@ export function syncStateReplica(
       replay = replayPending(repoRoot, pending, fetched, validateCandidate);
     } catch (error) {
       recordObserved(repoRoot, before, fetched, at);
+      if (isFilesystemError(error)) {
+        throw new Error(`state replica replay failed: ${error.message}`, { cause: error });
+      }
       throw new Error(
         `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; cause=${error.message}`,
         { cause: error },
@@ -365,6 +383,14 @@ export function syncStateReplica(
 
   recordObserved(repoRoot, before, fetched, at);
   if (plan.action === 'reject-remote-rewrite') {
+    try {
+      validateRevision(before.confirmed);
+    } catch (error) {
+      throw new Error(
+        `state replica corrupt: confirmed ${before.confirmed} fails its own snapshot validation and is the corrupt side, not remote ${fetched}: ${error.message}`,
+        { cause: error },
+      );
+    }
     throw new Error(`remote state ${fetched} does not descend from confirmed ${before.confirmed}`);
   }
   if (plan.action === 'conflict') {

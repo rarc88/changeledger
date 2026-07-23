@@ -178,11 +178,79 @@ test('193102 CR1: clean sync CAS rejects a pending created during remote validat
           if (revision === remote) git(created.root, ['update-ref', PENDING_REF, pending]);
         },
       }),
-    /cannot lock ref|reference already exists|changed concurrently/i,
+    (error) => {
+      assert.match(error.message, /changed concurrently; retry the operation/);
+      assert.match(error.cause?.message ?? '', /cannot lock ref|reference already exists/i);
+      return true;
+    },
   );
   assert.equal(readStateReplica(created.root).confirmed, created.baseline);
   assert.equal(readStateReplica(created.root).pending, pending);
   assert.equal(git(created.root, ['rev-parse', `${pending}^`]), created.baseline);
+});
+
+test('203031 CR1: a filesystem failure during replay keeps its operation and cause', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+  const fsError = new Error('ENOSPC: no space left on device, write');
+  fsError.code = 'ENOSPC';
+
+  assert.throws(
+    () =>
+      syncStateReplica(created.root, {
+        validateCandidate: () => {
+          throw fsError;
+        },
+      }),
+    (error) => {
+      assert.doesNotMatch(error.message, /state replica conflict/);
+      assert.match(error.message, /replay/i);
+      assert.match(error.message, /ENOSPC/);
+      assert.equal(error.cause, fsError);
+      return true;
+    },
+  );
+  assert.equal(readStateReplica(created.root).pending, pending);
+  assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+});
+
+function forceOrphanRemote(created) {
+  const tree = git(created.root, ['rev-parse', `${created.baseline}^{tree}`]);
+  const orphan = git(created.root, ['commit-tree', tree, '-m', 'orphan remote rewrite']);
+  git(created.root, ['push', '-qf', 'origin', `${orphan}:refs/heads/changeledger/state`]);
+  return orphan;
+}
+
+test('203031 CR3: a corrupt confirmed is blamed only on its own validation failure', () => {
+  const corrupt = replicaFixture('sha1');
+  const remoteHead = forceOrphanRemote(corrupt);
+
+  assert.throws(
+    () =>
+      syncStateReplica(corrupt.root, {
+        validateRevision(revision) {
+          if (revision === corrupt.baseline) throw new Error('schema validation failed');
+        },
+      }),
+    (error) => {
+      assert.match(error.message, /state replica corrupt/);
+      assert.match(error.message, new RegExp(`confirmed ${corrupt.baseline}`));
+      assert.match(error.message, new RegExp(`remote ${remoteHead}`));
+      assert.match(error.message, /schema validation failed/);
+      return true;
+    },
+  );
+
+  const ambiguous = replicaFixture('sha1');
+  forceOrphanRemote(ambiguous);
+
+  assert.throws(() => syncStateReplica(ambiguous.root), /does not descend from confirmed/);
 });
 
 test('193102 CR2/CR6: publication pushes the exact planned OID, never a mutable ref', () => {
