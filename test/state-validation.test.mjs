@@ -720,6 +720,34 @@ test('203027: incremental and full validation reject a config project_id drift i
   );
 });
 
+test('203027: incremental and full validation reject a renamed spec identically', () => {
+  // git's own rename detection is on by default for `log --raw`; without
+  // --no-renames a renamed spec/release surfaces as a two-path `R100` record
+  // that the raw-entry parser doesn't understand (change filenames are
+  // id-locked and can't rename, so only specs/releases can trigger this),
+  // throwing an opaque parse error on the incremental path instead of the
+  // correct, 20260722-202058 identity-disappearance rejection the boundary
+  // (full) path gives -- a rename IS a disappearance, since a spec's identity
+  // is its filename.
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    (state) => {
+      addUnrelatedChange(state);
+      fs.writeFileSync(
+        path.join(state, 'specs', 'one.md'),
+        '---\ntitle: One\nupdated: 2026-07-21T00:00:00Z\ntags: []\n---\n\n# One\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n',
+      );
+    },
+    (state) => {
+      const text = fs.readFileSync(path.join(state, 'specs', 'one.md'), 'utf8');
+      fs.rmSync(path.join(state, 'specs', 'one.md'));
+      fs.writeFileSync(path.join(state, 'specs', 'two.md'), text);
+    },
+    /removes specs identity "one\.md"/,
+  );
+});
+
 test('203027: a commit touching the manifest falls back to full validation instead of skipping it', () => {
   const created = fixture();
   advanceState(created, addUnrelatedChange, 'test: unrelated interior commit');

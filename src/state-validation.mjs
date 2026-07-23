@@ -322,7 +322,23 @@ const DIFF_TREE_RECORD = /^:([0-7]{6}) ([0-7]{6}) ([0-9a-f]{40,64}) ([0-9a-f]{40
 // immediately followed by its path token.
 function logRawEntries(run, repoRoot, range) {
   const output = run(
-    ['log', '--reverse', '--raw', '--no-abbrev', '-r', '-z', '--format=%x00%H', range],
+    // --no-renames: git's own rename/copy detection is on by default for
+    // `log --raw` and emits a two-path `R<score>`/`C<score>` record that
+    // DIFF_TREE_RECORD's single-letter status doesn't match. Without it, a
+    // renamed spec or release file (change filenames are id-locked and can't
+    // rename) throws here even though the full closed-snapshot path -- which
+    // reads the whole tree, rename-agnostic -- would accept the same commit.
+    [
+      'log',
+      '--reverse',
+      '--raw',
+      '--no-renames',
+      '--no-abbrev',
+      '-r',
+      '-z',
+      '--format=%x00%H',
+      range,
+    ],
     repoRoot,
   );
   const byCommit = new Map();
