@@ -227,7 +227,12 @@ export function createRequestListener(cwd, localOnly, token) {
           send(res, 410, MIME['.json'], JSON.stringify({ error: 'project path is gone' }));
           return;
         }
-        send(res, 200, MIME['.json'], JSON.stringify(serialize(await loadRepoAsync(proj.path))));
+        send(
+          res,
+          200,
+          MIME['.json'],
+          JSON.stringify(serialize(await loadRepoAsync(proj.path), proj.id)),
+        );
         return;
       }
 

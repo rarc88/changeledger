@@ -89,7 +89,13 @@ async function loadProjects() {
   await load();
 }
 
-async function load() {
+// Every project-scoped continuation below captures its target before the
+// first `await` and re-checks both a monotonic sequence (latest-wins even
+// within the same target, CR3) and the live target (discards a switched-away
+// target, CR1/CR4) before applying its result.
+let repoRequestSeq = 0;
+
+export async function load() {
   if (!state.currentProject) {
     if (state.currentView === 'projects') {
       syncViewerShell();
@@ -98,14 +104,21 @@ async function load() {
     showNoProjects();
     return;
   }
+  const target = state.currentProject;
+  const seq = ++repoRequestSeq;
+  const stale = () => seq !== repoRequestSeq || state.currentProject !== target;
   try {
-    const text = await getRepo(state.currentProject);
+    const text = await getRepo(target);
+    if (stale()) return;
+    const payload = JSON.parse(text);
+    if (payload.project_id != null && String(payload.project_id) !== String(target)) return;
     if (text === state.lastJson) return;
     setRepo(text);
     normalizeRepoState(state.repo);
     hydrateFilters();
     syncViewerShell();
   } catch (e) {
+    if (stale()) return;
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
   }
 }
@@ -475,9 +488,12 @@ function renderOpenedDetail(content) {
   resetDetailScroll(detail);
 }
 
+let openDetailTarget = null;
+
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
+  openDetailTarget = { project: state.currentProject, id: c.id };
   const mutationTarget = captureLedgerTarget(state.currentProject, state.repo);
   const changes = state.repo.changes || [];
   const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
@@ -567,13 +583,15 @@ function openDetail(id) {
 }
 
 // Fetch and render the git refs (commits/branches) that reference this change.
-async function loadGitRefs(id) {
+export async function loadGitRefs(id) {
+  const target = { project: state.currentProject, id };
   let refs;
   try {
-    refs = await getGitRefs(state.currentProject, id);
+    refs = await getGitRefs(target.project, id);
   } catch {
     return;
   }
+  if (openDetailTarget?.project !== target.project || openDetailTarget?.id !== target.id) return;
   const sec = $('#git-section');
   if (!sec) return;
   if (!refs.commits.length && !refs.branches.length) {
@@ -1261,7 +1279,7 @@ export function projectsViewTemplate(
   </div>`;
 }
 
-async function openManagedProject(id, { reload = false } = {}) {
+export async function openManagedProject(id, { reload = false } = {}) {
   managedProject = id;
   configDirty = false;
   const project = state.projectsList.find((item) => item.id === id);
@@ -1280,6 +1298,7 @@ async function openManagedProject(id, { reload = false } = {}) {
   renderProjects();
   try {
     const structured = await getProjectConfigStructured(id);
+    if (managedProject !== id) return; // selection moved on while this was in flight (CR4)
     managedConfig = { id, ...structured };
     // Default to form for current schema, raw for future schema
     if (structured.schemaVersion > structured.supported) {
@@ -1288,6 +1307,7 @@ async function openManagedProject(id, { reload = false } = {}) {
       configMode = 'form';
     }
   } catch (error) {
+    if (managedProject !== id) return;
     managedConfig = { id, content: '', config_revision: '', error: error.message };
   }
   renderProjects();
@@ -1479,15 +1499,20 @@ function renderProjects() {
         () => postProjectConfig(configTarget, content, managedConfig.config_revision),
         async (body) => {
           configDirty = false;
-          managedConfig = {
-            ...managedConfig,
-            content,
-            config_revision: body.config_revision,
-            ledger_revision: body.ledger_revision,
-            ledger_freshness: body.ledger_freshness,
-          };
+          // Selection may have moved on to another project while this
+          // mutation was in flight; only this still-active target applies
+          // its own receipt (CR4).
+          if (managedProject === configTarget.project) {
+            managedConfig = {
+              ...managedConfig,
+              content,
+              config_revision: body.config_revision,
+              ledger_revision: body.ledger_revision,
+              ledger_freshness: body.ledger_freshness,
+            };
+          }
           await refreshProjectRegistry();
-          renderProjects();
+          if (managedProject === configTarget.project) renderProjects();
         },
       ),
     saveForm: (formEl, configForm) =>
@@ -1499,16 +1524,20 @@ function renderProjects() {
         },
         async (_body) => {
           configDirty = false;
-          await openManagedProject(managedProject, { reload: true });
+          if (managedProject === configTarget.project) {
+            await openManagedProject(managedProject, { reload: true });
+          }
         },
       ),
     previewMigration: async () => {
+      let result;
       try {
-        const result = await getConfigMigrationPreview(configTarget, managedConfig.config_revision);
-        migrationPreview = result;
+        result = await getConfigMigrationPreview(configTarget, managedConfig.config_revision);
       } catch (e) {
-        migrationPreview = { error: e.message };
+        result = { error: e.message };
       }
+      if (managedProject !== configTarget.project) return;
+      migrationPreview = result;
       renderProjects();
     },
     applyMigration: async () => {
@@ -1518,8 +1547,11 @@ function renderProjects() {
       if (!ok) return;
       try {
         await postConfigMigrationApply(configTarget, managedConfig.config_revision);
-        await openManagedProject(managedProject, { reload: true });
+        if (managedProject === configTarget.project) {
+          await openManagedProject(managedProject, { reload: true });
+        }
       } catch (e) {
+        if (managedProject !== configTarget.project) return;
         migrationPreview = { error: e.message };
         renderProjects();
       }
@@ -1527,22 +1559,27 @@ function renderProjects() {
     repair: (projectPath, pathForm) =>
       projectMutation(
         pathForm,
-        () => postProjectPath(managedProject, projectPath),
+        () => postProjectPath(configTarget.project, projectPath),
         async () => {
           await refreshProjectRegistry();
-          await openManagedProject(managedProject, { reload: true });
+          if (managedProject === configTarget.project) {
+            await openManagedProject(managedProject, { reload: true });
+          }
         },
       ),
     unregister: async (editor) => {
-      const project = state.projectsList.find((item) => item.id === managedProject);
+      const target = configTarget.project;
+      const project = state.projectsList.find((item) => item.id === target);
       const answer = await requestUnregisterConfirmation(project);
-      if (answer === null) return;
+      if (answer === null || managedProject !== target) return;
       projectMutation(
         editor,
-        () => postProjectRemove(managedProject, answer),
+        () => postProjectRemove(target, answer),
         async () => {
-          managedProject = null;
-          managedConfig = null;
+          if (managedProject === target) {
+            managedProject = null;
+            managedConfig = null;
+          }
           await refreshProjectRegistry();
           if (state.currentProject) await load();
           renderProjects();

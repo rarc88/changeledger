@@ -10,6 +10,9 @@ import { marked } from 'marked';
 // browser, then import the module.
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.document = window.document;
+// api.js reads `window.__CHANGELEDGER_TOKEN__` for authenticated POSTs; only
+// exercised by tests that drive a real mutation handler end to end.
+globalThis.window = window;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
@@ -27,7 +30,10 @@ const {
   esc,
   globalSearchTemplate,
   isVisible,
+  load,
+  loadGitRefs,
   openChangeById,
+  openManagedProject,
   passesTombstones,
   projectMutation,
   projectsViewTemplate,
@@ -79,6 +85,374 @@ const parse = (html) => {
 };
 const XSS = '"><img src=x onerror=alert(1)>';
 const HOUR = 3600000;
+
+// 20260722-190137 — a slow response for a project the viewer has since
+// navigated away from must never overwrite the currently selected project's
+// state, and an older revision of the *same* project arriving last must not
+// roll the view back either. These tests drive the real `load()`/
+// `loadGitRefs`/`openManagedProject` continuations under a controllable
+// `fetch`, resolving requests out of order to reproduce the races the
+// production audit (20260721-193106) found.
+
+function deferredResponse() {
+  let resolve;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return {
+    resolve: (body) =>
+      resolve({
+        ok: true,
+        status: 200,
+        text: async () => body,
+        json: async () => JSON.parse(body),
+      }),
+    reject: (error) => {
+      promise.catch(() => {});
+      resolve = null;
+      throw error;
+    },
+    promise,
+  };
+}
+
+const INDEX_HTML = fs.readFileSync(
+  new URL('../src/viewer/public/index.html', import.meta.url),
+  'utf8',
+);
+
+// Installs the real shell into the shared JSDOM document (app.js queries
+// `document` directly) and returns a restorer so later tests in this file
+// never see leaked markup.
+function installViewerShell() {
+  const previous = document.body.innerHTML;
+  document.body.innerHTML = INDEX_HTML;
+  return () => {
+    document.body.innerHTML = previous;
+  };
+}
+
+function repoPayload({ project_id, ledger_revision = 'rev', changes = [] } = {}) {
+  return JSON.stringify({
+    project_id,
+    ledger_revision,
+    language: 'en',
+    statuses: ['draft'],
+    types: [],
+    metrics: {},
+    changes,
+    specs: [],
+  });
+}
+
+async function withMockedFetch(handler, run) {
+  const original = globalThis.fetch;
+  globalThis.fetch = handler;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+test('190137 CR1: a project switched away from discards its late repo response', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'project-a', name: 'A', path: '/a', alive: true },
+      { id: 'project-b', name: 'B', path: '/b', alive: true },
+    ];
+    appState.currentProject = 'project-a';
+    appState.lastJson = '';
+    appState.repo = null;
+    const responses = { 'project-a': deferredResponse(), 'project-b': deferredResponse() };
+
+    await withMockedFetch(
+      (url) => {
+        const project = new URL(String(url), 'http://x').searchParams.get('project');
+        return responses[project].promise;
+      },
+      async () => {
+        const pendingA = load();
+        appState.currentProject = 'project-b';
+        const pendingB = load();
+
+        responses['project-b'].resolve(
+          repoPayload({ project_id: 'project-b', ledger_revision: 'rev-b' }),
+        );
+        await pendingB;
+        assert.equal(appState.repo.ledger_revision, 'rev-b');
+
+        responses['project-a'].resolve(
+          repoPayload({ project_id: 'project-a', ledger_revision: 'rev-a' }),
+        );
+        await pendingA;
+        assert.equal(
+          appState.repo.ledger_revision,
+          'rev-b',
+          'stale project-a response must not apply',
+        );
+        assert.equal(appState.currentProject, 'project-b');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 CR3: within the same project, an older revision arriving last cannot roll back the view', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-a', name: 'A', path: '/a', alive: true }];
+    appState.currentProject = 'project-a';
+    appState.lastJson = '';
+    appState.repo = null;
+    const first = deferredResponse();
+    const second = deferredResponse();
+    const queue = [first, second];
+
+    await withMockedFetch(
+      () => queue.shift().promise,
+      async () => {
+        const pendingFirst = load();
+        appState.lastJson = 'force-refetch';
+        const pendingSecond = load();
+
+        second.resolve(repoPayload({ project_id: 'project-a', ledger_revision: 'rev-new' }));
+        await pendingSecond;
+        assert.equal(appState.repo.ledger_revision, 'rev-new');
+
+        first.resolve(repoPayload({ project_id: 'project-a', ledger_revision: 'rev-old' }));
+        await pendingFirst;
+        assert.equal(
+          appState.repo.ledger_revision,
+          'rev-new',
+          'older same-project response must not win',
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 CR2: a payload declaring a different project_id than the target is discarded', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-a', name: 'A', path: '/a', alive: true }];
+    appState.currentProject = 'project-a';
+    appState.lastJson = '';
+    appState.repo = null;
+
+    await withMockedFetch(
+      async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          repoPayload({ project_id: 'project-b', ledger_revision: 'rev-misrouted' }),
+      }),
+      async () => {
+        await load();
+        assert.equal(appState.repo, null, 'a misattributed identity must never be applied');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 CR4: git refs for a change no longer open are discarded', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.currentProject = 'project-a';
+    const gitRefs = deferredResponse();
+
+    await withMockedFetch(
+      () => gitRefs.promise,
+      async () => {
+        const pending = loadGitRefs('20260613-120000');
+        document.getElementById('detail').innerHTML = '<div id="git-section"></div>';
+        // The detail panel moved on to a different change (or project) while
+        // this fetch was in flight; loadGitRefs must not paint into it.
+        appState.currentProject = 'project-b';
+        gitRefs.resolve(
+          JSON.stringify({ commits: [{ sha: 'a'.repeat(40), subject: 'x' }], branches: [] }),
+        );
+        await pending;
+        assert.equal(document.getElementById('git-section').innerHTML, '');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 CR4: a managed project switched away from discards its late config response', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'project-a', name: 'A', path: '/a', alive: true },
+      { id: 'project-b', name: 'B', path: '/b', alive: true },
+    ];
+    const responses = { 'project-a': deferredResponse(), 'project-b': deferredResponse() };
+
+    await withMockedFetch(
+      (url) => {
+        const project = new URL(String(url), 'http://x').searchParams.get('project');
+        return responses[project].promise;
+      },
+      async () => {
+        const pendingA = openManagedProject('project-a');
+        const pendingB = openManagedProject('project-b');
+
+        // schemaVersion === supported keeps the default form mode (the
+        // module-level configMode toggle would otherwise leak into later
+        // tests in this file), rendering project_id as plain readonly text.
+        responses['project-b'].resolve(
+          JSON.stringify({
+            project_id: 'project-b',
+            content: 'project_id: project-b',
+            revision: 'rev-b',
+            config_revision: 'rev-b',
+            schemaVersion: 2,
+            supported: 2,
+            config: { project_id: 'project-b' },
+          }),
+        );
+        await pendingB;
+
+        responses['project-a'].resolve(
+          JSON.stringify({
+            project_id: 'project-a',
+            content: 'project_id: project-a',
+            revision: 'rev-a',
+            config_revision: 'rev-a',
+            schemaVersion: 2,
+            supported: 2,
+            config: { project_id: 'project-a' },
+          }),
+        );
+        await pendingA;
+
+        const projectsView = document.getElementById('projects');
+        assert.match(
+          projectsView.querySelector('.config-readonly-value.mono')?.textContent ?? '',
+          /project-b/,
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("190137 CR4: a raw config save for an abandoned project cannot corrupt the next project's revision", async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'project-a', name: 'A', path: '/a', alive: true },
+      { id: 'project-b', name: 'B', path: '/b', alive: true },
+    ];
+    const structuredA = deferredResponse();
+    const structuredB = deferredResponse();
+    const saveA = deferredResponse();
+    const sentSaveBodies = [];
+
+    await withMockedFetch(
+      (url, init = {}) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              projects: appState.projectsList,
+              current: null,
+              localOnly: false,
+            }),
+          });
+        }
+        if ((init.method ?? 'GET') === 'POST' && parsed.pathname === '/api/project-config') {
+          sentSaveBodies.push(JSON.parse(init.body));
+          return saveA.promise;
+        }
+        if ((init.method ?? 'GET') === 'POST' && parsed.pathname === '/api/project-config-patch') {
+          sentSaveBodies.push(JSON.parse(init.body));
+          return new Promise(() => {}); // B's own save response is irrelevant here
+        }
+        const project = parsed.searchParams.get('project');
+        if (project === 'project-a') return structuredA.promise;
+        if (project === 'project-b') return structuredB.promise;
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        const openA = openManagedProject('project-a');
+        structuredA.resolve(
+          JSON.stringify({
+            project_id: 'project-a',
+            content: 'project_id: project-a',
+            revision: 'rev-a',
+            config_revision: 'rev-a',
+            schemaVersion: 2,
+            supported: 2,
+            config: { project_id: 'project-a' },
+          }),
+        );
+        await openA;
+
+        const root = document.getElementById('projects');
+        root.querySelector('[data-config-mode="raw"]').click();
+        const rawForm = root.querySelector('.config-form:not([data-config-form])');
+        rawForm.querySelector('textarea').value = 'project_id: project-a\nedited: true';
+        rawForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+
+        // Selection moves on to project-b — and its own config finishes
+        // loading — while A's raw save is still in flight. Resolving B here
+        // (rather than leaving it stuck loading) also resets the shared
+        // `configMode` toggle back to 'form' for later tests in this file.
+        const openB = openManagedProject('project-b');
+        structuredB.resolve(
+          JSON.stringify({
+            project_id: 'project-b',
+            content: 'project_id: project-b',
+            revision: 'rev-b',
+            config_revision: 'rev-b',
+            schemaVersion: 2,
+            supported: 2,
+            config: { project_id: 'project-b' },
+          }),
+        );
+        await openB;
+
+        saveA.resolve(
+          JSON.stringify({
+            config_revision: 'rev-a-2',
+            ledger_revision: 'rev-a-2',
+            ledger_freshness: 'local',
+          }),
+        );
+        for (let i = 0; i < 50 && rawForm.classList.contains('is-pending'); i++) {
+          await Promise.resolve();
+        }
+
+        // A save for B, right after the abandoned A save landed, must still
+        // use B's own real revision — never one leaked in from A's stale
+        // receipt (the concrete consequence of the CR4 corruption). B is
+        // still in its default form mode, so this submits through the form
+        // editor rather than switching tabs (which would otherwise leak the
+        // shared `configMode` toggle into later tests in this file).
+        root
+          .querySelector('[data-config-form]')
+          .dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+
+        assert.equal(sentSaveBodies.length, 2);
+        assert.equal(sentSaveBodies[1].config_revision, 'rev-b');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
 
 test('193101 correction CR2: global search renders ledger provenance with and without matches', () => {
   const provenance = {
