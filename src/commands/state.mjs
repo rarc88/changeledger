@@ -6,6 +6,7 @@ import {
   exportStateRecovery,
   prepareStateActivation,
   previewStateMigration,
+  previewStateMigrationPlan,
 } from '../state-migration.mjs';
 import { validateReceive, validateUpdate } from '../state-receive.mjs';
 
@@ -39,7 +40,12 @@ export function stateMigrate(
     throw new Error('state migrate requires exactly one mode: --preview or --create');
   }
   if (preview) {
-    if (plan) throw new Error('state migrate --preview does not accept --plan');
+    if (plan) {
+      if (sources.length || output) {
+        throw new Error('state migrate --preview with --plan accepts --plan only');
+      }
+      return previewStateMigrationPlan({ planFile: plan }, cwd, activity);
+    }
     return previewStateMigration({ sources, output }, cwd, activity);
   }
   if (sources.length || output) {

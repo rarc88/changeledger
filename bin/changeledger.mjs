@@ -1026,11 +1026,11 @@ stateCommand
 stateCommand
   .command('migrate')
   .description('preview or create a global state baseline from explicit legacy refs')
-  .option('--preview', 'write no state; emit a deterministic migration plan')
+  .option('--preview', 'write no state; emit or validate a deterministic migration plan')
   .option('--create', 'validate a saved plan and publish its initial baseline')
   .option('--source <source>', 'repeatable local:<full-ref> or <remote>:<full-ref>', collect, [])
   .option('--output <file>', 'write preview YAML to this local file')
-  .option('--plan <file>', 'resolved preview plan consumed by --create')
+  .option('--plan <file>', 'resolved plan validated by --preview or consumed by --create')
   .option('--json', 'print a stable JSON receipt')
   .action(
     action(

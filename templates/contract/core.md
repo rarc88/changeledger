@@ -125,7 +125,7 @@ Prefer structured CLI queries before scanning files:
 - `changeledger list --pending graduation`: find unresolved graduation decisions; add `--owner NAME` or `--unowned` to scope the query, then graduate every id individually.
 - `changeledger list --pending archive`: preview graduated or skipped changes; use the same optional owner filter on `archive --graduated` for an equivalent action.
 - `changeledger search <terms...>`: find related changes (incl. archived) and specs by content before investigating from scratch.
-- Global-state adoption is explicit: `state migrate --preview --source <remote>:<full-ref> --output <plan>`, resolve identities, then `state migrate --create --plan <plan>` and `state activate --prepare --baseline <S0>`; manifest keeps all candidates/OIDs and doctor checks the exact tree locally or online.
+- State adoption: `state migrate --preview --source <remote>:<full-ref> --output <plan>`; resolve and validate via `state migrate --preview --plan <plan>`, then `state migrate --create --plan <plan>` and `state activate --prepare --baseline <S0>`. Manifest keeps candidates/OIDs; doctor checks it.
 Cutover never updates integration/worktree. After state advances, `state export --recovery-branch` guards refs. They do not provide remote enforcement; hooks follow activation; recovery is administrative. `--json` covers success/failure.
 
 Run `changeledger help` or `changeledger <command> --help` for exact CLI syntax.

@@ -13,6 +13,7 @@ import {
   exportStateRecovery,
   prepareStateActivation,
   previewStateMigration,
+  previewStateMigrationPlan,
 } from '../src/state-migration.mjs';
 import { CONFIRMED_REF, OBSERVED_REF, PENDING_REF } from '../src/state-store.mjs';
 import { parseYaml, stringifyYaml } from '../src/yaml.mjs';
@@ -222,6 +223,12 @@ test('193103 CR11/CR12: CLI works before and after authority with JSON receipts'
   assert.equal(preview.branch, null);
   assert.equal(preview.sources[0].name, 'local:refs/heads/dev');
 
+  const revalidated = runJson('state', 'migrate', '--preview', '--plan', planFile);
+  assert.equal(revalidated.inventoryDigest, preview.inventoryDigest);
+  assert.equal(revalidated.written, false);
+  assert.equal(revalidated.network, false);
+  assert.equal(revalidated.baseline, null);
+
   const baseline = runJson('state', 'migrate', '--create', '--plan', planFile);
   assert.match(baseline.baseline, OID_PATTERN);
   assert.match(baseline.inventoryDigest, /^[0-9a-f]{64}$/);
@@ -363,6 +370,14 @@ test('193103 CR2/CR4: divergent identity and stale plans fail before publication
     () => createStateBaseline({ planFile: writePlan(root, preview.text) }, root),
     /migration conflict: change:20260722-000000 has divergent candidates/,
   );
+  const selected = conflict.candidates.find(
+    (candidate) => candidate.source === 'local:refs/heads/dev',
+  );
+  conflict.resolution = { blob: selected.blob, basename: selected.basename };
+  const resolvedPlan = writePlan(root, stringifyYaml(preview.plan));
+  const validated = previewStateMigrationPlan({ planFile: resolvedPlan }, root);
+  assert.equal(validated.inventoryDigest, preview.plan.inventory_digest);
+  assert.equal(validated.written, false);
 
   const clean = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
   git(root, ['checkout', '-q', 'dev']);
@@ -479,6 +494,51 @@ test('185043 CR1/CR6: a modern, non-legacy document with a local defect still fa
   assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
 });
 
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR4: a legacy rewrite cannot hide an unrelated defect (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = legacyRepo(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+    const file = '20260722-000001-mixed-defect.md';
+    fs.writeFileSync(
+      path.join(root, '.changeledger', 'changes', file),
+      `---
+id: "20260722-000001"
+type: quick
+status: approved
+created: 2026-07-22T00:00:00Z
+depends_on: []
+---
+
+## Request
+
+Missing title alongside a migratable legacy Log.
+
+## Log
+
+- **2026-07-22T00:01:00Z** — status: draft → approved
+`,
+    );
+    git(root, ['add', '.']);
+    git(root, ['commit', '-qm', 'test: mixed legacy and unrelated defect']);
+    git(root, ['push', '-q', 'origin', 'dev']);
+
+    assert.throws(
+      () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+      new RegExp(`${file}: .*missing frontmatter "title"`),
+    );
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+  });
+}
+
 test('202101 CR2: activation re-validation of a forged manifest produces a bounded diagnostic', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-migration-forged-'));
   git(root, ['init', '-q', '-b', 'dev']);
@@ -511,9 +571,7 @@ test('202101 CR2: activation re-validation of a forged manifest produces a bound
   fs.mkdirSync(path.join(state, 'changes'), { recursive: true });
   const configText = config();
   fs.writeFileSync(path.join(state, 'config.yml'), configText);
-  const documents = [
-    { identity: 'config:project-1', kind: 'config', name: 'config.yml', text: configText },
-  ];
+  const documents = [{ identity: 'config', kind: 'config', name: 'config.yml', text: configText }];
   for (let i = 0; i < 7; i += 1) {
     const id = `20260722-0001${i}0`;
     const text = `---\nid: "${id}"\ntype: quick\nstatus: draft\ncreated: 2026-07-22T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMissing title.\n\n## Log\n`;
@@ -604,11 +662,107 @@ test('193103 CR4: replacement content is rehashed before any publication', () =>
   fs.writeFileSync(replacementFile, change('20260722-000000', 'Changed later'));
 
   assert.throws(
+    () => previewStateMigrationPlan({ planFile }, root),
+    /migration plan is stale: replacement replacement\.md expected .* actual .*/,
+  );
+  assert.throws(
     () => createStateBaseline({ planFile }, root),
     /migration plan is stale: replacement replacement\.md expected .* actual .*/,
   );
   assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
 });
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR2/CR4: replacement identity is bound before preview or create (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = legacyRepo(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const document = preview.plan.documents.find(
+      (entry) => entry.identity === 'change:20260722-000000',
+    );
+    const replacement = change('20260722-999999', 'Wrong identity');
+    fs.writeFileSync(path.join(root, 'replacement.md'), replacement);
+    document.resolution = {
+      replacement: 'replacement.md',
+      basename: '20260722-999999-wrong-identity.md',
+      sha256: crypto.createHash('sha256').update(replacement).digest('hex'),
+    };
+    const planFile = writePlan(root, stringifyYaml(preview.plan));
+    const mismatch =
+      /migration replacement identity mismatch: expected change:20260722-000000 actual change:20260722-999999/;
+
+    assert.throws(() => previewStateMigrationPlan({ planFile }, root), mismatch);
+    assert.throws(() => createStateBaseline({ planFile }, root), mismatch);
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+  });
+
+  test(`185043 CR3/CR4/CR6: activation rejects a forged replacement identity (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = legacyRepo(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const document = preview.plan.documents.find(
+      (entry) => entry.identity === 'change:20260722-000000',
+    );
+    const replacementName = '20260722-000000-demo.md';
+    const replacement = change('20260722-000000', 'Valid replacement');
+    fs.writeFileSync(path.join(root, 'replacement.md'), replacement);
+    document.resolution = {
+      replacement: 'replacement.md',
+      basename: replacementName,
+      sha256: crypto.createHash('sha256').update(replacement).digest('hex'),
+    };
+    const baseline = createStateBaseline(
+      { planFile: writePlan(root, stringifyYaml(preview.plan)) },
+      root,
+    ).baseline;
+
+    git(root, ['checkout', '-q', '--detach', baseline]);
+    const target = path.join(root, '.changeledger-state', 'changes', replacementName);
+    const forgedContent = change('20260722-999999', 'Forged replacement identity');
+    fs.writeFileSync(target, forgedContent);
+    const manifestFile = path.join(root, '.changeledger-state', 'manifest.yml');
+    const manifest = parseYaml(fs.readFileSync(manifestFile, 'utf8'));
+    const decision = manifest.decisions.find(
+      (entry) => entry.identity === 'change:20260722-000000',
+    );
+    decision.sha256 = crypto.createHash('sha256').update(forgedContent).digest('hex');
+    fs.writeFileSync(manifestFile, stringifyYaml(manifest));
+    git(root, ['add', '.changeledger-state']);
+    git(root, ['commit', '-qm', 'test: forge replacement identity']);
+    const forgedBaseline = git(root, ['rev-parse', 'HEAD']);
+    git(root, [
+      'push',
+      '-q',
+      '--force',
+      'origin',
+      `${forgedBaseline}:refs/heads/changeledger/state`,
+    ]);
+    git(root, ['checkout', '-q', 'dev']);
+
+    assert.throws(
+      () => prepareStateActivation({ baseline: forgedBaseline }, root),
+      /state manifest replacement identity mismatch: expected change:20260722-000000 actual change:20260722-999999/,
+    );
+  });
+}
 
 for (const objectFormat of ['sha1', 'sha256']) {
   test(`193103 CR1/CR3: tree inventory preserves NUL-framed names with ${objectFormat}`, (t) => {
@@ -1256,11 +1410,66 @@ for (const objectFormat of ['sha1', 'sha256']) {
   });
 }
 
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR4/CR5: all ten audited legacy blockers stay explicit (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger-manual', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, fixture.root);
+    const manual = preview.plan.documents.filter(
+      (document) => document.compatibility === 'requires-replacement',
+    );
+    assert.equal(manual.length, 10);
+    assert.ok(manual.every((document) => document.resolution === null));
+    assert.equal(
+      manual.filter((document) =>
+        document.replacement.reasons.some((reason) => reason.includes('untyped Log entry')),
+      ).length,
+      6,
+    );
+    assert.equal(
+      manual.filter((document) =>
+        document.replacement.reasons.some((reason) =>
+          reason.includes('ambiguous legacy task metadata'),
+        ),
+      ).length,
+      2,
+    );
+    assert.equal(
+      manual.filter((document) =>
+        document.replacement.reasons.some((reason) =>
+          reason.includes('reconstructed status is "in-validation"'),
+        ),
+      ).length,
+      1,
+    );
+    assert.equal(
+      manual.filter((document) =>
+        document.replacement.reasons.some((reason) =>
+          reason.includes('must name target and verification'),
+        ),
+      ).length,
+      1,
+    );
+  });
+}
+
 test('185043 CR2: create requires an explicit normalization decision before applying it', () => {
   const { root } = fixtureLedgerRepo('legacy-ledger');
   const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
   const planFile = writePlan(root, preview.text);
 
+  assert.throws(
+    () => previewStateMigrationPlan({ planFile }, root),
+    /requires an explicit normalization decision for change:20260716-124623/,
+  );
   assert.throws(
     () => createStateBaseline({ planFile }, root),
     /requires an explicit normalization decision for change:20260716-124623/,
@@ -1272,56 +1481,130 @@ test('185043 CR2: create requires an explicit normalization decision before appl
   );
 });
 
-test('185043 CR2/CR3: create applies the accepted normalization without touching the source', () => {
-  const { root, head } = fixtureLedgerRepo('legacy-ledger');
-  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
-  const plan = parseYaml(preview.text);
-  const legacy = plan.documents.find((d) => d.identity === 'change:20260716-124623');
-  legacy.resolution.normalize = {
-    rule: legacy.normalization.rule,
-    version: legacy.normalization.version,
-  };
-  const planFile = writePlan(root, stringifyYaml(plan));
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR2/CR3/CR5/CR6: normalization previews, creates and activates end to end (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root, head } = fixture;
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const plan = parseYaml(preview.text);
+    const legacy = plan.documents.find((d) => d.identity === 'change:20260716-124623');
+    legacy.resolution.normalize = {
+      rule: legacy.normalization.rule,
+      version: legacy.normalization.version,
+    };
+    const planFile = writePlan(root, stringifyYaml(plan));
 
-  const baseline = createStateBaseline({ planFile }, root);
+    const validation = previewStateMigrationPlan({ planFile }, root);
+    assert.equal(validation.written, false);
+    assert.equal(validation.inventoryDigest, plan.inventory_digest);
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
 
-  assert.equal(git(root, ['rev-parse', 'dev']), head, 'the source branch is never advanced');
-  const sourceBlob = git(root, [
-    'rev-parse',
-    'dev:.changeledger/changes/20260716-124623-legacy-format.md',
-  ]);
-  assert.equal(sourceBlob, legacy.resolution.blob, 'the source blob itself is untouched');
+    const baseline = createStateBaseline({ planFile }, root);
 
-  const sourceText = fs.readFileSync(
-    path.join(
-      import.meta.dirname,
-      'fixtures',
-      'legacy-ledger',
-      'changes',
-      '20260716-124623-legacy-format.md',
-    ),
-    'utf8',
-  );
-  const expected = migrateStructuredSections(sourceText).text;
-  const stateText = git(root, [
-    'show',
-    `${baseline.baseline}:.changeledger-state/changes/20260716-124623-legacy-format.md`,
-  ]);
-  assert.equal(stateText, expected.trimEnd());
+    assert.equal(git(root, ['rev-parse', 'dev']), head, 'the source branch is never advanced');
+    const sourceBlob = git(root, [
+      'rev-parse',
+      'dev:.changeledger/changes/20260716-124623-legacy-format.md',
+    ]);
+    assert.equal(sourceBlob, legacy.resolution.blob, 'the source blob itself is untouched');
 
-  const manifest = parseYaml(
-    git(root, ['show', `${baseline.baseline}:.changeledger-state/manifest.yml`]),
-  );
-  const decision = manifest.decisions.find((d) => d.identity === 'change:20260716-124623');
-  assert.equal(decision.blob, legacy.resolution.blob);
-  assert.deepEqual(decision.normalization, { rule: 'structured-sections', version: 1 });
+    const sourceText = fs.readFileSync(
+      path.join(
+        import.meta.dirname,
+        'fixtures',
+        'legacy-ledger',
+        'changes',
+        '20260716-124623-legacy-format.md',
+      ),
+      'utf8',
+    );
+    const expected = migrateStructuredSections(sourceText).text;
+    const stateText = git(root, [
+      'show',
+      `${baseline.baseline}:.changeledger-state/changes/20260716-124623-legacy-format.md`,
+    ]);
+    assert.equal(stateText, expected.trimEnd());
 
-  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
-  assert.match(activation.commit, /^[0-9a-f]{40,64}$/);
-});
+    const manifest = parseYaml(
+      git(root, ['show', `${baseline.baseline}:.changeledger-state/manifest.yml`]),
+    );
+    const decision = manifest.decisions.find((d) => d.identity === 'change:20260716-124623');
+    assert.equal(decision.blob, legacy.resolution.blob);
+    assert.deepEqual(decision.normalization, { rule: 'structured-sections', version: 1 });
+
+    const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+    assert.match(activation.commit, OID_PATTERN);
+  });
+}
 
 for (const objectFormat of ['sha1', 'sha256']) {
-  test(`185043 CR4: a change no normalizer covers still fails the whole source closed (${objectFormat})`, (t) => {
+  test(`185043 CR2/CR4/CR5/CR6: manual replacement previews and migrates end to end (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger-unnormalizable', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root, head } = fixture;
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const plan = parseYaml(preview.text);
+    const manual = plan.documents.find((d) => d.identity === 'change:20260710-080000');
+    const planFile = writePlan(root, stringifyYaml(plan));
+
+    assert.throws(
+      () => previewStateMigrationPlan({ planFile }, root),
+      /migration conflict: change:20260710-080000 requires an explicit replacement/,
+    );
+
+    const replacementName = '20260710-080000-unnormalizable.md';
+    const replacementText = change('20260710-080000', 'Reemplazo humano verificado');
+    const replacementFile = path.join(root, 'replacement.md');
+    fs.writeFileSync(replacementFile, replacementText);
+    manual.resolution = {
+      replacement: 'replacement.md',
+      basename: replacementName,
+      sha256: crypto.createHash('sha256').update(replacementText).digest('hex'),
+    };
+    fs.writeFileSync(planFile, stringifyYaml(plan));
+
+    const beforeSource = git(root, ['show', `dev:.changeledger/changes/${replacementName}`]);
+    const validation = previewStateMigrationPlan({ planFile }, root);
+    assert.equal(validation.written, false);
+    assert.equal(validation.inventoryDigest, plan.inventory_digest);
+
+    const baseline = createStateBaseline({ planFile }, root);
+    assert.equal(git(root, ['rev-parse', 'dev']), head);
+    assert.equal(git(root, ['show', `dev:.changeledger/changes/${replacementName}`]), beforeSource);
+    assert.equal(
+      git(root, ['show', `${baseline.baseline}:.changeledger-state/changes/${replacementName}`]),
+      replacementText.trimEnd(),
+    );
+
+    const manifest = parseYaml(
+      git(root, ['show', `${baseline.baseline}:.changeledger-state/manifest.yml`]),
+    );
+    const decision = manifest.decisions.find((d) => d.identity === manual.identity);
+    assert.equal(decision.replacement, 'replacement.md');
+    assert.equal(decision.sha256, manual.resolution.sha256);
+    assert.match(prepareStateActivation({ baseline: baseline.baseline }, root).commit, OID_PATTERN);
+  });
+}
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR4: recognized ambiguous legacy requires replacement (${objectFormat})`, (t) => {
     let fixture;
     try {
       fixture = fixtureLedgerRepo('legacy-ledger-unnormalizable', objectFormat);
@@ -1334,14 +1617,68 @@ for (const objectFormat of ['sha1', 'sha256']) {
     }
     const { root, head } = fixture;
 
+    const beforeTree = git(root, ['rev-parse', 'dev^{tree}']);
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const document = preview.plan.documents.find(
+      (item) => item.identity === 'change:20260710-080000',
+    );
+    assert.equal(document.compatibility, 'requires-replacement');
+    assert.equal(document.resolution, null);
+    assert.equal(document.replacement.rule, 'structured-sections');
+    assert.equal(document.replacement.version, 1);
+    assert.match(document.replacement.reasons.join('\n'), /ambiguous legacy task metadata/);
+    assert.match(
+      document.replacement.reasons.join('\n'),
+      /untyped Log entry has no migratable timestamp/,
+    );
+    assert.equal(document.candidates[0].commit, head);
+    assert.equal(
+      document.candidates[0].path,
+      '.changeledger/changes/20260710-080000-unnormalizable.md',
+    );
+    assert.equal(git(root, ['rev-parse', 'dev^{tree}']), beforeTree);
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+  });
+}
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR4: Plan legacy cannot hide an unrelated typed-Log contradiction (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger-unnormalizable', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+    const file = path.join(root, '.changeledger', 'changes', '20260710-080000-unnormalizable.md');
+    const text = fs
+      .readFileSync(file, 'utf8')
+      .replace('status: blocked', 'status: in-validation')
+      .replace(
+        '- **2026-07-10T08:00:00Z** — status: draft → approved',
+        '- **2026-07-10T08:00:00Z** `[status]` draft → approved',
+      )
+      .replace(
+        '- **2026-07-10T08:05:00Z** — status: approved → in-progress',
+        '- **2026-07-10T08:05:00Z** `[status]` approved → in-progress',
+      )
+      .replace(
+        '- **2026-07-10T08:10:00Z** — status: in-progress → blocked',
+        '- **2026-07-10T08:10:00Z** `[status]` in-progress → in-review',
+      )
+      .replace('- Nota suelta sin timestamp reconocible\n', '');
+    fs.writeFileSync(file, text);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-qm', 'test: isolate Plan legacy from typed Log defect']);
+    git(root, ['push', '-q', 'origin', 'dev']);
+
     assert.throws(
       () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
-      new RegExp(
-        `local:refs/heads/dev at ${head}:\\.changeledger/changes/20260710-080000-unnormalizable\\.md: ` +
-          'document change:20260710-080000 has legacy metadata no normalizer covers: .*' +
-          'ambiguous legacy task metadata.*untyped Log entry has no migratable timestamp',
-        's',
-      ),
+      /Log reconstructs status "in-review" but frontmatter says "in-validation"/,
     );
     assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
   });
@@ -1401,7 +1738,7 @@ Cycle B.
 });
 
 for (const objectFormat of ['sha1', 'sha256']) {
-  test(`185043 CR1/CR4: an untyped Log entry with no other legacy pattern still fails closed (${objectFormat})`, (t) => {
+  test(`185043 CR1/CR4: an isolated untyped Log requires replacement (${objectFormat})`, (t) => {
     // Regression: migrateStructuredSections can leave text byte-identical
     // (changed: false) while still recording an unmigratable defect in
     // `manual` — classifyLegacyChange must check `manual` before `changed`,
@@ -1417,16 +1754,19 @@ for (const objectFormat of ['sha1', 'sha256']) {
       }
       throw error;
     }
-    const { root, head } = fixture;
+    const { root } = fixture;
 
-    assert.throws(
-      () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
-      new RegExp(
-        `local:refs/heads/dev at ${head}:\\.changeledger/changes/20260710-090000-untyped-log-only\\.md: ` +
-          'document change:20260710-090000 has legacy metadata no normalizer covers: ' +
-          'line \\d+: untyped Log entry has no migratable timestamp',
-      ),
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const document = preview.plan.documents.find(
+      (item) => item.identity === 'change:20260710-090000',
     );
+    assert.equal(document.compatibility, 'requires-replacement');
+    assert.equal(document.resolution, null);
+    assert.deepEqual(document.replacement, {
+      rule: 'structured-sections',
+      version: 1,
+      reasons: ['line 19: untyped Log entry has no migratable timestamp'],
+    });
     assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
   });
 }

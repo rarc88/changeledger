@@ -249,23 +249,101 @@ function scopedChangeErrors(config, name, text) {
   return errors.map((error) => error.message);
 }
 
-// Classifies an already-identified change's content as valid or
-// legacy-normalizable. Returns `{compatible: false, reasons}` when the defect
-// is not covered by any known normalizer — the caller treats that exactly
-// like any other invalid document (fatal to the source), naming the reasons
-// in the thrown message. `manual` must be checked before `changed`:
+function isRecognizedLegacyResidual(message, migrated) {
+  const changedPlan = migrated.applied.some((item) => item.includes('task metadata'));
+  const changedLog = migrated.applied.some((item) => item.includes('typed Log event'));
+  const manualTask = migrated.manual.some((item) => item.includes('legacy task metadata'));
+  const manualLog = migrated.manual.some((item) => item.includes('untyped Log entry'));
+  return (
+    (manualTask &&
+      (/^invalid task metadata structure for task #\d+$/.test(message) ||
+        /^(?:done|blocked) task is missing an ISO 8601 UTC resolution timestamp$/.test(message) ||
+        /^blocked task is missing a reason$/.test(message) ||
+        /^status is "done" but \d+ task\(s\) are not done$/.test(message))) ||
+    (manualLog && /^Log line \d+: invalid typed event$/.test(message)) ||
+    (changedPlan && /^Plan task for CR\d+ must name target and verification\b/.test(message)) ||
+    (changedLog &&
+      /^Log line \d+: transition ".+" starts from ".+" but the reconstructed status is ".+"$/.test(
+        message,
+      )) ||
+    (changedLog && /^Log reconstructs status ".+" but frontmatter says ".+"$/.test(message))
+  );
+}
+
+// Classifies an already-identified change's content as valid,
+// legacy-normalizable or requiring an explicit human replacement. The last
+// state is only reachable after parseChange derived a stable identity and
+// migrateStructuredSections recognized a legacy task/Log shape; transport,
+// encoding, parsing and identity failures never reach this function.
+// `manual` must be checked before `changed`:
 // `migrateStructuredSections` can leave the text byte-identical (`changed:
 // false`) while still recording an unmigratable defect (e.g. a lone untyped
 // Log line with no other legacy pattern to rewrite) — checking `changed`
 // first would silently classify that document as valid.
 function classifyLegacyChange(config, name, content) {
   const migrated = migrateStructuredSections(content);
-  if (migrated.manual.length) return { compatible: false, reasons: migrated.manual };
-  if (!migrated.changed) return { compatible: true };
+  if (!migrated.changed && !migrated.manual.length) return { compatible: true };
   const errors = scopedChangeErrors(config, name, migrated.text);
-  if (errors.length) return { compatible: false, reasons: errors };
+  const unrelated = errors.filter((error) => !isRecognizedLegacyResidual(error, migrated));
+  if (unrelated.length) return { compatible: false, reasons: unrelated };
+  if (migrated.manual.length) {
+    return {
+      compatible: 'requires-replacement',
+      reasons: migrated.manual,
+      ...NORMALIZATION_RULES.change,
+    };
+  }
+  if (errors.length) {
+    return {
+      compatible: 'requires-replacement',
+      reasons: errors,
+      ...NORMALIZATION_RULES.change,
+    };
+  }
   const sha256 = crypto.createHash('sha256').update(migrated.text).digest('hex');
   return { compatible: 'legacy', text: migrated.text, sha256, ...NORMALIZATION_RULES.change };
+}
+
+function contentIdentity(kind, name, content) {
+  if (kind === 'change') {
+    const parsed = parseChange(content);
+    return `change:${parsed.frontmatter.id}`;
+  }
+  if (kind === 'spec') {
+    parseSpec(content);
+    return `spec:${name.slice(0, -3)}`;
+  }
+  if (kind === 'release') {
+    const release = parseYaml(content);
+    return `release:${release.version ?? name.slice(0, -4)}`;
+  }
+  parseYaml(content);
+  return 'config';
+}
+
+function documentIdentity(kind, name, content) {
+  const identity = contentIdentity(kind, name, content);
+  if (kind === 'change') {
+    const id = identity.slice('change:'.length);
+    if (!name.startsWith(`${id}-`) || !name.endsWith('.md')) {
+      throw new Error('change filename does not match its id');
+    }
+  } else if (kind === 'spec' && !name.endsWith('.md')) {
+    throw new Error('spec filename must end in .md');
+  } else if (kind === 'release' && !name.endsWith('.yml')) {
+    throw new Error('release filename must end in .yml');
+  } else if (kind === 'config' && name !== 'config.yml') {
+    throw new Error('config filename must be config.yml');
+  }
+  return identity;
+}
+
+function assertDocumentIdentity(document, name, content, label) {
+  const actual = contentIdentity(document.kind, name, content);
+  if (actual !== document.identity) {
+    throw new Error(`${label} identity mismatch: expected ${document.identity} actual ${actual}`);
+  }
+  documentIdentity(document.kind, name, content);
 }
 
 function candidateFromEntry(readBlob, source, entry, kind, config) {
@@ -273,15 +351,11 @@ function candidateFromEntry(readBlob, source, entry, kind, config) {
     regularBlob(entry, source.name);
     const content = readBlob(entry.blob);
     const name = basename(entry.path);
-    let identity;
+    const identity = documentIdentity(kind, kind === 'config' ? 'config.yml' : name, content);
     let compatibility = true;
     let normalization;
+    let replacement;
     if (kind === 'change') {
-      const parsed = parseChange(content);
-      identity = `change:${parsed.frontmatter.id}`;
-      if (!name.startsWith(`${parsed.frontmatter.id}-`) || !name.endsWith('.md')) {
-        throw new Error('change filename does not match its id');
-      }
       const classified = classifyLegacyChange(config, name, content);
       if (classified.compatible === false) {
         throw new Error(
@@ -295,18 +369,14 @@ function candidateFromEntry(readBlob, source, entry, kind, config) {
           version: classified.version,
           sha256: classified.sha256,
         };
+      } else if (classified.compatible === 'requires-replacement') {
+        compatibility = 'requires-replacement';
+        replacement = {
+          rule: classified.rule,
+          version: classified.version,
+          reasons: classified.reasons,
+        };
       }
-    } else if (kind === 'spec') {
-      parseSpec(content);
-      if (!name.endsWith('.md')) throw new Error('spec filename must end in .md');
-      identity = `spec:${name.slice(0, -3)}`;
-    } else if (kind === 'release') {
-      const release = parseYaml(content);
-      const version = release.version ?? name.replace(/\.ya?ml$/, '');
-      identity = `release:${version}`;
-    } else {
-      parseYaml(content);
-      identity = 'config';
     }
     return {
       identity,
@@ -319,6 +389,7 @@ function candidateFromEntry(readBlob, source, entry, kind, config) {
       basename: kind === 'config' ? 'config.yml' : name,
       compatibility,
       ...(normalization ? { normalization } : {}),
+      ...(replacement ? { replacement } : {}),
     };
   } catch (error) {
     throw new Error(
@@ -448,11 +519,15 @@ function groupCandidates(inventories) {
       const variants = new Set(candidates.map((item) => `${item.blob}\0${item.basename}`));
       const selected = candidates[0];
       const resolved = variants.size === 1;
+      const requiresReplacement = resolved && selected.compatibility === 'requires-replacement';
       const document = {
         identity,
         kind: selected.kind,
         candidates,
-        resolution: resolved ? { blob: selected.blob, basename: selected.basename } : null,
+        resolution:
+          resolved && !requiresReplacement
+            ? { blob: selected.blob, basename: selected.basename }
+            : null,
       };
       // Compatibility is a pure function of content: a single-variant document
       // shares its lone candidate's diagnosis. A cross-source conflict has no
@@ -461,6 +536,7 @@ function groupCandidates(inventories) {
       if (resolved) {
         document.compatibility = selected.compatibility;
         if (selected.normalization) document.normalization = selected.normalization;
+        if (selected.replacement) document.replacement = selected.replacement;
       }
       return document;
     });
@@ -543,7 +619,8 @@ export function previewStateMigration(
   // whole source, matching create) on any error.
   if (plan.documents.every((document) => document.resolution)) {
     candidateSnapshot(repoRoot, path.join(repoRoot, '.changeledger-migration-preview.yml'), plan, {
-      simulate: true,
+      allowImplicitNormalization: true,
+      skipAdvisory: true,
     });
   }
   const text = stringifyYaml(plan);
@@ -625,6 +702,50 @@ function revalidatePlan(repoRoot, plan, activity) {
   }
 }
 
+export function previewStateMigrationPlan({ planFile } = {}, start = process.cwd(), activity = {}) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: null,
+    ref: null,
+    inventoryDigest: null,
+  });
+  const { repoRoot } = repoFor(start);
+  const loaded = loadPlan(planFile);
+  recordActivity(activity, {
+    sources: loaded.plan.sources,
+    sourceOids: Object.fromEntries(
+      loaded.plan.sources.map((source) => [source.name, source.commit]),
+    ),
+    inventoryDigest: loaded.plan.inventory_digest,
+  });
+  revalidatePlan(repoRoot, loaded.plan, activity);
+  candidateSnapshot(repoRoot, loaded.file, loaded.plan, {
+    allowImplicitNormalization: false,
+    skipAdvisory: true,
+  });
+  const text = stringifyYaml(loaded.plan);
+  return {
+    plan: loaded.plan,
+    text,
+    output: null,
+    sources: loaded.plan.sources,
+    sourceOids: Object.fromEntries(
+      loaded.plan.sources.map((source) => [source.name, source.commit]),
+    ),
+    baseline: null,
+    branch: null,
+    ref: null,
+    inventoryDigest: loaded.plan.inventory_digest,
+    uninventoried: loaded.plan.uninventoried ?? [],
+    network: activity.network,
+    written: false,
+  };
+}
+
 function resolvedCandidate(document) {
   const resolution = document.resolution;
   if (!resolution || resolution.replacement) return null;
@@ -638,10 +759,15 @@ function resolvedCandidate(document) {
   return candidate;
 }
 
-function chosenContent(readBlob, planFile, document, { simulate = false } = {}) {
+function chosenContent(readBlob, planFile, document, { allowImplicitNormalization = false } = {}) {
   const resolution = document.resolution;
-  if (!resolution)
-    throw new Error(`migration conflict: ${document.identity} has divergent candidates`);
+  if (!resolution) {
+    const reason =
+      document.compatibility === 'requires-replacement'
+        ? 'requires an explicit replacement'
+        : 'has divergent candidates';
+    throw new Error(`migration conflict: ${document.identity} ${reason}`);
+  }
   if (resolution.replacement) {
     const replacement = path.resolve(path.dirname(planFile), resolution.replacement);
     const content = fs.readFileSync(replacement, 'utf8');
@@ -651,6 +777,7 @@ function chosenContent(readBlob, planFile, document, { simulate = false } = {}) 
         `migration plan is stale: replacement ${resolution.replacement} expected ${resolution.sha256} actual ${actual}`,
       );
     }
+    assertDocumentIdentity(document, resolution.basename, content, 'migration replacement');
     return {
       content,
       basename: resolution.basename,
@@ -658,14 +785,19 @@ function chosenContent(readBlob, planFile, document, { simulate = false } = {}) 
     };
   }
   const candidate = resolvedCandidate(document);
+  if (candidate.compatibility === 'requires-replacement') {
+    throw new Error(
+      `migration conflict: ${document.identity} requires an explicit replacement; ` +
+        'selecting its legacy source blob is not a resolution',
+    );
+  }
   if (candidate.compatibility === 'legacy') {
-    // `simulate` is preview's read-only CR6 dry run: it checks whether the
-    // global rules would pass once the known-safe transform is applied, but
-    // records and writes nothing, so it never needs the operator's explicit
-    // create-time acceptance (CR2) — only `--create` enforces that gate.
+    // Source preview may apply a known-safe transform in memory to prove the
+    // generated plan can form a closed candidate. Previewing an edited plan
+    // and create both require the operator's explicit normalization decision.
     const normalize = resolution.normalize;
     if (
-      !simulate &&
+      !allowImplicitNormalization &&
       (!normalize ||
         normalize.rule !== candidate.normalization.rule ||
         normalize.version !== candidate.normalization.version)
@@ -722,7 +854,12 @@ function statePath(document, name) {
   return `${STATE_ROOT}/${collection}/${name}`;
 }
 
-function candidateSnapshot(repoRoot, planFile, plan, { simulate = false } = {}) {
+function candidateSnapshot(
+  repoRoot,
+  planFile,
+  plan,
+  { allowImplicitNormalization = false, skipAdvisory = false } = {},
+) {
   const resolvedCandidates = plan.documents.map(resolvedCandidate).filter(Boolean);
   const readBlob = batchBlobReader(
     repoRoot,
@@ -732,7 +869,9 @@ function candidateSnapshot(repoRoot, planFile, plan, { simulate = false } = {}) 
   const writes = new Map();
   const decisions = [];
   for (const document of plan.documents) {
-    const chosen = chosenContent(readBlob, planFile, document, { simulate });
+    const chosen = chosenContent(readBlob, planFile, document, {
+      allowImplicitNormalization,
+    });
     const target = statePath(document, chosen.basename);
     if (writes.has(target)) throw new Error(`migration target collision: ${target}`);
     writes.set(target, chosen.content);
@@ -755,13 +894,10 @@ function candidateSnapshot(repoRoot, planFile, plan, { simulate = false } = {}) 
     else if (file.startsWith(`${STATE_ROOT}/releases/`))
       releases.push({ name, text, ...parseYaml(text) });
   }
-  // `simulate` (preview's CR6 dry run) runs the exact same full checkRepo
-  // create would — local and global rules alike — so a green preview truly
-  // cannot fail create on any rule already evaluated (CR1, CR6). It only
-  // skips the advisory `hasFixableDefects` scan, which never affects
-  // `errors` (both callers discard `warnings`); that's a read-only perf
-  // saving, not a behavior difference.
-  const { errors } = checkRepo({ config, changes, specs, releases }, { skipAdvisory: simulate });
+  // Both preview modes run the same local and global rules as create. They may
+  // skip only the advisory scan, which cannot add errors and whose warnings
+  // every caller discards.
+  const { errors } = checkRepo({ config, changes, specs, releases }, { skipAdvisory });
   if (errors.length) {
     throw new Error(boundedErrorSummary('migration candidate validation failed', errors));
   }
@@ -949,10 +1085,12 @@ function validateManifestDecisions(readBlob, manifest, entries) {
     const target = entryByPath.get(decision.target);
     if (!target) throw new Error(`state manifest target is missing: ${decision.target}`);
     if (decision.replacement) {
-      const actual = crypto.createHash('sha256').update(readBlob(target.blob)).digest('hex');
+      const content = readBlob(target.blob);
+      const actual = crypto.createHash('sha256').update(content).digest('hex');
       if (!SHA256.test(decision.sha256 ?? '') || actual !== decision.sha256) {
         throw new Error(`state manifest replacement mismatch for ${document.identity}`);
       }
+      assertDocumentIdentity(document, targetName, content, 'state manifest replacement');
       continue;
     }
     if (decision.normalization) {

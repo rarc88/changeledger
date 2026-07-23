@@ -144,7 +144,9 @@ changeledger state migrate --preview \
   --source origin:refs/heads/feature/example \
   --source local:refs/heads/private \
   --output migration-plan.yml
-# Resolve every divergent logical identity in migration-plan.yml.
+# Resolve every divergent identity, explicit normalization and required
+# replacement, then validate the edited plan without publishing.
+changeledger state migrate --preview --plan migration-plan.yml
 changeledger state migrate --create --plan migration-plan.yml
 changeledger state activate --prepare --baseline <S0>
 changeledger state doctor --activation-ref changeledger/activate-<S0-prefix>
@@ -152,9 +154,10 @@ changeledger state doctor --activation-ref changeledger/activate-<S0-prefix> --o
 ```
 
 `--preview` fetches only explicitly named remote refs without updating user
-branches or remote-tracking refs. `--create` reconstructs the complete inventory
-from the fixed source commits, rejects any stale path/mode/blob or replacement,
-validates the closed snapshot, then publishes the initial state with create-only
+branches or remote-tracking refs. `--preview --plan` reconstructs the complete
+inventory and validates the resolved snapshot without publishing. `--create`
+repeats those checks against the fixed source commits, rejects any stale
+path/mode/blob or replacement, then publishes the initial state with create-only
 CAS. Its manifest keeps every candidate and source OID—not only the selected
 documents—so later cutover checks do not depend on the local plan.
 

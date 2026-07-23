@@ -91,6 +91,16 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
   assert.match(out, /--dry-run/);
 });
 
+test('185043 CR6: state migrate help exposes read-only validation of an edited plan', () => {
+  const { code, out } = run('state', 'migrate', '--help');
+  assert.equal(code, 0);
+  assert.match(out, /--preview\s+write no state; emit or validate/);
+  assert.match(
+    out,
+    /--plan <file>\s+resolved plan validated by --preview or consumed by\s+--create/,
+  );
+});
+
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));

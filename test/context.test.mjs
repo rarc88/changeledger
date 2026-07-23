@@ -529,6 +529,7 @@ test('193103 CR10-CR12: implementation context owns recoverable state cutover sy
   const core = buildContext(undefined, root);
 
   assert.match(core, /state migrate --preview --source/);
+  assert.match(core, /state migrate --preview --plan/);
   assert.match(core, /state migrate --create --plan/);
   assert.match(core, /state activate --prepare --baseline/);
   assert.match(core, /state export --recovery-branch/);
@@ -605,7 +606,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // syntax and enforcement/rollout boundary are preserved.
     // 20260721-193104: the remote-enforcement boundary is preserved and refined:
     // hooks follow activation and recovery remains an administrative operation.
-    'core.md': '4df0264d429cf49d94d794b5b9c74564e285b4389cb98f562bdf391b1c5a85e2',
+    // 20260722-185043: the cutover sequence is extended with read-only
+    // validation of the edited plan before create; existing steps are preserved.
+    'core.md': '1296a7654e25e3d7917c98c01e7bb83ddeca8cbe1432aa6707676e304636dd13',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
