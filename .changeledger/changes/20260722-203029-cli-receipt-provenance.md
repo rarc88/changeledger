@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: draft
+status: approved
 created: 2026-07-22T20:30:29Z
 depends_on: []
 related_to: ["20260721-193106", "20260722-190137"]
@@ -75,3 +75,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 
 - **2026-07-22T20:30:29Z** `[note]` Draft creado por la revisión cruzada de los drafts de remediación de 20260721-193106 (fila ISO-1.2 de la ejecución paralela): 20260722-190137 cubre los payloads del viewer; esta es la superficie CLI.
 - **2026-07-22T20:41:30Z** `[note]` Alcance completado tras revisar los productores reales: incluye receipts comunes, comandos de réplica y stateFailureReceipt en éxito/error humano y JSON.
+- **2026-07-23T09:28:25Z** `[status]` draft → approved

@@ -2,7 +2,7 @@
 id: "20260722-203030"
 title: Documentar compatibilidad de cliente y alcance del enforcement
 type: chore
-status: draft
+status: approved
 created: 2026-07-22T20:30:30Z
 depends_on: []
 related_to: ["20260721-193106", "20260722-202057"]
@@ -39,3 +39,4 @@ riesgo de falsa confianza y uno LOW de recuperación:
 
 - **2026-07-22T20:30:30Z** `[note]` Draft creado por la revisión cruzada de los drafts de remediación de 20260721-193106 (fila UPG-4 de la ejecución paralela); el fix de comportamiento del downgrade local es 20260722-202057, este chore cubre solo la documentación del alcance.
 - **2026-07-22T20:41:30Z** `[note]` Se incorpora el séptimo hallazgo LOW: cleanup seguro del baseline remoto publicado cuando el cutover se aborta antes de activar authority.
+- **2026-07-23T09:28:27Z** `[status]` draft → approved

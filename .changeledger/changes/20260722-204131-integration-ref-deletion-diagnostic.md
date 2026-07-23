@@ -2,7 +2,7 @@
 id: "20260722-204131"
 title: Diagnosticar el borrado de la integration ref
 type: bug
-status: draft
+status: approved
 created: 2026-07-22T20:41:31Z
 depends_on: []
 related_to: ["20260721-193106", "20260721-193104", "20260722-203031"]
@@ -50,3 +50,4 @@ nuevo OID, sin relajar el rechazo existente.
 ## Log
 
 - **2026-07-22T20:41:31Z** `[note]` Draft separado de 20260722-203031 porque el borrado de integration ref pertenece al validador remoto y requiere una regresión propia SHA-1/SHA-256.
+- **2026-07-23T09:28:31Z** `[status]` draft → approved

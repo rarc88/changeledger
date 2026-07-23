@@ -2,7 +2,7 @@
 id: "20260722-203031"
 title: Corregir la taxonomía de fallos de la réplica
 type: bug
-status: draft
+status: approved
 created: 2026-07-22T20:30:31Z
 depends_on: []
 related_to: ["20260721-193106", "20260722-204130", "20260722-204131"]
@@ -69,3 +69,4 @@ preservar cuál lado falló.
 - **2026-07-22T20:30:31Z** `[note]` Draft creado por la revisión cruzada de los drafts de remediación de 20260721-193106: agrupa los seis LOW de código de la ejecución paralela (FLT/THR/CONV) para una decisión única; divisible o re-tipable a bug antes de aprobar.
 - **2026-07-22T20:41:30Z** `[note]` Paquete dividido y re-tipado: este bug conserva solo la taxonomía de state-store; orientación CLI pasa a 20260722-204130 y borrado de integration ref a 20260722-204131.
 - **2026-07-22T20:50:00Z** `[note]` CR3 endurecida con criterio verificable: solo se acusa al confirmado local cuando falla su propia validación de snapshot (schema/baseline/checkRepo), no por la mera no-ancestría con el remoto — esa señal por sí sola es ambigua (podría ser un rewind remoto genuino) y ahora se reporta como divergencia no resuelta en vez de invertir la acusación.
+- **2026-07-23T09:28:28Z** `[status]` draft → approved

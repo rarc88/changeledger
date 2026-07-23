@@ -2,7 +2,7 @@
 id: "20260722-185043"
 title: Permitir migrar ledgers legacy previamente aceptados
 type: bug
-status: draft
+status: approved
 created: 2026-07-22T18:50:43Z
 depends_on: ["20260721-193103"]
 related_to: ["20260721-193106", "20260720-125007"]
@@ -123,3 +123,4 @@ hallazgo alto: un ledger soportado carece de migración segura.
 
 - **2026-07-22T18:50:43Z** `[note]` Draft creado por el hallazgo alto LEGACY-02 de la auditoría 20260721-193106; no se implementa dentro del audit.
 - **2026-07-22T20:41:30Z** `[note]` Readiness reforzada: preview debe validar el snapshot candidato cerrado con las mismas reglas locales y globales de create, no solo clasificar documentos individualmente.
+- **2026-07-23T09:28:13Z** `[status]` draft → approved

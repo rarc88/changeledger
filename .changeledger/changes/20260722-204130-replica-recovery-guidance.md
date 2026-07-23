@@ -2,7 +2,7 @@
 id: "20260722-204130"
 title: Orientar la recuperación desde comandos de réplica
 type: bug
-status: draft
+status: approved
 created: 2026-07-22T20:41:30Z
 depends_on: []
 related_to: ["20260721-193106", "20260722-203031"]
@@ -53,3 +53,4 @@ réplica a `changeledger state status`.
 ## Log
 
 - **2026-07-22T20:41:30Z** `[note]` Draft separado de 20260722-203031 para concentrar la orientación operacional de comandos de réplica y elegir el mensaje mínimo hacia state status en lugar de ampliar doctor.
+- **2026-07-23T09:28:30Z** `[status]` draft → approved
