@@ -118,9 +118,14 @@ function isFilesystemError(error) {
 // what distinguishes an actual Git process failure (infrastructure) from a
 // genuine path/content conflict produced by replayPending's own logic.
 function isGitProcessError(error) {
-  const cause = error?.cause;
-  if (!cause || typeof cause !== 'object') return false;
-  return typeof cause.status === 'number' || typeof cause.signal === 'string' || 'code' in cause;
+  // Walk the full cause chain: validators rewrap git failures in plain Errors
+  // (sometimes more than once), so a single-level check would mislabel an
+  // infrastructure failure as a semantic replica conflict.
+  for (let cause = error?.cause; cause && typeof cause === 'object'; cause = cause.cause) {
+    if (typeof cause.status === 'number' || typeof cause.signal === 'string' || 'code' in cause)
+      return true;
+  }
+  return false;
 }
 
 export function createStatePending(repoRoot, confirmed, head) {

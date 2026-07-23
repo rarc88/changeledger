@@ -270,6 +270,21 @@ test('170613: invalid-local-state reports confirmed/pending oids like its siblin
   );
 });
 
+test('170613 correction: status reports conflict when observed is a sibling overlapping the pending paths', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');
+  // Fork a sibling from the baseline touching the same path: observed neither
+  // contains pending.head nor descends from it, and the paths overlap.
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  const observed = editStateFile(created.root, 'specs/A.md', '# A', '# Remote', 'sibling advance');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', OBSERVED_REF, observed]);
+  git(created.root, ['update-ref', CONFIRMED_REF, created.baseline]);
+
+  const status = stateReplicaStatus(created.root);
+  assert.equal(status.condition, 'conflict');
+});
+
 test('170613: status reports pending, not conflict, when observed already published a pending state', () => {
   const created = replicaFixture('sha1');
   const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');

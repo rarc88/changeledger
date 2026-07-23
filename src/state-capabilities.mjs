@@ -54,12 +54,11 @@ export function stateCapabilities(evidence = [], observation = {}) {
   for (const item of evidence) {
     const definition = DEFINITIONS[item?.capability];
     if (!definition) continue;
-    // First entry for a capability wins: a later duplicate must never clobber
-    // an already-resolved result, valid or not -- otherwise a subsequent
-    // invalid/incomplete entry for the same capability could downgrade an
-    // already-trusted resolution back to 'unavailable'.
+    // First VALID entry for a capability wins: a later duplicate must never
+    // clobber an already-resolved result (no downgrade), but a leading
+    // invalid/incomplete entry must not permanently block a later valid one
+    // either -- only an entry that actually resolves claims the slot.
     if (resolved.has(item.capability)) continue;
-    resolved.add(item.capability);
     const complete =
       [item.provider, item.ref, item.oid, item.mechanism, item.evidence].every(
         (value) => typeof value === 'string' && value.length > 0,
@@ -72,6 +71,7 @@ export function stateCapabilities(evidence = [], observation = {}) {
       result[item.capability] = unavailable(item.capability, 'evidence is incomplete or invalid');
       continue;
     }
+    resolved.add(item.capability);
     const value =
       definition.trusted.includes(item.value) && item[TRUSTED_ADAPTER] !== true
         ? definition.downgrade

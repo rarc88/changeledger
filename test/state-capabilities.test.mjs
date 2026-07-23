@@ -88,6 +88,14 @@ test('170613: a later duplicate evidence entry cannot clobber an already-resolve
   assert.equal(untrustedFirst.content_validation.value, 'configured');
 });
 
+test('170613 correction: a leading invalid entry does not block a later valid resolution', () => {
+  const capabilities = stateCapabilities([
+    { ...evidence, capability: 'history_protection', value: 'enforced', ref: 'not-a-full-ref' },
+    trustedAdapterEvidence({ ...evidence, capability: 'history_protection', value: 'enforced' }),
+  ]);
+  assert.equal(capabilities.history_protection.value, 'enforced');
+});
+
 test('193104 correction CR5: trusted evidence requires valid and observed ref/OID binding', () => {
   for (const invalid of [{ ref: 'not-a-full-ref' }, { oid: 'not-an-oid' }]) {
     const capabilities = stateCapabilities([
