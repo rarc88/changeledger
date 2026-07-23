@@ -64,7 +64,12 @@ export function stateActivate(
 }
 
 export function stateDoctor(cwd = process.cwd(), options = {}, activity = {}) {
-  if (!options.activationRef) throw new Error('state doctor requires --activation-ref');
+  if (!options.activationRef) {
+    throw new Error(
+      'state doctor validates a migration activation and requires --activation-ref; ' +
+        'to diagnose the replica instead, run `changeledger state status`',
+    );
+  }
   const result = doctorStateMigration(options, cwd, activity);
   return {
     ...result,

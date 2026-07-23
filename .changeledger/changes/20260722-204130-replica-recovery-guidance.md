@@ -2,7 +2,7 @@
 id: "20260722-204130"
 title: Orientar la recuperación desde comandos de réplica
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:41:30Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -47,9 +47,12 @@ réplica a `changeledger state status`.
 
 ## Plan
 
-- [ ] Añadir tests fallidos de abort stale/no-stale y extender el receipt en `src/commands/state.mjs`/`bin/changeledger.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` comprueba stale y la instrucción de sync en humano/JSON (CR1)
-- [ ] Añadir un test fallido de doctor sin activation-ref y reemplazar el mensaje en `src/commands/state.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` exige la orientación literal a `changeledger state status` (CR2)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos de abort stale/no-stale y extender el receipt en `src/commands/state.mjs`/`bin/changeledger.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` comprueba stale y la instrucción de sync en humano/JSON (CR1)
+  - **Resolved:** `2026-07-23T13:18:04Z`
+- [x] Añadir un test fallido de doctor sin activation-ref y reemplazar el mensaje en `src/commands/state.mjs`; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` exige la orientación literal a `changeledger state status` (CR2)
+  - **Resolved:** `2026-07-23T13:18:04Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T13:18:04Z`
 
 ## Log
 
@@ -57,3 +60,9 @@ réplica a `changeledger state status`.
 - **2026-07-23T09:28:30Z** `[status]` draft → approved
 - **2026-07-23T13:13:07Z** `[status]` approved → in-progress
 - **2026-07-23T13:13:07Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T13:19:45Z** `[note]` Implementado CR1 (abort agrega stale:true al receipt humano/JSON e instruye state sync) y CR2 (doctor sin --activation-ref explica que valida activación y dirige a state status). pnpm verify verde.
+- **2026-07-23T13:19:45Z** `[status]` in-progress → in-review
+- **2026-07-23T13:25:08Z** `[review]` in-review → in-progress (retry): CR1: falta test CLI-level (execFileSync) que ejercite bin/changeledger.mjs state abort --pending humano y --json; solo se testeó stateAbort() directo
+- **2026-07-23T13:27:48Z** `[note]` Corregido tras fail-retry: agregados tests CLI-level (execFileSync) para state abort --pending humano y --json que verifican el mensaje/flag stale. node --test + pnpm verify verdes.
+- **2026-07-23T13:31:20Z** `[status]` in-progress → in-review
+- **2026-07-23T13:31:26Z** `[review]` in-review → in-validation (delegated subagent, clean context)
