@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-validation
+status: in-progress
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -113,3 +113,4 @@ humana sobre otra verdad.
 - **2026-07-23T14:23:36Z** `[note]` Corrección tras fail-retry: saveRaw() ahora guarda con managedProject===configTarget.project como sus hermanos (saveForm/applyMigration/repair/unregister/previewMigration). Test de regresión agregado que confirma la corrupción de config_revision sin el guard y su ausencia con el fix. También se detectó y corrigió un gap del arnés de test: api.js lee window.__CHANGELEDGER_TOKEN__ pero viewer-metadata.test.mjs nunca exponía window como global, por lo que ningún test anterior ejercía de verdad un handler de mutación POST; se agregó globalThis.window. node --test + pnpm verify verdes (978 tests).
 - **2026-07-23T14:23:44Z** `[status]` in-progress → in-review
 - **2026-07-23T14:29:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T16:58:36Z** `[validation]` in-validation → in-progress (agent rejected): Doble auditoría confirma alcance incompleto: el handler de sync pierde afinidad tras el await (resultado de A mostrado bajo B, app.js:1779), falta latest-wins por secuencia para recargas del mismo proyecto (CR3, openManagedProject:1282), y el toast de éxito hereda type error por defecto (showToast:918). Corrección: centralizar afinidad target+secuencia y cubrir sync éxito/error A→B y doble carga A old/new.
