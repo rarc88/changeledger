@@ -2,10 +2,11 @@
 id: "20260722-185043"
 title: Permitir migrar ledgers legacy previamente aceptados
 type: bug
-status: approved
+status: in-review
 created: 2026-07-22T18:50:43Z
 depends_on: ["20260721-193103"]
-related_to: ["20260721-193106", "20260720-125007"]
+owner: raruiz-hiberuscom
+related_to: ["20260721-193106", "20260720-125007", "20260722-163405"]
 ---
 
 ## Request
@@ -51,19 +52,35 @@ versiones anteriores. El preview tampoco eleva esta incompatibilidad como una
 decisión de compatibilidad resoluble. Por la escala de `20260721-193106`, es un
 hallazgo alto: un ledger soportado carece de migración segura.
 
+Acotación de alcance (decisión humana, ver Log): `20260721-193103` CR3 ya
+exige que cualquier documento inválido rechace la source completa nombrando
+OID y path; `20260722-163405` CR1 exige el mismo fail-closed, con mensaje
+exacto, para blobs no UTF-8. Ninguno de los dos se relaja. Esta change abre una
+única válvula de escape, estrecha y versionada: un change cuya única
+incompatibilidad es metadata de tarea legacy o un evento de Log no tipado, y
+que un normalizador explícito (`migrateStructuredSections`) puede reescribir
+sin pérdida semántica, se clasifica como legacy-normalizable en vez de
+abortar. Cualquier otra causa — estructura Git hostil, encoding, documento no
+parseable, sin identidad derivable, o legacy que el normalizador no cubre —
+sigue rechazando la source completa exactamente como hoy.
+
 ## Specification
 
-### CR1 — El preview diagnostica compatibilidad por documento
-- **Given** una source con cualquier documento que `--create` rechazaría —
-  metadata de tareas antigua, eventos de Log no tipados u otra incompatibilidad
-  estructural
+### CR1 — El preview diagnostica compatibilidad legacy por change
+- **Given** una source con un change cuya única incompatibilidad es metadata de
+  tareas antigua o eventos de Log no tipados, aceptados por una versión previa
+  soportada de ChangeLedger y cubiertos por el normalizador versionado
+  `migrateStructuredSections`
 - **When** se ejecuta `state migrate --preview`
-- **Then** el plan clasifica cada documento como válido, legacy normalizable
-  (con la transformación segura disponible) o inválido nunca soportado (con el
-  motivo que exige resolución humana), identificando source, commit, path y
-  blob originales
+- **Then** el plan clasifica ese change como válido o legacy normalizable (con
+  la regla/versión del normalizador aplicable), identificando source, commit,
+  path y blob originales
 - **And** preview y create coinciden: ningún documento verde en preview puede
   fallar en create por la misma regla
+- **And** cualquier otra causa de rechazo — estructura Git hostil, encoding no
+  UTF-8, documento no parseable, sin identidad derivable, o metadata legacy que
+  el normalizador no cubre — sigue rechazando la source completa exactamente
+  como hoy (`20260721-193103` CR3, `20260722-163405` CR1 permanecen intactos)
 - **And** no modifica objetos, refs, worktree, config ni estado público
 
 ### CR2 — La normalización es explícita e inmutable
@@ -82,12 +99,15 @@ hallazgo alto: un ledger soportado carece de migración segura.
 - **And** el manifest conserva procedencia suficiente para auditar contenido
   original y resultado normalizado
 
-### CR4 — Lo no normalizable falla cerrado
-- **Given** un documento cuya intención no puede preservarse mecánicamente
+### CR4 — Lo no cubierto por el normalizador sigue fatal para la source
+- **Given** un change cuyo defecto no coincide con ningún normalizador
+  versionado (p. ej. metadata de tarea ambigua, evento de Log sin timestamp
+  reconocible) — o cualquier otro documento estructuralmente inválido
 - **When** preview o create lo procesa
-- **Then** no publica estado y exige una decisión humana específica para ese
-  documento
-- **And** el diagnóstico no se pierde en una lista repo-wide sin paths
+- **Then** rechaza la source completa, igual que hoy (`20260721-193103` CR3)
+- **And** el mensaje nombra identidad, source, commit y path del documento en
+  vez de perderse en un resumen repo-wide sin ubicación
+- **And** ninguna normalización se infiere para ese documento
 
 ### CR5 — La regresión cubre un ledger legacy representativo
 - **Given** una fixture versionada equivalente al ledger real auditado, incluido
@@ -99,28 +119,40 @@ hallazgo alto: un ledger soportado carece de migración segura.
 
 ### CR6 — El preview valida el snapshot candidato cerrado
 - **Given** un plan cuyas resoluciones requeridas están seleccionadas y cuyos
-  documentos son individualmente válidos o normalizables
+  documentos son válidos o legacy-normalizables por el normalizador versionado
 - **When** se ejecuta `state migrate --preview`
 - **Then** construye en memoria el mismo snapshot candidato que usaría
-  `--create` y aplica las mismas reglas globales de `checkRepo`, incluidos ids
-  duplicados, dependencias ausentes o cíclicas, graduaciones, releases y config
-- **And** distingue los errores locales de documento de los errores globales y
-  nombra todas las identidades y paths involucrados
+  `--create` (aplicando la normalización elegida) y aplica las mismas reglas
+  globales de `checkRepo`, incluidos ids duplicados, dependencias ausentes o
+  cíclicas, graduaciones, releases y config
+- **And** un fallo de esas reglas globales también rechaza la source completa,
+  igual que `--create`, nombrando las identidades y paths involucrados
 - **And** si sources, plan y resoluciones no cambian, un preview verde no puede
   fallar en create por ninguna regla de validación local o global ya evaluada
 - **And** no escribe objetos, refs, worktree, config ni estado público
 
 ## Plan
 
-- [ ] Versionar en `test/fixtures/` casos mínimos de tareas/Log legacy y una fixture integral para el comportamiento de `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` en SHA-1/SHA-256 (CR1, CR4, CR5)
-- [ ] Extender `src/state-migration.mjs` con diagnósticos y decisiones de compatibilidad por documento, hashes y reglas versionadas; verify: `node --test test/state-migration.test.mjs` cubriendo determinismo, no-escritura e integridad/TOCTOU (CR1, CR2)
-- [ ] Construir en `src/state-migration.mjs` el snapshot normalizado sin mutar sources/worktree y conservar procedencia en el manifest; verify: `node --test test/state-migration.test.mjs` cubriendo create/activate/recovery y comparación byte-a-byte (CR2, CR3, CR5)
-- [ ] Extender `src/state-migration.mjs` con tests fallidos de incompatibilidades globales entre documentos individualmente válidos y ejecutar sobre el preview el mismo candidato cerrado y `checkRepo` que usa create; verify: `node --test test/state-migration.test.mjs` cubriendo ids duplicados, dependencias/ciclos, graduación, releases y config sin escrituras (CR6)
-- [ ] Mejorar en `src/state-migration.mjs` el error de estructuras no normalizables con identidad y path; verify: `node --test test/state-migration.test.mjs` con resolución humana fail-closed (CR4)
-- [ ] Ejecutar la matriz focalizada y `pnpm verify` (support)
+- [x] Versionar en `test/fixtures/` casos mínimos de tareas/Log legacy y una fixture integral para el comportamiento de `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` en SHA-1/SHA-256 (CR1, CR4, CR5)
+  - **Resolved:** `2026-07-23T10:23:13Z`
+- [x] Extender `src/state-migration.mjs` con diagnósticos y decisiones de compatibilidad por documento, hashes y reglas versionadas; verify: `node --test test/state-migration.test.mjs` cubriendo determinismo, no-escritura e integridad/TOCTOU (CR1, CR2)
+  - **Resolved:** `2026-07-23T10:23:13Z`
+- [x] Construir en `src/state-migration.mjs` el snapshot normalizado sin mutar sources/worktree y conservar procedencia en el manifest; verify: `node --test test/state-migration.test.mjs` cubriendo create/activate/recovery y comparación byte-a-byte (CR2, CR3, CR5)
+  - **Resolved:** `2026-07-23T10:23:13Z`
+- [x] Extender `src/state-migration.mjs` con tests fallidos de incompatibilidades globales entre documentos individualmente válidos y ejecutar sobre el preview el mismo candidato cerrado y `checkRepo` que usa create; verify: `node --test test/state-migration.test.mjs` cubriendo ids duplicados, dependencias/ciclos, graduación, releases y config sin escrituras (CR6)
+  - **Resolved:** `2026-07-23T10:23:13Z`
+- [x] Mejorar en `src/state-migration.mjs` el error de estructuras no normalizables con identidad y path; verify: `node --test test/state-migration.test.mjs` con resolución humana fail-closed (CR4)
+  - **Resolved:** `2026-07-23T10:23:13Z`
+- [x] Ejecutar la matriz focalizada y `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T10:23:13Z`
 
 ## Log
 
 - **2026-07-22T18:50:43Z** `[note]` Draft creado por el hallazgo alto LEGACY-02 de la auditoría 20260721-193106; no se implementa dentro del audit.
 - **2026-07-22T20:41:30Z** `[note]` Readiness reforzada: preview debe validar el snapshot candidato cerrado con las mismas reglas locales y globales de create, no solo clasificar documentos individualmente.
 - **2026-07-23T09:28:13Z** `[status]` draft → approved
+- **2026-07-23T09:32:19Z** `[status]` approved → in-progress
+- **2026-07-23T09:32:19Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T09:45:00Z** `[note]` Aclaración humana de alcance: la implementación inicial de CR1/CR4 abortaba el preview entero al primer `parseChange`/`parseSpec`/`parseYaml` fallido, lo que habría relajado `20260721-193103` CR3 ("documento inválido" → rechaza la source completa) y el mensaje exacto de `20260722-163405` CR1 para blobs no UTF-8. Decisión: ninguno de esos dos contratos se toca. CR1/CR4/CR6 se acotan a una única válvula de escape: un change cuya única incompatibilidad es metadata de tarea legacy o Log no tipado, emparejado por el normalizador versionado `migrateStructuredSections`, se clasifica legacy-normalizable en vez de abortar. Estructura Git hostil, encoding, documentos no parseables, sin identidad derivable o legacy no cubierto por el normalizador siguen rechazando la source completa; CR4 ahora exige que ese rechazo nombre identidad/source/commit/path en vez de un resumen repo-wide. `related_to` gana `20260722-163405`.
+- **2026-07-23T10:23:31Z** `[note]` Implementado: candidateFromEntry gana una única válvula de escape (change legacy vía migrateStructuredSections, rule structured-sections v1) que clasifica compatibility valid/legacy sin relajar el resto — cualquier otra causa (Git hostil, encoding, no parseable, sin identidad, legacy ambiguo) sigue rechazando la source completa nombrando identidad/source/commit/path (CR1,CR4). create exige resolution.normalize explícito antes de aplicar la normalización y registra blob original + regla/versión + hash en manifest.decisions; validateManifestDecisions verifica el blob normalizado contra ese hash en activate (CR2,CR3). previewStateMigration corre candidateSnapshot en modo simulate (checkRepo con nuevo opts.aggregateOnly en check.mjs) cuando todas las resoluciones están determinadas, sin escribir nada (CR6). Fixtures reales test/fixtures/legacy-ledger{,-unnormalizable}/ basadas en el formato legacy real de este propio repo (commit 75de8cba). 42/42 tests de state-migration (SHA-1/SHA-256), pnpm verify completo: 954/954 tests, lint y changeledger check limpios.
+- **2026-07-23T10:23:37Z** `[status]` in-progress → in-review

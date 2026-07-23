@@ -7,6 +7,7 @@ import path from 'node:path';
 import { parseChange } from './change.mjs';
 import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, integrationBranch } from './config.mjs';
+import { migrateStructuredSections } from './fix.mjs';
 import { VERSION } from './framing.mjs';
 import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
 import { batchBlobReader } from './git-batch.mjs';
@@ -224,17 +225,71 @@ function basename(file) {
   return value;
 }
 
-function candidateFromEntry(readBlob, source, entry, kind) {
+// Legacy-normalization rules this migrator knows how to apply mechanically,
+// versioned so a plan's recorded rule/version can be revalidated
+// deterministically. This is the ONLY escape hatch from the otherwise-fatal
+// "any invalid document rejects the whole source" contract (20260721-193103
+// CR3, 20260722-163405 CR1): a change whose sole defect is legacy task
+// metadata or an untyped Log event, and which the versioned normalizer can
+// rewrite without semantic loss, is classified legacy-normalizable instead of
+// aborting. Everything else — hostile Git structure, non-UTF-8 encoding,
+// unparseable content, undeliverable identity, or legacy shapes the
+// normalizer does not cover — still rejects the whole source exactly as
+// before (20260722-185043 CR1/CR4).
+const NORMALIZATION_RULES = { change: { rule: 'structured-sections', version: 1 } };
+
+// Runs the same single-document checks `checkRepo` would run at create time
+// (frontmatter, stages, tasks, Log sequence) without needing sibling documents.
+function scopedChangeErrors(config, name, text) {
+  const parsed = parseChange(text);
+  const { errors } = checkRepo(
+    { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
+    { id: parsed.frontmatter.id, skipAdvisory: true },
+  );
+  return errors.map((error) => error.message);
+}
+
+// Classifies an already-identified change's content as valid or
+// legacy-normalizable. Returns `null` when the defect is not covered by any
+// known normalizer — the caller treats that exactly like any other invalid
+// document (fatal to the source), naming the reasons in the thrown message.
+function classifyLegacyChange(config, name, content) {
+  const migrated = migrateStructuredSections(content);
+  if (!migrated.changed) return { compatible: true };
+  if (migrated.manual.length) return { compatible: false, reasons: migrated.manual };
+  const errors = scopedChangeErrors(config, name, migrated.text);
+  if (errors.length) return { compatible: false, reasons: errors };
+  const sha256 = crypto.createHash('sha256').update(migrated.text).digest('hex');
+  return { compatible: 'legacy', text: migrated.text, sha256, ...NORMALIZATION_RULES.change };
+}
+
+function candidateFromEntry(readBlob, source, entry, kind, config) {
   try {
     regularBlob(entry, source.name);
     const content = readBlob(entry.blob);
     const name = basename(entry.path);
     let identity;
+    let compatibility = true;
+    let normalization;
     if (kind === 'change') {
       const parsed = parseChange(content);
       identity = `change:${parsed.frontmatter.id}`;
       if (!name.startsWith(`${parsed.frontmatter.id}-`) || !name.endsWith('.md')) {
         throw new Error('change filename does not match its id');
+      }
+      const classified = classifyLegacyChange(config, name, content);
+      if (classified.compatible === false) {
+        throw new Error(
+          `document ${identity} has legacy metadata no normalizer covers: ${classified.reasons.join('; ')}`,
+        );
+      }
+      if (classified.compatible === 'legacy') {
+        compatibility = 'legacy';
+        normalization = {
+          rule: classified.rule,
+          version: classified.version,
+          sha256: classified.sha256,
+        };
       }
     } else if (kind === 'spec') {
       parseSpec(content);
@@ -257,6 +312,8 @@ function candidateFromEntry(readBlob, source, entry, kind) {
       mode: entry.mode,
       blob: entry.blob,
       basename: kind === 'config' ? 'config.yml' : name,
+      compatibility,
+      ...(normalization ? { normalization } : {}),
     };
   } catch (error) {
     throw new Error(
@@ -335,7 +392,7 @@ function inventorySource(repoRoot, observed) {
         });
         continue;
       }
-      candidates.push(candidateFromEntry(readBlob, observed, entry, kind));
+      candidates.push(candidateFromEntry(readBlob, observed, entry, kind, config));
     }
   }
   return { source: observed, projectId: config.project_id, candidates, uninventoried };
@@ -385,13 +442,22 @@ function groupCandidates(inventories) {
       );
       const variants = new Set(candidates.map((item) => `${item.blob}\0${item.basename}`));
       const selected = candidates[0];
-      return {
+      const resolved = variants.size === 1;
+      const document = {
         identity,
         kind: selected.kind,
         candidates,
-        resolution:
-          variants.size === 1 ? { blob: selected.blob, basename: selected.basename } : null,
+        resolution: resolved ? { blob: selected.blob, basename: selected.basename } : null,
       };
+      // Compatibility is a pure function of content: a single-variant document
+      // shares its lone candidate's diagnosis. A cross-source conflict has no
+      // single content to diagnose yet — the operator resolves the variant
+      // first, then a later preview classifies it.
+      if (resolved) {
+        document.compatibility = selected.compatibility;
+        if (selected.normalization) document.normalization = selected.normalization;
+      }
+      return document;
     });
 }
 
@@ -460,6 +526,19 @@ export function previewStateMigration(
     documents,
     uninventoried,
   };
+  // CR6: once every document has a determinate resolution (the common
+  // single-source case; a cross-source variant conflict still leaves
+  // `resolution: null` and is skipped here), dry-run the exact closed
+  // candidate snapshot `--create` would build — same global `checkRepo`
+  // rules (duplicate ids, dependency cycles, specs, releases, config) — so a
+  // green preview can't fail create on a rule already evaluated. Read-only:
+  // `candidateSnapshot` never writes objects, refs, worktree or config; it
+  // throws (rejecting the whole source, matching create) on any global error.
+  if (plan.documents.every((document) => document.resolution)) {
+    candidateSnapshot(repoRoot, path.join(repoRoot, '.changeledger-migration-preview.yml'), plan, {
+      simulate: true,
+    });
+  }
   const text = stringifyYaml(plan);
   if (output) {
     fs.writeFileSync(path.resolve(repoRoot, output), text);
@@ -552,7 +631,7 @@ function resolvedCandidate(document) {
   return candidate;
 }
 
-function chosenContent(readBlob, planFile, document) {
+function chosenContent(readBlob, planFile, document, { simulate = false } = {}) {
   const resolution = document.resolution;
   if (!resolution)
     throw new Error(`migration conflict: ${document.identity} has divergent candidates`);
@@ -572,6 +651,50 @@ function chosenContent(readBlob, planFile, document) {
     };
   }
   const candidate = resolvedCandidate(document);
+  if (candidate.compatibility === 'legacy') {
+    // `simulate` is preview's read-only CR6 dry run: it checks whether the
+    // global rules would pass once the known-safe transform is applied, but
+    // records and writes nothing, so it never needs the operator's explicit
+    // create-time acceptance (CR2) — only `--create` enforces that gate.
+    const normalize = resolution.normalize;
+    if (
+      !simulate &&
+      (!normalize ||
+        normalize.rule !== candidate.normalization.rule ||
+        normalize.version !== candidate.normalization.version)
+    ) {
+      throw new Error(
+        `migration plan requires an explicit normalization decision for ${document.identity}: ` +
+          `add resolution.normalize {rule: "${candidate.normalization.rule}", version: ${candidate.normalization.version}}`,
+      );
+    }
+    const migrated = migrateStructuredSections(readBlob(candidate.blob));
+    if (migrated.manual.length || !migrated.changed) {
+      throw new Error(
+        `migration plan is stale: ${document.identity} no longer normalizes the same way`,
+      );
+    }
+    const sha256 = crypto.createHash('sha256').update(migrated.text).digest('hex');
+    if (sha256 !== candidate.normalization.sha256) {
+      throw new Error(
+        `migration plan is stale: normalized result for ${document.identity} changed`,
+      );
+    }
+    return {
+      content: migrated.text,
+      basename: candidate.basename,
+      provenance: {
+        source: candidate.source,
+        commit: candidate.commit,
+        path: candidate.path,
+        blob: candidate.blob,
+        normalization: {
+          rule: candidate.normalization.rule,
+          version: candidate.normalization.version,
+        },
+      },
+    };
+  }
   return {
     content: readBlob(candidate.blob),
     basename: candidate.basename,
@@ -592,7 +715,7 @@ function statePath(document, name) {
   return `${STATE_ROOT}/${collection}/${name}`;
 }
 
-function candidateSnapshot(repoRoot, planFile, plan) {
+function candidateSnapshot(repoRoot, planFile, plan, { simulate = false } = {}) {
   const resolvedCandidates = plan.documents.map(resolvedCandidate).filter(Boolean);
   const readBlob = batchBlobReader(
     repoRoot,
@@ -602,7 +725,7 @@ function candidateSnapshot(repoRoot, planFile, plan) {
   const writes = new Map();
   const decisions = [];
   for (const document of plan.documents) {
-    const chosen = chosenContent(readBlob, planFile, document);
+    const chosen = chosenContent(readBlob, planFile, document, { simulate });
     const target = statePath(document, chosen.basename);
     if (writes.has(target)) throw new Error(`migration target collision: ${target}`);
     writes.set(target, chosen.content);
@@ -625,7 +748,13 @@ function candidateSnapshot(repoRoot, planFile, plan) {
     else if (file.startsWith(`${STATE_ROOT}/releases/`))
       releases.push({ name, text, ...parseYaml(text) });
   }
-  const { errors } = checkRepo({ config, changes, specs, releases });
+  // In `simulate` mode (preview's CR6 dry run) only the global rules are
+  // checked here — per-document local validity is out of scope for preview
+  // (20260722-185043 CR1/CR4) and stays a create-time-only diagnostic.
+  const { errors } = checkRepo(
+    { config, changes, specs, releases },
+    simulate ? { aggregateOnly: true } : {},
+  );
   if (errors.length) {
     throw new Error(boundedErrorSummary('migration candidate validation failed', errors));
   }
@@ -816,6 +945,30 @@ function validateManifestDecisions(readBlob, manifest, entries) {
       const actual = crypto.createHash('sha256').update(readBlob(target.blob)).digest('hex');
       if (!SHA256.test(decision.sha256 ?? '') || actual !== decision.sha256) {
         throw new Error(`state manifest replacement mismatch for ${document.identity}`);
+      }
+      continue;
+    }
+    if (decision.normalization) {
+      // The original source blob is not necessarily fetchable from this clone,
+      // so re-derivation isn't possible here; instead trust the digest-verified
+      // inventory's recorded expectation and confirm the target blob matches it
+      // exactly (create() already re-derived and hash-checked it before publish).
+      const normalized = document.candidates.find(
+        (candidate) =>
+          candidate.source === decision.source &&
+          candidate.commit === decision.commit &&
+          candidate.path === decision.path &&
+          candidate.blob === decision.blob &&
+          candidate.basename === targetName &&
+          candidate.compatibility === 'legacy' &&
+          candidate.normalization?.rule === decision.normalization.rule &&
+          candidate.normalization?.version === decision.normalization.version,
+      );
+      if (!normalized)
+        throw new Error(`state manifest normalization mismatch for ${document.identity}`);
+      const actual = crypto.createHash('sha256').update(readBlob(target.blob)).digest('hex');
+      if (actual !== normalized.normalization.sha256) {
+        throw new Error(`state manifest normalized content mismatch for ${document.identity}`);
       }
       continue;
     }

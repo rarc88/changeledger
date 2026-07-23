@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { migrateStructuredSections } from '../src/fix.mjs';
 import { sanitizedGitEnv } from '../src/git.mjs';
 import {
   createStateBaseline,
@@ -14,7 +15,7 @@ import {
   previewStateMigration,
 } from '../src/state-migration.mjs';
 import { CONFIRMED_REF, OBSERVED_REF, PENDING_REF } from '../src/state-store.mjs';
-import { stringifyYaml } from '../src/yaml.mjs';
+import { parseYaml, stringifyYaml } from '../src/yaml.mjs';
 
 const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
@@ -104,6 +105,51 @@ function writePlan(root, text) {
   const file = path.join(root, 'migration-plan.yml');
   fs.writeFileSync(file, text);
   return file;
+}
+
+function copyDir(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+    const src = path.join(from, entry.name);
+    const dest = path.join(to, entry.name);
+    if (entry.isDirectory()) copyDir(src, dest);
+    else fs.copyFileSync(src, dest);
+  }
+}
+
+// A real legacy ledger equivalent to the one the 20260721-193106 production
+// audit reproduced: task-metadata and Log-event formats accepted by a prior
+// ChangeLedger version, versioned under test/fixtures/<fixture>/ instead of
+// synthesized inline (20260722-185043 CR5). `legacy-ledger` migrates cleanly
+// end to end; `legacy-ledger-unnormalizable` isolates a document no
+// normalizer covers, which must still fail the whole source closed.
+function fixtureLedgerRepo(fixture, objectFormat = 'sha1') {
+  const fixtureRoot = path.join(import.meta.dirname, 'fixtures', fixture);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `changeledger-${fixture}-`));
+  const init = ['init', '-q', '-b', 'dev'];
+  if (objectFormat !== 'sha1') init.push(`--object-format=${objectFormat}`);
+  git(root, init);
+  git(root, ['config', 'user.name', 'Test User']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
+  fs.copyFileSync(
+    path.join(fixtureRoot, 'config.yml'),
+    path.join(root, '.changeledger', 'config.yml'),
+  );
+  copyDir(path.join(fixtureRoot, 'changes'), path.join(root, '.changeledger', 'changes'));
+  if (fs.existsSync(path.join(fixtureRoot, 'specs'))) {
+    copyDir(path.join(fixtureRoot, 'specs'), path.join(root, '.changeledger', 'specs'));
+  }
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'chore: legacy ledger']);
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), `changeledger-${fixture}-remote-`));
+  const bare = ['init', '--bare', '-q'];
+  if (objectFormat !== 'sha1') bare.push(`--object-format=${objectFormat}`);
+  git(remote, bare);
+  git(root, ['remote', 'add', 'origin', remote]);
+  git(root, ['push', '-q', '-u', 'origin', 'dev']);
+  return { root, remote, head: git(root, ['rev-parse', 'dev']) };
 }
 
 test('193103 CR1/CR2: preview is deterministic and groups logical identities', () => {
@@ -1150,4 +1196,178 @@ test('193103 CR9: recovery verifies the replica snapshot atomically with branch 
     /changed concurrently/,
   );
   assert.throws(() => git(root, ['rev-parse', '--verify', branch]));
+});
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR5: preview classifies a legacy ledger per document (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root } = fixture;
+
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const legacy = preview.plan.documents.find((d) => d.identity === 'change:20260716-124623');
+    const current = preview.plan.documents.find((d) => d.identity === 'change:20260722-090000');
+    const spec = preview.plan.documents.find((d) => d.identity === 'spec:batch-parsing');
+
+    assert.equal(legacy.compatibility, 'legacy');
+    assert.equal(legacy.normalization.rule, 'structured-sections');
+    assert.equal(legacy.normalization.version, 1);
+    assert.match(legacy.normalization.sha256, /^[0-9a-f]{64}$/);
+
+    assert.equal(current.compatibility, true);
+    assert.ok(!('normalization' in current));
+    assert.equal(spec.compatibility, true);
+  });
+}
+
+test('185043 CR2: create requires an explicit normalization decision before applying it', () => {
+  const { root } = fixtureLedgerRepo('legacy-ledger');
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const planFile = writePlan(root, preview.text);
+
+  assert.throws(
+    () => createStateBaseline({ planFile }, root),
+    /requires an explicit normalization decision for change:20260716-124623/,
+  );
+  assert.equal(
+    git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']),
+    '',
+    'no baseline is published without the explicit decision',
+  );
+});
+
+test('185043 CR2/CR3: create applies the accepted normalization without touching the source', () => {
+  const { root, head } = fixtureLedgerRepo('legacy-ledger');
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const plan = parseYaml(preview.text);
+  const legacy = plan.documents.find((d) => d.identity === 'change:20260716-124623');
+  legacy.resolution.normalize = {
+    rule: legacy.normalization.rule,
+    version: legacy.normalization.version,
+  };
+  const planFile = writePlan(root, stringifyYaml(plan));
+
+  const baseline = createStateBaseline({ planFile }, root);
+
+  assert.equal(git(root, ['rev-parse', 'dev']), head, 'the source branch is never advanced');
+  const sourceBlob = git(root, [
+    'rev-parse',
+    'dev:.changeledger/changes/20260716-124623-legacy-format.md',
+  ]);
+  assert.equal(sourceBlob, legacy.resolution.blob, 'the source blob itself is untouched');
+
+  const sourceText = fs.readFileSync(
+    path.join(
+      import.meta.dirname,
+      'fixtures',
+      'legacy-ledger',
+      'changes',
+      '20260716-124623-legacy-format.md',
+    ),
+    'utf8',
+  );
+  const expected = migrateStructuredSections(sourceText).text;
+  const stateText = git(root, [
+    'show',
+    `${baseline.baseline}:.changeledger-state/changes/20260716-124623-legacy-format.md`,
+  ]);
+  assert.equal(stateText, expected.trimEnd());
+
+  const manifest = parseYaml(
+    git(root, ['show', `${baseline.baseline}:.changeledger-state/manifest.yml`]),
+  );
+  const decision = manifest.decisions.find((d) => d.identity === 'change:20260716-124623');
+  assert.equal(decision.blob, legacy.resolution.blob);
+  assert.deepEqual(decision.normalization, { rule: 'structured-sections', version: 1 });
+
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  assert.match(activation.commit, /^[0-9a-f]{40,64}$/);
+});
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR4: a change no normalizer covers still fails the whole source closed (${objectFormat})`, (t) => {
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger-unnormalizable', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root, head } = fixture;
+
+    assert.throws(
+      () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+      new RegExp(
+        `local:refs/heads/dev at ${head}:\\.changeledger/changes/20260710-080000-unnormalizable\\.md: ` +
+          'document change:20260710-080000 has legacy metadata no normalizer covers: .*' +
+          'ambiguous legacy task metadata.*untyped Log entry has no migratable timestamp',
+        's',
+      ),
+    );
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+  });
+}
+
+test('185043 CR6: preview fails closed on a global rule even when every document is individually valid', () => {
+  const { root } = legacyRepo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260722-000001-cycle-a.md'),
+    `---
+id: "20260722-000001"
+title: Cycle A
+type: quick
+status: draft
+created: 2026-07-22T00:00:00Z
+depends_on: ["20260722-000002"]
+---
+
+## Request
+
+Cycle A.
+
+## Log
+`,
+  );
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260722-000002-cycle-b.md'),
+    `---
+id: "20260722-000002"
+title: Cycle B
+type: quick
+status: draft
+created: 2026-07-22T00:00:00Z
+depends_on: ["20260722-000001"]
+---
+
+## Request
+
+Cycle B.
+
+## Log
+`,
+  );
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'test: dependency cycle']);
+  git(root, ['push', '-q', 'origin', 'dev']);
+
+  assert.throws(
+    () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+    /dependency cycle/,
+  );
+  assert.equal(
+    git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']),
+    '',
+    'a global-rule failure at preview time publishes nothing',
+  );
 });

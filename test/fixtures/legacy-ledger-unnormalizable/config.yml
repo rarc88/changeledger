@@ -1,0 +1,22 @@
+schema_version: 3
+project_id: legacy-project
+project_name: Legacy Project
+language: es
+tdd: false
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  bug:
+    stages: [request, investigation, specification, plan, log]
+    review_required: true
+  quick:
+    stages: [request, log]
+    review_required: false
+release:
+  impacts:
+    bug: patch
+    quick: patch
