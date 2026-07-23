@@ -81,16 +81,10 @@ export function scaffoldSpec(id, slug, cwd = process.cwd(), { to, onSnapshot } =
     writeFileAtomic(output, scaffoldContent(change, id));
     return output;
   }
-  const {
-    config,
-    file: changeFile,
-    specsDir,
-    specName,
-    specFile,
-  } = graduationTarget(id, slug, cwd);
+  const { config, file: changeFile, specsDir, specFile } = graduationTarget(id, slug, cwd);
   const change = requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
   const output = to ? path.resolve(cwd, to) : specFile;
-  if (fs.existsSync(output)) throw new Error(`Spec "${specName}" already exists`);
+  if (fs.existsSync(output)) throw new Error(`Scaffold target already exists: ${output}`);
 
   fs.mkdirSync(to ? path.dirname(output) : specsDir, { recursive: true });
   writeFileAtomic(output, scaffoldContent(change, id));
@@ -158,6 +152,15 @@ export function graduate(
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
   }
 
+  let importedSpec;
+  if (from) {
+    const sourceFile = path.resolve(cwd, from);
+    importedSpec = fsImpl.readFileSync(sourceFile, 'utf8');
+    if (importedSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+      throw new Error('prepared spec still contains the scaffold marker — refine it before --into');
+    }
+  }
+
   withFileLock(
     specFile,
     () => {
@@ -171,13 +174,16 @@ export function graduate(
           (changeText) => {
             requireGraduationReady(config, changeFile, changeText);
             originalSpec = fsImpl.readFileSync(specFile, 'utf8');
-            if (originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+            if (!importedSpec && originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
               throw new Error(
                 `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
               );
             }
             const timestamp = nowUtc();
-            const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
+            const updatedSpec = setSpecGraduatedFrom(
+              setSpecUpdated(importedSpec ?? originalSpec, timestamp),
+              id,
+            );
             writeFileAtomic(specFile, updatedSpec, { fsImpl });
             wroteSpec = true;
 

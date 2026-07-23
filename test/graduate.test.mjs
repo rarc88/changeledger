@@ -270,6 +270,44 @@ test('CR1: graduate --into links an existing spec without touching its body', ()
   assert.equal(change.frontmatter.reviewed, true);
 });
 
+test('20260723-170610 CR1: legacy graduate --into applies --from content', () => {
+  const { root, file, id } = repo();
+  seedSpec(root, 'foo.md', '\n# Foo\n\nCuerpo original.\n');
+  const prepared = path.join(root, 'refined.md');
+  fs.writeFileSync(
+    prepared,
+    '---\ntitle: Foo\nupdated: 2020-01-01T00:00:00Z\ntags: []\n---\n\n# Foo\n\nCuerpo refinado.\n',
+  );
+
+  graduate(id, 'foo', root, { into: true, from: prepared });
+
+  const specFile = path.join(root, '.changeledger', 'specs', 'foo.md');
+  const after = fs.readFileSync(specFile, 'utf8');
+  const spec = parseSpec(after);
+  assert.match(spec.body, /Cuerpo refinado/);
+  assert.deepEqual(spec.frontmatter.graduated_from, [id]);
+  assert.doesNotMatch(after, /2020-01-01T00:00:00Z/); // updated refreshed
+  const change = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.match(change.stages.find((s) => s.key === 'log').body, /`\[graduation\]` spec: `foo.md`/);
+});
+
+test('20260723-170610 CR2: legacy --from rejects the scaffold marker', () => {
+  const { root, id } = repo();
+  const specFile = seedSpec(root, 'foo.md', '\n# Foo\n\nCuerpo original.\n');
+  const specBefore = fs.readFileSync(specFile, 'utf8');
+  const prepared = path.join(root, 'refined.md');
+  fs.writeFileSync(
+    prepared,
+    '---\ntitle: Foo\nupdated: 2020-01-01T00:00:00Z\ntags: []\ngraduated_from: []\n---\n\n# Foo\n\n<!-- changeledger:spec-scaffold -->\n',
+  );
+
+  assert.throws(
+    () => graduate(id, 'foo', root, { into: true, from: prepared }),
+    /^Error: prepared spec still contains the scaffold marker — refine it before --into$/,
+  );
+  assert.equal(fs.readFileSync(specFile, 'utf8'), specBefore);
+});
+
 test('195319 CR1: a change write failure restores the original legacy spec', () => {
   const { root, file, id } = repo();
   const specFile = seedSpec(root, 'architecture.md', '\n# Arch\n\nCuerpo intacto.\n');
@@ -418,7 +456,27 @@ test('CR2: graduate --into on a missing spec errors without writing', () => {
 test('CR2: scaffoldSpec on an existing spec errors', () => {
   const { root, id } = repo();
   scaffoldSpec(id, 'auth', root);
-  assert.throws(() => scaffoldSpec(id, 'auth', root), /^Error: Spec "auth\.md" already exists$/);
+  const specFile = path.join(root, '.changeledger', 'specs', 'auth.md');
+  assert.throws(
+    () => scaffoldSpec(id, 'auth', root),
+    new RegExp(
+      `^Error: Scaffold target already exists: ${specFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+    ),
+  );
+});
+
+test('20260723-170610 CR3: legacy scaffold --to an existing file names the real target', () => {
+  const { root, id } = repo();
+  const target = path.join(root, 'docs', 'out.md');
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, 'existing content\n');
+
+  assert.throws(
+    () => scaffoldSpec(id, 'auth', root, { to: target }),
+    new RegExp(
+      `^Error: Scaffold target already exists: ${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+    ),
+  );
 });
 
 test('CR2: scaffoldSpec creates a seed without resolving graduation', () => {

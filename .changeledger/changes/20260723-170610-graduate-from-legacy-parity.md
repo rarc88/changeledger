@@ -2,7 +2,7 @@
 id: "20260723-170610"
 title: Paridad de --from y diagnóstico real de --to en graduate legacy
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-23T17:06:10Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -49,12 +49,18 @@ Decisión: paridad de semántica — legacy aplica `--from` igual que state (imp
 
 ## Plan
 
-- [ ] Actualizar la rama legacy de `graduate()` en `src/commands/graduate.mjs` para leer y aplicar `from` con la misma validación que la rama state, escribiendo primero los tests rojos en `test/graduate.test.mjs`; verify: `node --test test/graduate.test.mjs` (CR1, CR2)
-- [ ] Unificar el diagnóstico de destino existente de `scaffoldSpec` en `src/commands/graduate.mjs` a `Scaffold target already exists: <output>`, con test rojo previo en `test/graduate.test.mjs`; verify: `node --test test/graduate.test.mjs` (CR3)
-- [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+- [x] Actualizar la rama legacy de `graduate()` en `src/commands/graduate.mjs` para leer y aplicar `from` con la misma validación que la rama state, escribiendo primero los tests rojos en `test/graduate.test.mjs`; verify: `node --test test/graduate.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-23T17:48:25Z`
+- [x] Unificar el diagnóstico de destino existente de `scaffoldSpec` en `src/commands/graduate.mjs` a `Scaffold target already exists: <output>`, con test rojo previo en `test/graduate.test.mjs`; verify: `node --test test/graduate.test.mjs` (CR3)
+  - **Resolved:** `2026-07-23T17:48:25Z`
+- [x] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T17:57:14Z`
 
 ## Log
 - **2026-07-23T17:41:37Z** `[status]` draft → approved (human via conversation)
 - **2026-07-23T17:41:38Z** `[status]` approved → in-progress
 - **2026-07-23T17:41:38Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-23T17:41:58Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
+- **2026-07-23T17:48:25Z** `[note]` Implementación delegada completa: rama legacy aplica --from con validación de marker; scaffoldSpec unifica diagnóstico a Scaffold target already exists. Test previo de mensaje exacto actualizado a la nueva redacción (cambio intencional de CR3). 39/39 en test/graduate.test.mjs.
+- **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
+- **2026-07-23T17:58:45Z** `[review]` in-review → in-validation (delegated subagent, clean context)
