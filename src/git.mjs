@@ -11,12 +11,12 @@ const RECORD_SEP = String.fromCharCode(30);
 // (src/git-batch.mjs) returns blob content in one response, so it exceeds that
 // default well before any single file would have. This is the PER-CALL byte
 // budget git-batch.mjs sizes each chunk to (not an aggregate ceiling on a whole
-// tree -- that made a >16 MiB total state unreadable with ENOBUFS): git-batch
+// tree -- that made a >32 MiB total state unreadable with ENOBUFS): git-batch
 // packs oids so one `cat-file --batch` response stays at or below this, and
 // passes the exact figure as `options.maxBuffer`. Shared so every consumer that
 // feeds git-batch.mjs a `run` agrees on the same default chunk budget instead
 // of each guessing its own.
-export const GIT_MAX_BUFFER = 16 * 1024 * 1024;
+export const GIT_MAX_BUFFER = 32 * 1024 * 1024;
 
 // Repo-location env vars git itself exports while running a hook (e.g. this
 // project's own pre-commit). Left inherited, a child `git` call would silently

@@ -407,16 +407,16 @@ test('202101 CR4: a large blob read no longer throws with an unbounded git-outpu
 });
 
 test('202100 CR: an object over the read budget is rejected with a bounded diagnostic', () => {
-  // A single blob larger than git-batch's per-call read budget (16 MiB) cannot
+  // A single blob larger than git-batch's per-call read budget (32 MiB) cannot
   // be materialized within a bounded `cat-file --batch` call. It is rejected
   // fail-closed, naming the object, its size and the budget -- a short, bounded
   // message, not an opaque multi-MiB ENOBUFS partial buffer. (Byte-bounded
-  // chunking, replacing the former 16 MiB aggregate ceiling, keeps a state
-  // whose TOTAL exceeds the budget readable; only a single over-budget object
-  // is refused.)
+  // chunking, replacing the former aggregate ceiling, keeps a state whose
+  // TOTAL exceeds the budget readable; only a single over-budget object is
+  // refused.)
   const { root } = legacyRepo();
   const changeFile = path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md');
-  const padded = `${change('20260722-000000')}\n<!-- ${'x'.repeat(18 * 1024 * 1024)} -->\n`;
+  const padded = `${change('20260722-000000')}\n<!-- ${'x'.repeat(33 * 1024 * 1024)} -->\n`;
   fs.writeFileSync(changeFile, padded);
   git(root, ['add', '.']);
   git(root, ['commit', '-qm', 'test: pad blob past the read budget']);

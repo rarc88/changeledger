@@ -13,15 +13,21 @@ const TREE_ENTRY = /^([0-7]{6}) ([^ ]+) ([0-9a-f]{40,64})\t([\s\S]+)$/;
 
 const REGULAR_BLOB_MODES = Object.freeze(['100644', '100755']);
 
-// Per-call byte ceiling for a single `cat-file --batch` read. A tree's total
-// blob content can far exceed any one object, so requesting every oid at once
-// buffers the whole tree into one subprocess response and fails with ENOBUFS
-// once it passes the run's maxBuffer. Instead oids are grouped so each chunk's
-// framed response stays at or below this budget, keeping per-call memory bounded
-// no matter how large the whole tree is. A single object larger than the budget
+// Per-object budget, judged on CONTENT bytes, and the target ceiling for a
+// chunk's framed `cat-file --batch` response. A tree's total blob content can
+// far exceed any one object, so requesting every oid at once buffers the whole
+// tree into one subprocess response and fails with ENOBUFS once it passes the
+// run's maxBuffer. Instead oids are grouped so each chunk's framed response
+// stays at or below this budget, keeping per-call memory bounded no matter how
+// large the whole tree is. A single object whose CONTENT exceeds the budget
 // cannot be read within it (one blob is one indivisible `cat-file --batch`
-// response), so it is rejected fail-closed with a clear, bounded error instead
-// of an opaque ENOBUFS on a multi-MiB partial buffer.
+// response), so it is rejected fail-closed with a clear, bounded error naming
+// the true content size, instead of an opaque ENOBUFS on a multi-MiB partial
+// buffer. An object of exactly the budget in content is accepted: the read
+// itself (readChunk) requests each chunk's exact framed byte count as
+// maxBuffer, not this constant directly, so git's own per-object framing
+// overhead (a short header line plus a trailing newline) never falls outside
+// the requested buffer.
 const CHUNK_BYTES = GIT_MAX_BUFFER;
 
 // `cat-file --batch-check` returns one short header line per oid. Chunk the
@@ -111,21 +117,30 @@ function sizeBlobs(repoRoot, oids, run) {
 }
 
 // Groups oids into chunks whose framed `cat-file --batch` response stays at or
-// below CHUNK_BYTES, packing greedily. A single blob whose framed size already
-// exceeds the budget is rejected here (fail-closed, bounded diagnostic): it
-// cannot be read within a bounded call, and letting it through would only defer
-// the failure to an opaque ENOBUFS on a multi-MiB partial buffer.
+// below CHUNK_BYTES, packing greedily. The budget itself is judged on CONTENT
+// bytes, not framed bytes: `cat-file --batch`'s own framing (a `<oid> blob
+// <size>\n` header plus a trailing `\n` per object) adds a few dozen bytes on
+// top of content that the budget was never meant to charge against -- an
+// object of exactly CHUNK_BYTES content is a legitimate boundary case, not an
+// over-budget one. A single blob whose CONTENT already exceeds the budget is
+// rejected here (fail-closed, bounded diagnostic naming the true content size)
+// since one indivisible object cannot be split across chunks; a solo object
+// within budget is placed in its own chunk even though its framed size spills
+// a little past CHUNK_BYTES (readChunk requests exactly that chunk's framed
+// bytes as maxBuffer, not a fixed CHUNK_BYTES ceiling, so the framing margin
+// is covered without inflating every other chunk's headroom).
 function chunkBySize(oids, sizes) {
   const chunks = [];
   let current = [];
   let currentBytes = 0;
   for (const oid of oids) {
-    const bytes = framedBytes(oid, sizes.get(oid));
-    if (bytes > CHUNK_BYTES) {
+    const size = sizes.get(oid);
+    if (size > CHUNK_BYTES) {
       throw new Error(
-        `git object ${oid} is ${sizes.get(oid)} bytes, over the ${CHUNK_BYTES}-byte read budget`,
+        `git object ${oid} is ${size} bytes, over the ${CHUNK_BYTES}-byte read budget`,
       );
     }
+    const bytes = framedBytes(oid, size);
     if (current.length && currentBytes + bytes > CHUNK_BYTES) {
       chunks.push(current);
       current = [];

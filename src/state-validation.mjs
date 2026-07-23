@@ -17,7 +17,7 @@ import { parseYaml } from './yaml.mjs';
 
 export const DEFAULT_STATE_LIMITS = Object.freeze({
   max_commits: 256,
-  max_object_bytes: 16 * 1024 * 1024,
+  max_object_bytes: 32 * 1024 * 1024,
   timeout_ms: 30_000,
 });
 
@@ -26,7 +26,7 @@ const LEGACY_CONFIG_PATH = '.changeledger/config.yml';
 const STATE_CONFIG_PATH = '.changeledger-state/config.yml';
 // A maxBuffer-exceeded execFileSync error still carries the truncated
 // stdout/stderr captured so far; with a batch `cat-file --batch` read this
-// can be up to `max_object_bytes` (16 MiB default) of raw object content, so
+// can be up to `max_object_bytes` (32 MiB default) of raw object content, so
 // cap the diagnostic the same way 20260722-202101 already bounds
 // state-migration.mjs's git-output errors.
 const GIT_ERROR_DETAIL_LIMIT = 2000;

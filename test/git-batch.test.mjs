@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { defaultRun } from '../src/git.mjs';
+import { defaultRun, GIT_MAX_BUFFER } from '../src/git.mjs';
 import { assertRegularBlobEntry, batchBlobReader, treeEntries } from '../src/git-batch.mjs';
 
 const OID_A = 'a'.repeat(40);
@@ -167,7 +167,7 @@ test('170613: assertRegularBlobEntry derives type from mode when the caller has 
 // --- 202100: byte-bounded chunking over real repositories -------------------
 //
 // The reader must materialize a tree whose TOTAL blob content far exceeds the
-// per-call 16 MiB budget. A few large distinct blobs (not thousands of files)
+// per-call 32 MiB budget. A few large distinct blobs (not thousands of files)
 // keep generation fast while still crossing several chunk boundaries.
 
 const MiB = 1024 * 1024;
@@ -208,7 +208,7 @@ function assertReadsBack(dir, tree, expected) {
 
 for (const totalMiB of [17, 32]) {
   test(`202100: reads a ${totalMiB} MiB total state without ENOBUFS (sha1)`, () => {
-    // Blobs just under the 16 MiB per-call budget so several chunk boundaries
+    // Blobs well under the 32 MiB per-call budget so several chunk boundaries
     // are crossed; total exceeds the old aggregate ceiling.
     const blobBytes = 6 * MiB;
     const count = Math.ceil((totalMiB * MiB) / blobBytes);
@@ -230,8 +230,8 @@ test('202100: reads a 64 MiB total state without ENOBUFS (sha1)', () => {
   }
 });
 
-test('202100: reads a >16 MiB total state without ENOBUFS (sha256)', () => {
-  const { dir, tree, expected } = seedLargeState('sha256', 4, 6 * MiB);
+test('202100: reads a multi-chunk >32 MiB total state without ENOBUFS (sha256)', () => {
+  const { dir, tree, expected } = seedLargeState('sha256', 6, 6 * MiB);
   try {
     assertReadsBack(dir, tree, expected);
   } finally {
@@ -243,9 +243,38 @@ test('202100: a single object larger than the chunk budget is rejected fail-clos
   // One indivisible blob cannot be read within a bounded `cat-file --batch`
   // call, so it is rejected with a clear, bounded diagnostic rather than an
   // opaque ENOBUFS on a multi-MiB partial buffer.
-  const { dir, tree } = seedLargeState('sha1', 1, 20 * MiB);
+  const { dir, tree } = seedLargeState('sha1', 1, GIT_MAX_BUFFER + MiB);
   try {
     assert.throws(() => batchBlobReader(dir, tree, defaultRun), /over the \d+-byte read budget/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// 20260722-202100 (correction 4): the per-object budget check compares framed
+// `cat-file --batch` bytes (header + content + trailing newline) against the
+// chunk budget, not the object's CONTENT bytes -- so a blob of exactly the
+// budget in content was rejected purely because git's own framing overhead
+// pushed the framed total a few bytes past it, with a diagnostic that named
+// the framed size as if it were the content size. The boundary must be judged
+// on content bytes, with the actual read given enough headroom to cover
+// framing on top.
+test('202100: an object of exactly the chunk budget in content bytes is accepted', () => {
+  const { dir, tree, expected } = seedLargeState('sha1', 1, GIT_MAX_BUFFER);
+  try {
+    assertReadsBack(dir, tree, expected);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('202100: an object one byte over the chunk budget is rejected naming content size truthfully', () => {
+  const { dir, tree } = seedLargeState('sha1', 1, GIT_MAX_BUFFER + 1);
+  try {
+    assert.throws(
+      () => batchBlobReader(dir, tree, defaultRun),
+      new RegExp(`is ${GIT_MAX_BUFFER + 1} bytes, over the ${GIT_MAX_BUFFER}-byte read budget`),
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

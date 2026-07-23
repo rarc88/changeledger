@@ -115,3 +115,9 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 - **2026-07-23T19:52:25Z** `[status]` in-progress → in-review
 - **2026-07-23T19:54:52Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T19:55:52Z** `[note]` Humano confirma la corrección de auditoría (conversación 2026-07-23); se committea.
+- **2026-07-23T20:25:39Z** `[validation]` in-validation → in-progress (agent rejected): Auditoría externa + decisión humana: blob de exactamente el presupuesto se rechaza porque el framing de cat-file consume parte del buffer, con diagnóstico engañoso. Subir GIT_MAX_BUFFER y max_object_bytes default a 32 MiB (decisión humana 2026-07-23) y dar margen de framing al chunk para que un objeto exactamente en el límite pase; test del caso frontera exacto.
+- **2026-07-23T20:34:09Z** `[note]` Corrección 3 (sin commit hasta confirmación humana): GIT_MAX_BUFFER y max_object_bytes default a 32 MiB (decisión humana); chunkBySize compara bytes de CONTENIDO contra el presupuesto mientras readChunk pide el tamaño enmarcado exacto — objeto de exactamente 32 MiB pasa, presupuesto+1 se rechaza con diagnóstico veraz; fixtures over-budget subidos (33 MiB). 115/115 en suites objetivo, gate completo 1049/1049.
+- **2026-07-23T20:34:10Z** `[status]` in-progress → in-review
+- **2026-07-23T20:38:16Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T20:38:16Z** `[note]` Review de contexto limpio: pass en los 5 puntos (aritmética framed-vs-content sin path a ENOBUFS, aislamiento del objeto exacto en su propio chunk, diagnóstico veraz). Follow-up del reviewer aplicado en alcance: test sha256 subido a 6x6 MiB (>32) para restaurar cobertura multi-chunk y label corregido.
+- **2026-07-23T20:45:40Z** `[note]` Humano confirma la corrección (conversación 2026-07-23); se committea.
