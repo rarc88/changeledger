@@ -365,6 +365,62 @@ test('163408 CR2: the legacy-path filter is case-insensitive', () => {
   );
 });
 
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`204131 CR1: deleting the protected integration ref gets a specific diagnostic (${objectFormat})`, () => {
+    let created;
+    try {
+      created = fixture(objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|sha256/i.test(error.message)) return;
+      throw error;
+    }
+    const zero = '0'.repeat(objectFormat === 'sha256' ? 64 : 40);
+
+    assert.throws(
+      () =>
+        validateStateUpdate({
+          repoRoot: created.root,
+          oldOid: created.integration,
+          newOid: zero,
+          ref: INTEGRATION_REF,
+          stateRef: STATE_REF,
+          integrationRef: INTEGRATION_REF,
+          limits: roomy,
+        }),
+      (error) => {
+        assert.match(error.message, new RegExp(INTEGRATION_REF.replace(/\//g, '\\/')));
+        assert.match(error.message, /forbidden|prohibited/i);
+        assert.doesNotMatch(error.message, /integration protection is not active/);
+        return true;
+      },
+    );
+  });
+}
+
+test('204131 CR2: a genuinely absent protection config keeps its existing diagnostic', () => {
+  const created = fixture();
+  fs.rmSync(path.join(created.root, '.changeledger', 'authority.yml'));
+  git(created.root, ['add', '.changeledger']);
+  git(created.root, ['commit', '-qm', 'test: revert authority']);
+  const reverted = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['update-ref', INTEGRATION_REF, reverted]);
+  const next = advanceIntegration(created, 'topic.md', 'topic\n');
+
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: reverted,
+        newOid: next,
+        ref: INTEGRATION_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /integration protection is not active/,
+  );
+});
+
 test('163408 CR3: a state update cannot rewrite integration_branch away mid-range', () => {
   const created = fixture();
   const drifted = advanceState(
