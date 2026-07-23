@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { buildContext } from '../src/commands/context.mjs';
-import { stateAbort, stateStatus, stateSync } from '../src/commands/state.mjs';
+import { stateAbort, stateDoctor, stateStatus, stateSync } from '../src/commands/state.mjs';
 import { loadLedgerStore } from '../src/ledger-store.mjs';
 import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { changeStatus, readProjectConfigStructured } from '../src/viewer/domain.mjs';
@@ -258,6 +258,97 @@ test('193102 CR3/CR6: state abort requires --pending and supports explicit offli
   assert.equal(result.aborted, true);
   assert.throws(() => git(created.root, ['rev-parse', '--verify', PENDING_REF]));
   assert.equal(loadLedgerStore(created.root).load().revision, created.baseline);
+});
+
+test('204130 CR1: abort that leaves the replica behind reports stale and the next step', () => {
+  const created = staleAbortFixture();
+
+  const result = stateAbort(created.root, { pending: true });
+  assert.equal(result.aborted, true);
+  assert.equal(result.confirmed, false);
+  assert.equal(result.stale, true);
+  assert.equal(stateStatus(created.root).condition, 'stale');
+});
+
+function staleAbortFixture() {
+  const created = fixture();
+  const store = loadLedgerStore(created.root);
+  const before = store.load();
+  store.mutate(
+    { message: 'test: local pending', expectedRevision: before.revision, offline: true },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Pending'),
+      );
+    },
+  );
+
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  const change = path.join(
+    created.root,
+    '.changeledger-state',
+    'changes',
+    '20260721-000000-change.md',
+  );
+  fs.writeFileSync(change, fs.readFileSync(change, 'utf8').replace('title: Demo', 'title: Remote'));
+  git(created.root, ['add', change]);
+  git(created.root, ['commit', '-qm', 'test: remote advance']);
+  git(created.root, ['push', '-q', 'origin', PUBLIC_STATE_REF]);
+  git(created.root, ['checkout', '-q', 'dev']);
+  git(created.root, ['update-ref', PUBLIC_STATE_REF, created.baseline]);
+  return created;
+}
+
+test('204130 CR1: CLI abort --pending reports the stale receipt in human output', () => {
+  const created = staleAbortFixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+
+  const output = execFileSync(process.execPath, [cli, 'state', 'abort', '--pending'], {
+    cwd: created.root,
+    encoding: 'utf8',
+  });
+
+  assert.match(output, /Pending mutation aborted/);
+  assert.match(output, /Replica is stale; run `changeledger state sync` to catch up\./);
+});
+
+test('204130 CR1: CLI abort --pending --json includes stale: true', () => {
+  const created = staleAbortFixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+
+  const output = execFileSync(process.execPath, [cli, 'state', 'abort', '--pending', '--json'], {
+    cwd: created.root,
+    encoding: 'utf8',
+  });
+
+  const receipt = JSON.parse(output);
+  assert.equal(receipt.ok, true);
+  assert.equal(receipt.stale, true);
+});
+
+test('204130 CR1: an abort that is not left stale does not carry the flag', () => {
+  const created = fixture();
+  const store = loadLedgerStore(created.root);
+  const before = store.load();
+  store.mutate(
+    { message: 'test: local pending', expectedRevision: before.revision, offline: true },
+    ({ snapshot, write }) => {
+      write(
+        snapshot.changes[0].statePath,
+        snapshot.changes[0].text.replace('title: Demo', 'title: Pending'),
+      );
+    },
+  );
+  const aborted = stateAbort(created.root, { pending: true, offline: true });
+  assert.equal(aborted.stale, false);
+});
+
+test('204130 CR2: doctor without --activation-ref points to replica status', () => {
+  assert.throws(
+    () => stateDoctor('.', {}),
+    /state doctor validates a migration activation.*--activation-ref.*changeledger state status/s,
+  );
 });
 
 test('193102 CR3/CR7: CLI propagates --offline to the shared mutation boundary', () => {

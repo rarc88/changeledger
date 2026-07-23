@@ -1010,15 +1010,23 @@ stateCommand
   .description('discard one pending local mutation after checking the remote')
   .option('--pending', 'confirm that the pending mutation is the abort target')
   .option('--offline', 'discard only the local pending ref without checking the remote')
+  .option('--json', 'print a stable JSON receipt')
   .action(
     action((options) => {
       const result = stateAbort(process.cwd(), options);
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+        return;
+      }
       if (result.confirmed) {
         console.log(`Pending was already published and is now confirmed at ${result.effective}`);
       } else {
         console.log(
           `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
         );
+      }
+      if (result.stale) {
+        console.log('Replica is stale; run `changeledger state sync` to catch up.');
       }
     }),
   );

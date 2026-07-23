@@ -444,7 +444,13 @@ export function abortStatePending(
       { ref: OBSERVED_REF, before: before.observed, after: before.observed },
       { ref: PENDING_REF, before: before.pending, after: null },
     ]);
-    return { aborted: true, confirmed: false, offline: true, effective: before.confirmed };
+    return {
+      aborted: true,
+      confirmed: false,
+      offline: true,
+      effective: before.confirmed,
+      stale: stateReplicaStatus(repoRoot).condition === 'stale',
+    };
   }
 
   const remote = stateRemote(repoRoot);
@@ -476,5 +482,6 @@ export function abortStatePending(
     offline: false,
     effective: published ? fetched : before.confirmed,
     remote,
+    stale: stateReplicaStatus(repoRoot).condition === 'stale',
   };
 }
