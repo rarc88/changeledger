@@ -35,12 +35,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
   const incomingRelations = relatedBacklinks(changes);
 
-  // `aggregateOnly` skips per-document local checks (frontmatter, stages,
-  // tasks, Log sequence) and runs only the whole-repo rules below (duplicate
-  // ids, dependency cycles, specs, releases, config). Used by preview's CR6
-  // dry run, which simulates only the global rules `--create` would also
-  // apply — per-document validity stays exactly where it always was.
-  for (const c of opts.aggregateOnly ? [] : targets) {
+  for (const c of targets) {
     const fm = c.frontmatter ?? {};
 
     checkConflictMarkers(c, err);

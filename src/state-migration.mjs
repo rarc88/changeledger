@@ -250,13 +250,18 @@ function scopedChangeErrors(config, name, text) {
 }
 
 // Classifies an already-identified change's content as valid or
-// legacy-normalizable. Returns `null` when the defect is not covered by any
-// known normalizer — the caller treats that exactly like any other invalid
-// document (fatal to the source), naming the reasons in the thrown message.
+// legacy-normalizable. Returns `{compatible: false, reasons}` when the defect
+// is not covered by any known normalizer — the caller treats that exactly
+// like any other invalid document (fatal to the source), naming the reasons
+// in the thrown message. `manual` must be checked before `changed`:
+// `migrateStructuredSections` can leave the text byte-identical (`changed:
+// false`) while still recording an unmigratable defect (e.g. a lone untyped
+// Log line with no other legacy pattern to rewrite) — checking `changed`
+// first would silently classify that document as valid.
 function classifyLegacyChange(config, name, content) {
   const migrated = migrateStructuredSections(content);
-  if (!migrated.changed) return { compatible: true };
   if (migrated.manual.length) return { compatible: false, reasons: migrated.manual };
+  if (!migrated.changed) return { compatible: true };
   const errors = scopedChangeErrors(config, name, migrated.text);
   if (errors.length) return { compatible: false, reasons: errors };
   const sha256 = crypto.createHash('sha256').update(migrated.text).digest('hex');
@@ -526,14 +531,16 @@ export function previewStateMigration(
     documents,
     uninventoried,
   };
-  // CR6: once every document has a determinate resolution (the common
+  // CR1/CR6: once every document has a determinate resolution (the common
   // single-source case; a cross-source variant conflict still leaves
   // `resolution: null` and is skipped here), dry-run the exact closed
-  // candidate snapshot `--create` would build — same global `checkRepo`
-  // rules (duplicate ids, dependency cycles, specs, releases, config) — so a
-  // green preview can't fail create on a rule already evaluated. Read-only:
-  // `candidateSnapshot` never writes objects, refs, worktree or config; it
-  // throws (rejecting the whole source, matching create) on any global error.
+  // candidate snapshot `--create` would build and run the SAME full
+  // `checkRepo` — local per-document rules (frontmatter, stages, tasks, Log
+  // sequence) and global rules (duplicate ids, dependency cycles, specs,
+  // releases, config) alike — so a green preview can't fail create on any
+  // rule already evaluated, legacy or not. Read-only: `candidateSnapshot`
+  // never writes objects, refs, worktree or config; it throws (rejecting the
+  // whole source, matching create) on any error.
   if (plan.documents.every((document) => document.resolution)) {
     candidateSnapshot(repoRoot, path.join(repoRoot, '.changeledger-migration-preview.yml'), plan, {
       simulate: true,
@@ -748,13 +755,13 @@ function candidateSnapshot(repoRoot, planFile, plan, { simulate = false } = {}) 
     else if (file.startsWith(`${STATE_ROOT}/releases/`))
       releases.push({ name, text, ...parseYaml(text) });
   }
-  // In `simulate` mode (preview's CR6 dry run) only the global rules are
-  // checked here — per-document local validity is out of scope for preview
-  // (20260722-185043 CR1/CR4) and stays a create-time-only diagnostic.
-  const { errors } = checkRepo(
-    { config, changes, specs, releases },
-    simulate ? { aggregateOnly: true } : {},
-  );
+  // `simulate` (preview's CR6 dry run) runs the exact same full checkRepo
+  // create would — local and global rules alike — so a green preview truly
+  // cannot fail create on any rule already evaluated (CR1, CR6). It only
+  // skips the advisory `hasFixableDefects` scan, which never affects
+  // `errors` (both callers discard `warnings`); that's a read-only perf
+  // saving, not a behavior difference.
+  const { errors } = checkRepo({ config, changes, specs, releases }, { skipAdvisory: simulate });
   if (errors.length) {
     throw new Error(boundedErrorSummary('migration candidate validation failed', errors));
   }

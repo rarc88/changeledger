@@ -435,18 +435,46 @@ test('202101 CR1: create with many invalid documents produces a bounded diagnost
   git(root, ['remote', 'add', 'origin', remote]);
   git(root, ['push', '-q', '-u', 'origin', 'dev']);
 
-  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  // 20260722-185043 CR1/CR6: preview now runs the exact same full checkRepo
+  // create does, so it catches this (a local, non-legacy defect) itself —
+  // proof that preview and create produce the identical bounded diagnostic,
+  // not two independently-maintained checks that could drift apart.
+  const assertBoundedDiagnostic = (error) => {
+    assert.ok(error.message.length <= 4000, `message too long: ${error.message.length}`);
+    assert.match(error.message, /migration candidate validation failed/);
+    const shown = [...error.message.matchAll(/missing frontmatter "title"/g)];
+    assert.equal(shown.length, 5);
+    assert.match(error.message, /and 2 more errors/);
+    return true;
+  };
 
   assert.throws(
-    () => createStateBaseline({ planFile: writePlan(root, preview.text) }, root),
-    (error) => {
-      assert.ok(error.message.length <= 4000, `message too long: ${error.message.length}`);
-      assert.match(error.message, /migration candidate validation failed/);
-      const shown = [...error.message.matchAll(/missing frontmatter "title"/g)];
-      assert.equal(shown.length, 5);
-      assert.match(error.message, /and 2 more errors/);
-      return true;
-    },
+    () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+    assertBoundedDiagnostic,
+  );
+  assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+});
+
+test('185043 CR1/CR6: a modern, non-legacy document with a local defect still fails preview closed', () => {
+  // `migrateStructuredSections` never touches this document (no legacy task
+  // metadata or Log format) and `classifyLegacyChange` marks it compatible —
+  // it is genuinely NOT a legacy-normalization problem. CR1/CR6 still require
+  // preview to reject it: preview runs the same full checkRepo create does,
+  // so an ordinary local defect (missing frontmatter) is never a green
+  // preview that only fails later at create.
+  const { root } = legacyRepo();
+  const file = '20260722-000001-no-title.md';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', file),
+    '---\nid: "20260722-000001"\ntype: quick\nstatus: draft\ncreated: 2026-07-22T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMissing title.\n\n## Log\n',
+  );
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'test: modern document missing title']);
+  git(root, ['push', '-q', 'origin', 'dev']);
+
+  assert.throws(
+    () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+    new RegExp(`${file}: missing frontmatter "title"`),
   );
   assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
 });
@@ -1371,3 +1399,34 @@ Cycle B.
     'a global-rule failure at preview time publishes nothing',
   );
 });
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`185043 CR1/CR4: an untyped Log entry with no other legacy pattern still fails closed (${objectFormat})`, (t) => {
+    // Regression: migrateStructuredSections can leave text byte-identical
+    // (changed: false) while still recording an unmigratable defect in
+    // `manual` — classifyLegacyChange must check `manual` before `changed`,
+    // or this document is silently classified valid at preview and only
+    // rejected later at create, breaking CR1's preview/create parity.
+    let fixture;
+    try {
+      fixture = fixtureLedgerRepo('legacy-ledger-untyped-log-only', objectFormat);
+    } catch (error) {
+      if (objectFormat === 'sha256' && /unknown|unsupported|object-format/i.test(error.message)) {
+        t.skip('Git build has no SHA-256 repository support');
+        return;
+      }
+      throw error;
+    }
+    const { root, head } = fixture;
+
+    assert.throws(
+      () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
+      new RegExp(
+        `local:refs/heads/dev at ${head}:\\.changeledger/changes/20260710-090000-untyped-log-only\\.md: ` +
+          'document change:20260710-090000 has legacy metadata no normalizer covers: ' +
+          'line \\d+: untyped Log entry has no migratable timestamp',
+      ),
+    );
+    assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
+  });
+}
