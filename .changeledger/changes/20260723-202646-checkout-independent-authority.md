@@ -2,9 +2,10 @@
 id: "20260723-202646"
 title: Autoridad de estado independiente del checkout
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-23T20:26:46Z
 depends_on: ["20260722-202057"]
+owner: raruiz-hiberuscom
 related_to: ["20260721-193101", "20260721-193103", "20260721-193104", "20260721-193106", "20260722-163406", "20260722-181234", "20260722-203030"]
 release_impact: minor
 ---
@@ -122,3 +123,6 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
 - [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-23T20:49:59Z** `[status]` draft → approved (human via conversation)
+- **2026-07-23T20:50:07Z** `[status]` approved → in-progress
+- **2026-07-23T20:50:07Z** `[owner]` set: raruiz-hiberuscom (auto)
