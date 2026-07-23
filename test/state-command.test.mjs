@@ -478,3 +478,47 @@ test('203029 CR2: a genuinely unresolvable identity degrades project_id to null 
   assert.equal(receipt.project_id, null);
   assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(outsideAnyRepo));
 });
+
+test('20260723-170611 CR1: a state failure without --json emits the receipt and error once', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+
+  let error;
+  try {
+    execFileSync(process.execPath, [cli, 'state', 'doctor'], {
+      cwd: created.root,
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'doctor without --activation-ref must fail');
+  assert.equal(error.status, 1);
+
+  const receiptLines = error.stderr.match(/^Receipt: /gm) ?? [];
+  const errorLines = error.stderr.match(/^Error: /gm) ?? [];
+  assert.equal(receiptLines.length, 1, 'receipt must be printed exactly once');
+  assert.equal(errorLines.length, 1, 'error message must be printed exactly once');
+  assert.match(error.stderr, /--activation-ref/);
+});
+
+test('20260723-170611 CR2: a state failure with --json still emits a single JSON receipt', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+
+  let error;
+  try {
+    execFileSync(process.execPath, [cli, 'state', 'doctor', '--json'], {
+      cwd: created.root,
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'doctor without --activation-ref must fail');
+  assert.equal(error.status, 1);
+
+  const receipt = JSON.parse(error.stderr.trim());
+  assert.equal(receipt.ok, false);
+  assert.doesNotMatch(error.stderr, /^Error: /m);
+});

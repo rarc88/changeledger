@@ -180,7 +180,9 @@ function stateAction(command, fn) {
       const receipt = stateFailureReceipt(command, options, error, activity);
       if (!options.json) {
         console.error(stateReceiptDetails(receipt));
-        throw error;
+        console.error(`Error: ${error.message}`);
+        process.exitCode = 1;
+        return null;
       }
       console.error(JSON.stringify(receipt, null, 2));
       process.exitCode = 1;
