@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -115,3 +115,7 @@ humana sobre otra verdad.
 - **2026-07-23T14:29:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T16:58:36Z** `[validation]` in-validation → in-progress (agent rejected): Doble auditoría confirma alcance incompleto: el handler de sync pierde afinidad tras el await (resultado de A mostrado bajo B, app.js:1779), falta latest-wins por secuencia para recargas del mismo proyecto (CR3, openManagedProject:1282), y el toast de éxito hereda type error por defecto (showToast:918). Corrección: centralizar afinidad target+secuencia y cubrir sync éxito/error A→B y doble carga A old/new.
 - **2026-07-23T17:41:58Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
+- **2026-07-23T17:51:08Z** `[note]` Corrección implementada (sin commit hasta confirmación humana): syncReplicaState extraído con guard de afinidad post-await y atribución de proyecto en toasts; secuencia latest-wins en openManagedProject (configRequestSeq); showToast con options correcto; strings del viewer unificados a inglés incl. botón sync-state en index.html. 166 tests viewer en verde con red-green de los 4 escenarios.
+- **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
+- **2026-07-23T18:00:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T19:19:55Z** `[note]` Humano confirma que la corrección resuelve el rechazo (conversación 2026-07-23); se committea.

@@ -54,6 +54,7 @@ const {
   showNoProjects,
   showPrompt,
   showToast,
+  syncReplicaState,
   stageBlock,
   sortIndicator,
   statusTag,
@@ -447,6 +448,185 @@ test("190137 CR4: a raw config save for an abandoned project cannot corrupt the 
 
         assert.equal(sentSaveBodies.length, 2);
         assert.equal(sentSaveBodies[1].config_revision, 'rev-b');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+// 20260722-190137 validation correction — the replica #sync-state handler
+// captured the write target but reloaded/toasted against whatever project was
+// selected after the await (A's result surfaced under B), the success toast
+// inherited showToast's 'error' default and passed a boolean where an options
+// object is expected, and the message was Spanish amid an English UI. These
+// tests drive the extracted `syncReplicaState` continuation under a controlled
+// fetch and assert target affinity plus correctly-typed, attributed toasts.
+
+function toastContainer() {
+  return document.getElementById('toast-container');
+}
+
+test('190137 correction CR4: a replica sync started on A shows nothing under B', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'project-a', name: 'A', path: '/a', alive: true },
+      { id: 'project-b', name: 'B', path: '/b', alive: true },
+    ];
+    appState.currentProject = 'project-a';
+    const sync = deferredResponse();
+    let repoLoaded = false;
+
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/state-sync') return sync.promise;
+        if (parsed.pathname === '/api/repo') {
+          repoLoaded = true;
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: async () => repoPayload({ project_id: 'project-a', ledger_revision: 'rev-a' }),
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        const pending = syncReplicaState('project-a');
+        appState.currentProject = 'project-b';
+        sync.resolve(JSON.stringify({ ok: true }));
+        await pending;
+
+        assert.equal(repoLoaded, false, 'the abandoned sync target must not reload');
+        assert.equal(
+          toastContainer().children.length,
+          0,
+          'no success toast may be attributed to the newly selected project',
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 correction CR4: a replica sync that stays on its project reloads and reports success as non-error', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-a', name: 'Alpha', path: '/a', alive: true }];
+    appState.currentProject = 'project-a';
+    appState.lastJson = '';
+    appState.repo = null;
+
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/state-sync') {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true }) });
+        }
+        if (parsed.pathname === '/api/repo') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: async () =>
+              repoPayload({ project_id: 'project-a', ledger_revision: 'rev-synced' }),
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        await syncReplicaState('project-a');
+
+        assert.equal(appState.repo.ledger_revision, 'rev-synced', 'the synced project reloads');
+        const toast = toastContainer().querySelector('.toast');
+        assert.ok(toast, 'a success toast is shown');
+        assert.equal(
+          toast.classList.contains('toast-error'),
+          false,
+          'a success is not rendered as an error',
+        );
+        assert.match(toast.textContent, /Alpha/, 'the toast names the synced project');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 correction CR4: a failed replica sync reports the error attributed to its project', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-a', name: 'Alpha', path: '/a', alive: true }];
+    appState.currentProject = 'project-a';
+
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/state-sync') {
+          return Promise.resolve({
+            ok: false,
+            status: 409,
+            json: async () => ({ error: 'replica is behind' }),
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        await syncReplicaState('project-a');
+
+        const toast = toastContainer().querySelector('.toast');
+        assert.ok(toast, 'a failure toast is shown');
+        assert.ok(toast.classList.contains('toast-error'), 'a failure is rendered as an error');
+        assert.match(toast.textContent, /Alpha/, 'the failure names its project');
+        assert.match(toast.textContent, /replica is behind/, 'the server error is preserved');
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 correction CR3: an older same-project config response cannot overwrite a newer one', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-a', name: 'A', path: '/a', alive: true }];
+    const older = deferredResponse();
+    const newer = deferredResponse();
+    const queue = [older, newer];
+    const structured = (project_name) =>
+      JSON.stringify({
+        project_id: 'project-a',
+        content: `project_name: ${project_name}`,
+        revision: 'rev',
+        config_revision: 'rev',
+        schemaVersion: 2,
+        supported: 2,
+        config: { project_id: 'project-a', project_name },
+      });
+
+    await withMockedFetch(
+      () => queue.shift().promise,
+      async () => {
+        const pendingOlder = openManagedProject('project-a', { reload: true });
+        const pendingNewer = openManagedProject('project-a', { reload: true });
+
+        newer.resolve(structured('A-new'));
+        await pendingNewer;
+        const projectsView = document.getElementById('projects');
+        assert.equal(
+          projectsView.querySelector('input[name="project_name"]')?.value,
+          'A-new',
+          'the newest same-project response is applied',
+        );
+
+        older.resolve(structured('A-old'));
+        await pendingOlder;
+        assert.equal(
+          projectsView.querySelector('input[name="project_name"]')?.value,
+          'A-new',
+          'a stale same-project response must not roll the config back',
+        );
       },
     );
   } finally {

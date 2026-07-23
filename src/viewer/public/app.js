@@ -123,6 +123,28 @@ export async function load() {
   }
 }
 
+// Human label for a project id (falls back to the id) so toasts name the
+// project they acted on (CR4 attribution).
+const projectLabel = (id) => state.projectsList?.find((p) => p.id === id)?.name ?? id;
+
+// Sync the replica ledger for the project selected when the sync was requested.
+// The target is captured before the first await; if the selection has moved to
+// another project by the time the write returns, the fresh load for that
+// project (guarded by load()'s own affinity) governs the view and nothing is
+// reloaded or toasted here — A's result is never attributed to B. Errors always
+// name their target.
+export async function syncReplicaState(target = state.currentProject) {
+  try {
+    await postStateSync(target);
+    if (state.currentProject !== target) return;
+    invalidateCache();
+    await load();
+    showToast(`State updated for ${projectLabel(target)}`, { type: 'info' });
+  } catch (error) {
+    showToast(`${projectLabel(target)}: ${error.message}`);
+  }
+}
+
 export function showNoProjects(root = document) {
   setView('board');
   litRender(
@@ -1279,9 +1301,17 @@ export function projectsViewTemplate(
   </div>`;
 }
 
+let configRequestSeq = 0;
+
 export async function openManagedProject(id, { reload = false } = {}) {
   managedProject = id;
   configDirty = false;
+  // Latest-wins across concurrent config reads: the live target guards a switch
+  // to another project (CR4) and the monotonic sequence guards two in-flight
+  // reads of the *same* project so an older response cannot overwrite a newer
+  // one (CR3).
+  const seq = ++configRequestSeq;
+  const stale = () => managedProject !== id || seq !== configRequestSeq;
   const project = state.projectsList.find((item) => item.id === id);
   if (!project?.alive) {
     managedConfig = null;
@@ -1298,7 +1328,7 @@ export async function openManagedProject(id, { reload = false } = {}) {
   renderProjects();
   try {
     const structured = await getProjectConfigStructured(id);
-    if (managedProject !== id) return; // selection moved on while this was in flight (CR4)
+    if (stale()) return; // selection moved on or a newer read superseded (CR3/CR4)
     managedConfig = { id, ...structured };
     // Default to form for current schema, raw for future schema
     if (structured.schemaVersion > structured.supported) {
@@ -1307,7 +1337,7 @@ export async function openManagedProject(id, { reload = false } = {}) {
       configMode = 'form';
     }
   } catch (error) {
-    if (managedProject !== id) return;
+    if (stale()) return;
     managedConfig = { id, content: '', config_revision: '', error: error.message };
   }
   renderProjects();
@@ -1780,12 +1810,7 @@ function bootstrap() {
     const button = event.currentTarget;
     button.disabled = true;
     try {
-      await postStateSync(state.currentProject);
-      invalidateCache();
-      await load();
-      showToast('Estado actualizado');
-    } catch (error) {
-      showToast(error.message, true);
+      await syncReplicaState(state.currentProject);
     } finally {
       button.disabled = false;
     }
