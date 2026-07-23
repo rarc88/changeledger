@@ -2,9 +2,10 @@
 id: "20260722-204131"
 title: Diagnosticar el borrado de la integration ref
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-22T20:41:31Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260721-193104", "20260722-203031"]
 release_impact: patch
 ---
@@ -51,3 +52,5 @@ nuevo OID, sin relajar el rechazo existente.
 
 - **2026-07-22T20:41:31Z** `[note]` Draft separado de 20260722-203031 porque el borrado de integration ref pertenece al validador remoto y requiere una regresión propia SHA-1/SHA-256.
 - **2026-07-23T09:28:31Z** `[status]` draft → approved
+- **2026-07-23T13:33:25Z** `[status]` approved → in-progress
+- **2026-07-23T13:33:25Z** `[owner]` set: raruiz-hiberuscom (auto)
