@@ -2,7 +2,7 @@
 id: "20260722-203030"
 title: Documentar compatibilidad de cliente y alcance del enforcement
 type: chore
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:30:30Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -32,9 +32,12 @@ riesgo de falsa confianza y uno LOW de recuperación:
 
 ## Plan
 
-- [ ] Documentar en `README.md` (sección Shared state replica) el significado de `minimum_client_version`, el mensaje de rechazo y su resolución; verify: `changeledger check` y revisión de la sección renderizada (support)
-- [ ] Documentar en la misma sección el alcance real de la protección de authority (push/hook sí, local no) enlazando el runbook de recuperación; verify: `changeledger check` y revisión de la sección renderizada (support)
-- [ ] Añadir al runbook el cleanup pre-cutover de un baseline remoto publicado: precondiciones verificables, ref y OID exactos, rechazo si authority ya está activa, borrado remoto explícito y comprobación posterior; verify: `changeledger check` y ensayo manual sobre un remoto bare desechable (support)
+- [x] Documentar en `README.md` (sección Shared state replica) el significado de `minimum_client_version`, el mensaje de rechazo y su resolución; verify: `changeledger check` y revisión de la sección renderizada (support)
+  - **Resolved:** `2026-07-23T15:18:11Z`
+- [x] Documentar en la misma sección el alcance real de la protección de authority (push/hook sí, local no) enlazando el runbook de recuperación; verify: `changeledger check` y revisión de la sección renderizada (support)
+  - **Resolved:** `2026-07-23T15:18:11Z`
+- [x] Añadir al runbook el cleanup pre-cutover de un baseline remoto publicado: precondiciones verificables, ref y OID exactos, rechazo si authority ya está activa, borrado remoto explícito y comprobación posterior; verify: `changeledger check` y ensayo manual sobre un remoto bare desechable (support)
+  - **Resolved:** `2026-07-23T15:18:11Z`
 
 ## Log
 
@@ -43,3 +46,5 @@ riesgo de falsa confianza y uno LOW de recuperación:
 - **2026-07-23T09:28:27Z** `[status]` draft → approved
 - **2026-07-23T15:14:33Z** `[status]` approved → in-progress
 - **2026-07-23T15:14:33Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T15:19:43Z** `[note]` Documentado en README.md: minimum_client_version (significado, mensaje de rechazo, resolución vía upgrade del CLI); alcance real de la protección de authority (push/hook, no local) con nota explícita tras el párrafo existente; nueva subsección 'Canceling a published baseline before cutover' con precondiciones verificables, ref/OID exacto, borrado remoto explícito y verificación posterior. pnpm verify verde.
+- **2026-07-23T15:19:43Z** `[status]` in-progress → in-validation
