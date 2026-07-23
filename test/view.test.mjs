@@ -661,6 +661,40 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
 });
 
+test('190137 CR5: a viewer mutation for A and a CLI invocation for B never cross repos', () => {
+  isolatedHome();
+  const rootA = newRepo();
+  const rootB = newRepo();
+  const fileA = newChange(
+    { type: 'feature', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
+    rootA,
+  );
+  const fileB = newChange(
+    { type: 'feature', slug: 'b', title: 'B', now: '2026-06-13T12:00:00Z' },
+    rootB,
+  );
+  const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
+  const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
+  const { projects: projectsA, current: currentA } = resolveProjects(rootA, false);
+
+  // The viewer's domain layer resolves everything through the explicit
+  // `project`/`projects` it is handed (A); the CLI resolves everything
+  // through its own `cwd` (B). Neither reads the other's selection.
+  const viewerResult = changeStatus(projectsA, { project: currentA, id: idA, status: 'approved' });
+  status(idB, 'approved', rootB);
+
+  assert.equal(viewerResult.code, 200);
+  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.status, 'approved');
+  assert.equal(parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.status, 'approved');
+  // Neither repo's directory tree gained the other's change file.
+  const changesA = fs.readdirSync(path.join(rootA, '.changeledger', 'changes'));
+  const changesB = fs.readdirSync(path.join(rootB, '.changeledger', 'changes'));
+  assert.equal(changesA.length, 1);
+  assert.equal(changesB.length, 1);
+  assert.ok(changesA[0].includes(idA));
+  assert.ok(changesB[0].includes(idB));
+});
+
 test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
   isolatedHome();
   const root = newRepo();

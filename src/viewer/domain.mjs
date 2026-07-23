@@ -31,8 +31,9 @@ import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Serializes a loaded repo into the flat shape the UI consumes.
-export function serialize(repo) {
+export function serialize(repo, projectId) {
   return {
+    project_id: projectId ?? null,
     ledger_mode: repo.ledgerReplica ? 'replica' : (repo.mode ?? 'worktree'),
     ...ledgerReceipt(repo),
     language: repo.config.language ?? 'en',
@@ -520,6 +521,7 @@ export function readProjectConfigStructured(projects, id) {
   return {
     code: 200,
     body: {
+      project_id: found.project.id,
       content,
       revision: revision(content),
       config_revision: revision(content),

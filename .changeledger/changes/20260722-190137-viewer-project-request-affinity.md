@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -90,11 +90,16 @@ humana sobre otra verdad.
 
 ## Plan
 
-- [ ] Añadir en `test/viewer-metadata.test.mjs` un harness asíncrono del comportamiento de `src/viewer/public/app.js` que invierta respuestas A/B y dos revisiones de A; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR3)
-- [ ] Incorporar en `src/viewer/public/app.js` una identidad/generación de request capturada y aplicarla a repo, Git refs, config, sync y callbacks de mutación; verify: `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR1, CR3, CR4)
-- [ ] Exponer `project_id` junto a la revisión desde `src/viewer/domain.mjs` y validarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR2, CR4)
-- [ ] Cubrir en `test/view.test.mjs` la concurrencia entre `src/viewer/domain.mjs` para A y `src/commands/agent.mjs` con cwd B, comprobando refs, worktrees y receipts; verify: `node --test test/view.test.mjs test/ledger-mutations.test.mjs` (CR5)
-- [ ] Ejecutar `pnpm verify` (support)
+- [x] Añadir en `test/viewer-metadata.test.mjs` un harness asíncrono del comportamiento de `src/viewer/public/app.js` que invierta respuestas A/B y dos revisiones de A; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-23T14:00:36Z`
+- [x] Incorporar en `src/viewer/public/app.js` una identidad/generación de request capturada y aplicarla a repo, Git refs, config, sync y callbacks de mutación; verify: `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR1, CR3, CR4)
+  - **Resolved:** `2026-07-23T14:00:36Z`
+- [x] Exponer `project_id` junto a la revisión desde `src/viewer/domain.mjs` y validarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR2, CR4)
+  - **Resolved:** `2026-07-23T14:00:36Z`
+- [x] Cubrir en `test/view.test.mjs` la concurrencia entre `src/viewer/domain.mjs` para A y `src/commands/agent.mjs` con cwd B, comprobando refs, worktrees y receipts; verify: `node --test test/view.test.mjs test/ledger-mutations.test.mjs` (CR5)
+  - **Resolved:** `2026-07-23T14:00:36Z`
+- [x] Ejecutar `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T14:02:18Z`
 
 ## Log
 
@@ -102,3 +107,9 @@ humana sobre otra verdad.
 - **2026-07-23T09:28:17Z** `[status]` draft → approved
 - **2026-07-23T13:43:51Z** `[status]` approved → in-progress
 - **2026-07-23T13:43:51Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T14:02:19Z** `[note]` Implementado: load()/loadGitRefs/openManagedProject y callbacks de mutación de config guardan target+seq y descartan respuestas obsoletas o de proyecto distinto (CR1/CR3/CR4); serialize() y readProjectConfigStructured ahora declaran project_id, validado en el cliente antes de aplicar (CR2); test CR5 confirma que domain.mjs (viewer) y agent.mjs (CLI, cwd distinto) nunca cruzan repos. pnpm verify verde (977 tests).
+- **2026-07-23T14:02:19Z** `[status]` in-progress → in-review
+- **2026-07-23T14:09:12Z** `[review]` in-review → in-progress (retry): CR4: saveRaw() onSuccess no guarda con managedProject===configTarget.project como sus 4 hermanos (saveForm/applyMigration/repair/unregister); una respuesta tardía de guardado raw para un proyecto abandonado puede sobrescribir la config del proyecto actualmente gestionado
+- **2026-07-23T14:23:36Z** `[note]` Corrección tras fail-retry: saveRaw() ahora guarda con managedProject===configTarget.project como sus hermanos (saveForm/applyMigration/repair/unregister/previewMigration). Test de regresión agregado que confirma la corrupción de config_revision sin el guard y su ausencia con el fix. También se detectó y corrigió un gap del arnés de test: api.js lee window.__CHANGELEDGER_TOKEN__ pero viewer-metadata.test.mjs nunca exponía window como global, por lo que ningún test anterior ejercía de verdad un handler de mutación POST; se agregó globalThis.window. node --test + pnpm verify verdes (978 tests).
+- **2026-07-23T14:23:44Z** `[status]` in-progress → in-review
+- **2026-07-23T14:29:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
