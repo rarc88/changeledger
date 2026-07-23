@@ -60,7 +60,32 @@ export function ledgerReceipt(snapshot) {
 
 export function formatLedgerReceipt(receipt) {
   if (!receipt?.ledger_revision) return null;
-  return `Ledger revision: ${receipt.ledger_revision} (freshness: ${receipt.ledger_freshness}) (confirmation: ${receipt.ledger_confirmation}) (observed at: ${receipt.ledger_observed_at ?? 'unknown'})`;
+  const provenance =
+    receipt.project_id != null || receipt.repository_path != null
+      ? ` (project: ${receipt.project_id ?? 'unknown'}) (repo: ${receipt.repository_path ?? 'unknown'})`
+      : '';
+  return `Ledger revision: ${receipt.ledger_revision} (freshness: ${receipt.ledger_freshness}) (confirmation: ${receipt.ledger_confirmation}) (observed at: ${receipt.ledger_observed_at ?? 'unknown'})${provenance}`;
+}
+
+// The CLI's own repo/project attribution for a receipt — always derived from
+// the invocation's own `cwd`, never from another surface's selection (CR3).
+// Cheap (no git subprocess, no state-tree read) so it stays safe to call even
+// while building a failure receipt (CR2): on any resolution problem,
+// `project_id` degrades to null but `repository_path` still names the
+// directory the command actually ran against.
+export function repoProvenance(cwd = process.cwd()) {
+  const changeledgerDir = findChangeledgerDir(cwd);
+  const repository_path = changeledgerDir ? path.dirname(changeledgerDir) : path.resolve(cwd);
+  let project_id = null;
+  try {
+    if (changeledgerDir) {
+      const authority = authorityFor(changeledgerDir);
+      project_id = authority?.project_id ?? loadConfig(changeledgerDir).project_id ?? null;
+    }
+  } catch {
+    project_id = null;
+  }
+  return Object.freeze({ project_id, repository_path });
 }
 
 export function assertLedgerRevision(snapshot, observedRevision) {

@@ -1,7 +1,7 @@
 // `changeledger search` — deterministic lexical discovery over changes
 // (including archived) and specs. See change 20260711-103758.
 
-import { formatLedgerReceipt } from '../ledger-store.mjs';
+import { formatLedgerReceipt, repoProvenance } from '../ledger-store.mjs';
 import { loadRepo } from '../repo.mjs';
 import { buildCorpus, searchDocuments } from '../search.mjs';
 
@@ -11,11 +11,14 @@ export function search(query, { limit, type, status } = {}, cwd = process.cwd())
   const repo = loadRepo(cwd);
   const corpus = buildCorpus(repo);
   const hits = searchDocuments(corpus, query, { limit, type, status });
+  const provenance = repoProvenance(cwd);
   Object.defineProperties(hits, {
     ledgerRevision: { value: repo.revision ?? null },
     ledgerFreshness: { value: repo.revision ? (repo.ledgerFreshness ?? 'local') : null },
     ledgerConfirmation: { value: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null },
     ledgerObservedAt: { value: repo.revision ? (repo.ledgerObservedAt ?? null) : null },
+    projectId: { value: provenance.project_id },
+    repositoryPath: { value: provenance.repository_path },
   });
   return hits;
 }
@@ -52,6 +55,8 @@ export function runSearch(queryParts, options = {}, cwd = process.cwd()) {
       JSON.stringify(
         hits.ledgerRevision
           ? {
+              project_id: hits.projectId,
+              repository_path: hits.repositoryPath,
               ledger_revision: hits.ledgerRevision,
               ledger_freshness: hits.ledgerFreshness,
               ledger_confirmation: hits.ledgerConfirmation,
@@ -66,6 +71,7 @@ export function runSearch(queryParts, options = {}, cwd = process.cwd()) {
     return;
   }
 
+  console.log(`Project: ${hits.projectId ?? 'unknown'} (repo: ${hits.repositoryPath})`);
   if (hits.ledgerRevision) {
     console.log(
       formatLedgerReceipt({

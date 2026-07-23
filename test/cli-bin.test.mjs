@@ -73,6 +73,47 @@ function doneRepo() {
   return { root, env, id: item.id, changeFile };
 }
 
+function freshRepo(prefix = 'changeledger-repo-') {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const projectId = configText.match(/project_id: "([^"]+)"/)[1];
+  return { root, env, projectId };
+}
+
+test('203029 CR1: show --json declares project_id and repository_path', () => {
+  const { root, env } = freshRepo();
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const receipt = JSON.parse(runIn(root, env, 'show', id, '--json').out);
+  assert.match(receipt.project_id, /^[0-9a-f]{10}$/);
+  assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(root));
+});
+
+test('203029 CR1: list (human) always names its project and repository', () => {
+  const { root, env } = freshRepo();
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  const { out } = runIn(root, env, 'list');
+  assert.match(out, /^Project: [0-9a-f]{10} \(repo: .+\)$/m);
+});
+
+test('203029 CR3: a receipt names the repo the CLI actually resolved from cwd, not another repo', () => {
+  const a = freshRepo('changeledger-repo-a-');
+  const b = freshRepo('changeledger-repo-b-');
+  assert.equal(runIn(a.root, a.env, 'new', 'chore', 'x', 'X').code, 0);
+  assert.equal(runIn(b.root, b.env, 'new', 'chore', 'y', 'Y').code, 0);
+
+  const idB = JSON.parse(runIn(b.root, b.env, 'list', '--json').out)[0].id;
+  const receiptB = JSON.parse(runIn(b.root, b.env, 'show', idB, '--json').out);
+
+  assert.equal(receiptB.project_id, b.projectId);
+  assert.notEqual(receiptB.project_id, a.projectId);
+  assert.equal(fs.realpathSync(receiptB.repository_path), fs.realpathSync(b.root));
+});
+
 test('131649 CR8: graduate help contains only mutation modes and points to list', () => {
   const { code, out } = run('graduate', '--help');
   assert.equal(code, 0);
