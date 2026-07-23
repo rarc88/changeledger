@@ -12,7 +12,7 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { search } from '../src/commands/search.mjs';
 import { defaultRun } from '../src/git.mjs';
-import { loadLedgerStore } from '../src/ledger-store.mjs';
+import { loadLedgerStore, STATE_REF, validateServerStateRevision } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { serialize } from '../src/viewer/domain.mjs';
@@ -1004,4 +1004,49 @@ test('193101 correction CR7: state path grammar rejects suffix line breaks', () 
     /invalid state path/,
   );
   assert.equal(store.load().revision, before.revision);
+});
+
+test('170612 CR2: full snapshot load rejects a non-regular Git mode (symlink)', () => {
+  const created = createStateRepo();
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  fs.symlinkSync('manifest.yml', path.join(created.state, 'specs', 'x.md'));
+  git(created.root, ['add', '.changeledger-state']);
+  git(created.root, ['commit', '-qm', 'test: symlink spec entry']);
+  const rev = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'dev']);
+  const authority = {
+    format_version: 1,
+    baseline: rev,
+    project_id: 'project-1',
+    state_ref: STATE_REF,
+  };
+  assert.throws(
+    () => validateServerStateRevision(created.root, authority, rev, defaultRun),
+    (error) =>
+      /unsupported Git entry 120000/.test(error.message) &&
+      /\.changeledger-state\/specs\/x\.md/.test(error.message),
+  );
+});
+
+test('170612 CR3: full snapshot load keeps accepting 100644 and 100755 blobs', () => {
+  const created = createStateRepo();
+  git(created.root, ['config', 'core.fileMode', 'true']);
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  const rel = '.changeledger-state/changes/20260721-111111-exec.md';
+  const abs = path.join(created.root, rel);
+  fs.writeFileSync(abs, changeText({ id: '20260721-111111', title: 'Exec' }));
+  fs.chmodSync(abs, 0o755);
+  git(created.root, ['add', rel]);
+  git(created.root, ['commit', '-qm', 'test: executable change entry']);
+  const rev = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'dev']);
+  assert.equal(git(created.root, ['ls-tree', rev, rel]).split(' ')[0], '100755');
+  const authority = {
+    format_version: 1,
+    baseline: rev,
+    project_id: 'project-1',
+    state_ref: STATE_REF,
+  };
+  const snapshot = validateServerStateRevision(created.root, authority, rev, defaultRun);
+  assert.ok(snapshot.changes.some((change) => change.frontmatter.id === '20260721-111111'));
 });

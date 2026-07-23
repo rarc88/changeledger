@@ -11,7 +11,7 @@ import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } fro
 import { assertSupportedSchema } from './config-migration.mjs';
 import { VERSION } from './framing.mjs';
 import { defaultRun, sanitizedGitEnv } from './git.mjs';
-import { batchBlobReader, treeEntries } from './git-batch.mjs';
+import { assertRegularBlobEntry, batchBlobReader, treeEntries } from './git-batch.mjs';
 import { compareVersions, DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 import {
@@ -272,6 +272,11 @@ function loadStateTree(repoRoot, revision, run) {
   } catch (error) {
     throw new Error('state authority is unavailable or has no readable tree', { cause: error });
   }
+  // The state tree is read as documents: a non-regular entry (symlink, gitlink,
+  // subtree) must be rejected with a clear diagnostic, not materialized. Kept
+  // out of the enumeration try/catch above so the mode violation surfaces its
+  // own message instead of being masked as an unreadable tree.
+  for (const entry of tree) assertRegularBlobEntry(entry.mode, entry.path, entry.type);
   const names = tree.map((entry) => entry.path).sort();
   for (const name of names) {
     if (!statePathIsValid(name)) throw new Error(`invalid state path: ${name}`);

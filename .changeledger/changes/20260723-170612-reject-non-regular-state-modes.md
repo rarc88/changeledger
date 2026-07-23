@@ -2,7 +2,7 @@
 id: "20260723-170612"
 title: Rechazar modos Git no regulares en el árbol de estado
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-23T17:06:12Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -48,12 +48,18 @@ Decisión: rechazar en ambos paths de lectura del estado (incremental y full/bas
 
 ## Plan
 
-- [ ] Añadir la comprobación de modo regular compartida en `src/git-batch.mjs` y aplicarla al path incremental de `src/state-validation.mjs`, escribiendo primero el test rojo del update con symlink en `test/state-validation.test.mjs`; verify: `node --test test/state-validation.test.mjs` (CR1)
-- [ ] Aplicar la misma comprobación al loader full de `src/ledger-store.mjs`, con test rojo previo de carga con symlink y regresión de modos regulares en `test/ledger-store.test.mjs`; verify: `node --test test/ledger-store.test.mjs` (CR2, CR3)
-- [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+- [x] Añadir la comprobación de modo regular compartida en `src/git-batch.mjs` y aplicarla al path incremental de `src/state-validation.mjs`, escribiendo primero el test rojo del update con symlink en `test/state-validation.test.mjs`; verify: `node --test test/state-validation.test.mjs` (CR1)
+  - **Resolved:** `2026-07-23T17:55:31Z`
+- [x] Aplicar la misma comprobación al loader full de `src/ledger-store.mjs`, con test rojo previo de carga con symlink y regresión de modos regulares en `test/ledger-store.test.mjs`; verify: `node --test test/ledger-store.test.mjs` (CR2, CR3)
+  - **Resolved:** `2026-07-23T17:55:31Z`
+- [x] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T17:57:14Z`
 
 ## Log
 - **2026-07-23T17:41:39Z** `[status]` draft → approved (human via conversation)
 - **2026-07-23T17:41:39Z** `[status]` approved → in-progress
 - **2026-07-23T17:41:39Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-23T17:41:59Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
+- **2026-07-23T17:55:31Z** `[note]` Implementación delegada: guard exportado assertRegularBlobEntry + gitEntryType en git-batch (composable para el rework de 202100); aplicado en logRawEntries (incremental) y por entrada en loadStateTree tras el catch que enmascaraba diagnósticos (por eso ledger-store.mjs se tocó mínimamente). 73/73 en tests de validación y store.
+- **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
+- **2026-07-23T18:01:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)

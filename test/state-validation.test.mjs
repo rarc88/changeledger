@@ -9,7 +9,7 @@ import {
   validateReceiveBatch,
   validateStateUpdate,
 } from '../src/state-validation.mjs';
-import { createStateRepo, git, stateConfig } from './helpers/state-repo.mjs';
+import { changeText, createStateRepo, git, stateConfig } from './helpers/state-repo.mjs';
 
 const INTEGRATION_REF = 'refs/heads/dev';
 
@@ -982,4 +982,64 @@ test('193104 correction CR7: commit and object budgets are aggregate across a ba
       }),
     /object byte limit .* exceeded/,
   );
+});
+
+test('170612 CR1: incremental path rejects a non-regular Git mode (symlink), fail-closed', () => {
+  const created = fixture();
+  const head = advanceState(
+    created,
+    (state) => {
+      fs.symlinkSync('manifest.yml', path.join(state, 'changes', 'x.md'));
+    },
+    'test: symlink change entry',
+  );
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  let captured;
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: head,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    (error) => {
+      captured = error;
+      return (
+        /unsupported Git entry 120000/.test(error.message) &&
+        /\.changeledger-state\/changes\/x\.md/.test(error.message)
+      );
+    },
+  );
+  assert.ok(captured.receipt, 'fail-closed receipt is attached');
+  assert.equal(captured.ok, undefined);
+});
+
+test('170612 CR3: incremental path keeps accepting 100644 and 100755 blobs', () => {
+  const created = fixture();
+  git(created.root, ['config', 'core.fileMode', 'true']);
+  git(created.root, ['checkout', '-q', 'changeledger/state']);
+  const rel = '.changeledger-state/changes/20260721-111111-exec.md';
+  const abs = path.join(created.root, rel);
+  fs.writeFileSync(abs, changeText({ id: '20260721-111111', title: 'Exec' }));
+  fs.chmodSync(abs, 0o755);
+  git(created.root, ['add', rel]);
+  git(created.root, ['commit', '-qm', 'test: executable change entry']);
+  const head = git(created.root, ['rev-parse', 'HEAD']);
+  git(created.root, ['checkout', '-q', 'dev']);
+  assert.equal(git(created.root, ['ls-tree', head, rel]).split(' ')[0], '100755');
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  const receipt = validateStateUpdate({
+    repoRoot: created.root,
+    oldOid: created.baseline,
+    newOid: head,
+    ref: STATE_REF,
+    stateRef: STATE_REF,
+    integrationRef: INTEGRATION_REF,
+    limits: roomy,
+  });
+  assert.equal(receipt.ok, true);
 });

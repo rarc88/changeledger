@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { integrationBranch } from './config.mjs';
 import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
-import { batchBlobReader } from './git-batch.mjs';
+import { assertRegularBlobEntry, batchBlobReader } from './git-batch.mjs';
 import {
   assertNoDisappearance,
   deriveCandidateSnapshot,
@@ -363,7 +363,12 @@ function logRawEntries(run, repoRoot, range) {
       const filePath = tokens[i];
       if (filePath === undefined) throw new Error('malformed log --raw record: missing path');
       i++;
-      entries.push({ path: filePath, status: match[5], newOid: match[4] });
+      const status = match[5];
+      // A deletion's new mode is all-zero and carries no readable entry; every
+      // added/modified side must be a regular blob, matching the full tree
+      // load's guard so both read paths reject the same non-regular entries.
+      if (status !== 'D') assertRegularBlobEntry(match[2], filePath);
+      entries.push({ path: filePath, status, newOid: match[4] });
     }
     byCommit.set(hash, entries);
   }

@@ -9,6 +9,29 @@ import { isUtf8 } from 'node:buffer';
 
 const TREE_ENTRY = /^([0-7]{6}) ([^ ]+) ([0-9a-f]{40,64})\t([\s\S]+)$/;
 
+const REGULAR_BLOB_MODES = Object.freeze(['100644', '100755']);
+
+// Git modes carry a type the ls-tree/diff header may not spell out (the raw
+// diff format only emits modes). Derive it so a mode-only caller gets the same
+// `<mode> <type>` diagnostic as one that already parsed the type token.
+function gitEntryType(mode) {
+  if (mode === '040000') return 'tree';
+  if (mode === '160000') return 'commit';
+  return 'blob';
+}
+
+// The state tree is materialized as documents: only regular file blobs
+// (100644/100755) may be read as text. A symlink (120000, still a "blob"),
+// gitlink (160000) or tree entry must be rejected so no read path -- the
+// incremental raw-diff parser or the full tree load -- dereferences or
+// misreads it. Message style matches state-migration.mjs's regularBlob so the
+// create and validate paths reject the same surface identically.
+export function assertRegularBlobEntry(mode, entryPath, type = gitEntryType(mode)) {
+  if (type !== 'blob' || !REGULAR_BLOB_MODES.includes(mode)) {
+    throw new Error(`tree contains unsupported Git entry ${mode} ${type} at ${entryPath}`);
+  }
+}
+
 function parseTreeEntries(output) {
   if (output === '') return [];
   if (!output.endsWith('\0')) throw new Error('git returned malformed path framing');
