@@ -572,6 +572,184 @@ test('202058 CR1: a merge commit is checked against every one of its parents', (
   );
 });
 
+// 203027: proves the incremental (delta) path and the full closed-snapshot
+// path agree on the same verdict/diagnostic for the same content. `s1` is an
+// unrelated, valid interior commit; `s2` (built on top of `s1`) introduces the
+// violation. Path A validates `s1..s2` (a 1-commit range, so `s2` has no
+// already-cached parent inside the batch and is always fully validated).
+// Path B validates `baseline..s2` (a 2-commit range: `s1` is validated first
+// as the range's boundary commit, so `s2`'s single parent IS already cached,
+// making it eligible for incremental derivation). Both must throw identically.
+function assertEquivalentRejection(created, unrelatedMutate, violatingMutate, expectedMessage) {
+  const s1 = advanceState(created, unrelatedMutate, 'test: unrelated interior commit');
+  const s2 = advanceState(created, violatingMutate, 'test: violation');
+
+  git(created.root, ['update-ref', STATE_REF, s1]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: s1,
+        newOid: s2,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    expectedMessage,
+    'boundary (full) path',
+  );
+
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: s2,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    expectedMessage,
+    'incremental path',
+  );
+}
+
+function addUnrelatedChange(state) {
+  fs.writeFileSync(
+    path.join(state, 'changes', '20260721-000001-second.md'),
+    '---\nid: "20260721-000001"\ntitle: Second\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nSecond.\n\n## Plan\n\n- [ ] Do it\n\n## Log\n',
+  );
+}
+
+test('203027: incremental and full validation reject a disappeared identity identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) => fs.rmSync(path.join(state, 'changes', '20260721-000000-change.md')),
+    /removes changes identity "20260721-000000"/,
+  );
+});
+
+test('203027: incremental and full validation reject a duplicate id identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000002-dup.md'),
+        '---\nid: "20260721-000001"\ntitle: Duplicate\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDup.\n\n## Plan\n\n- [ ] Do it\n\n## Log\n',
+      ),
+    /duplicate id "20260721-000001"/,
+  );
+});
+
+test('203027: incremental and full validation reject a missing dependency identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000002-broken.md'),
+        '---\nid: "20260721-000002"\ntitle: Broken\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: ["99999999-999999"]\n---\n\n## Request\n\nBroken.\n\n## Plan\n\n- [ ] Do it\n\n## Log\n',
+      ),
+    /depends_on references missing change "99999999-999999"/,
+  );
+});
+
+test('203027: incremental and full validation reject a self-referencing relation identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'changes', '20260721-000002-selfref.md'),
+        '---\nid: "20260721-000002"\ntitle: Selfref\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\nrelated_to: ["20260721-000002"]\n---\n\n## Request\n\nSelfref.\n\n## Plan\n\n- [ ] Do it\n\n## Log\n',
+      ),
+    /related_to cannot reference its own change "20260721-000002"/,
+  );
+});
+
+test('203027: incremental and full validation reject a graduated_from missing change identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'specs', 'orphan.md'),
+        '---\ntitle: Orphan\nupdated: 2026-07-21T00:00:00Z\ntags: []\ngraduated_from: ["99999999-999999"]\n---\n',
+      ),
+    /graduated_from references missing change "99999999-999999"/,
+  );
+});
+
+test('203027: incremental and full validation reject a release naming a non-done change identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'releases', '1.0.0.yml'),
+        'version: 1.0.0\ncreated: 2026-07-21T00:00:00Z\nchanges: ["20260721-000001"]\n',
+      ),
+    /references change "20260721-000001" whose status is not done/,
+  );
+});
+
+test('203027: incremental and full validation reject a config project_id drift identically', () => {
+  const created = fixture();
+  assertEquivalentRejection(
+    created,
+    addUnrelatedChange,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'config.yml'),
+        fs
+          .readFileSync(path.join(state, 'config.yml'), 'utf8')
+          .replace('project_id: project-1', 'project_id: different'),
+      ),
+    /project_id/,
+  );
+});
+
+test('203027: a commit touching the manifest falls back to full validation instead of skipping it', () => {
+  const created = fixture();
+  advanceState(created, addUnrelatedChange, 'test: unrelated interior commit');
+  const s2 = advanceState(
+    created,
+    (state) =>
+      fs.writeFileSync(
+        path.join(state, 'manifest.yml'),
+        fs
+          .readFileSync(path.join(state, 'manifest.yml'), 'utf8')
+          .replace('project_id: project-1', 'project_id: different'),
+      ),
+    'test: manifest drift',
+  );
+  git(created.root, ['update-ref', STATE_REF, created.baseline]);
+  assert.throws(
+    () =>
+      validateStateUpdate({
+        repoRoot: created.root,
+        oldOid: created.baseline,
+        newOid: s2,
+        ref: STATE_REF,
+        stateRef: STATE_REF,
+        integrationRef: INTEGRATION_REF,
+        limits: roomy,
+      }),
+    /project_id/,
+  );
+});
+
 test('193104 CR7: operational limits have stable diagnostics', () => {
   const created = fixture();
   const one = advanceState(created, (state) => {

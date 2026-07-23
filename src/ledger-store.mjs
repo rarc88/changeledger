@@ -28,8 +28,8 @@ import { parseYaml } from './yaml.mjs';
 
 export const STATE_REF = 'refs/heads/changeledger/state';
 const STATE_ROOT = '.changeledger-state';
-const MANIFEST = `${STATE_ROOT}/manifest.yml`;
-const CONFIG = `${STATE_ROOT}/config.yml`;
+export const MANIFEST = `${STATE_ROOT}/manifest.yml`;
+export const CONFIG = `${STATE_ROOT}/config.yml`;
 const STATE_COLLECTION_EXTENSIONS = new Map([
   ['changes', '.md'],
   ['specs', '.md'],
@@ -363,7 +363,7 @@ function loadStateSnapshot(repoRoot, changeledgerDir, authority, run) {
   };
 }
 
-function statePathIsValid(file) {
+export function statePathIsValid(file) {
   if (typeof file !== 'string' || file.includes('\0')) return false;
   if (file === MANIFEST || file === CONFIG) return true;
   const parts = file.split('/');
@@ -419,9 +419,12 @@ function keepMutationRevision(repoRoot, revision, replica, run) {
 // Same content checks `validateStateRevision` runs after a git-backed load,
 // factored out so an in-memory candidate (already parsed, never re-read from
 // git) can be validated identically instead of duplicating the checks.
-function validateSnapshotContent(snapshot) {
+export function validateSnapshotContent(snapshot) {
   assertSupportedSchema(snapshot.config);
-  const { errors } = checkRepo(snapshot);
+  // Neither caller of this function (validateStateRevision, the incremental
+  // batch path in state-validation.mjs) ever inspects `.warnings` -- skip the
+  // advisory-only checks that would otherwise dominate the cost at scale.
+  const { errors } = checkRepo(snapshot, { skipAdvisory: true });
   if (errors.length) {
     throw new Error(
       `Ledger state validation failed: ${errors.map((error) => error.message).join('; ')}`,
@@ -484,12 +487,18 @@ function stateCollectionOf(file) {
 // has. Does not replicate `loadStateSnapshotAt`'s manifest/authority
 // consistency checks -- callers must fall back to a git-backed validation
 // when `writes` touches the manifest (see `mutateState`).
-function deriveCandidateSnapshot(snapshot, revision, writes, removals) {
+export function deriveCandidateSnapshot(snapshot, revision, writes, removals) {
   const candidate = { ...snapshot, revision };
   for (const [collection, parse] of Object.entries(STATE_COLLECTION_PARSERS)) {
-    const survivors = snapshot[collection]
-      .filter((doc) => !removals.has(doc.statePath) && !writes.has(doc.statePath))
-      .map((doc) => ({ ...doc, file: `git:${revision}:${doc.statePath}` }));
+    // Untouched documents are reused by reference, not cloned: `.file` is a
+    // diagnostic `git:<revision>:<path>` label nothing in checkRepo reads
+    // (it reports by `.name`), so re-stamping every survivor on every call
+    // would be pure waste -- costly when this runs once per commit across a
+    // batch (20260722-203027). `restampRevision` fixes `.file` up in one pass
+    // wherever a final, caller-facing snapshot actually needs it current.
+    const survivors = snapshot[collection].filter(
+      (doc) => !removals.has(doc.statePath) && !writes.has(doc.statePath),
+    );
     const added = [...writes]
       .filter(([file]) => stateCollectionOf(file) === collection)
       .map(([file, text]) => {

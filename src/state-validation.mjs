@@ -2,11 +2,16 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { integrationBranch } from './config.mjs';
 import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
+import { batchBlobReader } from './git-batch.mjs';
 import {
   assertNoDisappearance,
+  deriveCandidateSnapshot,
+  MANIFEST,
   parseStateAuthority,
   STATE_REF,
+  statePathIsValid,
   validateServerStateRevision,
+  validateSnapshotContent,
 } from './ledger-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
@@ -289,6 +294,112 @@ function commitParentsOrRoot(run, repoRoot, commit) {
   return fields.slice(1);
 }
 
+// One `rev-list --parents` call for the whole range instead of one per
+// commit -- a batch of N commits would otherwise pay N subprocess spawns just
+// to learn topology (dominant cost at scale: spawn overhead, not CPU).
+function allCommitParents(run, repoRoot, range) {
+  const output = run(['rev-list', '--reverse', '--parents', range], repoRoot).trim();
+  const parents = new Map();
+  if (!output) return parents;
+  for (const line of output.split('\n')) {
+    const fields = line.split(/\s+/);
+    parents.set(fields[0], fields.slice(1));
+  }
+  return parents;
+}
+
+const DIFF_TREE_RECORD = /^:([0-7]{6}) ([0-7]{6}) ([0-9a-f]{40,64}) ([0-9a-f]{40,64}) ([A-Z])$/;
+
+// Every commit's raw delta against its first parent, for the whole range, in
+// one `git log` call -- the incremental-eligible (single already-validated
+// parent) case is exactly the common linear-history case this targets, so
+// "against the first parent" is the delta that matters; merges never use
+// this (see deriveIncrementalSnapshot) and pay their own diff there.
+// `--format=%x00%H` wraps each commit hash in NUL on both sides, giving an
+// unambiguous split: a token that is the empty string marks "next token is a
+// new commit hash"; anything else is `:mode mode oldoid newoid status`
+// (optionally prefixed with the newline git emits after the format string)
+// immediately followed by its path token.
+function logRawEntries(run, repoRoot, range) {
+  const output = run(
+    ['log', '--reverse', '--raw', '--no-abbrev', '-r', '-z', '--format=%x00%H', range],
+    repoRoot,
+  );
+  const byCommit = new Map();
+  if (output === '') return byCommit;
+  const tokens = output.split('\0');
+  let i = 1; // tokens[0] is '' from the leading %x00 of the first commit
+  while (i < tokens.length) {
+    const hash = tokens[i];
+    if (!hash) break;
+    i++;
+    const entries = [];
+    while (i < tokens.length) {
+      const token = tokens[i];
+      if (token === '') {
+        i++;
+        break;
+      }
+      const header = token.startsWith('\n') ? token.slice(1) : token;
+      const match = header.match(DIFF_TREE_RECORD);
+      if (!match) throw new Error(`malformed log --raw record: ${token}`);
+      i++;
+      const filePath = tokens[i];
+      if (filePath === undefined) throw new Error('malformed log --raw record: missing path');
+      i++;
+      entries.push({ path: filePath, status: match[5], newOid: match[4] });
+    }
+    byCommit.set(hash, entries);
+  }
+  return byCommit;
+}
+
+// Derives commit's snapshot from its already-validated single parent plus the
+// blobs it actually changed, instead of re-materializing the whole tree --
+// the parent's untouched documents are reused by reference (deriveCandidateSnapshot,
+// shared with the client mutation path). `entries` and `blobCache` are
+// precomputed once for the whole range (see validateStateRef), not per call.
+// Returns null when the delta isn't safe to derive incrementally (touches the
+// manifest, whose authority-anchored fields this path doesn't re-verify) so
+// the caller falls back to a full, closed-snapshot validation instead of
+// silently skipping those checks.
+function deriveIncrementalSnapshot(repoRoot, run, parentSnapshot, commit, entries, blobCache) {
+  for (const entry of entries) {
+    if (!statePathIsValid(entry.path)) throw new Error(`invalid state path: ${entry.path}`);
+  }
+  if (entries.some((entry) => entry.path === MANIFEST)) return null;
+  const writes = new Map();
+  const removals = new Set();
+  const toRead = [];
+  for (const entry of entries) {
+    if (entry.status === 'D') {
+      removals.add(entry.path);
+      continue;
+    }
+    removals.delete(entry.path);
+    if (blobCache.has(entry.newOid)) writes.set(entry.path, blobCache.get(entry.newOid));
+    else toRead.push(entry);
+  }
+  if (toRead.length) {
+    // Defensive fallback only: every added/modified OID across the range is
+    // already prefetched into blobCache before this runs (see
+    // validateStateRef), so this should never actually spawn a subprocess.
+    const readBlob = batchBlobReader(
+      repoRoot,
+      toRead.map((entry) => ({ type: 'blob', oid: entry.newOid })),
+      run,
+    );
+    for (const entry of toRead) {
+      const text = readBlob(entry.newOid);
+      blobCache.set(entry.newOid, text);
+      writes.set(entry.path, text);
+    }
+  }
+  const candidate = deriveCandidateSnapshot(parentSnapshot, commit, writes, removals);
+  validateSnapshotContent(candidate);
+  return candidate;
+}
+
 function validateStateRef(ctx, update, authority) {
   const { run, repoRoot, length, budget, usage } = ctx;
   const zero = zeroOid(length);
@@ -315,14 +426,58 @@ function validateStateRef(ctx, update, authority) {
     usage,
   );
   const objectBytes = countObjectBytes(run, repoRoot, range, budget, usage);
+  // Computed once for the whole range (not per commit): topology and raw
+  // per-blob deltas are the two things the old per-commit loop paid a fresh
+  // subprocess spawn for on every iteration, which dominates at scale far
+  // more than the actual (in-memory) validation work.
+  const parentsByCommit = allCommitParents(run, repoRoot, range);
+  const rawEntriesByCommit = logRawEntries(run, repoRoot, range);
+  const blobCache = new Map();
+  const allNewOids = new Set();
+  for (const entries of rawEntriesByCommit.values()) {
+    for (const entry of entries) {
+      if (entry.status !== 'D') allNewOids.add(entry.newOid);
+    }
+  }
+  if (allNewOids.size) {
+    const readBlob = batchBlobReader(
+      repoRoot,
+      [...allNewOids].map((oid) => ({ type: 'blob', oid })),
+      run,
+    );
+    for (const oid of allNewOids) blobCache.set(oid, readBlob(oid));
+  }
+  const commitParentsOf = (commit) =>
+    parentsByCommit.get(commit) ?? commitParentsOrRoot(run, repoRoot, commit);
   const snapshotCache = new Map();
   const loadSnapshot = (commit) => {
     if (snapshotCache.has(commit)) return snapshotCache.get(commit);
-    let snapshot;
-    try {
-      snapshot = validateServerStateRevision(repoRoot, authority, commit, run);
-    } catch (error) {
-      throw new Error(`invalid state snapshot at ${commit}: ${error.message}`, { cause: error });
+    const parents = commitParentsOf(commit);
+    let snapshot = null;
+    // Only a single already-validated parent is eligible: a merge is
+    // validated as a full closed snapshot (its content must reconcile
+    // against every parent, not just be derived from one), and a parent
+    // outside this batch was never computed here to derive from.
+    if (parents.length === 1 && snapshotCache.has(parents[0])) {
+      try {
+        snapshot = deriveIncrementalSnapshot(
+          repoRoot,
+          run,
+          snapshotCache.get(parents[0]),
+          commit,
+          rawEntriesByCommit.get(commit) ?? [],
+          blobCache,
+        );
+      } catch (error) {
+        throw new Error(`invalid state snapshot at ${commit}: ${error.message}`, { cause: error });
+      }
+    }
+    if (!snapshot) {
+      try {
+        snapshot = validateServerStateRevision(repoRoot, authority, commit, run);
+      } catch (error) {
+        throw new Error(`invalid state snapshot at ${commit}: ${error.message}`, { cause: error });
+      }
     }
     snapshotCache.set(commit, snapshot);
     return snapshot;
@@ -335,7 +490,7 @@ function validateStateRef(ctx, update, authority) {
         `state update changes integration_branch away from protected ref ${ctx.integrationRef}`,
       );
     }
-    for (const parent of commitParentsOrRoot(run, repoRoot, commit)) {
+    for (const parent of commitParentsOf(commit)) {
       assertNoDisappearance(loadSnapshot(parent), snapshot, commit);
     }
   }

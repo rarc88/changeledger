@@ -39,7 +39,11 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     const fm = c.frontmatter ?? {};
 
     checkConflictMarkers(c, err);
-    checkAutoFixable(c, fm, warn);
+    // hasFixableDefects recomputes the full fix pass per document -- the
+    // dominant cost of checkRepo at scale (~90% measured at 5000 changes) --
+    // to produce an advisory warning nothing gate-facing ever reads. Callers
+    // that only inspect `.errors` (e.g. validateSnapshotContent) skip it.
+    if (!opts.skipAdvisory) checkAutoFixable(c, fm, warn);
 
     for (const k of REQUIRED) if (!(k in fm)) err(c, `missing frontmatter "${k}"`);
     if (fm.created && !ISO_UTC.test(fm.created)) err(c, `created not ISO 8601 UTC: ${fm.created}`);
