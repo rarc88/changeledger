@@ -744,6 +744,10 @@ function mutateState(
       if (replica) assertNoDisappearance(snapshot, candidate, tree);
     } else {
       candidate = validateCandidate(tree);
+      // Same fail-fast guarantee as the in-memory branch: a manifest-touching
+      // mutation must not publish a tree that drops an identity and breaks
+      // every subsequent parent-descent load.
+      if (replica) assertNoDisappearance(snapshot, candidate, tree);
     }
     const commit = runIndexedGit(
       ['commit-tree', tree, '-p', revision, '-m', options.message],

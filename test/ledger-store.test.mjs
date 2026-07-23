@@ -371,6 +371,53 @@ function withRemote(root) {
   return remote;
 }
 
+test('202100 correction: a manifest-touching v2 mutation cannot drop an identity at write', () => {
+  const { root } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    // The git-backed candidate path runs full validation; give it a complete
+    // config so the dropped identity is the only defect in the candidate.
+    mutateState(state) {
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+      fs.writeFileSync(
+        path.join(state, 'config.yml'),
+        [
+          'project_id: project-1',
+          'changes_dir: .changeledger-state/changes',
+          'statuses: [draft, approved, in-progress, in-validation, blocked, done, discarded]',
+          'stages: [request, log]',
+          'types:',
+          '  feature:',
+          '    stages: [request]',
+          '',
+        ].join('\n'),
+      );
+    },
+  });
+  const store = loadLedgerStore(root);
+  const snapshot = store.load();
+  assert.throws(
+    () =>
+      store.mutate(
+        { message: 'test: drop spec', expectedRevision: snapshot.revision, offline: true },
+        ({ write, remove }) => {
+          // Writing MANIFEST forces the git-backed candidate path; the dropped
+          // spec identity must fail fast here, not on the next load.
+          write(
+            '.changeledger-state/manifest.yml',
+            `format_version: 1\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+          );
+          remove('.changeledger-state/specs/demo.md');
+        },
+      ),
+    /removes specs identity "demo.md"/,
+  );
+  // Fail-fast means fail BEFORE publishing: no pending may exist and the
+  // snapshot must still load cleanly afterwards.
+  assert.throws(() => git(root, ['rev-parse', '--verify', 'refs/changeledger/pending']));
+  assert.equal(loadLedgerStore(root).load().specs.length, 1);
+});
+
 test('202100: a v1 mutation materializes only the source snapshot (candidate in memory)', () => {
   const { root } = fixture({ mutateState: budgetState });
   assertBudget(root, { expected: 1, from: 'Demo', to: 'Budgeted' });

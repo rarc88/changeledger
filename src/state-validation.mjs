@@ -17,7 +17,7 @@ import { parseYaml } from './yaml.mjs';
 
 export const DEFAULT_STATE_LIMITS = Object.freeze({
   max_commits: 256,
-  max_object_bytes: 64 * 1024 * 1024,
+  max_object_bytes: 16 * 1024 * 1024,
   timeout_ms: 30_000,
 });
 
@@ -26,7 +26,7 @@ const LEGACY_CONFIG_PATH = '.changeledger/config.yml';
 const STATE_CONFIG_PATH = '.changeledger-state/config.yml';
 // A maxBuffer-exceeded execFileSync error still carries the truncated
 // stdout/stderr captured so far; with a batch `cat-file --batch` read this
-// can be up to `max_object_bytes` (64 MiB default) of raw object content, so
+// can be up to `max_object_bytes` (16 MiB default) of raw object content, so
 // cap the diagnostic the same way 20260722-202101 already bounds
 // state-migration.mjs's git-output errors.
 const GIT_ERROR_DETAIL_LIMIT = 2000;
@@ -84,12 +84,10 @@ function runner(
         // rev-list, the `--batch-check` sizing pass), fall back to a ceiling at
         // least as large as the semantic `budget.max_object_bytes` check below
         // so a small configured budget cannot fail the subprocess with an
-        // opaque ENOBUFS before that check ever runs. Note the asymmetry:
-        // batch blob reads are chunk-bounded by git-batch's GIT_MAX_BUFFER
-        // budget, so a single object between that per-object read cap and
-        // `max_object_bytes` passes the byte-usage check yet is rejected
-        // fail-closed at materialization — reconciling the two limits is a
-        // pending product decision, recorded in change 20260722-202100.
+        // opaque ENOBUFS before that check ever runs. The default budget
+        // matches git-batch's per-chunk GIT_MAX_BUFFER cap; a config that
+        // raises `max_object_bytes` above it still hits the per-object read
+        // cap at materialization, fail-closed with a bounded diagnostic.
         maxBuffer: maxBuffer ?? Math.max(GIT_MAX_BUFFER, budget.max_object_bytes),
         stdio: ['pipe', 'pipe', 'pipe'],
       });
