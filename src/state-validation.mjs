@@ -516,7 +516,10 @@ function validateStateRef(ctx, update, authority) {
 function validateIntegrationRef(ctx, update) {
   const { run, repoRoot, length, budget, usage } = ctx;
   const zero = zeroOid(length);
-  if (update.oldOid === zero || update.newOid === zero) {
+  if (update.newOid === zero) {
+    throw new Error(`deleting the protected integration ref ${update.ref} is forbidden`);
+  }
+  if (update.oldOid === zero) {
     throw new Error('integration protection is not active');
   }
   const current = resolveRef(run, repoRoot, update.ref);
