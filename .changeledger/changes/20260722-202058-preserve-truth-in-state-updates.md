@@ -2,7 +2,7 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:20:58Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -101,3 +101,4 @@ más allá de esta política.
 - **2026-07-22T22:22:33Z** `[review]` in-review → in-progress (retry): Merge test did not distinguish first-parent-only from all-parents checking; corrected and re-verified
 - **2026-07-22T22:22:39Z** `[status]` in-progress → in-review
 - **2026-07-22T22:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-22T23:55:47Z** `[validation]` in-validation → done (human accepted)
