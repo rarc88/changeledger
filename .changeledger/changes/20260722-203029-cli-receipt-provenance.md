@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -67,10 +67,14 @@ de estado sin procedencia, contradiciendo «todo receipt».
 
 ## Plan
 
-- [ ] Inventariar los productores de receipts y añadir un helper común de procedencia para el root canónico y project_id en `src/ledger-store.mjs`/`bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs test/ledger-mutations.test.mjs` cubriendo lectura y mutación humana/JSON (CR1)
-- [ ] Extender en `bin/changeledger.mjs` los receipts de éxito y `stateFailureReceipt` para status/sync/abort, migrate, activate, doctor y export; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` cubriendo éxito, fallo, identidad ausente y campos JSON aditivos (CR1, CR2)
-- [ ] Añadir en `bin/changeledger.mjs` la regresión concurrente cwd B mientras el viewer mantiene A; verify: `node --test test/cli-bin.test.mjs` exige project_id/repository_path de B en éxito y error (CR3)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Inventariar los productores de receipts y añadir un helper común de procedencia para el root canónico y project_id en `src/ledger-store.mjs`/`bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs test/ledger-mutations.test.mjs` cubriendo lectura y mutación humana/JSON (CR1)
+  - **Resolved:** `2026-07-23T14:47:56Z`
+- [x] Extender en `bin/changeledger.mjs` los receipts de éxito y `stateFailureReceipt` para status/sync/abort, migrate, activate, doctor y export; verify: `node --test test/state-command.test.mjs test/cli-bin.test.mjs` cubriendo éxito, fallo, identidad ausente y campos JSON aditivos (CR1, CR2)
+  - **Resolved:** `2026-07-23T14:47:56Z`
+- [x] Añadir en `bin/changeledger.mjs` la regresión concurrente cwd B mientras el viewer mantiene A; verify: `node --test test/cli-bin.test.mjs` exige project_id/repository_path de B en éxito y error (CR3)
+  - **Resolved:** `2026-07-23T14:47:57Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T14:52:37Z`
 
 ## Log
 
@@ -79,3 +83,9 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-23T09:28:25Z** `[status]` draft → approved
 - **2026-07-23T14:31:25Z** `[status]` approved → in-progress
 - **2026-07-23T14:31:25Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T14:52:38Z** `[note]` Implementado: repoProvenance(cwd) en ledger-store.mjs (cheap, cwd-derived, degrada a project_id:null en fallos manteniendo repository_path per CR2/CR3). Wired en list/show/search (agent.mjs, search.mjs), printLedgerRevision y stateFailureReceipt/stateReceiptDetails (bin/changeledger.mjs), y las acciones humanas de state status/sync/abort/migrate/activate/doctor/export. JSON existente solo recibe campos aditivos (list/show/search wrapper cuando hay ledger_revision; bare array sin ledger_revision se deja intacto para no romper consumidores). Tests CR1-CR3 en cli-bin.test.mjs y state-command.test.mjs. pnpm verify verde (976 tests).
+- **2026-07-23T14:52:38Z** `[status]` in-progress → in-review
+- **2026-07-23T15:03:14Z** `[review]` in-review → in-progress (retry): CR2: falta test de la degradación project_id:null/repository_path-presente cuando la identidad realmente no se puede resolver (ej. state doctor --json fuera de un repo inicializado); la implementación es correcta pero no está cubierta
+- **2026-07-23T15:05:41Z** `[note]` Corrección tras fail-retry: agregado test que ejercita la rama de degradación real (state doctor --json fuera de cualquier repo inicializado) y confirma project_id: null con repository_path presente. node --test + pnpm verify verdes (977 tests).
+- **2026-07-23T15:05:41Z** `[status]` in-progress → in-review
+- **2026-07-23T15:11:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)

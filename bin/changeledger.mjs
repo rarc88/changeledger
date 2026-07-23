@@ -43,7 +43,7 @@ import {
   stateValidateUpdate,
 } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
-import { formatLedgerReceipt, loadLedgerStore } from '../src/ledger-store.mjs';
+import { formatLedgerReceipt, loadLedgerStore, repoProvenance } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { parseYaml } from '../src/yaml.mjs';
 
@@ -75,6 +75,8 @@ function action(fn) {
 
 function stateReceiptDetails(receipt) {
   return `Receipt: ${JSON.stringify({
+    projectId: receipt.project_id ?? null,
+    repositoryPath: receipt.repository_path ?? null,
     sources: receipt.sources ?? [],
     sourceOids: receipt.sourceOids ?? {},
     baseline: receipt.baseline ?? null,
@@ -124,6 +126,7 @@ function stateFailureReceipt(command, options, error, activity) {
     ok: false,
     command,
     error: error.message,
+    ...repoProvenance(),
     sources,
     sourceOids:
       activity.sourceOids && Object.keys(activity.sourceOids).length > 0
@@ -216,6 +219,7 @@ function printLedgerRevision(result) {
     ledger_freshness: 'local',
     ledger_confirmation: 'local',
     ledger_observed_at: null,
+    ...repoProvenance(),
   };
   try {
     const snapshot = loadLedgerStore().load();
@@ -820,6 +824,8 @@ program
       if (options.json) {
         const output = items.ledgerRevision
           ? {
+              project_id: items.projectId,
+              repository_path: items.repositoryPath,
               ledger_revision: items.ledgerRevision,
               ledger_freshness: items.ledgerFreshness,
               ledger_confirmation: items.ledgerConfirmation,
@@ -829,6 +835,7 @@ program
           : items;
         console.log(JSON.stringify(output, null, 2));
       } else {
+        console.log(`Project: ${items.projectId ?? 'unknown'} (repo: ${items.repositoryPath})`);
         if (items.ledgerRevision) {
           console.log(
             formatLedgerReceipt({
@@ -854,6 +861,7 @@ program
       const c = show(id);
       if (options.json) console.log(JSON.stringify(c, null, 2));
       else {
+        console.log(`Project: ${c.project_id ?? 'unknown'} (repo: ${c.repository_path})`);
         if (c.ledger_revision) {
           console.log(formatLedgerReceipt(c));
         }
@@ -982,6 +990,9 @@ stateCommand
   .action(
     action(() => {
       const result = stateStatus();
+      const provenance = repoProvenance();
+      console.log(`Project: ${provenance.project_id ?? 'unknown'}`);
+      console.log(`Repository: ${provenance.repository_path}`);
       console.log(`Remote: ${result.remote ?? '(unresolved)'}`);
       console.log(`Condition: ${result.condition}`);
       console.log(`Effective: ${result.effective ?? '(none)'}`);
@@ -998,8 +1009,11 @@ stateCommand
   .action(
     action(() => {
       const result = stateSync();
+      const provenance = repoProvenance();
       const confirmation = result.pending ? 'local, pending publication' : 'confirmed';
-      console.log(`State ${result.action}: ${result.effective} (${confirmation})`);
+      console.log(
+        `State ${result.action}: ${result.effective} (${confirmation}) (project: ${provenance.project_id ?? 'unknown'}) (repo: ${provenance.repository_path})`,
+      );
       if (result.error) console.log(`Publication result ambiguous: ${result.error}`);
       if (result.pending && !result.confirmed) process.exitCode = 2;
     }),
@@ -1013,6 +1027,7 @@ stateCommand
   .action(
     action((options) => {
       const result = stateAbort(process.cwd(), options);
+      const provenance = repoProvenance(process.cwd());
       if (result.confirmed) {
         console.log(`Pending was already published and is now confirmed at ${result.effective}`);
       } else {
@@ -1020,6 +1035,9 @@ stateCommand
           `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
         );
       }
+      console.log(
+        `Project: ${provenance.project_id ?? 'unknown'} (repo: ${provenance.repository_path})`,
+      );
     }),
   );
 
@@ -1046,6 +1064,7 @@ stateCommand
           },
           activity,
         );
+        Object.assign(result, repoProvenance());
         if (!options.json && options.preview) {
           console.log(result.text);
           console.error(stateReceiptDetails(result));
@@ -1068,6 +1087,7 @@ stateCommand
     action(
       stateAction('activate', (options, activity) => {
         const result = stateActivate(process.cwd(), options, activity);
+        Object.assign(result, repoProvenance());
         if (!options.json)
           console.log(
             `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
@@ -1087,6 +1107,7 @@ stateCommand
     action(
       stateAction('doctor', (options, activity) => {
         const result = stateDoctor(process.cwd(), options, activity);
+        Object.assign(result, repoProvenance());
         if (!options.json) {
           console.log(`Activation: ${result.activation}`);
           console.log(`Baseline: ${result.baseline}`);
@@ -1187,6 +1208,7 @@ stateCommand
     action(
       stateAction('export', (options, activity) => {
         const result = stateExport(process.cwd(), options, activity);
+        Object.assign(result, repoProvenance());
         if (!options.json)
           console.log(
             `Prepared ${result.branch} at ${result.commit} from ${result.integration} (confirmed ${result.confirmed}; baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,

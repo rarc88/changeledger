@@ -331,3 +331,59 @@ test('193102 CR7: every CLI read receipt includes freshness, confirmation and ob
     new RegExp(`confirmation: confirmed; observed_at: ${snapshot.ledgerObservedAt}`),
   );
 });
+
+test('203029 CR1: state status and sync name their project and repository in human output', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileSync(process.execPath, [cli, ...args], { cwd: created.root, encoding: 'utf8' });
+
+  const status = run('state', 'status');
+  assert.match(status, /^Project: project-1$/m);
+  assert.match(status, new RegExp(`^Repository: .*${path.basename(created.root)}$`, 'm'));
+
+  const sync = run('state', 'sync');
+  assert.match(sync, /\(project: project-1\)/);
+  assert.match(sync, new RegExp(`\\(repo: .*${path.basename(created.root)}\\)`));
+});
+
+test('203029 CR2: a state doctor failure still names the resolved repository', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+
+  let error;
+  try {
+    execFileSync(process.execPath, [cli, 'state', 'doctor', '--json'], {
+      cwd: created.root,
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'doctor without --activation-ref must fail');
+  const receipt = JSON.parse(error.stderr);
+  assert.equal(receipt.ok, false);
+  assert.equal(receipt.project_id, 'project-1');
+  assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(created.root));
+});
+
+test('203029 CR2: a genuinely unresolvable identity degrades project_id to null without hiding repository_path', () => {
+  const cli = path.resolve('bin/changeledger.mjs');
+  const outsideAnyRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-no-repo-'));
+
+  let error;
+  try {
+    execFileSync(process.execPath, [cli, 'state', 'doctor', '--json'], {
+      cwd: outsideAnyRepo,
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    error = e;
+  }
+  assert.ok(error, 'doctor without --activation-ref must fail even outside a repo');
+  const receipt = JSON.parse(error.stderr);
+  assert.equal(receipt.ok, false);
+  assert.equal(receipt.error, 'state doctor requires --activation-ref');
+  assert.equal(receipt.project_id, null);
+  assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(outsideAnyRepo));
+});

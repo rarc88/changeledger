@@ -9,7 +9,7 @@ import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
-import { ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
+import { ledgerReceipt, loadLedgerStore, repoProvenance } from '../ledger-store.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
@@ -540,11 +540,14 @@ export function list(
       archived: c.frontmatter.archived === true,
       progress: c.progress,
     }));
+  const provenance = repoProvenance(cwd);
   Object.defineProperties(items, {
     ledgerRevision: { value: repo.revision ?? null },
     ledgerFreshness: { value: repo.revision ? (repo.ledgerFreshness ?? 'local') : null },
     ledgerConfirmation: { value: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null },
     ledgerObservedAt: { value: repo.revision ? (repo.ledgerObservedAt ?? null) : null },
+    projectId: { value: provenance.project_id },
+    repositoryPath: { value: provenance.repository_path },
   });
   return items;
 }
@@ -560,5 +563,6 @@ export function show(id, cwd = process.cwd()) {
     tasks: c.tasks,
     progress: c.progress,
     ...ledgerReceipt(repo),
+    ...repoProvenance(cwd),
   };
 }

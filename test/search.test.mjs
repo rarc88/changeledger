@@ -228,7 +228,8 @@ test('CR5 — no matches prints "no matches" and does not throw', () => {
   } finally {
     console.log = originalLog;
   }
-  assert.deepEqual(logs, ['no matches']);
+  assert.match(logs[0], /^Project: .+ \(repo: .+\)$/);
+  assert.deepEqual(logs.slice(1), ['no matches']);
 });
 
 test('CR6 — the same query run twice yields byte-identical output', () => {
