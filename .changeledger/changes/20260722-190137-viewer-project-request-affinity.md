@@ -119,3 +119,8 @@ humana sobre otra verdad.
 - **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
 - **2026-07-23T18:00:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T19:19:55Z** `[note]` Humano confirma que la corrección resuelve el rechazo (conversación 2026-07-23); se committea.
+- **2026-07-23T19:26:11Z** `[validation]` in-validation → in-progress (agent rejected): Auditoría integral post-corrección: re-seleccionar el mismo proyecto con la carga en vuelo incrementa configRequestSeq antes del early-return de caché (app.js:1312 vs :1321); la respuesta pendiente se descarta como stale y el panel queda en Loading configuration… sin fetch activo. Fix: mover el bump de secuencia tras los early-returns. Incluye además el residuo doc: README.md:142 aún dice Actualizar estado (botón renombrado a Sync state).
+- **2026-07-23T19:30:18Z** `[note]` Corrección de la regresión: bump de configRequestSeq movido tras los early-returns (cache hit o proyecto no vivo ya no invalidan la request en vuelo); test rojo-verde del doble click mid-load con id único (estado de módulo persiste entre tests); README actualizado a Sync state. 167/167 viewer, gate completo verde.
+- **2026-07-23T19:30:18Z** `[status]` in-progress → in-review
+- **2026-07-23T19:32:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T19:55:52Z** `[note]` Humano confirma la corrección de auditoría (conversación 2026-07-23); se committea.

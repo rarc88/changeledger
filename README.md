@@ -139,7 +139,7 @@ Online mutations synchronize before constructing the operation and publish its
 successor with an ordinary fast-forward push. Add `--offline` to a mutating CLI
 command only when intentionally creating one local pending operation. A second
 mutation is rejected until that pending operation is synchronized or aborted.
-The viewer exposes the same explicit “Actualizar estado” action and never
+The viewer exposes the same explicit “Sync state” action and never
 refreshes over the network merely to render a page.
 
 ### Recoverable adoption

@@ -634,6 +634,49 @@ test('190137 correction CR3: an older same-project config response cannot overwr
   }
 });
 
+test('190137 correction CR3: re-selecting a project mid-load does not strand the pending response', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [{ id: 'project-strand', name: 'A', path: '/a', alive: true }];
+    const only = deferredResponse();
+    let fetches = 0;
+    const structured = JSON.stringify({
+      project_id: 'project-strand',
+      content: 'project_name: A-loaded',
+      revision: 'rev',
+      config_revision: 'rev',
+      schemaVersion: 2,
+      supported: 2,
+      config: { project_id: 'project-strand', project_name: 'A-loaded' },
+    });
+
+    await withMockedFetch(
+      () => {
+        fetches += 1;
+        return only.promise;
+      },
+      async () => {
+        const pending = openManagedProject('project-strand');
+        // Second click on the same project while the first fetch is in flight:
+        // it must not invalidate the pending request's sequence.
+        await openManagedProject('project-strand');
+
+        only.resolve(structured);
+        await pending;
+        const projectsView = document.getElementById('projects');
+        assert.equal(fetches, 1, 'the repeat selection reuses the in-flight request');
+        assert.equal(
+          projectsView.querySelector('input[name="project_name"]')?.value,
+          'A-loaded',
+          'the pending response still renders instead of leaving the panel stuck loading',
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
 test('193101 correction CR2: global search renders ledger provenance with and without matches', () => {
   const provenance = {
     project: 'project-1',

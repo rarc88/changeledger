@@ -1306,12 +1306,6 @@ let configRequestSeq = 0;
 export async function openManagedProject(id, { reload = false } = {}) {
   managedProject = id;
   configDirty = false;
-  // Latest-wins across concurrent config reads: the live target guards a switch
-  // to another project (CR4) and the monotonic sequence guards two in-flight
-  // reads of the *same* project so an older response cannot overwrite a newer
-  // one (CR3).
-  const seq = ++configRequestSeq;
-  const stale = () => managedProject !== id || seq !== configRequestSeq;
   const project = state.projectsList.find((item) => item.id === id);
   if (!project?.alive) {
     managedConfig = null;
@@ -1323,6 +1317,14 @@ export async function openManagedProject(id, { reload = false } = {}) {
     renderProjects();
     return;
   }
+  // Latest-wins across concurrent config reads: the live target guards a switch
+  // to another project (CR4) and the monotonic sequence guards two in-flight
+  // reads of the *same* project so an older response cannot overwrite a newer
+  // one (CR3). Bumped only after the early returns: a repeat selection that
+  // issues no fetch (cache hit, including a load already in flight) must not
+  // invalidate the pending request's sequence.
+  const seq = ++configRequestSeq;
+  const stale = () => managedProject !== id || seq !== configRequestSeq;
   managedConfig = { id, loading: true };
   migrationPreview = null;
   renderProjects();
