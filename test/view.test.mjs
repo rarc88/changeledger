@@ -169,6 +169,15 @@ test('193102 CR1/CR7: viewer state sync invokes the replica protocol explicitly'
   );
   git(created.root, ['update-ref', 'refs/changeledger/confirmed', created.baseline]);
   git(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);
+  // The resolver requires an installed activation ref pointing at a commit
+  // that carries the v2 authority; a bare worktree file is bootstrap-only.
+  git(created.root, ['add', '.changeledger/authority.yml']);
+  git(created.root, ['commit', '-qm', 'test: activate authority']);
+  git(created.root, [
+    'update-ref',
+    'refs/changeledger/activation',
+    git(created.root, ['rev-parse', 'HEAD']),
+  ]);
   const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-view-state-'));
   git(remote, ['init', '--bare', '-q']);
   git(created.root, ['remote', 'add', 'origin', remote]);

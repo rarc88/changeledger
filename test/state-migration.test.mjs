@@ -9,13 +9,18 @@ import { migrateStructuredSections } from '../src/fix.mjs';
 import { sanitizedGitEnv } from '../src/git.mjs';
 import {
   createStateBaseline,
+  deactivateStateActivation,
   doctorStateMigration,
   exportStateRecovery,
+  installStateActivation,
   prepareStateActivation,
   previewStateMigration,
   previewStateMigrationPlan,
 } from '../src/state-migration.mjs';
 import { CONFIRMED_REF, OBSERVED_REF, PENDING_REF } from '../src/state-store.mjs';
+
+const ACTIVATION_REF = 'refs/changeledger/activation';
+
 import { parseYaml, stringifyYaml } from '../src/yaml.mjs';
 
 const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -235,6 +240,7 @@ test('193103 CR11/CR12: CLI works before and after authority with JSON receipts'
   assert.equal(baseline.network, true);
 
   const activation = runJson('state', 'activate', '--prepare', '--baseline', baseline.baseline);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
   assert.match(activation.commit, OID_PATTERN);
   assert.equal(activation.baseline, baseline.baseline);
   const humanActivation = execFileSync(
@@ -1037,6 +1043,7 @@ test('193103 CR9/CR10: doctor inspects activation and recovery exports confirmed
   const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
   const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
   const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
 
   const diagnosis = doctorStateMigration({ activationRef: activation.branch }, root);
   assert.equal(diagnosis.ok, true);
@@ -1080,6 +1087,7 @@ test('163406 CR2: recovery succeeds and preserves a file left out of the invento
   const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
   const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
   const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
 
   assert.equal(git(root, ['show', `${activation.commit}:.changeledger/changes/.gitkeep`]), '');
 
@@ -1105,6 +1113,7 @@ test('181234 CR1: an identical recovery retry reuses the branch instead of faili
   git(root, ['checkout', '-q', activation.branch]);
   git(root, ['branch', '-f', 'dev', activation.commit]);
   git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
 
   const first = exportStateRecovery(root);
   const retry = exportStateRecovery(root);
@@ -1124,6 +1133,7 @@ test('163406 CR3: recovery still fails closed on a real path collision', () => {
   git(root, ['checkout', '-q', activation.branch]);
   git(root, ['branch', '-f', 'dev', activation.commit]);
   git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md'),
@@ -1305,6 +1315,7 @@ test('193103 CR9: recovery rejects pending, stale observation and branch collisi
   git(root, ['checkout', '-q', activation.branch]);
   git(root, ['branch', '-f', 'dev', activation.commit]);
   git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
   const before = git(root, ['status', '--porcelain=v1']);
 
   git(root, ['update-ref', 'refs/changeledger/pending', baseline.baseline]);
@@ -1330,6 +1341,7 @@ test('193103 CR9: recovery requires active authority on the guarded integration 
     const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
     git(root, ['update-ref', CONFIRMED_REF, baseline.baseline]);
     git(root, ['update-ref', OBSERVED_REF, baseline.baseline]);
+    git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
     git(root, ['checkout', '-q', activation.branch]);
     return { root, baseline, activation };
   };
@@ -1373,6 +1385,7 @@ test('193103 CR9: recovery verifies the replica snapshot atomically with branch 
   git(root, ['checkout', '-q', activation.branch]);
   git(root, ['branch', '-f', 'dev', activation.commit]);
   git(root, ['checkout', '-q', 'dev']);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
   const branch = `changeledger/recover-${baseline.baseline.slice(0, 12)}`;
 
   assert.throws(
@@ -1776,3 +1789,234 @@ for (const objectFormat of ['sha1', 'sha256']) {
     assert.equal(git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']), '');
   });
 }
+
+// A repo whose integration branch (dev) has been fast-forwarded onto the exact
+// cutover commit the prepare step built: dev's tip now carries
+// `.changeledger/authority.yml` v2 and the legacy `.changeledger/config.yml`
+// has been removed, exactly as a real post-merge integration branch would.
+function preparedForInstall() {
+  const { root, head } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', 'refs/heads/dev', activation.commit]);
+  return { root, head, baseline: baseline.baseline, activation };
+}
+
+test('20260723-202646 CR3: install verifies content and fixes activation via CAS', () => {
+  const { root, baseline, activation } = preparedForInstall();
+  const T = git(root, ['rev-parse', 'dev']);
+  assert.equal(T, activation.commit);
+
+  const result = installStateActivation({ integrationRef: 'refs/heads/dev' }, root);
+  assert.equal(result.activation, T);
+  assert.equal(result.baseline, baseline);
+  assert.equal(result.written, true);
+  assert.equal(result.network, false);
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), T);
+
+  // Idempotent: pointing at the same tip already installed writes nothing.
+  const repeated = installStateActivation({ integrationRef: 'refs/heads/dev' }, root);
+  assert.equal(repeated.activation, T);
+  assert.equal(repeated.written, false);
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), T);
+});
+
+test('20260723-202646 CR3/CR6: install accepts a remote-tracking integration ref', () => {
+  const { root } = preparedForInstall();
+  git(root, ['push', '-q', 'origin', 'dev']);
+  const T = git(root, ['rev-parse', 'refs/remotes/origin/dev']);
+  const result = installStateActivation({ integrationRef: 'refs/remotes/origin/dev' }, root);
+  assert.equal(result.activation, T);
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), T);
+});
+
+test('20260723-202646 CR3: install rejects a ref that is not the integration branch', () => {
+  const { root, activation } = preparedForInstall();
+  assert.throws(
+    () => installStateActivation({ integrationRef: activation.branch }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'state activation install requires --integration-ref to name git.integration_branch dev',
+      );
+      return true;
+    },
+  );
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});
+
+test('20260723-202646 CR3: install refuses to replace a divergent activation', () => {
+  const { root, baseline } = preparedForInstall();
+  const T = git(root, ['rev-parse', 'dev']);
+  git(root, ['update-ref', ACTIVATION_REF, baseline]);
+  assert.throws(
+    () => installStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        `state activation already points to ${baseline}; refusing to replace it with ${T}`,
+      );
+      return true;
+    },
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), baseline);
+});
+
+test('20260723-202646 CR3: install fails when the source moves concurrently', () => {
+  const { root, head } = preparedForInstall();
+  assert.throws(
+    () =>
+      installStateActivation(
+        {
+          integrationRef: 'refs/heads/dev',
+          beforeRefTransaction: () => git(root, ['update-ref', 'refs/heads/dev', head]),
+        },
+        root,
+      ),
+    (error) => {
+      assert.equal(error.message, 'state activation source changed concurrently; retry');
+      return true;
+    },
+  );
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});
+
+for (const [field, patch, message] of [
+  [
+    'project_id',
+    'project_id: tampered',
+    'state activation source project_id does not match baseline manifest',
+  ],
+  [
+    'inventory_digest',
+    `inventory_digest: ${'b'.repeat(64)}`,
+    'state activation source inventory_digest does not match baseline manifest',
+  ],
+  [
+    'minimum_client_version',
+    'minimum_client_version: 99.0.0',
+    'state activation source minimum_client_version does not match baseline manifest',
+  ],
+]) {
+  test(`20260723-202646 CR3: install rejects authority whose ${field} diverges from the baseline`, () => {
+    const { root } = preparedForInstall();
+    const authority = git(root, ['show', 'dev:.changeledger/authority.yml']);
+    const line = authority.match(new RegExp(`^${field}: .*$`, 'm'))[0];
+    const tampered = authority.replace(line, patch);
+    const blob = git(root, ['hash-object', '-w', '--stdin'], tampered);
+    // Build a new dev tip that replaces only the authority blob.
+    git(root, ['read-tree', 'dev']);
+    git(root, [
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `100644,${blob},.changeledger/authority.yml`,
+    ]);
+    const newTree = git(root, ['write-tree']);
+    const parent = git(root, ['rev-parse', 'dev']);
+    const commit = git(root, [
+      'commit-tree',
+      newTree,
+      '-p',
+      parent,
+      '-m',
+      'test: tamper authority',
+    ]);
+    git(root, ['update-ref', 'refs/heads/dev', commit]);
+    assert.throws(
+      () => installStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+      (error) => {
+        assert.equal(error.message, message);
+        return true;
+      },
+    );
+    assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+  });
+}
+
+// A repo activated and then recovered: activation points at the cutover commit,
+// confirmed/observed are consistent, and the integration branch has advanced to
+// a fresh commit that no longer carries `.changeledger/authority.yml`.
+function activatedThenRecovered() {
+  const { root, baseline, activation } = preparedForInstall();
+  const cutover = git(root, ['rev-parse', 'dev']);
+  installStateActivation({ integrationRef: 'refs/heads/dev' }, root);
+  git(root, ['update-ref', CONFIRMED_REF, baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline]);
+  // Recovery advances the integration branch to a commit without authority.
+  git(root, ['read-tree', 'dev']);
+  git(root, ['update-index', '--force-remove', '--', '.changeledger/authority.yml']);
+  const recoveredTree = git(root, ['write-tree']);
+  const recovered = git(root, ['commit-tree', recoveredTree, '-p', cutover, '-m', 'test: recover']);
+  git(root, ['update-ref', 'refs/heads/dev', recovered]);
+  return { root, baseline, cutover, recovered, activation };
+}
+
+test('20260723-202646 CR5: deactivate removes activation/confirmed/observed atomically', () => {
+  const { root, baseline, recovered } = activatedThenRecovered();
+
+  const result = deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root);
+  assert.equal(result.written, true);
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+  assert.throws(() => git(root, ['rev-parse', '--verify', CONFIRMED_REF]));
+  assert.throws(() => git(root, ['rev-parse', '--verify', OBSERVED_REF]));
+  // The baseline commit and its state snapshot are preserved for recovery.
+  assert.equal(git(root, ['rev-parse', '--verify', `${baseline}^{commit}`]), baseline);
+  assert.equal(
+    git(root, ['ls-remote', '--refs', 'origin', 'refs/heads/changeledger/state']).split(/\s/)[0],
+    baseline,
+  );
+  assert.equal(git(root, ['rev-parse', 'dev']), recovered);
+
+  // Idempotent: all three refs already absent returns success without writing.
+  const repeated = deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root);
+  assert.equal(repeated.written, false);
+});
+
+test('20260723-202646 CR5: deactivate rejects an integration ref that still carries authority', () => {
+  const { root, cutover } = activatedThenRecovered();
+  git(root, ['update-ref', 'refs/heads/dev', cutover]);
+  assert.throws(
+    () => deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'state activation deactivation requires refs/heads/dev without .changeledger/authority.yml',
+      );
+      return true;
+    },
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), cutover);
+});
+
+test('20260723-202646 CR5: deactivate refuses while a pending state exists', () => {
+  const { root, baseline } = activatedThenRecovered();
+  git(root, ['update-ref', PENDING_REF, baseline]);
+  assert.throws(
+    () => deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'state activation deactivation requires no refs/changeledger/pending',
+      );
+      return true;
+    },
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]).length >= 40, true);
+});
+
+test('20260723-202646 CR5: deactivate requires matching confirmed and observed', () => {
+  const { root, cutover } = activatedThenRecovered();
+  git(root, ['update-ref', OBSERVED_REF, cutover]);
+  assert.throws(
+    () => deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'state activation deactivation requires matching refs/changeledger/confirmed and refs/changeledger/observed',
+      );
+      return true;
+    },
+  );
+});

@@ -1089,19 +1089,33 @@ stateCommand
 
 stateCommand
   .command('activate')
-  .description('prepare one local activation branch without checkout, push or merge')
+  .description('prepare, install or deactivate checkout-independent state activation')
   .option('--prepare', 'create the local activation branch')
-  .option('--baseline <oid>', 'published state baseline commit OID (required)')
+  .option('--install', 'fix refs/changeledger/activation at the integration tip')
+  .option('--deactivate', 'remove activation and replica refs after recovery')
+  .option('--baseline <oid>', 'published state baseline commit OID (--prepare only)')
+  .option('--integration-ref <ref>', 'fully-qualified integration ref (--install/--deactivate)')
   .option('--json', 'print a stable JSON receipt')
   .action(
     action(
       stateAction('activate', (options, activity) => {
         const result = stateActivate(process.cwd(), options, activity);
         Object.assign(result, repoProvenance());
-        if (!options.json)
-          console.log(
-            `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
-          );
+        if (!options.json) {
+          if (options.install) {
+            console.log(
+              `${result.written ? 'Installed' : 'Confirmed'} ${result.ref} at ${result.activation} for ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+            );
+          } else if (options.deactivate) {
+            console.log(
+              `${result.written ? 'Deactivated' : 'Already deactivated'}: removed ${result.removed.length === 0 ? '(none)' : result.removed.join(', ')} (network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+            );
+          } else {
+            console.log(
+              `Prepared ${result.branch} at ${result.commit} from ${result.integration} (baseline ${result.baseline}; inventory ${result.inventoryDigest}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+            );
+          }
+        }
         return result;
       }),
     ),

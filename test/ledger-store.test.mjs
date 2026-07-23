@@ -12,17 +12,60 @@ import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { search } from '../src/commands/search.mjs';
 import { defaultRun } from '../src/git.mjs';
-import { loadLedgerStore, STATE_REF, validateServerStateRevision } from '../src/ledger-store.mjs';
+import {
+  loadLedgerStore,
+  repoProvenance,
+  STATE_REF,
+  validateServerStateRevision,
+} from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { serialize } from '../src/viewer/domain.mjs';
 import { changeText, createStateRepo, stateConfig } from './helpers/state-repo.mjs';
 
+// This suite may run inside this repo's own pre-commit hook, which exports
+// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left inherited,
+// fixture git calls (notably `git worktree add`) would target the outer
+// repo's index — strip them so tests are hook-safe.
+const GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete GIT_ENV[key];
+}
 function git(root, args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' }).trim();
 }
 
-function fixture({ mutateState, objectFormat, authorityFormat = 1, seedConfirmed = false } = {}) {
+// Installs `refs/changeledger/activation` at the given commit (defaulting to the
+// authority commit on `dev`). The activation ref -- not the worktree file -- is
+// what makes a v2 authority operative under 20260723-202646; the writer side
+// lives in the state-migration delegate, so tests set the ref directly.
+function activate(root, commit) {
+  git(root, [
+    'update-ref',
+    'refs/changeledger/activation',
+    commit ?? git(root, ['rev-parse', 'HEAD']),
+  ]);
+}
+
+function fixture({
+  mutateState,
+  objectFormat,
+  authorityFormat = 1,
+  seedConfirmed = false,
+  authorityText,
+  // A v2 authority is only operative once activation is installed; default to
+  // installing it so v2 fixtures load in state mode. Bootstrap/downgrade tests
+  // opt out to exercise the "v2 file without activation" matrix rows.
+  install = authorityFormat === 2,
+} = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-store-'));
   const initArgs = ['init', '-q', '-b', 'dev'];
   if (objectFormat) initArgs.push(`--object-format=${objectFormat}`);
@@ -73,13 +116,18 @@ function fixture({ mutateState, objectFormat, authorityFormat = 1, seedConfirmed
     authorityFormat === 2
       ? `inventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`
       : '';
+  const resolvedAuthorityText =
+    typeof authorityText === 'function' ? authorityText(baseline) : authorityText;
   fs.writeFileSync(
     path.join(root, '.changeledger', 'authority.yml'),
-    `format_version: ${authorityFormat}\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n${replicaFields}`,
+    resolvedAuthorityText ??
+      `format_version: ${authorityFormat}\nstate_ref: refs/heads/changeledger/state\nbaseline: ${baseline}\nproject_id: project-1\n${replicaFields}`,
   );
   git(root, ['add', '.']);
   git(root, ['commit', '-qm', 'chore: authority']);
-  return { root, baseline };
+  const activationCommit = git(root, ['rev-parse', 'HEAD']);
+  if (install) activate(root, activationCommit);
+  return { root, baseline, activationCommit };
 }
 
 test('193101 CR1/CR2/CR6: state store loads one complete Git snapshot, not worktree files', () => {
@@ -196,31 +244,36 @@ test('202058 CR2: a confirmed ref forged to drop a change identity fails closed 
 });
 
 test('193103 CR7: replica authority requires immutable provenance and a compatible client', () => {
-  const missingDigest = fixture({ authorityFormat: 2, seedConfirmed: true });
-  fs.writeFileSync(
-    path.join(missingDigest.root, '.changeledger', 'authority.yml'),
-    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${missingDigest.baseline}\nproject_id: project-1\nminimum_client_version: 0.13.0\n`,
-  );
+  // The operative authority is the activation commit's committed file, so the
+  // invalid content must be what activation pins -- install it that way.
+  const missingDigest = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    authorityText: (baseline) =>
+      `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${baseline}\nproject_id: project-1\nminimum_client_version: 0.13.0\n`,
+  });
   assert.throws(
     () => loadLedgerStore(missingDigest.root).load(),
     /Invalid state authority inventory_digest/,
   );
 
-  const futureClient = fixture({ authorityFormat: 2, seedConfirmed: true });
-  fs.writeFileSync(
-    path.join(futureClient.root, '.changeledger', 'authority.yml'),
-    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${futureClient.baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 99.0.0\n`,
-  );
+  const futureClient = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    authorityText: (baseline) =>
+      `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 99.0.0\n`,
+  });
   assert.throws(
     () => loadLedgerStore(futureClient.root).load(),
     /state authority requires client >= 99\.0\.0/,
   );
 
-  const mismatched = fixture({ authorityFormat: 2, seedConfirmed: true });
-  fs.writeFileSync(
-    path.join(mismatched.root, '.changeledger', 'authority.yml'),
-    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${mismatched.baseline}\nproject_id: project-1\ninventory_digest: ${'b'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
-  );
+  const mismatched = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    authorityText: (baseline) =>
+      `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${baseline}\nproject_id: project-1\ninventory_digest: ${'b'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  });
   assert.throws(
     () => loadLedgerStore(mismatched.root).load(),
     /state inventory_digest does not match authority/,
@@ -628,7 +681,7 @@ const preCutoverWorktree = (root) => {
 };
 
 test('202057 correction: absent authority with a v2 confirmed ref fails closed, not worktree', () => {
-  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, install: false });
   preCutoverWorktree(root);
   assert.throws(
     () => loadLedgerStore(root).load(),
@@ -637,7 +690,7 @@ test('202057 correction: absent authority with a v2 confirmed ref fails closed, 
 });
 
 test('202057 correction: absent authority with only a v2 pending ref fails closed', () => {
-  const { root, baseline } = fixture({ authorityFormat: 2 });
+  const { root, baseline } = fixture({ authorityFormat: 2, install: false });
   git(root, ['update-ref', 'refs/changeledger/pending', baseline]);
   preCutoverWorktree(root);
   assert.throws(
@@ -1224,4 +1277,170 @@ test('170612 CR3: full snapshot load keeps accepting 100644 and 100755 blobs', (
   };
   const snapshot = validateServerStateRevision(created.root, authority, rev, defaultRun);
   assert.ok(snapshot.changes.some((change) => change.frontmatter.id === '20260721-111111'));
+});
+
+// --- 20260723-202646: checkout-independent activation resolver ---------------
+
+test('202646 CR1: activation drives state mode when the worktree authority is absent', () => {
+  const { root, activationCommit } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  // The revision the properly-activated (post-cutover) checkout resolves...
+  const postCutover = loadLedgerStore(root).load();
+  assert.equal(postCutover.mode, 'state');
+  assert.equal(git(root, ['rev-parse', 'refs/changeledger/activation']), activationCommit);
+
+  // ...must be identical after downgrading to a pre-cutover checkout that has no
+  // authority.yml: activation, not the worktree file, decides the truth.
+  preCutoverWorktree(root);
+  const preCutover = loadLedgerStore(root).load();
+  assert.equal(preCutover.mode, 'state');
+  assert.equal(preCutover.revision, postCutover.revision);
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', 'authority.yml')), false);
+});
+
+test('202646 CR2: every worktree shares the activation and resolves the same revision', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  const main = loadLedgerStore(root).load();
+  assert.equal(main.mode, 'state');
+
+  // A linked worktree checked out on the pre-cutover base commit (no
+  // authority.yml in its tree) still shares refs/changeledger/* via the common
+  // dir, so it must resolve the identical state revision.
+  const base = git(root, ['rev-parse', 'dev^']);
+  const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-linked-worktree-'));
+  git(root, ['worktree', 'add', '-q', '--detach', linked, base]);
+  assert.equal(fs.existsSync(path.join(linked, '.changeledger', 'authority.yml')), false);
+
+  const fromLinked = loadLedgerStore(linked).load();
+  assert.equal(fromLinked.mode, 'state');
+  assert.equal(fromLinked.revision, main.revision);
+});
+
+test('202646 CR4: a divergent worktree v2 authority fails closed with the exact conflict', () => {
+  const { root, activationCommit } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  // A v2 file that parses but diverges from the activation authority (different
+  // inventory_digest) is the conflict case, not a silently ignored artifact.
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${git(root, ['rev-parse', 'dev^'])}\nproject_id: project-1\ninventory_digest: ${'c'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    new Error(
+      `state authority conflict: refs/changeledger/activation (${activationCommit}) differs from .changeledger/authority.yml`,
+    ),
+  );
+});
+
+test('202646 CR4: activation ignores an absent, v1 or identical v2 worktree authority', () => {
+  // Identical v2 (the fixture default) loads in state mode.
+  const identical = fixture({ authorityFormat: 2, seedConfirmed: true });
+  assert.equal(loadLedgerStore(identical.root).load().mode, 'state');
+
+  // A stale v1 file is ignored: the load still resolves via activation.
+  const v1File = fixture({ authorityFormat: 2, seedConfirmed: true });
+  const v1Revision = loadLedgerStore(v1File.root).load().revision;
+  fs.writeFileSync(
+    path.join(v1File.root, '.changeledger', 'authority.yml'),
+    `format_version: 1\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${v1File.baseline}\nproject_id: project-1\n`,
+  );
+  const afterV1 = loadLedgerStore(v1File.root).load();
+  assert.equal(afterV1.mode, 'state');
+  assert.equal(afterV1.revision, v1Revision);
+
+  // An absent file (pre-cutover checkout) is ignored too.
+  const absent = fixture({ authorityFormat: 2, seedConfirmed: true });
+  preCutoverWorktree(absent.root);
+  assert.equal(loadLedgerStore(absent.root).load().mode, 'state');
+});
+
+test('202646 bootstrap: a v2 worktree authority without activation fails closed', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, install: false });
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    new Error(
+      'state authority format_version: 2 is not installed; run `changeledger state activate --install --integration-ref <full-ref>`',
+    ),
+  );
+});
+
+test('202646 CR7: a legacy repo with no activation and no authority is unchanged', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-legacy-noact-'));
+  git(root, ['init', '-q']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'project_id: legacy\nchanges_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260721-000000-demo.md'),
+    '---\nid: "20260721-000000"\ntitle: Demo\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo.\n',
+  );
+  const snapshot = loadLedgerStore(root).load();
+  assert.equal(snapshot.mode, 'worktree');
+  assert.equal(snapshot.changes.length, 1);
+  assert.equal(repoProvenance(root).project_id, 'legacy');
+});
+
+test('202646 CR9: repoProvenance resolves project_id from activation, not the checkout', () => {
+  const { root, activationCommit } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  // Pre-cutover checkout whose visible config names a different project.
+  preCutoverWorktree(root);
+  assert.match(
+    fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'),
+    /project_id: local/,
+  );
+  const provenance = repoProvenance(root);
+  assert.equal(provenance.project_id, 'project-1');
+  assert.equal(provenance.repository_path, root);
+
+  // A CR4 conflict must surface here too, never degrade to a silent fallback.
+  const conflicting = fixture({ authorityFormat: 2, seedConfirmed: true });
+  fs.writeFileSync(
+    path.join(conflicting.root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${git(conflicting.root, ['rev-parse', 'dev^'])}\nproject_id: project-1\ninventory_digest: ${'c'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  assert.throws(
+    () => repoProvenance(conflicting.root),
+    new RegExp(
+      `state authority conflict: refs/changeledger/activation \\(${activationCommit.length === 64 ? '[0-9a-f]{64}' : '[0-9a-f]{40}'}\\)`,
+    ),
+  );
+});
+
+test('202646 CR4/CR9: activation precedence holds across SHA-1 and SHA-256', () => {
+  for (const objectFormat of ['sha1', 'sha256']) {
+    let created;
+    try {
+      created = fixture({ objectFormat, authorityFormat: 2, seedConfirmed: true });
+    } catch (error) {
+      if (
+        objectFormat === 'sha256' &&
+        /unknown option|unsupported|not supported/i.test(error.message)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+    // Activation drives state mode and provenance regardless of object format.
+    assert.equal(loadLedgerStore(created.root).load().mode, 'state', objectFormat);
+    assert.equal(repoProvenance(created.root).project_id, 'project-1', objectFormat);
+
+    // And a divergent worktree v2 conflicts, naming the full-length OID.
+    fs.writeFileSync(
+      path.join(created.root, '.changeledger', 'authority.yml'),
+      `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${created.baseline}\nproject_id: project-1\ninventory_digest: ${'c'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+    );
+    assert.throws(
+      () => loadLedgerStore(created.root).load(),
+      new Error(
+        `state authority conflict: refs/changeledger/activation (${created.activationCommit}) differs from .changeledger/authority.yml`,
+      ),
+      objectFormat,
+    );
+    assert.equal(
+      created.activationCommit.length,
+      objectFormat === 'sha256' ? 64 : 40,
+      objectFormat,
+    );
+  }
 });

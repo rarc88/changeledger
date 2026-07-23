@@ -2,7 +2,7 @@
 id: "20260723-202646"
 title: Autoridad de estado independiente del checkout
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-23T20:26:46Z
 depends_on: ["20260722-202057"]
 owner: raruiz-hiberuscom
@@ -116,13 +116,25 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
 
 ## Plan
 
-- [ ] Implementar un resolvedor único en `src/ledger-store.mjs` para leer `refs/changeledger/activation`, cargar `<commit>:.changeledger/authority.yml` y aplicar la matriz desde `loadLedgerStore` y `repoProvenance`; empezar con tests rojos de ramas/worktrees, conflictos, receipts y OIDs SHA-1/SHA-256; verify: `node --test test/ledger-store.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR4, CR7, CR9)
-- [ ] Separar los modos `--prepare`/`--install`/`--deactivate` en `src/state-migration.mjs`, `src/commands/state.mjs` y `bin/changeledger.mjs`; implementar instalación desde el tip exacto, verificación de contenido y transacción CAS con idempotencia, partiendo de tests rojos; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs` (CR3)
-- [ ] Implementar en `src/state-migration.mjs` y `src/commands/state.mjs` la desactivación transaccional de activation/confirmed/observed con guards sobre pending e integración, y probar recovery con worktrees pre/post-cutover mezclados antes del código; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs test/ledger-store.test.mjs` (CR5)
-- [ ] Añadir fixtures conductuales de clones pre-cutover y post-cutover, bootstrap sin red y sync posterior, y documentar adopción/recovery en `templates/contract/` y README; verify: `node --test test/state-command.test.mjs test/ledger-store.test.mjs && node bin/changeledger.mjs check` (CR6, CR8)
-- [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+- [x] Implementar un resolvedor único en `src/ledger-store.mjs` para leer `refs/changeledger/activation`, cargar `<commit>:.changeledger/authority.yml` y aplicar la matriz desde `loadLedgerStore` y `repoProvenance`; empezar con tests rojos de ramas/worktrees, conflictos, receipts y OIDs SHA-1/SHA-256; verify: `node --test test/ledger-store.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR4, CR7, CR9)
+  - **Resolved:** `2026-07-23T21:22:42Z`
+- [x] Separar los modos `--prepare`/`--install`/`--deactivate` en `src/state-migration.mjs`, `src/commands/state.mjs` y `bin/changeledger.mjs`; implementar instalación desde el tip exacto, verificación de contenido y transacción CAS con idempotencia, partiendo de tests rojos; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs` (CR3)
+  - **Resolved:** `2026-07-23T21:22:43Z`
+- [x] Implementar en `src/state-migration.mjs` y `src/commands/state.mjs` la desactivación transaccional de activation/confirmed/observed con guards sobre pending e integración, y probar recovery con worktrees pre/post-cutover mezclados antes del código; verify: `node --test test/state-migration.test.mjs test/state-command.test.mjs test/ledger-store.test.mjs` (CR5)
+  - **Resolved:** `2026-07-23T21:22:43Z`
+- [x] Añadir fixtures conductuales de clones pre-cutover y post-cutover, bootstrap sin red y sync posterior, y documentar adopción/recovery en README (el bullet de adopción de `templates/contract/core.md` no admite la línea nueva: presupuesto duro 140 líneas/9000 bytes con 13 bytes libres; la guía operativa inmediata la da el propio error de bootstrap, y la ampliación del contrato + presupuesto se propone como change de gobernanza aparte); verify: `node --test test/state-command.test.mjs test/ledger-store.test.mjs && node bin/changeledger.mjs check` (CR6, CR8)
+  - **Resolved:** `2026-07-23T21:42:27Z`
+- [x] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T21:55:45Z`
 
 ## Log
 - **2026-07-23T20:49:59Z** `[status]` draft → approved (human via conversation)
 - **2026-07-23T20:50:07Z** `[status]` approved → in-progress
 - **2026-07-23T20:50:07Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T21:44:24Z** `[note]` Implementación completa en 3 slices delegados: resolvedor único con matriz de precedencia (ledger-store, SHA-1/256), modos --prepare/--install/--deactivate transaccionales con mensajes exactos, fixtures conductuales de clones pre/post-cutover con bootstrap end-to-end y docs (core.md, README). Orquestador reparó fixture de view.test.mjs afectado por el modo bootstrap. Gate completo en verde.
+- **2026-07-23T21:44:24Z** `[status]` in-progress → in-review
+- **2026-07-23T21:44:41Z** `[review]` in-review → in-progress (retry): Gate rojo: 9 tests fallando tras integrar los 3 slices; el candidato no puede entrar a review sin gates verdes. Transición a in-review fue un error del orquestador (pipe enmascaró el exit code de pnpm verify).
+- **2026-07-23T21:53:41Z** `[note]` Desviación documentada: la línea de install/deactivate no cabe en core.md (presupuesto duro 140/9000, 13 bytes libres tras componer); core revertido intacto y snapshot sin tocar. Cobertura real: README (precedencia, install, deactivate, bootstrap) + el error exacto de bootstrap que nombra el comando. Se propondrá change de gobernanza aparte para ampliar presupuesto y añadir la línea al contrato. Gate contract-tests verde tras revertir.
+- **2026-07-23T21:55:45Z** `[status]` in-progress → in-review
+- **2026-07-23T21:59:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T21:59:43Z** `[note]` Review de contexto limpio: pass 9/9 CRs con evidencia (TOCTOU cubierto por verify en transacción, divergencia por campos parseados sin falso positivo cosmético, deactivate all-or-nothing). 2 nits aceptados sin corrección: repoProvenance permisivo en modo bootstrap (diseño sin activación no oculta CR4) y wording del mensaje de colisión concurrente en install.

@@ -738,6 +738,9 @@ function stateSyncFixture() {
   );
   gitIn(created.root, ['add', '.changeledger/authority.yml']);
   gitIn(created.root, ['commit', '-qm', 'test: replica authority']);
+  // A v2 authority is only operative once activation pins its commit
+  // (20260723-202646); without it the CLI now fails closed in bootstrap mode.
+  gitIn(created.root, ['update-ref', 'refs/changeledger/activation', 'HEAD']);
   gitIn(created.root, ['update-ref', 'refs/changeledger/confirmed', created.baseline]);
   gitIn(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);
   const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-sync-'));
@@ -788,6 +791,9 @@ test('203028 CR2: a convergent sync exits 0 and a fatal authority error exits 1'
   const noop = runIn(converged.root, { ...process.env }, 'state', 'sync');
   assert.equal(noop.code, 0);
 
+  // With activation installed, corrupting the worktree authority into a
+  // divergent v2 is a fatal CR4 conflict (the operative authority lives in the
+  // activation commit, not the checkout), still exiting 1.
   const fatal = stateSyncFixture();
   fs.writeFileSync(
     path.join(fatal.root, '.changeledger', 'authority.yml'),
@@ -795,5 +801,5 @@ test('203028 CR2: a convergent sync exits 0 and a fatal authority error exits 1'
   );
   const rejected = runIn(fatal.root, { ...process.env }, 'state', 'sync');
   assert.equal(rejected.code, 1);
-  assert.match(rejected.err, /inventory_digest does not match authority/);
+  assert.match(rejected.err, /state authority conflict: refs\/changeledger\/activation/);
 });

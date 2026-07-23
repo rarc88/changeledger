@@ -5,11 +5,89 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { buildContext } from '../src/commands/context.mjs';
-import { stateAbort, stateDoctor, stateStatus, stateSync } from '../src/commands/state.mjs';
-import { loadLedgerStore } from '../src/ledger-store.mjs';
+import {
+  stateAbort,
+  stateActivate,
+  stateDoctor,
+  stateStatus,
+  stateSync,
+} from '../src/commands/state.mjs';
+import { ACTIVATION_REF, loadLedgerStore } from '../src/ledger-store.mjs';
+import {
+  createStateBaseline,
+  prepareStateActivation,
+  previewStateMigration,
+} from '../src/state-migration.mjs';
 import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { changeStatus, readProjectConfigStructured } from '../src/viewer/domain.mjs';
 import { changeText, createStateRepo, git } from './helpers/state-repo.mjs';
+
+// A real legacy repo -- config.yml, a changes dir, an `origin` remote -- built
+// the way `changeledger init` would leave it, before any cutover ever ran.
+// `git.integration_branch: dev` is required for `state activate --install` to
+// recognize the integration ref.
+function legacyIntegrationRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-precutover-'));
+  git(root, ['init', '-q', '-b', 'dev']);
+  git(root, ['config', 'user.name', 'Test User']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# contract\n');
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    [
+      'schema_version: 3',
+      'project_id: project-1',
+      'language: en',
+      'tdd: false',
+      'changes_dir: .changeledger/changes',
+      'specs_dir: .changeledger/specs',
+      'git:',
+      '  integration_branch: dev',
+      'statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]',
+      'stages: [request, plan, log]',
+      'types:',
+      '  feature:',
+      '    stages: [request, plan, log]',
+      '    review_required: true',
+      'release:',
+      '  impacts:',
+      '    feature: minor',
+      '',
+    ].join('\n'),
+  );
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260721-000000-demo.md'),
+    changeText(),
+  );
+  git(root, ['add', '.']);
+  git(root, ['commit', '-qm', 'chore: legacy']);
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-precutover-remote-'));
+  git(remote, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', remote]);
+  git(root, ['push', '-q', '-u', 'origin', 'dev']);
+  return { root, remote, head: git(root, ['rev-parse', 'dev']) };
+}
+
+function writePlan(root, text) {
+  const file = path.join(root, 'migration-plan.yml');
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+// The full migration pipeline: baseline + activation fast-forwarded onto `dev`
+// and pushed to origin, exactly like a real cutover merged into the
+// integration branch. `createStateBaseline` also pushes the state branch, so
+// a clone of `dev` receives the authority's baseline commit for free.
+function preparedIntegrationRepo() {
+  const { root, remote, head } = legacyIntegrationRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', 'refs/heads/dev', activation.commit]);
+  git(root, ['push', '-q', 'origin', 'dev']);
+  return { root, remote, head, baseline: baseline.baseline, activation };
+}
 
 function fixture(options) {
   const created = createStateRepo(options);
@@ -19,6 +97,10 @@ function fixture(options) {
   );
   git(created.root, ['add', '.changeledger/authority.yml']);
   git(created.root, ['commit', '-qm', 'test: replica authority']);
+  // Checkout-independent activation: the operative authority is resolved from
+  // the commit the ref points at, not the worktree file, so state mode is
+  // active regardless of which branch is checked out.
+  git(created.root, ['update-ref', ACTIVATION_REF, git(created.root, ['rev-parse', 'HEAD'])]);
   git(created.root, ['update-ref', CONFIRMED_REF, created.baseline]);
   git(created.root, ['update-ref', 'refs/changeledger/observed', created.baseline]);
   const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-state-command-'));
@@ -71,11 +153,17 @@ test('193102 CR1/CR7: state status is local-only and state sync advances the eff
 
 test('193103 CR7/CR11: replica commands validate authority before reading or mutating refs', () => {
   const created = fixture();
+  // The operative authority now lives in the activation commit, not the worktree
+  // file. Tamper both together (so no worktree/activation conflict masks it) to
+  // prove validateAuthority still rejects a manifest mismatch before any ref move.
   const authority = path.join(created.root, '.changeledger', 'authority.yml');
   fs.writeFileSync(
     authority,
     fs.readFileSync(authority, 'utf8').replace('inventory_digest: a', 'inventory_digest: b'),
   );
+  git(created.root, ['add', '.changeledger/authority.yml']);
+  git(created.root, ['commit', '-qm', 'test: tamper operative authority']);
+  git(created.root, ['update-ref', ACTIVATION_REF, git(created.root, ['rev-parse', 'HEAD'])]);
   git(created.root, ['update-ref', PENDING_REF, created.baseline]);
 
   assert.throws(() => stateStatus(created.root), /inventory_digest does not match authority/);
@@ -106,7 +194,7 @@ test('193102 CR7: initial sync rejects a valid state outside the authority basel
   assert.throws(() => loadLedgerStore(created.root).load(), /run `changeledger state sync`/);
 });
 
-test('193103 CR7/CR11: initial sync validates authority after fetching an absent baseline', () => {
+test('20260723-202646 CR8: a post-cutover clone without activation stays in bootstrap', () => {
   const created = fixture();
   git(created.root, ['push', '-q', 'origin', 'dev']);
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-fresh-clone-'));
@@ -116,13 +204,89 @@ test('193103 CR7/CR11: initial sync validates authority after fetching an absent
     ['clone', '-q', '--no-local', '--single-branch', '-b', 'dev', created.remote, clone],
     { cwd: parent, encoding: 'utf8' },
   );
+  // A fresh clone receives neither refs/changeledger/* nor the baseline object.
   assert.throws(() => git(clone, ['cat-file', '-e', `${created.baseline}^{commit}`]));
+  assert.throws(() => git(clone, ['rev-parse', '--verify', ACTIVATION_REF]));
 
-  const result = stateSync(clone);
+  // With a v2 worktree authority but no activation ref the clone is in bootstrap
+  // mode: ordinary reads and mutations fail closed until `state activate --install`.
+  assert.throws(
+    () => loadLedgerStore(clone).load(),
+    /state authority format_version: 2 is not installed/,
+  );
+});
 
-  assert.equal(result.effective, created.baseline);
-  assert.equal(git(clone, ['rev-parse', CONFIRMED_REF]), created.baseline);
-  assert.equal(loadLedgerStore(clone).load().revision, created.baseline);
+test('20260723-202646 CR8: a post-cutover clone installs and syncs end-to-end', () => {
+  const { remote } = preparedIntegrationRepo();
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-fresh-clone-'));
+  const clone = path.join(parent, 'clone');
+  // A plain (non-single-branch) clone brings every branch the remote
+  // advertises, including `changeledger/state` -- the authority's baseline
+  // commit is reachable locally, so install needs no further fetch.
+  execFileSync('git', ['clone', '-q', '-b', 'dev', remote, clone], {
+    cwd: parent,
+    encoding: 'utf8',
+  });
+
+  // Ordinary commands fail closed with the exact bootstrap message.
+  assert.throws(
+    () => loadLedgerStore(clone).load(),
+    new Error(
+      'state authority format_version: 2 is not installed; ' +
+        'run `changeledger state activate --install --integration-ref <full-ref>`',
+    ),
+  );
+
+  // Install directly from the remote-tracking integration ref the clone already
+  // received: no additional fetch is required.
+  const install = stateActivate(clone, {
+    install: true,
+    integrationRef: 'refs/remotes/origin/dev',
+  });
+  assert.equal(install.written, true);
+  assert.equal(install.network, false);
+  assert.equal(git(clone, ['rev-parse', '--verify', ACTIVATION_REF]), install.activation);
+
+  // `state sync` now works end-to-end against the fixture remote.
+  const sync = stateSync(clone);
+  assert.equal(sync.confirmed, true);
+
+  const snapshot = loadLedgerStore(clone).load();
+  assert.equal(snapshot.mode, 'state');
+  assert.equal(snapshot.ledgerConfirmation, 'confirmed');
+  assert.equal(snapshot.changes[0].frontmatter.title, 'Demo');
+});
+
+test('20260723-202646 CR6: a pre-cutover clone bootstraps via install without a fetch', () => {
+  const prepared = preparedIntegrationRepo();
+  // "legacy" is the real pre-cutover commit: legacy config.yml layout, no
+  // authority.yml at all, pushed alongside the post-cutover `dev` tip.
+  git(prepared.root, ['branch', 'legacy', prepared.head]);
+  git(prepared.root, ['push', '-q', 'origin', 'legacy']);
+
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-precutover-clone-'));
+  const clone = path.join(parent, 'clone');
+  // A plain clone fetches every branch, including the integration branch's tip
+  // as refs/remotes/origin/dev, before checking out the pre-cutover branch.
+  execFileSync('git', ['clone', '-q', '-b', 'legacy', prepared.remote, clone], {
+    cwd: parent,
+    encoding: 'utf8',
+  });
+
+  assert.equal(fs.existsSync(path.join(clone, '.changeledger', 'authority.yml')), false);
+  assert.throws(() => git(clone, ['rev-parse', '--verify', ACTIVATION_REF]));
+  assert.equal(loadLedgerStore(clone).load().mode, 'worktree');
+
+  const install = stateActivate(clone, {
+    install: true,
+    integrationRef: 'refs/remotes/origin/dev',
+  });
+  assert.equal(install.written, true);
+  assert.equal(install.network, false, 'install must not fetch beyond what clone already brought');
+
+  const sync = stateSync(clone);
+  assert.equal(sync.confirmed, true);
+  assert.equal(loadLedgerStore(clone).load().mode, 'state');
 });
 
 test('193102 CR3: CLI mutation preflight initializes a replica before constructing the change', () => {

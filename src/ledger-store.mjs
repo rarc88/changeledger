@@ -27,6 +27,25 @@ import {
 import { parseYaml } from './yaml.mjs';
 
 export const STATE_REF = 'refs/heads/changeledger/state';
+// Checkout-independent activation lives in the git common dir, so every
+// worktree of the repo shares one activation decision (20260723-202646).
+export const ACTIVATION_REF = 'refs/changeledger/activation';
+// Exact string a bootstrap-mode load/receipt must fail with: a post-cutover
+// checkout carries a v2 authority.yml but the activation ref that makes it
+// operative was never installed.
+const BOOTSTRAP_MESSAGE =
+  'state authority format_version: 2 is not installed; run `changeledger state activate --install --integration-ref <full-ref>`';
+// Fields that make two v2 authorities the same operative truth; a divergence on
+// any of them between the activation commit and the visible worktree file is a
+// CR4 conflict, not a silently ignored artifact.
+const AUTHORITY_IDENTITY_FIELDS = [
+  'format_version',
+  'state_ref',
+  'baseline',
+  'project_id',
+  'inventory_digest',
+  'minimum_client_version',
+];
 const STATE_ROOT = '.changeledger-state';
 export const MANIFEST = `${STATE_ROOT}/manifest.yml`;
 export const CONFIG = `${STATE_ROOT}/config.yml`;
@@ -68,20 +87,28 @@ export function formatLedgerReceipt(receipt) {
 }
 
 // The CLI's own repo/project attribution for a receipt — always derived from
-// the invocation's own `cwd`, never from another surface's selection (CR3).
-// Cheap (no git subprocess, no state-tree read) so it stays safe to call even
-// while building a failure receipt (CR2): on any resolution problem,
-// `project_id` degrades to null but `repository_path` still names the
+// the invocation's own `cwd`, never from another surface's selection. When an
+// activation ref exists it is the sole authority for `project_id` (CR9): the
+// value comes from the activation commit, never the checkout config, and a CR4
+// conflict surfaces here too rather than degrading to a silent fallback. Only
+// the legacy path (no activation) stays cheap and forgiving — on any resolution
+// problem `project_id` degrades to null while `repository_path` still names the
 // directory the command actually ran against.
-export function repoProvenance(cwd = process.cwd()) {
+export function repoProvenance(cwd = process.cwd(), { run = defaultRun } = {}) {
   const changeledgerDir = findChangeledgerDir(cwd);
   const repository_path = changeledgerDir ? path.dirname(changeledgerDir) : path.resolve(cwd);
+  if (!changeledgerDir) return Object.freeze({ project_id: null, repository_path });
+  const repoRoot = path.dirname(changeledgerDir);
+  const activationCommit = activationCommitOid(repoRoot, run);
+  if (activationCommit) {
+    const authority = activationAuthority(repoRoot, activationCommit, run);
+    assertWorktreeMatchesActivation(changeledgerDir, activationCommit, authority);
+    return Object.freeze({ project_id: authority.project_id, repository_path });
+  }
   let project_id = null;
   try {
-    if (changeledgerDir) {
-      const authority = authorityFor(changeledgerDir);
-      project_id = authority?.project_id ?? loadConfig(changeledgerDir).project_id ?? null;
-    }
+    const authority = authorityFor(changeledgerDir);
+    project_id = authority?.project_id ?? loadConfig(changeledgerDir).project_id ?? null;
   } catch {
     project_id = null;
   }
@@ -193,6 +220,80 @@ function authorityFor(changeledgerDir) {
   const file = path.join(changeledgerDir, 'authority.yml');
   if (!fs.existsSync(file)) return null;
   return parseStateAuthority(fs.readFileSync(file, 'utf8'));
+}
+
+// The activation commit OID, or null when the ref is absent or the directory is
+// not a git repo. The ref lives in the common dir, so this resolves the same
+// commit from any worktree -- the authority no longer depends on the checkout.
+function activationCommitOid(repoRoot, run) {
+  try {
+    return run(['rev-parse', '--verify', ACTIVATION_REF], repoRoot).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Loads the operative authority from the activation commit's committed tree,
+// never from the worktree. Requires format v2: the installer only ever pins a
+// v2 authority, so anything else is a corrupt activation, not a legacy repo.
+function activationAuthority(repoRoot, activationCommit, run) {
+  let text;
+  try {
+    text = run(['cat-file', 'blob', `${activationCommit}:.changeledger/authority.yml`], repoRoot);
+  } catch (error) {
+    throw new Error(
+      `state authority is unavailable: ${ACTIVATION_REF} (${activationCommit}) has no readable .changeledger/authority.yml`,
+      { cause: error },
+    );
+  }
+  const authority = parseStateAuthority(text);
+  if (authority.format_version !== 2) {
+    throw new Error(
+      `state authority is unavailable: ${ACTIVATION_REF} (${activationCommit}) must install a format_version 2 authority`,
+    );
+  }
+  return authority;
+}
+
+function sameAuthorityIdentity(a, b) {
+  return AUTHORITY_IDENTITY_FIELDS.every((field) => a[field] === b[field]);
+}
+
+// With activation present the worktree file is a transport artifact, not truth:
+// absent, v1 or unparseable copies are ignored silently (no stdout/stderr), and
+// only a parseable v2 that diverges from the activation authority is a conflict.
+function assertWorktreeMatchesActivation(changeledgerDir, activationCommit, authority) {
+  const file = path.join(changeledgerDir, 'authority.yml');
+  if (!fs.existsSync(file)) return;
+  let worktree;
+  try {
+    worktree = parseStateAuthority(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return;
+  }
+  if (worktree.format_version !== 2) return;
+  if (!sameAuthorityIdentity(worktree, authority)) {
+    throw new Error(
+      `state authority conflict: ${ACTIVATION_REF} (${activationCommit}) differs from .changeledger/authority.yml`,
+    );
+  }
+}
+
+// The single authority resolver shared by loadLedgerStore and repoProvenance.
+// Activation, when present, is the sole source of truth (checkout-independent);
+// otherwise a v2 worktree file means bootstrap (never yet installed) and fails
+// closed, while an absent or v1 file falls through to the legacy worktree/v1
+// matrix rows the caller handles.
+function resolveStateAuthority(repoRoot, changeledgerDir, run) {
+  const activationCommit = activationCommitOid(repoRoot, run);
+  if (activationCommit) {
+    const authority = activationAuthority(repoRoot, activationCommit, run);
+    assertWorktreeMatchesActivation(changeledgerDir, activationCommit, authority);
+    return { authority, activationCommit };
+  }
+  const worktree = authorityFor(changeledgerDir);
+  if (worktree?.format_version === 2) throw new Error(BOOTSTRAP_MESSAGE);
+  return { authority: worktree, activationCommit: null };
 }
 
 // Cheap probe for any v2 replica ref in the repo. A present ref proves the repo
@@ -806,7 +907,7 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
-  const authority = authorityFor(changeledgerDir);
+  const { authority } = resolveStateAuthority(repoRoot, changeledgerDir, run);
   if (!authority) {
     // A missing authority alone means legacy worktree mode -- but if v2 replica
     // refs still point at post-cutover truth (a pre-cutover branch checkout or a

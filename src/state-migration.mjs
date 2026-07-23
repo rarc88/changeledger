@@ -11,7 +11,7 @@ import { migrateStructuredSections } from './fix.mjs';
 import { VERSION } from './framing.mjs';
 import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
 import { batchBlobReader } from './git-batch.mjs';
-import { loadLedgerStore, STATE_REF } from './ledger-store.mjs';
+import { ACTIVATION_REF, loadLedgerStore, STATE_REF } from './ledger-store.mjs';
 import { compareVersions } from './release.mjs';
 import { parseSpec } from './spec.mjs';
 import {
@@ -1728,5 +1728,202 @@ export function exportStateRecovery(
     ref: `refs/heads/${branchName}`,
     network: activity.network,
     written: activity.written,
+  };
+}
+
+function resolveRefOrNull(repoRoot, ref) {
+  try {
+    return exactCommit(repoRoot, ref);
+  } catch {
+    return null;
+  }
+}
+
+// A fully-qualified integration ref names `git.integration_branch` exactly:
+// the local branch, or a single remote's tracking copy of it. Anything else
+// (a differently-named branch that merely happens to carry authority, a short
+// name, a tag) is rejected so activation can only be installed by pointing at
+// the protected integration branch itself.
+function refNamesIntegration(fullRef, integration) {
+  if (fullRef === `refs/heads/${integration}`) return true;
+  const prefix = 'refs/remotes/';
+  const suffix = `/${integration}`;
+  if (fullRef.startsWith(prefix) && fullRef.endsWith(suffix)) {
+    const remote = fullRef.slice(prefix.length, fullRef.length - suffix.length);
+    return remote.length > 0 && !remote.includes('/');
+  }
+  return false;
+}
+
+function activationSourceAuthority(repoRoot, integrationRef) {
+  const commit = exactCommit(repoRoot, integrationRef);
+  const authority = authorityAt(repoRoot, commit);
+  if (authority?.format_version !== 2) {
+    throw new Error('state activation source authority.yml is not format_version: 2');
+  }
+  if (!OID.test(authority.baseline ?? '')) {
+    throw new Error('state activation source authority baseline is not an exact commit OID');
+  }
+  const metadata = readStateMetadata(repoRoot, authority.baseline);
+  const integration = integrationBranch(metadata.config);
+  if (!integration) throw new Error('state activation requires git.integration_branch');
+  if (!refNamesIntegration(integrationRef, integration)) {
+    throw new Error(
+      `state activation install requires --integration-ref to name git.integration_branch ${integration}`,
+    );
+  }
+  for (const key of ['project_id', 'inventory_digest', 'minimum_client_version']) {
+    if (authority[key] !== metadata.manifest[key]) {
+      throw new Error(`state activation source ${key} does not match baseline manifest`);
+    }
+  }
+  return { commit, authority, metadata, integration };
+}
+
+export function installStateActivation(
+  { integrationRef, beforeRefTransaction } = {},
+  start = process.cwd(),
+  activity = {},
+) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: null,
+    ref: ACTIVATION_REF,
+    protectedRef: ACTIVATION_REF,
+    inventoryDigest: null,
+  });
+  if (typeof integrationRef !== 'string' || integrationRef === '') {
+    throw new Error('state activation install requires --integration-ref');
+  }
+  const { repoRoot } = repoFor(start);
+  const { commit, authority, metadata, integration } = activationSourceAuthority(
+    repoRoot,
+    integrationRef,
+  );
+  recordActivity(activity, {
+    baseline: authority.baseline,
+    inventoryDigest: authority.inventory_digest,
+    sources: metadata.manifest.sources ?? [],
+    sourceOids: Object.fromEntries(
+      (metadata.manifest.sources ?? []).map((source) => [source.name, source.commit]),
+    ),
+    newOid: commit,
+  });
+  const current = resolveRefOrNull(repoRoot, ACTIVATION_REF);
+  recordActivity(activity, { oldOid: current });
+  const base = {
+    activation: commit,
+    baseline: authority.baseline,
+    integration,
+    inventoryDigest: authority.inventory_digest,
+    sources: metadata.manifest.sources ?? [],
+    sourceOids: Object.fromEntries(
+      (metadata.manifest.sources ?? []).map((source) => [source.name, source.commit]),
+    ),
+    ref: ACTIVATION_REF,
+    protectedRef: ACTIVATION_REF,
+    oldOid: current,
+    newOid: commit,
+    network: false,
+  };
+  if (current === commit) return { ...base, written: false };
+  if (current) {
+    throw new Error(
+      `state activation already points to ${current}; refusing to replace it with ${commit}`,
+    );
+  }
+  beforeRefTransaction?.();
+  const lines = [
+    'start',
+    `verify ${integrationRef} ${commit}`,
+    `create ${ACTIVATION_REF} ${commit}`,
+    'prepare',
+    'commit',
+    '',
+  ];
+  try {
+    git(repoRoot, ['update-ref', '--stdin'], { input: lines.join('\n') });
+  } catch (error) {
+    throw new Error('state activation source changed concurrently; retry', { cause: error });
+  }
+  activity.written = true;
+  return { ...base, written: true };
+}
+
+export function deactivateStateActivation(
+  { integrationRef, beforeRefTransaction } = {},
+  start = process.cwd(),
+  activity = {},
+) {
+  recordActivity(activity, {
+    network: false,
+    written: false,
+    sources: [],
+    sourceOids: {},
+    baseline: null,
+    branch: null,
+    ref: ACTIVATION_REF,
+    protectedRef: ACTIVATION_REF,
+    inventoryDigest: null,
+  });
+  if (typeof integrationRef !== 'string' || integrationRef === '') {
+    throw new Error('state activation deactivation requires --integration-ref');
+  }
+  const { repoRoot } = repoFor(start);
+  const activation = resolveRefOrNull(repoRoot, ACTIVATION_REF);
+  const replica = readStateReplica(repoRoot);
+  recordActivity(activity, { oldOid: activation, newOid: null });
+  const base = {
+    ref: ACTIVATION_REF,
+    protectedRef: ACTIVATION_REF,
+    oldOid: activation,
+    newOid: null,
+    network: false,
+  };
+  // Idempotent teardown: with activation, confirmed and observed all gone the
+  // repo is already deactivated, so there is nothing to remove.
+  if (!activation && !replica.confirmed && !replica.observed) {
+    return { ...base, deactivated: false, removed: [], written: false };
+  }
+  const tip = exactCommit(repoRoot, integrationRef);
+  if (treeEntry(repoRoot, tip, LEGACY_AUTHORITY_PATH)) {
+    throw new Error(
+      `state activation deactivation requires ${integrationRef} without ${LEGACY_AUTHORITY_PATH}`,
+    );
+  }
+  if (replica.pending) {
+    throw new Error(`state activation deactivation requires no ${PENDING_REF}`);
+  }
+  if (!replica.confirmed || !replica.observed || replica.confirmed !== replica.observed) {
+    throw new Error(
+      `state activation deactivation requires matching ${CONFIRMED_REF} and ${OBSERVED_REF}`,
+    );
+  }
+  const deletions = [
+    [ACTIVATION_REF, activation],
+    [CONFIRMED_REF, replica.confirmed],
+    [OBSERVED_REF, replica.observed],
+  ].filter(([, oid]) => oid);
+  beforeRefTransaction?.();
+  const lines = ['start', `verify ${integrationRef} ${tip}`];
+  for (const [ref, oid] of deletions) lines.push(`delete ${ref} ${oid}`);
+  lines.push('prepare', 'commit', '');
+  try {
+    git(repoRoot, ['update-ref', '--stdin'], { input: lines.join('\n') });
+  } catch (error) {
+    throw new Error('state activation refs changed concurrently; retry', { cause: error });
+  }
+  activity.written = true;
+  return {
+    ...base,
+    deactivated: true,
+    removed: deletions.map(([ref]) => ref),
+    confirmed: replica.confirmed,
+    integration: integrationRef,
+    written: true,
   };
 }

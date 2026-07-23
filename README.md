@@ -119,6 +119,18 @@ through `refs/heads/changeledger/state`. The checked-out code branch is never
 the ledger authority. Each clone reads internal `confirmed`, `observed` and
 single-operation `pending` refs, so ordinary reads stay local and deterministic.
 
+Authority itself is checkout-independent: `refs/changeledger/activation`, not
+the worktree's `.changeledger/authority.yml`, is what every command resolves,
+so it applies the same regardless of which branch or worktree is checked out.
+The worktree file is transport only — read to bootstrap activation or detect a
+tampered clone, never as an operative source once activation is installed. A
+branch that predates the cutover, or a fresh clone that has not yet run
+`state activate --install`, keeps loading in plain worktree mode; a clone of a
+branch that already carries a v2 authority file but no activation ref fails
+closed with `state authority format_version: 2 is not installed; run
+\`changeledger state activate --install --integration-ref <full-ref>\`` instead
+of silently guessing.
+
 `format_version: 2` authority also carries `minimum_client_version`: every read
 or mutation compares it against the running CLI's own version and fails closed
 with `state authority requires client >= X` when the installed client is older.
@@ -177,6 +189,25 @@ activation may reuse only that exact commit. Doctor reconstructs the expected
 tree byte-for-byte; local mode also checks local source refs, while `--online`
 observes the public baseline and remote sources. Review and merge the activation
 branch through the repository's normal workflow.
+
+Once the activation commit is merged into the integration branch, install it so
+every worktree and clone shares the same authority:
+
+```sh
+changeledger state activate --install --integration-ref refs/heads/dev
+```
+
+`--install` resolves `<full-ref>`'s exact tip, verifies its authority matches
+the baseline manifest (`project_id`, `inventory_digest`, `minimum_client_version`)
+and fixes `refs/changeledger/activation` there with a create-or-match CAS —
+repeating it once installed is a no-op, and a ref that has moved to a different
+tip is rejected rather than silently replaced. `<full-ref>` must be
+`refs/heads/<integration>` or `refs/remotes/<remote>/<integration>` naming the
+configured `git.integration_branch`; a clone that already fetched the
+integration branch (or its remote-tracking ref) needs no extra network access
+to install. A branch checked out before the cutover ever ran installs from that
+same integration ref exactly the same way — it does not need to already carry
+`authority.yml`.
 
 ### Canceling a published baseline before cutover
 
@@ -274,6 +305,24 @@ sync, abort and export validate authority against its baseline before reading or
 mutating replica refs. These commands prove the cutover data and client version;
 they do not enforce remote path policy against old clients or perform a
 production rollout. Those remain separate deployment controls.
+
+Once the recovery branch is merged into the integration ref and no longer
+carries `.changeledger/authority.yml`, `--deactivate` is the inverse of
+`--install`:
+
+```sh
+changeledger state activate --deactivate --integration-ref refs/heads/dev
+```
+
+It verifies the integration ref's tip is stable, that no `pending` replica
+exists, and that `confirmed`/`observed` still agree, then removes
+`refs/changeledger/activation`, `refs/changeledger/confirmed` and
+`refs/changeledger/observed` together in one CAS transaction — all three absent
+already is a no-op. The `changeledger/state` branch and its commits are never
+deleted, so the recovered evidence stays reachable. Afterward every worktree
+re-applies the same precedence: one with no authority file loads as plain
+worktree, one that still carries a v2 `authority.yml` returns to bootstrap and
+needs a fresh `--install` to resume state mode.
 
 Remote protection deliberately rejects a normal push that removes
 `.changeledger/authority.yml`, including a generated recovery branch. Recovery

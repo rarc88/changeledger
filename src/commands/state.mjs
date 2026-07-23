@@ -2,8 +2,10 @@ import { loadLedgerStore } from '../ledger-store.mjs';
 import { stateCapabilities } from '../state-capabilities.mjs';
 import {
   createStateBaseline,
+  deactivateStateActivation,
   doctorStateMigration,
   exportStateRecovery,
+  installStateActivation,
   prepareStateActivation,
   previewStateMigration,
   previewStateMigrationPlan,
@@ -56,11 +58,30 @@ export function stateMigrate(
 
 export function stateActivate(
   cwd = process.cwd(),
-  { prepare = false, baseline } = {},
+  { prepare = false, install = false, deactivate = false, baseline, integrationRef } = {},
   activity = {},
 ) {
-  if (!prepare) throw new Error('state activate requires --prepare');
-  return prepareStateActivation({ baseline }, cwd, activity);
+  const modes = [prepare && 'prepare', install && 'install', deactivate && 'deactivate'].filter(
+    Boolean,
+  );
+  if (modes.length !== 1) {
+    throw new Error(
+      'state activate requires exactly one mode: --prepare, --install or --deactivate',
+    );
+  }
+  if (prepare) {
+    if (integrationRef)
+      throw new Error('state activate --prepare does not accept --integration-ref');
+    return prepareStateActivation({ baseline }, cwd, activity);
+  }
+  if (baseline) {
+    throw new Error(`state activate --${modes[0]} does not accept --baseline`);
+  }
+  if (!integrationRef) {
+    throw new Error(`state activate --${modes[0]} requires --integration-ref`);
+  }
+  if (install) return installStateActivation({ integrationRef }, cwd, activity);
+  return deactivateStateActivation({ integrationRef }, cwd, activity);
 }
 
 export function stateDoctor(cwd = process.cwd(), options = {}, activity = {}) {
