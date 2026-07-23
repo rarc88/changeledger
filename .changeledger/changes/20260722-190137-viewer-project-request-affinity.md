@@ -124,3 +124,8 @@ humana sobre otra verdad.
 - **2026-07-23T19:30:18Z** `[status]` in-progress → in-review
 - **2026-07-23T19:32:22Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T19:55:52Z** `[note]` Humano confirma la corrección de auditoría (conversación 2026-07-23); se committea.
+- **2026-07-23T20:25:39Z** `[validation]` in-validation → in-progress (agent rejected): Auditoría externa: syncReplicaState re-chequea afinidad tras el POST pero no tras await load(); el toast de A aparece bajo B (repro: State updated for Alpha bajo project-b). Corrección: token de afinidad centralizado {project, sequence} verificado en CADA frontera asíncrona del handler, con tests que cambian de proyecto en cada await.
+- **2026-07-23T20:31:51Z** `[note]` Corrección 3 (sin commit hasta confirmación humana): factory affinityLane(live) centraliza el token {target, secuencia por lane}; syncReplicaState re-chequea en cada frontera async (post-POST, post-load, error path); openManagedProject migrado al mismo helper preservando el fix del cache-hit; configRequestSeq eliminado. 169 tests viewer verdes, rojo-verde en los 2 escenarios nuevos.
+- **2026-07-23T20:34:10Z** `[status]` in-progress → in-review
+- **2026-07-23T20:37:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T20:45:40Z** `[note]` Humano confirma la corrección (conversación 2026-07-23); se committea.

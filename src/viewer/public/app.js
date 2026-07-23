@@ -93,6 +93,25 @@ async function loadProjects() {
 // first `await` and re-checks both a monotonic sequence (latest-wins even
 // within the same target, CR3) and the live target (discards a switched-away
 // target, CR1/CR4) before applying its result.
+//
+// Centralized affinity token so a handler re-checks the same condition at every
+// async boundary instead of scattering ad-hoc comparisons. Each lane tracks one
+// selection axis and hands out a token via `capture(target)`; the returned
+// `stale()` is true once the live selection moved off `target` (CR1/CR4) or a
+// later capture on the same lane superseded this one (CR3). Separate lanes keep
+// unrelated in-flight reads from invalidating each other.
+function affinityLane(live) {
+  let sequence = 0;
+  return (target) => {
+    const token = ++sequence;
+    return () => token !== sequence || live() !== target;
+  };
+}
+
+// The board selection governs replica sync; the managed-project panel tracks its
+// own selection axis (see `managedAffinity` near openManagedProject).
+const selectionAffinity = affinityLane(() => state.currentProject);
+
 let repoRequestSeq = 0;
 
 export async function load() {
@@ -128,19 +147,22 @@ export async function load() {
 const projectLabel = (id) => state.projectsList?.find((p) => p.id === id)?.name ?? id;
 
 // Sync the replica ledger for the project selected when the sync was requested.
-// The target is captured before the first await; if the selection has moved to
-// another project by the time the write returns, the fresh load for that
-// project (guarded by load()'s own affinity) governs the view and nothing is
-// reloaded or toasted here — A's result is never attributed to B. Errors always
-// name their target.
+// A single affinity token is captured before the first await and re-checked at
+// every async boundary — after the write and after the reload it awaits, on
+// both the success and error paths. If the selection has moved to another
+// project by any of those points, nothing is reloaded, toasted or attributed
+// here: A's result is never surfaced under B. Errors always name their target.
 export async function syncReplicaState(target = state.currentProject) {
+  const stale = selectionAffinity(target);
   try {
     await postStateSync(target);
-    if (state.currentProject !== target) return;
+    if (stale()) return;
     invalidateCache();
     await load();
+    if (stale()) return;
     showToast(`State updated for ${projectLabel(target)}`, { type: 'info' });
   } catch (error) {
+    if (stale()) return;
     showToast(`${projectLabel(target)}: ${error.message}`);
   }
 }
@@ -1301,7 +1323,9 @@ export function projectsViewTemplate(
   </div>`;
 }
 
-let configRequestSeq = 0;
+// Managed-project config reads track the projects panel's own selection axis,
+// independent of the board selection driving load()/syncReplicaState.
+const managedAffinity = affinityLane(() => managedProject);
 
 export async function openManagedProject(id, { reload = false } = {}) {
   managedProject = id;
@@ -1320,11 +1344,10 @@ export async function openManagedProject(id, { reload = false } = {}) {
   // Latest-wins across concurrent config reads: the live target guards a switch
   // to another project (CR4) and the monotonic sequence guards two in-flight
   // reads of the *same* project so an older response cannot overwrite a newer
-  // one (CR3). Bumped only after the early returns: a repeat selection that
+  // one (CR3). Captured only after the early returns: a repeat selection that
   // issues no fetch (cache hit, including a load already in flight) must not
   // invalidate the pending request's sequence.
-  const seq = ++configRequestSeq;
-  const stale = () => managedProject !== id || seq !== configRequestSeq;
+  const stale = managedAffinity(id);
   managedConfig = { id, loading: true };
   migrationPreview = null;
   renderProjects();

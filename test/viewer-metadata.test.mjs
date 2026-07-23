@@ -587,6 +587,96 @@ test('190137 correction CR4: a failed replica sync reports the error attributed 
   }
 });
 
+// 20260722-190137 validation correction (external audit) — syncReplicaState
+// re-checked affinity after the POST but not after the reload it awaits, so A's
+// success toast surfaced while B was selected. The affinity token must be
+// re-checked at *every* async boundary of the handler (post-POST, post-reload,
+// and the error path). Unique project ids per test because the affinity lane's
+// sequence is module state that persists across tests.
+
+test('190137 correction CR4: a replica sync switched away during its reload shows nothing under B', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'sync-load-a', name: 'Alpha', path: '/a', alive: true },
+      { id: 'sync-load-b', name: 'Beta', path: '/b', alive: true },
+    ];
+    appState.currentProject = 'sync-load-a';
+    appState.repo = null;
+    appState.lastJson = '';
+
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/state-sync') {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true }) });
+        }
+        if (parsed.pathname === '/api/repo') {
+          // The reload for A is now in flight; the user selects B before it
+          // returns. A's payload must neither render nor toast under B.
+          appState.currentProject = 'sync-load-b';
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: async () => repoPayload({ project_id: 'sync-load-a', ledger_revision: 'rev-a' }),
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        await syncReplicaState('sync-load-a');
+
+        assert.equal(appState.repo, null, "A's late reload must not overwrite the view");
+        assert.equal(
+          toastContainer().children.length,
+          0,
+          'no success toast may surface under the newly selected project',
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
+test('190137 correction CR4: a replica sync that fails after the user leaves shows no error under B', async () => {
+  const restore = installViewerShell();
+  try {
+    appState.projectsList = [
+      { id: 'sync-err-a', name: 'Alpha', path: '/a', alive: true },
+      { id: 'sync-err-b', name: 'Beta', path: '/b', alive: true },
+    ];
+    appState.currentProject = 'sync-err-a';
+
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'http://x');
+        if (parsed.pathname === '/api/state-sync') {
+          // The user switches to B before the failing sync for A resolves.
+          appState.currentProject = 'sync-err-b';
+          return Promise.resolve({
+            ok: false,
+            status: 409,
+            json: async () => ({ error: 'replica is behind' }),
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      },
+      async () => {
+        await syncReplicaState('sync-err-a');
+
+        assert.equal(
+          toastContainer().children.length,
+          0,
+          "an abandoned sync's failure must not be attributed to another project",
+        );
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
 test('190137 correction CR3: an older same-project config response cannot overwrite a newer one', async () => {
   const restore = installViewerShell();
   try {
