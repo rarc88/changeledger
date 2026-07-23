@@ -2,9 +2,10 @@
 id: "20260722-203027"
 title: Validación incremental de batches por blob OID
 type: refactor
-status: draft
+status: in-progress
 created: 2026-07-22T20:30:27Z
 depends_on: ["20260722-202059", "20260722-202058"]
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260721-193104", "20260722-202100"]
 release_impact: patch
 ---
@@ -70,3 +71,6 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 
 - **2026-07-22T20:30:27Z** `[note]` Draft creado por la revisión cruzada de los drafts de remediación de 20260721-193106: separado de 20260722-202100 porque un caché por OID de commit no evita N snapshots distintos en un batch de N commits; la solución para batches es validación incremental por delta con reutilización por blob OID.
 - **2026-07-22T20:41:30Z** `[note]` Readiness reforzada con DAG multi-padre, índice completo para invariantes globales, dependencia explícita de la política de no-desaparición y matriz cuantificada hasta max_commits=256.
+- **2026-07-23T00:05:32Z** `[status]` draft → approved (human via conversation)
+- **2026-07-23T00:05:33Z** `[status]` approved → in-progress
+- **2026-07-23T00:05:33Z** `[owner]` set: raruiz-hiberuscom (auto)
