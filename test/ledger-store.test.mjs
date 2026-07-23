@@ -307,73 +307,115 @@ test('193102 CR2/CR7: an online replica mutation preflights and publishes throug
   assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
 });
 
-function countingRun() {
-  const spy = { batchReads: 0 };
+// Materialization budget instrumentation: each `ls-tree --full-tree <rev>` is
+// exactly one snapshot materialization of that revision (loadStateSnapshotAt ->
+// loadStateTree -> treeEntries). Recording the revision per call lets a test
+// pin both the exact count AND the "each distinct OID materialized at most once"
+// invariant (no revision loaded twice), counting real git work, not wall-clock.
+function materializationSpy() {
+  const revisions = [];
   const run = (args, cwd, options) => {
-    if (args[0] === 'cat-file' && args[1] === '--batch') spy.batchReads++;
+    if (args[0] === 'ls-tree' && args.includes('--full-tree')) {
+      revisions.push(args[args.indexOf('--full-tree') + 1]);
+    }
     return defaultRun(args, cwd, options);
   };
-  return { run, spy };
+  return { run, revisions };
 }
 
-test('202100: a v1 mutation batch-materializes the snapshot at most once', () => {
-  const { root } = fixture({
-    mutateState(state) {
-      fs.rmSync(path.join(state, 'specs'), { recursive: true });
-      fs.rmSync(path.join(state, 'releases'), { recursive: true });
-      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
-      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
-    },
-  });
-  const { run, spy } = countingRun();
+const budgetState = (state) => {
+  fs.rmSync(path.join(state, 'specs'), { recursive: true });
+  fs.rmSync(path.join(state, 'releases'), { recursive: true });
+  fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+  fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+};
+
+function retitle(from, to) {
+  return ({ snapshot, write }) =>
+    write(
+      snapshot.changes[0].statePath,
+      snapshot.changes[0].text.replace(`title: ${from}`, `title: ${to}`),
+    );
+}
+
+// Runs one instrumented mutation and asserts the exact materialization budget
+// plus the per-OID dedup invariant (the candidate is never re-read: a budget
+// that counts only source-side revisions would rise if it were).
+function assertBudget(root, { expected, options, from, to }) {
+  const { run, revisions } = materializationSpy();
   const store = loadLedgerStore(root, { run });
   const before = store.load();
-  spy.batchReads = 0;
+  revisions.length = 0;
   const after = store.mutate(
-    { message: 'test: budget', expectedRevision: before.revision },
-    ({ snapshot, write }) => {
-      write(
-        snapshot.changes[0].statePath,
-        snapshot.changes[0].text.replace('title: Demo', 'title: Budgeted'),
-      );
-    },
+    { message: 'test: budget', expectedRevision: before.revision, ...options },
+    retitle(from, to),
   );
-  assert.equal(after.changes[0].frontmatter.title, 'Budgeted');
-  assert.ok(
-    spy.batchReads <= 1,
-    `expected at most one batch materialization per mutation, got ${spy.batchReads}`,
+  assert.equal(after.changes[0].frontmatter.title, to);
+  assert.equal(
+    revisions.length,
+    expected,
+    `expected ${expected} materializations, got ${revisions.length}: ${JSON.stringify(revisions)}`,
   );
+  assert.equal(
+    new Set(revisions).size,
+    revisions.length,
+    `each distinct OID must be materialized at most once, got duplicates: ${JSON.stringify(revisions)}`,
+  );
+}
+
+function withRemote(root) {
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-ledger-store-remote-'));
+  git(remote, ['init', '--bare', '-q']);
+  git(root, ['remote', 'add', 'origin', remote]);
+  git(root, ['push', '-q', 'origin', PUBLIC_STATE_REF]);
+  return remote;
+}
+
+test('202100: a v1 mutation materializes only the source snapshot (candidate in memory)', () => {
+  const { root } = fixture({ mutateState: budgetState });
+  assertBudget(root, { expected: 1, from: 'Demo', to: 'Budgeted' });
 });
 
-test('202100: an offline replica mutation batch-materializes the snapshot at most twice', () => {
-  const { root } = fixture({
-    authorityFormat: 2,
-    seedConfirmed: true,
-    mutateState(state) {
-      fs.rmSync(path.join(state, 'specs'), { recursive: true });
-      fs.rmSync(path.join(state, 'releases'), { recursive: true });
-      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
-      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
-    },
-  });
-  const { run, spy } = countingRun();
-  const store = loadLedgerStore(root, { run });
-  const before = store.load();
-  spy.batchReads = 0;
-  const after = store.mutate(
-    { message: 'test: offline budget', expectedRevision: before.revision, offline: true },
-    ({ snapshot, write }) => {
-      write(
-        snapshot.changes[0].statePath,
-        snapshot.changes[0].text.replace('title: Demo', 'title: Budgeted'),
-      );
-    },
+test('202100: a v2 offline mutation at the root revision materializes it once', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, mutateState: budgetState });
+  assertBudget(root, { expected: 1, options: { offline: true }, from: 'Demo', to: 'Budgeted' });
+});
+
+test('202100: a v2 offline mutation at a non-root revision materializes source and parent once each', () => {
+  // Advancing confirmed with one online mutation makes the source revision a
+  // non-root commit, so the source load descends to its parent for the
+  // non-disappearance check -- two distinct OIDs, each materialized once.
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, mutateState: budgetState });
+  withRemote(root);
+  const seed = loadLedgerStore(root);
+  const first = seed.load();
+  seed.mutate(
+    { message: 'test: advance confirmed', expectedRevision: first.revision },
+    retitle('Demo', 'First'),
   );
-  assert.equal(after.changes[0].frontmatter.title, 'Budgeted');
-  assert.ok(
-    spy.batchReads <= 2,
-    `expected at most two batch materializations (source + its parent) per offline replica mutation, got ${spy.batchReads}`,
+  assertBudget(root, { expected: 2, options: { offline: true }, from: 'First', to: 'Budgeted' });
+});
+
+test('202100: a v2 online mutation at the root revision materializes the confirmed tip and the pending once each', () => {
+  // Online cost explicitly includes the remote validations: the pre- and post-
+  // pending replica syncs plus the source load. Their shared OIDs (the fetched
+  // tip == the confirmed root the source reads) collapse to one materialization;
+  // the newly created pending is the only other revision. Two distinct OIDs.
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, mutateState: budgetState });
+  withRemote(root);
+  assertBudget(root, { expected: 2, from: 'Demo', to: 'Budgeted' });
+});
+
+test('202100: a v2 online mutation at a non-root revision materializes confirmed, parent and pending once each', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, mutateState: budgetState });
+  withRemote(root);
+  const seed = loadLedgerStore(root);
+  const first = seed.load();
+  seed.mutate(
+    { message: 'test: advance confirmed', expectedRevision: first.revision },
+    retitle('Demo', 'First'),
   );
+  assertBudget(root, { expected: 3, from: 'First', to: 'Budgeted' });
 });
 
 test('202100: a mutation adding a spec keeps sort order equivalent to a fresh load', () => {

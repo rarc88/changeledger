@@ -2,7 +2,7 @@
 id: "20260722-202100"
 title: Una carga de snapshot por operación con caché por OID
 type: refactor
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:21:00Z
 depends_on: ["20260722-202059"]
 owner: raruiz-hiberuscom
@@ -36,17 +36,46 @@ Reutilizar lo ya materializado y validado dentro de cada operación:
 - El candidato de la mutación se construye y valida **en memoria** a partir del
   snapshot fuente más el delta; el resultado validado se reutiliza como
   resultado de la operación sin recargarlo desde Git.
-- Las validaciones de `syncStateReplica` (`validateRevision`/`validateCandidate`
-  en `src/state-store.mjs`) reutilizan por OID de commit las revisiones ya
-  validadas dentro de la misma operación.
-- La clave de reutilización es el OID (inmutable por construcción) y el caché
-  vive solo dentro de la operación, nunca entre procesos.
+- La clave de reutilización es el OID de commit (inmutable por construcción). Un
+  único caché por-OID con alcance de operación (keyed por revisión, vive solo
+  dentro de `mutateState`, nunca entre procesos) lo comparten **todos** los
+  caminos de una misma mutación: los syncs de réplica pre y post pending
+  (`syncStateReplica` en `src/state-store.mjs`), la carga fuente y su descenso
+  al padre para el chequeo de no-desaparición, y la validación del candidato. Así
+  ninguna revisión distinta se materializa desde Git más de una vez por
+  operación.
 
-Presupuesto de materializaciones por mutación, explícito: **una** carga del
-snapshot fuente (la revisión confirmada) más la validación en memoria del
-candidato derivado — sin ninguna recarga completa adicional. El objetivo
-medible: mutación ≈ una carga batch más el delta (con `20260722-202059`, del
-orden de segundos a los volúmenes auditados).
+Contrato honesto de materializaciones, por OID y testeable (una
+materialización = una carga completa del árbol de una revisión;
+`test/ledger-store.test.mjs` las cuenta instrumentando `ls-tree --full-tree`):
+
+- **Invariante:** cada OID de commit distinto se materializa **como máximo una
+  vez** por operación; el candidato derivado nunca se relee desde Git.
+- **v1:** 1 materialización — el snapshot fuente; candidato en memoria.
+- **v2 réplica offline, revisión raíz:** 1 — la fuente (la raíz no tiene padre).
+- **v2 réplica offline, revisión no-raíz:** 2 — la fuente y su padre (una vez
+  cada uno) para el chequeo de no-desaparición.
+- **v2 réplica online, revisión raíz:** 2 — el tip confirmado/fetch (compartido
+  por los dos syncs y la carga fuente, deduplicado por OID) y el pending recién
+  creado.
+- **v2 réplica online, revisión no-raíz:** 3 — confirmado, su padre y el pending.
+
+El coste online **incluye explícitamente** las validaciones remotas necesarias:
+los syncs pre y post pending no se eliminan —protegen invariantes distintas
+(reconciliación del remoto antes de mutar y confirmación de publicación
+después)— solo se deduplican por OID. El objetivo medible sigue siendo mutación
+≈ una carga batch más el delta (con `20260722-202059`, del orden de segundos a
+los volúmenes auditados); online suma sobre eso las validaciones remotas
+inevitables.
+
+Lectura acotada por bytes (corrige el techo agregado de 16 MiB): el lector batch
+(`src/git-batch.mjs`) agrupa las peticiones de OID en chunks cuya respuesta
+`cat-file --batch` no supera el presupuesto por llamada, de modo que un estado
+cuyo **total** exceda ese presupuesto sigue siendo legible (antes un total
+>16 MiB dejaba el ledger ilegible con `ENOBUFS`). La memoria por llamada queda
+acotada al presupuesto del chunk; un único objeto mayor que ese presupuesto se
+rechaza fail-closed con un diagnóstico acotado (no puede leerse dentro de una
+llamada acotada), en vez de un `ENOBUFS` opaco sobre un buffer parcial.
 
 No-goals: caché persistente entre procesos u operaciones; validación
 incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
@@ -76,3 +105,8 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 - **2026-07-22T23:32:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T16:59:35Z** `[validation]` in-validation → in-progress (agent rejected): Drift contractual: el doc promete una materializacion pero v2 online ejecuta tres (sync pre/post pending, ledger-store.mjs:637,717) sin presupuesto online testeado; ademas c015192b introdujo GIT_MAX_BUFFER 16 MiB como tope agregado de cat-file --batch que deja el ledger ilegible (ENOBUFS con 17 MiB). Corregir: contrato honesto por OID, presupuesto testeable v1/v2, streaming o chunks por bytes, tests 17/32/64 MiB.
 - **2026-07-23T17:41:58Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
+- **2026-07-23T18:58:31Z** `[note]` Corrección implementada (sin commit hasta confirmación humana): contrato por OID honesto en Proposal (cada commit OID materializado ≤1 vez por operación, coste online explícito con syncs pre/post deduplicados por caché de operación); chunking en dos fases acotado por bytes en git-batch sustituye el techo agregado de 16 MiB; presupuestos fijados por tests instrumentados (v1=1, v2 offline root=1/no-root=2, online root=2/no-root=3); tests reales 17/32/64 MiB y SHA-256. Nota: test 202101 CR4 retargeteado del ENOBUFS antiguo al nuevo diagnóstico de presupuesto — superficie compartida con 20260722-202101, pendiente de visto bueno humano. Gate 1038/1038.
+- **2026-07-23T18:58:32Z** `[status]` in-progress → in-review
+- **2026-07-23T19:05:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T19:05:13Z** `[note]` Review de contexto limpio: pass. Riesgo 🟡 aceptado como no bloqueante y documentado en código: el cap de lectura por objeto (16 MiB por chunk) contradice max_object_bytes default (64 MiB); un objeto único entre ambos límites pasa el check de bytes pero se rechaza fail-closed al materializar. Reconciliación de límites = decisión de producto pendiente del humano. Comentario obsoleto en state-validation.mjs corregido tras el veredicto (solo prosa).
+- **2026-07-23T19:19:55Z** `[note]` Humano confirma contrato reescrito y fix de chunking (conversación 2026-07-23); se committea.

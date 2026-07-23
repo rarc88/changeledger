@@ -7,12 +7,15 @@ import { execFileSync } from 'node:child_process';
 const SEP = String.fromCharCode(31); // ASCII unit separator — safe field delimiter
 const RECORD_SEP = String.fromCharCode(30);
 
-// execFileSync's default maxBuffer is 1 MiB; a batch `cat-file --batch` read
-// (src/git-batch.mjs) returns every requested blob's content in one response,
-// so it can exceed that default well before any single file would have.
-// Shared so every consumer that feeds git-batch.mjs a `run` (this file's
-// defaultRun, plus state-validation.mjs's own execFileSync call) agrees on
-// the same ceiling instead of each guessing its own.
+// execFileSync's default maxBuffer is 1 MiB; a `cat-file --batch` read
+// (src/git-batch.mjs) returns blob content in one response, so it exceeds that
+// default well before any single file would have. This is the PER-CALL byte
+// budget git-batch.mjs sizes each chunk to (not an aggregate ceiling on a whole
+// tree -- that made a >16 MiB total state unreadable with ENOBUFS): git-batch
+// packs oids so one `cat-file --batch` response stays at or below this, and
+// passes the exact figure as `options.maxBuffer`. Shared so every consumer that
+// feeds git-batch.mjs a `run` agrees on the same default chunk budget instead
+// of each guessing its own.
 export const GIT_MAX_BUFFER = 16 * 1024 * 1024;
 
 // Repo-location env vars git itself exports while running a hook (e.g. this
@@ -55,14 +58,18 @@ export function receiveGitEnv(overrides = {}) {
 // GIT_* sanitization instead of re-implementing it. `options.encoding: null`
 // returns a raw Buffer (needed by the batch tree/blob reader); `options.input`
 // feeds stdin (e.g. `cat-file --batch`'s object list).
-export function defaultRun(args, cwd, { encoding = 'utf8', input } = {}) {
+export function defaultRun(
+  args,
+  cwd,
+  { encoding = 'utf8', input, maxBuffer = GIT_MAX_BUFFER } = {},
+) {
   try {
     return execFileSync('git', args, {
       cwd,
       env: sanitizedGitEnv(),
       encoding,
       input,
-      maxBuffer: GIT_MAX_BUFFER,
+      maxBuffer,
       stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'pipe'],
     });
   } catch (error) {

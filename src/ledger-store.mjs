@@ -289,7 +289,16 @@ function loadStateTree(repoRoot, revision, run) {
   return { names, read: (file) => readBlob(byPath.get(file).oid) };
 }
 
-function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run) {
+// `cache`, when supplied, is an operation-scoped Map keyed by revision (a commit
+// OID, immutable by construction, so its tree -- and therefore this snapshot --
+// can never change within an operation). It lets a single client operation load
+// any given revision's snapshot exactly once even when several code paths ask
+// for it (e.g. the pre-mutation replica sync validating the fetched tip and the
+// source load reading that same confirmed revision). The snapshot is only ever
+// read by its consumers -- the mutation delta is built separately and the
+// candidate is derived into a fresh object -- so sharing one reference is safe.
+function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run, cache) {
+  if (cache?.has(revision)) return cache.get(revision);
   const { names, read } = loadStateTree(repoRoot, revision, run);
   const manifest = parseYaml(read(MANIFEST));
   const configText = read(CONFIG);
@@ -323,7 +332,7 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
   const specs = entries('specs', '.md', parseSpec);
   const releases = entries('releases', '.yml', parseYaml);
 
-  return {
+  const snapshot = {
     mode: 'state',
     revision,
     authority,
@@ -338,6 +347,8 @@ function loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run
     specs,
     releases,
   };
+  cache?.set(revision, snapshot);
+  return snapshot;
 }
 
 export function snapshotIdentities(snapshot) {
@@ -373,14 +384,21 @@ function gitParentsOrRoot(repoRoot, commit, run) {
   return fields.slice(1);
 }
 
-function loadStateSnapshot(repoRoot, changeledgerDir, authority, run) {
+function loadStateSnapshot(repoRoot, changeledgerDir, authority, run, cache) {
   const revision = gitStateRevision(repoRoot, authority, run);
-  const snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
+  const snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run, cache);
   if (authority.format_version === 1) {
     return { ...snapshot, ledgerFreshness: 'local', ledgerConfirmation: 'local' };
   }
   for (const parent of gitParentsOrRoot(repoRoot, revision, run)) {
-    const parentSnapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, parent, run);
+    const parentSnapshot = loadStateSnapshotAt(
+      repoRoot,
+      changeledgerDir,
+      authority,
+      parent,
+      run,
+      cache,
+    );
     assertNoDisappearance(parentSnapshot, snapshot, revision);
   }
   const replica = stateReplicaStatus(repoRoot);
@@ -468,11 +486,11 @@ export function validateStateRevision(
   authority,
   revision,
   run,
-  { requireBaseline = false } = {},
+  { requireBaseline = false, cache } = {},
 ) {
   let snapshot;
   try {
-    snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run);
+    snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run, cache);
   } catch (error) {
     throw new Error(`Ledger state validation failed: ${error.message}`, { cause: error });
   }
@@ -627,17 +645,26 @@ function mutateState(
   }
 
   const replica = authority.format_version === 2;
+  // Operation-scoped materialization cache keyed by revision (an immutable
+  // commit OID): every path in this one mutation -- the pre/post replica syncs,
+  // the source load and its parent-descent check, candidate validation -- shares
+  // it so no distinct OID's snapshot is materialized from git more than once.
+  const snapshotCache = new Map();
   const validateCandidate = (revision) =>
-    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run);
+    validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
+      cache: snapshotCache,
+    });
   // syncStateReplica runs at most twice per mutation (before and after
   // creating the pending commit); when the remote hasn't moved between the
-  // two, it revalidates the same fetched OID -- memoize so the second call
-  // reuses that result instead of re-materializing it from git.
+  // two, it revalidates the same fetched OID -- memoize the validated snapshot
+  // so the second call skips the re-validation work too, not only the shared
+  // materialization the snapshotCache already dedupes.
   const replicaValidationCache = new Map();
   const validateReplicaRevision = (revision) => {
     if (replicaValidationCache.has(revision)) return replicaValidationCache.get(revision);
     const snapshot = validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
       requireBaseline: true,
+      cache: snapshotCache,
     });
     replicaValidationCache.set(revision, snapshot);
     return snapshot;
@@ -660,7 +687,7 @@ function mutateState(
   if (options.expectedRevision !== revision) {
     throw new LedgerConflictError('Ledger state changed concurrently; retry the operation');
   }
-  const snapshot = loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
+  const snapshot = loadStateSnapshot(repoRoot, changeledgerDir, authority, run, snapshotCache);
   assertSupportedSchema(snapshot.config);
   const writes = new Map();
   const removals = new Set();
@@ -742,10 +769,10 @@ function mutateState(
       if (canDeriveInMemory && result.effective === commit) {
         return finalizeMutationSnapshot(repoRoot, authority, candidate, commit);
       }
-      return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
+      return loadStateSnapshot(repoRoot, changeledgerDir, authority, run, snapshotCache);
     }
     if (canDeriveInMemory) return finalizeMutationSnapshot(repoRoot, authority, candidate, commit);
-    return loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
+    return loadStateSnapshot(repoRoot, changeledgerDir, authority, run, snapshotCache);
   } finally {
     fs.rmSync(indexDir, { recursive: true, force: true });
   }

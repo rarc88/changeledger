@@ -67,7 +67,7 @@ function runner(
     }
   }
   const started = now();
-  const run = (args, cwd = repoRoot, { input, encoding = 'utf8' } = {}) => {
+  const run = (args, cwd = repoRoot, { input, encoding = 'utf8', maxBuffer } = {}) => {
     const remaining = Math.ceil(budget.timeout_ms - (now() - started));
     if (remaining <= 0)
       throw new ValidationTimeoutError(`validation timeout ${budget.timeout_ms}ms exceeded`);
@@ -78,16 +78,19 @@ function runner(
         input,
         timeout: remaining,
         encoding,
-        // A batch `cat-file --batch` read (git-batch.mjs) returns every
-        // requested blob in one response, which a single small object would
-        // never have hit under execFileSync's 1 MiB default. This is a
-        // subprocess-pipe ceiling, deliberately independent of the semantic
-        // `budget.max_object_bytes` check below (line ~171): it must stay at
-        // least that large (a configured budget larger than 16 MiB must still
-        // be readable) without shrinking to match a small configured budget,
-        // which would fail the subprocess with an opaque ENOBUFS before that
-        // check ever ran.
-        maxBuffer: Math.max(GIT_MAX_BUFFER, budget.max_object_bytes),
+        // git-batch.mjs sizes each `cat-file --batch` chunk and passes the exact
+        // byte figure as `maxBuffer`; honor it so per-call memory tracks the
+        // chunk. When no figure is supplied (the non-batch calls: rev-parse,
+        // rev-list, the `--batch-check` sizing pass), fall back to a ceiling at
+        // least as large as the semantic `budget.max_object_bytes` check below
+        // so a small configured budget cannot fail the subprocess with an
+        // opaque ENOBUFS before that check ever runs. Note the asymmetry:
+        // batch blob reads are chunk-bounded by git-batch's GIT_MAX_BUFFER
+        // budget, so a single object between that per-object read cap and
+        // `max_object_bytes` passes the byte-usage check yet is rejected
+        // fail-closed at materialization — reconciling the two limits is a
+        // pending product decision, recorded in change 20260722-202100.
+        maxBuffer: maxBuffer ?? Math.max(GIT_MAX_BUFFER, budget.max_object_bytes),
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (error) {

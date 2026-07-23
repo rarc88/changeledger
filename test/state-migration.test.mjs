@@ -406,20 +406,26 @@ test('202101 CR4: a large blob read no longer throws with an unbounded git-outpu
   assert.ok(document);
 });
 
-test('202101 CR4: an oversized git-output failure stays bounded with code and byte count', () => {
+test('202100 CR: an object over the read budget is rejected with a bounded diagnostic', () => {
+  // A single blob larger than git-batch's per-call read budget (16 MiB) cannot
+  // be materialized within a bounded `cat-file --batch` call. It is rejected
+  // fail-closed, naming the object, its size and the budget -- a short, bounded
+  // message, not an opaque multi-MiB ENOBUFS partial buffer. (Byte-bounded
+  // chunking, replacing the former 16 MiB aggregate ceiling, keeps a state
+  // whose TOTAL exceeds the budget readable; only a single over-budget object
+  // is refused.)
   const { root } = legacyRepo();
   const changeFile = path.join(root, '.changeledger', 'changes', '20260722-000000-demo.md');
   const padded = `${change('20260722-000000')}\n<!-- ${'x'.repeat(18 * 1024 * 1024)} -->\n`;
   fs.writeFileSync(changeFile, padded);
   git(root, ['add', '.']);
-  git(root, ['commit', '-qm', 'test: pad blob past the buffer limit']);
+  git(root, ['commit', '-qm', 'test: pad blob past the read budget']);
 
   assert.throws(
     () => previewStateMigration({ sources: ['local:refs/heads/dev'] }, root),
     (error) => {
       assert.ok(error.message.length <= 2200, `message too long: ${error.message.length}`);
-      assert.match(error.message, /more bytes omitted/);
-      assert.match(error.message, /\(ENOBUFS\)|\(E2BIG\)/);
+      assert.match(error.message, /over the \d+-byte read budget/);
       return true;
     },
   );
