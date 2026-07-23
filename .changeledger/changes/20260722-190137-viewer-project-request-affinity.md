@@ -2,9 +2,10 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-22T19:01:37Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260627-111218", "20260627-111219"]
 ---
 
@@ -99,3 +100,5 @@ humana sobre otra verdad.
 
 - **2026-07-22T19:01:37Z** `[note]` Draft creado por el hallazgo crítico ISOL-02 de la auditoría 20260721-193106; reproducción determinista con el app real bajo JSDOM: selección B terminó mostrando payload/revisión de A.
 - **2026-07-23T09:28:17Z** `[status]` draft → approved
+- **2026-07-23T13:43:51Z** `[status]` approved → in-progress
+- **2026-07-23T13:43:51Z** `[owner]` set: raruiz-hiberuscom (auto)
