@@ -220,6 +220,68 @@ test('203031 CR1: a filesystem failure during replay keeps its operation and cau
   assert.equal(readStateReplica(created.root).confirmed, created.baseline);
 });
 
+test('170613: a git process failure during replay is distinguished from a real conflict', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  editStateFile(created.root, 'specs/B.md', '# B', '# Remote', 'remote advance');
+  git(created.root, ['push', '-q', 'origin', 'refs/heads/changeledger/state']);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+
+  const gitError = new Error('fatal: index-pack failed');
+  gitError.cause = Object.assign(new Error('git exited with a fatal error'), { status: 128 });
+
+  assert.throws(
+    () =>
+      syncStateReplica(created.root, {
+        validateCandidate: () => {
+          throw gitError;
+        },
+      }),
+    (error) => {
+      assert.doesNotMatch(error.message, /state replica conflict/);
+      assert.match(error.message, /replay failed: git command failed/);
+      assert.equal(error.cause, gitError);
+      return true;
+    },
+  );
+  assert.equal(readStateReplica(created.root).pending, pending);
+  assert.equal(readStateReplica(created.root).confirmed, created.baseline);
+});
+
+test('170613: invalid-local-state reports confirmed/pending oids like its sibling branches', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', 'refs/heads/changeledger/state', created.baseline]);
+  const sibling = editStateFile(created.root, 'specs/B.md', '# B', '# Sibling', 'sibling advance');
+  git(created.root, ['update-ref', CONFIRMED_REF, sibling]);
+
+  assert.throws(
+    () => syncStateReplica(created.root, {}),
+    (error) => {
+      assert.match(error.message, /invalid-local-state/);
+      assert.match(error.message, new RegExp(`confirmed=${sibling}`));
+      assert.match(error.message, new RegExp(`pending_head=${pending}`));
+      assert.match(error.message, new RegExp(`pending_base=${created.baseline}`));
+      return true;
+    },
+  );
+});
+
+test('170613: status reports pending, not conflict, when observed already published a pending state', () => {
+  const created = replicaFixture('sha1');
+  const pending = editStateFile(created.root, 'specs/A.md', '# A', '# Local', 'local pending');
+  const observed = editStateFile(created.root, 'specs/B.md', '# B', '# Further', 'further advance');
+  git(created.root, ['update-ref', PENDING_REF, pending]);
+  git(created.root, ['update-ref', OBSERVED_REF, observed]);
+  git(created.root, ['update-ref', CONFIRMED_REF, created.baseline]);
+
+  const status = stateReplicaStatus(created.root);
+  assert.equal(status.condition, 'pending');
+});
+
 function forceOrphanRemote(created) {
   const tree = git(created.root, ['rev-parse', `${created.baseline}^{tree}`]);
   const orphan = git(created.root, ['commit-tree', tree, '-m', 'orphan remote rewrite']);
@@ -301,7 +363,11 @@ test('193102 CR4: replay treats Git pathspec-looking filenames as exact literals
 test('193102 CR5: overlap or invalid replay preserves pending and confirmed refs', () => {
   for (const invalidCandidate of [false, true]) {
     const created = replicaFixture('sha1');
-    const localPath = invalidCandidate ? 'specs/A.md' : 'specs/A.md';
+    // Only remotePath varies: the "overlap" case has local and remote touch
+    // the same file (specs/A.md), the "invalid" case has them touch disjoint
+    // files so replay proceeds structurally and only validateRevision rejects
+    // the combined result.
+    const localPath = 'specs/A.md';
     const remotePath = invalidCandidate ? 'specs/B.md' : 'specs/A.md';
     const pending = editStateFile(created.root, localPath, '# A', '# Local', 'local pending');
     git(created.root, ['update-ref', PENDING_REF, pending]);

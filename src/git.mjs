@@ -56,20 +56,35 @@ export function receiveGitEnv(overrides = {}) {
 // returns a raw Buffer (needed by the batch tree/blob reader); `options.input`
 // feeds stdin (e.g. `cat-file --batch`'s object list).
 export function defaultRun(args, cwd, { encoding = 'utf8', input } = {}) {
-  return execFileSync('git', args, {
-    cwd,
-    env: sanitizedGitEnv(),
-    encoding,
-    input,
-    maxBuffer: GIT_MAX_BUFFER,
-    stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'ignore'],
-  });
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      env: sanitizedGitEnv(),
+      encoding,
+      input,
+      maxBuffer: GIT_MAX_BUFFER,
+      stdio: [input !== undefined ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    // Same diagnostic capture as mutatingRun/runIndexedGit below: without it a
+    // `cat-file`/`ls-tree` failure surfaces only execFileSync's generic exit-
+    // code message, losing git's actual explanation (missing object, invalid
+    // revision, corrupt repo). `encoding: null` callers (batch blob reads)
+    // still get a Buffer on success; only their error-path stderr/stdout need
+    // decoding here.
+    const decode = (value) => (Buffer.isBuffer(value) ? value.toString('utf8') : value);
+    const detail = [decode(error.stderr), decode(error.stdout)]
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter(Boolean)
+      .join('\n');
+    throw new Error(detail ? `${error.message}\n${detail}` : error.message, { cause: error });
+  }
 }
 
 // Run variant for mutating git commands (e.g. `commit`), where git's stderr is
 // the only clue to a failure (failed hook, nothing staged, missing identity,
 // lock). Pipes stderr and, on failure, throws an Error whose message includes
-// the captured diagnostic. Query paths keep `defaultRun` and degrade silently.
+// the captured diagnostic; `defaultRun` now does the same on its read path.
 export function mutatingRun(args, cwd) {
   try {
     return execFileSync('git', args, {

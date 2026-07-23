@@ -549,13 +549,16 @@ export function deriveCandidateSnapshot(snapshot, revision, writes, removals) {
   candidate.changes = [...candidate.changes].sort((a, b) =>
     String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)),
   );
-  // loadStateSnapshotAt derives specs/releases order from the tree's sorted
-  // path listing; match it so a returned candidate is order-equivalent to
-  // what a fresh git-backed load of the same content would produce.
-  candidate.specs = [...candidate.specs].sort((a, b) => a.statePath.localeCompare(b.statePath));
-  candidate.releases = [...candidate.releases].sort((a, b) =>
-    a.statePath.localeCompare(b.statePath),
-  );
+  // loadStateSnapshotAt derives specs/releases order from `tree.map(entry =>
+  // entry.path).sort()` -- a plain code-unit (ordinal) sort, not locale-aware.
+  // `localeCompare` disagrees with it on mixed-case names (e.g. it can order
+  // "b.md" before "A.md" where ordinal sort does not), so match ordinal
+  // comparison here too, or a candidate and a fresh git-backed load of the
+  // same content would disagree on order.
+  const byStatePathOrdinal = (a, b) =>
+    a.statePath < b.statePath ? -1 : a.statePath > b.statePath ? 1 : 0;
+  candidate.specs = [...candidate.specs].sort(byStatePathOrdinal);
+  candidate.releases = [...candidate.releases].sort(byStatePathOrdinal);
   if (writes.has(CONFIG)) {
     candidate.configText = writes.get(CONFIG);
     try {

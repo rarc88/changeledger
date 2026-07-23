@@ -111,6 +111,18 @@ function isFilesystemError(error) {
   return /ENOSPC|no space left on device|EACCES|permission denied/i.test(error?.message ?? '');
 }
 
+// `git()` (this file's own wrapper, see gitOutput) always sets `.cause` to the
+// raw execFileSync failure it caught, which carries `.status`/`.signal`/`.code`.
+// A plain `throw new Error(...)` from inside replayPending itself (invalid
+// tree entry, candidate validation) never sets those -- so their absence is
+// what distinguishes an actual Git process failure (infrastructure) from a
+// genuine path/content conflict produced by replayPending's own logic.
+function isGitProcessError(error) {
+  const cause = error?.cause;
+  if (!cause || typeof cause !== 'object') return false;
+  return typeof cause.status === 'number' || typeof cause.signal === 'string' || 'code' in cause;
+}
+
 export function createStatePending(repoRoot, confirmed, head) {
   const refs = readStateReplica(repoRoot);
   if (refs.pending) {
@@ -341,6 +353,11 @@ export function syncStateReplica(
       if (isFilesystemError(error)) {
         throw new Error(`state replica replay failed: ${error.message}`, { cause: error });
       }
+      if (isGitProcessError(error)) {
+        throw new Error(`state replica replay failed: git command failed: ${error.message}`, {
+          cause: error,
+        });
+      }
       throw new Error(
         `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; cause=${error.message}`,
         { cause: error },
@@ -399,6 +416,11 @@ export function syncStateReplica(
       `state replica conflict: base=${pending.base}; observed=${fetched}; pending_paths=${JSON.stringify(pending.paths)}; observed_paths=${JSON.stringify(observedPaths)}; overlap=${JSON.stringify(overlap)}`,
     );
   }
+  if (plan.action === 'invalid-local-state') {
+    throw new Error(
+      `state sync cannot continue: invalid-local-state: confirmed=${before.confirmed}; pending_head=${pending?.head}; pending_base=${pending?.base}`,
+    );
+  }
   throw new Error(`state sync cannot continue: ${plan.action}`);
 }
 
@@ -411,10 +433,20 @@ export function stateReplicaStatus(repoRoot) {
     if (!pending.base || pending.base !== refs.confirmed) {
       condition = 'conflict';
     } else if (refs.observed && refs.observed !== pending.base) {
-      const observedPaths = changedPaths(repoRoot, pending.base, refs.observed);
-      const overlaps = pending.paths.some((file) => observedPaths.includes(file));
-      condition =
-        overlaps || !isAncestor(repoRoot, pending.base, refs.observed) ? 'conflict' : 'pending';
+      // A remote that already carries `pending.head` (or descends from it) has
+      // already published this exact pending state -- `syncStateReplica`
+      // resolves that as the benign `confirm-observed` action. Short-circuit
+      // to `pending` before the base..observed overlap check below, which
+      // would otherwise see the pending's own paths reflected in observed and
+      // misreport a real conflict.
+      if (isAncestor(repoRoot, pending.head, refs.observed)) {
+        condition = 'pending';
+      } else {
+        const observedPaths = changedPaths(repoRoot, pending.base, refs.observed);
+        const overlaps = pending.paths.some((file) => observedPaths.includes(file));
+        condition =
+          overlaps || !isAncestor(repoRoot, pending.base, refs.observed) ? 'conflict' : 'pending';
+      }
     } else {
       condition = 'pending';
     }

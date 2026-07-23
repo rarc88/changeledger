@@ -80,6 +80,13 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config) {
 // the command API for CLI code.
 export async function loadRepoAsync(start = process.cwd()) {
   const store = loadLedgerStore(start);
+  // State-mode `store.load()` reads via git.mjs's execFileSync-based `run`
+  // (batched `ls-tree`/`cat-file --batch`, still synchronous) -- it blocks the
+  // event loop for the duration of one request same as the CLI's sync loader.
+  // A real async path would mean threading an async `run` through
+  // ledger-store.mjs's git plumbing (treeEntries/batchBlobReader/replayPending
+  // and friends), which is well beyond this function; documented here rather
+  // than pretending this call is non-blocking.
   if (store.mode === 'state') return store.load();
   const changeledgerDir = findChangeledgerDir(start);
   if (!changeledgerDir) {

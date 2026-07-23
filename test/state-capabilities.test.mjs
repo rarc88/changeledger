@@ -74,6 +74,20 @@ test('202058 CR3: verified content_validation evidence does not claim actor auth
   assert.match(state.content_validation.evidence, /not an actor authentication/);
 });
 
+test('170613: a later duplicate evidence entry cannot clobber an already-resolved capability', () => {
+  const capabilities = stateCapabilities([
+    trustedAdapterEvidence({ ...evidence, capability: 'history_protection', value: 'enforced' }),
+    { ...evidence, capability: 'history_protection', value: 'enforced', ref: 'not-a-full-ref' },
+  ]);
+  assert.equal(capabilities.history_protection.value, 'enforced');
+
+  const untrustedFirst = stateCapabilities([
+    { ...evidence, capability: 'content_validation', value: 'verified' },
+    trustedAdapterEvidence({ ...evidence, capability: 'content_validation', value: 'verified' }),
+  ]);
+  assert.equal(untrustedFirst.content_validation.value, 'configured');
+});
+
 test('193104 correction CR5: trusted evidence requires valid and observed ref/OID binding', () => {
   for (const invalid of [{ ref: 'not-a-full-ref' }, { oid: 'not-an-oid' }]) {
     const capabilities = stateCapabilities([

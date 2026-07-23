@@ -2,7 +2,7 @@
 id: "20260723-170613"
 title: Limpiar los hallazgos menores de la doble auditoría
 type: chore
-status: in-progress
+status: in-validation
 created: 2026-07-23T17:06:13Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -28,14 +28,22 @@ Hallazgos incluidos, con origen:
 
 ## Plan
 
-- [ ] Corregir el estado transitorio y los diagnósticos de réplica en `src/state-store.mjs` (líneas 344, 402, 413); verify: `node --test test/state-store.test.mjs`
-- [ ] Proteger `src/state-capabilities.mjs` frente a evidencia duplicada; verify: `node --test test/state-capabilities.test.mjs`
-- [ ] Unificar el orden de specs/releases entre candidato y carga git en `src/ledger-store.mjs`, coordinando con el trabajo reabierto de 20260722-202100; verify: `node --test test/ledger-store.test.mjs`
-- [ ] Resolver o documentar la carga síncrona de `loadRepoAsync` en modo state en `src/repo.mjs`; verify: `node --test test/view.test.mjs`
-- [ ] Capturar stderr en el read path de `src/git.mjs`; verify: `node --test test/ledger-store.test.mjs`
-- [ ] Eliminar el ternario muerto de `test/state-store.test.mjs:304` restaurando la variación pretendida; verify: `node --test test/state-store.test.mjs`
-- [ ] Crear `test/git-batch.test.mjs` cubriendo los failure paths del parser con un `run` stub; verify: `node --test test/git-batch.test.mjs`
-- [ ] Ejecutar la suite completa y el gate al cierre del batch; verify: `pnpm verify` (support)
+- [x] Corregir el estado transitorio y los diagnósticos de réplica en `src/state-store.mjs` (líneas 344, 402, 413); verify: `node --test test/state-store.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:54Z`
+- [x] Proteger `src/state-capabilities.mjs` frente a evidencia duplicada; verify: `node --test test/state-capabilities.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:54Z`
+- [x] Unificar el orden de specs/releases entre candidato y carga git en `src/ledger-store.mjs`, coordinando con el trabajo reabierto de 20260722-202100; verify: `node --test test/ledger-store.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:55Z`
+- [x] Resolver o documentar la carga síncrona de `loadRepoAsync` en modo state en `src/repo.mjs`; verify: `node --test test/view.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:55Z`
+- [x] Capturar stderr en el read path de `src/git.mjs`; verify: `node --test test/ledger-store.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:55Z`
+- [x] Eliminar el ternario muerto de `test/state-store.test.mjs:304` restaurando la variación pretendida; verify: `node --test test/state-store.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:55Z`
+- [x] Crear `test/git-batch.test.mjs` cubriendo los failure paths del parser con un `run` stub; verify: `node --test test/git-batch.test.mjs`
+  - **Resolved:** `2026-07-23T18:13:55Z`
+- [x] Ejecutar la suite completa y el gate al cierre del batch; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-23T18:17:05Z`
 
 ## Log
 
@@ -43,3 +51,5 @@ Hallazgos incluidos, con origen:
 - **2026-07-23T17:41:40Z** `[status]` approved → in-progress
 - **2026-07-23T17:41:40Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-23T17:41:59Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
+- **2026-07-23T18:17:05Z** `[note]` Batch implementado por delegado: los 9 LOWs resueltos (réplica status/diagnósticos, capabilities first-wins, orden ordinal candidate=load, doc de bloqueo sync en repo.mjs, stderr capturado en defaultRun, ternario muerto, test/git-batch.test.mjs nuevo con 12 casos). git.test.mjs también tocado (2 tests de stderr). Gate completo en verde.
+- **2026-07-23T18:17:05Z** `[status]` in-progress → in-validation

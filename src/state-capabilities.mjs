@@ -50,9 +50,16 @@ export function stateCapabilities(evidence = [], observation = {}) {
       unavailable(name, 'no trusted adapter evidence'),
     ]),
   );
+  const resolved = new Set();
   for (const item of evidence) {
     const definition = DEFINITIONS[item?.capability];
     if (!definition) continue;
+    // First entry for a capability wins: a later duplicate must never clobber
+    // an already-resolved result, valid or not -- otherwise a subsequent
+    // invalid/incomplete entry for the same capability could downgrade an
+    // already-trusted resolution back to 'unavailable'.
+    if (resolved.has(item.capability)) continue;
+    resolved.add(item.capability);
     const complete =
       [item.provider, item.ref, item.oid, item.mechanism, item.evidence].every(
         (value) => typeof value === 'string' && value.length > 0,

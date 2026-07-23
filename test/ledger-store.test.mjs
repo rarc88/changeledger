@@ -412,6 +412,45 @@ test('202100: a mutation adding a spec keeps sort order equivalent to a fresh lo
   );
 });
 
+test('170613: candidate specs/releases order matches a fresh load for mixed-case names', () => {
+  const { root } = fixture({
+    authorityFormat: 2,
+    seedConfirmed: true,
+    mutateState(state) {
+      fs.writeFileSync(path.join(state, 'config.yml'), stateConfig());
+      fs.writeFileSync(path.join(state, 'changes', '20260721-000000-demo.md'), changeText());
+      fs.rmSync(path.join(state, 'specs', 'demo.md'));
+      fs.writeFileSync(
+        path.join(state, 'specs', 'a.md'),
+        '---\ntitle: A\nupdated: 2026-07-21T00:00:00Z\ntags: [feature]\ngraduated_from: []\n---\n\n# A\n',
+      );
+      fs.rmSync(path.join(state, 'releases'), { recursive: true });
+    },
+  });
+  const store = loadLedgerStore(root);
+  const before = store.load();
+  const after = store.mutate(
+    { message: 'test: add mixed-case spec', expectedRevision: before.revision, offline: true },
+    ({ write }) => {
+      write(
+        '.changeledger-state/specs/B.md',
+        '---\ntitle: B\nupdated: 2026-07-21T00:00:00Z\ntags: [feature]\ngraduated_from: []\n---\n\n# B\n',
+      );
+    },
+  );
+  const fresh = loadLedgerStore(root).load();
+  // 'B' (0x42) sorts before 'a' (0x61) ordinally, but after it under
+  // localeCompare -- this pair is exactly where the two comparators disagree.
+  assert.deepEqual(
+    after.specs.map((s) => s.name),
+    fresh.specs.map((s) => s.name),
+  );
+  assert.deepEqual(
+    after.specs.map((s) => s.name),
+    ['B.md', 'a.md'],
+  );
+});
+
 test('202100: a mutation cannot drift config project_id away from the authority', () => {
   const { root } = fixture({ authorityFormat: 2, seedConfirmed: true });
   const store = loadLedgerStore(root);

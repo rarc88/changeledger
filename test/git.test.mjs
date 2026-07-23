@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
+  defaultRun,
   githubLogin,
   gitRefs,
   mutatingRun,
@@ -131,6 +132,22 @@ test('CR1: mutatingRun includes git stderr in the thrown error', () => {
 test('CR2: mutatingRun returns stdout on success', () => {
   const root = scratchGitRepo();
   const out = mutatingRun(['rev-parse', '--is-inside-work-tree'], root);
+  assert.equal(out.trim(), 'true');
+});
+
+test('170613: defaultRun includes git stderr in the thrown error on its read path', () => {
+  const root = scratchGitRepo();
+  assert.throws(
+    () => defaultRun(['rev-parse', '--verify', 'refs/heads/definitely-missing'], root),
+    (e) =>
+      /fatal:.*definitely-missing/i.test(e.message) || /needed a single revision/i.test(e.message),
+    'error must carry the git stderr diagnostic',
+  );
+});
+
+test('170613: defaultRun still returns stdout unchanged on success', () => {
+  const root = scratchGitRepo();
+  const out = defaultRun(['rev-parse', '--is-inside-work-tree'], root);
   assert.equal(out.trim(), 'true');
 });
 
