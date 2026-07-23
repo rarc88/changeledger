@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-validation
+status: in-progress
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -219,3 +219,4 @@ de proveedor están expuestos honestamente.
 - **2026-07-22T19:39:33Z** `[note]` PERF-01..03: 250 changes completan lectura y hook (p95 3,69/7,14 s); 1.000 y 5.000 exceden de forma fail-closed el presupuesto remoto de 30 s, con lecturas p95 17,93/88,43 s. Check, serialización y búsqueda permanecen subsegundo. Hallazgo medio: la materialización por documento no soporta toda la escala auditada; sin SLO aprobado, GA sigue siendo imposible.
 - **2026-07-22T19:49:40Z** `[note]` Cierre de matriz: se invalidó la evidencia ISOL-01 original al detectar authority v1 en el runner y se reemplazó por dos réplicas/remotos v2 reales. Mutaciones y sync concurrentes A/B conservaron refs, contenido y worktrees aislados; el receipt sin project_id/repositorio refuerza el crítico 20260722-190137. FAULT-04 cubrió fetch y ENOSPC; MIG/ENF/COMPAT pasaron 31/24/43 casos. Dictamen no-release sin forzar: crítico viewer y alto legacy abiertos; hosted sin adapter, performance y recovery manual impiden niveles superiores.
 - **2026-07-22T19:50:00Z** `[status]` in-progress → in-validation
+- **2026-07-23T20:25:40Z** `[validation]` in-validation → in-progress (agent rejected): Sus resultados describen el baseline y performance anteriores a 3267a28b; re-ejecutar la calificación sobre el baseline vigente cuando cierren los dos críticos de la auditoría externa.
