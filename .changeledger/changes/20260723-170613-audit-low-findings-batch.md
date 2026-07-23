@@ -2,9 +2,10 @@
 id: "20260723-170613"
 title: Limpiar los hallazgos menores de la doble auditoría
 type: chore
-status: draft
+status: in-progress
 created: 2026-07-23T17:06:13Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193102", "20260721-193104", "20260721-193106", "20260722-190137", "20260722-202100", "20260722-202059", "20260723-170610", "20260723-170611", "20260723-170612"]
 release_impact: patch
 ---
@@ -35,3 +36,10 @@ Hallazgos incluidos, con origen:
 - [ ] Eliminar el ternario muerto de `test/state-store.test.mjs:304` restaurando la variación pretendida; verify: `node --test test/state-store.test.mjs`
 - [ ] Crear `test/git-batch.test.mjs` cubriendo los failure paths del parser con un `run` stub; verify: `node --test test/git-batch.test.mjs`
 - [ ] Ejecutar la suite completa y el gate al cierre del batch; verify: `pnpm verify` (support)
+
+## Log
+
+- **2026-07-23T17:41:39Z** `[status]` draft → approved (human via conversation)
+- **2026-07-23T17:41:40Z** `[status]` approved → in-progress
+- **2026-07-23T17:41:40Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T17:41:59Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.

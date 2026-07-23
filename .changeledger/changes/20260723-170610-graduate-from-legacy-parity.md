@@ -2,9 +2,10 @@
 id: "20260723-170610"
 title: Paridad de --from y diagnóstico real de --to en graduate legacy
 type: bug
-status: draft
+status: in-progress
 created: 2026-07-23T17:06:10Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260615-170803", "20260721-193101", "20260721-193102", "20260721-193106"]
 release_impact: patch
 ---
@@ -53,3 +54,7 @@ Decisión: paridad de semántica — legacy aplica `--from` igual que state (imp
 - [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-23T17:41:37Z** `[status]` draft → approved (human via conversation)
+- **2026-07-23T17:41:38Z** `[status]` approved → in-progress
+- **2026-07-23T17:41:38Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T17:41:58Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.

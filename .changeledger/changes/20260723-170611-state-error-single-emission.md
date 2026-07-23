@@ -2,9 +2,10 @@
 id: "20260723-170611"
 title: Emisión única de errores en comandos state sin --json
 type: bug
-status: draft
+status: in-progress
 created: 2026-07-23T17:06:11Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193103", "20260722-203029", "20260722-202101"]
 release_impact: patch
 ---
@@ -41,3 +42,7 @@ Decisión: paridad con la rama `--json` — imprimir receipt más una única lí
 - [ ] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-23T17:41:38Z** `[status]` draft → approved (human via conversation)
+- **2026-07-23T17:41:38Z** `[status]` approved → in-progress
+- **2026-07-23T17:41:38Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-23T17:41:59Z** `[note]` Ejecución en paralelo por write-sets disjuntos ordenada explícitamente por el humano (2026-07-23); orquestador retiene ledger, commits y gates.
