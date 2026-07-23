@@ -119,6 +119,15 @@ through `refs/heads/changeledger/state`. The checked-out code branch is never
 the ledger authority. Each clone reads internal `confirmed`, `observed` and
 single-operation `pending` refs, so ordinary reads stay local and deterministic.
 
+`format_version: 2` authority also carries `minimum_client_version`: every read
+or mutation compares it against the running CLI's own version and fails closed
+with `state authority requires client >= X` when the installed client is older.
+This is a compatibility floor, not a network check — it runs entirely from the
+local `authority.yml` and the CLI's own `package.json` version, so it applies
+offline too. Resolve it by upgrading the CLI to at least the named version
+(`npm install --global changeledger@latest` or the equivalent for however it was
+installed), then re-run the command; the authority itself never needs editing.
+
 ```sh
 changeledger state status               # inspect refs and freshness; no network
 changeledger state sync                 # fetch, reconcile and publish when safe
@@ -168,6 +177,42 @@ activation may reuse only that exact commit. Doctor reconstructs the expected
 tree byte-for-byte; local mode also checks local source refs, while `--online`
 observes the public baseline and remote sources. Review and merge the activation
 branch through the repository's normal workflow.
+
+### Canceling a published baseline before cutover
+
+`state migrate --create` publishes the initial baseline to the remote
+`refs/heads/changeledger/state` before anyone has activated it — cutover only
+happens later, when the reviewed activation commit is merged into the
+integration ref. If the operator aborts between those two steps, the published
+baseline is an orphan: safe to remove, but only while nothing has actually cut
+over.
+
+Before deleting it:
+
+1. Confirm authority is still inactive: `git show <integration-ref>:.changeledger/authority.yml`
+   on the integration branch (e.g. `origin/dev`) must still read
+   `format_version: 1` (or be absent) — if it already reads `format_version: 2`,
+   the activation commit has merged and this baseline is live; do not delete it.
+2. Resolve any dependency on the migration first — an in-progress `state
+   migrate`/`state activate` change or branch that still targets this baseline
+   must be discarded or completed before the ref disappears under it.
+3. Record the exact ref and OID you are about to remove
+   (`git ls-remote origin refs/heads/changeledger/state`) so the deletion is
+   attributable.
+4. Delete only that exact ref, explicitly, on the remote:
+   `git push origin --delete refs/heads/changeledger/state`. Never force-push a
+   replacement over it — a future `migrate --create` publishes its own initial
+   baseline with the same create-only CAS this command always uses.
+5. Verify afterward: `git ls-remote origin refs/heads/changeledger/state`
+   returns nothing, and `state status` in any clone that never activated shows
+   no confirmed/observed/pending refs. A clone that already ran `state sync`
+   against the removed baseline keeps its local replica; do not run `state
+   sync` there again against a re-migrated baseline without repeating adoption
+   from that clone.
+
+This procedure only removes an unactivated baseline. It never touches a replica
+that has already cut over — that path is a durable ledger and belongs to the
+recovery procedure below, not to this cleanup.
 
 ### Remote enforcement after cutover
 
@@ -236,6 +281,15 @@ therefore requires a visible provider-administration operation: temporarily
 remove or bypass the integration protection rule, merge the reviewed recovery
 commit, and immediately restore the rule/hook. No flag in a pushed payload can
 bypass validation.
+
+This protection is push/hook-scoped, not a local guarantee: it validates
+snapshots as they cross the server's receive path, so it cannot see — and
+cannot reject — a direct local edit or checkout that reverts `authority.yml` in
+a clone. That local file remains ordinary, writable Git-tracked content; a
+reverted or downgraded local authority is a client-side integrity problem, not
+a bypass of the remote rule. Treat "the hook is installed" as a statement about
+what the shared history can contain, never as a claim that every local clone's
+current files are trustworthy.
 
 ## Release planning
 
