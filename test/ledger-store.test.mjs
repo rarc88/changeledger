@@ -616,6 +616,53 @@ test('202057 CR2: a genuine v1 repo without any v2 replica ref is unaffected', (
   assert.equal(snapshot.ledgerFreshness, 'local');
 });
 
+// A pre-cutover branch (or a manual deletion) leaves the legacy worktree
+// layout -- `.changeledger/config.yml`, no `authority.yml` -- while the repo's
+// v2 replica refs still point at post-cutover state.
+const preCutoverWorktree = (root) => {
+  fs.rmSync(path.join(root, '.changeledger', 'authority.yml'));
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'project_id: local\nchanges_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+};
+
+test('202057 correction: absent authority with a v2 confirmed ref fails closed, not worktree', () => {
+  const { root } = fixture({ authorityFormat: 2, seedConfirmed: true });
+  preCutoverWorktree(root);
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    /state authority is missing[\s\S]*refs\/changeledger\/confirmed[\s\S]*state activate/,
+  );
+});
+
+test('202057 correction: absent authority with only a v2 pending ref fails closed', () => {
+  const { root, baseline } = fixture({ authorityFormat: 2 });
+  git(root, ['update-ref', 'refs/changeledger/pending', baseline]);
+  preCutoverWorktree(root);
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    /state authority is missing[\s\S]*refs\/changeledger\/pending/,
+  );
+});
+
+test('202057 correction: absent authority with no v2 replica ref keeps the worktree adapter', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-authority-absent-'));
+  git(root, ['init', '-q']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'project_id: legacy\nchanges_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20260721-000000-demo.md'),
+    '---\nid: "20260721-000000"\ntitle: Demo\ntype: feature\nstatus: draft\ncreated: 2026-07-21T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo.\n',
+  );
+  const snapshot = loadLedgerStore(root).load();
+  assert.equal(snapshot.mode, 'worktree');
+  assert.equal(snapshot.changes.length, 1);
+});
+
 test('193101 correction CR3: authority baseline must be an exact full commit OID', () => {
   const { root } = fixture();
   fs.writeFileSync(

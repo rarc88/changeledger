@@ -195,6 +195,22 @@ function authorityFor(changeledgerDir) {
   return parseStateAuthority(fs.readFileSync(file, 'utf8'));
 }
 
+// Cheap probe for any v2 replica ref in the repo. A present ref proves the repo
+// was activated; combined with an absent authority it signals a downgrade.
+// Each `rev-parse --verify` throws when the ref is missing OR the directory is
+// not a git repo -- both mean "no replica ref here", so a null result is safe.
+function presentReplicaRef(repoRoot, run) {
+  for (const ref of [CONFIRMED_REF, PENDING_REF, OBSERVED_REF]) {
+    try {
+      run(['rev-parse', '--verify', ref], repoRoot);
+      return ref;
+    } catch {
+      // ref absent or not a git repo -- keep probing.
+    }
+  }
+  return null;
+}
+
 function gitStateRevision(repoRoot, authority, run) {
   let revision;
   let baseline;
@@ -791,7 +807,19 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
   }
   const repoRoot = path.dirname(changeledgerDir);
   const authority = authorityFor(changeledgerDir);
-  if (!authority)
+  if (!authority) {
+    // A missing authority alone means legacy worktree mode -- but if v2 replica
+    // refs still point at post-cutover truth (a pre-cutover branch checkout or a
+    // deleted authority.yml), serving the worktree would silently downgrade to
+    // stale legacy state. Fail closed instead. `run` reaches the repo's refs; a
+    // non-git directory cannot have refs, so every probe throws and we fall
+    // through to the genuine worktree fallback.
+    const replicaRef = presentReplicaRef(repoRoot, run);
+    if (replicaRef) {
+      throw new Error(
+        `state authority is missing (${path.join(changeledgerDir, 'authority.yml')}) while the v2 replica ref ${replicaRef} is present; refusing to serve stale worktree state. Check out a post-cutover branch or re-run \`changeledger state activate\` to restore the authority.`,
+      );
+    }
     return {
       mode: 'worktree',
       validateAuthority: () => null,
@@ -801,6 +829,7 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
         throw new Error('LedgerStore mutations require an active state authority');
       },
     };
+  }
   const replica = authority.format_version === 2;
   const validateReplicaRevision = (revision) =>
     validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
