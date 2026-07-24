@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -139,8 +139,10 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
   - **Resolved:** `2026-07-24T13:03:12Z`
 - [x] Ejecutar formatter, suites afectadas, `pnpm verify`, `changeledger check` y `git diff --check` sobre el candidato sistémico antes de solicitar una sola revisión integral (support)
   - **Resolved:** `2026-07-24T13:05:59Z`
-- [ ] Añadir tests rojos y devolver identidad (`project_id`+`repository_path`) en todos los payloads de error del viewer con proyecto resuelto —incluido 410 y los errores de status/config/preview/sync/repair/unregister— mediante un helper común en `src/viewer/domain.mjs`; los 404 de proyecto inexistente quedan sin identidad por incognoscible; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR2, CR4)
-- [ ] Ejecutar el gate completo tras la reapertura; verify: `pnpm verify` (support)
+- [x] Añadir tests rojos y devolver identidad (`project_id`+`repository_path`) en todos los payloads de error del viewer con proyecto resuelto —incluido 410 y los errores de status/config/preview/sync/repair/unregister— mediante un helper común en `src/viewer/domain.mjs`; los 404 de proyecto inexistente quedan sin identidad por incognoscible; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR2, CR4)
+  - **Resolved:** `2026-07-24T22:17:44Z`
+- [x] Ejecutar el gate completo tras la reapertura; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-24T22:17:31Z`
 
 ## Log
 
@@ -201,3 +203,9 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
 - **2026-07-24T14:38:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-24T16:45:18Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-24T22:11:44Z** `[status]` done → in-progress (agent reopened): La tercera ejecución del audit (RECEIPT-02) encontró scope original sin completar: los payloads de error del viewer se emiten como {error} pelado sin project_id ni repository_path incluso con el proyecto target plenamente resuelto (POST /api/status 403/404/409/400/410, config 409, preview 400, repair/unregister 400), contradiciendo el CR4 'errores, toasts y receipts identifican inequívocamente su target' y el CR2 de receipts con identidad.
+- **2026-07-24T22:17:44Z** `[note]` Corrección de la reapertura (RECEIPT-02): withProjectIdentity envuelve los diez handlers exportados de src/viewer/domain.mjs e inyecta project_id+repository_path en cualquier respuesta >=400 cuando el proyecto está resuelto (incluido 410 con path desaparecido), en un único punto en vez de en ~56 returns de error; los 404 de proyecto inexistente siguen sin identidad porque no hay ninguna que reportar. El error primario nunca se sobreescribe. Regresión roja cubre 403 transición prohibida, 404 change inexistente, 400 argumentos faltantes, 400 config sin campos, 400 unregister sin confirmar y 410 path desaparecido. Gate 1.147/1.147 y 243 changes válidos.
+- **2026-07-24T22:17:45Z** `[status]` in-progress → in-review
+- **2026-07-24T22:34:03Z** `[review]` in-review → in-progress (retry): Siete de los diez guards de identidad se pueden retirar con la suite completa verde (sync, readProjectConfig, repair, structured, patch, preview, apply) — incumple el criterio de salida del propio change; y dos payloads de error del router siguen anónimos con el proyecto resuelto: el 410 de GET /api/repo (router.mjs:272) y el 400 'repository_path is required' de las rutas de escritura (router.mjs:147-152), ambos nombrados por RECEIPT-02. Añadir fixtures que fallen al retirar cada guard y extender identidad a esos dos payloads.
+- **2026-07-24T22:38:48Z** `[note]` Corrección del retry: los diez guards de identidad quedan anclados individualmente (verificado por mutación sobre copia scratch completa: retirar cualquiera rompe exactamente su aserción) mediante un caso fallido por handler y tres lecturas 410 con path desaparecido. Extendida la identidad a los dos payloads del router que seguían anónimos con proyecto resuelto: el 400 'repository_path is required' de las rutas de escritura y el 410 de GET /api/repo, ambos anclados por una regresión HTTP nueva y verificados por mutación. Reconciliada la nota del test 190008 CR1: el mensaje de error sigue sin filtrar paths; un path solo aparece como atribución declarada repository_path de un proyecto que la propia request resolvió, y el 404 anónimo se asevera explícitamente. Gate 1.148/1.148 y 243 changes válidos.
+- **2026-07-24T22:38:49Z** `[status]` in-progress → in-review
+- **2026-07-24T22:51:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
