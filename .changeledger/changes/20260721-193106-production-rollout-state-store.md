@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-validation
+status: in-progress
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -319,3 +319,4 @@ todas las superficies de fallo, y el cierre de los hallazgos anteriores.
 - **2026-07-24T17:45:20Z** `[note]` Tercera ejecución integral iniciada. Baseline congelado: a8b488e1ae3206317ff7f2edf015f210e1a7c9a3 (todos los owners de la recalificación aceptados: 190137, 202058, 202646+235906/235910, 203029, 203027 con default 128 MiB y envolvente publicada, 203028, y el pin de locale 20260724-170123). Graduaciones deliberadamente pendientes hasta el dictamen. Ejecución delegada en agentes adversariales independientes por familia: TRUTH/AUTH, RECEIPT, ISOL viewer, CONV/FAULT, LEGACY/MIG/ENF y PERF.
 - **2026-07-24T18:09:25Z** `[note]` Tercera ejecución integral completada sobre a8b488e1 con seis delegados adversariales independientes. Sin escapes en TRUTH (8/8), AUTH (10/10), ISOL (16/16, harness con dientes demostrados sobre be058658), CONV/FAULT núcleo (14/14), LEGACY/MIG/ENF (19/19) ni GATE/PERF (matriz default 12/12, peor caso p95 5,79 s y 68,08 MB de 128 MiB; lectura 5.000 changes p95 <0,74 s, RSS 126 MB). Hallazgos nuevos no críticos: RECEIPT-02 (errores del viewer sin identidad), RECEIPT-04 (fallos de state status/sync/abort sin receipt y rompiendo --json), RECEIPT-03 (carve-out legacy documentado, decisión de producto), RECEIPT-05 (menor) y FAULT-N5 (tip remoto no-commit desde remoto corrompido a mano: adopción sin pérdida de verdad, atasco atómico, auto-sana; fix propuesto: aserción de tipo commit sobre el tip fetched antes de confirmar, espejo del guard de activation). Dictamen: beta self-managed con hook; experimental hosted; GA bloqueada por SLO y uniformidad de receipts en fallo. Propuestas de changes para los hallazgos pendientes de autorización humana.
 - **2026-07-24T18:09:25Z** `[status]` in-progress → in-validation
+- **2026-07-24T23:45:18Z** `[validation]` in-validation → in-progress (agent rejected): El dictamen registrado se calculó sobre el baseline a8b488e1 y quedó obsoleto: desde entonces cayeron los fixes de RECEIPT-02, RECEIPT-04, RECEIPT-05 y FAULT-N5, y RECEIPT-03 pasó a decisión resuelta con draft propio. Se requiere una cuarta ejecución sobre el baseline actual antes de que el dictamen sea aceptable.
