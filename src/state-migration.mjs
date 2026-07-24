@@ -1731,11 +1731,33 @@ export function exportStateRecovery(
   };
 }
 
-function resolveRefOrNull(repoRoot, ref) {
+function resolveActivationCommitOrNull(repoRoot) {
+  let oid;
   try {
-    return exactCommit(repoRoot, ref);
-  } catch {
-    return null;
+    oid = git(repoRoot, ['rev-parse', '--verify', '--quiet', ACTIVATION_REF]);
+  } catch (error) {
+    if (error.cause?.status === 1) return null;
+    throw new Error(`cannot read Git ref ${ACTIVATION_REF}: ${error.message}`, { cause: error });
+  }
+  if (!OID.test(oid)) {
+    throw new Error(`cannot read Git ref ${ACTIVATION_REF}: ref did not resolve to an exact OID`);
+  }
+  try {
+    const commit = git(repoRoot, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${ACTIVATION_REF}^{commit}`,
+    ]);
+    if (!OID.test(commit)) {
+      throw new Error('activation ref did not resolve to an exact commit OID');
+    }
+    return { oid, commit };
+  } catch (error) {
+    if (error.cause?.status === 1) {
+      throw new Error(`state activation ref ${ACTIVATION_REF} must point to a commit`);
+    }
+    throw new Error(`cannot read Git ref ${ACTIVATION_REF}: ${error.message}`, { cause: error });
   }
 }
 
@@ -1755,6 +1777,13 @@ function refNamesIntegration(fullRef, integration) {
   return false;
 }
 
+function isFullIntegrationRef(fullRef) {
+  if (fullRef.startsWith('refs/heads/')) return fullRef.length > 'refs/heads/'.length;
+  if (!fullRef.startsWith('refs/remotes/')) return false;
+  const [remote, ...branch] = fullRef.slice('refs/remotes/'.length).split('/');
+  return Boolean(remote && branch.join('/'));
+}
+
 function activationSourceAuthority(repoRoot, integrationRef) {
   const commit = exactCommit(repoRoot, integrationRef);
   const authority = authorityAt(repoRoot, commit);
@@ -1763,6 +1792,9 @@ function activationSourceAuthority(repoRoot, integrationRef) {
   }
   if (!OID.test(authority.baseline ?? '')) {
     throw new Error('state activation source authority baseline is not an exact commit OID');
+  }
+  if (authority.state_ref !== STATE_REF) {
+    throw new Error(`Unsupported state authority ref: ${authority.state_ref}`);
   }
   const metadata = readStateMetadata(repoRoot, authority.baseline);
   const integration = integrationBranch(metadata.config);
@@ -1813,8 +1845,8 @@ export function installStateActivation(
     ),
     newOid: commit,
   });
-  const current = resolveRefOrNull(repoRoot, ACTIVATION_REF);
-  recordActivity(activity, { oldOid: current });
+  const current = resolveActivationCommitOrNull(repoRoot);
+  recordActivity(activity, { oldOid: current?.oid ?? null });
   const base = {
     activation: commit,
     baseline: authority.baseline,
@@ -1826,14 +1858,14 @@ export function installStateActivation(
     ),
     ref: ACTIVATION_REF,
     protectedRef: ACTIVATION_REF,
-    oldOid: current,
+    oldOid: current?.oid ?? null,
     newOid: commit,
     network: false,
   };
-  if (current === commit) return { ...base, written: false };
+  if (current?.commit === commit) return { ...base, written: false };
   if (current) {
     throw new Error(
-      `state activation already points to ${current}; refusing to replace it with ${commit}`,
+      `state activation already points to ${current.commit}; refusing to replace it with ${commit}`,
     );
   }
   beforeRefTransaction?.();
@@ -1874,42 +1906,59 @@ export function deactivateStateActivation(
     throw new Error('state activation deactivation requires --integration-ref');
   }
   const { repoRoot } = repoFor(start);
-  const activation = resolveRefOrNull(repoRoot, ACTIVATION_REF);
+  const activation = resolveActivationCommitOrNull(repoRoot);
   const replica = readStateReplica(repoRoot);
-  recordActivity(activity, { oldOid: activation, newOid: null });
+  recordActivity(activity, { oldOid: activation?.oid ?? null, newOid: null });
   const base = {
     ref: ACTIVATION_REF,
     protectedRef: ACTIVATION_REF,
-    oldOid: activation,
+    oldOid: activation?.oid ?? null,
     newOid: null,
     network: false,
   };
-  // Idempotent teardown: with activation, confirmed and observed all gone the
-  // repo is already deactivated, so there is nothing to remove.
-  if (!activation && !replica.confirmed && !replica.observed) {
-    return { ...base, deactivated: false, removed: [], written: false };
-  }
-  const tip = exactCommit(repoRoot, integrationRef);
-  if (treeEntry(repoRoot, tip, LEGACY_AUTHORITY_PATH)) {
-    throw new Error(
-      `state activation deactivation requires ${integrationRef} without ${LEGACY_AUTHORITY_PATH}`,
-    );
-  }
   if (replica.pending) {
     throw new Error(`state activation deactivation requires no ${PENDING_REF}`);
+  }
+  const tip = exactCommit(repoRoot, integrationRef);
+  // Once every ref is gone, no authority remains from which to re-derive the
+  // configured branch. The retry is still accepted only for an exact,
+  // fully-qualified Git ref.
+  if (!activation && !replica.confirmed && !replica.observed) {
+    if (!isFullIntegrationRef(integrationRef)) {
+      throw new Error('state activation deactivation requires a full --integration-ref');
+    }
+    return { ...base, deactivated: false, removed: [], written: false };
+  }
+  if (!activation) {
+    throw new Error(`state activation deactivation requires ${ACTIVATION_REF}`);
+  }
+  const authority = authorityAt(repoRoot, activation.commit);
+  const metadata = readStateMetadata(repoRoot, authority.baseline);
+  const integration = integrationBranch(metadata.config);
+  if (!integration)
+    throw new Error('state activation deactivation requires git.integration_branch');
+  if (!refNamesIntegration(integrationRef, integration)) {
+    throw new Error(
+      `state activation deactivation requires --integration-ref to name git.integration_branch ${integration}`,
+    );
   }
   if (!replica.confirmed || !replica.observed || replica.confirmed !== replica.observed) {
     throw new Error(
       `state activation deactivation requires matching ${CONFIRMED_REF} and ${OBSERVED_REF}`,
     );
   }
+  if (treeEntry(repoRoot, tip, LEGACY_AUTHORITY_PATH)) {
+    throw new Error(
+      `state activation deactivation requires ${integrationRef} without ${LEGACY_AUTHORITY_PATH}`,
+    );
+  }
   const deletions = [
-    [ACTIVATION_REF, activation],
+    [ACTIVATION_REF, activation.oid],
     [CONFIRMED_REF, replica.confirmed],
     [OBSERVED_REF, replica.observed],
   ].filter(([, oid]) => oid);
   beforeRefTransaction?.();
-  const lines = ['start', `verify ${integrationRef} ${tip}`];
+  const lines = ['start', `verify ${integrationRef} ${tip}`, `verify ${PENDING_REF}`];
   for (const [ref, oid] of deletions) lines.push(`delete ${ref} ${oid}`);
   lines.push('prepare', 'commit', '');
   try {

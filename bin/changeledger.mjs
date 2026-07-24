@@ -43,6 +43,7 @@ import {
   stateValidateUpdate,
 } from '../src/commands/state.mjs';
 import { view } from '../src/commands/view.mjs';
+import { findChangeledgerDir } from '../src/config.mjs';
 import { formatLedgerReceipt, loadLedgerStore, repoProvenance } from '../src/ledger-store.mjs';
 import { nowUtc } from '../src/paths.mjs';
 import { parseYaml } from '../src/yaml.mjs';
@@ -96,6 +97,22 @@ function stateReceiptDetails(receipt) {
   })}`;
 }
 
+function stateFailureProvenance() {
+  try {
+    return repoProvenance();
+  } catch {
+    const cwd = process.cwd();
+    let repository_path = path.resolve(cwd);
+    try {
+      const changeledgerDir = findChangeledgerDir(cwd);
+      if (changeledgerDir) repository_path = path.dirname(changeledgerDir);
+    } catch {
+      // Receipt construction must never replace the operation's primary error.
+    }
+    return { project_id: null, repository_path };
+  }
+}
+
 function stateFailureReceipt(command, options, error, activity) {
   let sources = (options.source ?? []).map((name) => ({ name, commit: null }));
   let inventoryDigest = null;
@@ -126,7 +143,7 @@ function stateFailureReceipt(command, options, error, activity) {
     ok: false,
     command,
     error: error.message,
-    ...repoProvenance(),
+    ...stateFailureProvenance(),
     sources,
     sourceOids:
       activity.sourceOids && Object.keys(activity.sourceOids).length > 0

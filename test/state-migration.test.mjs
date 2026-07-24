@@ -1794,8 +1794,8 @@ for (const objectFormat of ['sha1', 'sha256']) {
 // cutover commit the prepare step built: dev's tip now carries
 // `.changeledger/authority.yml` v2 and the legacy `.changeledger/config.yml`
 // has been removed, exactly as a real post-merge integration branch would.
-function preparedForInstall() {
-  const { root, head } = legacyRepo();
+function preparedForInstall(objectFormat = 'sha1') {
+  const { root, head } = legacyRepo(objectFormat);
   const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
   const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
   const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
@@ -1861,6 +1861,94 @@ test('20260723-202646 CR3: install refuses to replace a divergent activation', (
     },
   );
   assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), baseline);
+});
+
+for (const objectFormat of ['sha1', 'sha256']) {
+  test(`235910 CR1/CR2: install and deactivate reject a blob activation with ${objectFormat}`, () => {
+    const { root, baseline } = preparedForInstall(objectFormat);
+    const blob = git(root, ['hash-object', '-w', '--stdin'], 'not an activation commit\n');
+    git(root, ['update-ref', ACTIVATION_REF, blob]);
+    git(root, ['update-ref', CONFIRMED_REF, baseline]);
+    git(root, ['update-ref', OBSERVED_REF, baseline]);
+    git(root, ['update-ref', PENDING_REF, baseline]);
+    const beforeRefs = git(root, ['for-each-ref', '--format=%(refname) %(objectname)']);
+    const beforeObjects = git(root, ['count-objects', '-v']);
+
+    for (const operation of [installStateActivation, deactivateStateActivation]) {
+      const activity = {};
+      assert.throws(
+        () => operation({ integrationRef: 'refs/heads/dev' }, root, activity),
+        new Error('state activation ref refs/changeledger/activation must point to a commit'),
+      );
+      assert.equal(activity.written, false);
+      assert.equal(git(root, ['for-each-ref', '--format=%(refname) %(objectname)']), beforeRefs);
+      assert.equal(git(root, ['count-objects', '-v']), beforeObjects);
+    }
+
+    const cli = path.resolve('bin/changeledger.mjs');
+    for (const mode of ['--install', '--deactivate']) {
+      const result = spawnSync(
+        process.execPath,
+        [cli, 'state', 'activate', mode, '--integration-ref', 'refs/heads/dev', '--json'],
+        { cwd: root, encoding: 'utf8' },
+      );
+      assert.notEqual(result.status, 0);
+      const receipt = JSON.parse(result.stderr);
+      assert.equal(
+        receipt.error,
+        'state activation ref refs/changeledger/activation must point to a commit',
+      );
+      assert.equal(receipt.written, false);
+      assert.equal(receipt.repository_path, fs.realpathSync(root));
+      assert.equal(git(root, ['for-each-ref', '--format=%(refname) %(objectname)']), beforeRefs);
+      assert.equal(git(root, ['count-objects', '-v']), beforeObjects);
+    }
+  });
+}
+
+test('235910 correction: a peelable tag keeps its direct OID through install and deactivate CAS', () => {
+  const installFixture = preparedForInstall();
+  git(installFixture.root, [
+    'tag',
+    '-a',
+    'activation-install',
+    installFixture.activation.commit,
+    '-m',
+    'test: tagged activation',
+  ]);
+  const installTag = git(installFixture.root, ['rev-parse', 'refs/tags/activation-install']);
+  git(installFixture.root, ['update-ref', ACTIVATION_REF, installTag]);
+
+  const installed = installStateActivation(
+    { integrationRef: 'refs/heads/dev' },
+    installFixture.root,
+  );
+  assert.equal(installed.written, false);
+  assert.equal(installed.oldOid, installTag);
+  assert.equal(git(installFixture.root, ['rev-parse', '--verify', ACTIVATION_REF]), installTag);
+
+  const deactivateFixture = activatedThenRecovered();
+  git(deactivateFixture.root, [
+    'tag',
+    '-a',
+    'activation-deactivate',
+    deactivateFixture.cutover,
+    '-m',
+    'test: tagged activation',
+  ]);
+  const deactivateTag = git(deactivateFixture.root, [
+    'rev-parse',
+    'refs/tags/activation-deactivate',
+  ]);
+  git(deactivateFixture.root, ['update-ref', ACTIVATION_REF, deactivateTag]);
+
+  const deactivated = deactivateStateActivation(
+    { integrationRef: 'refs/heads/dev' },
+    deactivateFixture.root,
+  );
+  assert.equal(deactivated.written, true);
+  assert.equal(deactivated.oldOid, deactivateTag);
+  assert.throws(() => git(deactivateFixture.root, ['rev-parse', '--verify', ACTIVATION_REF]));
 });
 
 test('20260723-202646 CR3: install fails when the source moves concurrently', () => {
@@ -1935,6 +2023,28 @@ for (const [field, patch, message] of [
   });
 }
 
+test('20260723-202646 correction: install rejects an unsupported state_ref before CAS', () => {
+  const { root } = preparedForInstall();
+  const authority = git(root, ['show', 'dev:.changeledger/authority.yml']);
+  const tampered = authority.replace(
+    'state_ref: refs/heads/changeledger/state',
+    'state_ref: refs/heads/not-changeledger-state',
+  );
+  const blob = git(root, ['hash-object', '-w', '--stdin'], tampered);
+  git(root, ['read-tree', 'dev']);
+  git(root, ['update-index', '--add', '--cacheinfo', `100644,${blob},.changeledger/authority.yml`]);
+  const tree = git(root, ['write-tree']);
+  const parent = git(root, ['rev-parse', 'dev']);
+  const commit = git(root, ['commit-tree', tree, '-p', parent, '-m', 'test: invalid state ref']);
+  git(root, ['update-ref', 'refs/heads/dev', commit]);
+
+  assert.throws(
+    () => installStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    /Unsupported state authority ref: refs\/heads\/not-changeledger-state/,
+  );
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});
+
 // A repo activated and then recovered: activation points at the cutover commit,
 // confirmed/observed are consistent, and the integration branch has advanced to
 // a fresh commit that no longer carries `.changeledger/authority.yml`.
@@ -1972,6 +2082,8 @@ test('20260723-202646 CR5: deactivate removes activation/confirmed/observed atom
   // Idempotent: all three refs already absent returns success without writing.
   const repeated = deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root);
   assert.equal(repeated.written, false);
+
+  assert.throws(() => deactivateStateActivation({ integrationRef: 'not-a-full-ref' }, root));
 });
 
 test('20260723-202646 CR5: deactivate rejects an integration ref that still carries authority', () => {
@@ -1990,6 +2102,24 @@ test('20260723-202646 CR5: deactivate rejects an integration ref that still carr
   assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), cutover);
 });
 
+test('20260723-202646 correction: deactivate rejects a different authority-free branch', () => {
+  const { root, cutover } = activatedThenRecovered();
+  git(root, ['branch', 'not-dev', 'dev']);
+  assert.throws(
+    () => deactivateStateActivation({ integrationRef: 'refs/heads/not-dev' }, root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'state activation deactivation requires --integration-ref to name git.integration_branch dev',
+      );
+      return true;
+    },
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), cutover);
+  assert.equal(git(root, ['rev-parse', '--verify', CONFIRMED_REF]).length >= 40, true);
+  assert.equal(git(root, ['rev-parse', '--verify', OBSERVED_REF]).length >= 40, true);
+});
+
 test('20260723-202646 CR5: deactivate refuses while a pending state exists', () => {
   const { root, baseline } = activatedThenRecovered();
   git(root, ['update-ref', PENDING_REF, baseline]);
@@ -2004,6 +2134,40 @@ test('20260723-202646 CR5: deactivate refuses while a pending state exists', () 
     },
   );
   assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]).length >= 40, true);
+});
+
+test('20260723-202646 correction: pending-only state is not already deactivated', () => {
+  const { root, baseline } = activatedThenRecovered();
+  git(root, ['update-ref', '-d', ACTIVATION_REF]);
+  git(root, ['update-ref', '-d', CONFIRMED_REF]);
+  git(root, ['update-ref', '-d', OBSERVED_REF]);
+  git(root, ['update-ref', PENDING_REF, baseline]);
+
+  assert.throws(
+    () => deactivateStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    new Error('state activation deactivation requires no refs/changeledger/pending'),
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', PENDING_REF]), baseline);
+});
+
+test('20260723-202646 correction: deactivate CAS verifies pending stays absent', () => {
+  const { root, baseline, cutover } = activatedThenRecovered();
+
+  assert.throws(
+    () =>
+      deactivateStateActivation(
+        {
+          integrationRef: 'refs/heads/dev',
+          beforeRefTransaction: () => git(root, ['update-ref', PENDING_REF, baseline]),
+        },
+        root,
+      ),
+    /state activation refs changed concurrently; retry/,
+  );
+  assert.equal(git(root, ['rev-parse', '--verify', ACTIVATION_REF]), cutover);
+  assert.equal(git(root, ['rev-parse', '--verify', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', '--verify', OBSERVED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', '--verify', PENDING_REF]), baseline);
 });
 
 test('20260723-202646 CR5: deactivate requires matching confirmed and observed', () => {
