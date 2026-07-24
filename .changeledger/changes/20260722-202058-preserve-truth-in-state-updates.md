@@ -2,7 +2,7 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:20:58Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -104,9 +104,12 @@ hace el validador del servidor (`validateStateRef`).
   - **Resolved:** `2026-07-22T23:10:00Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-22T23:15:00Z`
-- [ ] Añadir tests fallidos de sync (descendiente remoto que elimina un change, eliminación solo en un commit intermedio del rango, pending forjado que elimina) y validar continuidad de identidades por rango con `assertIdentityContinuity` en `src/ledger-store.mjs`, aplicada por `syncStateReplica` en `src/state-store.mjs` sobre fetched, pending y replay; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR2)
-- [ ] Añadir test fallido del recovery export de un confirmed forjado incompleto y aplicar la misma continuidad desde el baseline en `exportStateRecovery` de `src/state-migration.mjs` antes de materializar la rama; verify: `node --test test/state-migration.test.mjs` (CR2)
-- [ ] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
+- [x] Añadir tests fallidos de sync (descendiente remoto que elimina un change, eliminación solo en un commit intermedio del rango, pending forjado que elimina) y validar continuidad de identidades por rango con `assertIdentityContinuity` en `src/ledger-store.mjs`, aplicada por `syncStateReplica` en `src/state-store.mjs` sobre fetched, pending y replay; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR2)
+  - **Resolved:** `2026-07-24T14:57:09Z`
+- [x] Añadir test fallido del recovery export de un confirmed forjado incompleto y aplicar la misma continuidad desde el baseline en `exportStateRecovery` de `src/state-migration.mjs` antes de materializar la rama; verify: `node --test test/state-migration.test.mjs` (CR2)
+  - **Resolved:** `2026-07-24T14:57:10Z`
+- [x] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-24T14:57:10Z`
 
 ## Log
 
@@ -124,3 +127,12 @@ hace el validador del servidor (`validateStateRef`).
 - **2026-07-22T23:55:47Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-23T22:58:27Z** `[status]` done → in-progress (agent reopened): La reauditoría be058658 demuestra que state sync confirma un descendiente que elimina una identidad y recovery exporta el snapshot incompleto; CR2 no cubre la frontera sync/recovery.
 - **2026-07-24T14:42:54Z** `[note]` Corrección de la reapertura: la política de no-desaparición se aplicará por rango (commit a commit contra cada padre) en la frontera sync/recovery del cliente, reutilizando la misma semántica que validateStateRef en el servidor. Spec CR2 extendida y plan ampliado con tests rojos primero.
+- **2026-07-24T14:57:10Z** `[note]` Corrección de la frontera sync/recovery: assertIdentityContinuity aplica la política de no-desaparición commit a commit sobre el rango (misma semántica que validateStateRef en el servidor). syncStateReplica la exige antes de cada transacción que confirma (adopt/advance/current, confirm-observed, replay en sus dos pasos) y sobre el pending antes de publicar o reproducir; exportStateRecovery valida la historia completa baseline→confirmed antes de materializar la rama. Cuatro regresiones rojo-verde: descendiente remoto que elimina, eliminación solo en commit intermedio (invisible para el check tip-contra-padre), pending forjado y recovery de confirmed forjado; más un positivo que preserva. Suites afectadas 220/220; gate completo 1.128/1.128 y 241 changes válidos.
+- **2026-07-24T14:57:10Z** `[status]` in-progress → in-review
+- **2026-07-24T15:13:27Z** `[review]` in-review → in-progress (retry): abortStatePending confirma el tip remoto tras un pending publicado sin continuidad de identidades (una eliminación en commit intermedio se sirve después en silencio); cablear validateTransition en esa ruta con test rojo primero, y anclar con tests los guards vivos de confirm-observed y del pre-guard de replay que hoy pueden eliminarse sin romper nada.
+- **2026-07-24T15:19:26Z** `[note]` Corrección del retry: abortStatePending exige validateTransition(confirmed→fetched) antes de confirmar un pending publicado, cableado desde replica.abort; regresión roja reproducía la adopción silenciosa de una eliminación intermedia vía state abort. Los guards de confirm-observed y del pre-guard de replay quedan anclados con dos regresiones nuevas verificadas por mutación (eliminar cada guard rompe exactamente su test). Suites afectadas 185/185; gate 1.131/1.131 y 241 changes válidos.
+- **2026-07-24T15:19:26Z** `[status]` in-progress → in-review
+- **2026-07-24T15:34:45Z** `[review]` in-review → in-progress (retry): El wiring de validateTransition en los dos syncStateReplica de mutateState es vivo y alcanzable pero despincheable: desconectarlo en ambos call sites deja toda la suite verde. Añadir regresiones rojas que lo anclen: mutate directo sin preflight contra un remoto con eliminación, y una eliminación publicada entre prepareMutation y mutate que atraviese el sync post-commit.
+- **2026-07-24T15:38:12Z** `[note]` Corrección del segundo retry (solo tests): dos regresiones anclan el wiring de validateTransition en mutateState — mutate directo sin preflight contra un remoto con eliminación (pre-sync) y eliminación publicada entre prepareMutation y mutate (sync post-commit, ruta replay). Verificado por mutación: desconectar ambos call sites rompe exactamente las dos. Gate 1.133/1.133 y 241 changes válidos.
+- **2026-07-24T15:38:12Z** `[status]` in-progress → in-review
+- **2026-07-24T15:52:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
