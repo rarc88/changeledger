@@ -131,6 +131,33 @@ test('203029 CR1: release plan --json declares project_id and repository_path', 
   assert.equal(fs.realpathSync(plan.repository_path), fs.realpathSync(root));
 });
 
+test('203029 CR2: human check and fix load failures still name the resolved directory', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-norepo-'));
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  for (const [marker, ...args] of [
+    ['repo', 'check'],
+    ['repo', 'fix', '--dry-run'],
+    ['commits', 'check', '--commits'],
+  ]) {
+    const { code, err } = runIn(dir, env, ...args);
+    assert.equal(code, 1);
+    assert.match(err, new RegExp(`error {2}\\(${marker}\\):`));
+    assert.match(err, new RegExp(`\\(repo: .*${path.basename(dir)}\\)`));
+    assert.match(err, /\(project: unknown\)/);
+  }
+});
+
+test('203029 CR2: a failing state status emits a provenance receipt', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-norepo-'));
+  const { code, err } = runIn(dir, { ...process.env, CHANGELEDGER_HOME: home }, 'state', 'status');
+  assert.equal(code, 1);
+  assert.match(err, /"projectId":null/);
+  assert.match(err, new RegExp(`"repositoryPath":".*${path.basename(dir)}"`));
+  assert.match(err, /^Error: /m);
+});
+
 test('203029 CR2: a check that cannot load the repo keeps repository_path with null project_id', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-norepo-'));

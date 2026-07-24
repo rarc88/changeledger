@@ -6,7 +6,9 @@ import {
   formatLedgerReceipt,
   ledgerReceipt,
   loadLedgerStore,
+  provenanceSuffix,
   repoProvenance,
+  safeRepoProvenance,
 } from '../ledger-store.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
@@ -35,7 +37,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     repo = store.mode === 'state' && !dryRun ? store.prepareMutation({ offline }) : store.load();
     if (!dryRun) assertSupportedSchema(repo.config);
   } catch (e) {
-    output.error(`  error  (repo): ${e.message}`);
+    output.error(`  error  (repo): ${e.message}${provenanceSuffix(safeRepoProvenance(cwd))}`);
     return 1;
   }
 

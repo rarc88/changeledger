@@ -115,6 +115,21 @@ export function repoProvenance(cwd = process.cwd(), { run = defaultRun } = {}) {
   return Object.freeze({ project_id, repository_path });
 }
 
+// Provenance that must never replace a command's own findings or error:
+// degrade to a null project with the resolved directory instead of throwing.
+export function safeRepoProvenance(cwd = process.cwd()) {
+  try {
+    return repoProvenance(cwd);
+  } catch {
+    return { project_id: null, repository_path: path.resolve(cwd) };
+  }
+}
+
+// Human-format provenance suffix, mirroring formatLedgerReceipt's rendering.
+export function provenanceSuffix(provenance) {
+  return ` (project: ${provenance.project_id ?? 'unknown'}) (repo: ${provenance.repository_path ?? 'unknown'})`;
+}
+
 export function assertLedgerRevision(snapshot, observedRevision) {
   if (snapshot?.mode !== 'state') return null;
   if (

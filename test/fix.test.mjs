@@ -79,9 +79,11 @@ test('195318 CR3: fix writes fail closed but dry-run remains available for a fut
 
   const write = output();
   assert.equal(fix([fixture.id], fixture.root, write), 1);
-  assert.deepEqual(write.lines, [
-    '  error  (repo): config schema 4 is newer than supported schema 3; update ChangeLedger before writing',
-  ]);
+  assert.equal(write.lines.length, 1);
+  assert.match(
+    write.lines[0],
+    /^ {2}error {2}\(repo\): config schema 4 is newer than supported schema 3; update ChangeLedger before writing \(project: .+\) \(repo: .+\)$/,
+  );
   assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
 
   const preview = output();

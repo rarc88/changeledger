@@ -1,26 +1,10 @@
-import path from 'node:path';
 import { checkRepo } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
 import { defaultBaseBranch, lintCommitRange } from '../git.mjs';
-import { loadLedgerStore, repoProvenance } from '../ledger-store.mjs';
+import { loadLedgerStore, provenanceSuffix, safeRepoProvenance } from '../ledger-store.mjs';
 import { loadRepo } from '../repo.mjs';
-
-// Receipt provenance must never replace the check's own findings: degrade to a
-// null project with the resolved directory instead of throwing (CR2).
-function safeProvenance(cwd) {
-  try {
-    return repoProvenance(cwd);
-  } catch {
-    return { project_id: null, repository_path: path.resolve(cwd) };
-  }
-}
-
-// Human-format provenance suffix, mirroring formatLedgerReceipt's rendering.
-function provenanceSuffix(provenance) {
-  return ` (project: ${provenance.project_id ?? 'unknown'}) (repo: ${provenance.repository_path ?? 'unknown'})`;
-}
 
 // Declared integration branch, when a ChangeLedger repo (and the key) exists.
 // Outside a repo the lint still works on plain git, so absence is undefined,
@@ -67,13 +51,14 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
             freshness: ledger.freshness ?? null,
             confirmation: ledger.confirmation ?? null,
             observed_at: ledger.observedAt ?? null,
-            ...safeProvenance(cwd),
+            ...safeRepoProvenance(cwd),
           },
           null,
           2,
         ),
       );
-    else output.error(`  error  (commits): ${e.message}`);
+    else
+      output.error(`  error  (commits): ${e.message}${provenanceSuffix(safeRepoProvenance(cwd))}`);
     return 1;
   }
 
@@ -92,7 +77,7 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
           freshness: ledger.freshness ?? null,
           confirmation: ledger.confirmation ?? null,
           observed_at: ledger.observedAt ?? null,
-          ...safeProvenance(cwd),
+          ...safeRepoProvenance(cwd),
         },
         null,
         2,
@@ -104,7 +89,7 @@ function checkCommits(args, commitsIdx, cwd, output, json) {
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
   const scope = `commits ${resolvedBase}..HEAD${
     ledger.revision
-      ? ` @ ${ledger.revision} (freshness: ${ledger.freshness}) (confirmation: ${ledger.confirmation}) (observed at: ${ledger.observedAt ?? 'unknown'})${provenanceSuffix(safeProvenance(cwd))}`
+      ? ` @ ${ledger.revision} (freshness: ${ledger.freshness}) (confirmation: ${ledger.confirmation}) (observed at: ${ledger.observedAt ?? 'unknown'})${provenanceSuffix(safeRepoProvenance(cwd))}`
       : ''
   }`;
   if (!errors.length) output.log(`✓ ${scope} valid`);
@@ -130,13 +115,13 @@ export function check(args = [], cwd = process.cwd(), output = console) {
           {
             errors: [{ file: '(repo)', message: e.message }],
             warnings: [],
-            ...safeProvenance(cwd),
+            ...safeRepoProvenance(cwd),
           },
           null,
           2,
         ),
       );
-    else output.error(`  error  (repo): ${e.message}`);
+    else output.error(`  error  (repo): ${e.message}${provenanceSuffix(safeRepoProvenance(cwd))}`);
     return 1;
   }
 
@@ -169,7 +154,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
           freshness: repo.revision ? (repo.ledgerFreshness ?? 'local') : null,
           confirmation: repo.revision ? (repo.ledgerConfirmation ?? 'local') : null,
           observed_at: repo.revision ? (repo.ledgerObservedAt ?? null) : null,
-          ...safeProvenance(cwd),
+          ...safeRepoProvenance(cwd),
         },
         null,
         2,
@@ -183,7 +168,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
 
   const scope = `${id ? `change ${id}` : `${repo.changes.length} change(s)`}${
     repo.revision
-      ? ` @ ${repo.revision} (freshness: ${repo.ledgerFreshness ?? 'local'}) (confirmation: ${repo.ledgerConfirmation ?? 'local'}) (observed at: ${repo.ledgerObservedAt ?? 'unknown'})${provenanceSuffix(safeProvenance(cwd))}`
+      ? ` @ ${repo.revision} (freshness: ${repo.ledgerFreshness ?? 'local'}) (confirmation: ${repo.ledgerConfirmation ?? 'local'}) (observed at: ${repo.ledgerObservedAt ?? 'unknown'})${provenanceSuffix(safeRepoProvenance(cwd))}`
       : ''
   }`;
   if (!errors.length && !warnings.length) {

@@ -640,6 +640,30 @@ test('203029 CR1: check, fix and config migrate receipts name project and reposi
   assert.ok(commitsJson.repository_path);
 });
 
+test('203029 CR2: state sync and abort failures emit provenance receipts, JSON under --json', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    spawnSync(process.execPath, [cli, ...args], { cwd: created.root, encoding: 'utf8' });
+
+  // Failure under --json must still be machine-readable with provenance.
+  const abort = run('state', 'abort', '--json');
+  assert.notEqual(abort.status, 0);
+  const abortReceipt = JSON.parse(abort.stderr);
+  assert.equal(abortReceipt.ok, false);
+  assert.match(abortReceipt.error, /state abort requires --pending/);
+  assert.equal(abortReceipt.project_id, 'project-1');
+  assert.ok(abortReceipt.repository_path);
+
+  // Human failure carries a structured receipt line with provenance.
+  git(created.root, ['remote', 'set-url', 'origin', '/nonexistent-remote-path']);
+  const sync = run('state', 'sync');
+  assert.notEqual(sync.status, 0);
+  assert.match(sync.stderr, /"projectId":"project-1"/);
+  assert.match(sync.stderr, /"repositoryPath":"/);
+  assert.match(sync.stderr, /^Error: /m);
+});
+
 test('203029 CR2: a state doctor failure still names the resolved repository', () => {
   const created = fixture();
   const cli = path.resolve('bin/changeledger.mjs');

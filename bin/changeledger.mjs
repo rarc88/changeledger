@@ -1007,35 +1007,41 @@ stateCommand
   .command('status')
   .description('show local replica refs and freshness without network access')
   .action(
-    action(() => {
-      const result = stateStatus();
-      const provenance = repoProvenance();
-      console.log(`Project: ${provenance.project_id ?? 'unknown'}`);
-      console.log(`Repository: ${provenance.repository_path}`);
-      console.log(`Remote: ${result.remote ?? '(unresolved)'}`);
-      console.log(`Condition: ${result.condition}`);
-      console.log(`Effective: ${result.effective ?? '(none)'}`);
-      console.log(`Confirmed: ${result.confirmed ?? '(none)'}`);
-      console.log(`Observed: ${result.observed ?? '(none)'}`);
-      console.log(`Pending: ${result.pending ?? '(none)'}`);
-      console.log(`Observed at: ${result.observedAt ?? 'unknown'}`);
-    }),
+    action((options) =>
+      stateAction('status', () => {
+        const result = stateStatus();
+        const provenance = repoProvenance();
+        console.log(`Project: ${provenance.project_id ?? 'unknown'}`);
+        console.log(`Repository: ${provenance.repository_path}`);
+        console.log(`Remote: ${result.remote ?? '(unresolved)'}`);
+        console.log(`Condition: ${result.condition}`);
+        console.log(`Effective: ${result.effective ?? '(none)'}`);
+        console.log(`Confirmed: ${result.confirmed ?? '(none)'}`);
+        console.log(`Observed: ${result.observed ?? '(none)'}`);
+        console.log(`Pending: ${result.pending ?? '(none)'}`);
+        console.log(`Observed at: ${result.observedAt ?? 'unknown'}`);
+        return { ...provenance, ...result };
+      })(options ?? {}),
+    ),
   );
 
 stateCommand
   .command('sync')
   .description('fetch, reconcile and publish one pending mutation when safe')
   .action(
-    action(() => {
-      const result = stateSync();
-      const provenance = repoProvenance();
-      const confirmation = result.pending ? 'local, pending publication' : 'confirmed';
-      console.log(
-        `State ${result.action}: ${result.effective} (${confirmation}) (project: ${provenance.project_id ?? 'unknown'}) (repo: ${provenance.repository_path})`,
-      );
-      if (result.error) console.log(`Publication result ambiguous: ${result.error}`);
-      if (result.pending && !result.confirmed) process.exitCode = 2;
-    }),
+    action((options) =>
+      stateAction('sync', () => {
+        const result = stateSync();
+        const provenance = repoProvenance();
+        const confirmation = result.pending ? 'local, pending publication' : 'confirmed';
+        console.log(
+          `State ${result.action}: ${result.effective} (${confirmation}) (project: ${provenance.project_id ?? 'unknown'}) (repo: ${provenance.repository_path})`,
+        );
+        if (result.error) console.log(`Publication result ambiguous: ${result.error}`);
+        if (result.pending && !result.confirmed) process.exitCode = 2;
+        return { ...provenance, ...result };
+      })(options ?? {}),
+    ),
   );
 
 stateCommand
@@ -1045,27 +1051,30 @@ stateCommand
   .option('--offline', 'discard only the local pending ref without checking the remote')
   .option('--json', 'print a stable JSON receipt')
   .action(
-    action((options) => {
-      const result = stateAbort(process.cwd(), options);
-      const provenance = repoProvenance(process.cwd());
-      if (options.json) {
-        console.log(JSON.stringify({ ok: true, ...result, ...provenance }, null, 2));
-        return;
-      }
-      if (result.confirmed) {
-        console.log(`Pending was already published and is now confirmed at ${result.effective}`);
-      } else {
-        console.log(
-          `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
-        );
-      }
-      if (result.stale) {
-        console.log('Replica is stale; run `changeledger state sync` to catch up.');
-      }
-      console.log(
-        `Project: ${provenance.project_id ?? 'unknown'} (repo: ${provenance.repository_path})`,
-      );
-    }),
+    action((options) =>
+      stateAction('abort', () => {
+        const result = stateAbort(process.cwd(), options);
+        const provenance = repoProvenance(process.cwd());
+        if (!options.json) {
+          if (result.confirmed) {
+            console.log(
+              `Pending was already published and is now confirmed at ${result.effective}`,
+            );
+          } else {
+            console.log(
+              `Pending mutation aborted${result.offline ? ' locally without remote verification' : ''}`,
+            );
+          }
+          if (result.stale) {
+            console.log('Replica is stale; run `changeledger state sync` to catch up.');
+          }
+          console.log(
+            `Project: ${provenance.project_id ?? 'unknown'} (repo: ${provenance.repository_path})`,
+          );
+        }
+        return { ...provenance, ...result };
+      })(options),
+    ),
   );
 
 stateCommand
