@@ -2,7 +2,7 @@
 id: "20260723-202646"
 title: Autoridad de estado independiente del checkout
 type: feature
-status: blocked
+status: in-review
 created: 2026-07-23T20:26:46Z
 depends_on: ["20260722-202057"]
 owner: raruiz-hiberuscom
@@ -126,8 +126,8 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
   - **Resolved:** `2026-07-23T21:42:27Z`
 - [x] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-23T21:55:45Z`
-- [!] Resolver los residuos de lectura de pending y activation no-commit tras el segundo rechazo (CR3, CR5, CR9)
-  - **Blocked:** El protocolo del audit exige dividir o reemplazar el change antes de un tercer retry; requiere decisión humana sobre la nueva frontera.
+- [x] Resolver los residuos del segundo rechazo — lectura fail-closed de pending en `src/ledger-store.mjs` y activation no-commit en `src/state-migration.mjs`/`bin/changeledger.mjs` — divididos y aceptados como `20260723-235906` y `20260723-235910`; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR3, CR5, CR9)
+  - **Resolved:** `2026-07-24T18:20:00Z`
 
 ## Log
 - **2026-07-23T20:49:59Z** `[status]` draft → approved (human via conversation)
@@ -148,3 +148,6 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
 - **2026-07-23T23:27:57Z** `[note]` Corrección tras review fail-retry: todas las lecturas de activation/confirmed/observed/pending distinguen missing real de error operacional; gitStateRevision preserva el diagnóstico. Deactivate valida el ref incluso en retry idempotente y su transacción verifica que pending siga ausente. Regresiones TOCTOU, idempotencia y confirmed ilegible verdes; 149/149 suites focalizadas.
 - **2026-07-23T23:28:01Z** `[status]` in-progress → in-review
 - **2026-07-23T23:38:15Z** `[review]` in-review → blocked: Segundo rechazo consecutivo: mutateState aún degrada un error leyendo pending y deactivate confunde una activation no-commit con ausencia. El protocolo del audit exige detener retries y dividir o reemplazar la definición.
+- **2026-07-24T16:49:39Z** `[status]` blocked → in-progress
+- **2026-07-24T16:49:39Z** `[note]` Desbloqueado por decisión humana (conversación 2026-07-24): los residuos del segundo rechazo quedaron resueltos y aceptados en los changes divididos 20260723-235906 (lectura fail-closed de refs, mutación sin pending fiable) y 20260723-235910 (activation no-commit); sus correcciones están commiteadas junto con las de este change (ef1c6b50, b5a0399a, b959d492). Se solicita review limpio integral de los 9 CRs sobre HEAD.
+- **2026-07-24T16:50:08Z** `[status]` in-progress → in-review
