@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -81,9 +81,12 @@ de estado sin procedencia, contradiciendo «todo receipt».
   - **Resolved:** `2026-07-24T16:16:14Z`
 - [x] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-24T16:16:14Z`
-- [ ] Añadir tests rojos y enrutar los fallos de `state status/sync/abort` por la maquinaria de receipts (`stateAction`/`stateFailureReceipt` en `bin/changeledger.mjs`): receipt con procedencia en fallo humano y JSON estructurado bajo `--json`; verify: `node --test test/state-command.test.mjs` (CR1, CR2)
-- [ ] Añadir tests rojos y sufijo de procedencia en los fallos de carga humanos de `check` y `fix`, promoviendo `safeProvenance`/`provenanceSuffix` a `src/ledger-store.mjs` y usándolos en `src/commands/check.mjs` y `src/commands/fix.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR2)
-- [ ] Ejecutar el gate completo tras la segunda reapertura; verify: `pnpm verify` (support)
+- [x] Añadir tests rojos y enrutar los fallos de `state status/sync/abort` por la maquinaria de receipts (`stateAction`/`stateFailureReceipt` en `bin/changeledger.mjs`): receipt con procedencia en fallo humano y JSON estructurado bajo `--json`; verify: `node --test test/state-command.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-24T21:48:01Z`
+- [x] Añadir tests rojos y sufijo de procedencia en los fallos de carga humanos de `check` y `fix`, promoviendo `safeProvenance`/`provenanceSuffix` a `src/ledger-store.mjs` y usándolos en `src/commands/check.mjs` y `src/commands/fix.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR2)
+  - **Resolved:** `2026-07-24T21:48:02Z`
+- [x] Ejecutar el gate completo tras la segunda reapertura; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-24T21:48:02Z`
 
 ## Log
 
@@ -108,3 +111,9 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-24T16:40:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-24T16:45:41Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-24T21:38:48Z** `[status]` done → in-progress (agent reopened): La tercera ejecución del audit (RECEIPT-04/05) encontró scope original sin completar: los fallos de state status/sync/abort pasan por el wrapper action() en vez de la maquinaria de receipts (Error pelado, sin procedencia y salida no-JSON bajo --json), y los fallos de carga humanos de check/fix no llevan el sufijo de procedencia que sus gemelos JSON sí degradan. CR1 enumera status/sync/abort y CR2 exige procedencia en todo fallo.
+- **2026-07-24T21:48:02Z** `[note]` Corrección de la segunda reapertura (RECEIPT-04/05): state status/sync/abort enrutados por stateAction — fallo humano con línea Receipt + procedencia, fallo bajo --json emite el receipt JSON estructurado (ok:false, error, project_id, repository_path) con exit 1; éxitos devuelven provenance+resultado (campo command aditivo en el JSON de abort). safeRepoProvenance/provenanceSuffix promovidos a ledger-store y aplicados a los fallos de carga humanos de check y fix (incluida la variante --commits). Dos regresiones rojas primero; un assert exacto de fix actualizado al formato con sufijo. Gate 1.145/1.145 y 243 changes válidos.
+- **2026-07-24T21:48:02Z** `[status]` in-progress → in-review
+- **2026-07-24T22:01:14Z** `[review]` in-review → in-progress (retry): Dos superficies de la reapertura sin pin: revertir el enrutado de fallos de state status a action() pelado sobrevive toda la suite, y quitar el sufijo del fallo de carga humano de check --commits también sobrevive. Añadir regresión de state status fallando (fuera de repo) asertando el Receipt con procedencia, y asertar el sufijo en la línea humana error (commits).
+- **2026-07-24T22:03:16Z** `[note]` Corrección del retry: pin de state status fallando fuera de repo (Receipt con projectId null y repositoryPath en stderr, exit 1) y el fallo de carga humano de check --commits añadido al pin de sufijos con marker parametrizado. Gate 1.146/1.146 y 243 changes válidos.
+- **2026-07-24T22:03:16Z** `[status]` in-progress → in-review
+- **2026-07-24T22:11:23Z** `[review]` in-review → in-validation (delegated subagent, clean context)
