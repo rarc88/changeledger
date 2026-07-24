@@ -1169,7 +1169,10 @@ test('193101 correction CR2/CR3/CR6: context and register use authority-only sta
   const { root } = createStateRepo();
   const snapshot = loadLedgerStore(root).load();
   const context = buildContext('20260721-000000', root);
-  assert.match(context, new RegExp(`Ledger snapshot: ${snapshot.revision}`));
+  assert.match(
+    context,
+    new RegExp(`Ledger snapshot: ${snapshot.revision} — .*project: project-1; repo: .+`),
+  );
   assert.match(context, /# Selected change/);
   assert.match(context, /title: Demo/);
   const previousHome = process.env.CHANGELEDGER_HOME;
@@ -1284,6 +1287,7 @@ test('193101 CR2: agent context selects its change from the state snapshot', () 
   const context = buildAgentContext('investigation', '20260721-000000', root);
   assert.match(context, /title: Demo/);
   assert.match(context, /Effective policy: language=es/);
+  assert.match(context, /Ledger snapshot: .*project: project-1; repo: .+/);
 });
 
 test('193101 CR8: new creates a change only in the state successor', () => {

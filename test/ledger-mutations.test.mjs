@@ -130,8 +130,10 @@ test('193101 CR8 matrix bulk: regular fix publishes one state successor', () => 
   assert.equal(fix([ID], root, out), 0);
   const after = assertSingleSuccessor(root, before);
   assert.ok(
-    out.lines.includes(
-      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    out.lines.some((line) =>
+      line.startsWith(
+        `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown) (project: project-1)`,
+      ),
     ),
   );
 });
@@ -146,8 +148,10 @@ test('193101 CR8 matrix bulk: structured-sections fix publishes one state succes
   assert.equal(fix(['--structured-sections'], root, out), 0);
   const after = assertSingleSuccessor(root, before);
   assert.ok(
-    out.lines.includes(
-      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    out.lines.some((line) =>
+      line.startsWith(
+        `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown) (project: project-1)`,
+      ),
     ),
   );
 });
@@ -165,8 +169,10 @@ test('193101 CR8 matrix bulk: graduation-links fix publishes one state successor
   assert.equal(fix(['--graduation-links'], root, out), 0);
   const after = assertSingleSuccessor(root, before);
   assert.ok(
-    out.lines.includes(
-      `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    out.lines.some((line) =>
+      line.startsWith(
+        `Ledger revision: ${after.revision} (freshness: local) (confirmation: local) (observed at: unknown) (project: project-1)`,
+      ),
     ),
   );
   assert.deepEqual(after.specs[0].frontmatter.graduated_from, [ID]);
@@ -696,8 +702,10 @@ test('193101 correction CR2: state fix dry-run exposes the snapshot it inspected
   const out = output();
   assert.equal(fix(['--dry-run'], root, out), 0);
   assert.ok(
-    out.lines.includes(
-      `Ledger revision: ${baseline} (freshness: local) (confirmation: local) (observed at: unknown)`,
+    out.lines.some((line) =>
+      line.startsWith(
+        `Ledger revision: ${baseline} (freshness: local) (confirmation: local) (observed at: unknown) (project: project-1)`,
+      ),
     ),
     out.lines.join('\n'),
   );

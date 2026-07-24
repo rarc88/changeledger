@@ -117,6 +117,55 @@ test('193104 CR4/CR9: validation help has no actor, override, probe or provider 
   assert.match(output, /--integration-ref/);
 });
 
+test('203029 CR1: validation success receipts declare project and repository provenance', () => {
+  const created = fixture('sha1');
+  const args = [
+    BIN,
+    'state',
+    'validate-update',
+    created.baseline,
+    created.baseline,
+    STATE_REF,
+    '--state-ref',
+    STATE_REF,
+    '--integration-ref',
+    INTEGRATION_REF,
+  ];
+  const human = execFileSync(process.execPath, args, { cwd: created.root, encoding: 'utf8' });
+  assert.match(human, /"projectId":"project-1"/);
+  assert.match(human, /"repositoryPath":"/);
+
+  const updated = JSON.parse(
+    execFileSync(process.execPath, [...args, '--json'], { cwd: created.root, encoding: 'utf8' }),
+  );
+  assert.equal(updated.project_id, 'project-1');
+  assert.ok(updated.repository_path);
+
+  const received = spawnSync(
+    process.execPath,
+    [
+      BIN,
+      'state',
+      'validate-receive',
+      '--state-ref',
+      STATE_REF,
+      '--integration-ref',
+      INTEGRATION_REF,
+      '--json',
+    ],
+    {
+      cwd: created.root,
+      encoding: 'utf8',
+      input: `${created.baseline} ${created.baseline} ${STATE_REF}\n`,
+    },
+  );
+  assert.equal(received.status, 0, received.stderr);
+  const receipt = JSON.parse(received.stdout);
+  assert.equal(receipt.project_id, 'project-1');
+  assert.ok(receipt.repository_path);
+  assert.equal(receipt.updates[0].project_id, 'project-1');
+});
+
 test('193104 correction CR9: validation receipts expose provider, capabilities and observed budgets', () => {
   const created = fixture('sha1');
   const args = [

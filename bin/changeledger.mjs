@@ -97,7 +97,7 @@ function stateReceiptDetails(receipt) {
   })}`;
 }
 
-function stateFailureProvenance() {
+function stateReceiptProvenance() {
   try {
     return repoProvenance();
   } catch {
@@ -143,7 +143,7 @@ function stateFailureReceipt(command, options, error, activity) {
     ok: false,
     command,
     error: error.message,
-    ...stateFailureProvenance(),
+    ...stateReceiptProvenance(),
     sources,
     sourceOids:
       activity.sourceOids && Object.keys(activity.sourceOids).length > 0
@@ -1200,12 +1200,13 @@ stateCommand
           limits: validationLimits(selected),
         });
         activity.capabilities = result.capabilities;
+        const receipt = { ...stateReceiptProvenance(), ...result };
         if (!selected.json) {
           console.log(
-            `Accepted ${result.ref}: ${result.oldOid} -> ${result.newOid} (${result.commits} commits, ${result.object_bytes} bytes; provider: ${result.provider}; network: ${result.network}; written: ${result.written})\n${stateReceiptDetails(result)}`,
+            `Accepted ${receipt.ref}: ${receipt.oldOid} -> ${receipt.newOid} (${receipt.commits} commits, ${receipt.object_bytes} bytes; provider: ${receipt.provider}; network: ${receipt.network}; written: ${receipt.written})\n${stateReceiptDetails(receipt)}`,
           );
         }
-        return result;
+        return receipt;
       })(options),
     ),
   );
@@ -1228,14 +1229,16 @@ stateCommand
           limits: validationLimits(selected),
         });
         activity.capabilities = result.flatMap((item) => Object.values(item.capabilities));
+        const provenance = stateReceiptProvenance();
+        const updates = result.map((item) => ({ ...provenance, ...item }));
         if (!selected.json) {
-          for (const receipt of result) {
+          for (const receipt of updates) {
             console.log(
               `Accepted ${receipt.ref}: ${receipt.oldOid} -> ${receipt.newOid} (${receipt.commits} commits, ${receipt.object_bytes} bytes; provider: ${receipt.provider}; network: ${receipt.network}; written: ${receipt.written})\n${stateReceiptDetails(receipt)}`,
             );
           }
         }
-        return { updates: result, network: false, written: false };
+        return { ...provenance, updates, network: false, written: false };
       })(options),
     ),
   );

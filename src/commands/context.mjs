@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, integrationBranch } from '../config.mjs';
 import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
+import { repoProvenance } from '../ledger-store.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo } from '../repo.mjs';
 
@@ -67,9 +68,11 @@ export function transversalPolicy(config) {
 }
 
 export function ledgerSnapshotPolicy(repo) {
-  return repo.revision
-    ? `Ledger snapshot: ${repo.revision} — freshness: ${repo.ledgerFreshness ?? 'local'}; confirmation: ${repo.ledgerConfirmation ?? 'local'}; observed_at: ${repo.ledgerObservedAt ?? 'unknown'} (no implicit network refresh)`
-    : undefined;
+  if (!repo.revision) return undefined;
+  // The snapshot line is a read receipt: a capsule copied outside its terminal
+  // must still attribute the revision to its project and repository (20260722-203029).
+  const provenance = repoProvenance(repo.repoRoot);
+  return `Ledger snapshot: ${repo.revision} — freshness: ${repo.ledgerFreshness ?? 'local'}; confirmation: ${repo.ledgerConfirmation ?? 'local'}; observed_at: ${repo.ledgerObservedAt ?? 'unknown'}; project: ${provenance.project_id ?? 'unknown'}; repo: ${provenance.repository_path ?? 'unknown'} (no implicit network refresh)`;
 }
 
 // Type-specific policy for change-id contexts: adds review requirement and the

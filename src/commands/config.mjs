@@ -1,8 +1,16 @@
 import { applyMigration, buildMigration, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
-import { formatLedgerReceipt, ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
+import {
+  formatLedgerReceipt,
+  ledgerReceipt,
+  loadLedgerStore,
+  repoProvenance,
+} from '../ledger-store.mjs';
 
 function withLedgerReceipt(text, snapshot) {
-  const receipt = formatLedgerReceipt(ledgerReceipt(snapshot));
+  const receipt = formatLedgerReceipt({
+    ...ledgerReceipt(snapshot),
+    ...repoProvenance(snapshot.repoRoot),
+  });
   return receipt ? `${text}\n${receipt}` : text;
 }
 

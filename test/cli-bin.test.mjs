@@ -114,6 +114,34 @@ test('203029 CR3: a receipt names the repo the CLI actually resolved from cwd, n
   assert.equal(fs.realpathSync(receiptB.repository_path), fs.realpathSync(b.root));
 });
 
+test('203029 CR1: check --json declares project_id and repository_path', () => {
+  const { root, env, projectId } = freshRepo();
+  const { code, out } = runIn(root, env, 'check', '--json');
+  assert.equal(code, 0);
+  const receipt = JSON.parse(out);
+  assert.equal(receipt.project_id, projectId);
+  assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(root));
+});
+
+test('203029 CR1: release plan --json declares project_id and repository_path', () => {
+  const { root, env, projectId } = freshRepo();
+  assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
+  const plan = JSON.parse(runIn(root, env, 'release', 'plan', '--json').out);
+  assert.equal(plan.project_id, projectId);
+  assert.equal(fs.realpathSync(plan.repository_path), fs.realpathSync(root));
+});
+
+test('203029 CR2: a check that cannot load the repo keeps repository_path with null project_id', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-norepo-'));
+  const { code, out } = runIn(dir, { ...process.env, CHANGELEDGER_HOME: home }, 'check', '--json');
+  assert.equal(code, 1);
+  const receipt = JSON.parse(out);
+  assert.ok(receipt.errors.length);
+  assert.equal(receipt.project_id, null);
+  assert.equal(fs.realpathSync(receipt.repository_path), fs.realpathSync(dir));
+});
+
 test('131649 CR8: graduate help contains only mutation modes and points to list', () => {
   const { code, out } = run('graduate', '--help');
   assert.equal(code, 0);

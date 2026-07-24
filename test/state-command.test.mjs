@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -146,7 +146,7 @@ test('193102 CR1/CR7: state status is local-only and state sync advances the eff
   assert.match(
     buildContext(undefined, created.root),
     new RegExp(
-      `Ledger snapshot: ${remoteHead} — freshness: fresh; confirmation: confirmed; observed_at: ${after.ledgerObservedAt} \\(no implicit network refresh\\)`,
+      `Ledger snapshot: ${remoteHead} — freshness: fresh; confirmation: confirmed; observed_at: ${after.ledgerObservedAt}; project: project-1; repo: .+ \\(no implicit network refresh\\)`,
     ),
   );
 });
@@ -600,6 +600,44 @@ test('203029 CR1: state status and sync name their project and repository in hum
   const sync = run('state', 'sync');
   assert.match(sync, /\(project: project-1\)/);
   assert.match(sync, new RegExp(`\\(repo: .*${path.basename(created.root)}\\)`));
+});
+
+test('203029 CR1: check, fix and config migrate receipts name project and repository', () => {
+  const created = fixture();
+  const cli = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileSync(process.execPath, [cli, ...args], { cwd: created.root, encoding: 'utf8' });
+
+  // The fixture's AGENTS.md carries no contract reference, so check exits 1;
+  // the receipt line must still attribute the findings to their repo.
+  const checked = spawnSync(process.execPath, [cli, 'check'], {
+    cwd: created.root,
+    encoding: 'utf8',
+  });
+  assert.match(checked.stdout, /\(project: project-1\)/);
+  assert.match(checked.stdout, new RegExp(`\\(repo: .*${path.basename(created.root)}\\)`));
+  const checkedJson = JSON.parse(
+    spawnSync(process.execPath, [cli, 'check', '--json'], {
+      cwd: created.root,
+      encoding: 'utf8',
+    }).stdout,
+  );
+  assert.equal(checkedJson.project_id, 'project-1');
+  assert.ok(checkedJson.repository_path);
+
+  const fixed = run('fix', '--dry-run');
+  assert.match(fixed, /\(project: project-1\)/);
+
+  const migrated = run('config', 'migrate', '--dry-run');
+  assert.match(migrated, /\(project: project-1\)/);
+
+  // --commits over an empty range: the human scope line and the JSON receipt
+  // must both attribute the lint to the resolved repo.
+  const commitsHuman = run('check', '--commits', 'dev');
+  assert.match(commitsHuman, /\(project: project-1\)/);
+  const commitsJson = JSON.parse(run('check', '--commits', 'dev', '--json'));
+  assert.equal(commitsJson.project_id, 'project-1');
+  assert.ok(commitsJson.repository_path);
 });
 
 test('203029 CR2: a state doctor failure still names the resolved repository', () => {

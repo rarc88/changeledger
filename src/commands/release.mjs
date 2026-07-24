@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
+import { ledgerReceipt, loadLedgerStore, repoProvenance } from '../ledger-store.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
   bumpVersion,
@@ -22,6 +22,7 @@ export function releasePlan(cwd = process.cwd()) {
   return {
     ...planFor(repo),
     ...(repo.revision ? ledgerReceipt(repo) : {}),
+    ...repoProvenance(cwd),
   };
 }
 

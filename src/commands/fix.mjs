@@ -2,12 +2,20 @@ import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migrateStructuredSections } from '../fix.mjs';
-import { formatLedgerReceipt, ledgerReceipt, loadLedgerStore } from '../ledger-store.mjs';
+import {
+  formatLedgerReceipt,
+  ledgerReceipt,
+  loadLedgerStore,
+  repoProvenance,
+} from '../ledger-store.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
 function printLedgerSnapshot(output, snapshot) {
-  const receipt = formatLedgerReceipt(ledgerReceipt(snapshot));
+  const receipt = formatLedgerReceipt({
+    ...ledgerReceipt(snapshot),
+    ...repoProvenance(snapshot.repoRoot),
+  });
   if (receipt) output.log(receipt);
 }
 

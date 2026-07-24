@@ -1724,6 +1724,29 @@ test('CR6: merges and chore(release) prep are exempt from the lint', () => {
   assert.deepEqual(parsed.errors, []);
 });
 
+test('203029 CR1: check --commits JSON receipts carry provenance in success and failure', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): unmarked subject']);
+
+  const failed = captureOutput();
+  assert.equal(check(['--commits', 'main', '--json'], root, failed), 1);
+  const failure = JSON.parse(failed.calls.at(-1));
+  assert.ok(failure.errors.length);
+  assert.equal(failure.project_id, null);
+  assert.equal(fs.realpathSync(failure.repository_path), fs.realpathSync(root));
+
+  git(['commit', '-q', '--amend', '-m', 'feat(x): marked [#20260711-000001]']);
+  const ok = captureOutput();
+  assert.equal(check(['--commits', 'main', '--json'], root, ok), 0);
+  const success = JSON.parse(ok.calls.at(-1));
+  assert.deepEqual(success.errors, []);
+  assert.equal(success.project_id, null);
+  assert.equal(fs.realpathSync(success.repository_path), fs.realpathSync(root));
+});
+
 test('225638 CR3: check --commits accepts canonical multi-change markers in the body', () => {
   const { root, git } = gitFixture();
   git(['checkout', '-q', '-b', 'feature']);
