@@ -2,7 +2,7 @@
 id: "20260724-212722"
 title: Rechazar un tip remoto de réplica que no apunta a un commit
 type: bug
-status: in-validation
+status: done
 created: 2026-07-24T21:27:22Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -73,3 +73,4 @@ fail-closed sin ruptura de integridad.
 - **2026-07-24T21:31:47Z** `[note]` Implementado: assertCommitTip (cat-file -t == commit) sobre FETCH_HEAD en syncStateReplica y abortStatePending, antes de cualquier validación o transacción. Dos regresiones rojas con la loose ref del remoto reescrita a mano hacia un tag anotado: sync y abort fallan con el diagnóstico exacto conservando confirmed/observed/pending. Gate 1.143/1.143 y 243 changes válidos.
 - **2026-07-24T21:31:47Z** `[status]` in-progress → in-review
 - **2026-07-24T21:38:48Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T21:39:12Z** `[validation]` in-validation → done (human accepted)
