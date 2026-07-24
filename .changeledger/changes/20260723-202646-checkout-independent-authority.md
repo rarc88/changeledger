@@ -2,7 +2,7 @@
 id: "20260723-202646"
 title: Autoridad de estado independiente del checkout
 type: feature
-status: in-validation
+status: done
 created: 2026-07-23T20:26:46Z
 depends_on: ["20260722-202057"]
 owner: raruiz-hiberuscom
@@ -152,3 +152,4 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
 - **2026-07-24T16:49:39Z** `[note]` Desbloqueado por decisión humana (conversación 2026-07-24): los residuos del segundo rechazo quedaron resueltos y aceptados en los changes divididos 20260723-235906 (lectura fail-closed de refs, mutación sin pending fiable) y 20260723-235910 (activation no-commit); sus correcciones están commiteadas junto con las de este change (ef1c6b50, b5a0399a, b959d492). Se solicita review limpio integral de los 9 CRs sobre HEAD.
 - **2026-07-24T16:50:08Z** `[status]` in-progress → in-review
 - **2026-07-24T17:00:49Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T17:07:44Z** `[validation]` in-validation → done (human accepted)

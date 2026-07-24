@@ -2,7 +2,7 @@
 id: "20260724-170123"
 title: Fijar locale neutro en los subprocesos de Git
 type: quick
-status: in-validation
+status: done
 created: 2026-07-24T17:01:23Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -30,3 +30,4 @@ de estructura en inglés).
 - **2026-07-24T17:01:49Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-24T17:04:20Z** `[note]` Implementado: sanitizedGitEnv y receiveGitEnv fijan LC_ALL:'C' antes de los overrides; regresión 170123 fuerza es_ES.UTF-8 en el proceso y exige el diagnóstico inglés en defaultRun y mutatingRun (roja antes del pin en esta máquina). pnpm verify completo sin prefijo de locale: 1.140/1.140 y 242 changes válidos.
 - **2026-07-24T17:04:20Z** `[status]` in-progress → in-validation
+- **2026-07-24T17:07:46Z** `[validation]` in-validation → done (human accepted)
