@@ -222,15 +222,26 @@ function authorityFor(changeledgerDir) {
   return parseStateAuthority(fs.readFileSync(file, 'utf8'));
 }
 
-// The activation commit OID, or null when the ref is absent or the directory is
-// not a git repo. The ref lives in the common dir, so this resolves the same
-// commit from any worktree -- the authority no longer depends on the checkout.
-function activationCommitOid(repoRoot, run) {
+function optionalRefOid(repoRoot, ref, run) {
   try {
-    return run(['rev-parse', '--verify', ACTIVATION_REF], repoRoot).trim();
-  } catch {
-    return null;
+    fs.lstatSync(path.join(repoRoot, '.git'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
   }
+  try {
+    return run(['rev-parse', '--verify', '--quiet', ref], repoRoot).trim() || null;
+  } catch (error) {
+    if (error.cause?.status === 1) return null;
+    throw new Error(`cannot read Git ref ${ref}: ${error.message}`, { cause: error });
+  }
+}
+
+// The activation commit OID, or null only when the ref or Git metadata is
+// absent. Operational read failures must propagate: treating them as absence
+// could serve stale worktree truth.
+function activationCommitOid(repoRoot, run) {
+  return optionalRefOid(repoRoot, ACTIVATION_REF, run);
 }
 
 // Loads the operative authority from the activation commit's committed tree,
@@ -298,16 +309,9 @@ function resolveStateAuthority(repoRoot, changeledgerDir, run) {
 
 // Cheap probe for any v2 replica ref in the repo. A present ref proves the repo
 // was activated; combined with an absent authority it signals a downgrade.
-// Each `rev-parse --verify` throws when the ref is missing OR the directory is
-// not a git repo -- both mean "no replica ref here", so a null result is safe.
 function presentReplicaRef(repoRoot, run) {
   for (const ref of [CONFIRMED_REF, PENDING_REF, OBSERVED_REF]) {
-    try {
-      run(['rev-parse', '--verify', ref], repoRoot);
-      return ref;
-    } catch {
-      // ref absent or not a git repo -- keep probing.
-    }
+    if (optionalRefOid(repoRoot, ref, run)) return ref;
   }
   return null;
 }
@@ -318,18 +322,8 @@ function gitStateRevision(repoRoot, authority, run) {
   let baselineType;
   try {
     if (authority.format_version === 2) {
-      let confirmed;
-      let pending;
-      try {
-        confirmed = run(['rev-parse', '--verify', CONFIRMED_REF], repoRoot).trim();
-      } catch {
-        confirmed = null;
-      }
-      try {
-        pending = run(['rev-parse', '--verify', PENDING_REF], repoRoot).trim();
-      } catch {
-        pending = null;
-      }
+      const confirmed = optionalRefOid(repoRoot, CONFIRMED_REF, run);
+      const pending = optionalRefOid(repoRoot, PENDING_REF, run);
       if (!confirmed && !pending) {
         throw new Error('state replica is unavailable; run `changeledger state sync`');
       }
@@ -344,14 +338,9 @@ function gitStateRevision(repoRoot, authority, run) {
       }
       revision = pending ?? confirmed;
     } else {
-      const hasReplicaRef = [CONFIRMED_REF, OBSERVED_REF, PENDING_REF].some((ref) => {
-        try {
-          run(['rev-parse', '--verify', ref], repoRoot);
-          return true;
-        } catch {
-          return false;
-        }
-      });
+      const hasReplicaRef = [CONFIRMED_REF, OBSERVED_REF, PENDING_REF].some((ref) =>
+        optionalRefOid(repoRoot, ref, run),
+      );
       if (hasReplicaRef) {
         throw new Error(
           'state authority v1 conflicts with local replica v2 refs; resolve the mismatch before reading or mutating the ledger',
@@ -365,7 +354,8 @@ function gitStateRevision(repoRoot, authority, run) {
     if (
       error.message.startsWith('state replica') ||
       error.message.startsWith('invalid state replica') ||
-      error.message.startsWith('state authority v1 conflicts')
+      error.message.startsWith('state authority v1 conflicts') ||
+      error.message.startsWith('cannot read Git ref')
     ) {
       throw error;
     }
@@ -786,6 +776,9 @@ function mutateState(
     replicaValidationCache.set(revision, snapshot);
     return snapshot;
   };
+  // Probe before sync so an unreliable pending read cannot be discovered only
+  // after fetch has written objects or advanced replica refs.
+  if (replica) optionalRefOid(repoRoot, PENDING_REF, run);
   if (replica && options.offline !== true && !preflighted) {
     syncStateReplica(repoRoot, {
       validateRevision: validateReplicaRevision,
@@ -793,11 +786,8 @@ function mutateState(
     });
   }
   if (replica) {
-    try {
-      run(['rev-parse', '--verify', PENDING_REF], repoRoot);
+    if (optionalRefOid(repoRoot, PENDING_REF, run)) {
       throw new Error('resolve the existing pending state before mutating again');
-    } catch (error) {
-      if (error.message === 'resolve the existing pending state before mutating again') throw error;
     }
   }
   const revision = gitStateRevision(repoRoot, authority, run);
@@ -912,9 +902,9 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     // A missing authority alone means legacy worktree mode -- but if v2 replica
     // refs still point at post-cutover truth (a pre-cutover branch checkout or a
     // deleted authority.yml), serving the worktree would silently downgrade to
-    // stale legacy state. Fail closed instead. `run` reaches the repo's refs; a
-    // non-git directory cannot have refs, so every probe throws and we fall
-    // through to the genuine worktree fallback.
+    // stale legacy state. Fail closed instead. A non-Git directory has no
+    // metadata to probe and falls through to the genuine worktree adapter;
+    // operational failures while reading a Git repo propagate.
     const replicaRef = presentReplicaRef(repoRoot, run);
     if (replicaRef) {
       throw new Error(
@@ -959,7 +949,10 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
         requireBaseline: true,
       }),
     prepareMutation: ({ offline = false } = {}) => {
-      if (replica && !offline) syncReplica();
+      if (replica && !offline) {
+        optionalRefOid(repoRoot, PENDING_REF, run);
+        syncReplica();
+      }
       const snapshot = load();
       prepared = { revision: snapshot.revision, offline: Boolean(offline) };
       return snapshot;

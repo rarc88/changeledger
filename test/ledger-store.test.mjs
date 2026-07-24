@@ -1353,6 +1353,107 @@ test('202646 CR4: activation ignores an absent, v1 or identical v2 worktree auth
   assert.equal(loadLedgerStore(absent.root).load().mode, 'state');
 });
 
+test('235906: ref read failures never degrade or allow a mutation', () => {
+  const activationFailure = fixture({ authorityFormat: 2, seedConfirmed: true });
+  preCutoverWorktree(activationFailure.root);
+  const unreadableActivation = (args, cwd, options) => {
+    if (args[0] === 'rev-parse' && args.at(-1) === 'refs/changeledger/activation') {
+      throw new Error('EACCES: activation ref is unreadable');
+    }
+    return defaultRun(args, cwd, options);
+  };
+  assert.throws(
+    () => loadLedgerStore(activationFailure.root, { run: unreadableActivation }),
+    /activation ref is unreadable/,
+  );
+  assert.throws(
+    () => repoProvenance(activationFailure.root, { run: unreadableActivation }),
+    /activation ref is unreadable/,
+  );
+
+  const replicaFailure = fixture({ authorityFormat: 2, seedConfirmed: true });
+  preCutoverWorktree(replicaFailure.root);
+  const unreadableReplica = (args, cwd, options) => {
+    if (args[0] === 'rev-parse' && args.at(-1) === 'refs/changeledger/activation') {
+      const error = new Error('missing activation');
+      error.cause = { status: 1 };
+      throw error;
+    }
+    if (args[0] === 'rev-parse' && args.at(-1) === CONFIRMED_REF) {
+      throw new Error('EACCES: confirmed ref is unreadable');
+    }
+    return defaultRun(args, cwd, options);
+  };
+  assert.throws(
+    () => loadLedgerStore(replicaFailure.root, { run: unreadableReplica }),
+    /confirmed ref is unreadable/,
+  );
+
+  const activeReplicaFailure = fixture({ authorityFormat: 2, seedConfirmed: true });
+  const unreadableActiveConfirmed = (args, cwd, options) => {
+    if (args[0] === 'rev-parse' && args.at(-1) === CONFIRMED_REF) {
+      throw new Error('EACCES: active confirmed ref is unreadable');
+    }
+    return defaultRun(args, cwd, options);
+  };
+  assert.throws(
+    () => loadLedgerStore(activeReplicaFailure.root, { run: unreadableActiveConfirmed }).load(),
+    /active confirmed ref is unreadable/,
+  );
+
+  const mutationFailure = fixture({ authorityFormat: 2, seedConfirmed: true });
+  let failNextPendingRead = false;
+  const unreadableMutationPending = (args, cwd, options) => {
+    if (failNextPendingRead && args[0] === 'rev-parse' && args.at(-1) === PENDING_REF) {
+      failNextPendingRead = false;
+      throw new Error('EACCES: mutation pending ref is unreadable');
+    }
+    return defaultRun(args, cwd, options);
+  };
+  const mutationStore = loadLedgerStore(mutationFailure.root, {
+    run: unreadableMutationPending,
+  });
+  const beforeMutation = mutationStore.load();
+  const readMutationRef = (ref) => {
+    try {
+      return git(mutationFailure.root, ['rev-parse', '--verify', ref]);
+    } catch {
+      return null;
+    }
+  };
+  const beforeMutationRefs = {
+    confirmed: readMutationRef(CONFIRMED_REF),
+    observed: readMutationRef('refs/changeledger/observed'),
+    pending: readMutationRef(PENDING_REF),
+  };
+  const beforeMutationObjects = git(mutationFailure.root, ['count-objects', '-v']);
+  let mutatorCalled = false;
+  failNextPendingRead = true;
+  assert.throws(
+    () =>
+      mutationStore.mutate(
+        {
+          message: 'test: must not mutate with unreadable pending',
+          expectedRevision: beforeMutation.revision,
+        },
+        () => {
+          mutatorCalled = true;
+        },
+      ),
+    /mutation pending ref is unreadable/,
+  );
+  assert.equal(mutatorCalled, false);
+  assert.deepEqual(
+    {
+      confirmed: readMutationRef(CONFIRMED_REF),
+      observed: readMutationRef('refs/changeledger/observed'),
+      pending: readMutationRef(PENDING_REF),
+    },
+    beforeMutationRefs,
+  );
+  assert.equal(git(mutationFailure.root, ['count-objects', '-v']), beforeMutationObjects);
+});
+
 test('202646 bootstrap: a v2 worktree authority without activation fails closed', () => {
   const { root } = fixture({ authorityFormat: 2, seedConfirmed: true, install: false });
   assert.throws(

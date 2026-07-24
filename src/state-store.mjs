@@ -36,9 +36,10 @@ function git(repoRoot, args, options) {
 
 function resolveRef(repoRoot, ref) {
   try {
-    return git(repoRoot, ['rev-parse', '--verify', ref]);
-  } catch {
-    return null;
+    return git(repoRoot, ['rev-parse', '--verify', '--quiet', ref]);
+  } catch (error) {
+    if (error.cause?.status === 1) return null;
+    throw new Error(`cannot read Git ref ${ref}: ${error.message}`, { cause: error });
   }
 }
 
