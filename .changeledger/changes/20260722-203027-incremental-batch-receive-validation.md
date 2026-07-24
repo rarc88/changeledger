@@ -2,7 +2,7 @@
 id: "20260722-203027"
 title: Validación incremental de batches por blob OID
 type: refactor
-status: in-progress
+status: in-validation
 created: 2026-07-22T20:30:27Z
 depends_on: ["20260722-202059", "20260722-202058"]
 owner: raruiz-hiberuscom
@@ -70,10 +70,14 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
   - **Resolved:** `2026-07-23T00:55:00Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-23T00:58:00Z`
-- [ ] Subir `max_object_bytes` default a 64 MiB en `src/state-validation.mjs` con test rojo que exige que el default cubra con margen los 33.754.846 bytes medidos del perfil declarado (256 commits × 5.000 changes); verify: `node --test test/state-validation.test.mjs` (support)
-- [ ] Extender `scripts/bench-batch-validation.mjs` con `--limits default` y re-ejecutar 256 commits × 5.000 changes × 1/3 docs con presupuestos default, registrando p95 y object_bytes en el Log; verify: `node scripts/bench-batch-validation.mjs --commits 256 --sizes 5000 --limits default` acepta dentro de budget (support)
-- [ ] Publicar la envolvente de sizing del hook en la sección pre-receive de `README.md` (defaults, perfil declarado medido, cómo redimensionar con --max-commits/--max-object-bytes/--timeout-ms); verify: revisión manual de la sección renderizada (support)
-- [ ] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
+- [x] Subir `max_object_bytes` default en `src/state-validation.mjs` hasta cubrir con margen el total real medido del perfil declarado (256 commits × 5.000 changes: 67.188.836 bytes — el 33.754.846 de la reauditoría era el punto de aborto del budget de 32 MiB, no el total), con test rojo que ancla default y margen; verify: `node --test test/state-validation.test.mjs` (support)
+  - **Resolved:** `2026-07-24T17:16:54Z`
+- [x] Extender `scripts/bench-batch-validation.mjs` con `--limits default` y re-ejecutar 256 commits × 5.000 changes × 1/3 docs con presupuestos default, registrando p95 y object_bytes en el Log; verify: `node scripts/bench-batch-validation.mjs --commits 256 --sizes 5000 --limits default` acepta dentro de budget (support)
+  - **Resolved:** `2026-07-24T17:16:54Z`
+- [x] Publicar la envolvente de sizing del hook en la sección pre-receive de `README.md` (defaults, perfil declarado medido, cómo redimensionar con --max-commits/--max-object-bytes/--timeout-ms); verify: revisión manual de la sección renderizada (support)
+  - **Resolved:** `2026-07-24T17:16:54Z`
+- [x] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-24T17:16:54Z`
 
 ## Log
 
@@ -91,3 +95,9 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 - **2026-07-23T09:19:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T22:58:06Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 confirma que la matriz 256 commits x 5000 changes solo pasa con budgets ampliados; con defaults excede 32 MiB. La evidencia no demuestra el perfil default declarado ni el runbook publica su envolvente.
 - **2026-07-24T17:09:35Z** `[note]` Dirección de la reapertura autorizada por el humano (conversación 2026-07-24): default de max_object_bytes a 64 MiB — cubre el perfil declarado (33.754.846 bytes) con ~2x de margen, coste de memoria transitorio acotado en el hook — más publicación de la envolvente en el runbook del README.
+- **2026-07-24T17:16:54Z** `[note]` Corrección de la reapertura: el intento inicial autorizado (64 MiB) resultó insuficiente al medir el total real — el benchmark con defaults rechazó a 67.188.836 bytes; el 33.754.846 de la reauditoría era el punto de aborto del budget de 32 MiB, no el total del perfil. Los bytes los dominan los tree objects por commit de una colección de 5.000 entradas, no los blobs. Default subido a 128 MiB (~2x sobre el perfil): test 203027 ancla default y margen sobre 68.078.810 bytes medidos. Benchmark con presupuestos default (--limits default nuevo en scripts/bench-batch-validation.mjs, ahora reporta object_bytes): 256 commits x 5.000 changes -> p50/p95 5.631/5.655 ms (1 doc) y 5.499/5.555 ms (3 docs), object_bytes 67.984.310/68.078.810; dentro de budget y ~5x bajo el timeout de 30 s. Envolvente publicada en README (sección pre-receive): defaults, perfil declarado, comando reproducible y cómo redimensionar el hook. Gate 1.141/1.141 y 242 changes válidos.
+- **2026-07-24T17:16:54Z** `[status]` in-progress → in-review
+- **2026-07-24T17:25:15Z** `[review]` in-review → in-progress (retry): El diff incluye un comentario que declara '64 MiB default' (src/state-validation.mjs:33) cuando el default es 128 MiB, y la justificación de la línea 92-94 (default igual a GIT_MAX_BUFFER) quedó falsa; en un change cuyo objetivo es publicar una envolvente exacta, las contradicciones en fuente incumplen el criterio. Corregir ambas líneas.
+- **2026-07-24T17:26:01Z** `[note]` Corrección del retry: los dos comentarios contradictorios de src/state-validation.mjs actualizados — el límite de diagnóstico cita 128 MiB y la justificación del maxBuffer describe la relación real entre el default (128 MiB) y el chunk cap de git-batch (32 MiB). Suites focalizadas 40/40.
+- **2026-07-24T17:26:01Z** `[status]` in-progress → in-review
+- **2026-07-24T17:30:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
