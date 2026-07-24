@@ -427,6 +427,42 @@ test('202058 CR2: a removal published between preflight and mutate fails the pos
   assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
 });
 
+test('212722 CR1: sync rejects a hand-corrupted remote tip that is not a commit', () => {
+  const { root, baseline } = replicaStateRepo();
+  git(root, ['tag', '-a', '-m', 'evil', 'evil-tag', baseline]);
+  const tag = git(root, ['rev-parse', 'evil-tag']);
+  // git update-ref and receive-pack both refuse a non-commit branch tip, so
+  // reproduce the hostile/corrupted remote by writing the loose ref by hand.
+  fs.writeFileSync(path.join(root, '.git', 'refs', 'heads', 'changeledger', 'state'), `${tag}\n`);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`state replica tip ${tag} must point to a commit`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', OBSERVED_REF]), baseline);
+  assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
+});
+
+test('212722 CR2: abort rejects the same non-commit remote tip preserving the pending', () => {
+  const { root, baseline } = replicaStateRepo();
+  const pendingHead = advancePublicState(root, 'test: benign pending', () => {
+    const file = path.join(root, '.changeledger-state/changes/20260721-000000-change.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('title: Demo', 'title: New'));
+  });
+  git(root, ['update-ref', PENDING_REF, pendingHead]);
+  git(root, ['tag', '-a', '-m', 'evil', 'evil-tag', pendingHead]);
+  const tag = git(root, ['rev-parse', 'evil-tag']);
+  fs.writeFileSync(path.join(root, '.git', 'refs', 'heads', 'changeledger', 'state'), `${tag}\n`);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.abort({}),
+    new RegExp(`state replica tip ${tag} must point to a commit`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), pendingHead);
+});
+
 test('202058 CR2: a preserving remote advance still syncs and confirms', () => {
   const { root } = replicaStateRepo();
   const advanced = advancePublicState(root, 'test: preserving advance', () => {

@@ -2,7 +2,7 @@
 id: "20260724-212722"
 title: Rechazar un tip remoto de réplica que no apunta a un commit
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-24T21:27:22Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -58,8 +58,10 @@ fail-closed sin ruptura de integridad.
 
 ## Plan
 
-- [ ] Añadir tests rojos con la ref del remoto corrompida a mano hacia tag/blob (sha1) y verificar refs intactos, e implementar la aserción de tipo commit sobre el tip fetched en `src/state-store.mjs` antes de cualquier transacción que confirme (sync y abort); verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR1, CR2, CR3)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Añadir tests rojos con la ref del remoto corrompida a mano hacia tag/blob (sha1) y verificar refs intactos, e implementar la aserción de tipo commit sobre el tip fetched en `src/state-store.mjs` antes de cualquier transacción que confirme (sync y abort); verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-24T21:31:47Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-24T21:31:47Z`
 
 ## Log
 
@@ -68,3 +70,6 @@ fail-closed sin ruptura de integridad.
 - **2026-07-24T21:28:03Z** `[note]` Aprobado por el humano en conversación (2026-07-24: 'procede a crear los draft... y en cualquier caso procede a hacer las correcciones' sobre los hallazgos enumerados del audit).
 - **2026-07-24T21:28:04Z** `[status]` approved → in-progress
 - **2026-07-24T21:28:04Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-24T21:31:47Z** `[note]` Implementado: assertCommitTip (cat-file -t == commit) sobre FETCH_HEAD en syncStateReplica y abortStatePending, antes de cualquier validación o transacción. Dos regresiones rojas con la loose ref del remoto reescrita a mano hacia un tag anotado: sync y abort fallan con el diagnóstico exacto conservando confirmed/observed/pending. Gate 1.143/1.143 y 243 changes válidos.
+- **2026-07-24T21:31:47Z** `[status]` in-progress → in-review
+- **2026-07-24T21:38:48Z** `[review]` in-review → in-validation (delegated subagent, clean context)

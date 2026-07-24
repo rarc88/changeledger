@@ -161,6 +161,19 @@ export function keepStateReplicaRevision(repoRoot, confirmed) {
   return readStateReplica(repoRoot);
 }
 
+// A replica tip that does not peel to a commit is invalid state, never
+// adoptable truth -- the same classification the activation ref already gets
+// (20260723-235910). The snapshot validators peel tags transparently
+// (ls-tree/show/merge-base), so the object type must be asserted explicitly
+// before any confirming transaction. git itself refuses to create the
+// condition through update-ref or receive-pack; this guards against a hostile
+// or hand-corrupted remote.
+function assertCommitTip(repoRoot, oid) {
+  if (git(repoRoot, ['cat-file', '-t', oid]) !== 'commit') {
+    throw new Error(`state replica tip ${oid} must point to a commit`);
+  }
+}
+
 function isAncestor(repoRoot, ancestor, descendant) {
   try {
     git(repoRoot, ['merge-base', '--is-ancestor', ancestor, descendant]);
@@ -283,6 +296,7 @@ export function syncStateReplica(
   });
   const fetched = resolveRef(repoRoot, 'FETCH_HEAD');
   if (!fetched) throw new Error(`remote "${remote}" has no ${PUBLIC_STATE_REF}`);
+  assertCommitTip(repoRoot, fetched);
   const at = now();
   validateRevision(fetched);
   if (before.pending) {
@@ -511,6 +525,7 @@ export function abortStatePending(
     });
     fetched = resolveRef(repoRoot, 'FETCH_HEAD');
     if (!fetched) throw new Error(`remote "${remote}" has no ${PUBLIC_STATE_REF}`);
+    assertCommitTip(repoRoot, fetched);
     validateRevision(fetched);
   } catch (error) {
     throw new Error(
