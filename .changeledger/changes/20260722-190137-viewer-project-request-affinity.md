@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: done
+status: in-progress
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -139,6 +139,8 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
   - **Resolved:** `2026-07-24T13:03:12Z`
 - [x] Ejecutar formatter, suites afectadas, `pnpm verify`, `changeledger check` y `git diff --check` sobre el candidato sistémico antes de solicitar una sola revisión integral (support)
   - **Resolved:** `2026-07-24T13:05:59Z`
+- [ ] Añadir tests rojos y devolver identidad (`project_id`+`repository_path`) en todos los payloads de error del viewer con proyecto resuelto —incluido 410 y los errores de status/config/preview/sync/repair/unregister— mediante un helper común en `src/viewer/domain.mjs`; los 404 de proyecto inexistente quedan sin identidad por incognoscible; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR2, CR4)
+- [ ] Ejecutar el gate completo tras la reapertura; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -198,3 +200,4 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
 - **2026-07-24T13:24:07Z** `[status]` in-progress → in-review
 - **2026-07-24T14:38:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-24T16:45:18Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-24T22:11:44Z** `[status]` done → in-progress (agent reopened): La tercera ejecución del audit (RECEIPT-02) encontró scope original sin completar: los payloads de error del viewer se emiten como {error} pelado sin project_id ni repository_path incluso con el proyecto target plenamente resuelto (POST /api/status 403/404/409/400/410, config 409, preview 400, repair/unregister 400), contradiciendo el CR4 'errores, toasts y receipts identifican inequívocamente su target' y el CR2 de receipts con identidad.
