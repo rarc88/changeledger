@@ -2,7 +2,7 @@
 id: "20260722-203027"
 title: Validación incremental de batches por blob OID
 type: refactor
-status: in-validation
+status: in-progress
 created: 2026-07-22T20:30:27Z
 depends_on: ["20260722-202059", "20260722-202058"]
 owner: raruiz-hiberuscom
@@ -85,3 +85,4 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 - **2026-07-23T01:23:54Z** `[review]` in-review → in-progress (retry): logRawEntries missing --no-renames caused an opaque parse error on rename instead of the correct identity-disappearance rejection; fixed and re-verified
 - **2026-07-23T01:24:00Z** `[status]` in-progress → in-review
 - **2026-07-23T09:19:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T22:58:06Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 confirma que la matriz 256 commits x 5000 changes solo pasa con budgets ampliados; con defaults excede 32 MiB. La evidencia no demuestra el perfil default declarado ni el runbook publica su envolvente.

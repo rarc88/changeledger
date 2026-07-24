@@ -2,7 +2,7 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: done
+status: in-progress
 created: 2026-07-22T20:20:58Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -102,3 +102,4 @@ más allá de esta política.
 - **2026-07-22T22:22:39Z** `[status]` in-progress → in-review
 - **2026-07-22T22:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-22T23:55:47Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-23T22:58:27Z** `[status]` done → in-progress (agent reopened): La reauditoría be058658 demuestra que state sync confirma un descendiente que elimina una identidad y recovery exporta el snapshot incompleto; CR2 no cubre la frontera sync/recovery.

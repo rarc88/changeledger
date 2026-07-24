@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -19,6 +19,10 @@ related_to:
   - "20260722-181235"
   - "20260722-185043"
   - "20260722-190137"
+  - "20260722-202058"
+  - "20260722-203027"
+  - "20260722-203029"
+  - "20260723-202646"
 ---
 
 ## Request
@@ -182,27 +186,54 @@ para poder cerrar el audit.
 | PERF-02 | Volumen de 1.000 changes con specs/releases; límite del hook SHA-1 | Repo v2 con 1.000 changes done, 100 specs y 4 releases; `node /tmp/changeledger-audit-performance.mjs 1000 3` | 1.106 archivos, replica activada, worktree limpio | Completar validación dentro del presupuesto del hook | Load p50/p95 17.676/17.935 ms; check 55/58 ms; viewer 12/21 ms; search 1,9/3,4 ms; receive abortó a 30.001 ms mientras leía changes | `ValidationTimeoutError`, receipt con OIDs y 1 commit/237 bytes; sin escritura | **fail — medio, límite operativo no declarado** |
 | PERF-03 | Volumen de 5.000 changes con specs/releases; límite del hook SHA-1 | Repo v2 con 5.000 changes done, 500 specs y 20 releases; `node /tmp/changeledger-audit-performance.mjs 5000 3` | 5.522 archivos, replica activada, worktree limpio | Completar validación dentro del presupuesto del hook | Load p50/p95 87.226/88.431 ms; check 268/272 ms; viewer 41/47 ms; search 9/12 ms; receive abortó a 30.002 ms antes de completar inventario | Timeout fail-closed con receipt, `commits:0`, `object_bytes:0`; worktree limpio | **fail — medio, escala incluida no soportada** |
 
+### Recalificación sobre `be058658`
+
+La siguiente tabla sustituye el dictamen del baseline anterior. Todas sus filas
+se ejecutaron sobre `be058658b5dfe510277f419874d8d28be800ebce`; los runners
+temporales se adaptaron únicamente para instalar la nueva
+`refs/changeledger/activation`, sin modificar código productivo.
+
+| ID | Invariante y topología | Preparación y comando | Esperado | Observado | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| BASE-02 | Baseline reproducible | Árbol limpio; versiones, ref y formato | Una única base para toda la repetición | ChangeLedger 0.13.0; Node v24.18.0; pnpm 11.13.0; Git 2.55.0; macOS 26.5.2 arm64; SHA-1; `origin/codex/state-replica-v2` y HEAD en `be058658` | pass |
+| GATE-02 | Gate completo | `pnpm verify` | Lint, tests y ledger válidos | 1.071/1.071 tests; Biome limpio; 239 changes válidos | pass |
+| LEGACY-03 | Compatibilidad legacy observada | Preflight read-only real y suites focalizadas de store/migración | Clasificación explícita sin escrituras implícitas | 184 documentos: 39 válidos, 135 normalizables y 10 `requires-replacement`; refs/worktree sin cambios; 171/171 tests focalizados | pass del protocolo; 10 decisiones humanas pendientes para ese repo real |
+| ISOL-03 | Escrituras viewer A / CLI cwd B | `node /tmp/changeledger-audit-cross-project-v2.mjs` | Cada operación conserva su target | A y B publicaron y confirmaron únicamente sus propios OIDs; remotos y worktrees aislados; 13,197 s | pass de aislamiento de verdad |
+| ISOL-04 | Afinidad de todas las continuaciones del viewer | JSDOM: validación tardía A con detalle B; navegación explícita A→B mientras selección pasa a C; dos previews A en orden inverso | Ningún resultado se atribuye al proyecto visible equivocado y gana la request más nueva | Error `Alpha conflict` de A apareció en detalle B; `gotoChange` abrió `C shared change`; preview antiguo reemplazó al nuevo | **fail — crítico, owner `20260722-190137` reabierto** |
+| RECEIPT-01 | Procedencia autocontenida | Inventario de productores y runner A/B | Cada receipt identifica proyecto, repo y revisión | Viewer sync/mutaciones omiten `project_id`/`repository_path`; algunos productores CLI aún omiten `repoProvenance` | **fail — medio, owner `20260722-203029` reabierto** |
+| AUTH-01 | Errores al leer refs no degradan autoridad | Inyectar fallo de lectura de `activation` y refs de réplica con refs reales presentes | Fallo cerrado | `loadLedgerStore` sirvió modo `worktree` y `project_id: stale-worktree` | **fail — crítico, owner `20260723-202646` reabierto** |
+| AUTH-02 | Deactivation ligada a integration branch | `deactivateStateActivation({integrationRef:'refs/heads/not-dev'})` mientras `dev` conserva authority v2 | Rechazo sin mover refs | Aceptó la rama ajena y eliminó activation/confirmed/observed | **fail — crítico, owner `20260723-202646` reabierto** |
+| AUTH-03 | Install valida la authority completa | Authority candidata con `state_ref` no soportada | Rechazo antes del CAS | Install fijó activation; la lectura posterior rechazó el `state_ref` | **fail — alto, owner `20260723-202646` reabierto** |
+| TRUTH-01 | Sync y recovery conservan identidades | Descendiente válido que elimina el único change; sync sin hook y export posterior | Sync rechaza y recovery nunca materializa el estado incompleto | Sync devolvió `advance-confirmed`; la lectura posterior detectó la desaparición, pero recovery creó una rama sin el change | **fail — crítico, owner `20260722-202058` reabierto** |
+| CONV-02 | Tres clones, disjuntos, overlap y rewind; SHA-1/SHA-256 | Runners reales con activation común y remoto alternativo en C | Convergencia y fallos cerrados | Todos convergieron; overlap conservó pending perdedor; rewind conservó confirmed y recuperó al restaurar remoto; worktrees limpios | pass |
+| FAULT-05 | Object write, CAS, metadata, SIGKILL, fetch y ENOSPC | Runners externos adaptados a activation | Sin estado parcial; retry determinista | Todos preservaron refs esperadas; publicaciones ambiguas reconciliaron con `confirm-observed`; fetch/ENOSPC conservaron pending/confirmed | pass |
+| MIG-02 | Migración, activación y recovery focalizados | Suites de migration/store/command | Ciclo actual válido en SHA-1/SHA-256 | Suites focalizadas verdes; los defectos adversariales de deactivation y recovery quedan separados en AUTH-02/TRUTH-01 | pass parcial; no compensa los fails críticos |
+| ENF-03 | Validación remota y capabilities | 8 suites focalizadas | Batch, quarantine y límites fallan cerrados | 237/237 tests; self-managed conserva content/history checks; hosted sigue sin adapter autenticado | pass dentro de la topología declarada |
+| PERF-04 | 250 changes, 25 specs, 1 release | `node /tmp/changeledger-audit-performance.mjs 250 3` | Medición sin SLO inferido | Load p50/p95 186/227 ms; receive 346/383 ms; RSS 150 MB | pass de capacidad |
+| PERF-05 | 1.000 changes, 100 specs, 4 releases | `node /tmp/changeledger-audit-performance.mjs 1000 3` | Medición sin SLO inferido | Load p50/p95 201/286 ms; receive 504/593 ms; RSS 270 MB | pass de capacidad |
+| PERF-06 | 5.000 changes, 500 specs, 20 releases | `node /tmp/changeledger-audit-performance.mjs 5000 3` | Medición sin SLO inferido | Load p50/p95 413/1.184 ms; receive 1.185/1.212 ms; RSS 405 MB | pass de capacidad; tres muestras no establecen SLO |
+| PERF-07 | Batch 256 commits × 5.000 changes con defaults | Benchmark incremental con `max_commits=256`, 32 MiB y 30 s | El perfil declarado cabe en defaults o se documenta su sizing | Rechazo fail-closed a 33.754.846 bytes; el benchmark verde usa 256 MiB/120 s y el runbook no publica la envolvente | **fail — medio, owner `20260722-203027` reabierto** |
+
 ### Dictamen y límites por topología
 
-**Decisión: `no-release`.** El core de réplica sí demostró conservación de verdad,
-convergencia, conflicto/rewind fail-closed y recuperación tras fallos en SHA-1 y
-SHA-256. Sin embargo, ISOL-02 mantiene un hallazgo crítico abierto: el viewer
-puede renderizar y atribuir a B una respuesta tardía de A, y sus receipts de sync
-no identifican por sí solos `project_id`/repositorio. `20260722-190137` es el
-owner. Mientras siga abierto, no es elegible ni siquiera para Experimental.
+**Decisión vigente: `no-release`.** La segunda ejecución confirma avances
+materiales: convergencia, conflictos, rewinds y fronteras Git pasan en SHA-1 y
+SHA-256; el protocolo legacy clasifica documentos históricos explícitamente; y
+la materialización en lote elimina el antiguo cuello de lectura/validación hasta
+5.000 changes en el caso de un commit.
 
-Aunque se cierre el crítico, LEGACY-02 limita el máximo a Experimental: un ledger
-real previamente aceptado no puede migrarse mediante el cutover seguro actual.
-`20260722-185043` es el owner alto. Experimental requeriría además opt-in,
-backup y recovery ensayado. Beta solo sería candidata, después de ambos fixes,
-en self-managed con `pre-receive` instalado y verificado; hosted permanece fuera
-de Beta/GA hasta existir un adaptador autenticado real. `owner` nunca es ACL.
+No obstante, cuatro invariantes críticas siguen abiertas: continuaciones del
+viewer atribuidas al proyecto equivocado (`20260722-190137`), fallback a
+worktree al fallar la lectura de refs y deactivation desligada de la integration
+branch (`20260723-202646`), y sync/recovery capaces de confirmar y exportar una
+revisión que elimina verdad (`20260722-202058`). Cualquiera de ellas bloquea
+Experimental, Beta y GA por sí sola.
 
-GA queda adicionalmente bloqueada por ausencia de SLO, timeout remoto desde
-1.000 changes, lectura p95 de 88,43 s a 5.000 y recovery con intervención
-administrativa manual. No se encontró pérdida silenciosa ni se forzó una
-clasificación positiva: los fallos de performance son fail-closed y los límites
-de proveedor están expuestos honestamente.
+Tras resolverlas, self-managed podría volver a evaluarse para Beta con hook
+instalado y recovery ensayado. Hosted seguiría como máximo Experimental mientras
+no exista un adapter autenticado. GA requiere además SLO aprobado, sizing del
+hook publicado y probado con defaults, receipts autocontenidos y recovery
+administrativo automatizado o ensayado end-to-end. `owner` continúa sin ser ACL.
 
 ## Log
 
@@ -220,3 +251,6 @@ de proveedor están expuestos honestamente.
 - **2026-07-22T19:49:40Z** `[note]` Cierre de matriz: se invalidó la evidencia ISOL-01 original al detectar authority v1 en el runner y se reemplazó por dos réplicas/remotos v2 reales. Mutaciones y sync concurrentes A/B conservaron refs, contenido y worktrees aislados; el receipt sin project_id/repositorio refuerza el crítico 20260722-190137. FAULT-04 cubrió fetch y ENOSPC; MIG/ENF/COMPAT pasaron 31/24/43 casos. Dictamen no-release sin forzar: crítico viewer y alto legacy abiertos; hosted sin adapter, performance y recovery manual impiden niveles superiores.
 - **2026-07-22T19:50:00Z** `[status]` in-progress → in-validation
 - **2026-07-23T20:25:40Z** `[validation]` in-validation → in-progress (agent rejected): Sus resultados describen el baseline y performance anteriores a 3267a28b; re-ejecutar la calificación sobre el baseline vigente cuando cierren los dos críticos de la auditoría externa.
+- **2026-07-23T23:00:15Z** `[note]` Recalificación congelada en be058658b5dfe510277f419874d8d28be800ebce: gate completo 1.071/1.071, convergencia SHA-1/SHA-256 y matriz de fallos Git verdes; performance de un successor mejoró a load/receive p95 1,18/1,21 s con 5.000 changes. El preflight real legacy clasificó 184 documentos sin escrituras (39 válidos, 135 normalizables, 10 replacements explícitos).
+- **2026-07-23T23:00:15Z** `[note]` La reejecución adversarial encontró blockers nuevos o incompletamente corregidos: viewer atribuye continuaciones tardías a otro proyecto y gotoChange abre C tras navegar a B (190137 reabierto); errores de lectura de refs degradan a worktree, deactivate acepta not-dev e install fija state_ref inválida (202646 reabierto); sync confirma una revisión que elimina un change y recovery la exporta incompleta (202058 reabierto). Receipts incompletos (203029) y sizing incremental fuera de defaults (203027) también volvieron a in-progress. Dictamen vigente: no-release.
+- **2026-07-23T23:02:44Z** `[status]` in-progress → in-validation

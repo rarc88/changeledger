@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: in-validation
+status: in-progress
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -89,3 +89,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-23T15:05:41Z** `[note]` Corrección tras fail-retry: agregado test que ejercita la rama de degradación real (state doctor --json fuera de cualquier repo inicializado) y confirma project_id: null con repository_path presente. node --test + pnpm verify verdes (977 tests).
 - **2026-07-23T15:05:41Z** `[status]` in-progress → in-review
 - **2026-07-23T15:11:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-23T22:57:48Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 confirma receipts sin procedencia autocontenida: viewer sync/mutations omiten project_id y repository_path, y varios productores CLI aún no llaman repoProvenance. El criterio de todos los receipts no se cumple.
