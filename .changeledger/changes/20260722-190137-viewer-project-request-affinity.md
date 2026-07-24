@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -209,3 +209,4 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
 - **2026-07-24T22:38:48Z** `[note]` Corrección del retry: los diez guards de identidad quedan anclados individualmente (verificado por mutación sobre copia scratch completa: retirar cualquiera rompe exactamente su aserción) mediante un caso fallido por handler y tres lecturas 410 con path desaparecido. Extendida la identidad a los dos payloads del router que seguían anónimos con proyecto resuelto: el 400 'repository_path is required' de las rutas de escritura y el 410 de GET /api/repo, ambos anclados por una regresión HTTP nueva y verificados por mutación. Reconciliada la nota del test 190008 CR1: el mensaje de error sigue sin filtrar paths; un path solo aparece como atribución declarada repository_path de un proyecto que la propia request resolvió, y el 404 anónimo se asevera explícitamente. Gate 1.148/1.148 y 243 changes válidos.
 - **2026-07-24T22:38:49Z** `[status]` in-progress → in-review
 - **2026-07-24T22:51:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T23:32:53Z** `[validation]` in-validation → done (human accepted)
