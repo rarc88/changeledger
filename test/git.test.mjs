@@ -145,6 +145,27 @@ test('170613: defaultRun includes git stderr in the thrown error on its read pat
   );
 });
 
+test('170123: git subprocesses emit English diagnostics regardless of process locale', () => {
+  const root = scratchGitRepo();
+  const saved = { LC_ALL: process.env.LC_ALL, LANG: process.env.LANG };
+  process.env.LC_ALL = 'es_ES.UTF-8';
+  process.env.LANG = 'es_ES.UTF-8';
+  try {
+    for (const runner of [defaultRun, mutatingRun]) {
+      assert.throws(
+        () => runner(['rev-parse', '--verify', 'refs/heads/definitely-missing'], root),
+        /needed a single revision/i,
+        'runner must pin a neutral locale so git stderr stays deterministic',
+      );
+    }
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('170613: defaultRun still returns stdout unchanged on success', () => {
   const root = scratchGitRepo();
   const out = defaultRun(['rev-parse', '--is-inside-work-tree'], root);

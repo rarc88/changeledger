@@ -35,7 +35,9 @@ const GIT_LOCATION_ENV_VARS = [
 export function sanitizedGitEnv(overrides = {}) {
   const env = { ...process.env };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return { ...env, ...overrides };
+  // Git diagnostics are matched and re-wrapped by message in several layers;
+  // pin a neutral locale so they never localize with the host environment.
+  return { ...env, LC_ALL: 'C', ...overrides };
 }
 
 // Server hooks must retain Git's quarantine object locations so incoming
@@ -51,7 +53,7 @@ export function receiveGitEnv(overrides = {}) {
   ]) {
     delete env[key];
   }
-  return { ...env, ...overrides };
+  return { ...env, LC_ALL: 'C', ...overrides };
 }
 
 // Exported so other commands (e.g. `changeledger commit`) share the same
