@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-validation
+status: in-progress
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -254,3 +254,5 @@ administrativo automatizado o ensayado end-to-end. `owner` continúa sin ser ACL
 - **2026-07-23T23:00:15Z** `[note]` Recalificación congelada en be058658b5dfe510277f419874d8d28be800ebce: gate completo 1.071/1.071, convergencia SHA-1/SHA-256 y matriz de fallos Git verdes; performance de un successor mejoró a load/receive p95 1,18/1,21 s con 5.000 changes. El preflight real legacy clasificó 184 documentos sin escrituras (39 válidos, 135 normalizables, 10 replacements explícitos).
 - **2026-07-23T23:00:15Z** `[note]` La reejecución adversarial encontró blockers nuevos o incompletamente corregidos: viewer atribuye continuaciones tardías a otro proyecto y gotoChange abre C tras navegar a B (190137 reabierto); errores de lectura de refs degradan a worktree, deactivate acepta not-dev e install fija state_ref inválida (202646 reabierto); sync confirma una revisión que elimina un change y recovery la exporta incompleta (202058 reabierto). Receipts incompletos (203029) y sizing incremental fuera de defaults (203027) también volvieron a in-progress. Dictamen vigente: no-release.
 - **2026-07-23T23:02:44Z** `[status]` in-progress → in-validation
+- **2026-07-24T16:52:08Z** `[validation]` in-validation → in-progress (agent rejected): Los owners críticos de la recalificación be058658 (190137, 202058, 202646→235906/235910, 203029) fueron corregidos y aceptados; el humano solicita una tercera ejecución integral de la calificación sobre el baseline vigente, tras cerrar 203027 (sizing) y 202646 (in-review). Los resultados actuales describen un baseline superado.
+- **2026-07-24T16:52:08Z** `[note]` Preparación de la tercera ejecución: congelar baseline tras aceptar 202646 y cerrar 203027 (dirección propuesta: max_object_bytes default 64 MiB + envolvente publicada en el runbook). La matriz debe re-ejecutar como mínimo ISOL-04, RECEIPT-01, AUTH-01..03, TRUTH-01 y PERF-07 con defaults, además del gate, convergencia y fallos Git de rutina.
