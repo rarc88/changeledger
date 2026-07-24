@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -117,3 +117,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-24T22:03:16Z** `[note]` Corrección del retry: pin de state status fallando fuera de repo (Receipt con projectId null y repositoryPath en stderr, exit 1) y el fallo de carga humano de check --commits añadido al pin de sufijos con marker parametrizado. Gate 1.146/1.146 y 243 changes válidos.
 - **2026-07-24T22:03:16Z** `[status]` in-progress → in-review
 - **2026-07-24T22:11:23Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T22:12:22Z** `[validation]` in-validation → done (human accepted)
