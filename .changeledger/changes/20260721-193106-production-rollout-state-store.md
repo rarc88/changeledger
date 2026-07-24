@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -235,6 +235,66 @@ no exista un adapter autenticado. GA requiere además SLO aprobado, sizing del
 hook publicado y probado con defaults, receipts autocontenidos y recovery
 administrativo automatizado o ensayado end-to-end. `owner` continúa sin ser ACL.
 
+### Tercera ejecución sobre `a8b488e1`
+
+Ejecutada con seis delegados adversariales independientes por familia, cada uno
+con harness propio construido desde cero en scratch (nunca sobre el repo);
+todas las filas sobre `a8b488e1ae3206317ff7f2edf015f210e1a7c9a3` con worktree
+limpio. Esta tabla sustituye el dictamen anterior.
+
+| ID | Invariante y topología | Preparación y comando | Esperado | Observado | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| BASE-03 | Baseline reproducible | Árbol limpio; versiones, ref y formato | Una única base para toda la ejecución | ChangeLedger 0.13.0; Node v24.18.0; pnpm 11.13.0; Git 2.55.0; macOS 26.5.2 arm64; HEAD `a8b488e1`; suites sha1+sha256 | pass |
+| GATE-03 | Gate completo | `pnpm verify` | Lint, tests y ledger válidos | 1.141/1.141 tests; Biome limpio; 242 changes válidos | pass |
+| PERF-08 | Perfil declarado con presupuestos DEFAULT (256 commits, 128 MiB, 30 s) | `bench-batch-validation.mjs --limits default`, matriz completa 12 celdas | Cada celda aceptada dentro de defaults | 12/12 aceptadas; peor caso 256c×5.000ch×3docs p95 5,79 s (margen 5,2×) y 68,08 MB (53% del budget, ~1,97×); envolvente del README exacta (<0,2% drift) | pass |
+| PERF-09 | Capacidad de lectura v2 a escala | Réplicas sintéticas 1.000/5.000 changes; load/check/list/search ×7 reps | Lecturas interactivas subsegundo | 5.000: load p95 341 ms, check 731 ms, list 530 ms, search 622 ms; RSS 126 MB. Sin SLO inferible de ≤7 muestras | pass de capacidad |
+| TRUTH-01..08 | Continuidad de identidades en sync/recovery/abort/mutación | Reproducciones originales + removal mid-range vía abort, por specs y releases, pending forjado, replay divergente, sha256, lineage dropped-and-restored en recovery | Todo rechazo fail-closed con refs intactos; avance legítimo confirma | 8/8: escapes originales re-fallan cerrados; recovery caza el lineage restaurado solo con `validateHistory`; control de avance legítimo confirma | pass |
+| AUTH-01..10 | Autoridad checkout-independiente | Blob/tree/tag activation (sha1+sha256), state_ref inválida, rama ajena con authority válida, activación divergente, carrera de pending inyectada en el CAS de deactivate, authority de integración divergente en recovery | Fail-closed exacto; install limpio funciona | 10/10 sin escapes; tag pela para lectura y conserva OID directo en CAS | pass |
+| ISOL-03/04/05..12 | Aislamiento viewer/CLI y afinidad de continuaciones | 16 escenarios JSDOM+HTTP reales, incl. las 3 reproducciones del run 2, rebind de path con receipt forjado, repair sobre panel sucio, previews R1/R2, imports dinámicos; harness con dientes demostrados contra el árbol pre-rework | Ningún resultado cruzado ni stale pinta; escrituras confinadas | 16/16 sin escapes; el mismo harness reproduce los fallos del run 2 sobre be058658 | pass |
+| RECEIPT-01 | Procedencia autocontenida (re-ejecución) | ~30 productores CLI (texto+JSON, éxito y fallo) + payloads viewer de éxito/sync/config, presión cruzada A/B, degradación con conflicto CR4, hook receipts | Cada receipt identifica project_id y repository_path por cwd | Todos correctos; regresiones be058658 cerradas | pass |
+| RECEIPT-02 | Payloads de ERROR del viewer autocontenidos | POST /api/status 403/404/409/400/410, config 409, preview 400, repair/unregister 400 | Identidad presente | Body `{"error": …}` sin identidad aun con target resuelto | **fail — medio-bajo, residuo nuevo** |
+| RECEIPT-03 | list/search `--json` en modo legacy worktree | Repos worktree registrados | Autocontenido | Array bare sin procedencia (carve-out documentado en 203029 para no romper consumidores) | **fail — decisión de producto pendiente** |
+| RECEIPT-04 | Fallos de `state status/sync/abort` | `state abort --json` sin `--pending`; sync con remoto inalcanzable | Receipt estructurado; JSON bajo `--json` | `Error:` pelado sin receipt y salida no-JSON bajo `--json` (wrapper `action()` vs `stateAction()`) | **fail — medio-bajo, rompe el contrato --json en fallo** |
+| RECEIPT-05 | Fallo de carga humano de `check`/`fix` | Fuera de repo, formato texto | Sufijo de procedencia como sus gemelos JSON | Solo `error (repo): …` | **fail — menor** |
+| CONV-03 | Convergencia 3 clones, sha1+sha256 | Disjuntas, overlap, rewind (incl. con pending vivo) vía CLI real | Convergencia byte-idéntica; conflicto y rewind fail-closed con recovery | 3/3 exactas | pass |
+| FAULT-06 | Inyección de fallos | Push/fetch fallidos, SIGKILL pre/post push, ENOSPC análogo en objetos y replay, CAS, metadata corrupta | Sin estado parcial; retry determinista | 7/7; publicación ambigua reconcilia via confirm-observed | pass |
+| FAULT-N1..N4 | Guards nuevos × réplica | Removal en advance/replay/abort-adoption; deactivación vs sync concurrente | Rechazo como identidad (no conflict); carreras limpias | 4/4 | pass |
+| FAULT-N5 | Tip remoto no-commit (remoto corrompido fuera de git) | Ref del remoto apuntada a mano a un tag anotado; `state sync` | Fail-closed | `advance-confirmed` adopta el OID del tag; status dice fresh; mutaciones se atascan atómicamente en commit-tree; auto-sana al reparar el remoto. git update-ref y receive-pack rehúsan crear la condición | **fail — bajo, gap fail-closed acotado sin pérdida de verdad** |
+| N6 | Ref local corrupta | Bytes basura en confirmed | Sin verdad inventada | Degradación documentada: lecturas fail-closed, sync no mueve refs, repara al restaurar | pass |
+| LEGACY-04 | Preflight y decisiones explícitas | 4 fixtures committeados + repo sintético pre-aceptado; planes sin decidir; normalización explícita | Read-only, determinista, fail-closed; decisión reproduce el normalizador byte a byte | 4/4 sub-filas | pass |
+| MIG-03 | Ciclo completo sha1+sha256 | preview→resolve→create→prepare→install→sync→mutate→publish→recovery→deactivate + edges (blob/tag/state_ref/rama ajena/pending) + precedencia post-deactivación | Sin huecos; mensajes exactos | 9/9 sub-filas; bootstrap message byte-exacto | pass |
+| ENF-04 | Hook pre-receive real en bare remote | Batch válido, removal de identidad, protected path, non-fast-forward forzado, budget 1 byte, quarantine y capabilities | Acepta/rechaza fail-closed con receipts completos | 6/6; capabilities exactas por topología; receipts del hook con projectId null en bare (topología declarada) | pass |
+
+### Dictamen y límites por topología (tercera ejecución)
+
+**Decisión vigente: `beta` para self-managed con `pre-receive` instalado y
+verificado; `experimental` como máximo para hosted sin adapter autenticado; GA
+sigue bloqueada.** Los cuatro invariantes críticos que bloqueaban cualquier
+release quedaron cerrados y re-verificados adversarialmente sin escapes:
+continuidad de verdad en sync/recovery/abort (TRUTH 8/8), autoridad
+checkout-independiente (AUTH 10/10), afinidad del viewer (ISOL 16/16, con
+harness que demuestra sus dientes sobre el árbol antiguo) y procedencia en el
+núcleo de receipts (RECEIPT-01). El perfil declarado cabe en una instalación
+stock con ~2× de margen y la envolvente publicada coincide con la medición.
+Recovery y deactivación quedaron ensayadas end-to-end en ambos formatos de
+objeto.
+
+Hallazgos abiertos de esta ejecución, ninguno crítico: payloads de error del
+viewer sin identidad (RECEIPT-02, medio-bajo), fallos de `state
+status/sync/abort` fuera de la maquinaria de receipts y rompiendo `--json`
+(RECEIPT-04, medio-bajo), carve-out documentado de arrays legacy (RECEIPT-03,
+decisión de producto), procedencia humana en fallos de carga (RECEIPT-05,
+menor) y adopción de un tip remoto no-commit desde un remoto corrompido fuera
+de git (FAULT-N5, bajo: sin pérdida de verdad, atasco ruidoso y atómico,
+auto-sana; git rehúsa crear la condición por vías normales). Se proponen como
+changes independientes; no bloquean Beta self-managed porque ninguno permite
+pérdida ni atribución cruzada de verdad.
+
+GA requiere además: SLO aprobado sobre muestreo estadísticamente honesto (las
+mediciones actuales son 3-7 reps en una máquina), receipts uniformes también en
+todas las superficies de fallo, y el cierre de los hallazgos anteriores.
+`owner` continúa sin ser ACL.
+
 ## Log
 
 - **2026-07-21T19:31:06Z** `[note]` Draft creado como frontera de release: el prototipo actual no es candidato GA y solo la evidencia integrada del core v2 puede cambiar esa decisión; el enforcement remoto califica garantías adicionales sin bloquear el modo advisory.
@@ -256,3 +316,6 @@ administrativo automatizado o ensayado end-to-end. `owner` continúa sin ser ACL
 - **2026-07-23T23:02:44Z** `[status]` in-progress → in-validation
 - **2026-07-24T16:52:08Z** `[validation]` in-validation → in-progress (agent rejected): Los owners críticos de la recalificación be058658 (190137, 202058, 202646→235906/235910, 203029) fueron corregidos y aceptados; el humano solicita una tercera ejecución integral de la calificación sobre el baseline vigente, tras cerrar 203027 (sizing) y 202646 (in-review). Los resultados actuales describen un baseline superado.
 - **2026-07-24T16:52:08Z** `[note]` Preparación de la tercera ejecución: congelar baseline tras aceptar 202646 y cerrar 203027 (dirección propuesta: max_object_bytes default 64 MiB + envolvente publicada en el runbook). La matriz debe re-ejecutar como mínimo ISOL-04, RECEIPT-01, AUTH-01..03, TRUTH-01 y PERF-07 con defaults, además del gate, convergencia y fallos Git de rutina.
+- **2026-07-24T17:45:20Z** `[note]` Tercera ejecución integral iniciada. Baseline congelado: a8b488e1ae3206317ff7f2edf015f210e1a7c9a3 (todos los owners de la recalificación aceptados: 190137, 202058, 202646+235906/235910, 203029, 203027 con default 128 MiB y envolvente publicada, 203028, y el pin de locale 20260724-170123). Graduaciones deliberadamente pendientes hasta el dictamen. Ejecución delegada en agentes adversariales independientes por familia: TRUTH/AUTH, RECEIPT, ISOL viewer, CONV/FAULT, LEGACY/MIG/ENF y PERF.
+- **2026-07-24T18:09:25Z** `[note]` Tercera ejecución integral completada sobre a8b488e1 con seis delegados adversariales independientes. Sin escapes en TRUTH (8/8), AUTH (10/10), ISOL (16/16, harness con dientes demostrados sobre be058658), CONV/FAULT núcleo (14/14), LEGACY/MIG/ENF (19/19) ni GATE/PERF (matriz default 12/12, peor caso p95 5,79 s y 68,08 MB de 128 MiB; lectura 5.000 changes p95 <0,74 s, RSS 126 MB). Hallazgos nuevos no críticos: RECEIPT-02 (errores del viewer sin identidad), RECEIPT-04 (fallos de state status/sync/abort sin receipt y rompiendo --json), RECEIPT-03 (carve-out legacy documentado, decisión de producto), RECEIPT-05 (menor) y FAULT-N5 (tip remoto no-commit desde remoto corrompido a mano: adopción sin pérdida de verdad, atasco atómico, auto-sana; fix propuesto: aserción de tipo commit sobre el tip fetched antes de confirmar, espejo del guard de activation). Dictamen: beta self-managed con hook; experimental hosted; GA bloqueada por SLO y uniformidad de receipts en fallo. Propuestas de changes para los hallazgos pendientes de autorización humana.
+- **2026-07-24T18:09:25Z** `[status]` in-progress → in-validation
