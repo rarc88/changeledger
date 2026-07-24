@@ -2,7 +2,7 @@
 id: "20260722-203027"
 title: Validación incremental de batches por blob OID
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-22T20:30:27Z
 depends_on: ["20260722-202059", "20260722-202058"]
 owner: raruiz-hiberuscom
@@ -101,3 +101,4 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 - **2026-07-24T17:26:01Z** `[note]` Corrección del retry: los dos comentarios contradictorios de src/state-validation.mjs actualizados — el límite de diagnóstico cita 128 MiB y la justificación del maxBuffer describe la relación real entre el default (128 MiB) y el chunk cap de git-batch (32 MiB). Suites focalizadas 40/40.
 - **2026-07-24T17:26:01Z** `[status]` in-progress → in-review
 - **2026-07-24T17:30:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T17:42:39Z** `[validation]` in-validation → done (human accepted)
