@@ -203,7 +203,7 @@ export function searchProjects(projects, q, load = loadRepo) {
   return { groups, ledgers };
 }
 
-export function syncProjectState(projects, id) {
+function syncProjectStateImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   try {
@@ -224,10 +224,15 @@ export function syncProjectState(projects, id) {
   }
 }
 
+export const syncProjectState = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  syncProjectStateImpl,
+);
+
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-export function changeStatus(
+function changeStatusImpl(
   projects,
   { project, id, status, reason, ledger_revision },
   { beforeMutation } = {},
@@ -340,6 +345,11 @@ export function changeStatus(
   }
 }
 
+export const changeStatus = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  changeStatusImpl,
+);
+
 const revision = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const configRevisionFrom = (payload) => payload.config_revision ?? payload.revision;
 
@@ -355,7 +365,21 @@ const projectIdentity = (project) => ({
   repository_path: path.resolve(project.path),
 });
 
-export function readProjectConfig(projects, id) {
+// A payload copied out of the viewer must identify the project it came from,
+// errors included — the human decides on truth from what the panel shows. Only
+// a project that could not be resolved has no identity to report.
+function attributed(project, result) {
+  if (!project || result.code < 400) return result;
+  return { ...result, body: { ...projectIdentity(project), ...result.body } };
+}
+
+// Wraps a handler so every failing result gains its project's identity in one
+// place, instead of relying on each individual error return to remember it.
+function withProjectIdentity(selectProject, handler) {
+  return (...args) => attributed(selectProject(...args), handler(...args));
+}
+
+function readProjectConfigImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   try {
@@ -375,7 +399,12 @@ export function readProjectConfig(projects, id) {
   }
 }
 
-export function saveProjectConfig(
+export const readProjectConfig = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  readProjectConfigImpl,
+);
+
+function saveProjectConfigImpl(
   projects,
   payload,
   { mutateConfig = mutateFileAtomic, beforeMutation } = {},
@@ -482,7 +511,12 @@ export function saveProjectConfig(
   };
 }
 
-export function repairProjectPath(projects, payload, { localOnly = false } = {}) {
+export const saveProjectConfig = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  saveProjectConfigImpl,
+);
+
+function repairProjectPathImpl(projects, payload, { localOnly = false } = {}) {
   if (localOnly)
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
@@ -521,7 +555,12 @@ export function repairProjectPath(projects, payload, { localOnly = false } = {})
   };
 }
 
-export function unregisterProject(projects, payload, { localOnly = false } = {}) {
+export const repairProjectPath = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  repairProjectPathImpl,
+);
+
+function unregisterProjectImpl(projects, payload, { localOnly = false } = {}) {
   if (localOnly)
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
@@ -543,8 +582,13 @@ export function unregisterProject(projects, payload, { localOnly = false } = {})
   return { code: 200, body: { ...projectIdentity(project), ok: true } };
 }
 
+export const unregisterProject = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  unregisterProjectImpl,
+);
+
 // Returns config content + schema metadata without mutating anything.
-export function readProjectConfigStructured(projects, id) {
+function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   let source;
@@ -571,9 +615,14 @@ export function readProjectConfigStructured(projects, id) {
   };
 }
 
+export const readProjectConfigStructured = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  readProjectConfigStructuredImpl,
+);
+
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-export function patchProjectConfig(
+function patchProjectConfigImpl(
   projects,
   payload,
   { mutateConfig = mutateFileAtomic, beforeMutation } = {},
@@ -663,8 +712,13 @@ export function patchProjectConfig(
   };
 }
 
+export const patchProjectConfig = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  patchProjectConfigImpl,
+);
+
 // Preview the migration without writing. Returns summary + candidate YAML.
-export function previewConfigMigration(projects, id, configRevision, ledgerRevision) {
+function previewConfigMigrationImpl(projects, id, configRevision, ledgerRevision) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   if (typeof configRevision !== 'string' || configRevision === '') {
@@ -719,9 +773,14 @@ export function previewConfigMigration(projects, id, configRevision, ledgerRevis
   };
 }
 
+export const previewConfigMigration = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  previewConfigMigrationImpl,
+);
+
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
 // Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
-export function applyConfigMigration(
+function applyConfigMigrationImpl(
   projects,
   payload,
   { mutateConfig = mutateFileAtomic, beforeMutation } = {},
@@ -802,6 +861,11 @@ export function applyConfigMigration(
     },
   };
 }
+
+export const applyConfigMigration = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  applyConfigMigrationImpl,
+);
 
 // Allowlisted fields the form patch may update.
 const PATCH_ALLOWED = new Set([

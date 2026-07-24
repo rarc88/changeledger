@@ -21,6 +21,7 @@ import {
   resolveProjects,
   saveProjectConfig,
   searchProjects,
+  syncProjectState,
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
@@ -437,8 +438,12 @@ test('190008 CR1: router catch returns generic message, not e.message', async ()
   assert.equal(res.status, 404);
   const body = JSON.parse(res.body);
   assert.equal(body.error, 'no project');
-  // Verify there are no filesystem paths leaked in any error response
+  // The error *message* never leaks internals: paths reach a payload only as
+  // the declared `repository_path` attribution of a project the request itself
+  // resolved (20260722-190137 CR2/CR4), which the loopback-only viewer already
+  // publishes through /api/projects — never inside a diagnostic string.
   assert.ok(!body.error.includes('/'), 'error must not contain path separators');
+  assert.equal(body.repository_path, undefined);
 });
 
 test('190009 CR3: getRepo rejects when server returns 404', async () => {
@@ -747,6 +752,100 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   const res = changeStatus(projects, { project: current, id, status: 'approved' });
   assert.equal(res.code, 200);
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+test('190137 CR2/CR4: every viewer error payload for a resolved project carries its identity', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const { projects, current } = resolveProjects(root, false);
+  const identity = { project_id: current, repository_path: fs.realpathSync(root) };
+  const resolvedPath = (body) =>
+    body.repository_path ? fs.realpathSync(body.repository_path) : null;
+
+  const failures = [
+    // Disallowed transition, unknown change and missing arguments.
+    changeStatus(projects, { project: current, id, status: 'done' }),
+    changeStatus(projects, { project: current, id: '20990101-000000', status: 'approved' }),
+    changeStatus(projects, { project: current, id, status: undefined }),
+    // Config write without the required fields, and an unconfirmed unregister.
+    saveProjectConfig(projects, { project: current }),
+    unregisterProject(projects, { project: current, repository_path: root, confirm: 'wrong' }),
+  ];
+
+  for (const result of failures) {
+    assert.ok(result.code >= 400, `expected a failure, got ${result.code}`);
+    assert.ok(result.body.error, 'the primary error must survive');
+    assert.equal(result.body.project_id, identity.project_id);
+    assert.equal(resolvedPath(result.body), identity.repository_path);
+  }
+
+  // Every remaining project-scoped handler must attribute its failures too;
+  // one failing call each, so withdrawing any single guard breaks this test.
+  const perHandler = [
+    ['syncProjectState', syncProjectState(projects, current)],
+    ['repairProjectPath', repairProjectPath(projects, { project: current })],
+    ['patchProjectConfig', patchProjectConfig(projects, { project: current, patch: 'not-object' })],
+    ['previewConfigMigration', previewConfigMigration(projects, current, undefined, undefined)],
+    ['applyConfigMigration', applyConfigMigration(projects, { project: current })],
+  ];
+  for (const [name, result] of perHandler) {
+    assert.ok(result.code >= 400, `${name}: expected a failure, got ${result.code}`);
+    assert.equal(result.body.project_id, identity.project_id, name);
+    assert.equal(resolvedPath(result.body), identity.repository_path, name);
+  }
+
+  // A registered project whose path is gone still has an identity to report,
+  // through both config readers and the status writer.
+  fs.rmSync(root, { recursive: true, force: true });
+  const gone = resolveProjects(os.tmpdir(), false).projects.find((p) => p.id === current);
+  assert.equal(gone.alive, false);
+  for (const [name, result] of [
+    ['changeStatus', changeStatus([gone], { project: current, id, status: 'approved' })],
+    ['readProjectConfig', readProjectConfig([gone], current)],
+    ['readProjectConfigStructured', readProjectConfigStructured([gone], current)],
+  ]) {
+    assert.equal(result.code, 410, name);
+    assert.equal(result.body.project_id, current, name);
+    assert.ok(result.body.repository_path, name);
+  }
+});
+
+test('190137 CR2/CR4: router error payloads for a resolved project carry its identity', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { id, project } = draftChange(root);
+
+  // A write that omits repository_path is refused, but the refusal must still
+  // name the project the request did resolve.
+  const missingPath = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({ project, id, status: 'approved' }),
+  });
+  assert.equal(missingPath.status, 400);
+  const refusal = JSON.parse(missingPath.body);
+  assert.match(refusal.error, /repository_path is required/);
+  assert.equal(refusal.project_id, project);
+  assert.equal(fs.realpathSync(refusal.repository_path), fs.realpathSync(root));
+
+  // The repository read of a registered project whose path is gone.
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-out-'));
+  fs.rmSync(root, { recursive: true, force: true });
+  const goneRead = await memoryRequest(outside, {
+    path: `/api/repo?project=${project}`,
+    localOnly: false,
+  });
+  assert.equal(goneRead.status, 410);
+  const goneBody = JSON.parse(goneRead.body);
+  assert.match(goneBody.error, /project path is gone/);
+  assert.equal(goneBody.project_id, project);
+  assert.ok(goneBody.repository_path);
 });
 
 test('190137 CR5: a viewer mutation for A and a CLI invocation for B never cross repos', () => {

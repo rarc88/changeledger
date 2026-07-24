@@ -148,7 +148,11 @@ export function createRequestListener(cwd, localOnly, token) {
                   res,
                   400,
                   MIME['.json'],
-                  JSON.stringify({ error: 'repository_path is required' }),
+                  JSON.stringify({
+                    project_id: project.id,
+                    repository_path: path.resolve(project.path),
+                    error: 'repository_path is required',
+                  }),
                 );
                 return;
               }
@@ -269,7 +273,16 @@ export function createRequestListener(cwd, localOnly, token) {
           return;
         }
         if (!proj.alive) {
-          send(res, 410, MIME['.json'], JSON.stringify({ error: 'project path is gone' }));
+          send(
+            res,
+            410,
+            MIME['.json'],
+            JSON.stringify({
+              project_id: proj.id,
+              repository_path: path.resolve(proj.path),
+              error: 'project path is gone',
+            }),
+          );
           return;
         }
         send(
