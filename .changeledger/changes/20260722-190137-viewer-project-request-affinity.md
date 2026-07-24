@@ -2,7 +2,7 @@
 id: "20260722-190137"
 title: Evitar que respuestas tardías del viewer crucen proyectos
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-22T19:01:37Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -196,3 +196,4 @@ criterio de salida exige fixtures válidos que fallen al retirar cada guard.
 - **2026-07-24T13:20:01Z** `[review]` in-review → in-progress (retry): CR2/CR4: la continuación de repair usa managedProject después de await load() y puede recargar otro proyecto y descartar sus ediciones; añadir además una fixture de preview con revisiones presentes pero distintas sin cambio de contexto y una fixture CAS que intercale el rebind durante la adquisición del lock, para que los guards exactos no puedan sustituirse por alternativas TOCTOU o de generación sin romper los tests.
 - **2026-07-24T13:23:59Z** `[note]` Corrección del review integral: repair captura su target y la generación administrada post-rebind, revalida tras await load() y nunca recarga el managedProject vivo; regresión reproduce A repair mientras B recibe B UNSAVED y confirma una sola lectura de B. Preview prueba revisiones presentes pero distintas sin cambio de contexto. CAS de registry usa workers que mantienen el lock, rebindean antes de liberarlo y fuerzan update/remove a releer dentro del lock. Suites afectadas 225/225.
 - **2026-07-24T13:24:07Z** `[status]` in-progress → in-review
+- **2026-07-24T14:38:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
