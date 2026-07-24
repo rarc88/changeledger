@@ -7,7 +7,14 @@ import { Worker } from 'node:worker_threads';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { readRegistry, register, registryDir, registryPath, update } from '../src/registry.mjs';
+import {
+  readRegistry,
+  register,
+  registryDir,
+  registryPath,
+  remove,
+  update,
+} from '../src/registry.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -87,6 +94,48 @@ test('111218 CR6: update rejects an unknown registry id without creating it', ()
   assert.deepEqual(Object.keys(readRegistry()), ['aaa']);
 });
 
+test('190137 CR4: conditional update and remove recheck path after acquiring the lock', async () => {
+  isolatedHome();
+  const home = process.env.CHANGELEDGER_HOME;
+  const script = path.join(os.tmpdir(), `changeledger-registry-cas-${process.pid}.mjs`);
+  fs.writeFileSync(
+    script,
+    `import fs from 'node:fs';
+import path from 'node:path';
+import { parentPort, workerData } from 'node:worker_threads';
+const file = path.join(workerData.home, '.changeledger', '.registry.json');
+const lock = path.join(path.dirname(file), '.' + path.basename(file) + '.lock');
+const fd = fs.openSync(lock, 'wx');
+parentPort.postMessage('locked');
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+fs.writeFileSync(file, JSON.stringify({ aaa: { name: 'alpha rebound', path: '/other' } }, null, 2) + '\\n');
+fs.closeSync(fd);
+fs.rmSync(lock, { force: true });
+`,
+  );
+
+  register({ id: 'aaa', name: 'alpha', path: '/old' });
+  try {
+    let locked = startLockingWorker(script, { home });
+    let { done: worker } = await locked.ready;
+    assert.throws(
+      () => update('aaa', { path: '/new' }, { expectedPath: '/old' }),
+      /project registry changed/,
+    );
+    await worker;
+    assert.deepEqual(readRegistry().aaa, { name: 'alpha rebound', path: '/other' });
+
+    register({ id: 'aaa', name: 'alpha', path: '/old' });
+    locked = startLockingWorker(script, { home });
+    ({ done: worker } = await locked.ready);
+    assert.throws(() => remove('aaa', { expectedPath: '/old' }), /project registry changed/);
+    await worker;
+    assert.deepEqual(readRegistry().aaa, { name: 'alpha rebound', path: '/other' });
+  } finally {
+    fs.rmSync(script, { force: true });
+  }
+});
+
 test('init refuses an existing .changeledger and points to register', () => {
   isolatedHome();
   const repo = newRepo();
@@ -127,6 +176,28 @@ function runWorker(script, workerData) {
     );
     w.on('error', reject);
   });
+}
+
+function startLockingWorker(script, workerData) {
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+  const worker = new Worker(script, { workerData });
+  const done = new Promise((resolve, reject) => {
+    worker.once('message', () => resolveReady({ done }));
+    worker.once('error', (error) => {
+      rejectReady(error);
+      reject(error);
+    });
+    worker.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`worker exited with code ${code}`));
+    });
+  });
+  return { ready };
 }
 
 test('231423 CR1: concurrent register preserves both entries', async () => {

@@ -23,8 +23,10 @@ export const searchAllProjects = (query) =>
 
 export function captureLedgerTarget(project, source) {
   const ledgerRevision = source?.ledger_revision;
+  const repositoryPath = source?.repository_path;
   return Object.freeze({
     project,
+    ...(typeof repositoryPath === 'string' ? { repository_path: repositoryPath } : {}),
     ...(ledgerRevision ? { ledger_revision: ledgerRevision } : {}),
   });
 }
@@ -44,8 +46,7 @@ export const postStatus = (target, id, status, reason) =>
     }),
   });
 
-export const postStateSync = (project) =>
-  postProject('/api/state-sync', { project }).then(jsonOrThrow);
+export const postStateSync = (target) => postProject('/api/state-sync', target).then(jsonOrThrow);
 
 const postProject = (route, body) =>
   fetch(route, {
@@ -91,8 +92,8 @@ export const postConfigMigrationApply = (target, configRevision) =>
     config_revision: configRevision,
   }).then(jsonOrThrow);
 
-export const postProjectPath = (project, path) =>
-  postProject('/api/project-path', { project, path });
+export const postProjectPath = (target, path) =>
+  postProject('/api/project-path', { ...target, path });
 
-export const postProjectRemove = (project, confirm) =>
-  postProject('/api/project-remove', { project, confirm });
+export const postProjectRemove = (target, confirm) =>
+  postProject('/api/project-remove', { ...target, confirm });

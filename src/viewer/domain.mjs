@@ -31,9 +31,10 @@ import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Serializes a loaded repo into the flat shape the UI consumes.
-export function serialize(repo, projectId) {
+export function serialize(repo, projectId, repositoryPath = repo.repoRoot) {
   return {
     project_id: projectId ?? null,
+    repository_path: repositoryPath ? path.resolve(repositoryPath) : null,
     ledger_mode: repo.ledgerReplica ? 'replica' : (repo.mode ?? 'worktree'),
     ...ledgerReceipt(repo),
     language: repo.config.language ?? 'en',
@@ -177,7 +178,7 @@ export function searchProjects(projects, q, load = loadRepo) {
       continue;
     }
     if (repo.revision) {
-      ledgers.push({ project: p.id, ...ledgerReceipt(repo) });
+      ledgers.push({ ...projectIdentity(p), ...ledgerReceipt(repo) });
     }
     const matches = repo.changes
       .filter((c) => `${c.text ?? ''} ${c.frontmatter?.title ?? ''}`.toLowerCase().includes(needle))
@@ -189,7 +190,11 @@ export function searchProjects(projects, q, load = loadRepo) {
       }));
     if (matches.length) {
       groups.push({
-        project: { id: p.id, name: p.name },
+        project: {
+          project_id: p.id,
+          name: p.name,
+          repository_path: path.resolve(p.path),
+        },
         matches,
         ...(repo.revision ? ledgerReceipt(repo) : {}),
       });
@@ -207,9 +212,15 @@ export function syncProjectState(projects, id) {
       return { code: 400, body: { error: 'project does not use state replica format_version 2' } };
     }
     const result = store.replica.sync();
-    return { code: 200, body: { ...result, ...ledgerReceipt(store.load()) } };
+    return {
+      code: 200,
+      body: { ...projectIdentity(found.project), ...result, ...ledgerReceipt(store.load()) },
+    };
   } catch (error) {
-    return { code: 409, body: { error: error.message } };
+    return {
+      code: 409,
+      body: { ...projectIdentity(found.project), error: error.message },
+    };
   }
 }
 
@@ -312,6 +323,7 @@ export function changeStatus(
     return {
       code: 200,
       body: {
+        ...projectIdentity(proj),
         ok: true,
         id,
         status,
@@ -338,6 +350,11 @@ function projectFor(projects, id) {
   return { project };
 }
 
+const projectIdentity = (project) => ({
+  project_id: project.id,
+  repository_path: path.resolve(project.path),
+});
+
 export function readProjectConfig(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
@@ -346,6 +363,7 @@ export function readProjectConfig(projects, id) {
     return {
       code: 200,
       body: {
+        ...projectIdentity(found.project),
         content: source.content,
         revision: revision(source.content),
         config_revision: revision(source.content),
@@ -451,6 +469,7 @@ export function saveProjectConfig(
   return {
     code: 200,
     body: {
+      ...projectIdentity(found.project),
       ok: true,
       name: projectName,
       revision: revision(payload.content),
@@ -468,6 +487,9 @@ export function repairProjectPath(projects, payload, { localOnly = false } = {})
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
   if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (typeof payload.repository_path !== 'string') {
+    return { code: 400, body: { error: 'repository_path is required' } };
+  }
   if (typeof payload.path !== 'string' || !path.isAbsolute(payload.path)) {
     return { code: 400, body: { error: 'project path must be absolute' } };
   }
@@ -482,11 +504,21 @@ export function repairProjectPath(projects, payload, { localOnly = false } = {})
     return { code: 400, body: { error: 'project path belongs to a different project_id' } };
   }
   try {
-    update(project.id, { name: config.project_name ?? project.name, path: root });
-  } catch {
+    update(
+      project.id,
+      { name: config.project_name ?? project.name, path: root },
+      { expectedPath: payload.repository_path },
+    );
+  } catch (error) {
+    if (error.message === 'project registry changed; reload before writing') {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
-  return { code: 200, body: { ok: true } };
+  return {
+    code: 200,
+    body: { ...projectIdentity({ id: project.id, path: root }), ok: true },
+  };
 }
 
 export function unregisterProject(projects, payload, { localOnly = false } = {}) {
@@ -494,15 +526,21 @@ export function unregisterProject(projects, payload, { localOnly = false } = {})
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
   if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (typeof payload.repository_path !== 'string') {
+    return { code: 400, body: { error: 'repository_path is required' } };
+  }
   if (payload.confirm !== project.name) {
     return { code: 400, body: { error: `type "${project.name}" to confirm` } };
   }
   try {
-    remove(project.id);
-  } catch {
+    remove(project.id, { expectedPath: payload.repository_path });
+  } catch (error) {
+    if (error.message === 'project registry changed; reload before writing') {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
-  return { code: 200, body: { ok: true } };
+  return { code: 200, body: { ...projectIdentity(project), ok: true } };
 }
 
 // Returns config content + schema metadata without mutating anything.
@@ -521,7 +559,7 @@ export function readProjectConfigStructured(projects, id) {
   return {
     code: 200,
     body: {
-      project_id: found.project.id,
+      ...projectIdentity(found.project),
       content,
       revision: revision(content),
       config_revision: revision(content),
@@ -613,6 +651,7 @@ export function patchProjectConfig(
   return {
     code: 200,
     body: {
+      ...projectIdentity(found.project),
       ok: true,
       revision: result.rev,
       config_revision: result.rev,
@@ -659,6 +698,7 @@ export function previewConfigMigration(projects, id, configRevision, ledgerRevis
     return {
       code: 200,
       body: {
+        ...projectIdentity(found.project),
         already_current: true,
         message: `Config is already at schema ${SUPPORTED_SCHEMA_VERSION}`,
         config_revision: revision(content),
@@ -669,6 +709,7 @@ export function previewConfigMigration(projects, id, configRevision, ledgerRevis
   return {
     code: 200,
     body: {
+      ...projectIdentity(found.project),
       summary: `Config migration ${migrationResult.fromVersion} → ${SUPPORTED_SCHEMA_VERSION} (dry run)`,
       changes: migrationResult.changes,
       yaml: migrationResult.yaml,
@@ -736,6 +777,7 @@ export function applyConfigMigration(
     return {
       code: 200,
       body: {
+        ...projectIdentity(found.project),
         already_current: true,
         revision: result.rev,
         config_revision: result.rev,
@@ -749,6 +791,7 @@ export function applyConfigMigration(
   return {
     code: 200,
     body: {
+      ...projectIdentity(found.project),
       ok: true,
       revision: result.rev,
       config_revision: result.rev,

@@ -68,12 +68,17 @@ export {
 } from './view-parts.js';
 
 const $ = (sel) => document.querySelector(sel);
+let registryContextRevision = 0;
 
 initMermaid();
 
+export function replaceProjectRegistry(projects, current) {
+  registryContextRevision += 1;
+  return initializeProjects(projects, current);
+}
+
 async function loadProjects() {
   const { projects, current, localOnly } = await getProjects();
-  state.projectsList = projects;
   state.localOnly = localOnly;
   const sel = $('#project');
   litRender(
@@ -83,7 +88,7 @@ async function loadProjects() {
     ),
     sel,
   );
-  initializeProjects(projects, current);
+  replaceProjectRegistry(projects, current);
   if (state.currentProject) sel.value = state.currentProject;
   sel.style.display = projects.length > 1 ? '' : 'none';
   await load();
@@ -110,7 +115,34 @@ function affinityLane(live) {
 
 // The board selection governs replica sync; the managed-project panel tracks its
 // own selection axis (see `managedAffinity` near openManagedProject).
-const selectionAffinity = affinityLane(() => state.currentProject);
+const selectionAffinity = affinityLane(() =>
+  projectIdentityKey(captureProjectIdentity(state.currentProject)),
+);
+const navigationAffinity = affinityLane(() =>
+  projectIdentityKey(captureProjectIdentity(state.currentProject)),
+);
+const mutationAffinity = affinityLane(() =>
+  projectIdentityKey(captureProjectIdentity(state.currentProject)),
+);
+let selectionContextRevision = 0;
+
+export function selectViewerProject(id) {
+  if (state.currentProject !== id) {
+    selectionContextRevision += 1;
+    closeDetail();
+  }
+  selectProject(id);
+}
+
+function selectionStale(lane, target) {
+  const revision = selectionContextRevision;
+  const identity = captureProjectIdentity(target);
+  const stale = lane(projectIdentityKey(identity));
+  return () =>
+    stale() ||
+    revision !== selectionContextRevision ||
+    !sameProjectIdentity(identity, captureProjectIdentity(state.currentProject));
+}
 
 let repoRequestSeq = 0;
 
@@ -118,33 +150,64 @@ export async function load() {
   if (!state.currentProject) {
     if (state.currentView === 'projects') {
       syncViewerShell();
-      return;
+      return false;
     }
     showNoProjects();
-    return;
+    return false;
   }
   const target = state.currentProject;
+  if (openDetailTarget?.project !== target) closeDetail();
+  const identity = captureProjectIdentity(target);
   const seq = ++repoRequestSeq;
-  const stale = () => seq !== repoRequestSeq || state.currentProject !== target;
+  const stale = () =>
+    seq !== repoRequestSeq ||
+    !sameProjectIdentity(identity, captureProjectIdentity(state.currentProject));
   try {
     const text = await getRepo(target);
-    if (stale()) return;
+    if (stale()) return false;
     const payload = JSON.parse(text);
-    if (payload.project_id != null && String(payload.project_id) !== String(target)) return;
-    if (text === state.lastJson) return;
+    if (!matchesProjectReceipt(payload, identity, { ledger: true })) return false;
+    if (text === state.lastJson) return true;
     setRepo(text);
     normalizeRepoState(state.repo);
     hydrateFilters();
     syncViewerShell();
+    return true;
   } catch (e) {
-    if (stale()) return;
+    if (stale()) return false;
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+    return false;
   }
 }
 
 // Human label for a project id (falls back to the id) so toasts name the
 // project they acted on (CR4 attribution).
 const projectLabel = (id) => state.projectsList?.find((p) => p.id === id)?.name ?? id;
+
+const captureProjectIdentity = (project) =>
+  Object.freeze({
+    project,
+    repositoryPath: state.projectsList?.find((candidate) => candidate.id === project)?.path ?? null,
+  });
+
+const projectIdentityKey = (identity) =>
+  `${String(identity?.project ?? '')}\u0000${String(identity?.repositoryPath ?? '')}`;
+
+const sameProjectIdentity = (left, right) => projectIdentityKey(left) === projectIdentityKey(right);
+
+const matchesProjectIdentity = (payload, target) =>
+  String(payload?.project_id ?? '') === String(target.project) &&
+  typeof payload?.repository_path === 'string' &&
+  payload.repository_path === target.repositoryPath;
+
+const hasRevision = (payload, field) =>
+  Object.hasOwn(payload ?? {}, field) &&
+  (payload[field] === null || typeof payload[field] === 'string');
+
+const matchesProjectReceipt = (payload, target, { ledger = false, config = false } = {}) =>
+  matchesProjectIdentity(payload, target) &&
+  (!ledger || hasRevision(payload, 'ledger_revision')) &&
+  (!config || hasRevision(payload, 'config_revision'));
 
 // Sync the replica ledger for the project selected when the sync was requested.
 // A single affinity token is captured before the first await and re-checked at
@@ -153,12 +216,17 @@ const projectLabel = (id) => state.projectsList?.find((p) => p.id === id)?.name 
 // project by any of those points, nothing is reloaded, toasted or attributed
 // here: A's result is never surfaced under B. Errors always name their target.
 export async function syncReplicaState(target = state.currentProject) {
-  const stale = selectionAffinity(target);
+  const stale = selectionStale(selectionAffinity, target);
+  const identity = captureProjectIdentity(target);
   try {
-    await postStateSync(target);
+    const receipt = await postStateSync({
+      ...captureLedgerTarget(target, state.repo),
+      repository_path: identity.repositoryPath,
+    });
     if (stale()) return;
+    if (!matchesProjectReceipt(receipt, identity, { ledger: true })) return;
     invalidateCache();
-    await load();
+    if (!(await load())) return;
     if (stale()) return;
     showToast(`State updated for ${projectLabel(target)}`, { type: 'info' });
   } catch (error) {
@@ -371,20 +439,27 @@ function renderBoard() {
 }
 
 // Persist a human-owned lifecycle move, then refresh the board.
-async function moveStatus(target, id, status, reason) {
+export async function moveStatus(target, id, status, reason) {
+  const stale = selectionStale(mutationAffinity, target.project);
+  const identity = captureProjectIdentity(target.project);
   try {
     const res = await postStatus(target, id, status, reason);
+    if (stale()) return;
     const out = await res.json();
+    if (stale()) return;
     if (!res.ok) {
-      showToast(out.error || 'status change failed');
+      showToast(`${projectLabel(target.project)}: ${out.error || 'status change failed'}`);
       return;
     }
+    if (!matchesProjectReceipt(out, identity, { ledger: true })) return;
   } catch (e) {
-    showToast(e.message);
+    if (stale()) return;
+    showToast(`${projectLabel(target.project)}: ${e.message}`);
     return;
   }
   invalidateCache();
-  await load();
+  if (!(await load())) return;
+  if (stale()) return;
   return true;
 }
 
@@ -409,18 +484,31 @@ export function resetValidationState(root) {
   showValidationError(root, '');
 }
 
-export async function runValidationSubmission({ root, request, onSuccess }) {
+export async function runValidationSubmission({
+  root,
+  request,
+  onSuccess,
+  stale = () => false,
+  acceptResponse = () => true,
+}) {
   setValidationPending(root, true);
   showValidationError(root, '');
   try {
     const res = await request();
+    if (stale()) return false;
     const out = await res.json();
+    if (stale()) return false;
     if (!res.ok) {
       showValidationError(root, out.error || 'Status change failed.');
       setValidationPending(root, false);
       return false;
     }
+    if (!acceptResponse(out)) {
+      resetValidationState(root);
+      return false;
+    }
   } catch (error) {
+    if (stale()) return false;
     showValidationError(root, error.message);
     setValidationPending(root, false);
     return false;
@@ -454,10 +542,18 @@ export function reopenPanel(status) {
   </section>`;
 }
 
-export function bindReopenAction({ root, request, onSuccess }) {
+export function bindReopenAction({
+  root,
+  request,
+  onSuccess,
+  stale,
+  captureStale,
+  acceptResponse,
+}) {
   const button = root.querySelector('[data-reopen]');
   if (!button) return;
   button.onclick = async () => {
+    const requestStale = captureStale?.() ?? stale ?? (() => false);
     const input = root.querySelector('[data-reopen-reason]');
     const reason = input?.value.trim();
     if (!reason) {
@@ -469,6 +565,8 @@ export function bindReopenAction({ root, request, onSuccess }) {
       root,
       request: () => request(reason),
       onSuccess,
+      stale: requestStale,
+      acceptResponse,
     });
   };
 }
@@ -497,11 +595,19 @@ export function bindDetailPresentation(root = document) {
   });
 }
 
-async function submitValidation(target, id, status, reason) {
+async function submitValidation(target, id, status, reason, detailTarget) {
   const root = $('#detail');
+  const superseded = detailMutationAffinity(detailTarget);
+  const stale = () =>
+    openDetailTarget !== detailTarget ||
+    superseded() ||
+    !sameProjectIdentity(detailTarget, captureProjectIdentity(state.currentProject));
+  const identity = captureProjectIdentity(target.project);
   await runValidationSubmission({
     root,
     request: () => postStatus(target, id, status, reason),
+    stale,
+    acceptResponse: (body) => matchesProjectReceipt(body, identity, { ledger: true }),
     onSuccess: async () => {
       closeDetail();
       invalidateCache();
@@ -533,12 +639,17 @@ function renderOpenedDetail(content) {
 }
 
 let openDetailTarget = null;
+const gitRefsAffinity = affinityLane(() => openDetailTarget);
+const detailMutationAffinity = affinityLane(() => openDetailTarget);
 
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
-  openDetailTarget = { project: state.currentProject, id: c.id };
+  const identity = captureProjectIdentity(state.currentProject);
+  const detailTarget = Object.freeze({ ...identity, id: c.id });
+  openDetailTarget = detailTarget;
   const mutationTarget = captureLedgerTarget(state.currentProject, state.repo);
+  const mutationIdentity = captureProjectIdentity(state.currentProject);
   const changes = state.repo.changes || [];
   const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
   const incoming = changes
@@ -578,7 +689,8 @@ function openDetail(id) {
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
   const accept = $('#detail').querySelector('[data-validation="pass"]');
-  if (accept) accept.onclick = () => submitValidation(mutationTarget, c.id, 'done');
+  if (accept)
+    accept.onclick = () => submitValidation(mutationTarget, c.id, 'done', undefined, detailTarget);
   const reject = $('#detail').querySelector('[data-validation="fail"]');
   if (reject) {
     reject.onclick = () => {
@@ -589,15 +701,24 @@ function openDetail(id) {
         input?.focus();
         return;
       }
-      submitValidation(mutationTarget, c.id, 'in-progress', reason);
+      submitValidation(mutationTarget, c.id, 'in-progress', reason, detailTarget);
     };
   }
   bindReopenAction({
     root: $('#detail'),
     request: (reason) => postStatus(mutationTarget, c.id, 'in-progress', reason),
+    captureStale: () => {
+      const superseded = detailMutationAffinity(detailTarget);
+      return () =>
+        openDetailTarget !== detailTarget ||
+        superseded() ||
+        !sameProjectIdentity(detailTarget, captureProjectIdentity(state.currentProject));
+    },
+    acceptResponse: (body) => matchesProjectReceipt(body, mutationIdentity, { ledger: true }),
     onSuccess: async () => {
       invalidateCache();
-      await load();
+      if (!(await load())) return;
+      if (openDetailTarget !== detailTarget) return;
       openDetail(c.id);
     },
   });
@@ -622,20 +743,30 @@ function openDetail(id) {
         gotoChange(proj, changeId);
       };
     });
-  renderExpandableMermaid($('#detail'));
+  renderExpandableMermaid($('#detail'), () => openDetailTarget !== detailTarget);
   loadGitRefs(c.id);
 }
 
 // Fetch and render the git refs (commits/branches) that reference this change.
 export async function loadGitRefs(id) {
   const target = { project: state.currentProject, id };
+  const identity = captureProjectIdentity(target.project);
+  const ledgerRevision = state.repo?.ledger_revision ?? null;
+  const detailTarget = openDetailTarget;
+  const superseded = gitRefsAffinity(detailTarget);
   let refs;
   try {
     refs = await getGitRefs(target.project, id);
   } catch {
     return;
   }
-  if (openDetailTarget?.project !== target.project || openDetailTarget?.id !== target.id) return;
+  if (
+    superseded() ||
+    openDetailTarget !== detailTarget ||
+    !sameProjectIdentity(identity, captureProjectIdentity(state.currentProject))
+  )
+    return;
+  if (!matchesProjectIdentity(refs, identity) || refs.ledger_revision !== ledgerRevision) return;
   const sec = $('#git-section');
   if (!sec) return;
   if (!refs.commits.length && !refs.branches.length) {
@@ -664,14 +795,26 @@ export async function loadGitRefs(id) {
 }
 
 function closeDetail() {
-  $('#overlay').classList.add('hidden');
+  openDetailTarget = null;
+  const overlay = $('#overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
   document.documentElement.classList.remove('detail-open');
 }
 
 let diagramLightbox = null;
 
-async function renderExpandableMermaid(root) {
-  await renderMermaid(root);
+export async function renderExpandableMermaid(
+  root,
+  stale = () => false,
+  renderDiagram = renderMermaid,
+) {
+  try {
+    await renderDiagram(root);
+  } catch {
+    return;
+  }
+  if (stale()) return;
   makeMermaidExpandable(root, (node) => diagramLightbox?.open(node));
 }
 
@@ -710,17 +853,23 @@ export function createDiagramLightbox({ overlay, canvas, closeButton }) {
 
 // Cross-project navigation: resolve `proj` (by id or name) in the loaded project
 // list, switch to it, then open the target change once its repo has loaded.
-async function gotoChange(proj, changeId) {
+export async function gotoChange(proj, changeId) {
   const match = state.projectsList.find((p) => p.id === proj || p.name === proj);
   if (!match?.alive) {
     showToast(`Project "${proj}" is not registered or its path is gone.`);
     return;
   }
-  if (match.id !== state.currentProject) {
-    selectProject(match.id);
+  const switched = match.id !== state.currentProject;
+  if (switched) {
+    selectViewerProject(match.id);
     $('#project').value = match.id;
-    await load();
   }
+  const stale = selectionStale(navigationAffinity, match.id);
+  const hasTargetRepo = matchesProjectReceipt(state.repo, captureProjectIdentity(match.id), {
+    ledger: true,
+  });
+  if ((switched || !hasTargetRepo) && !(await load())) return;
+  if (stale()) return;
   openDetail(changeId);
 }
 
@@ -811,6 +960,9 @@ function renderSpecs() {
 }
 
 function openSpec(s) {
+  const identity = captureProjectIdentity(state.currentProject);
+  const detailTarget = Object.freeze({ ...identity, spec: s.name });
+  openDetailTarget = detailTarget;
   renderOpenedDetail(
     html`
     ${detailToolbar(state.detailMode, state.detailSize)}
@@ -842,7 +994,7 @@ function openSpec(s) {
       gotoChange(project, changeId);
     };
   });
-  renderExpandableMermaid(detail);
+  renderExpandableMermaid(detail, () => openDetailTarget !== detailTarget);
 }
 
 export function openChangeById(id, repoState = state, _openDetail = openDetail) {
@@ -886,7 +1038,10 @@ const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
 // `src/metrics.mjs` by the router.
 let sharedMetricsModule;
 function loadMetricsModule() {
-  sharedMetricsModule ??= import('/shared/metrics.mjs');
+  sharedMetricsModule ??= import('/shared/metrics.mjs').catch((error) => {
+    sharedMetricsModule = undefined;
+    throw error;
+  });
   return sharedMetricsModule;
 }
 
@@ -901,11 +1056,37 @@ function toMetricsChange(c) {
   };
 }
 
-async function renderMetrics() {
+const metricsContextKey = () =>
+  JSON.stringify([
+    projectIdentityKey(captureProjectIdentity(state.currentProject)),
+    selectionContextRevision,
+    state.currentView,
+    state.globalMode,
+    state.repo?.ledger_revision ?? null,
+    state.filters.text,
+    [...state.filters.types].sort(),
+    [...state.filters.owners].sort(),
+    state.filters.includeUnassigned,
+    [...state.filters.statuses].sort(),
+    state.filters.showArchived,
+    state.filters.showDiscarded,
+  ]);
+const metricsAffinity = affinityLane(metricsContextKey);
+
+export async function renderMetrics(loadModule = loadMetricsModule) {
+  const context = metricsContextKey();
+  const stale = metricsAffinity(context);
   const changes = visibleChanges();
-  const { computeMetrics } = await loadMetricsModule();
-  const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
-  litRender(metricsHtml(metrics, changes.length), $('#metrics'));
+  try {
+    const { computeMetrics } = await loadModule();
+    if (stale()) return;
+    const metrics = computeMetrics(changes.map(toMetricsChange), { now: new Date().toISOString() });
+    if (stale()) return;
+    litRender(metricsHtml(metrics, changes.length), $('#metrics'));
+  } catch (error) {
+    if (stale()) return;
+    litRender(html`<p class="empty">${error.message}</p>`, $('#metrics'));
+  }
 }
 
 export function syncViewerShell(root = document, renderContent = true) {
@@ -953,6 +1134,7 @@ let managedConfig = null;
 let configMode = 'form'; // 'form' | 'raw'
 let configDirty = false; // true when form/raw has unsaved edits
 let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
+let managedContextRevision = 0;
 
 // Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
 // _confirmImpl is replaceable in tests (JSDOM lacks showModal).
@@ -1325,9 +1507,15 @@ export function projectsViewTemplate(
 
 // Managed-project config reads track the projects panel's own selection axis,
 // independent of the board selection driving load()/syncReplicaState.
-const managedAffinity = affinityLane(() => managedProject);
+const managedAffinity = affinityLane(() =>
+  projectIdentityKey(captureProjectIdentity(managedProject)),
+);
+const migrationPreviewAffinity = affinityLane(() =>
+  projectIdentityKey(captureProjectIdentity(managedProject)),
+);
 
 export async function openManagedProject(id, { reload = false } = {}) {
+  managedContextRevision += 1;
   managedProject = id;
   configDirty = false;
   const project = state.projectsList.find((item) => item.id === id);
@@ -1347,13 +1535,15 @@ export async function openManagedProject(id, { reload = false } = {}) {
   // one (CR3). Captured only after the early returns: a repeat selection that
   // issues no fetch (cache hit, including a load already in flight) must not
   // invalidate the pending request's sequence.
-  const stale = managedAffinity(id);
+  const identity = captureProjectIdentity(id);
+  const stale = managedAffinity(projectIdentityKey(identity));
   managedConfig = { id, loading: true };
   migrationPreview = null;
   renderProjects();
   try {
     const structured = await getProjectConfigStructured(id);
     if (stale()) return; // selection moved on or a newer read superseded (CR3/CR4)
+    if (!matchesProjectReceipt(structured, identity, { ledger: true, config: true })) return;
     managedConfig = { id, ...structured };
     // Default to form for current schema, raw for future schema
     if (structured.schemaVersion > structured.supported) {
@@ -1375,22 +1565,44 @@ export function setProjectFormPending(root, pending) {
   root.classList.toggle('is-pending', pending);
 }
 
-export async function projectMutation(root, request, onSuccess) {
+export async function projectMutation(
+  root,
+  request,
+  onSuccess,
+  {
+    stale = () => false,
+    identity = null,
+    requireLedgerRevision = false,
+    requireConfigRevision = false,
+  } = {},
+) {
   setProjectFormPending(root, true);
   const error = root.querySelector('.project-error');
   if (error) error.hidden = true;
   try {
     const response = await request();
+    if (stale()) return false;
     const body = await response.json();
+    if (stale()) return false;
     if (!response.ok) throw new Error(body.error || 'Project update failed.');
+    if (
+      identity &&
+      !matchesProjectReceipt(body, identity, {
+        ledger: requireLedgerRevision,
+        config: requireConfigRevision,
+      })
+    )
+      return false;
     await onSuccess(body);
+    return true;
   } catch (failure) {
+    if (stale()) return false;
     if (error) {
       error.textContent = failure.message;
       error.hidden = false;
     } else showToast(failure.message);
   } finally {
-    setProjectFormPending(root, false);
+    if (!stale()) setProjectFormPending(root, false);
   }
 }
 
@@ -1405,10 +1617,24 @@ export function requestUnregisterConfirmation(project, ask = null) {
   );
 }
 
-async function refreshProjectRegistry() {
+async function refreshProjectRegistry(stale = () => false) {
+  const previousSelection = captureProjectIdentity(state.currentProject);
+  const previousManaged = captureProjectIdentity(managedProject);
   const { projects, current, localOnly } = await getProjects();
+  if (stale()) return false;
   state.localOnly = localOnly;
-  initializeProjects(projects, current);
+  replaceProjectRegistry(projects, current);
+  const nextSelection = captureProjectIdentity(state.currentProject);
+  if (!sameProjectIdentity(previousSelection, nextSelection)) {
+    selectionContextRevision += 1;
+    invalidateCache();
+    closeDetail();
+  }
+  const nextManaged = captureProjectIdentity(managedProject);
+  if (!sameProjectIdentity(previousManaged, nextManaged)) {
+    managedContextRevision += 1;
+    migrationPreview = null;
+  }
   const select = $('#project');
   litRender(
     projects.map(
@@ -1419,6 +1645,7 @@ async function refreshProjectRegistry() {
   );
   if (state.currentProject) select.value = state.currentProject;
   select.style.display = projects.length > 1 ? '' : 'none';
+  return true;
 }
 
 const listFromControl = (control) =>
@@ -1516,129 +1743,195 @@ export function collectFormPatch(formEl, currentConfig) {
 
 function renderProjects() {
   const root = $('#projects');
-  const configTarget = captureLedgerTarget(managedProject, managedConfig);
+  const configIdentity = captureProjectIdentity(managedProject);
+  const configTarget = Object.freeze({
+    ...captureLedgerTarget(managedProject, managedConfig),
+    repository_path: configIdentity.repositoryPath,
+  });
+  const captureConfigStale = () => {
+    const revision = managedContextRevision;
+    return () =>
+      managedContextRevision !== revision ||
+      !sameProjectIdentity(configIdentity, captureProjectIdentity(managedProject));
+  };
   litRender(
     projectsViewTemplate(state.projectsList, managedProject, managedConfig, state.localOnly),
     root,
   );
   bindProjectViewActions(root, {
     select: async (id) => {
+      const stale = captureConfigStale();
       if (configDirty) {
         const ok = await showConfirm('You have unsaved changes. Switch project and discard them?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
       openManagedProject(id);
     },
     reload: async () => {
+      const stale = captureConfigStale();
       if (configDirty) {
         const ok = await showConfirm('Reload will discard your unsaved changes. Continue?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
       openManagedProject(managedProject, { reload: true });
     },
     markDirty: () => {
+      managedContextRevision += 1;
       configDirty = true;
     },
     switchMode: async (mode) => {
+      const stale = captureConfigStale();
       if (configDirty && mode !== configMode) {
         const ok = await showConfirm('You have unsaved changes. Switch mode and discard them?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
       configMode = mode;
+      managedContextRevision += 1;
       configDirty = false;
       renderProjects();
     },
-    saveRaw: (content, configForm) =>
-      projectMutation(
+    saveRaw: (content, configForm) => {
+      const stale = captureConfigStale();
+      return projectMutation(
         configForm,
         () => postProjectConfig(configTarget, content, managedConfig.config_revision),
         async (body) => {
-          configDirty = false;
           // Selection may have moved on to another project while this
           // mutation was in flight; only this still-active target applies
           // its own receipt (CR4).
-          if (managedProject === configTarget.project) {
-            managedConfig = {
-              ...managedConfig,
-              content,
-              config_revision: body.config_revision,
-              ledger_revision: body.ledger_revision,
-              ledger_freshness: body.ledger_freshness,
-            };
-          }
-          await refreshProjectRegistry();
-          if (managedProject === configTarget.project) renderProjects();
+          if (stale()) return;
+          const nextConfig = {
+            ...managedConfig,
+            content,
+            config_revision: body.config_revision,
+            ledger_revision: body.ledger_revision,
+            ledger_freshness: body.ledger_freshness,
+          };
+          if (!(await refreshProjectRegistry(stale))) return;
+          if (stale()) return;
+          managedContextRevision += 1;
+          migrationPreview = null;
+          configDirty = false;
+          managedConfig = nextConfig;
+          renderProjects();
         },
-      ),
-    saveForm: (formEl, configForm) =>
-      projectMutation(
+        {
+          stale,
+          identity: configIdentity,
+          requireLedgerRevision: true,
+          requireConfigRevision: true,
+        },
+      );
+    },
+    saveForm: (formEl, configForm) => {
+      const stale = captureConfigStale();
+      return projectMutation(
         configForm,
         () => {
           const patch = collectFormPatch(formEl, managedConfig.config ?? {});
           return patchProjectConfigApi(configTarget, patch, managedConfig.config_revision);
         },
         async (_body) => {
+          if (stale()) return;
           configDirty = false;
-          if (managedProject === configTarget.project) {
-            await openManagedProject(managedProject, { reload: true });
-          }
+          await openManagedProject(managedProject, { reload: true });
         },
-      ),
+        {
+          stale,
+          identity: configIdentity,
+          requireLedgerRevision: true,
+          requireConfigRevision: true,
+        },
+      );
+    },
     previewMigration: async () => {
+      const contextStale = captureConfigStale();
+      const previewIdentity = captureProjectIdentity(configTarget.project);
+      const previewStale = migrationPreviewAffinity(projectIdentityKey(previewIdentity));
+      const stale = () => contextStale() || previewStale();
+      const requestedLedgerRevision = configTarget.ledger_revision ?? null;
+      const requestedConfigRevision = managedConfig.config_revision ?? null;
       let result;
       try {
-        result = await getConfigMigrationPreview(configTarget, managedConfig.config_revision);
+        result = await getConfigMigrationPreview(configTarget, requestedConfigRevision);
+        if (stale()) return;
+        if (!matchesProjectReceipt(result, configIdentity, { ledger: true, config: true })) return;
+        if (
+          result.ledger_revision !== requestedLedgerRevision ||
+          result.config_revision !== requestedConfigRevision
+        )
+          return;
       } catch (e) {
+        if (stale()) return;
         result = { error: e.message };
       }
-      if (managedProject !== configTarget.project) return;
       migrationPreview = result;
       renderProjects();
     },
     applyMigration: async () => {
+      const stale = captureConfigStale();
       const ok = await showConfirm(
         'Apply the config migration? This will update .changeledger/config.yml.',
       );
-      if (!ok) return;
+      if (!ok || stale()) return;
       try {
-        await postConfigMigrationApply(configTarget, managedConfig.config_revision);
-        if (managedProject === configTarget.project) {
-          await openManagedProject(managedProject, { reload: true });
-        }
+        const body = await postConfigMigrationApply(configTarget, managedConfig.config_revision);
+        if (stale() || !matchesProjectReceipt(body, configIdentity, { ledger: true, config: true }))
+          return;
+        await openManagedProject(managedProject, { reload: true });
       } catch (e) {
-        if (managedProject !== configTarget.project) return;
+        if (stale()) return;
         migrationPreview = { error: e.message };
         renderProjects();
       }
     },
-    repair: (projectPath, pathForm) =>
-      projectMutation(
+    repair: (projectPath, pathForm) => {
+      const target = configTarget.project;
+      const stale = captureConfigStale();
+      const repairedIdentity = { project: target, repositoryPath: projectPath };
+      return projectMutation(
         pathForm,
-        () => postProjectPath(configTarget.project, projectPath),
+        () => postProjectPath(configTarget, projectPath),
         async () => {
-          await refreshProjectRegistry();
-          if (managedProject === configTarget.project) {
-            await openManagedProject(managedProject, { reload: true });
+          if (!(await refreshProjectRegistry(stale))) return;
+          if (!sameProjectIdentity(repairedIdentity, captureProjectIdentity(target))) return;
+          const managedRevision = managedContextRevision;
+          const stillManagingTarget = managedProject === target;
+          if (state.currentProject === target) {
+            invalidateCache();
+            await load();
           }
+          if (
+            !stillManagingTarget ||
+            managedProject !== target ||
+            managedContextRevision !== managedRevision ||
+            !sameProjectIdentity(repairedIdentity, captureProjectIdentity(target))
+          )
+            return;
+          await openManagedProject(target, { reload: true });
         },
-      ),
+        { stale, identity: repairedIdentity },
+      );
+    },
     unregister: async (editor) => {
       const target = configTarget.project;
       const project = state.projectsList.find((item) => item.id === target);
+      const stale = captureConfigStale();
       const answer = await requestUnregisterConfirmation(project);
-      if (answer === null || managedProject !== target) return;
-      projectMutation(
+      if (answer === null || stale()) return;
+      return projectMutation(
         editor,
-        () => postProjectRemove(target, answer),
+        () => postProjectRemove(configTarget, answer),
         async () => {
-          if (managedProject === target) {
-            managedProject = null;
-            managedConfig = null;
-          }
-          await refreshProjectRegistry();
+          if (stale()) return;
+          if (!(await refreshProjectRegistry(stale))) return;
+          managedContextRevision += 1;
+          managedProject = null;
+          managedConfig = null;
           if (state.currentProject) await load();
           renderProjects();
         },
+        { stale, identity: configIdentity },
       );
     },
   });
@@ -1660,7 +1953,7 @@ export function bindProjectViewActions(root, handlers) {
   if (rawForm) {
     rawForm.onsubmit = (event) => {
       event.preventDefault();
-      handlers.saveRaw(rawForm.querySelector('textarea').value, rawForm);
+      return handlers.saveRaw(rawForm.querySelector('textarea').value, rawForm);
     };
     rawForm.querySelector('textarea')?.addEventListener('input', () => handlers.markDirty?.());
   }
@@ -1685,7 +1978,7 @@ export function bindProjectViewActions(root, handlers) {
   if (pathForm)
     pathForm.onsubmit = (event) => {
       event.preventDefault();
-      handlers.repair(pathForm.elements.path.value, pathForm);
+      return handlers.repair(pathForm.elements.path.value, pathForm);
     };
   const unregister = root.querySelector('[data-unregister]');
   if (unregister)
@@ -1719,8 +2012,8 @@ function ledgerProvenanceTemplate(ledger) {
     ledger.ledger_observed_at,
   );
   if (!label) return nothing;
-  return html`<div class="ledger-provenance" data-project=${ledger.project ?? ''}>
-    ${ledger.project ? `${ledger.project}: ` : ''}${label}
+  return html`<div class="ledger-provenance" data-project=${ledger.project_id ?? ''}>
+    ${ledger.project_id ? `${ledger.project_id}: ` : ''}${label}
   </div>`;
 }
 
@@ -1746,7 +2039,7 @@ export function globalSearchTemplate(result, query) {
               ${group.matches.map(
                 (match) => html`<div
                     class="search-hit"
-                    data-proj=${group.project.id}
+                    data-proj=${group.project.project_id}
                     data-id=${match.id}
                   >
                     <span class="card-id">#${match.id}</span>
@@ -1768,8 +2061,42 @@ export function globalSearchTemplate(result, query) {
 }
 
 // Global search: query every project server-side, render grouped results.
-async function renderGlobal() {
+let globalSearchSequence = 0;
+
+const registryIdentityKey = () =>
+  JSON.stringify(
+    state.projectsList
+      .map((project) => [String(project.id), pathForIdentity(project.path)])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+
+const pathForIdentity = (value) => String(value ?? '');
+
+function matchesSearchRegistry(result) {
+  const paths = new Map(
+    state.projectsList.map((project) => [String(project.id), pathForIdentity(project.path)]),
+  );
+  const matches = (project, repositoryPath) =>
+    paths.get(String(project)) === pathForIdentity(repositoryPath);
+  return (
+    (result.ledgers ?? []).every((ledger) => matches(ledger.project_id, ledger.repository_path)) &&
+    (result.groups ?? []).every((group) =>
+      matches(group.project?.project_id, group.project?.repository_path),
+    )
+  );
+}
+
+export async function renderGlobal() {
   const q = state.filters.text.trim();
+  const sequence = ++globalSearchSequence;
+  const registry = registryIdentityKey();
+  const registryRevision = registryContextRevision;
+  const stale = () =>
+    sequence !== globalSearchSequence ||
+    state.filters.text.trim() !== q ||
+    !state.globalMode ||
+    registryContextRevision !== registryRevision ||
+    registryIdentityKey() !== registry;
   const el = $('#global');
   if (!q) {
     litRender(
@@ -1782,9 +2109,12 @@ async function renderGlobal() {
   try {
     result = await searchAllProjects(q);
   } catch (e) {
+    if (stale()) return;
     litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, el);
     return;
   }
+  if (stale()) return;
+  if (!matchesSearchRegistry(result)) return;
   litRender(globalSearchTemplate(result, q), el);
   el.querySelectorAll('.search-hit').forEach((hit) => {
     hit.onclick = () => gotoChange(hit.dataset.proj, hit.dataset.id);
@@ -1856,15 +2186,21 @@ function bootstrap() {
   $('#view-projects').onclick = () => activateView('projects');
   $('#project').onchange = async (e) => {
     const nextProject = e.target.value;
+    const previousProject = state.currentProject;
+    const revision = selectionContextRevision;
     if (state.currentView === 'projects' && configDirty && nextProject !== state.currentProject) {
       const ok = await showConfirm('You have unsaved changes. Switch project and discard them?');
-      if (!ok) {
+      if (
+        !ok ||
+        state.currentProject !== previousProject ||
+        selectionContextRevision !== revision
+      ) {
         e.target.value = state.currentProject;
         return;
       }
       configDirty = false;
     }
-    selectProject(nextProject);
+    selectViewerProject(nextProject);
     load();
   };
   document.onkeydown = (e) => {

@@ -72,20 +72,30 @@ export function listProjects() {
   });
 }
 
-export function remove(id) {
+export function remove(id, { expectedPath } = {}) {
   fs.mkdirSync(registryDir(), { recursive: true });
   withFileLock(registryPath(), () => {
     const reg = readRegistry();
+    if (
+      expectedPath !== undefined &&
+      reg[id] &&
+      path.resolve(reg[id].path) !== path.resolve(expectedPath)
+    ) {
+      throw new Error('project registry changed; reload before writing');
+    }
     delete reg[id];
     writeRegistry(reg);
   });
 }
 
-export function update(id, values) {
+export function update(id, values, { expectedPath } = {}) {
   fs.mkdirSync(registryDir(), { recursive: true });
   return withFileLock(registryPath(), () => {
     const reg = readRegistry();
     if (!reg[id]) throw new Error(`no registered project "${id}"`);
+    if (expectedPath !== undefined && path.resolve(reg[id].path) !== path.resolve(expectedPath)) {
+      throw new Error('project registry changed; reload before writing');
+    }
     reg[id] = { ...reg[id], ...values };
     writeRegistry(reg);
     return reg[id];

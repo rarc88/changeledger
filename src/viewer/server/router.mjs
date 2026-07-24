@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { gitRefs } from '../../git.mjs';
+import { ledgerReceipt } from '../../ledger-store.mjs';
 import { packageRoot, publicDir } from '../../paths.mjs';
 import { loadRepoAsync } from '../../repo.mjs';
 import {
@@ -140,6 +141,31 @@ export function createRequestListener(cwd, localOnly, token) {
               return;
             }
             const { projects } = resolveProjects(cwd, localOnly);
+            const project = projects.find((candidate) => candidate.id === payload.project);
+            if (project) {
+              if (typeof payload.repository_path !== 'string') {
+                send(
+                  res,
+                  400,
+                  MIME['.json'],
+                  JSON.stringify({ error: 'repository_path is required' }),
+                );
+                return;
+              }
+              if (path.resolve(payload.repository_path) !== path.resolve(project.path)) {
+                send(
+                  res,
+                  409,
+                  MIME['.json'],
+                  JSON.stringify({
+                    project_id: project.id,
+                    repository_path: path.resolve(project.path),
+                    error: 'project registry changed; reload before writing',
+                  }),
+                );
+                return;
+              }
+            }
             const options = { localOnly };
             let result;
             if (route === '/api/status') result = changeStatus(projects, payload);
@@ -204,11 +230,30 @@ export function createRequestListener(cwd, localOnly, token) {
         }
         const { projects } = resolveProjects(cwd, localOnly);
         const proj = projects.find((p) => p.id === params.get('project'));
-        if (!proj?.alive) {
-          send(res, 200, MIME['.json'], JSON.stringify({ commits: [], branches: [] }));
+        if (!proj) {
+          send(res, 404, MIME['.json'], JSON.stringify({ error: 'no project' }));
           return;
         }
-        send(res, 200, MIME['.json'], JSON.stringify(gitRefs(proj.path, rawId)));
+        const identity = {
+          project_id: proj.id,
+          repository_path: path.resolve(proj.path),
+        };
+        if (!proj.alive) {
+          send(
+            res,
+            200,
+            MIME['.json'],
+            JSON.stringify({ ...identity, ...ledgerReceipt(null), commits: [], branches: [] }),
+          );
+          return;
+        }
+        const repo = await loadRepoAsync(proj.path);
+        send(
+          res,
+          200,
+          MIME['.json'],
+          JSON.stringify({ ...identity, ...ledgerReceipt(repo), ...gitRefs(proj.path, rawId) }),
+        );
         return;
       }
       if (route === '/api/search') {
@@ -231,7 +276,7 @@ export function createRequestListener(cwd, localOnly, token) {
           res,
           200,
           MIME['.json'],
-          JSON.stringify(serialize(await loadRepoAsync(proj.path), proj.id)),
+          JSON.stringify(serialize(await loadRepoAsync(proj.path), proj.id, proj.path)),
         );
         return;
       }
