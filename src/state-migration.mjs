@@ -1676,6 +1676,10 @@ export function exportStateRecovery(
     );
   }
   const snapshot = store.loadRevision(refs.confirmed);
+  // A closed-snapshot validation cannot see truth dropped earlier in the
+  // confirmed history; recovery materializes that history outside the replica,
+  // so it must not export a lineage that lost an identity since the baseline.
+  store.validateHistory(refs.confirmed);
   const integration = integrationBranch(snapshot.config);
   if (!integration) throw new Error('state recovery export requires git.integration_branch');
   const base = exactCommit(repoRoot, `refs/heads/${integration}`);

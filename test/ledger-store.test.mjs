@@ -19,7 +19,7 @@ import {
   validateServerStateRevision,
 } from '../src/ledger-store.mjs';
 import { loadRepo } from '../src/repo.mjs';
-import { CONFIRMED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
+import { CONFIRMED_REF, OBSERVED_REF, PENDING_REF, PUBLIC_STATE_REF } from '../src/state-store.mjs';
 import { serialize } from '../src/viewer/domain.mjs';
 import { changeText, createStateRepo, stateConfig } from './helpers/state-repo.mjs';
 
@@ -241,6 +241,203 @@ test('202058 CR2: a confirmed ref forged to drop a change identity fails closed 
     () => loadLedgerStore(root).load(),
     /state revision .* removes changes identity "20260721-000000"/,
   );
+});
+
+// A schema-valid activated v2 replica whose baseline holds two changes. The
+// extra change is referenced by nothing (no spec graduated_from, no release),
+// so a snapshot without it stays schema-valid: only the identity continuity
+// policy can reject its removal. The repo is its own remote so sync fetches
+// the local `changeledger/state` branch.
+const EXTRA_CHANGE_PATH = '.changeledger-state/changes/20260721-000001-change.md';
+function replicaStateRepo() {
+  const { root, baseline } = createStateRepo({
+    changes: [changeText(), changeText({ id: '20260721-000001', title: 'Extra' })],
+  });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'authority.yml'),
+    `format_version: 2\nstate_ref: ${PUBLIC_STATE_REF}\nbaseline: ${baseline}\nproject_id: project-1\ninventory_digest: ${'a'.repeat(64)}\nminimum_client_version: 0.13.0\n`,
+  );
+  git(root, ['add', '.changeledger/authority.yml']);
+  git(root, ['commit', '-qm', 'chore: authority v2']);
+  activate(root);
+  git(root, ['update-ref', CONFIRMED_REF, baseline]);
+  git(root, ['update-ref', OBSERVED_REF, baseline]);
+  git(root, ['remote', 'add', 'origin', root]);
+  return { root, baseline };
+}
+
+// Advances the public state branch with the given worktree mutation and
+// returns the new head, leaving `dev` checked out again.
+function advancePublicState(root, message, mutateWorktree) {
+  git(root, ['checkout', '-q', 'changeledger/state']);
+  mutateWorktree(path.join(root, '.changeledger-state'));
+  git(root, ['add', '.changeledger-state']);
+  git(root, ['commit', '-qm', message]);
+  const head = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  return head;
+}
+
+test('202058 CR2: sync refuses to confirm a remote descendant that removes an identity', () => {
+  const { root, baseline } = replicaStateRepo();
+  const removal = advancePublicState(root, 'test: remote drops the extra change', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', OBSERVED_REF]), baseline);
+  assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
+});
+
+test('202058 CR2: a removal hidden in an intermediate synced commit still fails closed', () => {
+  const { root, baseline } = replicaStateRepo();
+  const extraText = changeText({ id: '20260721-000001', title: 'Extra' });
+  const removal = advancePublicState(root, 'test: intermediate commit drops the change', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  advancePublicState(root, 'test: tip restores the change', () =>
+    fs.writeFileSync(path.join(root, EXTRA_CHANGE_PATH), extraText),
+  );
+
+  // The tip snapshot is complete, so a tip-against-parent read check cannot
+  // see the intermediate disappearance; only the per-commit range policy can.
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', OBSERVED_REF]), baseline);
+});
+
+test('202058 CR2: sync refuses to publish a forged pending that removes an identity', () => {
+  const { root, baseline } = replicaStateRepo();
+  const forged = advancePublicState(root, 'test: forged pending drops the extra change', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  git(root, ['update-ref', 'refs/heads/changeledger/state', baseline]);
+  git(root, ['update-ref', PENDING_REF, forged]);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`invalid pending state ${forged}: .*removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), forged);
+});
+
+test('202058 CR2: abort refuses to confirm a published range that removes an identity', () => {
+  const { root, baseline } = replicaStateRepo();
+  const pendingHead = advancePublicState(root, 'test: benign pending', () => {
+    const file = path.join(root, '.changeledger-state/changes/20260721-000000-change.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('title: Demo', 'title: New'));
+  });
+  const removal = advancePublicState(root, 'test: remote removal above the pending', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  git(root, ['update-ref', PENDING_REF, pendingHead]);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.abort({}),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), pendingHead);
+});
+
+test('202058 CR2: confirm-observed refuses a remote that extends the pending with a removal', () => {
+  const { root, baseline } = replicaStateRepo();
+  const pendingHead = advancePublicState(root, 'test: benign pending', () => {
+    const file = path.join(root, '.changeledger-state/changes/20260721-000000-change.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('title: Demo', 'title: New'));
+  });
+  const removal = advancePublicState(root, 'test: remote removal above the pending', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  git(root, ['update-ref', PENDING_REF, pendingHead]);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), pendingHead);
+});
+
+test('202058 CR2: replay refuses a diverged remote whose range removes an identity', () => {
+  const { root, baseline } = replicaStateRepo();
+  const pendingHead = advancePublicState(root, 'test: benign pending', () => {
+    const file = path.join(root, '.changeledger-state/changes/20260721-000000-change.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('title: Demo', 'title: New'));
+  });
+  git(root, ['update-ref', 'refs/heads/changeledger/state', baseline]);
+  const removal = advancePublicState(root, 'test: diverged remote removes the extra change', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  git(root, ['update-ref', PENDING_REF, pendingHead]);
+
+  assert.throws(
+    () => loadLedgerStore(root).replica.sync(),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.equal(git(root, ['rev-parse', PENDING_REF]), pendingHead);
+});
+
+test('202058 CR2: a direct mutation refuses to adopt a remote removal during its pre-sync', () => {
+  const { root, baseline } = replicaStateRepo();
+  const removal = advancePublicState(root, 'test: remote drops the extra change', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+  const store = loadLedgerStore(root);
+
+  assert.throws(
+    () =>
+      store.mutate({ message: 'test: mutate over removal', expectedRevision: baseline }, () => {}),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+  assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
+});
+
+test('202058 CR2: a removal published between preflight and mutate fails the post-commit sync', () => {
+  const { root, baseline } = replicaStateRepo();
+  const store = loadLedgerStore(root);
+  store.prepareMutation();
+  const removal = advancePublicState(root, 'test: removal lands after the preflight', () =>
+    fs.rmSync(path.join(root, EXTRA_CHANGE_PATH)),
+  );
+
+  assert.throws(
+    () =>
+      store.mutate(
+        { message: 'test: raced mutation', expectedRevision: baseline },
+        ({ snapshot, write }) => {
+          const change = snapshot.changes[0];
+          write(change.statePath, change.text.replace('title: Demo', 'title: Raced'));
+        },
+      ),
+    new RegExp(`state revision ${removal} removes changes identity "20260721-000001"`),
+  );
+  // The local pending commit was already created; what matters is that the
+  // truncated remote history was never adopted as confirmed truth.
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
+});
+
+test('202058 CR2: a preserving remote advance still syncs and confirms', () => {
+  const { root } = replicaStateRepo();
+  const advanced = advancePublicState(root, 'test: preserving advance', () => {
+    const file = path.join(root, '.changeledger-state/changes/20260721-000000-change.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('title: Demo', 'title: New'));
+  });
+
+  const result = loadLedgerStore(root).replica.sync();
+  assert.equal(result.confirmed, true);
+  assert.equal(result.effective, advanced);
+  assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), advanced);
 });
 
 test('193103 CR7: replica authority requires immutable provenance and a compatible client', () => {

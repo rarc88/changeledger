@@ -491,6 +491,34 @@ function gitParentsOrRoot(repoRoot, commit, run) {
   return fields.slice(1);
 }
 
+// Applies the no-disappearance policy commit by commit over `from..to` (the
+// full history of `to` when `from` is null) -- the same range semantics the
+// server hook enforces in validateStateRef. A tip-against-parent comparison
+// alone cannot see a removal buried in an intermediate commit of the range.
+export function assertIdentityContinuity(
+  repoRoot,
+  changeledgerDir,
+  authority,
+  from,
+  to,
+  run,
+  cache = new Map(),
+) {
+  if (from === to) return;
+  const output = run(
+    ['rev-list', '--reverse', '--parents', ...(from ? [`${from}..${to}`] : [to])],
+    repoRoot,
+  ).trim();
+  if (!output) return;
+  const snapshotAt = (revision) =>
+    loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run, cache);
+  for (const line of output.split('\n')) {
+    const [commit, ...parents] = line.split(/\s+/);
+    const snapshot = snapshotAt(commit);
+    for (const parent of parents) assertNoDisappearance(snapshotAt(parent), snapshot, commit);
+  }
+}
+
 function loadStateSnapshot(repoRoot, changeledgerDir, authority, run, cache) {
   const revision = gitStateRevision(repoRoot, authority, run);
   const snapshot = loadStateSnapshotAt(repoRoot, changeledgerDir, authority, revision, run, cache);
@@ -776,6 +804,16 @@ function mutateState(
     replicaValidationCache.set(revision, snapshot);
     return snapshot;
   };
+  const validateTransition = (from, to) =>
+    assertIdentityContinuity(
+      repoRoot,
+      changeledgerDir,
+      authority,
+      from ?? authority.baseline,
+      to,
+      run,
+      snapshotCache,
+    );
   // Probe before sync so an unreliable pending read cannot be discovered only
   // after fetch has written objects or advanced replica refs.
   if (replica) optionalRefOid(repoRoot, PENDING_REF, run);
@@ -783,6 +821,7 @@ function mutateState(
     syncStateReplica(repoRoot, {
       validateRevision: validateReplicaRevision,
       validateCandidate,
+      validateTransition,
     });
   }
   if (replica) {
@@ -873,6 +912,7 @@ function mutateState(
       const result = syncStateReplica(repoRoot, {
         validateRevision: validateReplicaRevision,
         validateCandidate,
+        validateTransition,
       });
       // A replay or a failed publish means the effective state is not
       // exactly our commit (it was replaced or is still pending under a
@@ -932,10 +972,20 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
     validateStateRevision(repoRoot, changeledgerDir, authority, authority.baseline, run, {
       requireBaseline: true,
     });
+  const validateTransition = (from, to) =>
+    assertIdentityContinuity(
+      repoRoot,
+      changeledgerDir,
+      authority,
+      from ?? authority.baseline,
+      to,
+      run,
+    );
   const syncReplica = () => {
     return syncStateReplica(repoRoot, {
       validateRevision: validateReplicaRevision,
       validateCandidate,
+      validateTransition,
     });
   };
   const load = () => loadStateSnapshot(repoRoot, changeledgerDir, authority, run);
@@ -948,6 +998,19 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
       validateStateRevision(repoRoot, changeledgerDir, authority, revision, run, {
         requireBaseline: true,
       }),
+    // Identity continuity of the revision's whole history back to the trusted
+    // baseline -- what a consumer that materializes truth outside the replica
+    // (recovery export) must require beyond the closed-snapshot validation of
+    // `loadRevision`.
+    validateHistory: (revision) =>
+      assertIdentityContinuity(
+        repoRoot,
+        changeledgerDir,
+        authority,
+        authority.baseline,
+        revision,
+        run,
+      ),
     prepareMutation: ({ offline = false } = {}) => {
       if (replica && !offline) {
         optionalRefOid(repoRoot, PENDING_REF, run);
@@ -979,6 +1042,7 @@ export function loadLedgerStore(start = process.cwd(), { run = defaultRun } = {}
             return abortStatePending(repoRoot, {
               offline,
               validateRevision: validateReplicaRevision,
+              validateTransition,
             });
           },
         }

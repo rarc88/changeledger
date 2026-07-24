@@ -1061,6 +1061,37 @@ test('193103 CR9/CR10: doctor inspects activation and recovery exports confirmed
   assert.throws(() => git(root, ['show', `${recovery.commit}:.changeledger/authority.yml`]));
 });
 
+test('202058 CR2: recovery export refuses a confirmed history that removed an identity', () => {
+  const { root } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['origin:refs/heads/dev'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  git(root, ['update-ref', ACTIVATION_REF, activation.commit]);
+  git(root, ['checkout', '-q', activation.branch]);
+  git(root, ['branch', '-f', 'dev', activation.commit]);
+  git(root, ['checkout', '-q', 'dev']);
+
+  // Forge a schema-valid confirmed descendant whose tree dropped the change
+  // document; nothing references it, so only identity continuity can object.
+  git(root, ['checkout', '-q', '-b', 'forge', baseline.baseline]);
+  fs.rmSync(path.join(root, '.changeledger-state', 'changes', '20260722-000000-demo.md'));
+  git(root, ['add', '-A', '.changeledger-state']);
+  git(root, ['commit', '-qm', 'test: forged confirmed drops the change']);
+  const forged = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['checkout', '-q', 'dev']);
+  git(root, ['branch', '-qD', 'forge']);
+  git(root, ['update-ref', CONFIRMED_REF, forged]);
+  git(root, ['update-ref', OBSERVED_REF, forged]);
+
+  assert.throws(
+    () => exportStateRecovery(root),
+    new RegExp(`state revision ${forged} removes changes identity "20260722-000000"`),
+  );
+  assert.throws(() =>
+    git(root, ['rev-parse', '--verify', `refs/heads/changeledger/recover-${forged.slice(0, 12)}`]),
+  );
+});
+
 test('163406 CR1: preview lists non-inventoried legacy files without failing', () => {
   const { root } = legacyRepo();
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', '.gitkeep'), '');

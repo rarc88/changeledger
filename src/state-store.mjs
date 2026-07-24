@@ -271,6 +271,7 @@ export function syncStateReplica(
     now = () => new Date().toISOString(),
     validateRevision = () => {},
     validateCandidate = validateRevision,
+    validateTransition = () => {},
     pushState = (root, remote, refspec) =>
       git(root, ['push', remote, refspec], { timeout: NETWORK_TIMEOUT_MS }),
   } = {},
@@ -287,6 +288,9 @@ export function syncStateReplica(
   if (before.pending) {
     try {
       validateRevision(before.pending);
+      // A pending is only publishable or replayable if it is a truth-preserving
+      // successor of confirmed; checking here covers both downstream paths.
+      validateTransition(before.confirmed, before.pending);
     } catch (error) {
       recordObserved(repoRoot, before, fetched, at);
       throw new Error(`invalid pending state ${before.pending}: ${error.message}`, {
@@ -302,6 +306,7 @@ export function syncStateReplica(
     { isAncestor: (ancestor, descendant) => isAncestor(repoRoot, ancestor, descendant) },
   );
   if (['adopt-observed', 'advance-confirmed', 'current'].includes(plan.action)) {
+    validateTransition(before.confirmed, fetched);
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
       { ref: CONFIRMED_REF, before: before.confirmed, after: fetched },
@@ -341,6 +346,7 @@ export function syncStateReplica(
   }
 
   if (plan.action === 'confirm-observed') {
+    validateTransition(before.confirmed, fetched);
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
       { ref: CONFIRMED_REF, before: before.confirmed, after: fetched },
@@ -351,6 +357,10 @@ export function syncStateReplica(
   }
 
   if (plan.action === 'replay-pending') {
+    // The replayed head becomes confirmed truth in two steps (fetched first,
+    // then the replay commit); keep the continuity invariant local to each
+    // confirming transaction instead of relying on the pending check alone.
+    validateTransition(before.confirmed, fetched);
     let replay;
     try {
       replay = replayPending(repoRoot, pending, fetched, validateCandidate);
@@ -369,6 +379,7 @@ export function syncStateReplica(
         { cause: error },
       );
     }
+    validateTransition(fetched, replay.head);
     transaction(repoRoot, [
       { ref: OBSERVED_REF, before: before.observed, after: fetched },
       { ref: CONFIRMED_REF, before: before.confirmed, after: fetched },
@@ -471,6 +482,7 @@ export function abortStatePending(
     offline = false,
     now = () => new Date().toISOString(),
     validateRevision = () => {},
+    validateTransition = () => {},
     isAncestor: resolveAncestry = isAncestor,
   } = {},
 ) {
@@ -508,6 +520,10 @@ export function abortStatePending(
   }
 
   const published = resolveAncestry(repoRoot, before.pending, fetched);
+  // Confirming the fetched tip adopts whatever remote history extends the
+  // published pending; it must satisfy the same identity continuity as every
+  // other confirming transaction.
+  if (published) validateTransition(before.confirmed, fetched);
   transaction(repoRoot, [
     { ref: CONFIRMED_REF, before: before.confirmed, after: published ? fetched : before.confirmed },
     { ref: OBSERVED_REF, before: before.observed, after: fetched },
