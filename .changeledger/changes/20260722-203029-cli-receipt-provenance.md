@@ -75,6 +75,9 @@ de estado sin procedencia, contradiciendo «todo receipt».
   - **Resolved:** `2026-07-23T14:47:57Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-23T14:52:37Z`
+- [ ] Añadir tests rojos y procedencia en los productores que el inventario de la reapertura encontró sin ella: `check` (humano y `--json`, incluido `--commits` y el fallo de carga) en `src/commands/check.mjs`, receipt de `fix` en `src/commands/fix.mjs`, receipt de `config migrate` en `src/commands/config.mjs` y `release plan` en `src/commands/release.mjs`; verify: `node --test test/cli-bin.test.mjs test/state-command.test.mjs` (CR1, CR2)
+- [ ] Añadir tests rojos y procedencia en los receipts de éxito de `state validate-update` y `state validate-receive` en `bin/changeledger.mjs`, reutilizando el helper de procedencia de receipts de estado; verify: `node --test test/state-receive.test.mjs` (CR1, CR2)
+- [ ] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -90,3 +93,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-23T15:05:41Z** `[status]` in-progress → in-review
 - **2026-07-23T15:11:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T22:57:48Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 confirma receipts sin procedencia autocontenida: viewer sync/mutations omiten project_id y repository_path, y varios productores CLI aún no llaman repoProvenance. El criterio de todos los receipts no se cumple.
+- **2026-07-24T16:00:07Z** `[note]` Reapertura acotada: la mitad viewer del rechazo (sync/mutations sin project_id/repository_path) pertenece a 20260722-190137 y quedó cerrada por su rework sistémico ya en in-validation. Inventario CLI completo de esta reapertura: faltan check (humano/JSON/--commits/fallo de carga), fix, config migrate, release plan y los éxitos de state validate-update/validate-receive. Outputs sin receipt (init, register, context, agent-prompt, agent-context, view) quedan fuera del criterio: no atribuyen una operación de ledger.
