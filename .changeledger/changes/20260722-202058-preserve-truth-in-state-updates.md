@@ -53,6 +53,18 @@ La honestidad del receipt es parte del fix: `content_validation` valida el
 contrato del snapshot, no autentica al actor ni garantiza integridad histórica
 más allá de esta política.
 
+La reauditoría `be058658` (TRUTH-01) demostró que la corrección original dejó
+descubierta la frontera sync/recovery: `validateStateRevision` valida cada
+snapshot aislado (schema, cierre, ancestría del baseline) y la comparación
+contra padres vive solo en la lectura (`loadStateSnapshot`). `state sync`
+confirma un descendiente remoto que elimina una identidad —la lectura posterior
+falla cerrado, pero `confirmed` ya avanzó— y `state export --recovery-branch`
+materializa ese `confirmed` incompleto en una rama porque `loadRevision` no
+compara contra ningún padre. Además, una eliminación en un commit intermedio
+del rango sincronizado es invisible para la comparación tip-contra-padre de la
+lectura: la política debe evaluarse commit a commit sobre el rango, como ya
+hace el validador del servidor (`validateStateRef`).
+
 ## Specification
 
 ### CR1 — Un update no puede hacer desaparecer verdad
@@ -70,6 +82,11 @@ más allá de esta política.
 - **When** el cliente valida la revisión (lectura o pre-publicación)
 - **Then** falla cerrado nombrando lo desaparecido en lugar de servir el
   snapshot como verdad
+- **And** `state sync` nunca avanza `confirmed` ni publica un pending hacia una
+  revisión cuyo rango —evaluado commit a commit contra cada padre, incluidos
+  los commits intermedios— elimina identidades
+- **And** `state export --recovery-branch` nunca materializa una rama desde un
+  `confirmed` cuya historia desde el baseline elimina identidades
 
 ### CR3 — El receipt no sobrevende
 - **Given** cualquier validación con resultado `content_validation`
@@ -87,6 +104,9 @@ más allá de esta política.
   - **Resolved:** `2026-07-22T23:10:00Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-22T23:15:00Z`
+- [ ] Añadir tests fallidos de sync (descendiente remoto que elimina un change, eliminación solo en un commit intermedio del rango, pending forjado que elimina) y validar continuidad de identidades por rango con `assertIdentityContinuity` en `src/ledger-store.mjs`, aplicada por `syncStateReplica` en `src/state-store.mjs` sobre fetched, pending y replay; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR2)
+- [ ] Añadir test fallido del recovery export de un confirmed forjado incompleto y aplicar la misma continuidad desde el baseline en `exportStateRecovery` de `src/state-migration.mjs` antes de materializar la rama; verify: `node --test test/state-migration.test.mjs` (CR2)
+- [ ] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -103,3 +123,4 @@ más allá de esta política.
 - **2026-07-22T22:31:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-22T23:55:47Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-23T22:58:27Z** `[status]` done → in-progress (agent reopened): La reauditoría be058658 demuestra que state sync confirma un descendiente que elimina una identidad y recovery exporta el snapshot incompleto; CR2 no cubre la frontera sync/recovery.
+- **2026-07-24T14:42:54Z** `[note]` Corrección de la reapertura: la política de no-desaparición se aplicará por rango (commit a commit contra cada padre) en la frontera sync/recovery del cliente, reutilizando la misma semántica que validateStateRef en el servidor. Spec CR2 extendida y plan ampliado con tests rojos primero.
