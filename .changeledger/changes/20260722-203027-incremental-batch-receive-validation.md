@@ -70,6 +70,10 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
   - **Resolved:** `2026-07-23T00:55:00Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-23T00:58:00Z`
+- [ ] Subir `max_object_bytes` default a 64 MiB en `src/state-validation.mjs` con test rojo que exige que el default cubra con margen los 33.754.846 bytes medidos del perfil declarado (256 commits × 5.000 changes); verify: `node --test test/state-validation.test.mjs` (support)
+- [ ] Extender `scripts/bench-batch-validation.mjs` con `--limits default` y re-ejecutar 256 commits × 5.000 changes × 1/3 docs con presupuestos default, registrando p95 y object_bytes en el Log; verify: `node scripts/bench-batch-validation.mjs --commits 256 --sizes 5000 --limits default` acepta dentro de budget (support)
+- [ ] Publicar la envolvente de sizing del hook en la sección pre-receive de `README.md` (defaults, perfil declarado medido, cómo redimensionar con --max-commits/--max-object-bytes/--timeout-ms); verify: revisión manual de la sección renderizada (support)
+- [ ] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -86,3 +90,4 @@ No-goals: caché entre batches o procesos; relajar ninguna regla de validación.
 - **2026-07-23T01:24:00Z** `[status]` in-progress → in-review
 - **2026-07-23T09:19:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T22:58:06Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 confirma que la matriz 256 commits x 5000 changes solo pasa con budgets ampliados; con defaults excede 32 MiB. La evidencia no demuestra el perfil default declarado ni el runbook publica su envolvente.
+- **2026-07-24T17:09:35Z** `[note]` Dirección de la reapertura autorizada por el humano (conversación 2026-07-24): default de max_object_bytes a 64 MiB — cubre el perfil declarado (33.754.846 bytes) con ~2x de margen, coste de memoria transitorio acotado en el hook — más publicación de la envolvente en el runbook del README.
