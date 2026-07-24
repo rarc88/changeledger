@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: done
+status: in-progress
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -81,6 +81,9 @@ de estado sin procedencia, contradiciendo «todo receipt».
   - **Resolved:** `2026-07-24T16:16:14Z`
 - [x] Ejecutar el gate completo tras la corrección; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-24T16:16:14Z`
+- [ ] Añadir tests rojos y enrutar los fallos de `state status/sync/abort` por la maquinaria de receipts (`stateAction`/`stateFailureReceipt` en `bin/changeledger.mjs`): receipt con procedencia en fallo humano y JSON estructurado bajo `--json`; verify: `node --test test/state-command.test.mjs` (CR1, CR2)
+- [ ] Añadir tests rojos y sufijo de procedencia en los fallos de carga humanos de `check` y `fix`, promoviendo `safeProvenance`/`provenanceSuffix` a `src/ledger-store.mjs` y usándolos en `src/commands/check.mjs` y `src/commands/fix.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR2)
+- [ ] Ejecutar el gate completo tras la segunda reapertura; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -104,3 +107,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-24T16:31:48Z** `[status]` in-progress → in-review
 - **2026-07-24T16:40:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-24T16:45:41Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-24T21:38:48Z** `[status]` done → in-progress (agent reopened): La tercera ejecución del audit (RECEIPT-04/05) encontró scope original sin completar: los fallos de state status/sync/abort pasan por el wrapper action() en vez de la maquinaria de receipts (Error pelado, sin procedencia y salida no-JSON bajo --json), y los fallos de carga humanos de check/fix no llevan el sufijo de procedencia que sus gemelos JSON sí degradan. CR1 enumera status/sync/abort y CR2 exige procedencia en todo fallo.
