@@ -2,7 +2,7 @@
 id: "20260723-202646"
 title: Autoridad de estado independiente del checkout
 type: feature
-status: in-validation
+status: blocked
 created: 2026-07-23T20:26:46Z
 depends_on: ["20260722-202057"]
 owner: raruiz-hiberuscom
@@ -126,6 +126,8 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
   - **Resolved:** `2026-07-23T21:42:27Z`
 - [x] Ejecutar la suite completa y el gate tras la implementación; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-23T21:55:45Z`
+- [!] Resolver los residuos de lectura de pending y activation no-commit tras el segundo rechazo (CR3, CR5, CR9)
+  - **Blocked:** El protocolo del audit exige dividir o reemplazar el change antes de un tercer retry; requiere decisión humana sobre la nueva frontera.
 
 ## Log
 - **2026-07-23T20:49:59Z** `[status]` draft → approved (human via conversation)
@@ -139,3 +141,10 @@ Después de desactivar, todos los worktrees aplican de nuevo la matriz sin refs 
 - **2026-07-23T21:59:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T21:59:43Z** `[note]` Review de contexto limpio: pass 9/9 CRs con evidencia (TOCTOU cubierto por verify en transacción, divergencia por campos parseados sin falso positivo cosmético, deactivate all-or-nothing). 2 nits aceptados sin corrección: repoProvenance permisivo en modo bootstrap (diseño sin activación no oculta CR4) y wording del mensaje de colisión concurrente en install.
 - **2026-07-23T22:09:17Z** `[note]` Commit ef1c6b50 tras corregir fragilidad de fixture: el helper git() de test/ledger-store.test.mjs heredaba GIT_DIR/GIT_INDEX_FILE del pre-commit hook y git worktree add (CR2) operaba contra el índice del repo exterior; saneado con el patrón hook-safe ya establecido en commit.test.mjs. Hook completo verde.
+- **2026-07-23T22:55:15Z** `[validation]` in-validation → in-progress (agent rejected): La reauditoría be058658 reproduce tres fallos de autoridad: errores al leer refs se degradan a worktree legacy, deactivate acepta una rama ajena a git.integration_branch y --install acepta state_ref inválida. La garantía checkout-independent no falla cerrada.
+- **2026-07-23T23:11:52Z** `[note]` Corrección de reauditoría: tests rojos confirmaron fallback ante errores de lectura de refs, install con state_ref no soportada, deactivate sobre una rama ajena y pending-only tratado como desactivado. Implementado optional ref fail-closed, validación de state_ref y binding de deactivation a git.integration_branch; 129/129 store+migration y 73/73 CLI+command verdes. Runner externo not-dev rechazado conservando activation/confirmed/observed.
+- **2026-07-23T23:11:56Z** `[status]` in-progress → in-review
+- **2026-07-23T23:21:00Z** `[review]` in-review → in-progress (retry): Deactivation no verifica pending dentro de la transacción, su camino idempotente omite validar el full integration ref y otras lecturas de refs aún convierten errores operacionales en ausencia.
+- **2026-07-23T23:27:57Z** `[note]` Corrección tras review fail-retry: todas las lecturas de activation/confirmed/observed/pending distinguen missing real de error operacional; gitStateRevision preserva el diagnóstico. Deactivate valida el ref incluso en retry idempotente y su transacción verifica que pending siga ausente. Regresiones TOCTOU, idempotencia y confirmed ilegible verdes; 149/149 suites focalizadas.
+- **2026-07-23T23:28:01Z** `[status]` in-progress → in-review
+- **2026-07-23T23:38:15Z** `[review]` in-review → blocked: Segundo rechazo consecutivo: mutateState aún degrada un error leyendo pending y deactivate confunde una activation no-commit con ausencia. El protocolo del audit exige detener retries y dividir o reemplazar la definición.
