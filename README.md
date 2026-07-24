@@ -269,6 +269,22 @@ authentication of who pushed them. There is no portable authenticated actor
 identity: `owner` remains responsibility metadata, not an access-control list.
 There is no actor, human-override, probe or provider-autodetection option.
 
+#### Validation budget sizing
+
+`state validate-update` and `state validate-receive` bound every push with
+three fail-closed budgets: `--max-commits` (default 256), `--max-object-bytes`
+(default 128 MiB of unique Git object content across the validated range) and
+`--timeout-ms` (default 30000). The defaults are sized for the declared
+profile — a batch of 256 commits over a 5,000-change ledger — which measures
+about 68 million unique object bytes (dominated by per-commit tree objects,
+not document blobs), leaving roughly 2× byte headroom on a stock install.
+Reproduce the envelope with
+`node scripts/bench-batch-validation.mjs --commits 256 --sizes 5000 --limits default`.
+Repositories beyond that profile must resize the hook explicitly by adding the
+flags to `hooks/pre-receive` (for example `--max-object-bytes 268435456`); a
+rejected push names the exceeded budget in its receipt and never leaves
+partial state on the server.
+
 Protection capabilities are reported independently:
 
 | Deployment | History | Content | Actor | Legacy paths |

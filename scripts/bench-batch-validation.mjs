@@ -5,7 +5,11 @@
 // Target: p95 < 30_000ms for 256 commits over 5000 changes.
 //
 // Usage: node scripts/bench-batch-validation.mjs [--commits 1,50,256]
-//   [--sizes 1000,5000] [--docs 1,3] [--reps 3]
+//   [--sizes 1000,5000] [--docs 1,3] [--reps 3] [--limits roomy|default]
+//
+// --limits default runs with the shipped DEFAULT_STATE_LIMITS (no overrides),
+// proving the declared profile fits a stock hook install; roomy (the default
+// here) removes budget noise when measuring pure validation latency.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -70,8 +74,11 @@ function main() {
   const sizes = arg('sizes', '1000,5000').split(',').map(Number);
   const docCounts = arg('docs', '1,3').split(',').map(Number);
   const reps = Number(arg('reps', '3'));
+  const limitsMode = arg('limits', 'roomy');
+  const limits = limitsMode === 'default' ? undefined : ROOMY;
 
-  console.log('size\tcommits\tdocs_per_commit\tp50_ms\tp95_ms');
+  console.log(`limits: ${limitsMode}`);
+  console.log('size\tcommits\tdocs_per_commit\tp50_ms\tp95_ms\tobject_bytes');
   for (const size of sizes) {
     for (const commits of commitCounts) {
       for (const docsPerCommit of docCounts) {
@@ -79,19 +86,21 @@ function main() {
         try {
           const head = buildChain(created, commits, docsPerCommit);
           const samples = [];
+          let objectBytes = 0;
           for (let i = 0; i < reps; i++) {
             git(created.root, ['update-ref', STATE_REF, created.baseline]);
             const start = process.hrtime.bigint();
-            validateStateUpdate({
+            const receipt = validateStateUpdate({
               repoRoot: created.root,
               oldOid: created.baseline,
               newOid: head,
               ref: STATE_REF,
               stateRef: STATE_REF,
               integrationRef: INTEGRATION_REF,
-              limits: ROOMY,
+              ...(limits ? { limits } : {}),
             });
             samples.push(Number(process.hrtime.bigint() - start) / 1e6);
+            objectBytes = receipt.object_bytes;
           }
           samples.sort((a, b) => a - b);
           console.log(
@@ -101,6 +110,7 @@ function main() {
               docsPerCommit,
               percentile(samples, 50).toFixed(1),
               percentile(samples, 95).toFixed(1),
+              objectBytes,
             ].join('\t'),
           );
         } finally {

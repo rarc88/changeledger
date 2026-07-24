@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { STATE_REF } from '../src/ledger-store.mjs';
 import {
+  DEFAULT_STATE_LIMITS,
   parseReceiveBatch,
   validateReceiveBatch,
   validateStateUpdate,
@@ -48,6 +49,19 @@ function advanceIntegration(created, file, text, message = 'test: integration') 
 }
 
 const roomy = { max_commits: 20, max_object_bytes: 1_000_000, timeout_ms: 5000 };
+
+test('203027: default budgets cover the declared 256x5000 profile with margin', () => {
+  // scripts/bench-batch-validation.mjs measures ~68.1M unique object bytes
+  // for the declared profile (256 commits over a 5,000-change ledger, 1 or 3
+  // docs per commit; varies ~1% per run — the requalification's 33,754,846
+  // was the fail-closed abort point of the old 32 MiB budget, not the total).
+  // The default budget must fit the real total without resizing the hook.
+  const DECLARED_PROFILE_BYTES = 68_078_810;
+  assert.equal(DEFAULT_STATE_LIMITS.max_object_bytes, 128 * 1024 * 1024);
+  assert.ok(DEFAULT_STATE_LIMITS.max_object_bytes >= DECLARED_PROFILE_BYTES * 1.5);
+  assert.equal(DEFAULT_STATE_LIMITS.max_commits, 256);
+  assert.equal(DEFAULT_STATE_LIMITS.timeout_ms, 30_000);
+});
 
 test('193104 CR1: strict batch framing and duplicate protected refs fail closed', () => {
   assert.throws(() => parseReceiveBatch('a b refs/heads/x', { oidLength: 40 }), /truncated line/);
