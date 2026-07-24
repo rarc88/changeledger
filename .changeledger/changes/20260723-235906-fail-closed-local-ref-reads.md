@@ -2,7 +2,7 @@
 id: "20260723-235906"
 title: Distinguir ausencia y fallo al leer refs locales
 type: bug
-status: in-validation
+status: done
 created: 2026-07-23T23:59:06Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -76,3 +76,4 @@ siendo válido únicamente antes de intentar resolver refs.
 - **2026-07-24T00:27:49Z** `[note]` Corrección del retry: las mutaciones online y prepareMutation sondean pending con semántica fail-closed antes de cualquier sync; la regresión online compara confirmed, observed, pending e inventario de objetos. 149/149 focalizadas y pnpm verify 1.076/1.076; 241 changes válidos.
 - **2026-07-24T00:27:49Z** `[status]` in-progress → in-review
 - **2026-07-24T00:35:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:58Z** `[validation]` in-validation → done (human accepted)

@@ -2,7 +2,7 @@
 id: "20260722-202100"
 title: Una carga de snapshot por operación con caché por OID
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-22T20:21:00Z
 depends_on: ["20260722-202059"]
 owner: raruiz-hiberuscom
@@ -121,3 +121,4 @@ incremental de batches multi-commit (`20260722-203027`); cambiar qué se valida
 - **2026-07-23T20:38:16Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T20:38:16Z** `[note]` Review de contexto limpio: pass en los 5 puntos (aritmética framed-vs-content sin path a ENOBUFS, aislamiento del objeto exacto en su propio chunk, diagnóstico veraz). Follow-up del reviewer aplicado en alcance: test sha256 subido a 6x6 MiB (>32) para restaurar cobertura multi-chunk y label corregido.
 - **2026-07-23T20:45:40Z** `[note]` Humano confirma la corrección (conversación 2026-07-23); se committea.
+- **2026-07-24T16:45:24Z** `[validation]` in-validation → done (human accepted)

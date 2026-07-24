@@ -2,7 +2,7 @@
 id: "20260723-235910"
 title: Rechazar activation que no apunta a un commit
 type: bug
-status: in-validation
+status: done
 created: 2026-07-23T23:59:10Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -72,3 +72,4 @@ antes de declarar idempotencia o ejecutar CAS.
 - **2026-07-24T09:31:54Z** `[note]` Segunda corrección de review: stateFailureReceipt conserva el error principal si repoProvenance falla por activation inválida, atribuye el repository_path sin interpretar authority y mantiene project_id:null. Regresiones CLI install/deactivate en SHA-1/SHA-256 comprueban JSON, written:false y refs/objetos intactos. Focales 102/102 y pnpm verify 1.079/1.079; 241 changes válidos.
 - **2026-07-24T09:31:54Z** `[status]` in-progress → in-review
 - **2026-07-24T09:39:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:46:00Z** `[validation]` in-validation → done (human accepted)

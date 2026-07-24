@@ -2,7 +2,7 @@
 id: "20260722-204131"
 title: Diagnosticar el borrado de la integration ref
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:41:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -60,3 +60,4 @@ nuevo OID, sin relajar el rechazo existente.
 - **2026-07-23T13:38:45Z** `[note]` Implementado CR1 (validateIntegrationRef distingue borrado newOid=0 con mensaje específico nombrando la ref, sin usar 'integration protection is not active') y CR2 (oldOid=0/config ausente conserva el diagnóstico existente). pnpm verify verde.
 - **2026-07-23T13:38:45Z** `[status]` in-progress → in-review
 - **2026-07-23T13:41:56Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:49Z** `[validation]` in-validation → done (human accepted)

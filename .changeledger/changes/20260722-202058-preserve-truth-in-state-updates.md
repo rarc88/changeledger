@@ -2,7 +2,7 @@
 id: "20260722-202058"
 title: Impedir la desaparición silenciosa de verdad en updates de estado
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:20:58Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -136,3 +136,4 @@ hace el validador del servidor (`validateStateRef`).
 - **2026-07-24T15:38:12Z** `[note]` Corrección del segundo retry (solo tests): dos regresiones anclan el wiring de validateTransition en mutateState — mutate directo sin preflight contra un remoto con eliminación (pre-sync) y eliminación publicada entre prepareMutation y mutate (sync post-commit, ruta replay). Verificado por mutación: desconectar ambos call sites rompe exactamente las dos. Gate 1.133/1.133 y 241 changes válidos.
 - **2026-07-24T15:38:12Z** `[status]` in-progress → in-review
 - **2026-07-24T15:52:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:22Z** `[validation]` in-validation → done (human accepted)

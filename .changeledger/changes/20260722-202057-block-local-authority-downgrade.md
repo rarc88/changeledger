@@ -2,7 +2,7 @@
 id: "20260722-202057"
 title: Bloquear el downgrade local de authority v2
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:20:57Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -79,3 +79,4 @@ authority es push/hook, no local) pertenece a `20260722-203030`, no a este fix.
 - **2026-07-23T20:34:10Z** `[status]` in-progress → in-review
 - **2026-07-23T20:37:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-23T20:45:40Z** `[note]` Humano confirma la corrección (conversación 2026-07-23); se committea.
+- **2026-07-24T16:45:20Z** `[validation]` in-validation → done (human accepted)

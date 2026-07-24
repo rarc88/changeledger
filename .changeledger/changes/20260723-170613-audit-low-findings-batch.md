@@ -2,7 +2,7 @@
 id: "20260723-170613"
 title: Limpiar los hallazgos menores de la doble auditoría
 type: chore
-status: in-validation
+status: done
 created: 2026-07-23T17:06:13Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -57,3 +57,4 @@ Hallazgos incluidos, con origen:
 - **2026-07-23T19:34:38Z** `[note]` Corrección de auditoría (sin commit hasta confirmación humana): isGitProcessError recorre toda la cadena de causes; capabilities pasa a first-valid-wins (una entrada inválida inicial ya no bloquea la resolución válida posterior, sin permitir downgrade); tests nuevos de la rama conflict de stateReplicaStatus (sibling con overlap) e invalid-first. Gate completo verde.
 - **2026-07-23T19:34:39Z** `[status]` in-progress → in-validation
 - **2026-07-23T19:55:52Z** `[note]` Humano confirma la corrección de auditoría (conversación 2026-07-23); se committea.
+- **2026-07-24T16:45:57Z** `[validation]` in-validation → done (human accepted)

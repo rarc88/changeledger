@@ -2,7 +2,7 @@
 id: "20260723-170611"
 title: Emisión única de errores en comandos state sin --json
 type: bug
-status: in-validation
+status: done
 created: 2026-07-23T17:06:11Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -53,3 +53,4 @@ Decisión: paridad con la rama `--json` — imprimir receipt más una única lí
 - **2026-07-23T17:52:13Z** `[note]` Implementación delegada: rama sin --json ya no relanza; emite receipt + una línea Error y fija exitCode=1 (paridad estructural con --json). Diagnóstico corregido en Investigation: la duplicación textual era falso positivo; el defecto era rethrow + process.exit(1) duro. 23/23 en test/state-command.test.mjs.
 - **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
 - **2026-07-23T17:58:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:53Z** `[validation]` in-validation → done (human accepted)

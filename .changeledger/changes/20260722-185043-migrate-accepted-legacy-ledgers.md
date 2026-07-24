@@ -2,7 +2,7 @@
 id: "20260722-185043"
 title: Permitir migrar ledgers legacy previamente aceptados
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T18:50:43Z
 depends_on: ["20260721-193103"]
 owner: raruiz-hiberuscom
@@ -227,3 +227,4 @@ exactamente como hoy.
 - **2026-07-23T11:55:12Z** `[note]` Corrección de tercera revisión: cada residuo requiere procedencia legacy de su propia sección (Plan por task metadata migrada; Log por eventos migrados), eliminando el acoplamiento manual Plan→Log. Regresión adversarial SHA-1/SHA-256 confirma que una tarea ambigua no oculta una contradicción de Log ya tipado. Fixtures de readiness/lifecycle reproducen su sintaxis legacy real por sección. Preflight backend-laravel@d73df41 preserva 184 = 39 válidos + 135 normalizables + 10 reemplazos, sin escrituras ni cambios de refs/árbol.
 - **2026-07-23T11:56:04Z** `[status]` in-progress → in-review
 - **2026-07-23T12:01:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:16Z** `[validation]` in-validation → done (human accepted)

@@ -2,7 +2,7 @@
 id: "20260722-204130"
 title: Orientar la recuperación desde comandos de réplica
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:41:30Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -66,3 +66,4 @@ réplica a `changeledger state status`.
 - **2026-07-23T13:27:48Z** `[note]` Corregido tras fail-retry: agregados tests CLI-level (execFileSync) para state abort --pending humano y --json que verifican el mensaje/flag stale. node --test + pnpm verify verdes.
 - **2026-07-23T13:31:20Z** `[status]` in-progress → in-review
 - **2026-07-23T13:31:26Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:47Z** `[validation]` in-validation → done (human accepted)

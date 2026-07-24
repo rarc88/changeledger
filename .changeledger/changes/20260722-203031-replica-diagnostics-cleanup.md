@@ -2,7 +2,7 @@
 id: "20260722-203031"
 title: Corregir la taxonomía de fallos de la réplica
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:30:31Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -80,3 +80,4 @@ preservar cuál lado falló.
 - **2026-07-23T13:06:13Z** `[note]` Implementado CR1 (fs errors preservan operación/causa sin encabezado conflict), CR2 (transaction() traduce cannot lock ref a mensaje accionable de reintento) y CR3 (reject-remote-rewrite valida confirmed antes de acusar remoto). pnpm verify verde.
 - **2026-07-23T13:06:13Z** `[status]` in-progress → in-review
 - **2026-07-23T13:10:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:45Z** `[validation]` in-validation → done (human accepted)

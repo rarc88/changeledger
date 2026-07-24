@@ -2,7 +2,7 @@
 id: "20260723-170610"
 title: Paridad de --from y diagnóstico real de --to en graduate legacy
 type: bug
-status: in-validation
+status: done
 created: 2026-07-23T17:06:10Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -64,3 +64,4 @@ Decisión: paridad de semántica — legacy aplica `--from` igual que state (imp
 - **2026-07-23T17:48:25Z** `[note]` Implementación delegada completa: rama legacy aplica --from con validación de marker; scaffoldSpec unifica diagnóstico a Scaffold target already exists. Test previo de mensaje exacto actualizado a la nueva redacción (cambio intencional de CR3). 39/39 en test/graduate.test.mjs.
 - **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
 - **2026-07-23T17:58:45Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:51Z** `[validation]` in-validation → done (human accepted)

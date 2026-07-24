@@ -2,7 +2,7 @@
 id: "20260722-203029"
 title: Receipts del CLI con procedencia de proyecto y repositorio
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:30:29Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -103,3 +103,4 @@ de estado sin procedencia, contradiciendo «todo receipt».
 - **2026-07-24T16:31:47Z** `[note]` Corrección del retry: check --commits cubierto con regresiones (JSON éxito/fallo fuera de un ledger con project_id null, y humano/JSON en repo de estado con project-1); adjudicado el residuo de scoping — la línea Ledger snapshot de context/agent-context sí es un receipt de lectura, así que ledgerSnapshotPolicy incorpora project y repo desde repoProvenance(repo.repoRoot), con los tests pinned actualizados a formato con procedencia. Gate 1.139/1.139 y 241 changes válidos.
 - **2026-07-24T16:31:48Z** `[status]` in-progress → in-review
 - **2026-07-24T16:40:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:41Z** `[validation]` in-validation → done (human accepted)

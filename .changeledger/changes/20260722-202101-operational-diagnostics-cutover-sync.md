@@ -2,7 +2,7 @@
 id: "20260722-202101"
 title: Acotar los diagnósticos de validación del cutover
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T20:21:01Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -117,3 +117,4 @@ reproduce exactamente el fallo observado a 5.000 changes.
 - **2026-07-22T22:30:00Z** `[note]` Implementadas las cuatro correcciones. CR4: `gitOutput` fija `maxBuffer: 16 MiB` (antes el default de Node, 1 MiB) y, si el detalle capturado supera 2 KB, lo trunca añadiendo el código de error y el contador de bytes omitidos en vez de embeber el stdout/stderr completo; verificado con un blob de 2 MiB (antes fallaba, ahora se lee sin problema) y uno de 18 MiB (sigue fallando, pero el mensaje queda acotado). CR1/CR2: nuevo helper `boundedErrorSummary` (primeros 5 errores `file: message`, contador del resto, tope de 4 KB) reemplaza el join sin tope en `candidateSnapshot` (create) y en la validación de `readStateMetadata` (activación/doctor); verificado con 7 documentos inválidos en ambos caminos (5 mostrados, contador "and 2 more errors"). Para CR2 se construyó un manifest firmado a mano (decisions con `replacement`+sha256, sin pasar por `candidateSnapshot`) porque el camino normal de creación ya valida el contenido antes de publicar, así que la re-validación de `readStateMetadata` solo puede divergir ante un manifest ensamblado por otro medio — exactamente el escenario defensivo que esta ruta protege. CR3: auditados todos los `throw` de `check.mjs`/`change.mjs`/`spec.mjs`/`yaml.mjs`; ninguno embebe contenido de documento, confirmado además empíricamente por los mensajes acotados de CR1/CR2 pese a cuerpos de documento reales; sin cambios de código adicionales. Rojo confirmado en los 4 tests nuevos antes del fix; verde después: 35/35 en `state-migration.test.mjs`, 175/175 en la suite ampliada (`cli-bin`/`check`). Gate completo: 928/928 tests, lint y 234 changes válidos.
 - **2026-07-22T21:43:21Z** `[status]` in-progress → in-review
 - **2026-07-22T21:49:44Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:26Z** `[validation]` in-validation → done (human accepted)

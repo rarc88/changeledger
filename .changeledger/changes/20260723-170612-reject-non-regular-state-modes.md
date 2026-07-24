@@ -2,7 +2,7 @@
 id: "20260723-170612"
 title: Rechazar modos Git no regulares en el árbol de estado
 type: bug
-status: in-validation
+status: done
 created: 2026-07-23T17:06:12Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -63,3 +63,4 @@ Decisión: rechazar en ambos paths de lectura del estado (incremental y full/bas
 - **2026-07-23T17:55:31Z** `[note]` Implementación delegada: guard exportado assertRegularBlobEntry + gitEntryType en git-batch (composable para el rework de 202100); aplicado en logRawEntries (incremental) y por entrada en loadStateTree tras el catch que enmascaraba diagnósticos (por eso ledger-store.mjs se tocó mínimamente). 73/73 en tests de validación y store.
 - **2026-07-23T17:57:15Z** `[status]` in-progress → in-review
 - **2026-07-23T18:01:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-24T16:45:55Z** `[validation]` in-validation → done (human accepted)
