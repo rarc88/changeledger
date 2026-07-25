@@ -2,9 +2,10 @@
 id: "20260725-104052"
 title: Clasificar el tipo de objeto en todo resolvedor de autoridad y baseline
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-25T10:40:52Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260724-212722", "20260723-235910", "20260725-013425"]
 release_impact: patch
 ---
@@ -86,8 +87,21 @@ sus sitios.
 - **When** se ejecuta `previewStateMigration` con `sources: ['local:refs/tags/v1']`
   y, por separado, con `sources: ['origin:refs/tags/v1']`
 - **Then** ambos planes registran `sources[0].commit === C` (el commit, no el OID
-  del tag) y el mismo `inventory_digest`
-- **And** cada `documents[].candidates[].commit` vale también `C` en los dos planes
+  del tag) y cada `documents[].candidates[].commit` vale también `C`
+- **And** los dos planes son idénticos salvo en los campos que nombran la fuente
+  —`sources[].name`, `sources[].kind`, `sources[].remote` y el `source` de cada
+  candidato— y en el `inventory_digest`, que los cubre
+
+  **Corrección de este criterio durante la implementación (2026-07-25):** su
+  primera redacción exigía además el mismo `inventory_digest` por las dos rutas.
+  Es imposible y no debe cumplirse: el digest cubre `sources` verbatim
+  (`migrationInventory`, `src/state-migration.mjs:556-567`), incluidos `name`,
+  `kind` y `remote`, y cada candidato lleva su `source`. Nombrar la misma fuente
+  por dos rutas es procedencia distinta, y registrarla así es correcto. La
+  redacción original trasladó la frase del audit («OID e inventory_digest
+  distintos») a un criterio sin comprobar qué parte de esa diferencia era el
+  defecto: lo era el OID, no el digest. Verificado empíricamente antes de
+  corregir.
 
 ### CR2 — La ref pública de estado no adopta un objeto que no sea commit
 
@@ -153,7 +167,8 @@ sus sitios.
 
 ## Plan
 
-- [ ] Añadir un test rojo por ruta que cubra CR1 (tag anotado como fuente por `local:` y por `origin:`, mismo commit y mismo digest) y hacerlo pasar conservando el valor pelado de `exactCommit` en la rama remota de `observeSource` en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1)
+- [x] Añadir un test rojo por ruta que cubra CR1 (tag anotado como fuente por `local:` y por `origin:`, mismo commit y mismo digest) y hacerlo pasar conservando el valor pelado de `exactCommit` en la rama remota de `observeSource` en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1)
+  - **Resolved:** `2026-07-25T10:55:44Z`
 - [ ] Añadir tests rojos para CR2 y CR3 con la loose ref del remoto reescrita a mano hacia tag, blob y tree, y hacerlos pasar asertando el tipo commit del tip fetched de la ref pública de estado en `src/state-migration.mjs` (`fetchRef` y `readStateMetadata`) antes de cualquier escritura; verify: `node --test test/state-migration.test.mjs` (CR2, CR3)
 - [ ] Añadir tests rojos para CR4, CR5, CR6 y CR7 y hacerlos pasar clasificando el tipo en `activationCommitOid` de `src/ledger-store.mjs` con la misma resolución en dos etapas que `resolveActivationCommitOrNull`, reusando su diagnóstico exacto; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR4, CR5, CR6, CR7)
 - [ ] Reconciliar el comentario de `assertCommitTip` en `src/state-store.mjs`, que hoy afirma paridad con una clasificación que el resolvedor de lecturas no tenía; verify: `node --test test/state-store.test.mjs` (support)
@@ -163,3 +178,6 @@ sus sitios.
 
 - **2026-07-25T10:40:52Z** `[note]` Draft creado desde los hallazgos MIG-04 (crítico), MIG-05 (alto) y AUTH-12 (medio) de la cuarta ejecución del audit `20260721-193106`, y bajo la regla de cierre por clase del techo `20260725-013425`. La superficie se inventarió con un delegado de solo lectura antes de escribir este documento: los cuatro sitios del defecto son `observeSource` rama remota (`state-migration.mjs:165`,`:172`), `fetchRef` (`:957`), `readStateMetadata` (`:1143`) y `activationCommitOid` (`ledger-store.mjs:258-260`), y los cuatro **sobreviven** al recorte de fuentes múltiples, así que este change no depende de él. Corrección de la ordenación propuesta antes en conversación: se creía que asertar antes del recorte era trabajo tirado, lo que era una suposición sin verificar. Además, pelar de forma consistente en las dos rutas de `observeSource` cierra MIG-05 sin necesidad de quitar fuentes múltiples, así que el recorte queda justificado por reducción de complejidad y no por cierre de defectos.
 - **2026-07-25T10:48:30Z** `[status]` draft → approved
+- **2026-07-25T10:50:27Z** `[status]` approved → in-progress
+- **2026-07-25T10:50:27Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-25T10:55:44Z** `[note]` CR1 cerrado. observeSource conserva ahora el valor pelado de exactCommit en la rama remota: el OID crudo de ls-remote se retiene solo como 'tip' para la comprobación de drift contra lo que el remoto publica, mientras la fuente se registra por su commit pelado, igual que ya hacía la rama local. recordSourceActivity se llama dos veces por diseño: antes del fetch con el OID observado, para que un receipt de fallo conserve evidencia, y de nuevo tras pelar con éxito, ya que hace upsert por nombre. Corregido el propio CR1 durante la implementación: exigía el mismo inventory_digest por las dos rutas, lo cual es imposible y además incorrecto porque el digest cubre sources verbatim con name, kind y remote, y cada candidato lleva su source. Verificado empíricamente que los dos planes son idénticos salvo esos campos de nombrado, y el test ancla eso además de asertar que los digests SÍ difieren, para que nadie 'arregle' esa diferencia en el futuro. Suite de migración completa: 79/79.

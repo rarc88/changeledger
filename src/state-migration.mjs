@@ -158,18 +158,29 @@ function observeSource(repoRoot, value, activity) {
   if (source.remote !== configured) {
     throw new Error(`migration source remote must be configured state remote "${configured}"`);
   }
-  const commit = remoteRef(repoRoot, source.remote, source.ref, activity);
-  if (!commit) throw new Error(`source ${source.name} did not resolve to exactly one ref`);
-  recordSourceActivity(activity, { ...source, commit });
-  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', source.remote, commit]);
-  exactCommit(repoRoot, commit);
+  // `tip` is whatever the remote ref itself holds -- an annotated tag is its own
+  // object, so it is not the commit. Drift is compared against `tip` because
+  // that is the value the remote publishes, while the source is *recorded* as
+  // the peeled commit: a ref a human named is read by peeling, and the local
+  // branch above already does exactly that. Keeping the raw OID here is what
+  // made the same tag yield two different plans and digests depending on whether
+  // it was named `local:` or `<remote>:` (20260721-193106 row MIG-05).
+  const tip = remoteRef(repoRoot, source.remote, source.ref, activity);
+  if (!tip) throw new Error(`source ${source.name} did not resolve to exactly one ref`);
+  // Recorded before the fetch so a failure receipt keeps the observed OID, then
+  // re-recorded below once peeling succeeded (recordSourceActivity upserts).
+  recordSourceActivity(activity, { ...source, commit: tip });
+  git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', source.remote, tip]);
+  const commit = exactCommit(repoRoot, tip);
   const current = remoteRef(repoRoot, source.remote, source.ref, activity);
-  if (current !== commit) {
+  if (current !== tip) {
     throw new Error(
-      `source ${source.name} changed while fetching: expected ${commit} actual ${current ?? '(missing)'}`,
+      `source ${source.name} changed while fetching: expected ${tip} actual ${current ?? '(missing)'}`,
     );
   }
-  return { ...source, commit };
+  const observed = { ...source, commit };
+  recordSourceActivity(activity, observed);
+  return observed;
 }
 
 function normalizedRepoPath(value, field) {

@@ -199,6 +199,42 @@ test('193103 CR1: remote preview fetches objects without moving user-visible ref
   );
 });
 
+test('104052 CR1: an annotated tag source records its commit, by either route', () => {
+  const { root, head } = legacyRepo();
+  git(root, ['tag', '-a', 'v1', '-m', 'release one', head]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v1']);
+  const tag = git(root, ['rev-parse', 'refs/tags/v1']);
+  assert.notEqual(tag, head, 'an annotated tag must be its own object');
+
+  const local = previewStateMigration({ sources: ['local:refs/tags/v1'] }, root);
+  const remote = previewStateMigration({ sources: ['origin:refs/tags/v1'] }, root);
+
+  // A source is a ref a human named, so peeling is the expected reading -- but
+  // both routes must peel identically, or what the plan pins depends on how the
+  // command was worded rather than on what it points at (audit row MIG-05).
+  assert.equal(local.plan.sources[0].commit, head);
+  assert.equal(remote.plan.sources[0].commit, head);
+  for (const plan of [local.plan, remote.plan]) {
+    for (const document of plan.documents) {
+      for (const candidate of document.candidates) assert.equal(candidate.commit, head);
+    }
+  }
+  // The digests legitimately differ: the inventory pins how the source was named
+  // (`name`, `kind`, `remote`, and each candidate's `source`), which is real
+  // provenance. Everything else must match, which is the determinism that broke.
+  const withoutSourceNaming = (plan) => ({
+    ...plan,
+    inventory_digest: null,
+    sources: plan.sources.map(({ commit, ref }) => ({ commit, ref })),
+    documents: plan.documents.map((document) => ({
+      ...document,
+      candidates: document.candidates.map(({ source, ...rest }) => rest),
+    })),
+  });
+  assert.deepEqual(withoutSourceNaming(local.plan), withoutSourceNaming(remote.plan));
+  assert.notEqual(local.plan.inventory_digest, remote.plan.inventory_digest);
+});
+
 test('193103 CR11/CR12: CLI works before and after authority with JSON receipts', () => {
   const { root } = legacyRepo();
   const cli = path.resolve('bin/changeledger.mjs');
