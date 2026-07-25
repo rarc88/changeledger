@@ -1951,7 +1951,7 @@ function preparedForInstall(objectFormat = 'sha1') {
 // baseline recorded in a LOCAL activation authority and never fetch it. Guarding
 // only the fetch ingress would leave those three reading truth from a non-commit,
 // so this pins the assertion on a path `fetchRef` cannot reach.
-test('104052 CR2: a local authority naming a non-commit baseline is refused', () => {
+test('104052 CR2b: a local authority naming a non-commit baseline is refused', () => {
   const { root, baseline } = preparedForInstall();
   // `prepareStateActivation` writes the authority into the activation commit,
   // not the worktree, and the helper only moves the branch ref.
@@ -1966,9 +1966,12 @@ test('104052 CR2: a local authority naming a non-commit baseline is refused', ()
   git(root, ['add', '.changeledger/authority.yml']);
   git(root, ['commit', '-qm', 'test: forge a non-commit baseline']);
 
+  // The diagnostic names the corrupt object, not the published state ref: this
+  // baseline was read from a local authority and never fetched, so pointing an
+  // operator at refs/heads/changeledger/state would send them to the wrong place.
   assert.throws(
     () => installStateActivation({ integrationRef: 'refs/heads/dev' }, root),
-    /^Error: state baseline ref refs\/heads\/changeledger\/state must point to a commit$/,
+    new RegExp(`^Error: state baseline ${tag} must point to a commit$`),
   );
   assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
 });

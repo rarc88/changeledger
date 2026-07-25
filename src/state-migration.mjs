@@ -1157,7 +1157,7 @@ function readStateMetadata(repoRoot, revision) {
   // A baseline revision is the system's own truth: `exactCommit` alone would
   // accept a tag, and the `ls-tree` below peels it again, which is why the
   // escalation into a committed authority.yml went uncaught (row MIG-04).
-  assertCommitObject(repoRoot, revision, `state baseline ref ${STATE_REF}`, batchRun);
+  assertCommitObject(repoRoot, revision, `state baseline ${revision}`, batchRun);
   exactCommit(repoRoot, revision);
   const entries = treeEntries(repoRoot, revision, []);
   const allowed = (file) =>

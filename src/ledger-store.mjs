@@ -10,7 +10,7 @@ import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
 import { assertSupportedSchema } from './config-migration.mjs';
 import { VERSION } from './framing.mjs';
-import { defaultRun, sanitizedGitEnv } from './git.mjs';
+import { assertCommitObject, defaultRun, sanitizedGitEnv } from './git.mjs';
 import { assertRegularBlobEntry, batchBlobReader, treeEntries } from './git-batch.mjs';
 import { compareVersions, DEFAULT_RELEASES_DIR } from './release.mjs';
 import { parseSpec } from './spec.mjs';
@@ -360,6 +360,15 @@ function gitStateRevision(repoRoot, authority, run) {
       const pending = optionalRefOid(repoRoot, PENDING_REF, run);
       if (!confirmed && !pending) {
         throw new Error('state replica is unavailable; run `changeledger state sync`');
+      }
+      // The replica refs live under `refs/changeledger/*`, where `update-ref`
+      // writes a non-commit without complaint -- git refuses only under
+      // `refs/heads/*`. The write side has asserted the fetched tip since
+      // 20260724-212722, but the revision every read serves comes from here, so
+      // without this a tag OID was reported as the ledger revision by `list`,
+      // `state status` and `check` (20260725-104052 CR9).
+      for (const oid of [confirmed, pending]) {
+        if (oid) assertCommitObject(repoRoot, oid, `state replica tip ${oid}`, run);
       }
       if (pending) {
         if (!confirmed) throw new Error('invalid state replica: pending has no confirmed base');

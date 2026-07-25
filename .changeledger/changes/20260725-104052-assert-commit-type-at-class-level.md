@@ -109,9 +109,22 @@ sus sitios.
   tag anotado, un blob o un tree
 - **When** se ejecuta `state migrate --create --plan <plan>`
 - **Then** falla con `state baseline ref refs/heads/changeledger/state must point to a commit`
-  antes de escribir cualquier ref u objeto local
+  antes de escribir ninguna ref, autoridad ni rama de activación
 - **And** `.changeledger/authority.yml` no se crea ni se modifica, y no se crea
   ninguna rama de activación
+- **And** el objeto sí se trae al repositorio local antes de rechazarlo, porque
+  `cat-file -t` no puede clasificar lo que no está: la promesa es que no se
+  escribe estado, no que no se descargue el objeto
+
+### CR2b — Una autoridad local que nombra un baseline no-commit se rechaza
+
+- **Given** una activación preparada cuya `.changeledger/authority.yml` se
+  reescribe para que `baseline:` apunte a un tag anotado sobre el baseline real
+- **When** se ejecuta `installStateActivation` (o `deactivate`, o `doctor`, que
+  leen ese baseline local y nunca lo traen de la red)
+- **Then** falla con `state baseline <oid> must point to a commit`, nombrando el
+  objeto corrupto y no una ref donde la corrupción no está
+- **And** `refs/changeledger/activation` no se crea
 
 ### CR3 — `activate --prepare` rechaza un baseline publicado que no sea commit
 
@@ -156,6 +169,23 @@ sus sitios.
 - **And** el tag anotado resuelve por peel explícito al commit de autoridad y la
   lectura funciona con normalidad, conservando el OID directo en las transacciones CAS
 
+### CR9 — El resolvedor de lecturas clasifica el tip de la réplica
+
+- **Given** un repo con réplica v2 activada donde `refs/changeledger/confirmed`
+  —y, en otra variante, `refs/changeledger/pending`— se apunta a un tag anotado
+  sobre el baseline con `git update-ref`, sin editar `.git` a mano
+- **When** se ejecuta cualquier lectura
+- **Then** falla con `state replica tip <oid> must point to a commit`
+- **And** ninguna lectura reporta el OID del tag como revisión del ledger
+
+  Este criterio se añadió en la corrección del primer retry: es el quinto sitio
+  de la clase y el de **vector más débil** de todos, porque `git update-ref`
+  acepta un objeto que no es commit fuera de `refs/heads/*`. La primera versión
+  del change lo dio por cerrado heredando la afirmación de `20260724-212722`,
+  que solo guardó la escritura, sin comprobar la ruta de lectura. Es exactamente
+  el fallo que este change existe para corregir, cometido dentro del propio
+  change.
+
 ### CR8 — Los tips y baselines legítimos no se ven afectados
 
 - **Given** un ciclo completo sobre un remoto honesto: `migrate --preview`,
@@ -167,7 +197,7 @@ sus sitios.
 
 ## Plan
 
-- [x] Añadir un test rojo por ruta que cubra CR1 (tag anotado como fuente por `local:` y por `origin:`, mismo commit y mismo digest) y hacerlo pasar conservando el valor pelado de `exactCommit` en la rama remota de `observeSource` en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1)
+- [x] Añadir un test rojo por ruta que cubra CR1 (tag anotado como fuente por `local:` y por `origin:`, mismo commit registrado y planes idénticos salvo los campos que nombran la fuente) y hacerlo pasar conservando el valor pelado de `exactCommit` en la rama remota de `observeSource` en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1)
   - **Resolved:** `2026-07-25T10:55:44Z`
 - [x] Añadir tests rojos para CR2 y CR3 con la loose ref del remoto reescrita a mano hacia tag, blob y tree, y hacerlos pasar asertando el tipo commit del tip fetched de la ref pública de estado en `src/state-migration.mjs` (`fetchRef` y `readStateMetadata`) antes de cualquier escritura; verify: `node --test test/state-migration.test.mjs` (CR2, CR3)
   - **Resolved:** `2026-07-25T11:25:47Z`
@@ -175,8 +205,10 @@ sus sitios.
   - **Resolved:** `2026-07-25T11:25:47Z`
 - [x] Reconciliar el comentario de `assertCommitTip` en `src/state-store.mjs`, que hoy afirma paridad con una clasificación que el resolvedor de lecturas no tenía; verify: `node --test test/state-store.test.mjs` (support)
   - **Resolved:** `2026-07-25T11:25:47Z`
-- [x] Anclar CR8 con el ciclo completo en ambos formatos de objeto y verificar por mutación sobre `src/state-migration.mjs`, `src/ledger-store.mjs` y `src/state-store.mjs` que retirar cualquiera de las cuatro clasificaciones rompe exactamente su propio test; verify: `pnpm verify` y `node --test test/state-migration.test.mjs` (CR8)
-  - **Resolved:** `2026-07-25T11:25:48Z`
+- [x] Añadir el test rojo de CR9 y CR2b y clasificar el tip servido en `gitStateRevision` de `src/ledger-store.mjs`, además de corregir el sujeto del diagnóstico de `readStateMetadata` en `src/state-migration.mjs` para que nombre el baseline y no una ref que tres de sus cuatro llamadores no leen; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR9, CR2b)
+  - **Resolved:** `2026-07-25T12:03:02Z`
+- [x] Anclar CR8 con el ciclo completo en ambos formatos de objeto y verificar por mutación sobre `src/state-migration.mjs`, `src/ledger-store.mjs` y `src/state-store.mjs` que retirar cualquiera de las **cinco** clasificaciones rompe exactamente su propio test, con el control corrido sobre la suite completa y no sobre un subconjunto; verify: `pnpm verify` y `node --test test/state-migration.test.mjs` (CR8)
+  - **Resolved:** `2026-07-25T12:02:47Z`
 
 ## Log
 
@@ -187,3 +219,6 @@ sus sitios.
 - **2026-07-25T10:55:44Z** `[note]` CR1 cerrado. observeSource conserva ahora el valor pelado de exactCommit en la rama remota: el OID crudo de ls-remote se retiene solo como 'tip' para la comprobación de drift contra lo que el remoto publica, mientras la fuente se registra por su commit pelado, igual que ya hacía la rama local. recordSourceActivity se llama dos veces por diseño: antes del fetch con el OID observado, para que un receipt de fallo conserve evidencia, y de nuevo tras pelar con éxito, ya que hace upsert por nombre. Corregido el propio CR1 durante la implementación: exigía el mismo inventory_digest por las dos rutas, lo cual es imposible y además incorrecto porque el digest cubre sources verbatim con name, kind y remote, y cada candidato lleva su source. Verificado empíricamente que los dos planes son idénticos salvo esos campos de nombrado, y el test ancla eso además de asertar que los digests SÍ difieren, para que nadie 'arregle' esa diferencia en el futuro. Suite de migración completa: 79/79.
 - **2026-07-25T11:26:06Z** `[note]` Tareas 2 a 5 cerradas. Añadido assertCommitObject a src/git.mjs como primitiva compartida: cat-file -t con un sujeto que el llamador aporta, para que los mensajes ya publicados no cambien y ningún sitio futuro invente su propia comprobación. Cableada en fetchRef y readStateMetadata de state-migration con el sujeto 'state baseline ref <ref>', y en activationCommitOid de ledger-store con resolución en dos etapas que acepta commit, pela un tag anotado y rechaza tree o blob con el mismo diagnóstico que ya emitían install y deactivate. Reconciliado el comentario de assertCommitTip, que afirmaba paridad con una clasificación inexistente en el resolvedor de lecturas; ahora dice qué era falso, por qué, y que la paridad es real desde este change. CR8: el ciclo honesto en sha1 y sha256 ya lo cubre la suite existente via preparedForInstall y el test de 235910 que ancla el tag conservando su OID directo a través de install y deactivate, así que no se duplicó. Matriz de mutación 4/4 sobre copia scratch completa con control verde previo (174/174): retirar la retención del valor pelado en observeSource mata solo CR1; retirar la aserción de fetchRef mata solo los tres CR2 de tag, blob y tree; retirar la de readStateMetadata mata solo el CR2 de autoridad local; retirar la clasificación de activationCommitOid mata CR4/CR7, CR5 y CR6. Incidente de método: una primera pasada combinada dio falso negativo para M3 y M4 por un fallo de mi harness, no del código, y lo detecté al extrañarme de que M4 no matara nada; se repitió cada mutación por separado verificando que el parche se aplicaba antes de correr. Hallazgo propio corregido en el camino: la aserción de readStateMetadata quedaba sin anclar porque fetchRef la cubría en las rutas probadas, así que se añadió un test por la ruta que fetchRef no alcanza, una autoridad local forjada que nombra un tag como baseline y que llega a install, deactivate y doctor sin red. Gate 1.158/1.158, Biome limpio, 246 changes válidos.
 - **2026-07-25T11:26:06Z** `[status]` in-progress → in-review
+- **2026-07-25T11:45:06Z** `[review]` in-review → in-progress (retry): F1 bloqueante y verificado: existe un quinto sitio. gitStateRevision en ledger-store lee CONFIRMED_REF y PENDING_REF con optionalRefOid sin clasificar el tipo, y esa OID cruda es la revisión que sirve toda lectura. Comprobado que el vector es MÁS débil que los cuatro guardados: git update-ref refs/changeledger/confirmed <tag> tiene éxito sin editar .git a mano, porque git solo rehúsa no-commits bajo refs/heads. Es la misma clase y heredé de 20260724-212722 la afirmación de que el tip de la réplica estaba cerrado sin comprobar la ruta de lectura, que es precisamente el fallo que este change existe para corregir; peor aún, el comentario que yo mismo añadí a assertCommitTip afirma que la paridad clasifica todos los sitios, y es falso. F2: la tarea 1 del Plan sigue diciendo 'mismo commit y mismo digest' pese a que CR1 se enmendó para rechazar eso. F3: CR2 promete 'antes de escribir cualquier ref u objeto local' y el fetch precede necesariamente a cat-file -t. F4: readStateMetadata fija STATE_REF como sujeto del diagnóstico aunque tres de sus cuatro llamadores leen el baseline de una autoridad local, así que manda al operador a una ref donde no está la corrupción. F6: el Log llama completa a la matriz de mutación cuyo control fueron 174 tests, el subconjunto de dos ficheros. F7: assertCommitTip sigue con comprobación propia pudiendo usar la primitiva compartida.
+- **2026-07-25T12:03:22Z** `[note]` Corrección del retry. F1 era real y verificado por mí antes de aceptarlo: git update-ref refs/changeledger/confirmed <tag> tiene éxito sin editar .git a mano, porque git solo rehúsa no-commits bajo refs/heads, así que el quinto sitio tenía el vector MÁS débil de toda la clase. gitStateRevision clasifica ahora confirmed y pending con la primitiva compartida y el mismo diagnóstico del lado de escritura. Añadido CR9 a la spec con la explicación de por qué faltaba: heredé de 20260724-212722 la afirmación de que el tip estaba cerrado sin comprobar la ruta de lectura, que es exactamente el fallo que este change existe para corregir, cometido dentro del propio change; y el comentario que yo mismo escribí en assertCommitTip afirmaba una completitud falsa, ahora reescrito para enumerar los cinco sitios y decir qué se le escapó. F2: la tarea 1 ya no promete el digest que CR1 rechaza. F3: CR2 ya no promete que no se escriba ningún objeto local, porque cat-file -t no puede clasificar lo que no está descargado; la promesa acotada es que no se escribe estado. F4: el sujeto del diagnóstico de readStateMetadata nombra el baseline y no la ref pública, porque tres de sus cuatro llamadores leen ese baseline de una autoridad local y nunca lo traen de la red; el caso quedó promovido a criterio propio CR2b. F6: matriz repetida con control sobre la suite COMPLETA (1.159/1.159), no sobre el subconjunto de dos ficheros. F7: assertCommitTip usa ya la primitiva compartida en vez de su comprobación propia. Matriz 5/5 sin colateral: M1 observeSource mata CR1; M2 fetchRef mata los tres CR2 y CR3; M3 readStateMetadata mata CR2b; M4 activationCommitOid mata CR4/CR7, CR5 y CR6; M5 gitStateRevision mata CR9. Nota: M2 ahora mata también CR3, que antes sobrevivía porque readStateMetadata lo cubría; con el sujeto corregido, CR3 ancla específicamente el diagnóstico de la ruta de fetch. Gate 1.159/1.159, Biome limpio, 246 changes válidos.
+- **2026-07-25T12:03:22Z** `[status]` in-progress → in-review

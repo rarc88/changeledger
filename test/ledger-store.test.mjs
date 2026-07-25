@@ -473,6 +473,28 @@ test('104052 CR6: provenance refuses an activation object outside every commit',
   assert.throws(() => repoProvenance(root), ACTIVATION_NOT_A_COMMIT);
 });
 
+// Unlike the activation ref, the replica refs live under `refs/changeledger/*`,
+// where git happily writes a non-commit: `update-ref` refuses only under
+// `refs/heads/*`. So this is the weakest vector of the whole class and needs no
+// hand-edited loose ref. The write side has asserted the tip since 20260724-212722;
+// the read side had not, which let `list`/`state status`/`check` report a tag OID
+// as the ledger revision.
+test('104052 CR9: reads refuse a replica tip that is not a commit', () => {
+  for (const ref of [CONFIRMED_REF, PENDING_REF]) {
+    const { root, baseline } = replicaStateRepo();
+    git(root, ['tag', '-a', '-m', 'evil', 'evil', baseline]);
+    const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+    git(root, ['update-ref', ref, tag]);
+
+    assert.throws(
+      () => loadLedgerStore(root).load(),
+      new RegExp(`state replica tip ${tag} must point to a commit`),
+      `${ref} must fail closed`,
+    );
+    assert.throws(() => repoProvenance(root).project_id && loadLedgerStore(root).load());
+  }
+});
+
 test('104052 CR5: recovery is not materialized from a non-commit authority', async () => {
   const { root } = replicaStateRepo();
   const { exportStateRecovery } = await import('../src/state-migration.mjs');

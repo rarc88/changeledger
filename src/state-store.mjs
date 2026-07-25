@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic-write.mjs';
-import { sanitizedGitEnv } from './git.mjs';
+import { assertCommitObject, sanitizedGitEnv } from './git.mjs';
 import { planReplicaSync } from './state-replica.mjs';
 
 export const PUBLIC_STATE_REF = 'refs/heads/changeledger/state';
@@ -172,13 +172,16 @@ export function keepStateReplicaRevision(repoRoot, confirmed) {
 // migration resolver asserted it, the read resolver did not, and the published
 // baseline was never classified at all -- which is how a tag reached a committed
 // authority.yml (audit row MIG-04). Closing the defect only where it had been
-// reproduced left the rest standing. The parity is real as of 20260725-104052,
-// which classifies every site: here, `ledger-store`'s `activationCommitOid`, and
-// the published baseline in `state-migration`.
+// reproduced left the rest standing -- and the first attempt at 20260725-104052
+// repeated it: this comment claimed every site was classified while the read
+// path in `ledger-store`'s `gitStateRevision` still served whatever
+// `refs/changeledger/{confirmed,pending}` held. That is the weakest vector of
+// the class, since `update-ref` accepts a non-commit outside `refs/heads/*`.
+// The sites are: here (fetched tip), `gitStateRevision` (served revision),
+// `activationCommitOid` (authority), and the published baseline plus migration
+// sources in `state-migration`.
 function assertCommitTip(repoRoot, oid) {
-  if (git(repoRoot, ['cat-file', '-t', oid]) !== 'commit') {
-    throw new Error(`state replica tip ${oid} must point to a commit`);
-  }
+  assertCommitObject(repoRoot, oid, `state replica tip ${oid}`, (args, cwd) => git(cwd, args));
 }
 
 function isAncestor(repoRoot, ancestor, descendant) {
