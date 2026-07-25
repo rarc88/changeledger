@@ -479,19 +479,30 @@ test('104052 CR6: provenance refuses an activation object outside every commit',
 // hand-edited loose ref. The write side has asserted the tip since 20260724-212722;
 // the read side had not, which let `list`/`state status`/`check` report a tag OID
 // as the ledger revision.
-test('104052 CR9: reads refuse a replica tip that is not a commit', () => {
-  for (const ref of [CONFIRMED_REF, PENDING_REF]) {
+test('104052 CR9: every replica read refuses a tip that is not a commit', async () => {
+  const { exportStateRecovery } = await import('../src/state-migration.mjs');
+  for (const ref of [CONFIRMED_REF, OBSERVED_REF, PENDING_REF]) {
     const { root, baseline } = replicaStateRepo();
     git(root, ['tag', '-a', '-m', 'evil', 'evil', baseline]);
     const tag = git(root, ['rev-parse', 'refs/tags/evil']);
     git(root, ['update-ref', ref, tag]);
+    const expected = new RegExp(`state replica tip ${tag} must point to a commit`);
 
+    // Every consumer of the shared resolver, not just the snapshot loader: the
+    // first fix guarded `gitStateRevision` alone, so `state status` still exited
+    // 0 reporting the tag OID and recovery still materialized a branch from it.
+    assert.throws(() => loadLedgerStore(root).load(), expected, `load must reject ${ref}`);
     assert.throws(
-      () => loadLedgerStore(root).load(),
-      new RegExp(`state replica tip ${tag} must point to a commit`),
-      `${ref} must fail closed`,
+      () => loadLedgerStore(root).replica.status(),
+      expected,
+      `state status must reject ${ref}`,
     );
-    assert.throws(() => repoProvenance(root).project_id && loadLedgerStore(root).load());
+    assert.throws(() => exportStateRecovery(root), expected, `recovery must reject ${ref}`);
+    assert.equal(
+      git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-']),
+      '',
+      'no recovery branch may be materialized from a non-commit tip',
+    );
   }
 });
 
@@ -1049,6 +1060,20 @@ test('193101 correction CR3: authority baseline must be an exact full commit OID
     'format_version: 1\nstate_ref: refs/heads/changeledger/state\nbaseline: refs/heads/changeledger/state\nproject_id: project-1\n',
   );
   assert.throws(() => loadLedgerStore(root).load(), /baseline must be an exact commit OID/);
+});
+
+test('104052 CR9: a v1 authority state_ref that is not a commit is refused', () => {
+  const { root, baseline } = fixture();
+  git(root, ['tag', '-a', 'evil', baseline, '-m', 'evil']);
+  const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+  // Under `refs/heads/*` git refuses a non-commit, so the loose ref is written
+  // by hand -- the same vector the published-baseline fixtures use.
+  fs.writeFileSync(path.join(root, '.git', 'refs', 'heads', 'changeledger', 'state'), `${tag}\n`);
+
+  assert.throws(
+    () => loadLedgerStore(root).load(),
+    /state replica tip refs\/heads\/changeledger\/state must point to a commit/,
+  );
 });
 
 test('193101 hardening CR3: authority baseline OID must name a commit object itself', () => {

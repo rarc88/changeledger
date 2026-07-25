@@ -172,19 +172,29 @@ sus sitios.
 ### CR9 — El resolvedor de lecturas clasifica el tip de la réplica
 
 - **Given** un repo con réplica v2 activada donde `refs/changeledger/confirmed`
-  —y, en otra variante, `refs/changeledger/pending`— se apunta a un tag anotado
-  sobre el baseline con `git update-ref`, sin editar `.git` a mano
-- **When** se ejecuta cualquier lectura
-- **Then** falla con `state replica tip <oid> must point to a commit`
-- **And** ninguna lectura reporta el OID del tag como revisión del ledger
+  —y, en variantes separadas, `refs/changeledger/observed` y
+  `refs/changeledger/pending`— se apunta a un tag anotado sobre el baseline con
+  `git update-ref`, sin editar `.git` a mano
+- **When** se ejecuta cualquier consumidor del resolvedor compartido: la carga del
+  snapshot, `state status` y `state export --recovery-branch`
+- **Then** los tres fallan con `state replica tip <oid> must point to a commit`
+- **And** no se materializa ninguna rama `refs/heads/changeledger/recover-*`
+- **And** con una autoridad v1 cuyo `state_ref` apunta a un objeto que no es
+  commit, la lectura falla con
+  `state replica tip refs/heads/changeledger/state must point to a commit`
 
-  Este criterio se añadió en la corrección del primer retry: es el quinto sitio
-  de la clase y el de **vector más débil** de todos, porque `git update-ref`
-  acepta un objeto que no es commit fuera de `refs/heads/*`. La primera versión
-  del change lo dio por cerrado heredando la afirmación de `20260724-212722`,
-  que solo guardó la escritura, sin comprobar la ruta de lectura. Es exactamente
-  el fallo que este change existe para corregir, cometido dentro del propio
-  change.
+  Este criterio se añadió en la corrección del primer retry y se amplió en la del
+  segundo. Es el sitio de **vector más débil** de toda la clase, porque
+  `git update-ref` acepta un objeto que no es commit fuera de `refs/heads/*`: no
+  hace falta remoto hostil ni editar `.git`. La primera versión del change lo dio
+  por cerrado heredando la afirmación de `20260724-212722`, que solo guardó la
+  escritura. La segunda lo guardó en un **consumidor** (`gitStateRevision`) en vez
+  de en el **resolvedor compartido** (`readStateReplica`, con diez llamadores), así
+  que `state status` seguía saliendo con éxito reportando el OID del tag y
+  `export --recovery-branch` seguía materializando una rama desde él, grabando ese
+  OID en el nombre de la rama y en el mensaje del commit. Dos veces el mismo error
+  de forma: declarar cerrada una clase mirando el sitio reproducido en vez del
+  resolvedor. La clasificación vive ahora en el resolvedor compartido.
 
 ### CR8 — Los tips y baselines legítimos no se ven afectados
 
@@ -205,6 +215,7 @@ sus sitios.
   - **Resolved:** `2026-07-25T11:25:47Z`
 - [x] Reconciliar el comentario de `assertCommitTip` en `src/state-store.mjs`, que hoy afirma paridad con una clasificación que el resolvedor de lecturas no tenía; verify: `node --test test/state-store.test.mjs` (support)
   - **Resolved:** `2026-07-25T11:25:47Z`
+- [ ] Clasificar en el resolvedor compartido `readStateReplica` de `src/state-store.mjs` las tres refs de la réplica, y el `state_ref` de una autoridad v1 en `src/ledger-store.mjs`, con tests que cubran carga, `state status`, recovery y v1; verify: `node --test test/ledger-store.test.mjs test/state-store.test.mjs` (CR9)
 - [x] Añadir el test rojo de CR9 y CR2b y clasificar el tip servido en `gitStateRevision` de `src/ledger-store.mjs`, además de corregir el sujeto del diagnóstico de `readStateMetadata` en `src/state-migration.mjs` para que nombre el baseline y no una ref que tres de sus cuatro llamadores no leen; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR9, CR2b)
   - **Resolved:** `2026-07-25T12:03:02Z`
 - [x] Anclar CR8 con el ciclo completo en ambos formatos de objeto y verificar por mutación sobre `src/state-migration.mjs`, `src/ledger-store.mjs` y `src/state-store.mjs` que retirar cualquiera de las **cinco** clasificaciones rompe exactamente su propio test, con el control corrido sobre la suite completa y no sobre un subconjunto; verify: `pnpm verify` y `node --test test/state-migration.test.mjs` (CR8)
@@ -222,3 +233,6 @@ sus sitios.
 - **2026-07-25T11:45:06Z** `[review]` in-review → in-progress (retry): F1 bloqueante y verificado: existe un quinto sitio. gitStateRevision en ledger-store lee CONFIRMED_REF y PENDING_REF con optionalRefOid sin clasificar el tipo, y esa OID cruda es la revisión que sirve toda lectura. Comprobado que el vector es MÁS débil que los cuatro guardados: git update-ref refs/changeledger/confirmed <tag> tiene éxito sin editar .git a mano, porque git solo rehúsa no-commits bajo refs/heads. Es la misma clase y heredé de 20260724-212722 la afirmación de que el tip de la réplica estaba cerrado sin comprobar la ruta de lectura, que es precisamente el fallo que este change existe para corregir; peor aún, el comentario que yo mismo añadí a assertCommitTip afirma que la paridad clasifica todos los sitios, y es falso. F2: la tarea 1 del Plan sigue diciendo 'mismo commit y mismo digest' pese a que CR1 se enmendó para rechazar eso. F3: CR2 promete 'antes de escribir cualquier ref u objeto local' y el fetch precede necesariamente a cat-file -t. F4: readStateMetadata fija STATE_REF como sujeto del diagnóstico aunque tres de sus cuatro llamadores leen el baseline de una autoridad local, así que manda al operador a una ref donde no está la corrupción. F6: el Log llama completa a la matriz de mutación cuyo control fueron 174 tests, el subconjunto de dos ficheros. F7: assertCommitTip sigue con comprobación propia pudiendo usar la primitiva compartida.
 - **2026-07-25T12:03:22Z** `[note]` Corrección del retry. F1 era real y verificado por mí antes de aceptarlo: git update-ref refs/changeledger/confirmed <tag> tiene éxito sin editar .git a mano, porque git solo rehúsa no-commits bajo refs/heads, así que el quinto sitio tenía el vector MÁS débil de toda la clase. gitStateRevision clasifica ahora confirmed y pending con la primitiva compartida y el mismo diagnóstico del lado de escritura. Añadido CR9 a la spec con la explicación de por qué faltaba: heredé de 20260724-212722 la afirmación de que el tip estaba cerrado sin comprobar la ruta de lectura, que es exactamente el fallo que este change existe para corregir, cometido dentro del propio change; y el comentario que yo mismo escribí en assertCommitTip afirmaba una completitud falsa, ahora reescrito para enumerar los cinco sitios y decir qué se le escapó. F2: la tarea 1 ya no promete el digest que CR1 rechaza. F3: CR2 ya no promete que no se escriba ningún objeto local, porque cat-file -t no puede clasificar lo que no está descargado; la promesa acotada es que no se escribe estado. F4: el sujeto del diagnóstico de readStateMetadata nombra el baseline y no la ref pública, porque tres de sus cuatro llamadores leen ese baseline de una autoridad local y nunca lo traen de la red; el caso quedó promovido a criterio propio CR2b. F6: matriz repetida con control sobre la suite COMPLETA (1.159/1.159), no sobre el subconjunto de dos ficheros. F7: assertCommitTip usa ya la primitiva compartida en vez de su comprobación propia. Matriz 5/5 sin colateral: M1 observeSource mata CR1; M2 fetchRef mata los tres CR2 y CR3; M3 readStateMetadata mata CR2b; M4 activationCommitOid mata CR4/CR7, CR5 y CR6; M5 gitStateRevision mata CR9. Nota: M2 ahora mata también CR3, que antes sobrevivía porque readStateMetadata lo cubría; con el sujeto corregido, CR3 ancla específicamente el diagnóstico de la ruta de fetch. Gate 1.159/1.159, Biome limpio, 246 changes válidos.
 - **2026-07-25T12:03:22Z** `[status]` in-progress → in-review
+- **2026-07-25T12:30:49Z** `[review]` in-review → in-progress (retry): F1 bloqueante y reproducido: existe un sexto sitio, y es el mismo error de forma que el quinto. Puse el guard en un consumidor (gitStateRevision) en vez de en el resolvedor compartido readStateReplica, que tiene diez llamadores; por eso state status sale con exit 0 sirviendo el OID del tag como revisión y state export --recovery-branch materializa una rama de recovery desde un tip que no es commit, grabando ese OID en el nombre de la rama y en el mensaje del commit. Incumple la segunda cláusula de CR9 y el CR4, que nombra state status explícitamente. F2: el segundo assert de CR9 es una tautología, verificado que repoProvenance NO falla bajo esa corrupción, así que el && nunca cortocircuita y la expresión se reduce a la llamada ya aserada tres líneas antes, sin matcher de error. F3: la rama v1 de gitStateRevision sirve authority.state_ref sin clasificar. F4: refs/changeledger/observed no se clasifica en ningún sitio y su corrupción se reporta como freshness unknown en vez de como error. F5: el comentario reescrito de assertCommitTip se contradice a cuatro líneas de distancia y su enumeración de sitios ya vuelve a estar incompleta, que es exactamente el modo de fallo del F1 de la ronda anterior.
+- **2026-07-25T12:48:51Z** `[note]` Corrección del segundo retry. F1 era real y lo reproduje: existía un sexto sitio y era el MISMO error de forma que el quinto. Guardé un consumidor (gitStateRevision) en vez del resolvedor compartido readStateReplica, que tiene diez llamadores, así que state status salía con éxito reportando el OID del tag como revisión y export --recovery-branch materializaba una rama desde ese tip grabándolo en el nombre de la rama y en el mensaje del commit. La clasificación vive ahora en readStateReplica y cubre las tres refs, incluida observed (F4), que no estaba en mi inventario de cinco. Consecuencia deliberada: una réplica local corrupta ya no se auto-sana en silencio con sync; falla con el diagnóstico y la reparación es explícita, que es lo coherente con la regla fail-closed y con lo que 212722 ya hacía para un tip remoto corrupto. F3: clasificado también el state_ref de una autoridad v1, y anclado con su propio test tras comprobar por mutación que sin él nada fallaba. F2: sustituida la tautología del test de CR9 —verificado que repoProvenance NO falla bajo esa corrupción, así que el && nunca cortocircuitaba— por asertos reales sobre carga, state status y recovery, más la ausencia de rama recover-*. F5: el comentario de assertCommitTip deja de enumerar sitios y dice por qué: una enumeración en comentario se queda obsoleta en silencio, y eso hizo falsas dos afirmaciones de completitud seguidas; la primitiva compartida y sus llamadores son la respuesta, no una lista escrita a mano. Matriz ampliada a siete mutaciones con control de suite completa (1.160/1.160): M1 observeSource mata CR1; M2 fetchRef mata los tres CR2 y CR3; M3 readStateMetadata mata CR2b; M4 activationCommitOid mata CR4/CR7, CR5 y CR6; M5 gitStateRevision mata CR9; M6 classifiedTip del resolvedor compartido mata CR9; M7 state_ref v1 mata su test propio. Dos notas de método honestas: un primer intento de M6 rompió la sintaxis y tumbó la suite entera, lo cual no es un kill sino una mutación inválida, y se rehízo; y M5 muestra dos colaterales de 202058 que casi con seguridad son artefacto de mi parche textual sobre bloques adyacentes, no evidencia, así que no los cuento como resultado. Gate 1.160/1.160, Biome limpio, 246 changes válidos.
+- **2026-07-25T12:48:52Z** `[status]` in-progress → in-review

@@ -361,12 +361,10 @@ function gitStateRevision(repoRoot, authority, run) {
       if (!confirmed && !pending) {
         throw new Error('state replica is unavailable; run `changeledger state sync`');
       }
-      // The replica refs live under `refs/changeledger/*`, where `update-ref`
-      // writes a non-commit without complaint -- git refuses only under
-      // `refs/heads/*`. The write side has asserted the fetched tip since
-      // 20260724-212722, but the revision every read serves comes from here, so
-      // without this a tag OID was reported as the ledger revision by `list`,
-      // `state status` and `check` (20260725-104052 CR9).
+      // Classified here as well as in `readStateReplica`: this path resolves the
+      // refs itself through `optionalRefOid` rather than going through that
+      // resolver, so it is a second entry point to the same refs, not a
+      // duplicate check on the same one (20260725-104052 CR9).
       for (const oid of [confirmed, pending]) {
         if (oid) assertCommitObject(repoRoot, oid, `state replica tip ${oid}`, run);
       }
@@ -389,7 +387,15 @@ function gitStateRevision(repoRoot, authority, run) {
           'state authority v1 conflicts with local replica v2 refs; resolve the mismatch before reading or mutating the ledger',
         );
       }
-      revision = run(['rev-parse', '--verify', authority.state_ref], repoRoot).trim();
+      // Classified for the same reason as every other served revision: the
+      // baseline below already is, and a hand-edited loose ref reaches this one
+      // (the CR2 fixtures do exactly that to the published state ref).
+      revision = assertCommitObject(
+        repoRoot,
+        run(['rev-parse', '--verify', authority.state_ref], repoRoot).trim(),
+        `state replica tip ${authority.state_ref}`,
+        run,
+      );
     }
     baseline = run(['rev-parse', '--verify', authority.baseline], repoRoot).trim();
     baselineType = run(['cat-file', '-t', baseline], repoRoot).trim();

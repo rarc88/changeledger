@@ -69,10 +69,26 @@ function writeObservation(repoRoot, observed, at) {
   writeFileAtomic(file, `${JSON.stringify({ oid: observed, at })}\n`);
 }
 
+// The one resolver every replica consumer reads through -- status, sync, abort,
+// mutation, recovery export, doctor and deactivation. The type classification
+// belongs HERE and not in any single consumer: 20260725-104052 first guarded
+// only `gitStateRevision`, which left `state status` reporting a tag OID as the
+// ledger revision and `state export --recovery-branch` materializing a branch
+// from it. `refs/changeledger/*` accepts a non-commit from a plain `update-ref`
+// (git refuses only under `refs/heads/*`), so this is the cheapest vector of the
+// class and the one a local accident can reach.
+function classifiedTip(repoRoot, ref) {
+  const oid = resolveRef(repoRoot, ref);
+  if (!oid) return oid;
+  return assertCommitObject(repoRoot, oid, `state replica tip ${oid}`, (args, cwd) =>
+    git(cwd, args),
+  );
+}
+
 export function readStateReplica(repoRoot) {
-  const confirmed = resolveRef(repoRoot, CONFIRMED_REF);
-  const observed = resolveRef(repoRoot, OBSERVED_REF);
-  const pending = resolveRef(repoRoot, PENDING_REF);
+  const confirmed = classifiedTip(repoRoot, CONFIRMED_REF);
+  const observed = classifiedTip(repoRoot, OBSERVED_REF);
+  const pending = classifiedTip(repoRoot, PENDING_REF);
   return {
     confirmed,
     observed,
@@ -161,25 +177,21 @@ export function keepStateReplicaRevision(repoRoot, confirmed) {
   return readStateReplica(repoRoot);
 }
 
-// A replica tip that is not a commit is invalid state, never adoptable truth.
-// The snapshot validators peel tags transparently (ls-tree/show/merge-base), so
-// the object type must be asserted explicitly before any confirming
-// transaction. git itself refuses to create the condition through update-ref or
-// receive-pack; this guards against a hostile or hand-corrupted remote.
+// Asserts the FETCHED tip before any confirming transaction. The snapshot
+// validators peel tags transparently (ls-tree/show/merge-base), so the object
+// type has to be asserted explicitly rather than inferred from their success.
+// For a remote tip git itself refuses to create the condition via update-ref or
+// receive-pack, so this guards a hostile or hand-corrupted remote; local refs
+// under `refs/changeledger/*` are a different story and are classified in
+// `classifiedTip` above.
 //
-// This comment used to claim parity with "the classification the activation ref
-// already gets". That was only half true when written (20260724-212722): the
-// migration resolver asserted it, the read resolver did not, and the published
-// baseline was never classified at all -- which is how a tag reached a committed
-// authority.yml (audit row MIG-04). Closing the defect only where it had been
-// reproduced left the rest standing -- and the first attempt at 20260725-104052
-// repeated it: this comment claimed every site was classified while the read
-// path in `ledger-store`'s `gitStateRevision` still served whatever
-// `refs/changeledger/{confirmed,pending}` held. That is the weakest vector of
-// the class, since `update-ref` accepts a non-commit outside `refs/heads/*`.
-// The sites are: here (fetched tip), `gitStateRevision` (served revision),
-// `activationCommitOid` (authority), and the published baseline plus migration
-// sources in `state-migration`.
+// Two rounds of this change learned the same lesson: 20260724-212722 guarded
+// this one site and declared the defect closed, and the first attempt at
+// 20260725-104052 asserted in a comment here that every site was classified
+// while two read paths were not. Deliberately no list of sites follows -- an
+// enumeration in a comment goes stale silently, which is what made both claims
+// false. `git.mjs`'s `assertCommitObject` is the primitive; its call sites are
+// the answer.
 function assertCommitTip(repoRoot, oid) {
   assertCommitObject(repoRoot, oid, `state replica tip ${oid}`, (args, cwd) => git(cwd, args));
 }
