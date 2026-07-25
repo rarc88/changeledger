@@ -2,7 +2,7 @@
 id: "20260721-193106"
 title: Calificar el almacén global para producción
 type: audit
-status: in-progress
+status: in-validation
 created: 2026-07-21T19:31:06Z
 depends_on: ["20260721-193101", "20260721-193102", "20260721-193103"]
 owner: Roberto Ruiz
@@ -295,6 +295,88 @@ mediciones actuales son 3-7 reps en una máquina), receipts uniformes también e
 todas las superficies de fallo, y el cierre de los hallazgos anteriores.
 `owner` continúa sin ser ACL.
 
+### Cuarta ejecución sobre `1d3d0afb`
+
+Baseline `1d3d0afb10b4bd5fc5946598d07552530f7030ea`. Alcance dimensionado al
+diff real de código desde `a8b488e1` (7 fuentes, 291 líneas: `bin/changeledger.mjs`,
+`src/commands/check.mjs`, `src/commands/fix.mjs`, `src/ledger-store.mjs`,
+`src/state-store.mjs`, `src/viewer/domain.mjs`, `src/viewer/server/router.mjs`):
+verificación adversarial de los cuatro fixes aceptados más regresión de las
+familias cuya superficie cambió. Repetir las 60 filas del run 3 sobre un diff de
+291 líneas habría sido teatro; las filas no re-ejecutadas siguen respaldadas por
+el run 3 sobre código idéntico. Cuatro delegados independientes con contexto
+limpio y harness propio en scratch. Durante la ejecución HEAD avanzó a
+`a23627ed` por un commit docs-only del propio ledger; `git diff 1d3d0afb..a23627ed
+-- src test bin scripts templates` está vacío, así que el baseline sigue vigente.
+
+| ID | Invariante y topología | Preparación y comando | Esperado | Observado | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| BASE-04 | Baseline reproducible | Árbol limpio; versiones y formatos | Base única | ChangeLedger 0.13.0; Node v24.18.0; pnpm 11.13.0; Git 2.55.0; macOS 25.5.0 arm64; HEAD `1d3d0afb`; sha1+sha256 | pass |
+| GATE-04 | Gate completo | `pnpm verify` | Lint, tests y ledger válidos | 1.148/1.148 tests (0 skipped); Biome limpio (106 archivos); 244 changes válidos; 187 s | pass |
+| PERF-10 | Perfil declarado con presupuestos DEFAULT | `bench-batch-validation.mjs --commits 1,50,256 --sizes 1000,5000 --docs 1,3 --reps 3 --limits default` | Cada celda aceptada | 12/12 aceptadas; peor caso 256c×5.000ch×3docs p95 **6,02 s** (20% del budget) y **68.078.810 bytes** (1,971× de margen sobre 128 MiB); envolvente del README con drift <0,2% | pass |
+| PERF-11 | Capacidad de lectura a escala | Réplicas sintéticas 1.000/5.000 changes; 7 reps | Lecturas interactivas subsegundo | 1.000: todo subsegundo (check p95 563 ms). 5.000: `list --json` p95 584 ms, `search` 655 ms, `list` 864 ms, **`check` p95 1,109 s** (otra muestra 820 ms); RSS pico 169 MiB; `loadRepo` aislado 402 ms → el resto es arranque de proceso | pass de capacidad, con la afirmación «subsegundo» ya no válida para `check` a 5.000 |
+| TRUTH-09..21 | Continuidad de identidades, re-ejecución completa | 31 escenarios sha1+sha256: adopción, advance, replay divergente, abort publicado/no publicado/`--offline`, confirm-observed, recovery, mutación, pending forjado, drop mid-range con **árboles de endpoint byte-idénticos** | Todo rechazo fail-closed con refs intactos; avance legítimo confirma | 39/39 (31 + 8 controles). Todos los rechazos con diagnóstico exacto y refs byte-idénticos; controles de avance legítimo confirman | pass |
+| AUTH-11..28 | Autoridad checkout-independiente, re-ejecución completa | 23 escenarios: activación blob/tree/tag (sha1+sha256), tag con checkout divergente, `state_ref` ausente/inválida, rama pre-cutover, rama ajena con autoridad válida, activación divergente, carrera de pending en el CAS de deactivate, autoridad de integración divergente en recovery, lectura fallida vs ausencia (packed-refs corrupto, dir sin permisos, objeto ausente, contenido no-OID), install limpio y rechazo de reemplazo | Fail-closed exacto | 21/23. Un hueco: **AUTH-12** (abajo). El resto sin escapes; tag y blob fallan por accidente de la fontanería, no por guard | fail parcial |
+| ISOL-13..42 | Aislamiento viewer y afinidad, re-ejecución completa | 30 escenarios: 10 handlers envueltos × selector/handler, 96 lecturas HTTP concurrentes intercaladas, CAS con `expectedPath` obsoleto, receipt forjado en 7 rutas de escritura, proyecto borrado (read/repair/rebind cruzado/unregister), previews R1/R2, escrituras concurrentes con ids cruzados, barrido de 21 rutas, `/api/search` cruzado, 11 escenarios JSDOM de cliente | Ningún resultado cruzado ni stale pinta | 29/30. Un hueco: **ISOL-33** (abajo). Cero atribuciones cruzadas, cero fugas de path ajeno; el rework de `domain.mjs` no introdujo regresión | fail parcial |
+| RECEIPT-06 | `state <sub> --json` en fallo, los nueve subcomandos | `status`/`sync`/`abort`/`activate`/`migrate`/`doctor`/`export`/`validate-update`/`validate-receive` × humano/`--json` × éxito/fallo | Receipt estructurado en JSON bajo `--json` | `status --json` y `sync --json` → `error: unknown option '--json'`, exit 1, **sin receipt**: el flag nunca se declaró. Los otros siete correctos | **fail — alto, CR1 de 203029 incumplido** |
+| RECEIPT-07 | Procedencia humana en fallos de carga de `check`/`fix` | Fuera de repo, `--commits` con base inexistente, config malformado, `schema_version` futuro, EACCES en dir y en fichero, y el caso duro con `project_id` recuperable solo vía `authority.yml` | Sufijo presente y valor real cuando es resoluble | 7/7. Incluido `(project: real-project-id)` recuperado del authority con config ilegible | pass |
+| RECEIPT-08 | Identidad en payloads de error del viewer | 21 rutas incluidas estáticas, traversal, `%2e%2e`, catch-all 500, 413, 403 pre-auth, y los 10 handlers con proyecto resoluble y con id inexistente | Identidad cuando el proyecto se resolvió; nada inventado cuando no | Correcto en todo salvo **ISOL-33**; ningún payload inventa identidad ni filtra path ajeno | fail parcial |
+| **AUTH-12** | **Activation ref → tree: el resolvedor de lecturas no clasifica el tipo** | `update-ref -d` + escritura directa del OID del tree en `.git/refs/changeledger/activation`; `list`, `state status`, `install`, `deactivate`, `exportStateRecovery` | Fail-closed | `list` y `state status` sirven el repo como **sano**; `install`/`deactivate` sí rechazan (`state activation ref … must point to a commit`); **`exportStateRecovery` materializa la rama de recovery** desde una autoridad leída de un no-commit. Con un tree forjado por `mktree` que no está en ningún commit, rama ni tag, `repoProvenance()` devuelve su `project_id`. Sin pérdida de verdad demostrada (el cross-check del manifiesto y la continuidad siguen rechazando), pero con procedencia corrompida y estado operable-pero-ingestionable | **fail — medio, pre-existente (falla igual en `be058658`)** |
+| **MIG-04** | **Baseline de estado adoptado desde un objeto que no es commit** | Bare remote con `refs/heads/changeledger/state` escrito a mano hacia un tag anotado (`update-ref` y `receive-pack` lo rehúsan); `createStateBaseline` + `prepareStateActivation` | Fail-closed | El OID del **tag** se convierte en `baseline` y se escribe committeado en `.changeledger/authority.yml` con `written: true`, sha1 **y** sha256. `prepareStateActivation` sobre un remoto honesto sí falla, pero con diagnóstico engañoso | **fail — crítico** |
+| **MIG-05** | **Plan de migración no determinista con un tag anotado como fuente, sin corrupción alguna** | `previewStateMigration({sources:['origin:refs/tags/v1']})` vs `['local:refs/tags/v1']` | Mismo OID y mismo digest | `local:` registra el commit `bab7f99c…`; `origin:` registra el **tag** `1129a1d5…`; `inventory_digest` distinto (`72076a0c…` vs `f7b149d2…`). Un tag de release ordinario basta | **fail — alto** |
+| **ISOL-33** | **`/api/git` valida el formato del id antes de resolver el proyecto** | `GET /api/git?project=alpha&id=NOT-AN-ID` con `alpha` registrado y resoluble | Identidad presente | `{"error":"invalid id"}` sin `project_id` ni `repository_path`; `GET /api/git?project=alpha` sí responde atribuido. Hallado de forma independiente por dos delegados | **fail — bajo** |
+| **CHECK-01** | **`check` acepta en silencio un `schema_version` más nuevo que el soportado** | `schema_version: 99`; `changeledger check` | Fail-closed como en las escrituras | exit **0** y `✓ 0 change(s) valid`, sin warning: el guard es `schemaVersion < SUPPORTED_SCHEMA_VERSION`, que solo caza el obsoleto. `fix` sí rechaza. Como `pnpm verify` corre `check`, un repo escrito por un ChangeLedger futuro pasa el gate callando | **fail — medio** |
+| DIAG-01 | `.changeledger` ilegible se reporta como ausente | `chmod 000 .changeledger`; `check`, `fix` | Nombrar la causa real | `Not a ChangeLedger repo (no .changeledger/ found). Run \`changeledger init\` first.` — el directorio existe y el mensaje manda a `init`. Con `chmod 000` sobre el fichero sí aparece `EACCES` | **fail — bajo** |
+| HARD-01 | Fragilidad de `attributed()` en el viewer | `{...projectIdentity(project), ...result.body}`: una clave del body gana a la identidad inyectada; un retorno sin `code` adquiere `body` espurio | No alcanzable desde ningún handler | Confirmado no alcanzable: el único body de error con identidad la toma del proyecto del propio selector, y los 7 llamadores de `projectFor` guardan `!found.project`. Latente, no explotable | pass con endurecimiento propuesto |
+| ENF-05 | Hook `pre-receive` real en bare remote | Batch válido, removal de identidad, protected path, non-fast-forward forzado, budget de 1 byte; más `pre-commit` en clon fresco | Acepta/rechaza fail-closed con receipts completos | 5/5 con receipts completos y capabilities exactas; `pre-commit` corre lint-staged + 1.148 tests + check | pass |
+| LEGACY-05 | Modo worktree legacy intacto tras la edición de `check`/`fix` | Ciclo `init`→`new`→`check`→`fix`→`list`→`search`→`show`→`approve`→`status`→`validation`→`graduate --skip`→`archive`, humano y `--json` | Sin cambios de comportamiento | Todo correcto; el array desnudo de `list --json`/`search --json` sigue igual (tracked en el draft 20260724-234148, fuera de alcance) | pass |
+| TEETH-04 | Dientes del harness | Los mismos escenarios contra `be058658` (pre-guards), con control verde en ese árbol | Los harness deben ponerse rojos donde el guard falta | TRUTH 8/31 y 0/8; AUTH 19/23; ISOL 24/30 rojos, incluido un receipt forjado que **aplica escrituras, rebind de path y unregister**; en TRUTH la réplica adopta un tag que pela a un commit que perdió un change | pass |
+
+### Dictamen y límites por topología (cuarta ejecución)
+
+**Decisión vigente: `beta` bloqueada por MIG-04/MIG-05; el resto del sistema está
+listo para beta self-managed.** Los cuatro fixes del run 3 se sostienen bajo
+ataque salvo uno: `assertCommitTip` es correcto y carga peso real (sin él la
+réplica adopta un tag que pela a un commit que perdió un change), la procedencia
+humana de `check`/`fix` aguanta los siete caminos de fallo de carga, y la
+identidad del viewer aguanta 29 de 30 escenarios sin una sola atribución cruzada.
+El núcleo de verdad y aislamiento quedó re-verificado sobre el baseline nuevo sin
+regresión alguna atribuible a las ediciones: TRUTH 39/39, ISOL 29/30, ENF 5/5,
+GATE verde y el perfil declarado dentro de la envolvente publicada con 1,971× de
+margen.
+
+Lo que bloquea es la **ruta de adopción**, y con una única causa raíz: el tipo de
+objeto se «verifica» pelando en vez de asertando. `exactCommit` valida con
+`^{commit}` —que pela tags— y tres llamadores descartan el valor pelado para
+quedarse con el OID crudo (`fetchRef`, la rama remota de `observeSource` y
+`readStateMetadata`), de modo que «pela a un commit» se acepta como «es un
+commit». Consecuencias: un objeto que no es commit se convierte en el `baseline`
+de estado y llega a `authority.yml` como verdad persistente en ambos formatos de
+objeto (MIG-04, crítico), y el plan que el comando promete determinista da OID e
+`inventory_digest` distintos para el mismo tag según se pida por `local:` o por
+`origin:` (MIG-05, alto, sin necesidad de corrupción: basta un tag de release).
+El mismo defecto en `activationCommitOid` deja servir un repo cuya autoridad se
+lee de un tree y permite materializar una rama de recovery desde ella (AUTH-12,
+medio, pre-existente). Los cuatro sitios que resuelven autoridad o baseline
+discrepan entre sí, y el comentario de `assertCommitTip` afirma una paridad con
+la clasificación de la activation ref que el resolvedor de lecturas no tiene.
+
+Hallazgos menores abiertos: `state status --json` y `state sync --json` no existen
+—el flag nunca se declaró, así que el CR1 de `20260722-203029` está incumplido y
+sus tests nunca cubrieron esa combinación (RECEIPT-06, alto en contrato,
+bajo en riesgo)—, `/api/git` pierde la atribución de su `400` por orden de
+sentencias (ISOL-33, bajo), `check` no falla ante un `schema_version` futuro y por
+tanto el gate calla (CHECK-01, medio), y un `.changeledger` ilegible se reporta
+como ausente (DIAG-01, bajo). `attributed()` queda con un footgun latente no
+explotable que merece endurecimiento defensivo (HARD-01).
+
+GA sigue bloqueada por lo anterior más: SLO aprobado sobre muestreo honesto —las
+mediciones siguen siendo 3-7 reps en una máquina, y el `check` de 5.000 changes
+cruza el segundo (p95 1,109 s), así que la afirmación «lecturas interactivas
+subsegundo» ya no aplica a ese tamaño—, uniformidad de receipts en toda
+superficie de fallo, y el cierre de los hallazgos anteriores. `owner` continúa
+sin ser ACL.
+
 ## Log
 
 - **2026-07-21T19:31:06Z** `[note]` Draft creado como frontera de release: el prototipo actual no es candidato GA y solo la evidencia integrada del core v2 puede cambiar esa decisión; el enforcement remoto califica garantías adicionales sin bloquear el modo advisory.
@@ -321,3 +403,5 @@ todas las superficies de fallo, y el cierre de los hallazgos anteriores.
 - **2026-07-24T18:09:25Z** `[status]` in-progress → in-validation
 - **2026-07-24T23:45:18Z** `[validation]` in-validation → in-progress (agent rejected): El dictamen registrado se calculó sobre el baseline a8b488e1 y quedó obsoleto: desde entonces cayeron los fixes de RECEIPT-02, RECEIPT-04, RECEIPT-05 y FAULT-N5, y RECEIPT-03 pasó a decisión resuelta con draft propio. Se requiere una cuarta ejecución sobre el baseline actual antes de que el dictamen sea aceptable.
 - **2026-07-24T23:50:31Z** `[note]` Cuarta ejecución iniciada. Baseline congelado: 1d3d0afb10b4bd5fc5946598d07552530f7030ea (HEAD de codex/state-replica-v2, árbol limpio) con los cuatro fixes del run 3 aceptados: 212722 (tip no-commit), 203029 (receipts de state y sufijos humanos), 190137 (identidad en payloads de error del viewer) y el default de 128 MiB de 203027. RECEIPT-03 deja de ser fail: la decisión de producto está resuelta y documentada en el draft 20260724-234148 (envelope JSON uniforme, corte limpio con release_impact minor). Alcance dimensionado al diff real desde a8b488e1 (7 fuentes, 291 líneas): verificación adversarial de los cuatro fixes más regresión de TRUTH/AUTH (state-store y ledger-store tocados), ISOL viewer (domain reworkeado) y GATE/PERF/LEGACY/ENF. Cuatro delegados independientes con contexto limpio, harness propio en scratch y prohibición de escribir en el repo.
+- **2026-07-25T00:34:56Z** `[note]` Cuarta ejecución completada sobre 1d3d0afb con cuatro delegados adversariales independientes. Sin regresión atribuible a los fixes del run 3: TRUTH 39/39 (sha1+sha256, incluido drop mid-range con árboles de endpoint byte-idénticos), ISOL 29/30 (10/10 handlers envueltos, 96 lecturas HTTP concurrentes, 11 escenarios JSDOM), ENF 5/5, GATE 1.148/1.148 y perfil declarado en 12/12 celdas con p95 6,02 s y 68,08 MB de 128 MiB (1,971x). Dientes del harness demostrados contra be058658: TRUTH 8/31 y 0/8, ISOL 24/30 rojos incluido un receipt forjado que aplica escrituras y unregister. Hallazgos nuevos con una causa raíz común: el tipo de objeto se verifica pelando en vez de asertando. MIG-04 critico (un tag anotado se convierte en baseline de estado y llega a authority.yml committeado, sha1 y sha256), MIG-05 alto (plan no determinista para el mismo tag segun local: u origin:, sin corrupción alguna) y AUTH-12 medio pre-existente (activationCommitOid sin clasificación: repo servido como sano desde un tree y recovery materializada desde él). Menores: RECEIPT-06 alto en contrato (state status --json y sync --json no existen, el flag nunca se declaró: CR1 de 203029 incumplido), CHECK-01 medio (check no falla ante schema_version futuro, el gate calla), ISOL-33 bajo (/api/git pierde atribución del 400 por orden de sentencias, hallado por dos delegados de forma independiente), DIAG-01 bajo (.changeledger ilegible reportado como ausente) y HARD-01 latente no explotable. Dictamen: beta bloqueada por MIG-04/MIG-05; el resto listo para beta self-managed; GA bloqueada además por SLO y por el check de 5.000 changes a p95 1,109 s. Cinco propuestas de change pendientes de autorización humana.
+- **2026-07-25T00:35:02Z** `[status]` in-progress → in-validation
