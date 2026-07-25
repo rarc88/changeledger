@@ -85,10 +85,11 @@ function classifiedTip(repoRoot, ref) {
   );
 }
 
-export function readStateReplica(repoRoot) {
-  const confirmed = classifiedTip(repoRoot, CONFIRMED_REF);
-  const observed = classifiedTip(repoRoot, OBSERVED_REF);
-  const pending = classifiedTip(repoRoot, PENDING_REF);
+export function readStateReplica(repoRoot, { classify = true } = {}) {
+  const read = classify ? classifiedTip : resolveRef;
+  const confirmed = read(repoRoot, CONFIRMED_REF);
+  const observed = read(repoRoot, OBSERVED_REF);
+  const pending = read(repoRoot, PENDING_REF);
   return {
     confirmed,
     observed,
@@ -512,6 +513,14 @@ export function stateReplicaStatus(repoRoot) {
   return { ...refs, remote, condition };
 }
 
+function staleAfterOfflineAbort(repoRoot) {
+  try {
+    return stateReplicaStatus(repoRoot).condition === 'stale';
+  } catch {
+    return false;
+  }
+}
+
 export function abortStatePending(
   repoRoot,
   {
@@ -522,7 +531,13 @@ export function abortStatePending(
     isAncestor: resolveAncestry = isAncestor,
   } = {},
 ) {
-  const before = readStateReplica(repoRoot);
+  // Discarding a pending ref is the repair operation for the very corruption the
+  // classification rejects, so the offline path reads without it: refusing here
+  // would leave `state abort --pending --offline` -- the escape hatch the README
+  // documents -- unreachable exactly when it is needed, with raw `git update-ref`
+  // as the only way out (20260725-104052). It only ever deletes the ref; nothing
+  // is adopted, so no invalid object becomes truth.
+  const before = readStateReplica(repoRoot, { classify: !offline });
   if (!before.pending) throw new Error('there is no pending state to abort');
   if (offline) {
     transaction(repoRoot, [
@@ -535,7 +550,10 @@ export function abortStatePending(
       confirmed: false,
       offline: true,
       effective: before.confirmed,
-      stale: stateReplicaStatus(repoRoot).condition === 'stale',
+      // The pending ref is gone by now, but `confirmed`/`observed` may be the
+      // corruption that made this abort necessary. Reporting staleness must not
+      // turn a completed repair into a thrown error.
+      stale: staleAfterOfflineAbort(repoRoot),
     };
   }
 

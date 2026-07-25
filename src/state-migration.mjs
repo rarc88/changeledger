@@ -959,6 +959,35 @@ function remoteRef(repoRoot, remote, ref, activity) {
   return parseRemoteLine(output, `${remote}:${ref}`);
 }
 
+// The commit a remote ref names, peeling an annotated tag. `ls-remote` publishes
+// the peeled target itself as a `<ref>^{}` line, so this needs no fetch. Readers
+// that compare against a recorded source commit must use this and not
+// `remoteRef`, whose raw value for a tag is the tag object: mixing the two is
+// what made `state doctor --online` report a healthy tag source as advanced
+// (20260725-104052 CR1). `remoteRef` stays raw where the question is "what does
+// the remote publish for this ref", as in the fetch drift check.
+function remoteCommit(repoRoot, remote, ref, activity) {
+  if (activity) activity.network = true;
+  // The glob is required, not cosmetic: `ls-remote <remote> <ref>` matches the
+  // ref by exact name and therefore never lists its `<ref>^{}` peeled line.
+  // Widening the pattern can match siblings (`refs/tags/v10` for `refs/tags/v1`),
+  // so the lines below are selected by exact name, never by position.
+  const output = gitOutput(repoRoot, ['ls-remote', remote, `${ref}*`]);
+  const lines = output
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split('\t'));
+  if (lines.length === 0) return null;
+  const peeled = lines.find(([, name]) => name === `${ref}^{}`);
+  const direct = lines.find(([, name]) => name === ref);
+  const [oid] = peeled ?? direct ?? [];
+  if (!oid || !OID.test(oid)) {
+    throw new Error(`source ${remote}:${ref} returned malformed Git output`);
+  }
+  return oid;
+}
+
 function fetchRef(repoRoot, remote, ref, activity) {
   const oid = remoteRef(repoRoot, remote, ref, activity);
   if (!oid) return null;
@@ -1599,7 +1628,7 @@ export function doctorStateMigration(
     for (const source of metadata.manifest.sources ?? []) {
       if (!source.name || source.name.startsWith('local:')) continue;
       const parsed = parseSource(source.name);
-      const actual = remoteRef(repoRoot, parsed.remote, parsed.ref, activity);
+      const actual = remoteCommit(repoRoot, parsed.remote, parsed.ref, activity);
       const observation = observed.find((item) => item.name === source.name);
       Object.assign(observation, { actual, network: true, observed: true });
       if (!integrationSourceMayBeActivation(source, actual, revision, parent, integration)) {

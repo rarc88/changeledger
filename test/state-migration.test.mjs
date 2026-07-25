@@ -1307,6 +1307,31 @@ test('193103 CR10: doctor rejects an activation tree with unrelated changes', ()
   assert.match(diagnosis.problems.join('\n'), /activation tree does not match exact cutover/);
 });
 
+// CR1 changed what a remote source RECORDS (the peeled commit). Every reader of
+// that value has to be peeled too, or a healthy repo reads as divergent. The
+// online doctor compares against `ls-remote`, whose plain output for an
+// annotated tag is the tag object, so it must take the peeled `^{}` entry.
+test('104052 CR1: online doctor does not report a tag source as advanced', () => {
+  const { root, head } = legacyRepo();
+  git(root, ['tag', '-a', 'v1', '-m', 'release one', head]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v1']);
+  const preview = previewStateMigration({ sources: ['origin:refs/tags/v1'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+
+  const offline = doctorStateMigration({ activationRef: activation.branch }, root);
+  const online = doctorStateMigration({ activationRef: activation.branch, online: true }, root);
+
+  assert.equal(offline.ok, true, offline.problems.join('\n'));
+  assert.equal(online.ok, true, online.problems.join('\n'));
+  assert.deepEqual(online.problems, []);
+  assert.equal(
+    online.sources.find((source) => source.name === 'origin:refs/tags/v1').actual,
+    head,
+    'the observed value must be the peeled commit, comparable with what the plan pinned',
+  );
+});
+
 test('193103 CR10: doctor distinguishes local and online source divergence', () => {
   const { root } = legacyRepo();
   git(root, ['branch', 'other', 'dev']);

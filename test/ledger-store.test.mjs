@@ -249,9 +249,10 @@ test('202058 CR2: a confirmed ref forged to drop a change identity fails closed 
 // policy can reject its removal. The repo is its own remote so sync fetches
 // the local `changeledger/state` branch.
 const EXTRA_CHANGE_PATH = '.changeledger-state/changes/20260721-000001-change.md';
-function replicaStateRepo() {
+function replicaStateRepo({ configText } = {}) {
   const { root, baseline } = createStateRepo({
     changes: [changeText(), changeText({ id: '20260721-000001', title: 'Extra' })],
+    ...(configText ? { configText } : {}),
   });
   fs.writeFileSync(
     path.join(root, '.changeledger', 'authority.yml'),
@@ -498,12 +499,39 @@ test('104052 CR9: every replica read refuses a tip that is not a commit', async 
       `state status must reject ${ref}`,
     );
     assert.throws(() => exportStateRecovery(root), expected, `recovery must reject ${ref}`);
-    assert.equal(
-      git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-']),
-      '',
-      'no recovery branch may be materialized from a non-commit tip',
-    );
   }
+});
+
+// The clause above only proves the diagnostic. Proving that NOTHING is written
+// needs a repo where recovery could actually succeed: `stateConfig` declares no
+// `git.integration_branch`, and recovery also requires confirmed === observed, so
+// in the loop's fixtures the branch could never be born and asserting its absence
+// would pass for the wrong reason. This case removes both obstacles.
+test('104052 CR9: no recovery branch is born from a non-commit tip', async () => {
+  const { exportStateRecovery } = await import('../src/state-migration.mjs');
+  const { root, baseline } = replicaStateRepo({
+    configText: `${stateConfig()}git:\n  integration_branch: dev\n`,
+  });
+  git(root, ['tag', '-a', '-m', 'evil', 'evil', baseline]);
+  const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+  git(root, ['update-ref', CONFIRMED_REF, tag]);
+  git(root, ['update-ref', OBSERVED_REF, tag]);
+
+  // The branch check is asserted BEFORE the diagnostic on purpose: as
+  // `assert.throws(...)` first, a missing guard fails there and this clause is
+  // never reached, which is how it stayed unverifiable through two rounds.
+  let failure = null;
+  try {
+    exportStateRecovery(root);
+  } catch (caught) {
+    failure = caught;
+  }
+  assert.equal(
+    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-*']),
+    '',
+    'no recovery branch may be materialized from a non-commit tip',
+  );
+  assert.match(String(failure), new RegExp(`state replica tip ${tag} must point to a commit`));
 });
 
 test('104052 CR5: recovery is not materialized from a non-commit authority', async () => {
@@ -514,7 +542,7 @@ test('104052 CR5: recovery is not materialized from a non-commit authority', asy
 
   assert.throws(() => exportStateRecovery(root), ACTIVATION_NOT_A_COMMIT);
   assert.equal(
-    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-']),
+    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-*']),
     '',
   );
 });
@@ -1060,6 +1088,22 @@ test('193101 correction CR3: authority baseline must be an exact full commit OID
     'format_version: 1\nstate_ref: refs/heads/changeledger/state\nbaseline: refs/heads/changeledger/state\nproject_id: project-1\n',
   );
   assert.throws(() => loadLedgerStore(root).load(), /baseline must be an exact commit OID/);
+});
+
+test('104052 CR10: offline abort still discards a pending that is not a commit', () => {
+  const { root, baseline } = replicaStateRepo();
+  git(root, ['tag', '-a', '-m', 'evil', 'evil', baseline]);
+  const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+  git(root, ['update-ref', PENDING_REF, tag]);
+
+  // Classifying every read would leave the documented escape hatch unreachable
+  // exactly when it is needed. Discarding a ref adopts nothing, so it is allowed
+  // on the corruption every other read refuses.
+  const result = loadLedgerStore(root).replica.abort({ offline: true });
+  assert.equal(result.aborted, true);
+  assert.equal(result.offline, true);
+  assert.throws(() => git(root, ['rev-parse', '--verify', PENDING_REF]));
+  assert.equal(loadLedgerStore(root).load().changes.length, 2, 'reads recover after the repair');
 });
 
 test('104052 CR9: a v1 authority state_ref that is not a commit is refused', () => {
