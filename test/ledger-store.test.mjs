@@ -535,16 +535,33 @@ test('104052 CR9: no recovery branch is born from a non-commit tip', async () =>
 });
 
 test('104052 CR5: recovery is not materialized from a non-commit authority', async () => {
-  const { root } = replicaStateRepo();
+  // Declares `git.integration_branch` on purpose: without it recovery refuses
+  // before reaching the guard, so asserting that no branch exists would pass for
+  // the wrong reason. CR9's case cannot stand in for this one -- its corruption is
+  // a replica tip guarded in `readStateReplica`, while this is an activation ref
+  // guarded in `activationCommitOid`: different site, different guard, different
+  // module.
+  const { root } = replicaStateRepo({
+    configText: `${stateConfig()}git:\n  integration_branch: dev\n`,
+  });
   const { exportStateRecovery } = await import('../src/state-migration.mjs');
   const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
   repointActivation(root, git(root, ['rev-parse', `${authorityCommit}^{tree}`]));
 
-  // Only the diagnostic is asserted here. This fixture declares no
-  // `git.integration_branch`, so recovery could never materialize a branch even
-  // without the guard, and asserting its absence would pass for the wrong reason.
-  // The "nothing written" claim is anchored in the CR9 case built for it.
-  assert.throws(() => exportStateRecovery(root), ACTIVATION_NOT_A_COMMIT);
+  // Branch check before the diagnostic: as `assert.throws(...)` first, a missing
+  // guard fails there and this clause is never evaluated.
+  let failure = null;
+  try {
+    exportStateRecovery(root);
+  } catch (caught) {
+    failure = caught;
+  }
+  assert.equal(
+    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-*']),
+    '',
+    'no recovery branch may be materialized from a non-commit authority',
+  );
+  assert.match(String(failure), ACTIVATION_NOT_A_COMMIT);
 });
 
 test('104052 CR7: an annotated tag activation resolves to its authority commit', () => {

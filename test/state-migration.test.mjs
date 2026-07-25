@@ -1360,6 +1360,38 @@ test('104052 CR1: a disappeared source with a prefix sibling reports divergence'
   );
 });
 
+// The present case needs its own anchor: with both tags annotated the remote
+// advertises v1, v1^{}, v10 and v10^{}, so a `lines[0]` or prefix-match
+// simplification would silently observe the sibling's commit on a git whose
+// advertisement order differs.
+test('104052 CR1: a prefix sibling is never mistaken for the source', () => {
+  const { root, head } = legacyRepo();
+  git(root, ['tag', '-a', 'v1', '-m', 'release one', head]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v1']);
+  const preview = previewStateMigration({ sources: ['origin:refs/tags/v1'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  fs.writeFileSync(path.join(root, 'sibling.txt'), 'sibling\n');
+  git(root, ['add', 'sibling.txt']);
+  git(root, ['commit', '-qm', 'test: a commit only the sibling names']);
+  const other = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['tag', '-a', 'v10', '-m', 'release ten', other]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v10']);
+  assert.notEqual(other, head);
+
+  const online = doctorStateMigration({ activationRef: activation.branch, online: true }, root);
+
+  assert.equal(
+    online.sources.find((source) => source.name === 'origin:refs/tags/v1').actual,
+    head,
+    'the observed value must be v1 peeled, never v10',
+  );
+  assert.deepEqual(
+    online.problems.filter((problem) => problem.includes('refs/tags/v1')),
+    [],
+  );
+});
+
 test('193103 CR10: doctor distinguishes local and online source divergence', () => {
   const { root } = legacyRepo();
   git(root, ['branch', 'other', 'dev']);
