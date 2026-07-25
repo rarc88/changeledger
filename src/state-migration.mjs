@@ -9,7 +9,7 @@ import { checkRepo } from './check.mjs';
 import { findChangeledgerDir, integrationBranch } from './config.mjs';
 import { migrateStructuredSections } from './fix.mjs';
 import { VERSION } from './framing.mjs';
-import { GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
+import { assertCommitObject, GIT_MAX_BUFFER, sanitizedGitEnv } from './git.mjs';
 import { batchBlobReader } from './git-batch.mjs';
 import { ACTIVATION_REF, loadLedgerStore, STATE_REF } from './ledger-store.mjs';
 import { compareVersions } from './release.mjs';
@@ -963,7 +963,10 @@ function fetchRef(repoRoot, remote, ref, activity) {
   const oid = remoteRef(repoRoot, remote, ref, activity);
   if (!oid) return null;
   git(repoRoot, ['fetch', '--no-tags', '--no-write-fetch-head', remote, oid]);
-  exactCommit(repoRoot, oid);
+  // This ref is the system's own published truth, not a ref a human named, so
+  // it must BE a commit: `exactCommit` only proves it peels to one, and the OID
+  // returned below is the one adopted as the state baseline (row MIG-04).
+  assertCommitObject(repoRoot, oid, `state baseline ref ${ref}`, batchRun);
   const current = remoteRef(repoRoot, remote, ref, activity);
   if (current !== oid) {
     throw new Error(
@@ -1151,6 +1154,10 @@ function validateManifestDecisions(readBlob, manifest, entries) {
 }
 
 function readStateMetadata(repoRoot, revision) {
+  // A baseline revision is the system's own truth: `exactCommit` alone would
+  // accept a tag, and the `ls-tree` below peels it again, which is why the
+  // escalation into a committed authority.yml went uncaught (row MIG-04).
+  assertCommitObject(repoRoot, revision, `state baseline ref ${STATE_REF}`, batchRun);
   exactCommit(repoRoot, revision);
   const entries = treeEntries(repoRoot, revision, []);
   const allowed = (file) =>

@@ -255,8 +255,27 @@ function optionalRefOid(repoRoot, ref, run) {
 // The activation commit OID, or null only when the ref or Git metadata is
 // absent. Operational read failures must propagate: treating them as absence
 // could serve stale worktree truth.
+//
+// The object must be a commit, or an annotated tag peeled to one. Without this
+// classification a tree was served as a healthy repo -- `cat-file blob
+// <tree>:.changeledger/authority.yml` resolves, so authority came from an object
+// that is not a commit, and a blob failed only by accident of the plumbing
+// rather than by a guard (audit row AUTH-12). `state-migration`'s
+// `resolveActivationCommitOrNull` has always asserted this; the two authority
+// resolvers must not disagree.
 function activationCommitOid(repoRoot, run) {
-  return optionalRefOid(repoRoot, ACTIVATION_REF, run);
+  const oid = optionalRefOid(repoRoot, ACTIVATION_REF, run);
+  if (!oid) return oid;
+  const type = run(['cat-file', '-t', oid], repoRoot).trim();
+  if (type === 'commit') return oid;
+  if (type !== 'tag') {
+    throw new Error(`state activation ref ${ACTIVATION_REF} must point to a commit`);
+  }
+  const commit = run(['rev-parse', '--verify', `${oid}^{commit}`], repoRoot).trim();
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) {
+    throw new Error(`state activation ref ${ACTIVATION_REF} must point to a commit`);
+  }
+  return commit;
 }
 
 // Loads the operative authority from the activation commit's committed tree,

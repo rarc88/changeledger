@@ -161,13 +161,20 @@ export function keepStateReplicaRevision(repoRoot, confirmed) {
   return readStateReplica(repoRoot);
 }
 
-// A replica tip that does not peel to a commit is invalid state, never
-// adoptable truth -- the same classification the activation ref already gets
-// (20260723-235910). The snapshot validators peel tags transparently
-// (ls-tree/show/merge-base), so the object type must be asserted explicitly
-// before any confirming transaction. git itself refuses to create the
-// condition through update-ref or receive-pack; this guards against a hostile
-// or hand-corrupted remote.
+// A replica tip that is not a commit is invalid state, never adoptable truth.
+// The snapshot validators peel tags transparently (ls-tree/show/merge-base), so
+// the object type must be asserted explicitly before any confirming
+// transaction. git itself refuses to create the condition through update-ref or
+// receive-pack; this guards against a hostile or hand-corrupted remote.
+//
+// This comment used to claim parity with "the classification the activation ref
+// already gets". That was only half true when written (20260724-212722): the
+// migration resolver asserted it, the read resolver did not, and the published
+// baseline was never classified at all -- which is how a tag reached a committed
+// authority.yml (audit row MIG-04). Closing the defect only where it had been
+// reproduced left the rest standing. The parity is real as of 20260725-104052,
+// which classifies every site: here, `ledger-store`'s `activationCommitOid`, and
+// the published baseline in `state-migration`.
 function assertCommitTip(repoRoot, oid) {
   if (git(repoRoot, ['cat-file', '-t', oid]) !== 'commit') {
     throw new Error(`state replica tip ${oid} must point to a commit`);

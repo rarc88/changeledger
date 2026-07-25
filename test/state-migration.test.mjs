@@ -235,6 +235,83 @@ test('104052 CR1: an annotated tag source records its commit, by either route', 
   assert.notEqual(local.plan.inventory_digest, remote.plan.inventory_digest);
 });
 
+// The published state ref is truth the system reads about itself, so unlike a
+// source ref a human named it must *be* a commit. `update-ref` and receive-pack
+// both refuse to create this condition, so the remote's loose ref is written by
+// hand -- the same vector audit row MIG-04 reproduced.
+function corruptRemoteStateRef(remote, oid) {
+  const loose = path.join(remote, 'refs', 'heads', 'changeledger', 'state');
+  fs.mkdirSync(path.dirname(loose), { recursive: true });
+  fs.writeFileSync(loose, `${oid}\n`);
+  const packed = path.join(remote, 'packed-refs');
+  if (fs.existsSync(packed)) {
+    fs.writeFileSync(
+      packed,
+      fs
+        .readFileSync(packed, 'utf8')
+        .split('\n')
+        .filter((line) => !line.includes('refs/heads/changeledger/state'))
+        .join('\n'),
+    );
+  }
+}
+
+for (const kind of ['tag', 'blob', 'tree']) {
+  test(`104052 CR2: create refuses a published state ref that is a ${kind}`, () => {
+    const { root, remote } = legacyRepo();
+    const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+    const planFile = writePlan(root, preview.text);
+    const first = createStateBaseline({ planFile }, root);
+
+    // The tree and the manifest blob already live in the remote's object store,
+    // reachable from the baseline commit that was just published; only the tag
+    // has to be sent, and it can only go to a tag ref -- git refuses to write a
+    // non-commit to a branch, which is exactly why the state ref below must be
+    // corrupted by hand rather than pushed.
+    let oid;
+    if (kind === 'tag') {
+      git(root, ['tag', '-a', 'evil', '-m', 'evil', first.baseline]);
+      oid = git(root, ['rev-parse', 'refs/tags/evil']);
+      git(root, ['push', '-q', 'origin', 'refs/tags/evil']);
+    } else if (kind === 'tree') {
+      oid = git(root, ['rev-parse', `${first.baseline}^{tree}`]);
+    } else {
+      oid = git(root, ['rev-parse', `${first.baseline}:.changeledger-state/manifest.yml`]);
+    }
+    corruptRemoteStateRef(remote, oid);
+    const authority = path.join(root, '.changeledger', 'authority.yml');
+    const beforeAuthority = fs.existsSync(authority);
+    const beforeRefs = git(root, ['for-each-ref', '--format=%(refname) %(objectname)']);
+
+    assert.throws(
+      () => createStateBaseline({ planFile }, root),
+      /^Error: state baseline ref refs\/heads\/changeledger\/state must point to a commit$/,
+    );
+    assert.equal(fs.existsSync(authority), beforeAuthority);
+    assert.equal(git(root, ['for-each-ref', '--format=%(refname) %(objectname)']), beforeRefs);
+  });
+}
+
+test('104052 CR3: prepare refuses a published baseline that is not a commit', () => {
+  const { root, remote } = legacyRepo();
+  const preview = previewStateMigration({ sources: ['local:refs/heads/dev'] }, root);
+  const first = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  git(root, ['tag', '-a', 'evil', '-m', 'evil', first.baseline]);
+  const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+  git(root, ['push', '-q', 'origin', 'refs/tags/evil']);
+  corruptRemoteStateRef(remote, tag);
+
+  assert.throws(
+    () => prepareStateActivation({ baseline: tag }, root),
+    /^Error: state baseline ref refs\/heads\/changeledger\/state must point to a commit$/,
+  );
+  assert.equal(
+    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/']),
+    '',
+    'no activation branch may be created',
+  );
+});
+
 test('193103 CR11/CR12: CLI works before and after authority with JSON receipts', () => {
   const { root } = legacyRepo();
   const cli = path.resolve('bin/changeledger.mjs');
@@ -1869,6 +1946,32 @@ function preparedForInstall(objectFormat = 'sha1') {
   git(root, ['update-ref', 'refs/heads/dev', activation.commit]);
   return { root, head, baseline: baseline.baseline, activation };
 }
+
+// `readStateMetadata` also serves install, deactivate and doctor, which read the
+// baseline recorded in a LOCAL activation authority and never fetch it. Guarding
+// only the fetch ingress would leave those three reading truth from a non-commit,
+// so this pins the assertion on a path `fetchRef` cannot reach.
+test('104052 CR2: a local authority naming a non-commit baseline is refused', () => {
+  const { root, baseline } = preparedForInstall();
+  // `prepareStateActivation` writes the authority into the activation commit,
+  // not the worktree, and the helper only moves the branch ref.
+  git(root, ['reset', '--hard', '-q', 'dev']);
+  git(root, ['tag', '-a', '-m', 'evil', 'evil', baseline]);
+  const tag = git(root, ['rev-parse', 'refs/tags/evil']);
+  const authority = path.join(root, '.changeledger', 'authority.yml');
+  fs.writeFileSync(
+    authority,
+    fs.readFileSync(authority, 'utf8').replace(`baseline: ${baseline}`, `baseline: ${tag}`),
+  );
+  git(root, ['add', '.changeledger/authority.yml']);
+  git(root, ['commit', '-qm', 'test: forge a non-commit baseline']);
+
+  assert.throws(
+    () => installStateActivation({ integrationRef: 'refs/heads/dev' }, root),
+    /^Error: state baseline ref refs\/heads\/changeledger\/state must point to a commit$/,
+  );
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});
 
 test('20260723-202646 CR3: install verifies content and fixes activation via CAS', () => {
   const { root, baseline, activation } = preparedForInstall();

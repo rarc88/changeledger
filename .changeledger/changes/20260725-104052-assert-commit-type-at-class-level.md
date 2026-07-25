@@ -2,7 +2,7 @@
 id: "20260725-104052"
 title: Clasificar el tipo de objeto en todo resolvedor de autoridad y baseline
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-25T10:40:52Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -169,10 +169,14 @@ sus sitios.
 
 - [x] Añadir un test rojo por ruta que cubra CR1 (tag anotado como fuente por `local:` y por `origin:`, mismo commit y mismo digest) y hacerlo pasar conservando el valor pelado de `exactCommit` en la rama remota de `observeSource` en `src/state-migration.mjs`; verify: `node --test test/state-migration.test.mjs` (CR1)
   - **Resolved:** `2026-07-25T10:55:44Z`
-- [ ] Añadir tests rojos para CR2 y CR3 con la loose ref del remoto reescrita a mano hacia tag, blob y tree, y hacerlos pasar asertando el tipo commit del tip fetched de la ref pública de estado en `src/state-migration.mjs` (`fetchRef` y `readStateMetadata`) antes de cualquier escritura; verify: `node --test test/state-migration.test.mjs` (CR2, CR3)
-- [ ] Añadir tests rojos para CR4, CR5, CR6 y CR7 y hacerlos pasar clasificando el tipo en `activationCommitOid` de `src/ledger-store.mjs` con la misma resolución en dos etapas que `resolveActivationCommitOrNull`, reusando su diagnóstico exacto; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR4, CR5, CR6, CR7)
-- [ ] Reconciliar el comentario de `assertCommitTip` en `src/state-store.mjs`, que hoy afirma paridad con una clasificación que el resolvedor de lecturas no tenía; verify: `node --test test/state-store.test.mjs` (support)
-- [ ] Anclar CR8 con el ciclo completo en ambos formatos de objeto y verificar por mutación sobre `src/state-migration.mjs`, `src/ledger-store.mjs` y `src/state-store.mjs` que retirar cualquiera de las cuatro clasificaciones rompe exactamente su propio test; verify: `pnpm verify` y `node --test test/state-migration.test.mjs` (CR8)
+- [x] Añadir tests rojos para CR2 y CR3 con la loose ref del remoto reescrita a mano hacia tag, blob y tree, y hacerlos pasar asertando el tipo commit del tip fetched de la ref pública de estado en `src/state-migration.mjs` (`fetchRef` y `readStateMetadata`) antes de cualquier escritura; verify: `node --test test/state-migration.test.mjs` (CR2, CR3)
+  - **Resolved:** `2026-07-25T11:25:47Z`
+- [x] Añadir tests rojos para CR4, CR5, CR6 y CR7 y hacerlos pasar clasificando el tipo en `activationCommitOid` de `src/ledger-store.mjs` con la misma resolución en dos etapas que `resolveActivationCommitOrNull`, reusando su diagnóstico exacto; verify: `node --test test/ledger-store.test.mjs test/state-migration.test.mjs` (CR4, CR5, CR6, CR7)
+  - **Resolved:** `2026-07-25T11:25:47Z`
+- [x] Reconciliar el comentario de `assertCommitTip` en `src/state-store.mjs`, que hoy afirma paridad con una clasificación que el resolvedor de lecturas no tenía; verify: `node --test test/state-store.test.mjs` (support)
+  - **Resolved:** `2026-07-25T11:25:47Z`
+- [x] Anclar CR8 con el ciclo completo en ambos formatos de objeto y verificar por mutación sobre `src/state-migration.mjs`, `src/ledger-store.mjs` y `src/state-store.mjs` que retirar cualquiera de las cuatro clasificaciones rompe exactamente su propio test; verify: `pnpm verify` y `node --test test/state-migration.test.mjs` (CR8)
+  - **Resolved:** `2026-07-25T11:25:48Z`
 
 ## Log
 
@@ -181,3 +185,5 @@ sus sitios.
 - **2026-07-25T10:50:27Z** `[status]` approved → in-progress
 - **2026-07-25T10:50:27Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-25T10:55:44Z** `[note]` CR1 cerrado. observeSource conserva ahora el valor pelado de exactCommit en la rama remota: el OID crudo de ls-remote se retiene solo como 'tip' para la comprobación de drift contra lo que el remoto publica, mientras la fuente se registra por su commit pelado, igual que ya hacía la rama local. recordSourceActivity se llama dos veces por diseño: antes del fetch con el OID observado, para que un receipt de fallo conserve evidencia, y de nuevo tras pelar con éxito, ya que hace upsert por nombre. Corregido el propio CR1 durante la implementación: exigía el mismo inventory_digest por las dos rutas, lo cual es imposible y además incorrecto porque el digest cubre sources verbatim con name, kind y remote, y cada candidato lleva su source. Verificado empíricamente que los dos planes son idénticos salvo esos campos de nombrado, y el test ancla eso además de asertar que los digests SÍ difieren, para que nadie 'arregle' esa diferencia en el futuro. Suite de migración completa: 79/79.
+- **2026-07-25T11:26:06Z** `[note]` Tareas 2 a 5 cerradas. Añadido assertCommitObject a src/git.mjs como primitiva compartida: cat-file -t con un sujeto que el llamador aporta, para que los mensajes ya publicados no cambien y ningún sitio futuro invente su propia comprobación. Cableada en fetchRef y readStateMetadata de state-migration con el sujeto 'state baseline ref <ref>', y en activationCommitOid de ledger-store con resolución en dos etapas que acepta commit, pela un tag anotado y rechaza tree o blob con el mismo diagnóstico que ya emitían install y deactivate. Reconciliado el comentario de assertCommitTip, que afirmaba paridad con una clasificación inexistente en el resolvedor de lecturas; ahora dice qué era falso, por qué, y que la paridad es real desde este change. CR8: el ciclo honesto en sha1 y sha256 ya lo cubre la suite existente via preparedForInstall y el test de 235910 que ancla el tag conservando su OID directo a través de install y deactivate, así que no se duplicó. Matriz de mutación 4/4 sobre copia scratch completa con control verde previo (174/174): retirar la retención del valor pelado en observeSource mata solo CR1; retirar la aserción de fetchRef mata solo los tres CR2 de tag, blob y tree; retirar la de readStateMetadata mata solo el CR2 de autoridad local; retirar la clasificación de activationCommitOid mata CR4/CR7, CR5 y CR6. Incidente de método: una primera pasada combinada dio falso negativo para M3 y M4 por un fallo de mi harness, no del código, y lo detecté al extrañarme de que M4 no matara nada; se repitió cada mutación por separado verificando que el parche se aplicaba antes de correr. Hallazgo propio corregido en el camino: la aserción de readStateMetadata quedaba sin anclar porque fetchRef la cubría en las rutas probadas, así que se añadió un test por la ruta que fetchRef no alcanza, una autoridad local forjada que nombra un tag como baseline y que llega a install, deactivate y doctor sin red. Gate 1.158/1.158, Biome limpio, 246 changes válidos.
+- **2026-07-25T11:26:06Z** `[status]` in-progress → in-review

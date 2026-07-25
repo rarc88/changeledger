@@ -258,3 +258,20 @@ export function gitRefs(repoRoot, id, run = defaultRun) {
 
   return refs;
 }
+
+// A Git object that merely *peels* to a commit is not a commit. `rev-parse
+// <ref>^{commit}` and the plumbing that reads trees (`ls-tree`, `cat-file
+// blob <oid>:<path>`) both follow an annotated tag silently, so validating
+// with them and then keeping the original OID accepts a tag, and sometimes a
+// tree, as if it were the commit -- the class of defect behind audit rows
+// MIG-04, MIG-05 and AUTH-12 (change 20260725-104052). Where the system reads
+// its own truth (a published baseline, an activation ref, a replica tip) the
+// object must *be* a commit, and only `cat-file -t` answers that. Where a
+// human names a ref instead, peeling is the expected reading -- that is a
+// different question and this helper is not it.
+export function assertCommitObject(repoRoot, oid, subject, run = defaultRun) {
+  if (run(['cat-file', '-t', oid], repoRoot).trim() !== 'commit') {
+    throw new Error(`${subject} must point to a commit`);
+  }
+  return oid;
+}

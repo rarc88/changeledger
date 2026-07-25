@@ -427,6 +427,77 @@ test('202058 CR2: a removal published between preflight and mutate fails the pos
   assert.equal(git(root, ['rev-parse', CONFIRMED_REF]), baseline);
 });
 
+// The activation ref is the sole authority every read resolves, so an object
+// that is not a commit there is invalid state, never something to read truth
+// from. `state-migration`'s resolver already classified it; the read path did
+// not, which let `list`/`state status` serve a repo whose authority came from a
+// tree (audit row AUTH-12).
+const ACTIVATION_NOT_A_COMMIT =
+  /state activation ref refs\/changeledger\/activation must point to a commit/;
+
+function repointActivation(root, oid) {
+  fs.writeFileSync(path.join(root, '.git', 'refs', 'changeledger', 'activation'), `${oid}\n`);
+}
+
+test('104052 CR4/CR7: reads refuse an activation ref that is a tree or a blob', () => {
+  for (const kind of ['tree', 'blob']) {
+    const { root, baseline } = replicaStateRepo();
+    const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
+    const oid =
+      kind === 'tree'
+        ? git(root, ['rev-parse', `${authorityCommit}^{tree}`])
+        : git(root, ['rev-parse', `${authorityCommit}:.changeledger/authority.yml`]);
+    repointActivation(root, oid);
+
+    assert.throws(() => loadLedgerStore(root), ACTIVATION_NOT_A_COMMIT, `${kind} must fail closed`);
+    // A blob used to fail with a different diagnostic by accident of the
+    // plumbing (`cat-file blob <blob>:<path>` cannot resolve), not by a guard.
+    assert.doesNotThrow(() => git(root, ['rev-parse', baseline]));
+  }
+});
+
+test('104052 CR6: provenance refuses an activation object outside every commit', () => {
+  const { root } = replicaStateRepo();
+  const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
+  const tree = git(root, ['rev-parse', `${authorityCommit}^{tree}`]);
+  repointActivation(root, tree);
+  assert.throws(() => repoProvenance(root), ACTIVATION_NOT_A_COMMIT);
+
+  // A tree forged with mktree is contained in no commit, branch or tag at all.
+  const forged = git(
+    root,
+    ['mktree'],
+    `100644 blob ${git(root, ['hash-object', '-w', '--stdin'], 'x\n')}\tx\n`,
+  );
+  repointActivation(root, forged);
+  assert.throws(() => repoProvenance(root), ACTIVATION_NOT_A_COMMIT);
+});
+
+test('104052 CR5: recovery is not materialized from a non-commit authority', async () => {
+  const { root } = replicaStateRepo();
+  const { exportStateRecovery } = await import('../src/state-migration.mjs');
+  const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
+  repointActivation(root, git(root, ['rev-parse', `${authorityCommit}^{tree}`]));
+
+  assert.throws(() => exportStateRecovery(root), ACTIVATION_NOT_A_COMMIT);
+  assert.equal(
+    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-']),
+    '',
+  );
+});
+
+test('104052 CR7: an annotated tag activation resolves to its authority commit', () => {
+  const { root } = replicaStateRepo();
+  const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
+  git(root, ['tag', '-a', '-m', 'pinned', 'pinned-activation', authorityCommit]);
+  const tag = git(root, ['rev-parse', 'pinned-activation']);
+  assert.notEqual(tag, authorityCommit);
+  repointActivation(root, tag);
+
+  assert.equal(loadLedgerStore(root).load().changes.length, 2);
+  assert.equal(repoProvenance(root).project_id, 'project-1');
+});
+
 test('212722 CR1: sync rejects a hand-corrupted remote tip that is not a commit', () => {
   const { root, baseline } = replicaStateRepo();
   git(root, ['tag', '-a', '-m', 'evil', 'evil-tag', baseline]);
