@@ -245,11 +245,21 @@ This procedure only removes an unactivated baseline. It never touches a replica
 that has already cut over — that path is a durable ledger and belongs to the
 recovery procedure below, not to this cleanup.
 
-### Remote enforcement after cutover
+### Optional remote enforcement after cutover
 
-Install remote protection only after the activation commit is present on the
-integration ref. A self-managed bare Git server can install the packaged
-`hooks/pre-receive` and set both full refs explicitly:
+Integrity does not depend on this hook. Every client validates identity
+continuity against the baseline pinned by the activation commit before it
+confirms anything, on every provider, with no configuration: a published state
+that dropped a change is refused at read time by the next clone that syncs,
+including a fresh clone with no prior local state. What the hook adds is
+availability — it rejects that push at write time, so the remote never gets
+stuck holding a state nobody will adopt. It is an optional extra for operators
+who run their own Git server, never a requirement for a release or a maturity
+level.
+
+Install it only after the activation commit is present on the integration ref. A
+self-managed bare Git server can install the packaged `hooks/pre-receive` and set
+both full refs explicitly:
 
 ```sh
 export CHANGELEDGER_STATE_REF=refs/heads/changeledger/state
@@ -263,8 +273,8 @@ including that no change, spec or release identity present in a parent snapshot
 disappears from its child — archiving or discarding a document keeps it in its
 collection, so only data loss or tampering trips this check. It also rejects
 non-fast-forward integration updates and any commit that changes the active
-authority or reintroduces legacy config, changes, specs or releases. `content_validation: verified`
-means this contract held for the inspected snapshots; it is not an
+authority or reintroduces legacy config, changes, specs or releases. A receipt
+reporting that this contract held for the inspected snapshots is not an
 authentication of who pushed them. There is no portable authenticated actor
 identity: `owner` remains responsibility metadata, not an access-control list.
 There is no actor, human-override, probe or provider-autodetection option.
@@ -277,7 +287,10 @@ three fail-closed budgets: `--max-commits` (default 256), `--max-object-bytes`
 `--timeout-ms` (default 30000). The defaults are sized for the declared
 profile — a batch of 256 commits over a 5,000-change ledger — which measures
 about 68 million unique object bytes (dominated by per-commit tree objects,
-not document blobs), leaving roughly 2× byte headroom on a stock install.
+not document blobs), leaving roughly 2× byte headroom on a stock install. That
+envelope is a reproducible measurement, not a promised threshold: it was taken
+at three repetitions per cell on a single machine, so treat it as a sizing aid
+and measure your own profile before relying on the margin.
 Reproduce the envelope with
 `node scripts/bench-batch-validation.mjs --commits 256 --sizes 5000 --limits default`.
 Repositories beyond that profile must resize the hook explicitly by adding the
@@ -285,21 +298,24 @@ flags to `hooks/pre-receive` (for example `--max-object-bytes 268435456`); a
 rejected push names the exceeded budget in its receipt and never leaves
 partial state on the server.
 
-Protection capabilities are reported independently:
+What is guaranteed, and where:
 
-| Deployment | History | Content | Actor | Legacy paths |
-|---|---|---|---|---|
-| Self-managed `pre-receive` | server policy | verified | unavailable | verified |
-| Hosted branch/ruleset API | enforced only with authenticated adapter evidence | unavailable | provider-specific | configured or unavailable |
-| No trusted adapter | unknown | unavailable | unavailable | unavailable |
+- **Every provider, no setup.** Identity continuity and descent from the pinned
+  baseline, enforced client-side before any confirmation. This is the integrity
+  guarantee, and it is the same on a self-managed server, on GitHub, GitLab or
+  Bitbucket, and on a bare repository on a USB stick.
+- **Your own Git server, with the hook installed.** The same contract also
+  rejected at push time, so a bad state never lands on the remote.
 
-A static config file, user-supplied JSON, stderr text or generic push rejection
-cannot produce a `verified` capability. Each verified result carries provider,
-exact ref/OID, mechanism and evidence; ChangeLedger never collapses the rows
-into a single “strong” claim. `state validate-update` and `state
-validate-receive` emit human or `--json` receipts with refs, OIDs, inspected
-commits/bytes, provider, capabilities, and explicit `network: false` and
-`written: false`.
+ChangeLedger claims nothing about the policy engines of servers it does not
+administer. It cannot read them portably, and a check performed by the pusher is
+not enforcement. Provider branch protection and rulesets are worth enabling if
+you have them, but ChangeLedger neither requires, detects nor reports on them —
+and integrity does not depend on them.
+
+`state validate-update` and `state validate-receive` emit human or `--json`
+receipts with refs, OIDs, inspected commits/bytes, and explicit `network: false`
+and `written: false`.
 
 Add `--json` to migration, activation, doctor or recovery commands for a stable
 success or failure receipt containing sources/OIDs, baseline, affected
