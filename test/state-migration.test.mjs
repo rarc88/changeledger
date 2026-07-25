@@ -1332,6 +1332,34 @@ test('104052 CR1: online doctor does not report a tag source as advanced', () =>
   );
 });
 
+// The glob that lists the peeled entry also matches prefix siblings, so absence
+// has to be decided by the exact name -- not by whether the glob matched
+// anything. Keying it on the glob turned a disappeared source into a crash that
+// blamed git's output format.
+test('104052 CR1: a disappeared source with a prefix sibling reports divergence', () => {
+  const { root, head } = legacyRepo();
+  git(root, ['tag', '-a', 'v1', '-m', 'release one', head]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v1']);
+  const preview = previewStateMigration({ sources: ['origin:refs/tags/v1'] }, root);
+  const baseline = createStateBaseline({ planFile: writePlan(root, preview.text) }, root);
+  const activation = prepareStateActivation({ baseline: baseline.baseline }, root);
+  // `refs/tags/v10` shares `refs/tags/v1` as a prefix and must not be mistaken
+  // for it, nor make its absence look like malformed Git output.
+  git(root, ['tag', '-a', 'v10', '-m', 'release ten', head]);
+  git(root, ['push', '-q', 'origin', 'refs/tags/v10']);
+  git(root, ['push', '-q', 'origin', ':refs/tags/v1']);
+
+  const online = doctorStateMigration({ activationRef: activation.branch, online: true }, root);
+
+  assert.equal(online.ok, false);
+  assert.deepEqual(online.problems, ['source advanced or disappeared: origin:refs/tags/v1']);
+  assert.equal(
+    online.sources.find((source) => source.name === 'origin:refs/tags/v1').actual,
+    null,
+    'a disappeared source observes as absent, not as a sibling and not as an error',
+  );
+});
+
 test('193103 CR10: doctor distinguishes local and online source divergence', () => {
   const { root } = legacyRepo();
   git(root, ['branch', 'other', 'dev']);

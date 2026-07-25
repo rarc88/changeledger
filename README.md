@@ -148,10 +148,12 @@ changeledger state abort --pending --offline # discard only the local ref, expli
 ```
 
 A replica ref that does not point at a commit is invalid state, not truth to
-read: every command fails closed naming the ref. Repair it with `changeledger
-state abort --pending --offline`, which discards a pending ref whatever it holds;
-a `confirmed` or `observed` ref in that condition is reset with `git update-ref`
-and recovered by the next `changeledger state sync`.
+read: every command fails closed with `state replica tip <oid> must point to a
+commit`. The diagnostic names the offending object, not which ref holds it, so
+check all three with `git for-each-ref refs/changeledger/`. Repair a `pending`
+with `changeledger state abort --pending --offline`, which discards it whatever
+it holds; a `confirmed` or `observed` ref in that condition is reset with `git
+update-ref` and recovered by the next `changeledger state sync`.
 
 Online mutations synchronize before constructing the operation and publish its
 successor with an ordinary fast-forward push. Add `--offline` to a mutating CLI

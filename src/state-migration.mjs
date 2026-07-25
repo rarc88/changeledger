@@ -978,11 +978,17 @@ function remoteCommit(repoRoot, remote, ref, activity) {
     .split('\n')
     .filter(Boolean)
     .map((line) => line.split('\t'));
-  if (lines.length === 0) return null;
   const peeled = lines.find(([, name]) => name === `${ref}^{}`);
   const direct = lines.find(([, name]) => name === ref);
-  const [oid] = peeled ?? direct ?? [];
-  if (!oid || !OID.test(oid)) {
+  const match = peeled ?? direct;
+  // Absence is decided by the EXACT name, never by whether the glob matched:
+  // the glob deliberately admits prefix siblings, so a disappeared `refs/tags/v1`
+  // beside an existing `refs/tags/v10` still produces output. Keying absence on
+  // the glob turned that into a crash blaming git's output format instead of the
+  // divergence the caller has to report (20260725-104052).
+  if (!match) return null;
+  const [oid] = match;
+  if (!OID.test(oid)) {
     throw new Error(`source ${remote}:${ref} returned malformed Git output`);
   }
   return oid;

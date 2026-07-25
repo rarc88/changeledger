@@ -540,11 +540,11 @@ test('104052 CR5: recovery is not materialized from a non-commit authority', asy
   const authorityCommit = git(root, ['rev-parse', 'refs/changeledger/activation']);
   repointActivation(root, git(root, ['rev-parse', `${authorityCommit}^{tree}`]));
 
+  // Only the diagnostic is asserted here. This fixture declares no
+  // `git.integration_branch`, so recovery could never materialize a branch even
+  // without the guard, and asserting its absence would pass for the wrong reason.
+  // The "nothing written" claim is anchored in the CR9 case built for it.
   assert.throws(() => exportStateRecovery(root), ACTIVATION_NOT_A_COMMIT);
-  assert.equal(
-    git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/changeledger/recover-*']),
-    '',
-  );
 });
 
 test('104052 CR7: an annotated tag activation resolves to its authority commit', () => {
