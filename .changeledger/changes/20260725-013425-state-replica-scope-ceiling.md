@@ -2,7 +2,7 @@
 id: "20260725-013425"
 title: Fijar el techo de alcance de la réplica de estado
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-07-25T01:34:25Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -137,7 +137,8 @@ retirar.
   - **Resolved:** `2026-07-25T01:44:55Z`
 - [x] Sustituir en `README.md` la tabla de capabilities por topología y toda afirmación de enforcement sobre proveedores alojados por la declaración honesta de qué garantiza el cliente en todas partes y qué añade opcionalmente un servidor propio; verify: `node bin/changeledger.mjs check`
   - **Resolved:** `2026-07-25T01:47:30Z`
-- [ ] Registrar en el Log la lista de changes que el techo autoriza a continuación, uno por hallazgo o capacidad, para que cada uno se cree contra este documento y no de forma aislada (support)
+- [x] Registrar en el Log la lista de changes que el techo autoriza a continuación, uno por hallazgo o capacidad, para que cada uno se cree contra este documento y no de forma aislada (support)
+  - **Resolved:** `2026-07-25T01:49:12Z`
 
 ## Log
 
@@ -145,3 +146,6 @@ retirar.
 - **2026-07-25T01:42:34Z** `[status]` draft → approved
 - **2026-07-25T01:42:57Z** `[status]` approved → in-progress
 - **2026-07-25T01:42:57Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-25T01:49:12Z** `[note]` Techo aplicado. Changes que autoriza a continuación, en orden de dependencia; cada uno se crea contra este documento y ninguno se amplía sin volver al humano. (1) Recorte de la adopción a fuente única con OID de commit explícito: retira observeSource remoto, fetchRef, los ficheros de plan multi-fuente y la maquinaria de decisión de conflictos (groupCandidates, validateManifestDecisions, chosenContent); cierra MIG-04 critico y MIG-05 alto por construcción. Va primero porque todo lo demás se asienta sobre la superficie que quede. (2) Clasificación de tipo de objeto a nivel de clase sobre lo que sobreviva al recorte: activationCommitOid en ledger-store no aserta nada y sirve un repo cuya autoridad se lee de un tree (AUTH-12); se barren todos los resolvedores de autoridad y baseline en la misma pasada, no solo el sitio donde el audit lo reprodujo. (3) Retirada del modelo de capabilities en código, para que la implementación deje de emitir lo que README e INTENT ya no afirman. (4) state import --from <ref>: entrada incremental de los documentos rezagados que aterricen en la rama de integración después del corte, reusando la mutación existente. (5) Frescura automática: el único requisito del objetivo original que sigue sin construirse. (6) Menores acotados: RECEIPT-06 reabriendo 20260722-203029 (state status --json y sync --json no existen, su CR1 está incumplido), ISOL-33 reabriendo 20260722-190137 (/api/git pierde la atribución del 400 por orden de sentencias), CHECK-01 y DIAG-01 como drafts nuevos. El draft 20260724-234148 queda fuera de esta capacidad: es contrato de salida JSON de list y search, con su propio alcance. La cola de graduación se resuelve después de (1), (2) y (3).
+- **2026-07-25T01:50:47Z** `[note]` Gate completo verde tras las dos ediciones: 1.148/1.148 tests, Biome limpio y 245 changes válidos. Ajuste deliberado dentro del alcance: además de la tabla de capabilities y las afirmaciones sobre hosted, se calificó la envolvente de presupuestos del README con su tamaño de muestra (tres repeticiones por celda en una máquina) porque dejarla como afirmación sin cualificar contradecía en el mismo change el punto 5 de 'lo que sale' que este documento acaba de escribir en INTENT.md. No se tocó código.
+- **2026-07-25T01:50:47Z** `[status]` in-progress → in-review
