@@ -2,7 +2,7 @@
 id: "20260725-104052"
 title: Clasificar el tipo de objeto en todo resolvedor de autoridad y baseline
 type: bug
-status: draft
+status: approved
 created: 2026-07-25T10:40:52Z
 depends_on: []
 related_to: ["20260721-193106", "20260724-212722", "20260723-235910", "20260725-013425"]
@@ -162,3 +162,4 @@ sus sitios.
 ## Log
 
 - **2026-07-25T10:40:52Z** `[note]` Draft creado desde los hallazgos MIG-04 (crítico), MIG-05 (alto) y AUTH-12 (medio) de la cuarta ejecución del audit `20260721-193106`, y bajo la regla de cierre por clase del techo `20260725-013425`. La superficie se inventarió con un delegado de solo lectura antes de escribir este documento: los cuatro sitios del defecto son `observeSource` rama remota (`state-migration.mjs:165`,`:172`), `fetchRef` (`:957`), `readStateMetadata` (`:1143`) y `activationCommitOid` (`ledger-store.mjs:258-260`), y los cuatro **sobreviven** al recorte de fuentes múltiples, así que este change no depende de él. Corrección de la ordenación propuesta antes en conversación: se creía que asertar antes del recorte era trabajo tirado, lo que era una suposición sin verificar. Además, pelar de forma consistente en las dos rutas de `observeSource` cierra MIG-05 sin necesidad de quitar fuentes múltiples, así que el recorte queda justificado por reducción de complejidad y no por cierre de defectos.
+- **2026-07-25T10:48:30Z** `[status]` draft → approved
