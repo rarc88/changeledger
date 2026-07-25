@@ -314,8 +314,21 @@ you have them, but ChangeLedger neither requires, detects nor reports on them â€
 and integrity does not depend on them.
 
 `state validate-update` and `state validate-receive` emit human or `--json`
-receipts with refs, OIDs, inspected commits/bytes, and explicit `network: false`
-and `written: false`.
+receipts with refs, OIDs, inspected commits/bytes, explicit `network: false` and
+`written: false`, a `provider` field naming the topology that ran the check
+(`local-validator` or `self-managed-git`), and a four-entry `capabilities`
+block.
+
+That `capabilities` block is deprecated and a later release removes it, here and
+in `state doctor`, which prints the same four entries as `Capability:` lines.
+Read it narrowly until then: `state validate-update` and `state doctor` populate
+no evidence at all, so a **successful** run still reports `content_validation:
+unavailable` alongside three other `unknown`/`unavailable` entries. Only the
+hook path fills it in. Its graded values are a trust-level model ChangeLedger no
+longer stands behind, and they were never a rating of any hosting provider. What
+a validation actually proves is in the rest of the receipt: the refs, OIDs and
+commit/byte counts it inspected, and the fact that it either accepted or
+rejected fail-closed.
 
 Add `--json` to migration, activation, doctor or recovery commands for a stable
 success or failure receipt containing sources/OIDs, baseline, affected

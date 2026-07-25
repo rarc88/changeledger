@@ -126,46 +126,87 @@ autorización, sin panorama contra el que medirla.
 1. **Una sola ref de verdad.** El ledger vive en una rama propia y se lee sea
    cual sea la rama del checkout.
 2. **Mutación local → publicada → confirmada, sobre git puro.** Nada más que
-   `push` y `fetch`. La agnosticidad de proveedor no es una capacidad aparte: es
-   consecuencia de no usar nada que no sea git.
+   `push` y `fetch`. La agnosticidad de proveedor no es una capacidad aparte:
+   es consecuencia de no usar nada que no sea git.
 3. **Integridad del lado del cliente.** Ninguna identidad —change, spec o
-   release— presente en una foto puede desaparecer de su descendiente, validado
-   antes de confirmar y anclado al baseline que fija la activación, de modo que
-   un clon nuevo sin estado local previo queda igual de protegido. Fail-closed en
-   toda ruta de lectura y escritura.
-4. **Frescura automática.** La sincronización ocurre sin que el humano la pida, o
-   la obsolescencia se hace visible en el punto de lectura. Una vista vieja que
-   se presenta como actual incumple el propósito de la capacidad.
+   release— presente en una foto puede desaparecer de su descendiente,
+   validado antes de confirmar y anclado al baseline que fija la activación,
+   de modo que un clon nuevo sin estado local previo queda igual de protegido.
+   Fail-closed en toda ruta de lectura y escritura.
+4. **Frescura automática, sin convertir el sync en requisito.** Local-first no
+   es local-only: ChangeLedger debe funcionar en local, y la sincronización es
+   un extra que opera cuando hay un proveedor o servidor al que enviar. Cuando
+   lo hay, la sincronización debe ocurrir sin que el humano la pida; cuando no
+   lo hay, o falla, el flujo local debe continuar sin bloquearse. Lo que no es
+   admisible es una vista vieja presentada como actual: la obsolescencia se
+   hace visible en el punto de lectura. Y por los filtros de arriba, la parte
+   automática es determinista y visible —queda dicho qué se sincronizó y
+   cuándo—, nunca una llamada de red silenciosa.
+
+   **Ninguna de las dos mitades está construida hoy, y son trabajos
+   distintos.** La sincronización es manual: solo se reporta la frescura. Y el
+   remoto es hoy una dependencia dura, no un extra: adoptar y activar la
+   réplica exigen publicar contra un remoto, una mutación sin remoto alcanzable
+   falla antes de hacer trabajo local, y un pending sin resolver bloquea la
+   mutación siguiente incluso en modo offline. Cerrar solo la primera mitad
+   dejaría la segunda en pie, que es precisamente lo que prohíbe «Cómo se
+   gobierna».
 5. **Adopción de un solo tiro desde una fuente única y explícita**, con entrada
-   incremental para los documentos rezagados que lleguen después del corte, y con
-   undo mientras el corte siga siendo reversible.
+   incremental para los documentos rezagados que lleguen después del corte, y
+   con undo mientras el corte siga siendo reversible.
 6. **Enforcement remoto como extra opcional** para quien administre su propio
-   servidor git: rechaza en la escritura lo que el cliente ya rechaza en la
-   lectura. Su valor es disponibilidad —que el remoto no quede atascado—, no
+   servidor git. Es más estricto que el cliente, no su espejo: además de
+   rechazar en la escritura lo que el cliente rechaza en la lectura, impone
+   sobre la rama de integración tres comprobaciones de contenido que el cliente
+   no hace —que nadie reintroduzca los ficheros legacy, que la autoridad sea
+   byte-idéntica en todo el rango (el cliente solo compara sus campos de
+   identidad, así que un cambio cosmético pasa) y que el avance sea
+   fast-forward—, y además rechaza por topes de recursos que el cliente no
+   aplica. Su valor es disponibilidad —que el remoto no quede atascado—, no
    integridad. Nunca es puerta de release ni requisito de madurez.
 
 ### Lo que la capacidad excluye
 
 1. **Adaptadores de enforcement por proveedor.** Exigen autenticación,
-   dependencia de nube y código específico por proveedor: los tres excluidos del
-   core por los filtros de arriba.
-2. **Afirmaciones de confianza sobre servidores que no administras.** No se puede
-   imponer política desde ahí, y una comprobación hecha por quien empuja no es
-   enforcement. Se declara lo que el cliente garantiza en todas partes, y nada
-   más.
+   dependencia de nube y código específico por proveedor: los tres excluidos
+   del core por los filtros de arriba.
+2. **Afirmaciones de confianza sobre servidores que no administras.** No se
+   puede imponer política desde ahí, y una comprobación hecha por quien empuja
+   no es enforcement. Se declara lo que el cliente garantiza en todas partes, y
+   nada más.
 3. **Modelos de niveles de confianza como abstracción.** Sin afirmaciones sobre
    proveedores no hay nada que describir.
 4. **Adopción desde fuentes múltiples**, y con ella la maquinaria de resolución
    de conflictos que se deriva de que dos fuentes discrepen sobre el mismo
    documento.
-5. **Garantías de SLO.** El rendimiento se publica como medición reproducible con
-   su tamaño de muestra, nunca como umbral prometido.
+5. **Garantías de SLO.** El rendimiento se publica como medición reproducible
+   con su tamaño de muestra, nunca como umbral prometido.
 
 ### Cómo se gobierna
 
-Un hallazgo o una idea que no encaje en «lo que incluye» no amplía la capacidad:
-se propone como change independiente y se decide con su propio presupuesto. Un
-change que necesite crecer más allá del techo se detiene y vuelve al humano en
-lugar de absorber el trabajo nuevo. Y un defecto se cierra a nivel de clase
-—todos los sitios donde vive— o no se cierra: arreglarlo solo donde se reprodujo
-deja el resto en pie y presenta como cerrado lo que sigue abierto.
+Un hallazgo o una idea que no encaje en «lo que incluye» no amplía la
+capacidad: se propone como change independiente y se decide con su propio
+presupuesto. Un change que necesite crecer más allá del techo se detiene y
+vuelve al humano en lugar de absorber el trabajo nuevo. Y un defecto se cierra
+a nivel de clase —todos los sitios donde vive— o no se cierra: arreglarlo solo
+donde se reprodujo deja el resto en pie y presenta como cerrado lo que sigue
+abierto.
+
+### Cuándo la capacidad se declara beta
+
+1. Los cuatro invariantes críticos aguantan bajo audit adversarial con harness
+   cuyos dientes se demuestran: continuidad de verdad, autoridad independiente
+   del checkout, procedencia de los receipts, y que ninguna respuesta se
+   aplique ni se atribuya al proyecto equivocado ni una vista obsoleta se
+   presente como actual —las dos mitades, porque los bloqueantes históricos
+   fueron carreras de continuación tardía, no fugas entre proyectos—.
+2. No queda ningún hallazgo de severidad media o superior en la superficie que
+   se publica.
+3. La ruta de adopción se ejercita end-to-end en ambos formatos de objeto,
+   incluida la entrada incremental de documentos rezagados y el undo.
+4. La frescura automática funciona **y** la ausencia o el fallo del remoto no
+   bloquea el flujo local. Las dos mitades del punto 4, no una.
+5. El gate de calidad completo pasa y el perfil declarado cae dentro de la
+   envolvente publicada, medida con su tamaño de muestra.
+
+El enforcement remoto no aparece en esta lista: es opcional por definición.
