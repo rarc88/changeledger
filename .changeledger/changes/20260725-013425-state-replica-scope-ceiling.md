@@ -133,7 +133,8 @@ retirar.
 
 ## Plan
 
-- [ ] Añadir a `INTENT.md` la sección de alcance de la réplica de estado con «lo que entra», «lo que sale», la regla de techo y los criterios de salida de beta, sin tocar los filtros de evolución existentes; verify: `node bin/changeledger.mjs check`
+- [x] Añadir a `INTENT.md` la sección de alcance de la réplica de estado con «lo que entra», «lo que sale», la regla de techo y los criterios de salida de beta, sin tocar los filtros de evolución existentes; verify: `node bin/changeledger.mjs check`
+  - **Resolved:** `2026-07-25T01:44:55Z`
 - [ ] Sustituir en `README.md` la tabla de capabilities por topología y toda afirmación de enforcement sobre proveedores alojados por la declaración honesta de qué garantiza el cliente en todas partes y qué añade opcionalmente un servidor propio; verify: `node bin/changeledger.mjs check`
 - [ ] Registrar en el Log la lista de changes que el techo autoriza a continuación, uno por hallazgo o capacidad, para que cada uno se cree contra este documento y no de forma aislada (support)
 

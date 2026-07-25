@@ -106,3 +106,66 @@ de agentes autónomos. El core no introduce automatización oculta ni dependenci
 obligatorias de nube, autenticación o proveedores. Esas capacidades pueden vivir
 en integraciones opcionales, pero el flujo canónico permanece determinista,
 local-first, explícito y agnóstico al agente.
+
+---
+
+## Alcance de la réplica de estado global
+
+El problema observado: cuando el ledger vive en ficheros dentro de las ramas,
+nadie ve todos los changes en su estado más actualizado, porque cada checkout
+muestra solo lo que su rama conoce. Y en equipo, cada persona ve una foto
+distinta. La réplica de estado global existe para eso y solo para eso.
+
+Esta sección es el techo de la capacidad, no una descripción de su
+implementación. Se aplica el presupuesto de complejidad de arriba a una feature
+concreta porque su primera construcción creció de una autorización en una
+autorización, sin panorama contra el que medirla.
+
+### Lo que la capacidad incluye
+
+1. **Una sola ref de verdad.** El ledger vive en una rama propia y se lee sea
+   cual sea la rama del checkout.
+2. **Mutación local → publicada → confirmada, sobre git puro.** Nada más que
+   `push` y `fetch`. La agnosticidad de proveedor no es una capacidad aparte: es
+   consecuencia de no usar nada que no sea git.
+3. **Integridad del lado del cliente.** Ninguna identidad —change, spec o
+   release— presente en una foto puede desaparecer de su descendiente, validado
+   antes de confirmar y anclado al baseline que fija la activación, de modo que
+   un clon nuevo sin estado local previo queda igual de protegido. Fail-closed en
+   toda ruta de lectura y escritura.
+4. **Frescura automática.** La sincronización ocurre sin que el humano la pida, o
+   la obsolescencia se hace visible en el punto de lectura. Una vista vieja que
+   se presenta como actual incumple el propósito de la capacidad.
+5. **Adopción de un solo tiro desde una fuente única y explícita**, con entrada
+   incremental para los documentos rezagados que lleguen después del corte, y con
+   undo mientras el corte siga siendo reversible.
+6. **Enforcement remoto como extra opcional** para quien administre su propio
+   servidor git: rechaza en la escritura lo que el cliente ya rechaza en la
+   lectura. Su valor es disponibilidad —que el remoto no quede atascado—, no
+   integridad. Nunca es puerta de release ni requisito de madurez.
+
+### Lo que la capacidad excluye
+
+1. **Adaptadores de enforcement por proveedor.** Exigen autenticación,
+   dependencia de nube y código específico por proveedor: los tres excluidos del
+   core por los filtros de arriba.
+2. **Afirmaciones de confianza sobre servidores que no administras.** No se puede
+   imponer política desde ahí, y una comprobación hecha por quien empuja no es
+   enforcement. Se declara lo que el cliente garantiza en todas partes, y nada
+   más.
+3. **Modelos de niveles de confianza como abstracción.** Sin afirmaciones sobre
+   proveedores no hay nada que describir.
+4. **Adopción desde fuentes múltiples**, y con ella la maquinaria de resolución
+   de conflictos que se deriva de que dos fuentes discrepen sobre el mismo
+   documento.
+5. **Garantías de SLO.** El rendimiento se publica como medición reproducible con
+   su tamaño de muestra, nunca como umbral prometido.
+
+### Cómo se gobierna
+
+Un hallazgo o una idea que no encaje en «lo que incluye» no amplía la capacidad:
+se propone como change independiente y se decide con su propio presupuesto. Un
+change que necesite crecer más allá del techo se detiene y vuelve al humano en
+lugar de absorber el trabajo nuevo. Y un defecto se cierra a nivel de clase
+—todos los sitios donde vive— o no se cierra: arreglarlo solo donde se reprodujo
+deja el resto en pie y presenta como cerrado lo que sigue abierto.
