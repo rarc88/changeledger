@@ -2,7 +2,7 @@
 id: "20260724-234148"
 title: Unificar el envelope JSON de list y search con procedencia siempre
 type: feature
-status: draft
+status: approved
 created: 2026-07-24T23:41:48Z
 depends_on: []
 related_to: ["20260721-193106", "20260722-203029"]
@@ -162,3 +162,4 @@ change entra en el manifiesto de la próxima release con `release_impact: minor`
 ## Log
 
 - **2026-07-24T23:41:48Z** `[note]` Draft creado desde el hallazgo RECEIPT-03 del audit 20260721-193106, tras la decisión de producto del humano (2026-07-24, conversación) de unificar siempre al envelope. Desviación respecto de la opción tal como se le presentó: la puerta no es un bump de `schema_version` —eso versiona el documento de configuración y obligaría a mantener dos formas vivas, un shim prohibido por el contrato del repo— sino un corte limpio anunciado en README y en el manifiesto de release con `release_impact: minor`. Frontera: solo la forma de `--json` de `list` y `search`; la salida humana y el contrato de `show` no se tocan.
+- **2026-07-25T10:28:49Z** `[status]` draft → approved
