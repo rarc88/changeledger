@@ -2,9 +2,10 @@
 id: "20260725-013425"
 title: Fijar el techo de alcance de la réplica de estado
 type: refactor
-status: draft
+status: in-progress
 created: 2026-07-25T01:34:25Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260721-193106", "20260722-203029", "20260722-190137", "20260724-212722"]
 release_impact: minor
 ---
@@ -139,3 +140,6 @@ retirar.
 ## Log
 
 - **2026-07-25T01:34:25Z** `[note]` Draft creado a partir de la conversación del 2026-07-25 sobre el coste de la feature (41 changes, 177 commits, +26.154/−591) y la revisión del objetivo original con el humano. Frontera: este change no cambia comportamiento ni borra código; solo fija el techo que gobierna el trabajo posterior. Los recortes que declara se implementan en changes propios.
+- **2026-07-25T01:42:34Z** `[status]` draft → approved
+- **2026-07-25T01:42:57Z** `[status]` approved → in-progress
+- **2026-07-25T01:42:57Z** `[owner]` set: raruiz-hiberuscom (auto)
