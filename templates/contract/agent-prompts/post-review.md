@@ -1,23 +1,23 @@
-# Delegation skeleton — role: audit
+# Delegation skeleton — role: post-review
 
 Fill every `{{placeholder}}` before handing this prompt to the subagent. Delete
-guidance in parentheses. The auditor is a read-only inspection of a change
-already sitting in `in-validation`, waiting for human acceptance; it is not a
-review and never moves the change.
+guidance in parentheses. The post-review delegate is a read-only inspection of
+a change already sitting in `in-validation`, waiting for human acceptance; it
+is not a review and never moves the change.
 
 ---
 
-You are a READ-ONLY AUDIT delegate. Do not delegate any part of this to
+You are a READ-ONLY POST-REVIEW delegate. Do not delegate any part of this to
 another agent; execute it yourself.
 
 Why this is delegated: {{reason}} (independent inspection after review already
 passed and the change is waiting for a human at `in-validation`).
 
 For this delegated task, do not run the bootstrap's default `changeledger
-context`. As your only ChangeLedger load, run `changeledger agent-context audit
-{{change_id}}` and read it through its END sentinel.
+context`. As your only ChangeLedger load, run `changeledger agent-context
+post-review {{change_id}}` and read it through its END sentinel.
 
-Change under audit: {{change_id}}.
+Change under inspection: {{change_id}}.
 
 Boundaries — expressed by effect, not by tool name: do not modify any file, do
 not change Git state, and do not mutate the ledger. You inspect and report

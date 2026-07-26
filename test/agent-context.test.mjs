@@ -171,14 +171,14 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
   );
 });
 
-test('201703 CR1: audit context is allowed only for in-validation and is framed, read-only', () => {
+test('201703 CR1: post-review context is allowed only for in-validation and is framed, read-only', () => {
   const root = repo();
   const id = '20260705-120008';
   const selected = addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   assert.equal(
     out.split('\n')[0],
-    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: audit — change: #${id} — v${VERSION} =====`,
+    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: post-review — change: #${id} — v${VERSION} =====`,
   );
   assert.equal(
     out.trimEnd().split('\n').at(-1),
@@ -194,11 +194,11 @@ test('201703 CR1: audit context is allowed only for in-validation and is framed,
   assert.ok(out.includes(selected.trim()));
 });
 
-test('201703 CR2: audit never asks for a verdict or a lifecycle command', () => {
+test('201703 CR2: post-review never asks for a verdict or a lifecycle command', () => {
   const root = repo();
   const id = '20260705-120009';
   addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   const base = out.split('\n# Selected change')[0];
   assert.match(base, /findings and evidence/i);
   assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
@@ -209,7 +209,15 @@ test('201703 CR2: audit never asks for a verdict or a lifecycle command', () => 
   );
 });
 
-test('201703 CR1/CR2: audit requires in-validation and requires a change id; review keeps its own guard', () => {
+test('20260726-141123 CR2: the retired role name audit never resolves as a role, no alias', () => {
+  const root = repo();
+  assert.throws(
+    () => buildAgentContext('audit', undefined, root),
+    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review$/,
+  );
+});
+
+test('201703 CR1/CR2: post-review requires in-validation and requires a change id; review keeps its own guard', () => {
   const root = repo();
   const approved = '20260705-120010';
   const inReview = '20260705-120011';
@@ -218,18 +226,18 @@ test('201703 CR1/CR2: audit requires in-validation and requires a change id; rev
   addChange(root, 'in-review', inReview);
   addChange(root, 'in-validation', inValidation);
 
-  assert.doesNotThrow(() => buildAgentContext('audit', inValidation, root));
+  assert.doesNotThrow(() => buildAgentContext('post-review', inValidation, root));
   assert.throws(
-    () => buildAgentContext('audit', inReview, root),
-    /role audit requires change status in-validation; got in-review/,
+    () => buildAgentContext('post-review', inReview, root),
+    /role post-review requires change status in-validation; got in-review/,
   );
   assert.throws(
-    () => buildAgentContext('audit', approved, root),
-    /role audit requires change status in-validation; got approved/,
+    () => buildAgentContext('post-review', approved, root),
+    /role post-review requires change status in-validation; got approved/,
   );
   assert.throws(
-    () => buildAgentContext('audit', undefined, root),
-    /role audit requires a change id/,
+    () => buildAgentContext('post-review', undefined, root),
+    /role post-review requires a change id/,
   );
   // review keeps its current in-review-only guard and verdict recipe untouched.
   assert.doesNotThrow(() => buildAgentContext('review', inReview, root));
@@ -241,16 +249,16 @@ test('201703 CR1/CR2: audit requires in-validation and requires a change id; rev
   assert.match(reviewOut, /pass, fail-retry|fail-block/i);
 });
 
-test('201703 CR3: audit capsule fits the shared agent budget and lists in the CLI role set', () => {
+test('201703 CR3: post-review capsule fits the shared agent budget and lists in the CLI role set', () => {
   const root = repo();
   const id = '20260705-120013';
   addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   const base = out.split('\n# Selected change')[0];
-  assertWithinBudget('audit capsule', base, agentBudget);
+  assertWithinBudget('post-review capsule', base, agentBudget);
   assert.throws(
     () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review, audit/,
+    /valid roles: investigation, implementation, review, post-review/,
   );
 });
 
