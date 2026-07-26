@@ -43,9 +43,12 @@ export function canTransition(from, to) {
 // repo with custom statuses keeps the prior enum-only behavior, since this graph
 // cannot reason about states it does not model.
 //
-// The review gate: a `review_required` type cannot skip from in-progress to
-// human validation. All canonical changes must pass through `in-validation`
-// before done. `opts.reviewRequired` comes from the change's type in config.yml.
+// The review gate, symmetric on both sides: a `review_required` type cannot skip
+// from in-progress to human validation, and a type without it cannot enter
+// review at all — it activates neither `specification` nor `plan`, so a reviewer
+// would have no criterion and no task to inspect. All canonical changes must
+// pass through `in-validation` before done. `opts.reviewRequired` comes from the
+// change's type in config.yml.
 export function assertTransition(from, to, { type, reviewRequired = false } = {}) {
   if (!canonical.has(from) || !canonical.has(to)) return;
   if (from === to) throw new Error(`change is already "${to}"`);
@@ -54,6 +57,9 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
   }
   if (reviewRequired && from === 'in-progress' && to === 'in-validation') {
     throw new Error(`${type} changes must be reviewed before validation — move to in-review first`);
+  }
+  if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
+    throw new Error(`${type} changes do not require review — move to in-validation instead`);
   }
 }
 

@@ -76,7 +76,40 @@ test('CR5: in-review is only reachable from in-progress', () => {
     () => assertTransition('approved', 'in-review'),
     /^Error: invalid lifecycle transition: approved → in-review$/,
   );
-  assert.doesNotThrow(() => assertTransition('in-progress', 'in-review'));
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
+  );
+});
+
+// 20260726-141120 — the review gate closes on entry too: a type that does not
+// declare `review_required` activates neither `specification` nor `plan`, so a
+// reviewer dispatched against it has no criterion and no task to inspect.
+
+test('141120 CR1: a type without review cannot enter in-review', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'in-review', { type: 'audit', reviewRequired: false }),
+    /^Error: audit changes do not require review — move to in-validation instead$/,
+  );
+});
+
+test('141120 CR3: the lightweight type keeps its legitimate route to validation', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-validation', { type: 'audit', reviewRequired: false }),
+  );
+});
+
+test('141120 CR4: feature and bug keep both review edges', () => {
+  for (const type of ['feature', 'bug']) {
+    assert.doesNotThrow(() =>
+      assertTransition('in-progress', 'in-review', { type, reviewRequired: true }),
+    );
+    assert.throws(
+      () => assertTransition('in-progress', 'in-validation', { type, reviewRequired: true }),
+      new RegExp(
+        `^Error: ${type} changes must be reviewed before validation — move to in-review first$`,
+      ),
+    );
+  }
 });
 
 test('CR12: an edge outside the graph is rejected', () => {
