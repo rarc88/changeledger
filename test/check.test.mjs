@@ -1986,6 +1986,32 @@ test('194220 CR13: the ids of frozen changes still feed mention detection', () =
   );
 });
 
+test('194220 CR13b: a frozen change declaring related_to still derives the backlink', () => {
+  const mentioning = `---\n${frontmatter({
+    id: '20260102-000000',
+    type: 'chore',
+    status: 'approved',
+  })}\n---\n\n## Request\n\nThe groundwork landed in 20260101-000000 and is not declared here.\n\n## Plan\n\nX\n`;
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({
+      archived: 'true',
+      related_to: '["20260102-000000"]',
+    }),
+    '20260102-000000-live.md': mentioning,
+  });
+  const { out, text } = runCheck(root);
+  assert.ok(
+    !out.diagnostics.some(
+      (line) =>
+        line.includes('20260102-000000-live.md') &&
+        line.includes(
+          'mentions change "20260101-000000" without declaring it in depends_on or related_to',
+        ),
+    ),
+    text,
+  );
+});
+
 test('194220 CR14: a dependency cycle through a frozen change is detected', () => {
   const root = frozenFixture({
     '20260101-000000-frozen.md': validChore({

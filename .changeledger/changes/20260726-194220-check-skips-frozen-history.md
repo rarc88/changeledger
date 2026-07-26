@@ -2,7 +2,7 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T19:42:20Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -327,16 +327,19 @@ Ambos son contexto, no prerrequisitos.
   para ese mismo documento, es decir el documento se valida como cualquier otro
 - **And** el comando termina con código de salida 1
 
-### CR13 — Los ids de los congelados siguen alimentando la detección de menciones
+### CR13 — Los congelados siguen alimentando la detección de menciones
 
 - **Given** un repo con un documento `status: done` y `archived: true` de id
-  `20260101-000000`, y un documento `status: approved` que menciona
-  `20260101-000000` en la prosa de una stage semántica sin declararlo en
-  `depends_on` ni en `related_to`
+  `20260101-000000`, y un documento `status: approved` de id `20260102-000000`
+  que menciona `20260101-000000` en la prosa de una stage semántica sin
+  declararlo en `depends_on` ni en `related_to`
 - **When** se ejecuta `node bin/changeledger.mjs check`
 - **Then** la salida contiene el aviso
   `mentions change "20260101-000000" without declaring it in depends_on or related_to`
   atribuido al documento `approved`
+- **And** si el documento congelado declara `related_to: ["20260102-000000"]`, su
+  backlink se sigue derivando y la salida **no** contiene ese aviso, porque la
+  relación ya está declarada desde el lado congelado
 
 ### CR14 — Un ciclo de depends_on que pasa por un congelado se detecta
 
@@ -384,3 +387,9 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T20:30:37Z** `[validation]` in-validation → in-progress (human rejected via conversation): Roberto rechaza para no acumular deuda: la rama de error del resumen no revela los documentos no validados y quedan sin fijar el trato de un archived no booleano y tres alimentaciones de datos que sobreviven a mutacion. Se extiende el alcance con criterios nuevos y re-aprobacion; la fuga de los invariantes con el congelado como sujeto sale como change propio
 - **2026-07-26T20:31:22Z** `[note]` Alcance extendido tras el rechazo humano: CR11 lleva el recuento de no validados a la rama de error del resumen, y CR12-CR15 fijan con mutantes concretos el trato de un archived no booleano y las tres alimentaciones de datos que sobrevivian (knownIds/backlinks, grafo de ciclos, checkReleases). Fuera de esta extension y pendiente de change propio: los cuatro invariantes de repo que atribuyen errores inarreglables a un documento congelado como sujeto (src/check.mjs:149, 161-163, 374)
 - **2026-07-26T20:48:18Z** `[note]` CR11 lleva el recuento de no validados a la rama de error compartiendo una sola frase con la rama limpia; CR12-CR15 quedan fijados con los cuatro mutantes concretos (archived truthy, knownIds/backlinks, grafo de ciclos y checkReleases sobre los sujetos filtrados), todos matados y el fuente restaurado sin cambios: ninguna de las cuatro conductas estaba mal
+- **2026-07-26T20:51:18Z** `[status]` in-progress → in-review
+- **2026-07-26T21:01:24Z** `[review]` in-review → in-progress (retry): El mutante agrupado de CR13 enmascaro un superviviente real: narrowing relatedBacklinks(changes) a targets deja la suite completa en verde (755/755), asi que la mitad de backlinks que la tarea 5 dice fijar no esta fijada, y la nota de Log que afirma los cuatro mutantes matados es media verdad
+- **2026-07-26T21:01:51Z** `[note]` Correccion de la nota anterior: los cuatro mutantes NO quedaron todos matados. El mutante de CR13 agrupaba knownIds y relatedBacklinks, y narrowing solo relatedBacklinks(changes) a targets sobrevive a la suite completa. CR13 gana el escenario reciproco que faltaba: el backlink declarado desde el lado congelado protege al documento vivo de un aviso falso. Sin cambio de comportamiento; la alimentacion de backlinks ya estaba nombrada en la tarea 5 y en la Investigation
+- **2026-07-26T21:05:18Z** `[status]` in-progress → in-review
+- **2026-07-26T21:09:12Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de test/check.test.mjs y al criterio CR13, con re-derivacion adversarial del mutante aislado como condicion
+- **2026-07-26T21:09:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
