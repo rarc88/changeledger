@@ -2,7 +2,7 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T19:42:20Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -320,3 +320,6 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T19:53:35Z** `[owner]` set: raruiz-hiberuscom (auto)
 - **2026-07-26T20:07:33Z** `[note]` Frozen documents (discarded, or done+archived) leave the per-document loop as subjects via the single exported frozenReason; repo-wide invariants keep consuming every change, and the summary reports validated vs not validated counts from the validator
 - **2026-07-26T20:10:06Z** `[note]` Corregido el recuento esperado de la tarea de gate: 17 validados, no 16. El 16 se escribió sobre el censo de 219 documentos previo a la creación de este propio documento, que es el 17.º vivo; los 203 congelados coinciden exactamente con lo previsto
+- **2026-07-26T20:11:46Z** `[status]` in-progress → in-review
+- **2026-07-26T20:22:40Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (consumidores de checkRepo y de los arrays que itera), explicitamente no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-26T20:22:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
