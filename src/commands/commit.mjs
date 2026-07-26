@@ -2,22 +2,58 @@
 // delegates to `git commit`, instead of relying on agents to remember the
 // convention documented in prose (templates/contract/implement.md).
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRepoPath } from '../config.mjs';
-import { mutatingRun, stagedFiles } from '../git.mjs';
+import { gitTopLevel, mutatingRun, stagedFiles } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 
 const SUBJECT_RE = /^[a-zA-Z]+\([^()]+\):\s+\S.*/;
-// Change document filenames are `{id}-{slug}.md` with `id` in `YYYYMMDD-HHMMSS`
-// form (see src/check.mjs's ID_FORM) — the id of a staged path under
-// `changes_dir` is derivable from its own filename, no frontmatter parse needed.
-const CHANGE_ID_PREFIX_RE = /^(\d{8}-\d{6})-/;
+// The one name expected inside the changes directory without belonging to a
+// declared change: the placeholder that lets an otherwise-empty directory be
+// versioned. Matched as an exact basename, never as a pattern.
+const GITKEEP = '.gitkeep';
 
-// True when `filePath` (repo-root-relative) falls under `dirRelative`
-// (also repo-root-relative).
-function isUnderDir(filePath, dirRelative) {
-  const rel = path.relative(dirRelative, filePath);
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+// Absolute `target` with every symlink in its *existing* ancestry resolved, and
+// the non-existent tail (a configured directory need not exist yet) appended
+// back verbatim. Resolving only existing components is what makes this total; the
+// gap it leaves cannot hide a symlink precisely because it does not exist.
+// Applied only to paths this tool owns, never to a path read from the index.
+function realpathNearest(target) {
+  const tail = [];
+  let current = path.resolve(target);
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(current), ...tail);
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target);
+      tail.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+// `absPath` expressed the way git reports a staged path: relative to the git
+// top-level, with forward slashes. The asymmetry is the whole design — this
+// tool's own paths are moved into git's coordinate system, and what git reported
+// is never moved into the tool's.
+function gitRelative(gitTopReal, absPath) {
+  return path.relative(gitTopReal, absPath).split(path.sep).join('/');
+}
+
+// The raw string plus both its Unicode forms. Git precomposes a path to NFC
+// before recording it (`core.precomposeunicode`, on by default on macOS) while
+// the filesystem hands `readdir` back whatever it stored, which may be
+// decomposed — so a declared document's own name legitimately reaches the
+// comparison in either form. On a raw-byte platform (Linux, or with
+// `core.precomposeunicode=false`) git reports exactly the raw form as read
+// from disk instead, which need not equal either normalization of itself, so
+// the raw string must be enrolled too. Enrolling all forms of the *expected*
+// string is what keeps the comparison itself byte-identical, instead of
+// normalizing the path git reported.
+function unicodeForms(value) {
+  return [...new Set([value, value.normalize('NFC'), value.normalize('NFD')])];
 }
 
 // Validates the subject, resolves the change id(s) to append, and creates the
@@ -51,21 +87,39 @@ export function commit(
     resolvedIds = [active[0].frontmatter.id];
   }
 
-  const staged = stagedFiles(repo.repoRoot, run);
+  // Read the index from git's own top-level directory, so the paths git reports
+  // and the paths computed here share one coordinate system no matter where
+  // `.changeledger` sits or what `diff.relative` says.
+  const gitTopReal = realpathNearest(gitTopLevel(repo.repoRoot, run));
+  const staged = stagedFiles(gitTopReal, run);
   log(`Staged: ${staged.join(', ')}`);
-  const changesDirRel = path.relative(
-    repo.repoRoot,
-    resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'),
+
+  // An exact allowlist, not a classifier. Three earlier strategies tried to
+  // decide what an arbitrary staged path *is* — a `*.md` document? a collapsed
+  // rename? an escaped form? which case? — and every axis one of them closed
+  // opened a hole on another, because classifying strings the surrounding repo
+  // controls is permeable by construction. So the question is inverted: for each
+  // declared id, compute the exact string git would report for that change's own
+  // document, and abort on every staged entry under the changes directory that
+  // is not one of those strings byte for byte. This deliberately aborts on an
+  // unexpected-but-harmless entry (a `.DS_Store`, an atomic-write leftover)
+  // rather than deciding it is safe to ignore; the error names it.
+  const changesDirRel = gitRelative(
+    gitTopReal,
+    realpathNearest(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir')),
   );
-  const undeclared = staged.filter((file) => {
-    if (!isUnderDir(file, changesDirRel)) return false;
-    const match = path.basename(file).match(CHANGE_ID_PREFIX_RE);
-    const id = match ? match[1] : path.basename(file);
-    return !resolvedIds.includes(id);
-  });
+  const expected = new Set(unicodeForms(`${changesDirRel}/${GITKEEP}`));
+  for (const change of repo.changes) {
+    if (!resolvedIds.includes(String(change.frontmatter.id))) continue;
+    for (const form of unicodeForms(`${changesDirRel}/${change.name}`)) expected.add(form);
+  }
+  const prefixes = unicodeForms(`${changesDirRel}/`);
+  const undeclared = staged.filter(
+    (file) => prefixes.some((prefix) => file.startsWith(prefix)) && !expected.has(file),
+  );
   if (undeclared.length) {
     throw new Error(
-      `Staged change document(s) not declared for this commit: ${undeclared.join(', ')} (declared: ${resolvedIds.join(', ')})`,
+      `Staged path(s) under the changes directory not declared for this commit: ${undeclared.join(', ')} (declared: ${resolvedIds.join(', ')})`,
     );
   }
 

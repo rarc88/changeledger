@@ -62,16 +62,80 @@ export function mutatingRun(args, cwd) {
   }
 }
 
-// Staged file paths (relative to the repo root), via `git diff --cached
-// --name-only`. Used by `commit()`'s pre-git guard to see the exact staged set
-// — including anything a previous failed hook run left behind in the index —
-// before deciding whether to invoke git at all.
+// git's default `diff --name-only` output is a *presentation* surface: the
+// surrounding repo's configuration changes its format, so parsing it unpinned
+// makes every config axis a hole in `commit()`'s guard. Two review rounds found
+// three such holes. Every flag below pins one axis, and `-c` beats both repo
+// and user config:
+//
+// - `core.quotePath=false` + `-z`: by default git wraps a path in double quotes
+//   and octal/C-escapes it as soon as it holds a non-ASCII byte, a quote or a
+//   control character (`".changeledger/changes/…-a\303\261adir.md"`). `-z` is
+//   the stronger of the two — it emits raw, NUL-terminated bytes and never
+//   quotes — but `core.quotePath=false` is kept so any future non-`-z` read of
+//   this argv is not silently re-escaped.
+// - `--no-renames`: change documents are ~98% boilerplate, so a staged deletion
+//   of one paired with a staged addition of another is detected as a rename and
+//   collapsed to only the destination path, hiding the deletion of a foreign
+//   document. Disabled, the delete and the add are two visible entries.
+// - `--no-relative`: `diff.relative=true` (a repo config or a user alias) makes
+//   paths relative to the cwd instead of the top-level. `commit()` additionally
+//   invokes this with the top-level *as* the cwd, so the two coordinate systems
+//   coincide even if this flag were ever dropped.
+// - `--ignore-submodules=none`: `diff.ignoreSubmodules=all` would otherwise
+//   hide a staged gitlink entry from the listing.
+//
+// Returns the raw entries (relative to git's own top-level directory — see
+// `gitTopLevel`), never trimmed: leading/trailing whitespace and newlines are
+// legal in a filename and trimming them would corrupt the path the caller has
+// to judge. Splitting on NUL, not newline, is what makes that safe.
+const STAGED_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '--cached',
+  '-z',
+  '--no-renames',
+  '--no-relative',
+  '--ignore-submodules=none',
+  '--name-only',
+];
+
+// Minimum git that understands `--no-relative` (git 2.28, 2020). Older git
+// rejects the pinned invocation; `stagedFiles` then fails loudly with this
+// floor rather than falling back to an unpinned read whose format the repo
+// could steer.
+const GIT_FLOOR = '2.28';
+
+// An old git names the option it does not know, and `sanitizedEnv` pins LC_ALL=C
+// so that text is stable. Anything else — a corrupt or locked index, a missing
+// repo, a killed process — is a different failure and must be reported as
+// itself: attributing it to the version floor sent the reader looking for a git
+// upgrade that would not fix anything.
+const UNKNOWN_NO_RELATIVE_RE = /unknown option[^\n]*no-relative/i;
+
 export function stagedFiles(cwd, run = defaultRun) {
-  const out = run(['diff', '--cached', '--name-only'], cwd);
-  return out
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  let out;
+  try {
+    out = run(STAGED_ARGS, cwd);
+  } catch (e) {
+    // Both branches fail closed; only the attribution differs.
+    const message = UNKNOWN_NO_RELATIVE_RE.test(e.message)
+      ? `Cannot read the staged index; git >= ${GIT_FLOOR} is required for --no-relative: ${e.message}`
+      : `Cannot read the staged index: ${e.message}`;
+    throw new Error(message, { cause: e });
+  }
+  return out.split('\0').filter((entry) => entry !== '');
+}
+
+// Git's own repository root, via `git rev-parse --show-toplevel`. This is the
+// coordinate system `stagedFiles`' paths are relative to, regardless of `cwd`
+// — which differs from a ChangeLedger repo's `repoRoot` (dirname of
+// `.changeledger/`, see src/repo.mjs) whenever the ledger lives below the git
+// root. `commit()`'s guard must resolve staged paths against this, not
+// `repoRoot`, or it silently never matches anything.
+export function gitTopLevel(cwd, run = defaultRun) {
+  return run(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
