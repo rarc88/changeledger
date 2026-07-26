@@ -2,7 +2,7 @@
 id: "20260726-141123"
 title: Resolver la colisión del nombre audit
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T14:11:23Z
 depends_on: []
 related_to: []
@@ -120,3 +120,10 @@ compatibilidad, así que `audit` deja de resolver como rol sin excepción.
 - **2026-07-26T23:32:20Z** `[status]` approved → in-progress
 - **2026-07-26T23:40:27Z** `[note]` Renamed delegation role audit to post-review across src/commands, templates/contract skeletons, bin CLI help, core.md and README; audit change type and prose left untouched. node --test (782) and pnpm verify green; changeledger check: 17 valid, 203 not validated.
 - **2026-07-26T23:41:47Z** `[note]` El orquestador corrigio una redundancia en el parrafo de delegacion de core.md: el renombrado dejo 'post-review is a read-only post-review inspection'. CR3 admite el equivalente ya existente, asi que queda 'a read-only inspection of a change already in in-validation'. Snapshot de core.md actualizado en consecuencia; conviene escrutinio del revisor sobre esta edicion
+- **2026-07-26T23:43:00Z** `[status]` in-progress → in-review
+- **2026-07-26T23:53:13Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (todo punto donde se nombra o resuelve el rol, en ambas direcciones del renombrado), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-26T23:53:13Z** `[review]` in-review → in-progress (retry): El bump del hash de core.md (hecho por el orquestador) no lleva la clasificacion de reglas que el propio mensaje del snapshot exige, y el bloque de comentarios sigue afirmando que core.md gana el rol audit, ya falso. Ademas .changeledger/specs/lifecycle.md:61 documenta agent-context audit <id>, comando que ahora falla: hay que registrar esa obligacion de graduacion para no congelar el renombrado a medias en verdad persistente
+- **2026-07-26T23:53:32Z** `[note]` Obligacion de graduacion registrada: .changeledger/specs/lifecycle.md:61 documenta 'changeledger agent-context audit <id>' bajo el epigrafe Auditoria post-review, y ese comando ahora sale con error. Hay que renombrarlo a post-review al graduar; un graduate --skip congelaria el renombrado a medias en verdad persistente. check no lo detecta
+- **2026-07-26T23:53:51Z** `[status]` in-progress → in-review
+- **2026-07-26T23:56:19Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al comentario de clasificacion del snapshot y a las dos notas de Log, sin re-revisar el renombrado ya aprobado
+- **2026-07-26T23:56:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)

@@ -575,6 +575,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
     // is reported for human resolution, while an approved change still governs
     // code written inside its authorized scope. No lifecycle rule is retired.
+    // 20260726-141123: the delegation role named `audit` is renamed
+    // `post-review`, with no compatibility alias, because it collided with the
+    // configured change type of the same name. Its description is preserved in
+    // the already-existing equivalent wording used by the CLI help and README
+    // ("a read-only inspection of a change already in `in-validation`; it never
+    // issues a verdict or moves the change"): the adjective now lives in the
+    // role name itself. No rule is retired; the 20260710-201703 entry above
+    // remains the historical record of when the role was introduced.
     'core.md': 'b7b38cd7c56af9c94c65509b394adb197f99e16b247eaf66c9112c10675061ff',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
