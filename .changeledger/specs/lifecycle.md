@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-26T22:13:09Z
+updated: 2026-07-26T22:55:09Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -130,7 +130,20 @@ completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así 
 el CLI rechaza saltos, regresiones y no-ops
 (`change is already "X"`), y el gate (`in-progress → in-validation` bajo
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
-validación por enum. `changeledger status done` se rechaza por separado porque solo el
+validación por enum.
+
+El gate es simétrico: además del salto, el grafo prohíbe la **entrada** a
+`in-review` a los tipos que no declaran `review_required`. Sin esa mitad, un tipo
+ligero podía entrar en revisión y la cápsula exigía al revisor comprobar `CRn` y
+tareas que su documento no puede contener — el origen mecánico de que los
+revisores acabaran opinando sobre diseño. Cerrarla en el grafo, y no filtrando en
+los consumidores del contexto, es lo que hace el estado inalcanzable en vez de
+tapado: sin `in-review` no hay estado desde el que pedir la cápsula. Cuando el
+tipo del documento no se conoce, la transición se rechaza nombrando esa causa
+(`cannot decide review entry: the change declares no type`) en vez de
+interpolar un hueco: lo que no se puede decidir aborta y se nombra. La validación
+de la secuencia registrada en el Log sigue siendo insensible al tipo, así que
+ninguna historia ya escrita se invalida retroactivamente. `changeledger status done` se rechaza por separado porque solo el
 veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
 `in-progress` por acción humana o del agente con motivo mientras siga sin
 graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra

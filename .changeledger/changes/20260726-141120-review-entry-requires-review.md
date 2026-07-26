@@ -2,9 +2,10 @@
 id: "20260726-141120"
 title: Impedir in-review en tipos sin review
 type: bug
-status: in-validation
+status: done
 created: 2026-07-26T14:11:20Z
 depends_on: ["20260726-141119"]
+reviewed: true
 related_to: ["20260726-141121"]
 owner: raruiz-hiberuscom
 ---
@@ -184,3 +185,5 @@ comparte los consumidores de los puntos 5 y 6, sin imponer orden de ejecución.
 - **2026-07-26T22:45:27Z** `[status]` in-progress → in-review
 - **2026-07-26T22:50:27Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de src/lifecycle.mjs y test/lifecycle.test.mjs, con reproduccion independiente del defecto original por CLI y mutante aislado como condicion
 - **2026-07-26T22:50:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T22:53:55Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T22:55:09Z** `[graduation]` spec: `lifecycle.md`
