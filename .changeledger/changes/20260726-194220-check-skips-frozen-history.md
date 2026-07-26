@@ -2,7 +2,7 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: in-validation
+status: in-progress
 created: 2026-07-26T19:42:20Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -305,6 +305,60 @@ Ambos son contexto, no prerrequisitos.
   exactamente `✓ change 20260102-000000 not validated (discarded)`
 - **And** ambas terminan con código de salida 0
 
+### CR11 — La rama de error del resumen también nombra lo no validado
+
+- **Given** un repo con 2 documentos que se validan, 1 documento con
+  `status: done` y `archived: true`, y un error en alguno de los validados
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la última línea de la salida es exactamente
+  `1 error(s), 0 warning(s) — 2 change(s), 1 not validated (archived or discarded)`
+- **And** en el mismo repo sin ningún documento congelado la última línea es
+  exactamente `1 error(s), 0 warning(s) — 2 change(s)`, sin sufijo
+
+### CR12 — Un archived que no es el booleano true no congela
+
+- **Given** un repo con un documento cuyo frontmatter declara `status: done`,
+  `archived: "true"` (la cadena, no el booleano) y cuyo nombre de fichero no
+  coincide con su `id`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene el error `archived must be a boolean` para ese
+  documento
+- **And** contiene también el error que empieza por `filename does not match id `
+  para ese mismo documento, es decir el documento se valida como cualquier otro
+- **And** el comando termina con código de salida 1
+
+### CR13 — Los ids de los congelados siguen alimentando la detección de menciones
+
+- **Given** un repo con un documento `status: done` y `archived: true` de id
+  `20260101-000000`, y un documento `status: approved` que menciona
+  `20260101-000000` en la prosa de una stage semántica sin declararlo en
+  `depends_on` ni en `related_to`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene el aviso
+  `mentions change "20260101-000000" without declaring it in depends_on or related_to`
+  atribuido al documento `approved`
+
+### CR14 — Un ciclo de depends_on que pasa por un congelado se detecta
+
+- **Given** un repo con un documento `status: done` y `archived: true` de id
+  `20260101-000000` que declara `depends_on: ["20260102-000000"]`, y un documento
+  `status: approved` de id `20260102-000000` que declara
+  `depends_on: ["20260101-000000"]`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene un error que empieza por `dependency cycle: ` y
+  nombra ambos ids
+- **And** el comando termina con código de salida 1
+
+### CR15 — Los releases siguen leyendo el status de un congelado
+
+- **Given** un repo con un documento `status: discarded` de id
+  `20260102-000000` y un manifiesto de release que lo incluye en su lista
+  `changes`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene el error
+  `references change "20260102-000000" whose status is not done`
+- **And** el comando termina con código de salida 1
+
 ## Plan
 
 - [x] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
@@ -313,6 +367,8 @@ Ambos son contexto, no prerrequisitos.
   - **Resolved:** `2026-07-26T20:07:40Z`
 - [x] Ejecutar el gate completo y comprobar que el ledger real reporta 17 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-26T20:10:33Z`
+- [ ] Extender el resumen de `src/commands/check.mjs` para que la rama con errores o avisos publique el recuento de no validados con el mismo vocabulario que la rama limpia, sin tocar la forma de la rama limpia ya fijada por CR8 y CR9; verify: `node --test test/cli.test.mjs` (CR11)
+- [ ] Fijar las cuatro conductas de `src/check.mjs` que hoy son correctas pero sobreviven a mutación —`archived` no booleano en el predicado, y las alimentaciones de `knownIds`/backlinks, del grafo de ciclos y de `checkReleases`— corrigiendo ahí mismo cualquiera que no lo esté, y demostrando el valor de cada test con el mutante concreto que mata en vez de con un fallo previo al arreglo; verify: `node --test test/check.test.mjs` (CR12, CR13, CR14, CR15)
 
 ## Log
 - **2026-07-26T19:50:20Z** `[status]` draft → approved
@@ -323,3 +379,5 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T20:11:46Z** `[status]` in-progress → in-review
 - **2026-07-26T20:22:40Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (consumidores de checkRepo y de los arrays que itera), explicitamente no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
 - **2026-07-26T20:22:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T20:30:37Z** `[validation]` in-validation → in-progress (human rejected via conversation): Roberto rechaza para no acumular deuda: la rama de error del resumen no revela los documentos no validados y quedan sin fijar el trato de un archived no booleano y tres alimentaciones de datos que sobreviven a mutacion. Se extiende el alcance con criterios nuevos y re-aprobacion; la fuga de los invariantes con el congelado como sujeto sale como change propio
+- **2026-07-26T20:31:22Z** `[note]` Alcance extendido tras el rechazo humano: CR11 lleva el recuento de no validados a la rama de error del resumen, y CR12-CR15 fijan con mutantes concretos el trato de un archived no booleano y las tres alimentaciones de datos que sobrevivian (knownIds/backlinks, grafo de ciclos, checkReleases). Fuera de esta extension y pendiente de change propio: los cuatro invariantes de repo que atribuyen errores inarreglables a un documento congelado como sujeto (src/check.mjs:149, 161-163, 374)
