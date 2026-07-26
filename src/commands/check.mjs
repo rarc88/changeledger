@@ -1,4 +1,4 @@
-import { checkRepo } from '../check.mjs';
+import { checkRepo, frozenReason } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
 import { getSchemaVersion, SUPPORTED_SCHEMA_VERSION } from '../config-migration.mjs';
 import { checkContract } from '../contract.mjs';
@@ -76,7 +76,7 @@ export function check(args = [], cwd = process.cwd(), output = console) {
     return 1;
   }
 
-  const { errors, warnings } = checkRepo(repo, { id });
+  const { errors, warnings, validated, notValidated } = checkRepo(repo, { id });
 
   // Schema version detection — warn without mutating.
   const schemaVersion = getSchemaVersion(repo.config);
@@ -103,11 +103,20 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   for (const w of warnings) output.warn(`  warn   ${w.file}: ${w.message}`);
   for (const e of errors) output.error(`  error  ${e.file}: ${e.message}`);
 
-  const scope = id ? `change ${id}` : `${repo.changes.length} change(s)`;
-  if (!errors.length && !warnings.length) {
-    output.log(`✓ ${scope} valid`);
-  } else {
+  // The counts come from the validator, which owns the frozen-history rule, so
+  // the summary can never claim documents it did not actually validate.
+  const scope = id ? `change ${id}` : `${validated} change(s)`;
+  const exempt = id
+    ? frozenReason(repo.changes.find((c) => String(c.frontmatter?.id) === String(id)))
+    : null;
+  if (errors.length || warnings.length) {
     output.log(`\n${errors.length} error(s), ${warnings.length} warning(s) — ${scope}`);
+  } else if (exempt) {
+    output.log(`✓ ${scope} not validated (${exempt})`);
+  } else if (notValidated) {
+    output.log(`✓ ${scope} valid — ${notValidated} not validated (archived or discarded)`);
+  } else {
+    output.log(`✓ ${scope} valid`);
   }
   return errors.length ? 1 : 0;
 }

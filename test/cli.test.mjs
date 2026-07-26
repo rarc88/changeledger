@@ -614,3 +614,90 @@ test('new rejects an unknown type', () => {
 function silentOutput() {
   return { log() {}, error() {}, warn() {} };
 }
+
+// --- frozen history (20260726-194220): the summary names what it did not validate ---
+
+function frozenLedger(docs) {
+  const root = tmp();
+  init(root);
+  for (const [name, text] of Object.entries(docs)) {
+    fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
+  }
+  return root;
+}
+
+function frontmatterBlock(over) {
+  return Object.entries({
+    title: 'X',
+    created: '2026-01-01T00:00:00Z',
+    depends_on: '[]',
+    ...over,
+  })
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+}
+
+// A well-formed document: the shipped config activates only `## Request` and
+// `## Plan` for `chore`, so nothing here can error or warn.
+function validChore(id, over = {}) {
+  const fm = frontmatterBlock({ id: `"${id}"`, type: 'chore', status: 'approved', ...over });
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n\nX\n`;
+}
+
+// A `bug` body without `## Specification`, a stage the shipped config activates
+// for that type: the defect today's rules report on frozen history.
+function bugMissingSpecification(id, over = {}) {
+  const fm = frontmatterBlock({ id: `"${id}"`, type: 'bug', status: 'done', ...over });
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Investigation\n\nX\n\n## Plan\n\nX\n\n## Log\n`;
+}
+
+function captureOutput() {
+  const lines = [];
+  const push = (m) => lines.push(m);
+  return { lines, log: push, warn: push, error: push };
+}
+
+test('194220 CR8: the repo-wide summary names the documents it did not validate', () => {
+  const root = frozenLedger({
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    '20260102-000000-two.md': validChore('20260102-000000'),
+    '20260103-000000-frozen.md': validChore('20260103-000000', {
+      status: 'done',
+      archived: 'true',
+    }),
+  });
+  const out = captureOutput();
+  const code = check([], root, out);
+  assert.equal(out.lines.at(-1), '✓ 2 change(s) valid — 1 not validated (archived or discarded)');
+  assert.equal(code, 0);
+});
+
+test('194220 CR9: with no frozen documents the summary is unchanged', () => {
+  const root = frozenLedger({
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    '20260102-000000-two.md': validChore('20260102-000000'),
+  });
+  const out = captureOutput();
+  const code = check([], root, out);
+  assert.equal(out.lines.at(-1), '✓ 2 change(s) valid');
+  assert.equal(code, 0);
+});
+
+test('194220 CR10: check <id> on a frozen document says it was not validated', () => {
+  const root = frozenLedger({
+    '20260101-000000-archived.md': bugMissingSpecification('20260101-000000', {
+      archived: 'true',
+    }),
+    '20260102-000000-discarded.md': bugMissingSpecification('20260102-000000', {
+      status: 'discarded',
+    }),
+  });
+
+  const archived = captureOutput();
+  assert.equal(check(['20260101-000000'], root, archived), 0);
+  assert.deepEqual(archived.lines, ['✓ change 20260101-000000 not validated (archived)']);
+
+  const discarded = captureOutput();
+  assert.equal(check(['20260102-000000'], root, discarded), 0);
+  assert.deepEqual(discarded.lines, ['✓ change 20260102-000000 not validated (discarded)']);
+});

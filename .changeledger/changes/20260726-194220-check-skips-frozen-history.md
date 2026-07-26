@@ -307,11 +307,16 @@ Ambos son contexto, no prerrequisitos.
 
 ## Plan
 
-- [ ] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
-- [ ] Consumir esos recuentos en `src/commands/check.mjs` para que el resumen repo-wide nombre los documentos no validados y `check <id>` sobre un congelado lo declare en vez de llamarlo válido; verify: `node --test test/check.test.mjs test/cli.test.mjs` (CR8, CR9, CR10)
-- [ ] Ejecutar el gate completo y comprobar que el ledger real reporta 16 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
+- [x] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+  - **Resolved:** `2026-07-26T20:03:49Z`
+- [x] Consumir esos recuentos en `src/commands/check.mjs` para que el resumen repo-wide nombre los documentos no validados y `check <id>` sobre un congelado lo declare en vez de llamarlo válido; verify: `node --test test/check.test.mjs test/cli.test.mjs` (CR8, CR9, CR10)
+  - **Resolved:** `2026-07-26T20:07:40Z`
+- [x] Ejecutar el gate completo y comprobar que el ledger real reporta 17 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-26T20:10:33Z`
 
 ## Log
 - **2026-07-26T19:50:20Z** `[status]` draft → approved
 - **2026-07-26T19:53:35Z** `[status]` approved → in-progress
 - **2026-07-26T19:53:35Z** `[owner]` set: raruiz-hiberuscom (auto)
+- **2026-07-26T20:07:33Z** `[note]` Frozen documents (discarded, or done+archived) leave the per-document loop as subjects via the single exported frozenReason; repo-wide invariants keep consuming every change, and the summary reports validated vs not validated counts from the validator
+- **2026-07-26T20:10:06Z** `[note]` Corregido el recuento esperado de la tarea de gate: 17 validados, no 16. El 16 se escribió sobre el censo de 219 documentos previo a la creación de este propio documento, que es el 17.º vivo; los 203 congelados coinciden exactamente con lo previsto
