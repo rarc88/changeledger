@@ -2,7 +2,7 @@
 id: "20260726-141121"
 title: Componer el contexto según el tipo, no solo el status
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T14:11:21Z
 depends_on: ["20260726-141119"]
 related_to: ["20260726-141120"]
@@ -116,7 +116,7 @@ composición de `changeledger context`. No se duplica su alcance.
 
 - [x] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
   - **Resolved:** `2026-07-26T23:10:50Z`
-- [x] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando `feature` y `bug` sin cambios; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando sin cambios la composición de todo tipo que sí la active; verify: `node --test test/context.test.mjs` (CR1, CR2)
   - **Resolved:** `2026-07-26T23:10:50Z`
 - [x] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature`, otro de tipo `bug` y otro de tipo `refactor` siguen componiendo los tres encabezados de fragmento sin cambios; verify: `node --test test/context.test.mjs` (CR3)
   - **Resolved:** `2026-07-26T23:10:50Z`
@@ -130,3 +130,9 @@ composición de `changeledger context`. No se duplica su alcance.
 - **2026-07-26T23:04:22Z** `[status]` approved → in-progress
 - **2026-07-26T23:10:58Z** `[note]` composeInput filtra readiness derivando las stages activas del tipo desde config; sin lista de tipos hardcodeada. CR2 rojo primero; CR3 y CR4 son guardas de regresion verificadas con mutantes aislados. Ningun presupuesto de budgets.yml cubre composiciones con id en draft, asi que no cambia ninguno.
 - **2026-07-26T23:12:56Z** `[note]` Las cuatro tareas de test comparten test/context.test.mjs y la tarea 1 es roja hasta que aterriza la 2, asi que las cinco van en un commit combinado con este registro, segun el criterio acordado de que tareas relacionadas pueden compartir commit
+- **2026-07-26T23:13:24Z** `[status]` in-progress → in-review
+- **2026-07-26T23:25:14Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (todos los caminos de composicion de fragmentos), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-26T23:25:14Z** `[review]` in-review → in-progress (retry): La realineacion de tipos dejo sin corregir la tarea 2 del Plan, que sigue diciendo 'dejando feature y bug sin cambios' cuando refactor tambien queda sin cambios: es la misma enumeracion caduca que el primer commit existia para eliminar
+- **2026-07-26T23:25:29Z** `[status]` in-progress → in-review
+- **2026-07-26T23:27:06Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff de prosa sin commitear del propio documento, con barrido del resto del documento en busca de la misma clase de enumeracion caduca
+- **2026-07-26T23:27:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
