@@ -127,3 +127,16 @@ test('CR4: a non-conventional subject creates no commit', () => {
   assert.throws(() => commit({ message: 'arreglos varios' }, root), /type\(scope\): description/);
   assert.equal(commitCount(root), 0);
 });
+
+test('CR1 (20260726-141124): a staged change document not declared aborts the commit', () => {
+  const root = gitRepo();
+  const foreign = writeChange(root, '20260711-999999', 'draft');
+  git(root, ['add', foreign]);
+  stageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root),
+    /Staged change document\(s\) not declared for this commit: \.changeledger\/changes\/20260711-999999-x\.md \(declared: 20260711-000001\)$/,
+  );
+  assert.equal(commitCount(root), 0);
+});

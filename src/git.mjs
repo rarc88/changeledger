@@ -62,6 +62,18 @@ export function mutatingRun(args, cwd) {
   }
 }
 
+// Staged file paths (relative to the repo root), via `git diff --cached
+// --name-only`. Used by `commit()`'s pre-git guard to see the exact staged set
+// — including anything a previous failed hook run left behind in the index —
+// before deciding whether to invoke git at all.
+export function stagedFiles(cwd, run = defaultRun) {
+  const out = run(['diff', '--cached', '--name-only'], cwd);
+  return out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {
