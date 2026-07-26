@@ -2,7 +2,7 @@
 id: "20260726-141119"
 title: Acoplar review_required con las stages verificables
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-26T14:11:19Z
 depends_on: []
 related_to: ["20260726-141120", "20260726-141121"]
@@ -270,3 +270,5 @@ orden de ejecución.
 
 ## Log
 - **2026-07-26T15:05:03Z** `[status]` draft → approved
+- **2026-07-26T18:45:30Z** `[status]` approved → in-progress
+- **2026-07-26T18:45:41Z** `[note]` Ejecución en orden 2→1→3→4→5: la regla de checkConfig invalida el config de este repo hasta que refactor active specification, así que la tarea 2 va primero para que cada commit pase el gate
