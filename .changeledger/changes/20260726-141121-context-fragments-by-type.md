@@ -2,9 +2,10 @@
 id: "20260726-141121"
 title: Componer el contexto según el tipo, no solo el status
 type: bug
-status: in-validation
+status: done
 created: 2026-07-26T14:11:21Z
 depends_on: ["20260726-141119"]
+reviewed: true
 related_to: ["20260726-141120"]
 owner: raruiz-hiberuscom
 ---
@@ -136,3 +137,5 @@ composición de `changeledger context`. No se duplica su alcance.
 - **2026-07-26T23:25:29Z** `[status]` in-progress → in-review
 - **2026-07-26T23:27:06Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff de prosa sin commitear del propio documento, con barrido del resto del documento en busca de la misma clase de enumeracion caduca
 - **2026-07-26T23:27:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T23:30:27Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T23:31:32Z** `[graduation]` spec: `contract-discovery.md`

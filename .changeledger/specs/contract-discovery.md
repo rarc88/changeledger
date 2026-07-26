@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-20T22:30:15Z
+updated: 2026-07-26T23:31:32Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121"]
 ---
 
 ## Discovery del contrato
@@ -43,6 +43,17 @@ La composición especializada es explícita:
   guía general de delegación);
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
+
+El status elige el pack, pero **el tipo puede retirar un fragmento** que su
+configuración vuelve inaplicable. `readiness` es hoy el único condicionado así:
+su contenido presupone `## Specification` y `## Plan`, de modo que un tipo sin
+`specification` activa recibía reglas que su documento no puede satisfacer y que
+`check` después rechaza — la cabecera de política y el cuerpo compuesto se
+contradecían dentro de la misma captura. La condición se deriva de las stages
+activas del tipo en `config.yml`, nunca de una lista de nombres de tipo: la
+lista envejece en cuanto la configuración cambia. `spec` y `delegation` siguen
+componiéndose para todos los tipos, y la invocación de modo desnudo no resuelve
+ningún tipo, así que el filtro no la alcanza.
 
 La delegación portable separa el contrato del orquestador del de sus hojas:
 `changeledger agent-prompt <role>` entrega un esqueleto para investigación,
