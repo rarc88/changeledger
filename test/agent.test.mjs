@@ -387,6 +387,54 @@ test('171002 CR1: status blocks review-required in-progress → in-validation', 
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+// 20260726-141120 — entry into review is closed for a type without
+// `review_required`. `init` seeds `audit` without it.
+
+function repoWithAudit() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const file = newChange(
+    { type: 'audit', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
+    root,
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root);
+  return { root, file, id };
+}
+
+test('141120 CR2: rejecting review entry leaves the document and Log untouched', () => {
+  const { root, file, id } = repoWithAudit();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => status(id, 'in-review', root),
+    /^Error: audit changes do not require review — move to in-validation instead$/,
+  );
+  const after = fs.readFileSync(file, 'utf8');
+  assert.equal(after, before);
+  const c = parseChange(after);
+  assert.equal(c.frontmatter.status, 'in-progress');
+  assert.doesNotMatch(c.stages.find((s) => s.key === 'log').body, /in-review/);
+});
+
+test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
+  const { root, id } = repoWithAudit();
+  const bin = path.resolve('bin/changeledger.mjs');
+  const failure = await execFileAsync(process.execPath, [bin, 'status', id, 'in-review'], {
+    cwd: root,
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(failure, 'the CLI must fail');
+  assert.equal(failure.code, 1);
+  assert.match(
+    failure.stderr,
+    /^Error: audit changes do not require review — move to in-validation instead$/m,
+  );
+});
+
 test('171002 CR5: a chore goes directly to in-validation, not done', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
