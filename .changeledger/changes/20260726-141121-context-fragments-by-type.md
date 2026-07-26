@@ -2,7 +2,7 @@
 id: "20260726-141121"
 title: Componer el contexto según el tipo, no solo el status
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-26T14:11:21Z
 depends_on: ["20260726-141119"]
 related_to: ["20260726-141120"]
@@ -39,9 +39,16 @@ actual):
   implementation task cites at least one CR", es decir, presupone que el
   cambio tiene stages `specification` y `plan` con ese contenido.
 - `.changeledger/config.yml:65-83` — la matriz de stages activas por tipo
-  confirma que `audit` (`request, investigation, log`), `refactor` (`request,
-  proposal, plan, log`), `chore` (`request, plan`) y `quick` (`request, log`)
-  no activan `specification`; solo `feature` y `bug` lo hacen.
+  confirma que `audit` (`request, investigation, log`), `chore` (`request,
+  plan`) y `quick` (`request, log`) no activan `specification`.
+
+  Corrección fechada el 2026-07-26, posterior a la aprobación de este
+  documento: `20260726-141119` activó `specification` para `refactor`, que pasó
+  a `request, proposal, specification, plan, log`. La evidencia original
+  contaba `refactor` entre los tipos sin la stage y ya no lo está, así que CR2,
+  CR3 y la primera tarea del Plan se reescribieron para repartir los tipos
+  según la config real. La regla a implementar no cambia: se deriva de la
+  config, nunca de una lista de tipos escrita a mano.
 - `src/check.mjs:503` (`checkCoverage`) — `if (!active?.includes('specification'))
   return;` corta toda la validación de cobertura/readiness para esos cuatro
   tipos: las reglas del fragmento no solo quedan sin cumplir, son
@@ -89,16 +96,16 @@ composición de `changeledger context`. No se duplica su alcance.
 - **And** la línea de política contiene exactamente `Active stages(bug)=request, investigation, specification, plan, log`
 
 ### CR2 — El fragmento `readiness` se omite para tipos que no activan `specification`
-- **Given** cuatro cambios en `draft`, uno por cada tipo `audit`, `refactor`, `chore` y `quick` (ninguno activa `specification`)
+- **Given** tres cambios en `draft`, uno por cada tipo `audit`, `chore` y `quick` (ninguno activa `specification`)
 - **When** se ejecuta `changeledger context <id>` sobre cada uno
-- **Then** ninguna de las cuatro salidas contiene el encabezado `# Definition of Ready`
-- **And** las cuatro siguen conteniendo `# Authoring a Change` y `# Economical Delegation`
+- **Then** ninguna de las tres salidas contiene el encabezado `# Definition of Ready`
+- **And** las tres siguen conteniendo `# Authoring a Change` y `# Economical Delegation`
 - **And** la línea `Active stages(<type>)=` de cada salida nunca contiene la palabra `specification`, de modo que política y fragmentos presentes dejan de contradecirse
 
-### CR3 — La composición de `feature` y `bug` no cambia
-- **Given** cambios en `draft` de tipo `feature` y de tipo `bug`
+### CR3 — La composición de los tipos que activan `specification` no cambia
+- **Given** cambios en `draft` de tipo `feature`, de tipo `bug` y de tipo `refactor`, los tres con `specification` entre sus stages activas
 - **When** se ejecuta `changeledger context <id>` sobre cada uno antes y después del fix
-- **Then** el conjunto y el orden de encabezados de fragmento compuestos es idéntico: `# Authoring a Change`, `# Economical Delegation`, `# Definition of Ready`
+- **Then** el conjunto y el orden de encabezados de fragmento compuestos es idéntico en los tres: `# Authoring a Change`, `# Economical Delegation`, `# Definition of Ready`
 
 ### CR4 — El presupuesto de contexto del modo `spec` sin cambio sigue vigente
 - **Given** ninguna invocación con id de cambio (modo `spec` desnudo)
@@ -107,7 +114,7 @@ composición de `changeledger context`. No se duplica su alcance.
 
 ## Plan
 
-- [ ] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `refactor`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
+- [ ] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
 - [ ] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando `feature` y `bug` sin cambios; verify: `node --test test/context.test.mjs` (CR1, CR2)
 - [ ] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature` y otro de tipo `bug` siguen componiendo los tres encabezados de fragmento sin cambios; verify: `node --test test/context.test.mjs` (CR3)
 - [ ] Añadir en `test/context.test.mjs` el test de regresión del CR4: la composición desnuda `changeledger context spec` (sin id de cambio) sigue dentro de los límites de `templates/contract/budgets.yml` `base.spec`; verify: `node --test test/context.test.mjs` (CR4)
@@ -115,3 +122,4 @@ composición de `changeledger context`. No se duplica su alcance.
 
 ## Log
 - **2026-07-26T15:05:06Z** `[status]` draft → approved
+- **2026-07-26T23:04:22Z** `[status]` approved → in-progress
