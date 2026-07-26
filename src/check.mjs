@@ -1,5 +1,7 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
-// { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
+// { errors, warnings, validated, notValidated } — the counts say how many
+// documents were validated as subjects and how many were exempt as frozen
+// history. No IO — the `changeledger check` command does the IO and printing.
 
 import { parseChange } from './change.mjs';
 import { hasFixableDefects } from './fix.mjs';
@@ -11,6 +13,23 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 const CLOSED_STATUSES = new Set(['done', 'discarded']);
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
+
+// Frozen history: `archived` is one-way (there is no `unarchive`) and
+// `discarded` is a tombstone the contract forbids reopening, so a diagnostic
+// about either could only be "fixed" by rewriting finished work. A frozen
+// change therefore stops being the SUBJECT of the per-document loop while
+// remaining DATA for every repo-wide invariant (duplicate ids, the depends_on
+// graph, spec graduations, releases, mention backlinks). `done` without
+// `archived` is live work pending graduation or archive; `archived` under an
+// open status can only come from a hand edit, so it stays validated instead of
+// hiding an anomaly. Single authority for the rule — callers ask, never
+// re-derive. Returns the reason a change is frozen, or null when it is not.
+export function frozenReason(change) {
+  const fm = change?.frontmatter ?? {};
+  if (fm.status === 'discarded') return 'discarded';
+  if (fm.status === 'done' && fm.archived === true) return 'archived';
+  return null;
+}
 
 export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
   const errors = [];
@@ -25,11 +44,15 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const canonical = Array.isArray(config.stages) ? config.stages : [];
 
   // Scope: a single change (fast, post-write check) or the whole repo.
-  let targets = changes;
+  let scoped = changes;
   if (opts.id) {
-    targets = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
-    if (!targets.length) err(null, `no change with id "${opts.id}"`);
+    scoped = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
+    if (!scoped.length) err(null, `no change with id "${opts.id}"`);
   }
+
+  // Subjects of the per-document loop. The data feed below stays `changes`.
+  const targets = scoped.filter((c) => frozenReason(c) === null);
+  const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
 
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
   const incomingRelations = relatedBacklinks(changes);
@@ -103,7 +126,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   }
 
   // Aggregate checks only make sense over the whole repo.
-  if (opts.id) return { errors, warnings };
+  if (opts.id) return { errors, warnings, ...counts };
 
   const seen = new Map();
   for (const c of changes) {
@@ -148,7 +171,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   checkSpecs(changes, specs, ids, err, warn);
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
-  return { errors, warnings };
+  return { errors, warnings, ...counts };
 }
 
 function relatedBacklinks(changes) {

@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { ensureReference } from '../src/contract.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -1644,7 +1645,14 @@ function gitFixture() {
 
 function captureOutput() {
   const calls = [];
-  return { calls, log: (m) => calls.push(m), warn: () => {}, error: () => {} };
+  const diagnostics = [];
+  return {
+    calls,
+    diagnostics,
+    log: (m) => calls.push(m),
+    warn: (m) => diagnostics.push(m),
+    error: (m) => diagnostics.push(m),
+  };
 }
 
 test('CR5: check --commits reports only the commit missing the marker', () => {
@@ -1781,4 +1789,162 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
     out.calls.some((line) => line.includes('commits main..HEAD')),
     out.calls.join('\n'),
   );
+});
+
+// --- frozen history (20260726-194220): archived/discarded documents are not
+// validated as subjects, but keep feeding every repo-wide invariant ---
+
+const FROZEN_FIXTURE_CONFIG = `schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  refactor:
+    stages: [request, proposal, specification, plan, log]
+    review_required: true
+  chore:
+    stages: [request, plan]
+`;
+
+// Repo-wide `check` reads the contract bootstrap and the config from disk, so
+// these criteria need a real repo instead of an in-memory one.
+function frozenFixture(changeFiles, specFiles = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-frozen-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\n');
+  ensureReference(root);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), FROZEN_FIXTURE_CONFIG);
+  for (const [name, text] of Object.entries(changeFiles)) {
+    fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
+  }
+  if (Object.keys(specFiles).length) {
+    fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
+    for (const [name, text] of Object.entries(specFiles)) {
+      fs.writeFileSync(path.join(root, '.changeledger', 'specs', name), text);
+    }
+  }
+  return root;
+}
+
+function frontmatter(over = {}) {
+  const fm = {
+    id: '20260101-000000',
+    title: 'X',
+    type: 'refactor',
+    status: 'done',
+    created: '2026-01-01T00:00:00Z',
+    depends_on: '[]',
+    ...over,
+  };
+  return Object.entries(fm)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+}
+
+// A `refactor` body that omits `## Specification`, the stage the fixture config
+// activates for that type — the defect today's rules report on frozen history.
+function missingSpecification(over) {
+  return `---\n${frontmatter(over)}\n---\n\n## Request\n\nX\n\n## Proposal\n\nX\n\n## Plan\n\nX\n\n## Log\n`;
+}
+
+// A well-formed `chore` body, used where the criterion is about repo-wide
+// invariants rather than about per-document defects.
+function validChore(over, logBody = '') {
+  const fm = frontmatter({ type: 'chore', ...over });
+  const log = logBody ? `\n## Log\n\n${logBody}\n` : '';
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n\nX\n${log}`;
+}
+
+function runCheck(root, args = []) {
+  const out = captureOutput();
+  const code = check(args, root, out);
+  return { code, out, text: [...out.diagnostics, ...out.calls].join('\n') };
+}
+
+test('194220 CR1: a done and archived change gets no diagnostics of its own', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({ archived: 'true' }),
+  });
+  const { code, out } = runCheck(root);
+  assert.deepEqual(
+    out.diagnostics.filter((line) => line.includes('20260101-000000-frozen.md')),
+    [],
+  );
+  assert.equal(code, 0);
+});
+
+test('194220 CR2: a done change that is not archived is still validated', () => {
+  const root = frozenFixture({ '20260101-000000-frozen.md': missingSpecification() });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('missing active stage "## specification" for type refactor'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR3: a discarded change gets no diagnostics of its own', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({ status: 'discarded' }),
+  });
+  const { code, out } = runCheck(root);
+  assert.deepEqual(
+    out.diagnostics.filter((line) => line.includes('20260101-000000-frozen.md')),
+    [],
+  );
+  assert.equal(code, 0);
+});
+
+test('194220 CR4: archived under an open status is validated like live work', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({
+      status: 'in-progress',
+      archived: 'true',
+    }),
+  });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('missing active stage "## specification" for type refactor'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR5: an id duplicated between a live and an archived change is still detected', () => {
+  const root = frozenFixture({
+    '20260101-000000-live.md': validChore({ status: 'approved' }),
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+  });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('duplicate id "20260101-000000" (also in '), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR6: depends_on pointing at an archived change still resolves', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+    '20260102-000000-live.md': validChore({
+      id: '20260102-000000',
+      status: 'approved',
+      depends_on: '["20260101-000000"]',
+    }),
+  });
+  const { text } = runCheck(root);
+  assert.ok(!text.includes('depends_on references missing change "20260101-000000"'), text);
+});
+
+test('194220 CR7: a graduation recorded by an archived change still backs checkSpecs', () => {
+  const root = frozenFixture(
+    {
+      '20260101-000000-frozen.md': validChore(
+        { archived: 'true' },
+        '- **2026-01-01T00:00:00Z** `[graduation]` spec: `arch.md`',
+      ),
+    },
+    {
+      'arch.md':
+        '---\ntitle: Arch\nupdated: 2026-01-02T00:00:00Z\ngraduated_from: ["20260101-000000"]\n---\n\nTruth.\n',
+    },
+  );
+  const { code, text } = runCheck(root);
+  assert.ok(!text.includes('orphan spec'), text);
+  assert.ok(!text.includes('missing graduated_from "20260101-000000"'), text);
+  assert.equal(code, 0);
 });
