@@ -121,7 +121,8 @@ todo check existente.
   - **Resolved:** `2026-07-26T15:25:00Z`
 - [x] Añadir el parámetro inyectable `log` (default `console.log`) a `commit()` que imprime la lista de paths staged antes de evaluar la guarda, y conectarlo desde la acción `commit` de `bin/changeledger.mjs`; verify: `node --test test/commit.test.mjs` (CR4)
   - **Resolved:** `2026-07-26T15:26:30Z`
-- [ ] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-26T15:27:52Z`
 
 ## Log
 
@@ -137,3 +138,4 @@ todo check existente.
 - **2026-07-26T15:24:09Z** `[note]` Task 2: cobertura del camino de éxito (CR2) — id staged declarado en resolvedIds no dispara la guarda.
 - **2026-07-26T15:25:00Z** `[note]` Task 3: cobertura CR3 — un src/*.mjs staged en solitario nunca dispara la guarda.
 - **2026-07-26T15:26:30Z** `[note]` Task 4: parámetro inyectable log (default console.log) en commit() que imprime la lista staged antes de la guarda (CR4); conectado explícitamente en la acción commit de bin/changeledger.mjs.
+- **2026-07-26T15:27:52Z** `[note]` Task 5: pnpm verify (lint + 722 tests + changeledger check) en verde tras el cambio.
