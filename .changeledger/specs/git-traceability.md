@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-26T14:10:12Z
+updated: 2026-07-26T18:26:56Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124"]
 ---
 
 ## Trazabilidad git
@@ -18,6 +18,27 @@ endpoint `GET /api/git?project=&id=` los sirve y el detalle muestra la sección
 mantiene el subject limpio y escribe una línea canónica en el cuerpo:
 `ChangeLedger: [#A] [#B]`. Resuelve el único change `in-progress` cuando se
 omite `--id` y valida la forma conventional-commit antes de delegar en Git.
+
+**Guard del índice staged.** Antes de invocar Git, `commit` imprime el conjunto
+staged y lo valida con una **lista blanca exacta**: calcula la ruta esperada del
+documento de cada id declarado y aborta si alguna ruta staged bajo el directorio
+de changes no es byte-idéntica a una esperada, nombrándola. Así un hook fallido
+—que deja el índice staged— no puede hacer que el commit siguiente absorba
+documentos de otros changes. No clasifica rutas: la normalización se aplica solo
+a las cadenas que la herramienta deriva (cruda, NFC y NFD de cada ruta esperada y
+del prefijo de frontera), nunca a la entrada de Git. Las rutas fuera del
+directorio de changes no se juzgan, porque el código acompaña legítimamente a un
+change; la única exención dentro es el basename exacto `.gitkeep`. La lectura del
+índice usa una invocación con todos sus ejes fijados —`-c core.quotePath=false
+diff --cached -z --no-renames --no-relative --ignore-submodules=none
+--name-only`, con el top-level de Git como cwd y partiendo por NUL— porque la
+salida por defecto de `git diff` es superficie de presentación que la
+configuración del repo altera; exige Git ≥ 2.28 y cualquier fallo de lectura
+aborta. Residuales declarados: una grafía del directorio con mayúsculas distintas
+solo alcanzable sin `git add` (`git mv` tecleado, `apply --index`, historia
+mergeada), y el borrado o renombrado manual de un documento de change, que
+ningún comando del lifecycle realiza.
+
 `changeledger check --commits [base]` acepta exclusivamente esas dos formas y
 reporta la causa concreta de marcadores ausentes, ambiguos o mal formados;
 exime merges y `chore(release)`. `gitRefs()` busca en el mensaje completo y

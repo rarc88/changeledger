@@ -2,9 +2,10 @@
 id: "20260726-141124"
 title: Verificar el índice staged al commitear
 type: feature
-status: in-validation
+status: done
 created: 2026-07-26T14:11:24Z
 depends_on: []
+reviewed: true
 related_to: ["20260726-124837", "20260726-131603"]
 owner: raruiz-hiberuscom
 ---
@@ -364,3 +365,5 @@ pertenecían a dos estrategias superadas.
 - **2026-07-26T17:47:00Z** `[note]` Corrección del enunciado inexacto: la entrada de Log de `2026-07-26T16:59:57Z` y el CR10 original afirmaban "ambas formas Unicode... inscritas" y "8 mutaciones confirman que cada pieza es load-bearing" sin que ningún test aislara la necesidad de NFD de la cadena cruda — quitar NFD dejaba la suite en verde, como el review de `2026-07-26T17:22:24Z` estableció. Esa entrada anterior no se borra; queda como registro de lo que se creyó y se ejecutó en su momento. CR10 se reescribe para afirmar solo lo que sus cuatro casos (los dos originales más los dos nuevos) prueban por mutación: la cadena cruda y la forma NFC son necesarias; NFD nunca se aísla de la cruda en ningún caso de esta Specification porque en los cuatro el nombre en disco ya coincide con su propia forma NFD. La tarea de Plan que cubre CR10 gana una entrada nueva con el `verify:` de esta corrección; la original queda intacta.
 - **2026-07-26T17:40:22Z** `[status]` in-progress → in-review
 - **2026-07-26T17:47:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T18:21:27Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T18:26:56Z** `[graduation]` spec: `git-traceability.md`
