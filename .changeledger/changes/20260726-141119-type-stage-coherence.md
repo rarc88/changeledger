@@ -2,7 +2,7 @@
 id: "20260726-141119"
 title: Acoplar review_required con las stages verificables
 type: bug
-status: draft
+status: approved
 created: 2026-07-26T14:11:19Z
 depends_on: []
 related_to: ["20260726-141120", "20260726-141121"]
@@ -269,3 +269,4 @@ orden de ejecución.
 - [ ] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real (support)
 
 ## Log
+- **2026-07-26T15:05:03Z** `[status]` draft → approved

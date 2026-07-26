@@ -2,7 +2,7 @@
 id: "20260726-141121"
 title: Componer el contexto según el tipo, no solo el status
 type: bug
-status: draft
+status: approved
 created: 2026-07-26T14:11:21Z
 depends_on: ["20260726-141119"]
 related_to: ["20260726-141120"]
@@ -114,3 +114,4 @@ composición de `changeledger context`. No se duplica su alcance.
 - [ ] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-26T15:05:06Z** `[status]` draft → approved

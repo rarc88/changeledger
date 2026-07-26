@@ -2,7 +2,7 @@
 id: "20260726-141123"
 title: Resolver la colisión del nombre audit
 type: bug
-status: draft
+status: approved
 created: 2026-07-26T14:11:23Z
 depends_on: []
 related_to: []
@@ -111,3 +111,4 @@ compatibilidad, así que `audit` deja de resolver como rol sin excepción.
 - [ ] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-26T15:05:09Z** `[status]` draft → approved

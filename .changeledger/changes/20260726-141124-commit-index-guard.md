@@ -2,7 +2,7 @@
 id: "20260726-141124"
 title: Verificar el índice staged al commitear
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T14:11:24Z
 depends_on: []
 related_to: ["20260726-124837", "20260726-131603"]
@@ -127,3 +127,4 @@ todo check existente.
   commit, nombrando el path sobrante y los ids declarados; además imprime la
   lista de paths staged antes de la guarda. Fuera de alcance: la prosa de
   granularidad de commit, que posee `20260726-124837`.
+- **2026-07-26T15:05:11Z** `[status]` draft → approved
