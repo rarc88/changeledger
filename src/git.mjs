@@ -21,8 +21,11 @@ const GIT_LOCATION_ENV_VARS = [
   'GIT_CEILING_DIRECTORIES',
 ];
 
+// Git localizes its diagnostics, but `mutatingRun` hands that stderr to an agent
+// that classifies failures by message. Pin the locale so the text a caller reads
+// never depends on the host's language.
 function sanitizedEnv() {
-  const env = { ...process.env };
+  const env = { ...process.env, LC_ALL: 'C' };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
   return env;
 }
