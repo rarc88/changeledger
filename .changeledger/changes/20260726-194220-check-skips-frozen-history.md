@@ -2,9 +2,10 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-26T19:42:20Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260726-141119", "20260613-222915", "20260711-103802"]
 ---
 
@@ -312,3 +313,5 @@ Ambos son contexto, no prerrequisitos.
 
 ## Log
 - **2026-07-26T19:50:20Z** `[status]` draft → approved
+- **2026-07-26T19:53:35Z** `[status]` approved → in-progress
+- **2026-07-26T19:53:35Z** `[owner]` set: raruiz-hiberuscom (auto)
