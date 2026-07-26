@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
+import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
@@ -262,4 +263,63 @@ test('144327 CR7: agent-context is wired through the CLI', async () => {
   );
   assert.match(stdout, /^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: investigation/);
   assert.match(stdout, /CHANGELEDGER AGENT CONTEXT END/);
+});
+
+// 20260726-141120 CR5 — the review capsule is unreachable for a type without
+// `review_required`: the lifecycle refuses the only status that would dispatch
+// it, so the role guard is the last line rather than the only one.
+
+function addQuickChange(root, id = '20260726-141120') {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
+    `---
+id: "${id}"
+title: Quick fixture
+type: quick
+status: in-progress
+created: 2026-07-26T14:11:20Z
+depends_on: []
+---
+
+## Request
+
+Small reversible work.
+
+## Log
+
+- Initial note.
+`,
+  );
+  return id;
+}
+
+test('141120 CR5: a quick change can never reach the status the review role needs', () => {
+  const root = repo();
+  const id = addQuickChange(root);
+  assert.throws(
+    () => status(id, 'in-review', root),
+    /^Error: quick changes do not require review — move to in-validation instead$/,
+  );
+  assert.throws(
+    () => buildAgentContext('review', id, root),
+    /^Error: role review requires change status in-review; got in-progress$/,
+  );
+});
+
+test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', async () => {
+  const root = repo();
+  const id = addQuickChange(root);
+  const failure = await execFileAsync(process.execPath, [bin, 'agent-context', 'review', id], {
+    cwd: root,
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(failure, 'the CLI must fail');
+  assert.equal(failure.code, 1);
+  assert.match(
+    failure.stderr,
+    /^Error: role review requires change status in-review; got in-progress$/m,
+  );
+  assert.doesNotMatch(failure.stdout, /CHANGELEDGER AGENT CONTEXT BEGIN/);
 });

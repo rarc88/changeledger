@@ -7,6 +7,7 @@ import test from 'node:test';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
+import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 const contextBudgets = JSON.parse(
@@ -1316,4 +1317,72 @@ test('105456 CR8 correction: spec context makes agents populate discovered relat
   assert.match(spec, /useful context without execution order.*`related_to`/);
   assert.match(spec, /explicit local change id must not remain only in prose/);
   assert.match(spec, /declare a local relation once, deriving its backlink/);
+});
+
+// 20260726-141120 CR6 — a type without `review_required` can never reach
+// `in-review`, so no reachable status composes the review mode. Reachability is
+// derived from the lifecycle graph itself, not hardcoded, so closing or
+// reopening the review entry is what this test observes.
+
+function addQuickChange(root, status, id = '20260726-141120') {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
+    `---
+id: "${id}"
+title: Quick fixture
+type: quick
+status: ${status}
+created: 2026-07-26T14:11:20Z
+depends_on: []
+---
+
+## Request
+
+Small reversible work.
+
+## Log
+
+- Initial note.
+`,
+  );
+  return id;
+}
+
+function reachableWithoutReview() {
+  const seen = new Set(['draft']);
+  const queue = ['draft'];
+  while (queue.length) {
+    const from = queue.shift();
+    for (const to of CANONICAL_STATUSES) {
+      if (seen.has(to) || !canTransition(from, to)) continue;
+      try {
+        assertTransition(from, to, { type: 'quick', reviewRequired: false });
+      } catch {
+        continue;
+      }
+      seen.add(to);
+      queue.push(to);
+    }
+  }
+  return [...seen];
+}
+
+test('141120 CR6: a quick change in-progress composes implement, never review', () => {
+  const root = repo();
+  const id = addQuickChange(root, 'in-progress');
+  assert.match(buildContext(id, root).split('\n')[0], /mode: implement/);
+});
+
+test('141120 CR6: no status reachable by a type without review composes review', () => {
+  const reachable = reachableWithoutReview();
+  assert.ok(!reachable.includes('in-review'), 'in-review must be unreachable without review');
+  for (const status of reachable) {
+    const root = repo();
+    const id = addQuickChange(root, status);
+    assert.doesNotMatch(
+      buildContext(id, root).split('\n')[0],
+      /mode: review/,
+      `status ${status} must not compose the review mode`,
+    );
+  }
 });
