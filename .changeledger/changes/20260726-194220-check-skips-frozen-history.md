@@ -1,0 +1,311 @@
+---
+id: "20260726-194220"
+title: Excluir la historia congelada de la validación de check
+type: bug
+status: draft
+created: 2026-07-26T19:42:20Z
+depends_on: []
+related_to: ["20260726-141119", "20260613-222915", "20260711-103802"]
+---
+
+## Request
+
+`changeledger check` valida los 219 documentos del ledger con las reglas de hoy,
+sin distinguir los que ya no se pueden arreglar. De esos 219, **203 son historia
+congelada**: 200 con `status: done` y `archived: true`, y 3 con
+`status: discarded`.
+
+Un diagnóstico sobre uno de esos 203 no es accionable. `archived` es de una sola
+dirección desde que `20260711-103802` retiró el comando `unarchive`, y
+`discarded` es un tombstone que el contrato prohíbe reabrir. La única forma de
+"arreglar" el documento sería reescribir historia terminada, es decir inventar
+criterios de un trabajo que ya cerró.
+
+El coste no es cosmético: el hook `pre-commit` versionado corre `check`
+repo-wide, así que un documento de junio invalidado por una regla de julio
+**bloquea todo commit del repo**, incluido el trabajo que no lo toca. La
+consecuencia real ya está reproducida abajo: activar una stage para un tipo
+—cambio de una línea en el config— produjo 21 errores, ninguno accionable, y
+dejó el gate rojo.
+
+Se pide que `check` deje de emitir diagnósticos **sobre** un documento congelado,
+sin dejar de consumirlo **como dato** en los invariantes que lo cruzan con
+documentos vivos, y que nombre en su salida lo que no ha validado en vez de
+contarlo como válido.
+
+`bug` no activa `## Proposal`, así que la solución elegida, sus alternativas
+descartadas y sus contrapartidas viven aquí, en Investigation.
+
+## Investigation
+
+### Cadena de evidencia
+
+1. `src/repo.mjs:37-70` — `loadRepo` lee todos los `.md` de `changes_dir` sin
+   filtrar. Archivados, descartados y vivos entran en `repo.changes` igual.
+2. `src/check.mjs:28-32` — `checkRepo` reduce el conjunto a validar únicamente
+   por `opts.id`. No hay ningún filtro previo por `status` ni por `archived`.
+3. `src/check.mjs:37-103` — el bucle por documento aplica a cada elemento de ese
+   conjunto todas las reglas de campos obligatorios, forma de stages, tareas,
+   criterios, marcadores de conflicto, gramática del Log y secuencia de
+   lifecycle.
+4. `src/check.mjs:12` declara `CLOSED_STATUSES = new Set(['done', 'discarded'])`
+   y se referencia **una sola vez** en todo el fichero: en `src/check.mjs:187`,
+   dentro de `checkUnclassifiedMentions`, donde protege exclusivamente el aviso
+   de `src/check.mjs:209`. Es decir: el repo ya tiene el patrón de exención
+   escrito y aplicado a una única regla de las cuarenta y tantas del bucle.
+5. `src/check.mjs:502-504` — `checkCoverage` ya se salta los documentos cuyo
+   status no está en `['draft', 'approved', 'in-progress']`, así que toda la
+   familia de readiness es inmune por accidente. El defecto está en las reglas
+   que no tienen ese guarda, no en el diseño de readiness.
+6. `src/commands/check.mjs:106` — la línea de resumen usa
+   `${repo.changes.length} change(s)`, o sea el total leído del disco, no el
+   total realmente validado.
+
+### Consecuencia reproducida
+
+Activar `specification` para el tipo `refactor` (una línea de
+`.changeledger/config.yml`, el trabajo de `20260726-141119`) hace que
+`src/check.mjs:81` reclame la stage ausente en todo documento `refactor` del
+ledger, sin mirar su status:
+
+```text
+$ node bin/changeledger.mjs check
+21 error(s), 0 warning(s) — 219 change(s)
+```
+
+Los 21 son historia congelada: 19 con `status: done` y `archived: true`, con
+fechas de creación repartidas entre junio y julio de 2026, y 2 con
+`status: discarded`. Ninguno de los documentos vivos falla. Sin este cambio, `20260726-141119` no puede
+commitear su propio trabajo.
+
+### La clase, no el síntoma
+
+`src/check.mjs:81` es el disparador de hoy, no el problema. Cualquier regla del
+bucle por documento cuya definición evolucione reescribe retroactivamente la
+validez de los 203. Dos ejes ya identificados en el trabajo en curso:
+
+- El config: activar o desactivar una stage para un tipo mueve
+  `src/check.mjs:81` y `src/check.mjs:85`; renombrar un status o un tipo mueve
+  `src/check.mjs:48-49`.
+- El código: endurecer la gramática de tarea del Plan mueve
+  `src/check.mjs:317`, que consume el parser de `src/change.mjs` y no depende del
+  config en absoluto.
+
+Por eso la exención se define por documento y cubre el bucle completo, no regla
+a regla.
+
+### Solución elegida: sujeto congelado, dato vivo
+
+La distinción que hace correcta la exención es entre el documento como **sujeto**
+de una regla y el documento como **dato** de un invariante:
+
+- Un documento congelado deja de ser sujeto: ninguna regla del bucle por
+  documento (`src/check.mjs:37-103`) se le aplica.
+- Sigue siendo dato: los invariantes de repo consumen `repo.changes` completo,
+  sin filtrar.
+
+Predicado, en un solo sitio de `src/check.mjs`, exportado para que nadie lo
+re-derive:
+
+```text
+congelado = status === 'discarded' || (status === 'done' && archived === true)
+```
+
+`done` sin archivar **no** es congelado: son los 2 documentos pendientes de
+graduación o archive, trabajo vivo y arreglable. Y un documento que declare
+`archived: true` con un status abierto es una anomalía que sólo puede venir de
+edición a mano —`archive` sólo archiva `done` graduados o con skip, y `unarchive`
+ya no existe—: se valida, para que el gate la nombre en vez de esconderla. Lo que
+no se puede decidir no se salta.
+
+### Por qué no un return temprano por documento
+
+La alternativa obvia —sacar los congelados de `repo.changes`, o retornar al
+principio de la iteración— es incorrecta, y el inventario del fichero dice
+exactamente qué se perdería:
+
+- `src/check.mjs:108-114` — un `id` duplicado entre un documento vivo y uno
+  archivado deja de detectarse.
+- `src/check.mjs:120-146` — los archivados dejan de ser nodos del grafo: un ciclo
+  de `depends_on` que pasa por uno deja de encontrarse (`src/check.mjs:146`), y
+  un documento vivo que dependa legítimamente de uno archivado empieza a fallar
+  con `depends_on references missing change` (`src/check.mjs:126`), un falso
+  positivo nuevo.
+- `src/check.mjs:346-361` — `checkSpecs` reconstruye las graduaciones leyendo el
+  `## Log` de todos los changes. Sin los archivados, una spec legítimamente
+  graduada por historia cerrada aparece como `orphan spec`
+  (`src/check.mjs:386`) o dispara `missing graduated_from`
+  (`src/check.mjs:384`).
+- `src/check.mjs:280-282` — un release que referencie un change archivado deja
+  de comprobar que su status sea `done`.
+- `src/check.mjs:34-35` — `knownIds` y los backlinks de `related_to` dejan de
+  ver a los archivados, así que el aviso de mención sin declarar
+  (`src/check.mjs:209`) pierde señal sobre documentos vivos.
+
+Esos cinco son la razón de que el predicado filtre sujetos y no el conjunto de
+datos. Es también la razón de que este cambio no sea una línea.
+
+### Alternativa descartada: exención sólo para la forma de stages
+
+Añadir el guarda únicamente a `src/check.mjs:81` y `src/check.mjs:85`
+desbloquearía `20260726-141119` con menos superficie tocada. Se descarta porque
+deja intacta la clase: la siguiente regla del bucle que evolucione vuelve a
+romper el gate con los mismos 203 documentos, y ya hay trabajo aprobado que
+tocará la gramática de tarea (`src/check.mjs:317`), que no pasa por el config.
+
+### Alternativa descartada: subir la severidad a warning
+
+Convertir esos errores en avisos mantendría el gate verde. Se descarta porque
+203 avisos permanentes e inaccionables en cada `check` entrenan a ignorar la
+salida, y porque `check` seguiría afirmando algo falso sobre historia congelada.
+
+### Alternativa descartada: reescribir los documentos cerrados
+
+Insertar `## Specification` en 203 documentos terminados fabricaría criterios de
+trabajo ya cerrado. Contradice el modelo (`discarded` no reabre) y la regla de no
+inventar requisitos.
+
+### La salida tiene que nombrar la exención
+
+Si `check` valida 16 documentos y sigue imprimiendo `✓ 219 change(s) valid`,
+afirma algo que no comprobó, y la exención se vuelve invisible: nadie puede
+notar que un documento dejó de validarse por llevar `archived: true` mal puesto.
+`src/commands/check.mjs:106` compone ese texto desde `repo.changes.length`, así
+que el recuento tiene que venir del validador —que es quien aplica el
+predicado— y no recalcularse en la capa CLI, para que la regla siga viviendo en
+un solo sitio.
+
+### Superficie compartida y orden
+
+`20260726-141119` está `in-progress` y su tarea de activación de `specification`
+espera sin commitear a que este cambio aterrice; ambos escriben
+`src/check.mjs`, así que van en secuencia, este primero, nunca en paralelo. La
+dependencia de ejecución se declara aquí como `related_to` porque `depends_on`
+vive en el change dependiente y `20260726-141119` ya está aprobado; si se
+prefiere registrarla estructuralmente, hay que añadirle `depends_on` y
+re-aprobarlo.
+
+`20260613-222915` introdujo el flag `archived` y validó únicamente su tipo;
+`20260711-103802` retiró `unarchive` y con ello hizo el archivado irreversible.
+Ambos son contexto, no prerrequisitos.
+
+### Fuera de alcance
+
+- La salida `--json` (`src/commands/check.mjs:98-101`) sigue publicando sólo
+  `errors` y `warnings`; no se le añade el recuento de no validados.
+- `src/check.mjs:187` conserva su predicado propio (`CLOSED_STATUSES` ∪
+  `archived`), más amplio que el de este cambio porque incluye `done` sin
+  archivar. Unificarlos cambiaría el comportamiento de otra regla sin criterio
+  que lo cubra.
+- Los fragmentos de `templates/contract/` no se tocan: son superficie de otros
+  changes aprobados.
+- `changeledger fix` seguirá pudiendo reescribir un documento congelado si se le
+  pide por id; este cambio sólo altera qué diagnostica `check`.
+
+## Specification
+
+### CR1 — Un documento archivado y done no recibe diagnósticos propios
+
+- **Given** un repo cuyo `.changeledger/config.yml` declara
+  `refactor: { stages: [request, proposal, specification, plan, log], review_required: true }`
+  y un documento `refactor` con `status: done` y `archived: true` cuyo cuerpo
+  tiene `## Request`, `## Proposal`, `## Plan` y `## Log` pero no
+  `## Specification`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida no contiene ningún error ni aviso cuyo fichero sea ese
+  documento
+- **And** el comando termina con código de salida 0
+
+### CR2 — Un done sin archivar sí se valida
+
+- **Given** el mismo repo y el mismo documento, con `status: done` y sin la clave
+  `archived`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene el error
+  `missing active stage "## specification" for type refactor` para ese documento
+- **And** el comando termina con código de salida 1
+
+### CR3 — Un documento discarded no recibe diagnósticos propios
+
+- **Given** el mismo repo y el mismo documento, con `status: discarded` y sin la
+  clave `archived`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida no contiene ningún error ni aviso cuyo fichero sea ese
+  documento
+- **And** el comando termina con código de salida 0
+
+### CR4 — archived con un status abierto se valida igual
+
+- **Given** el mismo repo y el mismo documento, con `archived: true` y
+  `status: in-progress`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene el error
+  `missing active stage "## specification" for type refactor` para ese documento
+- **And** el comando termina con código de salida 1
+
+### CR5 — El id duplicado entre un documento vivo y uno archivado se sigue detectando
+
+- **Given** un repo con un documento `status: approved` de id `20260101-000000` y
+  otro documento `status: done` con `archived: true` que declara el mismo id
+  `20260101-000000` en un fichero distinto
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida contiene un error que empieza por
+  `duplicate id "20260101-000000" (also in `
+- **And** el comando termina con código de salida 1
+
+### CR6 — Un depends_on que apunta a un archivado sigue resolviendo
+
+- **Given** un repo con un documento `status: done` y `archived: true` de id
+  `20260101-000000`, y un documento `status: approved` que declara
+  `depends_on: ["20260101-000000"]`
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida no contiene
+  `depends_on references missing change "20260101-000000"`
+
+### CR7 — La graduación registrada por un archivado sigue sosteniendo checkSpecs
+
+- **Given** un repo con una spec cuyo frontmatter declara
+  `graduated_from: ["20260101-000000"]`, y un documento `status: done` con
+  `archived: true` de id `20260101-000000` cuyo `## Log` contiene el evento de
+  graduación hacia esa spec
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la salida no contiene `orphan spec`
+- **And** no contiene ningún error que empiece por `spec "` y termine en
+  `missing graduated_from "20260101-000000"`
+- **And** el comando termina con código de salida 0
+
+### CR8 — El resumen repo-wide nombra lo que no ha validado
+
+- **Given** un repo con 2 documentos válidos que se validan y 1 documento con
+  `status: done` y `archived: true`, sin ningún error ni aviso
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la última línea de la salida es exactamente
+  `✓ 2 change(s) valid — 1 not validated (archived or discarded)`
+
+### CR9 — Sin documentos congelados el resumen no cambia
+
+- **Given** un repo con 2 documentos válidos y ninguno archivado ni descartado,
+  sin errores ni avisos
+- **When** se ejecuta `node bin/changeledger.mjs check`
+- **Then** la última línea de la salida es exactamente `✓ 2 change(s) valid`, sin
+  ningún sufijo
+
+### CR10 — check sobre el id de un documento congelado lo dice
+
+- **Given** el repo del CR1, cuyo documento archivado tiene id
+  `20260101-000000`, y un segundo documento con `status: discarded` de id
+  `20260102-000000`
+- **When** se ejecuta `node bin/changeledger.mjs check 20260101-000000` y después
+  `node bin/changeledger.mjs check 20260102-000000`
+- **Then** la salida de la primera invocación es exactamente
+  `✓ change 20260101-000000 not validated (archived)` y la de la segunda es
+  exactamente `✓ change 20260102-000000 not validated (discarded)`
+- **And** ambas terminan con código de salida 0
+
+## Plan
+
+- [ ] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [ ] Consumir esos recuentos en `src/commands/check.mjs` para que el resumen repo-wide nombre los documentos no validados y `check <id>` sobre un congelado lo declare en vez de llamarlo válido; verify: `node --test test/check.test.mjs test/cli.test.mjs` (CR8, CR9, CR10)
+- [ ] Ejecutar el gate completo y comprobar que el ledger real reporta 16 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
+
+## Log
