@@ -2,7 +2,7 @@
 id: "20260726-141119"
 title: Acoplar review_required con las stages verificables
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T14:11:19Z
 depends_on: ["20260726-194220"]
 related_to: ["20260726-141120", "20260726-141121"]
@@ -283,3 +283,9 @@ orden de ejecución.
 - **2026-07-26T21:27:39Z** `[note]` Desbloqueado: 20260726-194220 exime la historia congelada, asi que activar specification para refactor ya no invalida los 203 documentos cerrados y check queda verde con los 2 aprobados llevando su Specification. Al recuperar el trabajo del stash, la fusion con lo aterrizado despues dejo dos conflictos aditivos (Log de este documento y test/check.test.mjs); al resolverlos, los dos bloques de test compartian el mismo cierre y hubo que cerrar el test de CR15 aparte
 - **2026-07-26T21:40:48Z** `[note]` Tareas 1, 3 y 4: checkConfig acopla review_required con specification+plan (mensaje con las stages ausentes en orden canonico); migracion 3 -> 4 en src/config-migration.mjs que inserta las stages que faltan en los tipos con review_required: true leyendo el doc vivo (no el snapshot previo, para que un review_required anadido por migrateToV1 en la misma corrida tambien se repare), SUPPORTED_SCHEMA_VERSION a 4, config propio migrado con changeledger config migrate y templates/config.yml a 4; CR8 ya funcionaba tras la tarea 2, asi que la entrega es el guard, matado revirtiendo la activacion de specification en el config del fixture
 - **2026-07-26T21:42:37Z** `[note]` Tareas 1, 3 y 4 en un commit combinado: test/check.test.mjs lleva los guardas de las tres y el salto de SUPPORTED_SCHEMA_VERSION a 4 las hace inseparables ahi (un commit por tarea exigiria staging por hunks, y cada commit parcial dejaria la suite roja: el literal schema_version 4 del fixture es incompatible con SUPPORTED 3, y los tests de CR1-CR4 requieren la regla de checkConfig ya presente)
+- **2026-07-26T21:43:49Z** `[status]` in-progress → in-review
+- **2026-07-26T21:57:13Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (consumidores de SUPPORTED_SCHEMA_VERSION, de la constante exportada y de la cadena de migracion), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-26T21:57:13Z** `[review]` in-review → in-progress (retry): migrateToV4 inserta una stage que la lista canonica del propio config no contiene: con stages sin specification, la inserta en el indice 0 y deja el config invalido con 'references unknown stage', mientras config migrate declara que ya no hay nada que hacer. La remediacion que la herramienta prescribe corrompe un config valido
+- **2026-07-26T22:00:06Z** `[status]` in-progress → in-review
+- **2026-07-26T22:03:59Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de src/config-migration.mjs y test/config-migration.test.mjs, con reproduccion independiente del defecto original y mutante aislado como condicion
+- **2026-07-26T22:03:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)

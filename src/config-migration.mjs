@@ -198,6 +198,11 @@ function migrateToV4(doc, changes) {
     const stages = stagesNode.items.map((n) => String(n.value));
     for (const stage of REVIEWABLE_STAGES) {
       if (stages.includes(stage)) continue;
+      // A stage absent from the canonical `stages` list cannot be inserted into
+      // a type: there is no canonical position for it, and `checkConfig` already
+      // emits the accurate "requires active stages" error for this config. Stay
+      // silent here rather than replace that diagnostic with a corrupt insert.
+      if (!canonical.includes(stage)) continue;
       const insertBefore = findInsertBefore(stages, canonical, stage);
       const node = doc.createNode(stage);
       if (insertBefore === -1) {

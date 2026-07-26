@@ -705,6 +705,40 @@ test('141119 CR6: a light type demanding review gains both stages in canonical o
   );
 });
 
+// 20260726-141119 CR6 (review defect) — a stage absent from the config's own
+// canonical `stages` list must never be inserted into a type, even when that
+// type demands review. Inserting it there produces a config `check` itself
+// calls invalid ("references unknown stage"), while migrate declares success.
+const SCHEMA3_REVIEW_STAGE_NOT_CANONICAL = `\
+schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, proposal, plan, log]
+types:
+  refactor:
+    stages: [request, proposal, plan, log]
+    review_required: true
+release:
+  impacts:
+    refactor: none
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('141119 CR6: a stage missing from the canonical list is never inserted into a type', () => {
+  const result = buildMigration(SCHEMA3_REVIEW_STAGE_NOT_CANONICAL);
+  assert.ok(result);
+  assert.deepEqual(result.changes, ['updated schema_version: 3 → 4']);
+
+  const migrated = result.yaml;
+  assert.match(migrated, /^ {4}stages: \[request, proposal, plan, log\]$/m);
+});
+
 // CR4 — check detects schema 1 as outdated and points at the migration
 test('162556 CR4: check warns on schema 1 with the migrate command and does not modify config', () => {
   const root = tmp();
