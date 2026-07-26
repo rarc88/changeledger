@@ -4,10 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
 import { ensureReference } from '../src/contract.mjs';
+import { templatesDir } from '../src/paths.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -1794,7 +1796,7 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
 // --- frozen history (20260726-194220): archived/discarded documents are not
 // validated as subjects, but keep feeding every repo-wide invariant ---
 
-const FROZEN_FIXTURE_CONFIG = `schema_version: 3
+const FROZEN_FIXTURE_CONFIG = `schema_version: 4
 language: en
 tdd: true
 changes_dir: .changeledger/changes
@@ -1811,12 +1813,17 @@ types:
 
 // Repo-wide `check` reads the contract bootstrap and the config from disk, so
 // these criteria need a real repo instead of an in-memory one.
-function frozenFixture(changeFiles, specFiles = {}, releaseFiles = {}) {
+function frozenFixture(
+  changeFiles,
+  specFiles = {},
+  releaseFiles = {},
+  configText = FROZEN_FIXTURE_CONFIG,
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-frozen-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\n');
   ensureReference(root);
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
-  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), FROZEN_FIXTURE_CONFIG);
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), configText);
   for (const [name, text] of Object.entries(changeFiles)) {
     fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
   }
@@ -2104,4 +2111,134 @@ Eliminación limpia, sin capa de compatibilidad.
 `;
   const withSpec = covResult(head + specification + tail, cfg);
   assert.deepEqual(msgs(withSpec.errors), []);
+});
+
+// --- 141119: review_required is only meaningful on a type that can hold
+// criteria (## Specification) and tasks that cite them (## Plan) ---
+
+const LIGHT_REVIEW_CONFIG = `schema_version: 4
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  quick:
+    stages: [request, log]
+    review_required: true
+`;
+
+test('141119 CR1: a light type requiring review names both missing stages', () => {
+  const root = frozenFixture({}, {}, {}, LIGHT_REVIEW_CONFIG);
+  const { code, text } = runCheck(root);
+  assert.ok(
+    text.includes(
+      'config type "quick": review_required: true requires active stages: specification, plan',
+    ),
+    text,
+  );
+  assert.equal(code, 1);
+});
+
+test('141119 CR2: a type missing only specification names only that stage', () => {
+  const bad = {
+    ...config,
+    types: {
+      refactor: { stages: ['request', 'proposal', 'plan', 'log'], review_required: true },
+    },
+  };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  const configErrors = msgs(errors).filter((m) => m.includes('config type "refactor"'));
+  assert.deepEqual(configErrors, [
+    'config type "refactor": review_required: true requires active stages: specification',
+  ]);
+});
+
+test('141119 CR3: a type missing only plan names only that stage', () => {
+  const bad = {
+    ...config,
+    types: {
+      audit: {
+        stages: ['request', 'investigation', 'specification', 'log'],
+        review_required: true,
+      },
+    },
+  };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  assert.ok(
+    msgs(errors).includes(
+      'config type "audit": review_required: true requires active stages: plan',
+    ),
+    msgs(errors).join('\n'),
+  );
+});
+
+// A `refactor` in `approved` whose Plan cites a criterion its Specification
+// never declares. Before `refactor` activated `specification`, checkCoverage
+// returned early for this type and both diagnostics were unreachable.
+const REFACTOR_WITH_ORPHAN_REFERENCE = `---
+id: "20260101-000000"
+title: X
+type: refactor
+status: approved
+created: 2026-01-01T00:00:00Z
+depends_on: []
+---
+
+## Request
+
+Quitar el flag heredado.
+
+## Proposal
+
+Eliminación limpia, sin capa de compatibilidad.
+
+## Specification
+
+### CR1 — La opción deja de existir
+
+- **Given** un repo inicializado
+- **When** se ejecuta \`changeledger context --have x\`
+- **Then** el proceso termina con código de salida 1
+
+## Plan
+
+- [ ] Ajustar el comportamiento (CR9)
+
+## Log
+`;
+
+test('141119 CR8: a refactor citing an undeclared criterion is no longer silently valid', () => {
+  const root = frozenFixture({ '20260101-000000-orphan.md': REFACTOR_WITH_ORPHAN_REFERENCE });
+  const { code, out, text } = runCheck(root);
+  assert.ok(text.includes('Plan task references unknown criterion "CR9"'), text);
+  assert.ok(
+    out.diagnostics.some((line) =>
+      line.includes('Plan task for CR9 must name target and verification ('),
+    ),
+    text,
+  );
+  assert.equal(code, 1);
+  assert.ok(!out.calls.some((line) => line.includes('✓ 1 change(s) valid')), out.calls.join('\n'));
+});
+
+test('141119 CR4: the distributed config and review_required: false are legitimate', () => {
+  const distributed = parseYaml(fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8'), {
+    merge: false,
+  });
+  const { errors, warnings } = checkRepo({ config: distributed, changes: [] });
+  const all = [...msgs(errors), ...msgs(warnings)];
+  assert.ok(!all.some((m) => m.includes('requires active stages')), all.join('\n'));
+
+  const optedOut = {
+    ...distributed,
+    types: {
+      ...distributed.types,
+      quick: { stages: ['request', 'log'], review_required: false },
+    },
+  };
+  const opted = checkRepo({ config: optedOut, changes: [] });
+  const optedAll = [...msgs(opted.errors), ...msgs(opted.warnings)];
+  assert.ok(!optedAll.some((m) => m.includes('requires active stages')), optedAll.join('\n'));
 });

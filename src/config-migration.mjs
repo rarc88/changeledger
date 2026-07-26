@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
+import { REVIEWABLE_STAGES } from './check.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 3;
+export const SUPPORTED_SCHEMA_VERSION = 4;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -78,6 +79,7 @@ export function buildMigration(originalText) {
   }
   if (current < 2) migrateToV2(doc, config, changes);
   if (current < 3) migrateToV3(doc, config, changes);
+  if (current < 4) migrateToV4(doc, changes);
 
   // No line wrapping and no flow padding: keeps untouched flow sequences
   // (statuses, stages) byte-identical to their common written form.
@@ -174,6 +176,42 @@ function migrateToV3(doc, config, changes) {
   }
 }
 
+// 3 → 4: a type that demands independent review must activate the stages that
+// make review possible — `specification` holds the criteria and `plan` the tasks
+// that cite them — the coupling `checkConfig` now enforces. Additive: only types
+// already declaring `review_required: true` are touched, and only to insert the
+// stages they lack. Reads the live doc, not the pre-migration snapshot, so a
+// `review_required` added by migrateToV1 in the same run is seen here too.
+// A config with no canonical `stages` list is left alone: without it there is no
+// order to insert into, and `check` already reports the missing key.
+function migrateToV4(doc, changes) {
+  const canonicalNode = doc.get('stages', true);
+  const typesNode = doc.get('types', true);
+  if (!canonicalNode?.items || !typesNode?.items) return;
+  const canonical = canonicalNode.items.map((n) => String(n.value));
+
+  for (const pair of typesNode.items) {
+    const typeName = pair.key?.value ?? pair.key;
+    if (doc.getIn(['types', typeName, 'review_required']) !== true) continue;
+    const stagesNode = doc.getIn(['types', typeName, 'stages'], true);
+    if (!stagesNode?.items) continue;
+    const stages = stagesNode.items.map((n) => String(n.value));
+    for (const stage of REVIEWABLE_STAGES) {
+      if (stages.includes(stage)) continue;
+      const insertBefore = findInsertBefore(stages, canonical, stage);
+      const node = doc.createNode(stage);
+      if (insertBefore === -1) {
+        stagesNode.items.push(node);
+        stages.push(stage);
+      } else {
+        stagesNode.items.splice(insertBefore, 0, node);
+        stages.splice(insertBefore, 0, stage);
+      }
+      changes.push(`added stage ${stage} to types.${typeName}.stages`);
+    }
+  }
+}
+
 function setBlankGitSection(doc) {
   const gitNode = parseDocument('git:\n  integration_branch:\n').get('git', true);
   doc.set('git', gitNode);
@@ -216,10 +254,10 @@ export function applyMigration(configFile, { dryRun = false } = {}) {
   return `${summary}\n\n--- candidate YAML ---\n${result.yaml}`;
 }
 
-// Find the index in currentList where `status` should be inserted, based on
+// Find the index in currentList where `value` should be inserted, based on
 // canonical order. Returns -1 to append at end.
-function findInsertBefore(currentList, canonicalOrder, status) {
-  const canonIdx = canonicalOrder.indexOf(status);
+function findInsertBefore(currentList, canonicalOrder, value) {
+  const canonIdx = canonicalOrder.indexOf(value);
   for (let i = canonIdx + 1; i < canonicalOrder.length; i++) {
     const pos = currentList.indexOf(canonicalOrder[i]);
     if (pos !== -1) return pos;

@@ -13,6 +13,9 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
 const CLOSED_STATUSES = new Set(['done', 'discarded']);
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
+// Stages a `review_required` type must activate, in canonical order. Exported so
+// the schema migration repairs exactly the coupling `checkConfig` enforces.
+export const REVIEWABLE_STAGES = ['specification', 'plan'];
 
 // Frozen history: `archived` is one-way (there is no `unarchive`) and
 // `discarded` is a tombstone the contract forbids reopening, so a diagnostic
@@ -706,6 +709,19 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+    // An independent reviewer needs something to verify: criteria live in
+    // `## Specification` (the only stage `parseChange` reads `### CRn` from) and
+    // the tasks that cite them live in `## Plan`. A type that demands review
+    // without both stages hands the reviewer an empty contract.
+    if (def.review_required === true) {
+      const missing = REVIEWABLE_STAGES.filter((s) => !def.stages.includes(s));
+      if (missing.length) {
+        err(
+          null,
+          `config type "${type}": review_required: true requires active stages: ${missing.join(', ')}`,
+        );
+      }
+    }
   }
 }
 

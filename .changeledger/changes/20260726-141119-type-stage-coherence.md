@@ -262,12 +262,16 @@ orden de ejecución.
 
 ## Plan
 
-- [ ] Añadir a `checkConfig` en `src/check.mjs` la regla que exige `specification` y `plan` cuando `review_required` es `true`, nombrando las stages ausentes en orden canónico; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir a `checkConfig` en `src/check.mjs` la regla que exige `specification` y `plan` cuando `review_required` es `true`, nombrando las stages ausentes en orden canónico; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-26T21:33:38Z`
 - [x] Activar `specification` para `refactor` en `.changeledger/config.yml`, `templates/config.yml` y la fila de la matriz en `templates/contract/spec.md`, y escribir en el mismo paso la `## Specification` ausente de los dos documentos `refactor` aprobados del ledger, declarando los `CRn` que sus Planes ya citan; verify: `node --test test/contract.test.mjs` (CR5, CR7)
   - **Resolved:** `2026-07-26T21:27:39Z`
-- [ ] Añadir la migración de esquema 3 → 4 en `src/config-migration.mjs` que inserta las stages ausentes en los tipos con `review_required: true` y elevar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR6)
-- [ ] Cubrir en `src/check.mjs` los diagnósticos que el retorno temprano mantenía inalcanzables para un `refactor` en `approved`; verify: `node --test test/check.test.mjs` (CR8)
-- [ ] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real (support)
+- [x] Añadir la migración de esquema 3 → 4 en `src/config-migration.mjs` que inserta las stages ausentes en los tipos con `review_required: true` y elevar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR6)
+  - **Resolved:** `2026-07-26T21:40:01Z`
+- [x] Cubrir en `src/check.mjs` los diagnósticos que el retorno temprano mantenía inalcanzables para un `refactor` en `approved`; verify: `node --test test/check.test.mjs` (CR8)
+  - **Resolved:** `2026-07-26T21:40:01Z`
+- [x] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real (support)
+  - **Resolved:** `2026-07-26T21:43:04Z`
 
 ## Log
 - **2026-07-26T15:05:03Z** `[status]` draft → approved
@@ -277,3 +281,5 @@ orden de ejecución.
 - **2026-07-26T19:53:35Z** `[status]` in-progress → blocked
 - **2026-07-26T21:27:39Z** `[status]` blocked → in-progress
 - **2026-07-26T21:27:39Z** `[note]` Desbloqueado: 20260726-194220 exime la historia congelada, asi que activar specification para refactor ya no invalida los 203 documentos cerrados y check queda verde con los 2 aprobados llevando su Specification. Al recuperar el trabajo del stash, la fusion con lo aterrizado despues dejo dos conflictos aditivos (Log de este documento y test/check.test.mjs); al resolverlos, los dos bloques de test compartian el mismo cierre y hubo que cerrar el test de CR15 aparte
+- **2026-07-26T21:40:48Z** `[note]` Tareas 1, 3 y 4: checkConfig acopla review_required con specification+plan (mensaje con las stages ausentes en orden canonico); migracion 3 -> 4 en src/config-migration.mjs que inserta las stages que faltan en los tipos con review_required: true leyendo el doc vivo (no el snapshot previo, para que un review_required anadido por migrateToV1 en la misma corrida tambien se repare), SUPPORTED_SCHEMA_VERSION a 4, config propio migrado con changeledger config migrate y templates/config.yml a 4; CR8 ya funcionaba tras la tarea 2, asi que la entrega es el guard, matado revirtiendo la activacion de specification en el config del fixture
+- **2026-07-26T21:42:37Z** `[note]` Tareas 1, 3 y 4 en un commit combinado: test/check.test.mjs lleva los guardas de las tres y el salto de SUPPORTED_SCHEMA_VERSION a 4 las hace inseparables ahi (un commit por tarea exigiria staging por hunks, y cada commit parcial dejaria la suite roja: el literal schema_version 4 del fixture es incompatible con SUPPORTED 3, y los tests de CR1-CR4 requieren la regla de checkConfig ya presente)
