@@ -50,7 +50,7 @@ actual):
   según la config real. La regla a implementar no cambia: se deriva de la
   config, nunca de una lista de tipos escrita a mano.
 - `src/check.mjs:503` (`checkCoverage`) — `if (!active?.includes('specification'))
-  return;` corta toda la validación de cobertura/readiness para esos cuatro
+  return;` corta toda la validación de cobertura/readiness para esos tres
   tipos: las reglas del fragmento no solo quedan sin cumplir, son
   estructuralmente inaplicables.
 - `src/check.mjs:83-85` — si, pese a eso, el documento adopta una `##
@@ -114,12 +114,19 @@ composición de `changeledger context`. No se duplica su alcance.
 
 ## Plan
 
-- [ ] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
-- [ ] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando `feature` y `bug` sin cambios; verify: `node --test test/context.test.mjs` (CR1, CR2)
-- [ ] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature` y otro de tipo `bug` siguen componiendo los tres encabezados de fragmento sin cambios; verify: `node --test test/context.test.mjs` (CR3)
-- [ ] Añadir en `test/context.test.mjs` el test de regresión del CR4: la composición desnuda `changeledger context spec` (sin id de cambio) sigue dentro de los límites de `templates/contract/budgets.yml` `base.spec`; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
+- [x] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
+  - **Resolved:** `2026-07-26T23:10:50Z`
+- [x] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando `feature` y `bug` sin cambios; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-26T23:10:50Z`
+- [x] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature`, otro de tipo `bug` y otro de tipo `refactor` siguen componiendo los tres encabezados de fragmento sin cambios; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-26T23:10:50Z`
+- [x] Añadir en `test/context.test.mjs` el test de regresión del CR4: la composición desnuda `changeledger context spec` (sin id de cambio) sigue dentro de los límites de `templates/contract/budgets.yml` `base.spec`; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-07-26T23:10:51Z`
+- [x] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-26T23:10:51Z`
 
 ## Log
 - **2026-07-26T15:05:06Z** `[status]` draft → approved
 - **2026-07-26T23:04:22Z** `[status]` approved → in-progress
+- **2026-07-26T23:10:58Z** `[note]` composeInput filtra readiness derivando las stages activas del tipo desde config; sin lista de tipos hardcodeada. CR2 rojo primero; CR3 y CR4 son guardas de regresion verificadas con mutantes aislados. Ningun presupuesto de budgets.yml cubre composiciones con id en draft, asi que no cambia ninguno.
+- **2026-07-26T23:12:56Z** `[note]` Las cuatro tareas de test comparten test/context.test.mjs y la tarea 1 es roja hasta que aterriza la 2, asi que las cinco van en un commit combinado con este registro, segun el criterio acordado de que tareas relacionadas pueden compartir commit

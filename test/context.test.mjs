@@ -1367,6 +1367,61 @@ function reachableWithoutReview() {
   return [...seen];
 }
 
+// 20260726-141121 CR2 — `readiness` demands `CRn` blocks under `##
+// Specification` and Plan tasks citing them. A type that never activates the
+// `specification` stage cannot satisfy that, so composing the fragment
+// contradicts the `Active stages(<type>)=` line printed in the same capture.
+test('141121 CR2: draft types without specification compose no readiness fragment', () => {
+  const root = repo();
+  const cases = [
+    ['audit', '20260726-141130'],
+    ['chore', '20260726-141131'],
+    ['quick', '20260726-141132'],
+  ];
+  for (const [type, id] of cases) {
+    writeRawChange(root, { id, status: 'draft', type });
+    const output = buildContext(id, root);
+    assert.doesNotMatch(output, /# Definition of Ready/, `${type} still composes readiness`);
+    assert.match(output, /# Authoring a Change/, `${type} lost the authoring fragment`);
+    assert.match(output, /# Economical Delegation/, `${type} lost the delegation fragment`);
+    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
+    assert.ok(stages, `${type} is missing its active stages line`);
+    assert.doesNotMatch(stages, /specification/, `${type} unexpectedly activates specification`);
+  }
+});
+
+// 20260726-141121 CR3 — the filter is keyed on the configured stages, so every
+// type that does activate `specification` must keep the spec pack whole, in the
+// same order it had before the fix.
+test('141121 CR3: draft types with specification keep the three spec fragments', () => {
+  const root = repo();
+  const expected = ['# Authoring a Change', '# Economical Delegation', '# Definition of Ready'];
+  const cases = [
+    ['feature', '20260726-141133'],
+    ['bug', '20260726-141134'],
+    ['refactor', '20260726-141135'],
+  ];
+  for (const [type, id] of cases) {
+    writeRawChange(root, { id, status: 'draft', type });
+    const output = buildContext(id, root);
+    const headings = output.split('\n').filter((line) => expected.includes(line));
+    assert.deepEqual(headings, expected, `${type} composed ${headings.join(', ')}`);
+    const stages = output.split('\n').find((line) => line.startsWith(`Active stages(${type})=`));
+    assert.match(stages, /specification/, `${type} no longer activates specification`);
+  }
+});
+
+// 20260726-141121 CR4 — the bare `spec` mode resolves no change and therefore
+// no type, so the type filter must not reach it: it keeps the readiness
+// fragment and stays inside the `base.spec` budget it was measured against.
+test('141121 CR4: the bare spec composition resolves no type and holds its budget', () => {
+  const root = repo();
+  const output = buildContext('spec', root);
+  assert.doesNotMatch(output, /Active stages\(/);
+  assert.match(output, /# Definition of Ready/);
+  assertWithinBudget('spec', output, contextBudgets.base.spec);
+});
+
 test('141120 CR6: a quick change in-progress composes implement, never review', () => {
   const root = repo();
   const id = addQuickChange(root, 'in-progress');

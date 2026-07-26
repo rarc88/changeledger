@@ -80,6 +80,18 @@ function changePolicyBlock(config, type) {
   return lines.join('\n');
 }
 
+// `readiness` (`# Definition of Ready`) presupposes the change carries a
+// `specification` stage: it requires every behavioral requirement to be a `CRn`
+// and every Plan task to cite one. A type that never activates that stage
+// cannot satisfy it — `check` rejects the stage outright — so composing the
+// fragment would contradict the `Active stages(<type>)=` line of the same
+// capture. Derived from the configured stages, never from a list of type names.
+function fragmentsForType(fragments, config, type) {
+  const stages = config?.types?.[type]?.stages;
+  if (Array.isArray(stages) && stages.includes('specification')) return fragments;
+  return fragments.filter((name) => name !== 'readiness');
+}
+
 // One line per local dependency (id, title, status); external `project:id`
 // references stay references, never pretending local resolution.
 function dependencyBlock(dependsOn, cwd) {
@@ -191,7 +203,7 @@ function composeInput(input, cwd, config) {
   } = parseChange(text).frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return composeResult(selected.mode, selected.fragments, {
+  return composeResult(selected.mode, fragmentsForType(selected.fragments, config, type), {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(config, type),
