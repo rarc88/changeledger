@@ -367,8 +367,10 @@ Ambos son contexto, no prerrequisitos.
   - **Resolved:** `2026-07-26T20:07:40Z`
 - [x] Ejecutar el gate completo y comprobar que el ledger real reporta 17 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-26T20:10:33Z`
-- [ ] Extender el resumen de `src/commands/check.mjs` para que la rama con errores o avisos publique el recuento de no validados con el mismo vocabulario que la rama limpia, sin tocar la forma de la rama limpia ya fijada por CR8 y CR9; verify: `node --test test/cli.test.mjs` (CR11)
-- [ ] Fijar las cuatro conductas de `src/check.mjs` que hoy son correctas pero sobreviven a mutación —`archived` no booleano en el predicado, y las alimentaciones de `knownIds`/backlinks, del grafo de ciclos y de `checkReleases`— corrigiendo ahí mismo cualquiera que no lo esté, y demostrando el valor de cada test con el mutante concreto que mata en vez de con un fallo previo al arreglo; verify: `node --test test/check.test.mjs` (CR12, CR13, CR14, CR15)
+- [x] Extender el resumen de `src/commands/check.mjs` para que la rama con errores o avisos publique el recuento de no validados con el mismo vocabulario que la rama limpia, sin tocar la forma de la rama limpia ya fijada por CR8 y CR9; verify: `node --test test/cli.test.mjs` (CR11)
+  - **Resolved:** `2026-07-26T20:44:50Z`
+- [x] Fijar las cuatro conductas de `src/check.mjs` que hoy son correctas pero sobreviven a mutación —`archived` no booleano en el predicado, y las alimentaciones de `knownIds`/backlinks, del grafo de ciclos y de `checkReleases`— corrigiendo ahí mismo cualquiera que no lo esté, y demostrando el valor de cada test con el mutante concreto que mata en vez de con un fallo previo al arreglo; verify: `node --test test/check.test.mjs` (CR12, CR13, CR14, CR15)
+  - **Resolved:** `2026-07-26T20:48:18Z`
 
 ## Log
 - **2026-07-26T19:50:20Z** `[status]` draft → approved
@@ -381,3 +383,4 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T20:22:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-26T20:30:37Z** `[validation]` in-validation → in-progress (human rejected via conversation): Roberto rechaza para no acumular deuda: la rama de error del resumen no revela los documentos no validados y quedan sin fijar el trato de un archived no booleano y tres alimentaciones de datos que sobreviven a mutacion. Se extiende el alcance con criterios nuevos y re-aprobacion; la fuga de los invariantes con el congelado como sujeto sale como change propio
 - **2026-07-26T20:31:22Z** `[note]` Alcance extendido tras el rechazo humano: CR11 lleva el recuento de no validados a la rama de error del resumen, y CR12-CR15 fijan con mutantes concretos el trato de un archived no booleano y las tres alimentaciones de datos que sobrevivian (knownIds/backlinks, grafo de ciclos, checkReleases). Fuera de esta extension y pendiente de change propio: los cuatro invariantes de repo que atribuyen errores inarreglables a un documento congelado como sujeto (src/check.mjs:149, 161-163, 374)
+- **2026-07-26T20:48:18Z** `[note]` CR11 lleva el recuento de no validados a la rama de error compartiendo una sola frase con la rama limpia; CR12-CR15 quedan fijados con los cuatro mutantes concretos (archived truthy, knownIds/backlinks, grafo de ciclos y checkReleases sobre los sujetos filtrados), todos matados y el fuente restaurado sin cambios: ninguna de las cuatro conductas estaba mal

@@ -1811,7 +1811,7 @@ types:
 
 // Repo-wide `check` reads the contract bootstrap and the config from disk, so
 // these criteria need a real repo instead of an in-memory one.
-function frozenFixture(changeFiles, specFiles = {}) {
+function frozenFixture(changeFiles, specFiles = {}, releaseFiles = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-frozen-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\n');
   ensureReference(root);
@@ -1824,6 +1824,12 @@ function frozenFixture(changeFiles, specFiles = {}) {
     fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
     for (const [name, text] of Object.entries(specFiles)) {
       fs.writeFileSync(path.join(root, '.changeledger', 'specs', name), text);
+    }
+  }
+  if (Object.keys(releaseFiles).length) {
+    fs.mkdirSync(path.join(root, '.changeledger', 'releases'), { recursive: true });
+    for (const [name, text] of Object.entries(releaseFiles)) {
+      fs.writeFileSync(path.join(root, '.changeledger', 'releases', name), text);
     }
   }
   return root;
@@ -1947,4 +1953,73 @@ test('194220 CR7: a graduation recorded by an archived change still backs checkS
   assert.ok(!text.includes('orphan spec'), text);
   assert.ok(!text.includes('missing graduated_from "20260101-000000"'), text);
   assert.equal(code, 0);
+});
+
+test('194220 CR12: an archived flag that is not the boolean true does not freeze', () => {
+  const root = frozenFixture({ 'mismatch.md': validChore({ archived: '"true"' }) });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('archived must be a boolean'), text);
+  assert.ok(text.includes('filename does not match id "20260101-000000"'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR13: the ids of frozen changes still feed mention detection', () => {
+  const mentioning = `---\n${frontmatter({
+    id: '20260102-000000',
+    type: 'chore',
+    status: 'approved',
+  })}\n---\n\n## Request\n\nThe groundwork landed in 20260101-000000 and is not declared here.\n\n## Plan\n\nX\n`;
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+    '20260102-000000-live.md': mentioning,
+  });
+  const { out, text } = runCheck(root);
+  assert.ok(
+    out.diagnostics.some(
+      (line) =>
+        line.includes('20260102-000000-live.md') &&
+        line.includes(
+          'mentions change "20260101-000000" without declaring it in depends_on or related_to',
+        ),
+    ),
+    text,
+  );
+});
+
+test('194220 CR14: a dependency cycle through a frozen change is detected', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({
+      archived: 'true',
+      depends_on: '["20260102-000000"]',
+    }),
+    '20260102-000000-live.md': validChore({
+      id: '20260102-000000',
+      status: 'approved',
+      depends_on: '["20260101-000000"]',
+    }),
+  });
+  const { code, out, text } = runCheck(root);
+  const cycle = out.diagnostics.find((line) => line.includes('dependency cycle: '));
+  assert.ok(cycle, text);
+  assert.ok(cycle.includes('20260101-000000'), cycle);
+  assert.ok(cycle.includes('20260102-000000'), cycle);
+  assert.equal(code, 1);
+});
+
+test('194220 CR15: releases still read the status of a frozen change', () => {
+  const root = frozenFixture(
+    {
+      '20260102-000000-discarded.md': validChore({
+        id: '20260102-000000',
+        status: 'discarded',
+      }),
+    },
+    {},
+    {
+      '1.0.0.yml': 'version: 1.0.0\ncreated: 2026-01-02T00:00:00Z\nchanges:\n  - 20260102-000000\n',
+    },
+  );
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('references change "20260102-000000" whose status is not done'), text);
+  assert.equal(code, 1);
 });
