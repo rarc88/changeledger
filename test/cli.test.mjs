@@ -657,6 +657,12 @@ function captureOutput() {
   return { lines, log: push, warn: push, error: push };
 }
 
+// The summary's error branch opens with a blank separator, so its emitted string
+// carries a leading newline the printed last line does not.
+function lastLine(out) {
+  return out.lines.at(-1).split('\n').at(-1);
+}
+
 test('194220 CR8: the repo-wide summary names the documents it did not validate', () => {
   const root = frozenLedger({
     '20260101-000000-one.md': validChore('20260101-000000'),
@@ -700,4 +706,31 @@ test('194220 CR10: check <id> on a frozen document says it was not validated', (
   const discarded = captureOutput();
   assert.equal(check(['20260102-000000'], root, discarded), 0);
   assert.deepEqual(discarded.lines, ['✓ change 20260102-000000 not validated (discarded)']);
+});
+
+test('194220 CR11: the summary names what it did not validate when it also reports errors', () => {
+  // `mismatch.md` carries a well-formed document whose filename does not start
+  // with its id: exactly one error, no warnings, and still a validated subject.
+  const live = {
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    'mismatch.md': validChore('20260102-000000'),
+  };
+
+  const withFrozen = captureOutput();
+  const frozenRoot = frozenLedger({
+    ...live,
+    '20260103-000000-frozen.md': validChore('20260103-000000', {
+      status: 'done',
+      archived: 'true',
+    }),
+  });
+  assert.equal(check([], frozenRoot, withFrozen), 1);
+  assert.equal(
+    lastLine(withFrozen),
+    '1 error(s), 0 warning(s) — 2 change(s), 1 not validated (archived or discarded)',
+  );
+
+  const withoutFrozen = captureOutput();
+  assert.equal(check([], frozenLedger(live), withoutFrozen), 1);
+  assert.equal(lastLine(withoutFrozen), '1 error(s), 0 warning(s) — 2 change(s)');
 });

@@ -109,12 +109,16 @@ export function check(args = [], cwd = process.cwd(), output = console) {
   const exempt = id
     ? frozenReason(repo.changes.find((c) => String(c.frontmatter?.id) === String(id)))
     : null;
+  // One phrase for the exempted count, so both summary branches say it the same
+  // way and a finding never hides what the run skipped.
+  const exempted = notValidated ? `${notValidated} not validated (archived or discarded)` : '';
   if (errors.length || warnings.length) {
-    output.log(`\n${errors.length} error(s), ${warnings.length} warning(s) — ${scope}`);
+    const tail = exempted ? `, ${exempted}` : '';
+    output.log(`\n${errors.length} error(s), ${warnings.length} warning(s) — ${scope}${tail}`);
   } else if (exempt) {
     output.log(`✓ ${scope} not validated (${exempt})`);
-  } else if (notValidated) {
-    output.log(`✓ ${scope} valid — ${notValidated} not validated (archived or discarded)`);
+  } else if (exempted) {
+    output.log(`✓ ${scope} valid — ${exempted}`);
   } else {
     output.log(`✓ ${scope} valid`);
   }
