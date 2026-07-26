@@ -2,7 +2,7 @@
 id: "20260726-141120"
 title: Impedir in-review en tipos sin review
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-26T14:11:20Z
 depends_on: ["20260726-141119"]
 related_to: ["20260726-141121"]
@@ -172,3 +172,4 @@ comparte los consumidores de los puntos 5 y 6, sin imponer orden de ejecución.
 
 ## Log
 - **2026-07-26T15:05:04Z** `[status]` draft → approved
+- **2026-07-26T22:15:38Z** `[status]` approved → in-progress
