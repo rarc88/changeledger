@@ -162,3 +162,18 @@ test('CR3 (20260726-141124): a code file staged alone never triggers the guard',
 
   assert.equal(subject, 'feat(x): y [#20260711-000001]');
 });
+
+test('CR4 (20260726-141124): the staged path list is logged before the commit', () => {
+  const root = gitRepo();
+  const declared = writeChange(root, '20260711-000001', 'draft');
+  git(root, ['add', declared]);
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  stageFile(root, 'src/app.mjs', 'y');
+  const calls = [];
+  const log = (msg) => calls.push(msg);
+
+  const subject = commit({ message: 'feat(x): y', ids: ['20260711-000001'] }, root, undefined, log);
+
+  assert.equal(subject, 'feat(x): y [#20260711-000001]');
+  assert.deepEqual(calls, ['Staged: .changeledger/changes/20260711-000001-x.md, src/app.mjs']);
+});

@@ -214,7 +214,12 @@ program
   )
   .action(
     action((options) => {
-      const subject = commit({ message: options.message, ids: options.id });
+      const subject = commit(
+        { message: options.message, ids: options.id },
+        process.cwd(),
+        undefined,
+        console.log,
+      );
       console.log(`Committed: ${subject}`);
     }),
   );

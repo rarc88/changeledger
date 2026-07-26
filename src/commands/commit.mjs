@@ -23,7 +23,12 @@ function isUnderDir(filePath, dirRelative) {
 // Validates the subject, resolves the change id(s) to append, and creates the
 // commit. Never invokes git unless the subject and id resolution both succeed
 // — no partial/incorrect commit is ever created. Returns the final subject.
-export function commit({ message, ids = [] } = {}, cwd = process.cwd(), run = mutatingRun) {
+export function commit(
+  { message, ids = [] } = {},
+  cwd = process.cwd(),
+  run = mutatingRun,
+  log = console.log,
+) {
   if (!message || !SUBJECT_RE.test(message)) {
     throw new Error(
       `Subject must follow the conventional form "type(scope): description", got: "${message ?? ''}"`,
@@ -47,6 +52,7 @@ export function commit({ message, ids = [] } = {}, cwd = process.cwd(), run = mu
   }
 
   const staged = stagedFiles(repo.repoRoot, run);
+  log(`Staged: ${staged.join(', ')}`);
   const changesDirRel = path.relative(
     repo.repoRoot,
     resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'),
