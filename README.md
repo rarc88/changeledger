@@ -155,10 +155,11 @@ normally without ChangeLedger; when the executable fails it reports the error
 for human direction. A retained revision is checked with `--have <rev>` after
 compaction.
 
-Roles are `investigation`, `implementation`, `review` and `audit`. `audit` is a
-read-only inspection of a change already in `in-validation` — after review has
-already passed — for a human or orchestrator to consult before accepting or
-rejecting it; it never moves the change or records a verdict. Each generated
+Roles are `investigation`, `implementation`, `review` and `post-review`.
+`post-review` is a read-only inspection of a change already in
+`in-validation` — after review has already passed — for a human or
+orchestrator to consult before accepting or rejecting it; it never moves the
+change or records a verdict. Each generated
 delegation prompt explicitly replaces the bootstrap's default context load with
 its specialized `agent-context` command.
 

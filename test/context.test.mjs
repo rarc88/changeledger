@@ -575,7 +575,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // ChangeLedger-scoped persistent truth: pre-existing code/spec divergence
     // is reported for human resolution, while an approved change still governs
     // code written inside its authorized scope. No lifecycle rule is retired.
-    'core.md': 'e41c7912f87dd99bb9900db2a8f94b74ab1915f14646911d827262d4c271b3ed',
+    'core.md': 'b7b38cd7c56af9c94c65509b394adb197f99e16b247eaf66c9112c10675061ff',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1265,7 +1265,7 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   // The minimum delegation rule points at the on-demand skeleton command.
   assert.match(
     norm,
-    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review \| audit\)/,
+    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review \| post-review\)/,
   );
   // The skeleton bodies are NOT inlined into the core, and the pointer is not
   // duplicated into the delegation fragment.
