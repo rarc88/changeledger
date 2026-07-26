@@ -644,7 +644,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // existing dependency execution and authoring rules are preserved.
     // 20260720-125007: task state metadata and Log events become explicit
     // structured records; the former punctuation-delimited forms are retired.
-    'spec.md': '2214972d07198b897d1f629109f495413ef70f92bb68ffdff5fbbfc62917bbcf',
+    // 20260726-141119: the activation matrix marks `specification` active for
+    // `refactor`, so a type that requires independent review always carries
+    // verifiable criteria. Every other row and rule is preserved.
+    'spec.md': '6c960405ab4e10ba003068ccf8ff590a433e10499c261925382e0e99e50ed59d',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct

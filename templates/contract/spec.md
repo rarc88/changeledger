@@ -84,7 +84,7 @@ Default activation matrix:
 | feature | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | bug | ✓ | ✓ | — | ✓ | ✓ | ✓ |
 | audit | ✓ | ✓ | — | — | — | ✓ |
-| refactor | ✓ | — | ✓ | — | ✓ | ✓ |
+| refactor | ✓ | — | ✓ | ✓ | ✓ | ✓ |
 | chore | ✓ | — | — | — | ✓ | — |
 | quick | ✓ | — | — | — | — | ✓ |
 

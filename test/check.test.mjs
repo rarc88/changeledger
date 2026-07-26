@@ -2049,3 +2049,59 @@ test('194220 CR15: releases still read the status of a frozen change', () => {
   assert.ok(text.includes('references change "20260102-000000" whose status is not done'), text);
   assert.equal(code, 1);
 });
+
+test('141119 CR7: a refactor missing Specification errors until the stage is written', () => {
+  const cfg = {
+    ...tddConfig,
+    stages: ['request', 'proposal', 'specification', 'plan', 'log'],
+    types: {
+      refactor: {
+        stages: ['request', 'proposal', 'specification', 'plan', 'log'],
+        review_required: true,
+      },
+    },
+  };
+  const head = `---
+id: "20260613-120000"
+title: X
+type: refactor
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Quitar el flag heredado.
+
+## Proposal
+
+Eliminación limpia, sin capa de compatibilidad.
+`;
+  const tail = `
+## Plan
+
+- [ ] Quitar la opción de \`src/cli.mjs\`; verify: \`node --test test/cli.test.mjs\` (CR1)
+
+## Log
+`;
+  const without = covResult(head + tail, cfg);
+  assert.ok(
+    msgs(without.errors).some((m) =>
+      /missing active stage "## specification" for type refactor/.test(m),
+    ),
+    'a refactor without Specification must be an error once the stage is active',
+  );
+
+  const specification = `
+## Specification
+
+### CR1 — La opción deja de existir
+
+- **Given** un repo inicializado
+- **When** se ejecuta \`changeledger context --have x\`
+- **Then** el proceso termina con código de salida 1
+`;
+  const withSpec = covResult(head + specification + tail, cfg);
+  assert.deepEqual(msgs(withSpec.errors), []);
+});

@@ -59,6 +59,8 @@ segmento `rev:<hash>` de la línea BEGIN:
   ningún consumidor restante. Son código muerto y deben eliminarse en este
   mismo change, no dejarse "por si acaso" — el repo prohíbe dejar residuo así.
 
+## Specification
+
 ### CR1 — `--have` deja de ser una opción reconocida por el CLI
 - **Given** un repo ChangeLedger inicializado con `changeledger init`
 - **When** se ejecuta `changeledger context --have deadbeefcafe`

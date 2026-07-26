@@ -2,7 +2,7 @@
 id: "20260726-141119"
 title: Acoplar review_required con las stages verificables
 type: bug
-status: blocked
+status: in-progress
 created: 2026-07-26T14:11:19Z
 depends_on: ["20260726-194220"]
 related_to: ["20260726-141120", "20260726-141121"]
@@ -263,8 +263,8 @@ orden de ejecución.
 ## Plan
 
 - [ ] Añadir a `checkConfig` en `src/check.mjs` la regla que exige `specification` y `plan` cuando `review_required` es `true`, nombrando las stages ausentes en orden canónico; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4)
-- [!] Activar `specification` para `refactor` en `.changeledger/config.yml`, `templates/config.yml` y la fila de la matriz en `templates/contract/spec.md`, y escribir en el mismo paso la `## Specification` ausente de los dos documentos `refactor` aprobados del ledger, declarando los `CRn` que sus Planes ya citan; verify: `node --test test/contract.test.mjs` (CR5, CR7)
-  - **Blocked:** Gate rojo: la activación de specification invalida 203 documentos congelados; trabajo escrito en git stash hasta que aterrice 20260726-194220
+- [x] Activar `specification` para `refactor` en `.changeledger/config.yml`, `templates/config.yml` y la fila de la matriz en `templates/contract/spec.md`, y escribir en el mismo paso la `## Specification` ausente de los dos documentos `refactor` aprobados del ledger, declarando los `CRn` que sus Planes ya citan; verify: `node --test test/contract.test.mjs` (CR5, CR7)
+  - **Resolved:** `2026-07-26T21:27:39Z`
 - [ ] Añadir la migración de esquema 3 → 4 en `src/config-migration.mjs` que inserta las stages ausentes en los tipos con `review_required: true` y elevar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR6)
 - [ ] Cubrir en `src/check.mjs` los diagnósticos que el retorno temprano mantenía inalcanzables para un `refactor` en `approved`; verify: `node --test test/check.test.mjs` (CR8)
 - [ ] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real (support)
@@ -273,4 +273,7 @@ orden de ejecución.
 - **2026-07-26T15:05:03Z** `[status]` draft → approved
 - **2026-07-26T18:45:30Z** `[status]` approved → in-progress
 - **2026-07-26T18:45:41Z** `[note]` Ejecución en orden 2→1→3→4→5: la regla de checkConfig invalida el config de este repo hasta que refactor active specification, así que la tarea 2 va primero para que cada commit pase el gate
+- **2026-07-26T18:54:09Z** `[note]` Tarea 2 (parcial, bloqueada): refactor ya activa specification en .changeledger/config.yml, templates/config.yml y la matriz de templates/contract/spec.md; escritas las Specification de 20260726-124833 (los CR1-CR5 que su Plan ya citaba, elevados de Proposal a su stage) y de 20260726-124837 (CR1-CR5 derivados de sus Criterios verificables). Ambos documentos pasan check limpios. BLOQUEO: la Investigation subestimó el alcance de la migración — el error de src/check.mjs:81 es ciego al status y a archived, así que la activación invalida los 21 documentos refactor cerrados del ledger (19 done, 2 discarded), no solo los 2 aprobados. pnpm lint y las 742 pruebas pasan; changeledger check falla con 21 error(s). Requiere decisión humana: acotar el error de stage ausente a draft/approved/in-progress (src/check.mjs, fuera del alcance de esta tarea y no cubierto por ningún CRn aprobado) u otra vía.
 - **2026-07-26T19:53:35Z** `[status]` in-progress → blocked
+- **2026-07-26T21:27:39Z** `[status]` blocked → in-progress
+- **2026-07-26T21:27:39Z** `[note]` Desbloqueado: 20260726-194220 exime la historia congelada, asi que activar specification para refactor ya no invalida los 203 documentos cerrados y check queda verde con los 2 aprobados llevando su Specification. Al recuperar el trabajo del stash, la fusion con lo aterrizado despues dejo dos conflictos aditivos (Log de este documento y test/check.test.mjs); al resolverlos, los dos bloques de test compartian el mismo cierre y hubo que cerrar el test de CR15 aparte

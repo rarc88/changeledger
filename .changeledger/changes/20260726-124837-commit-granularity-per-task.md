@@ -104,35 +104,6 @@ La reescritura sustituye únicamente el párrafo del juicio de atribución
 - La regla sobre registrar un commit combinado inevitable cuando varios
   changes comparten archivos (nombrar cada change afectado en Log o handoff).
 
-### Criterios verificables
-
-Sin etapa de Specification en `refactor`, este Proposal fija los criterios que
-un reviewer puede comprobar directamente sobre la salida compuesta de
-`changeledger context implement` (vía `test/context.test.mjs`):
-
-- **Debe estar ausente** la frase de juicio: `later work could obscure
-  attribution` no aparece en ningún lugar de `implement.md` tras la reescritura.
-- **Debe estar presente** la definición de las cuatro clases de commit y su
-  fórmula de conteo, en términos equivalentes a:
-  - "one per drafted change document", "committed on its own" / "never batched
-    with another draft" para el commit Draft.
-  - "exactly one" commit baseline, "containing the change document", "before
-    any code".
-  - "one per completed Plan task" para el commit de task.
-  - "zero or one" para el commit de handoff.
-  - que una transición de lifecycle "travels in whichever of the [...] comes
-    next" (nunca es un commit propio).
-- **Debe estar presente** la instrucción de inspeccionar el conjunto staged
-  (equivalente a "inspect the staged set") antes de reintentar un commit tras
-  un fallo del hook `pre-commit`.
-- **Debe seguir presente**, sin alterar, cada elemento listado en "Qué se
-  preserva sin cambios" arriba (aserciones literales sobre las líneas que no se
-  tocan).
-- El presupuesto `implement` de `templates/contract/budgets.yml` (`target` y
-  `hard`, líneas y bytes) sigue cumpliéndose tras la reescritura —
-  `assertWithinBudget('implement', …)` en `test/context.test.mjs` sigue en
-  verde sin necesidad de tocar `budgets.yml`.
-
 ### Fuera de alcance
 
 - Añadir un nuevo lint que cuente commits contra tareas del Plan completadas:
@@ -146,10 +117,68 @@ un reviewer puede comprobar directamente sobre la salida compuesta de
   `20260726-141124`. Este change solo añade la obligación del agente en el
   contrato.
 
+## Specification
+
+Los criterios se comprueban sobre la salida compuesta de
+`changeledger context implement` (vía `test/context.test.mjs`), que es donde el
+agente lee realmente el fragmento reescrito.
+
+### CR1 — La frase de juicio de atribución desaparece
+
+- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+- **When** se compone el contexto con `changeledger context implement`
+- **Then** la salida no contiene en ningún punto la cadena `later work could
+  obscure attribution`
+
+### CR2 — Las cuatro clases de commit quedan definidas con su fórmula de conteo
+
+- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+- **When** se compone el contexto con `changeledger context implement`
+- **Then** la salida define el commit Draft en términos equivalentes a
+  `one per drafted change document` y `committed on its own`, prohibiendo
+  agrupar varios borradores en un mismo commit
+- **And** define el commit Baseline como `exactly one`, `containing the change
+  document`, `before any code`
+- **And** define el commit Task como `one per completed Plan task` y el commit
+  Handoff como `zero or one`
+- **And** declara que una transición de lifecycle
+  `travels in whichever of the [...] comes next`, es decir que nunca es un
+  commit propio
+
+### CR3 — El contrato obliga a inspeccionar el índice staged tras un hook fallido
+
+- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+- **When** se compone el contexto con `changeledger context implement`
+- **Then** la salida instruye a inspeccionar el conjunto staged (en términos
+  equivalentes a `inspect the staged set`) antes de reintentar un commit tras un
+  fallo del hook `pre-commit`
+
+### CR4 — Las reglas que se preservan siguen presentes sin alterar
+
+- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+- **When** se compone el contexto con `changeledger context implement`
+- **Then** la salida sigue conteniendo la forma canónica del subject
+  `type(scope): description [#<id>]`, la regla de body multi-change
+  `ChangeLedger: [#A] [#B]` sin lista por comas, las excepciones de merge y
+  `chore(release)`, `changeledger commit -m "..." [--id <id>]` como compositor y
+  `changeledger check --commits [<base>]` como linter previo a la review
+- **And** siguen presentes sin cambio las reglas de rama y worktree (nunca
+  `main`/`master`/`dev`, ramas desde `git.integration_branch`, inspeccionar el
+  worktree antes de tocarlo) y la obligación de registrar un commit combinado
+  inevitable nombrando cada change que comparte la superficie
+
+### CR5 — El presupuesto del contexto implement sigue cumpliéndose
+
+- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+- **When** se ejecuta `node --test test/context.test.mjs`
+- **Then** `assertWithinBudget('implement', …)` pasa con el `target` y el `hard`
+  ya declarados para `implement` en `templates/contract/budgets.yml`
+- **And** no ha sido necesario modificar `budgets.yml`
+
 ## Plan
 
-- [ ] Reescribir el párrafo de reglas de commit (líneas 24 y 28-34) en `templates/contract/implement.md` con las cuatro clases draft/baseline/task/handoff y el aviso de inspeccionar el índice staged tras un hook fallido descritos en el Proposal, sin tocar el resto de la sección de git/commits, y actualizar las aserciones de presencia/ausencia y el hash de snapshot revisado de `implement.md` en `test/context.test.mjs` acorde al nuevo texto; verify: `node --test test/context.test.mjs`
-- [ ] Ejecutar el gate completo tras el cambio (support); verify: `pnpm verify`
+- [ ] Reescribir el párrafo de reglas de commit (líneas 24 y 28-34) en `templates/contract/implement.md` con las cuatro clases draft/baseline/task/handoff y el aviso de inspeccionar el índice staged tras un hook fallido descritos en el Proposal, sin tocar el resto de la sección de git/commits, y actualizar las aserciones de presencia/ausencia y el hash de snapshot revisado de `implement.md` en `test/context.test.mjs` acorde al nuevo texto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [ ] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
 
 ## Log
 

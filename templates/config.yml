@@ -59,7 +59,7 @@ types:
   audit:
     stages: [request, investigation, log]
   refactor:
-    stages: [request, proposal, plan, log]
+    stages: [request, proposal, specification, plan, log]
     review_required: true
   chore:
     stages: [request, plan]

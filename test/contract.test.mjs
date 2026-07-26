@@ -369,3 +369,20 @@ test('CR11: register removes only the literal legacy gitignore line', () => {
     ' .changeledger/AGENTS.md\n.changeledger/AGENTS.md \n',
   );
 });
+
+test('141119 CR5: refactor activates specification in every versioned artifact', () => {
+  const repoRoot = new URL('../', import.meta.url);
+  for (const file of ['.changeledger/config.yml', 'templates/config.yml']) {
+    assert.match(
+      fs.readFileSync(new URL(file, repoRoot), 'utf8'),
+      / {2}refactor:\n {4}stages: \[request, proposal, specification, plan, log\]\n {4}review_required: true\n/,
+      `${file} must activate specification for the refactor type`,
+    );
+  }
+  assert.ok(
+    fs
+      .readFileSync(new URL('templates/contract/spec.md', repoRoot), 'utf8')
+      .includes('| refactor | ✓ | — | ✓ | ✓ | ✓ | ✓ |'),
+    'the default activation matrix must mark specification active for refactor',
+  );
+});
