@@ -2,9 +2,10 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: in-validation
+status: done
 created: 2026-07-26T19:42:20Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260726-141119", "20260613-222915", "20260711-103802"]
 ---
@@ -393,3 +394,5 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T21:05:18Z** `[status]` in-progress → in-review
 - **2026-07-26T21:09:12Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de test/check.test.mjs y al criterio CR13, con re-derivacion adversarial del mutante aislado como condicion
 - **2026-07-26T21:09:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T21:21:13Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T21:24:30Z** `[graduation]` spec: `validation.md`
