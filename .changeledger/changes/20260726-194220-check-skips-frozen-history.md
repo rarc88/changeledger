@@ -2,7 +2,7 @@
 id: "20260726-194220"
 title: Excluir la historia congelada de la validación de check
 type: bug
-status: draft
+status: approved
 created: 2026-07-26T19:42:20Z
 depends_on: []
 related_to: ["20260726-141119", "20260613-222915", "20260711-103802"]
@@ -179,11 +179,13 @@ un solo sitio.
 
 `20260726-141119` está `in-progress` y su tarea de activación de `specification`
 espera sin commitear a que este cambio aterrice; ambos escriben
-`src/check.mjs`, así que van en secuencia, este primero, nunca en paralelo. La
-dependencia de ejecución se declara aquí como `related_to` porque `depends_on`
-vive en el change dependiente y `20260726-141119` ya está aprobado; si se
-prefiere registrarla estructuralmente, hay que añadirle `depends_on` y
-re-aprobarlo.
+`src/check.mjs`, así que van en secuencia, este primero, nunca en paralelo. Esa
+dependencia de ejecución se declara en el change dependiente:
+`20260726-141119` lleva `depends_on: ["20260726-194220"]`. El `related_to`
+recíproco de aquí se conserva porque `relatedBacklinks`
+(`src/check.mjs:153-166`) deriva backlinks sólo de `related_to`, nunca de
+`depends_on`, y sin él las menciones de ese id en esta Investigation quedan sin
+declarar.
 
 `20260613-222915` introdujo el flag `archived` y validó únicamente su tipo;
 `20260711-103802` retiró `unarchive` y con ello hizo el archivado irreversible.
@@ -309,3 +311,4 @@ Ambos son contexto, no prerrequisitos.
 - [ ] Ejecutar el gate completo y comprobar que el ledger real reporta 16 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-26T19:50:20Z** `[status]` draft → approved

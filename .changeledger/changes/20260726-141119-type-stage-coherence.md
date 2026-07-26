@@ -4,7 +4,7 @@ title: Acoplar review_required con las stages verificables
 type: bug
 status: in-progress
 created: 2026-07-26T14:11:19Z
-depends_on: []
+depends_on: ["20260726-194220"]
 related_to: ["20260726-141120", "20260726-141121"]
 owner: raruiz-hiberuscom
 ---
