@@ -2,7 +2,7 @@
 id: "20260726-130727"
 title: Publicar el tamaño exacto del contexto en la línea BEGIN
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T13:07:27Z
 depends_on: ["20260726-124833"]
 related_to: ["20260726-124834"]
@@ -216,3 +216,4 @@ change), cruce del límite de dígitos de `N` (999 → 1000), y endurecimiento
   sin pérdida de sustancia respecto al documento original. La superficie
   CONTRACT (texto de bootstrap, `BOOTSTRAP_VERSION`) queda en
   `20260726-124834`, que ahora depende de este change.
+- **2026-07-26T14:05:48Z** `[status]` draft → approved

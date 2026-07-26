@@ -2,7 +2,7 @@
 id: "20260726-124835"
 title: Reescribir el contexto core para enrutar por intención
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T12:48:35Z
 depends_on: ["20260726-124833", "20260726-124834", "20260726-130728"]
 related_to: ["20260722-124655", "20260722-124656", "20260726-124837"]
@@ -337,3 +337,4 @@ haber detectado se trata como defecto de esa etapa.
 
 - **2026-07-26T12:56:42Z** `[note]` Draft creado: core pasa a ser contrato de enrutamiento por intención y delegación, con criterio de admisión explícito, presupuesto 175/200 y target estricto solo para core.
 - **2026-07-26T13:25:00Z** `[note]` Draft acotado: el mecanismo de presupuesto (cifras de `budgets.yml` y fallo estricto en target) sale a `20260726-130728`, que pasa a ser prerrequisito de ejecución. Se incorpora al bloque 3 el dimensionado del delegado, decidido con el humano y enunciado sin nombrar modelos de ningún proveedor. 19 criterios y 6 tareas quedan en 12 y 5.
+- **2026-07-26T14:05:42Z** `[status]` draft → approved

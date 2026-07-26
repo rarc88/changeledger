@@ -2,7 +2,7 @@
 id: "20260726-124836"
 title: Asignar owner al crear el change
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T12:48:36Z
 depends_on: []
 related_to: []
@@ -154,3 +154,4 @@ el guard en vez de conservarlo: `in-progress` reasigna siempre.
 - [ ] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
 
 ## Log
+- **2026-07-26T14:05:44Z** `[status]` draft → approved

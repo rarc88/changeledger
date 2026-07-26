@@ -2,7 +2,7 @@
 id: "20260726-124834"
 title: Bootstrap con captura acotada y verificable
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T12:48:34Z
 depends_on: ["20260726-130727"]
 related_to: ["20260726-124835"]
@@ -261,3 +261,4 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
   salto de `BOOTSTRAP_VERSION` y el retiro del bloque v3. Ninguna sustancia se
   perdió: cada CR y tarea removidos aquí reaparecen sin cambios de fondo en
   `20260726-130727`.
+- **2026-07-26T14:05:40Z** `[status]` draft → approved

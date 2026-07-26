@@ -2,7 +2,7 @@
 id: "20260726-130728"
 title: Endurecer el presupuesto del contexto core
 type: feature
-status: draft
+status: approved
 created: 2026-07-26T13:07:28Z
 depends_on: []
 related_to: ["20260726-124835"]
@@ -137,3 +137,4 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 ## Log
 
 - **2026-07-26T13:20:00Z** `[note]` Draft creado al separar el mecanismo de presupuesto de la reescritura del texto core (`20260726-124835`): aquí viven las cifras 175/200 y el fallo estricto en target solo para `core`. Tipo `feature` en vez de `refactor` porque el contrato de este repo solo activa `## Specification` para `feature` y `bug`, y los criterios son obligatorios; `release_impact: none` conserva la semántica de release de un refactor.
+- **2026-07-26T14:05:49Z** `[status]` draft → approved

@@ -2,7 +2,7 @@
 id: "20260726-124833"
 title: Eliminar el flag --have del contexto
 type: refactor
-status: draft
+status: approved
 created: 2026-07-26T12:48:33Z
 depends_on: []
 related_to: ["20260726-124834", "20260726-124835"]
@@ -99,3 +99,4 @@ segmento `rev:<hash>` de la línea BEGIN:
 ## Log
 
 - **2026-07-26T12:48:33Z** `[note]` Creado en draft: eliminar `--have` de `changeledger context` sin shim. `--have` solo aporta valor tras una compactación, momento en el que el `rev` retenido ya se ha perdido; su caso útil es vacío. Investigación confirma que `contentRev()` (`src/framing.mjs`) tiene un único punto de llamada (`src/commands/context.mjs:153`) y que el segmento `rev:` de la línea BEGIN solo se consume en ese mismo archivo (líneas 154, 210, 212-213) para servir a `--have`; sin `--have`, ambos quedan sin consumidor y se retiran como código muerto en este mismo change.
+- **2026-07-26T14:05:37Z** `[status]` draft → approved

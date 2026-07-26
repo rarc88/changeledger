@@ -2,7 +2,7 @@
 id: "20260726-124837"
 title: Unidad de commit igual a tarea del Plan
 type: refactor
-status: draft
+status: approved
 created: 2026-07-26T12:48:37Z
 depends_on: ["20260726-124835"]
 related_to: ["20260722-124656"]
@@ -125,3 +125,4 @@ un reviewer puede comprobar directamente sobre la salida compuesta de
   `implement.md` por una unidad de commit contable (tarea del Plan), con tres
   clases cerradas — baseline, task, handoff — y ninguna transición de
   lifecycle como commit propio.
+- **2026-07-26T14:05:46Z** `[status]` draft → approved
