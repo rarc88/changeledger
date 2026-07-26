@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-18T12:33:08Z
+updated: 2026-07-26T22:13:09Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -84,6 +84,19 @@ verificaciones acotadas.
 únicamente la revisión: van `in-progress → in-validation`. Todo tipo pasa por
 validación humana antes de `done`; así `done` siempre significa resultado
 aceptado.
+
+Exigir revisión y no poder contener nada verificable es una configuración
+incoherente, no una preferencia: `checkCoverage` sólo corre para tipos que
+activan `specification`, y los bloques `### CRn` sólo se parsean de esa stage, de
+modo que un tipo con `review_required: true` sin ella manda al revisor un encargo
+sin criterios que comprobar. `checkConfig` lo rechaza nombrando el tipo y las
+stages ausentes en orden canónico. Por eso `refactor` activa `specification`: es
+el tipo con más probabilidad de cambiar comportamiento en silencio, y sus
+criterios son la prueba de que se preservó; el trabajo mecánico pertenece a
+`chore` o `quick`. Queda pendiente una incoherencia menor y conocida: `chore`
+activa `plan` sin `specification`, así que sus tareas no reciben diagnósticos de
+trazabilidad — pérdida de trazabilidad, no revisor mal dirigido, porque `chore`
+no exige revisión.
 
 **Carril `quick`.** Tipo oficial para trabajo pequeño trazable que antes acababa
 en bypass silencioso: un solo concern, reversible, sin ampliar superficie

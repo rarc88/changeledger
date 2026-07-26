@@ -2,9 +2,10 @@
 id: "20260726-141119"
 title: Acoplar review_required con las stages verificables
 type: bug
-status: in-validation
+status: done
 created: 2026-07-26T14:11:19Z
 depends_on: ["20260726-194220"]
+reviewed: true
 related_to: ["20260726-141120", "20260726-141121"]
 owner: raruiz-hiberuscom
 ---
@@ -289,3 +290,6 @@ orden de ejecución.
 - **2026-07-26T22:00:06Z** `[status]` in-progress → in-review
 - **2026-07-26T22:03:59Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de src/config-migration.mjs y test/config-migration.test.mjs, con reproduccion independiente del defecto original y mutante aislado como condicion
 - **2026-07-26T22:03:59Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-26T22:10:50Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T22:13:09Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-26T22:13:09Z** `[graduation]` spec: `architecture.md`

@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-07-11T21:52:41Z
+updated: 2026-07-26T22:13:09Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -60,9 +60,17 @@ migración explícita construye un candidato con el AST de YAML, actualiza estru
 y comentarios administrados, conserva decisiones y extensiones propias, no mueve
 directorios y escribe atómicamente. Repetirla sobre el schema vigente es un no-op
 byte-idéntico; un schema más nuevo que el soportado falla cerrado. Las
-migraciones son una cadena versionada y aditiva: el schema vigente es `2`, y la
+migraciones son una cadena versionada y aditiva: el schema vigente es `4`. La
 migración 1 → 2 añade el tipo `quick` y sus impactos a repos schema 1 sin pisar
-un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). El resumen
+un `quick` custom ni extensiones propias (guardas `Object.hasOwn`). La migración
+3 → 4 repara el acoplamiento entre `review_required` y las stages verificables:
+inserta las stages ausentes, en su posición canónica, sólo en los tipos que
+declaran `review_required: true`, y deja byte a byte los demás. Lee el documento
+YAML vivo y no la instantánea previa, porque una migración anterior de la misma
+cadena puede haber añadido el propio `review_required` que dispara la reparación.
+Nunca inserta una stage que la lista canónica del repo no declare: sin punto de
+inserción legítimo se abstiene y deja en pie el error exacto de `checkConfig`, en
+vez de fabricar una lista inválida y declararse terminada. El resumen
 de la migración expone la versión de origen real detectada, y CLI y visor
 comparten el mismo motor; el cliente del visor lee la versión soportada del
 payload del servidor en vez de duplicar la constante.
