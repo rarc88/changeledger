@@ -140,3 +140,14 @@ test('CR1 (20260726-141124): a staged change document not declared aborts the co
   );
   assert.equal(commitCount(root), 0);
 });
+
+test('CR2 (20260726-141124): declaring the staged id allows the commit', () => {
+  const root = gitRepo();
+  const declared = writeChange(root, '20260711-999999', 'draft');
+  git(root, ['add', declared]);
+
+  const subject = commit({ message: 'fix(x): y', ids: ['20260711-999999'] }, root);
+
+  assert.equal(subject, 'fix(x): y [#20260711-999999]');
+  assert.equal(commitCount(root), 1);
+});
