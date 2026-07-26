@@ -151,3 +151,14 @@ test('CR2 (20260726-141124): declaring the staged id allows the commit', () => {
   assert.equal(subject, 'fix(x): y [#20260711-999999]');
   assert.equal(commitCount(root), 1);
 });
+
+test('CR3 (20260726-141124): a code file staged alone never triggers the guard', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  stageFile(root, 'src/app.mjs', 'x');
+
+  const subject = commit({ message: 'feat(x): y' }, root);
+
+  assert.equal(subject, 'feat(x): y [#20260711-000001]');
+});

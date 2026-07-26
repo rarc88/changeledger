@@ -117,7 +117,8 @@ todo check existente.
   - **Resolved:** `2026-07-26T15:23:18Z`
 - [x] Cubrir en `test/commit.test.mjs`, sobre la guarda de `src/commands/commit.mjs`, el camino de éxito cuando el id staged sí está declarado (mismo path, ahora en `ids`); verify: `node --test test/commit.test.mjs` (CR2)
   - **Resolved:** `2026-07-26T15:24:09Z`
-- [ ] Cubrir que un `src/*.mjs` staged en solitario, sin ningún path bajo `changes_dir`, nunca evalúa ni dispara la guarda; verify: `node --test test/commit.test.mjs` (CR3)
+- [x] Cubrir que un `src/*.mjs` staged en solitario, sin ningún path bajo `changes_dir`, nunca evalúa ni dispara la guarda; verify: `node --test test/commit.test.mjs` (CR3)
+  - **Resolved:** `2026-07-26T15:25:00Z`
 - [ ] Añadir el parámetro inyectable `log` (default `console.log`) a `commit()` que imprime la lista de paths staged antes de evaluar la guarda, y conectarlo desde la acción `commit` de `bin/changeledger.mjs`; verify: `node --test test/commit.test.mjs` (CR4)
 - [ ] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
 
@@ -133,3 +134,4 @@ todo check existente.
 - **2026-07-26T15:18:47Z** `[status]` approved → in-progress
 - **2026-07-26T15:23:18Z** `[note]` Task 1: stagedFiles(cwd, run) en src/git.mjs + guarda pre-git en commit() que aborta si un documento de change staged bajo changes_dir no está en resolvedIds (CR1).
 - **2026-07-26T15:24:09Z** `[note]` Task 2: cobertura del camino de éxito (CR2) — id staged declarado en resolvedIds no dispara la guarda.
+- **2026-07-26T15:25:00Z** `[note]` Task 3: cobertura CR3 — un src/*.mjs staged en solitario nunca dispara la guarda.
