@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-07-26T13:16:03Z
 depends_on: []
+reviewed: true
 related_to: ["20260711-204419"]
 owner: raruiz-hiberuscom
 ---
@@ -43,3 +44,4 @@ la invocación, y `pnpm verify` completo.
 - **2026-07-26T13:49:10Z** `[note]` Gate completo en verde con el locale fijado: 718 tests, check 213 valid. El commit baseline del documento antes del codigo era imposible aqui: el hook pre-commit ejecuta pnpm test y estaba rojo por el propio defecto que este change corrige, asi que documento y fix van en un unico commit consolidado.
 - **2026-07-26T13:49:10Z** `[status]` in-progress → in-validation
 - **2026-07-26T13:51:40Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-26T14:10:12Z** `[graduation]` spec: `git-traceability.md`

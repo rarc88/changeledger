@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-12T10:49:41Z
+updated: 2026-07-26T14:10:12Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603"]
 ---
 
 ## Trazabilidad git
@@ -28,7 +28,9 @@ ejecución: las consultas tolerantes (`defaultRun`) degradan en silencio a vací
 mientras el camino mutador de `changeledger commit` usa `mutatingRun`, que
 captura stderr/stdout de git y los incluye en el error lanzado — un commit
 fallido (hook, nada staged, identidad ausente) siempre expone su diagnóstico en
-vez de un exit 1 opaco.
+vez de un exit 1 opaco. Ese diagnóstico lo consume un agente que clasifica el
+fallo por su texto, así que el runner fija `LC_ALL=C` en el entorno de todo
+subproceso git: el idioma del mensaje no depende del locale del host.
 
 La clave opcional `git.integration_branch` declara la base y el destino de las
 ramas de change. Cuando existe, `check --commits` la usa como base por defecto
