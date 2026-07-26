@@ -59,6 +59,9 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
     throw new Error(`${type} changes must be reviewed before validation — move to in-review first`);
   }
   if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
+    if (!type) {
+      throw new Error('cannot decide review entry: the change declares no type');
+    }
     throw new Error(`${type} changes do not require review — move to in-validation instead`);
   }
 }

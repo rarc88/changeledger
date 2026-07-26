@@ -92,6 +92,13 @@ test('141120 CR1: a type without review cannot enter in-review', () => {
   );
 });
 
+test('141120: a typeless document gets a named cause instead of "undefined"', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'in-review', { reviewRequired: false }),
+    /^Error: cannot decide review entry: the change declares no type$/,
+  );
+});
+
 test('141120 CR3: the lightweight type keeps its legitimate route to validation', () => {
   assert.doesNotThrow(() =>
     assertTransition('in-progress', 'in-validation', { type: 'audit', reviewRequired: false }),

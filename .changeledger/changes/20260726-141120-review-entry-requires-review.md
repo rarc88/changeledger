@@ -2,7 +2,7 @@
 id: "20260726-141120"
 title: Impedir in-review en tipos sin review
 type: bug
-status: in-progress
+status: in-validation
 created: 2026-07-26T14:11:20Z
 depends_on: ["20260726-141119"]
 related_to: ["20260726-141121"]
@@ -178,3 +178,9 @@ comparte los consumidores de los puntos 5 y 6, sin imponer orden de ejecución.
 - **2026-07-26T15:05:04Z** `[status]` draft → approved
 - **2026-07-26T22:15:38Z** `[status]` approved → in-progress
 - **2026-07-26T22:26:13Z** `[note]` Review entry closed in assertTransition: a type without review_required cannot enter in-review, which makes the review capsule and review-mode context unreachable by construction
+- **2026-07-26T22:28:40Z** `[status]` in-progress → in-review
+- **2026-07-26T22:42:42Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (todos los llamadores de la autoridad de transiciones, incluida la ruta del visor), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-26T22:42:42Z** `[review]` in-review → in-progress (retry): El guard nuevo dispara sobre el default reviewRequired=false, asi que un documento sin type en frontmatter produce 'undefined changes do not require review — move to in-validation instead': el unico mensaje que ve el usuario, no nombra la causa y prescribe un remedio sin sentido. Reproducido por el revisor con el CLI real, no es test-only como afirmaba el informe
+- **2026-07-26T22:45:27Z** `[status]` in-progress → in-review
+- **2026-07-26T22:50:27Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al diff sin commitear de src/lifecycle.mjs y test/lifecycle.test.mjs, con reproduccion independiente del defecto original por CLI y mutante aislado como condicion
+- **2026-07-26T22:50:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
