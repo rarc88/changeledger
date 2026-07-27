@@ -93,11 +93,31 @@ review contexts own that classification.
 
 ## Commits
 
-One commit per completed Plan task, plus one baseline commit of the change document before
-any code. A lifecycle transition is never a commit of its own — the Log is its record; the
-transition travels in the next real commit. Subjects follow `type(scope): description
-[#<id>]`; `changeledger commit` composes it, and `changeledger context implement` owns the
-full contract.
+A change branch carries four commit classes and no others. **Draft**: one per drafted change document,
+committed on its own — never several drafts in one commit. **Baseline**: exactly one, the approved change
+document, before any code. **Task**: one per completed Plan task, with that task's code, its test, its
+ticked box and its Log entries. **Handoff**: zero or one, only when work stops (review, blocked, session
+end) and document-only state would otherwise stay uncommitted.
+
+Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
+A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
+is never a commit of its own; it travels inside the next real class. A change document is: a later
+implementation branch builds on it, `changeledger check --commits` references it by id, and it can be
+discarded alone. So `n` completed tasks yield `n + 1` commits, `n + 2` with a handoff, never one per
+transition; never defer them and reconstruct mixed diffs at the end.
+
+Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
+its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,
+`ChangeLedger: [#A] [#B]` — never a comma list in one bracket. Ledger meta-commits (status, review, log,
+archive) carry markers like any other; only merge commits and `chore(release)` prep are exempt.
+`changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it, resolving the single
+`in-progress` change when `--id` is omitted and failing without committing if that is ambiguous or the
+subject is not conventional. Run `changeledger check --commits [<base>]` before requesting review.
+
+A combined commit is legitimate only when separation is impossible: several changes share the same files, or
+several Plan tasks are inseparable. Record in the Log what was combined and why. A failed `pre-commit` hook
+leaves the index staged, so inspect the staged set (`git diff --cached --name-only`) before retrying: fixing
+the cause is not enough if the index kept the previous attempt's files.
 
 ## Lifecycle
 

@@ -475,18 +475,20 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
       'spec',
       /colocated test, conventional test directory, concrete command or manual `verify:` clause/,
     ],
-    ['implement', /feat\(scope\): description \[#20260629-234939\]/],
+    // 20260726-124837: commit behaviour left `implement.md` for core's single
+    // seat, so each of these is asserted against core's own wording instead. The
+    // `implement` pack keeps branch and worktree discipline only.
+    ['core', /Subjects follow `type\(scope\): description \[#<id>\]`/],
     ['implement', /Never implement approved changes on `main`, `master`, or `dev`/],
-    ['implement', /baseline commit of the approved change\s+document before code/],
-    ['implement', /approved.*in-progress.*baseline commit/i],
-    ['implement', /Do not create a dedicated commit for a\s+lifecycle-only transition/],
-    ['implement', /coalesce it with the nearest meaningful commit/i],
-    ['implement', /handoff.*one consolidated.*checkpoint/i],
+    ['core', /\*\*Baseline\*\*: exactly one, the approved change document, before any code/],
+    ['core', /\*\*Task\*\*: one per completed Plan task/],
+    ['core', /is never a commit of its own; it travels inside the next real class/],
+    ['core', /\*\*Handoff\*\*: zero or one, only when work stops/],
     ['implement', /Follow the Specification exactly/],
     ['implement', /Tick tasks as they become true, not in a batch at the end/],
     ['implement', /Leave no TODO\/FIXME, dead code or unrelated residue/],
     ['implement', /move to `in-review` if the type requires independent review/],
-    ['implement', /Do not wait until the end to reconstruct mixed diffs/],
+    ['core', /never defer them and reconstruct mixed diffs at the end/],
     ['implement', /changeledger status <id> <status>/],
     ['implement', /changeledger task <id> done\|block <n> \[reason\]/],
     ['implement', /changeledger log <id> "<message>"/],
@@ -834,7 +836,34 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   non-main branch" as "One change at a time, on a non-main branch".
     // ADDED — "Classify intent before acting", "Protect the orchestrator's
     //   context", "Stage exit gates", "Complexity ceiling" and "Commits".
-    'core.md': 'cf16900fd01223e7f3cd87c111bf9e098088fd99a689c4c5f20ab0064b7a7572',
+    // 20260726-124837: `## Commits` becomes the single seat of commit behaviour,
+    // because committing happens in authoring, implementation, correction and
+    // closure alike, and the same rule existed in up to four potentially
+    // divergent copies across eight fragments. Nothing about commits is retired
+    // here — the block grows by importing what `implement.md` gave up, and every
+    // imported obligation is pinned by name in the 124837 CR8 test.
+    // REPLACED — "One commit per completed Plan task, plus one baseline commit of
+    //   the change document before any code" by four closed classes with explicit
+    //   multiplicities: Draft one per drafted document and never batched, Baseline
+    //   exactly one before any code, Task one per completed Plan task, Handoff
+    //   zero or one. The two old obligations are the Baseline and Task rows
+    //   verbatim in meaning; Draft and Handoff are the two the summary had no room
+    //   for and which `implement.md` (Handoff) or nothing at all (Draft) carried;
+    // REPLACED — "A lifecycle transition is never a commit of its own — the Log is
+    //   its record; the transition travels in the next real commit" by the same
+    //   prohibition plus the discriminant that makes it decidable (revert,
+    //   reference or implement independently) and the `n + 1` / `n + 2` counting
+    //   formula. The obligation is preserved; what is added is how to measure it,
+    //   which is the defect 20260726-124837 was opened for;
+    // RETIRED — "`changeledger context implement` owns the full contract". Its
+    //   target no longer exists: `implement.md` holds zero commit prose after this
+    //   change, so the pointer would send a reader to an empty section. No
+    //   obligation is lost — core is the owner it used to point away from;
+    // PRESERVED — "Subjects follow `type(scope): description [#<id>]`;
+    //   `changeledger commit` composes it", now extended with the full mechanics
+    //   imported from `implement.md`. Every other block of the fragment is
+    //   untouched.
+    'core.md': 'dade45b455b56e02acb6eff699999d40c5d34c37a1f6172d05459ed22cb0c343',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -876,7 +905,59 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260720-212659: unconditional code-wins repair is replaced: the approved
     // change still governs code authored in scope, while a pre-existing
     // divergence is reported for human resolution. Execution discipline remains.
-    'implement.md': 'e52078e83d25505f4771ffd6e3c0185503ac29cb90e0855301b799397d12cbb3',
+    // 20260726-124837: every commit rule is RETIRED from this fragment; core.md's
+    // `## Commits` is the named home of each one, and the 124837 CR8 test asserts
+    // each new home by literal so no claim below can rot unnoticed.
+    // RETIRED to core.md — "After `approved → in-progress`, create a baseline
+    //   commit of the approved change document before code" is "**Baseline**:
+    //   exactly one, the approved change document, before any code";
+    // RETIRED to core.md, and the judgment deliberately dropped — "Commit completed
+    //   units with their tasks and Log when later work could obscure attribution"
+    //   is the countable "**Task**: one per completed Plan task, with that task's
+    //   code, its test, its ticked box and its Log entries". The trailing clause
+    //   was the whole defect: it asked the agent to guess whether attribution
+    //   could matter later, and the safe guess is always yes, so it invited the
+    //   excess it meant to prevent. CR1 forbids that clause anywhere in the
+    //   contract, so it has no home by design;
+    // RETIRED to core.md — "Do not create a dedicated commit for a lifecycle-only
+    //   transition. Coalesce it with the nearest meaningful commit" is "is never a
+    //   commit of its own; it travels inside the next real class", now with the
+    //   discriminant and the `n + 1` / `n + 2` formula that make it measurable.
+    //   The `in-progress → in-review` example is dropped as an instance of the
+    //   rule, not an obligation of its own;
+    // RETIRED to core.md — "Do not wait until the end to reconstruct mixed diffs"
+    //   is "never defer them and reconstruct mixed diffs at the end";
+    // RETIRED to core.md — "If a handoff precedes the next meaningful commit, one
+    //   consolidated checkpoint persists pending state; record why and never create
+    //   one per transition" is "**Handoff**: zero or one, only when work stops
+    //   (review, blocked, session end) and document-only state would otherwise stay
+    //   uncommitted", with "never one per transition" carried by the formula;
+    // RETIRED to core.md — the whole message-mechanics block: the canonical subject
+    //   shape and its `feat(scope): description [#20260629-234939]` example, "One
+    //   change keeps its marker at the end of the subject", the
+    //   `ChangeLedger: [#A] [#B]` body line with "never a comma list in one
+    //   bracket", the ledger meta-commit rule, the merge and `chore(release)`
+    //   exemptions, `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]`
+    //   with its single-`in-progress` resolution and its refusal to commit when
+    //   ambiguous or non-conventional, and `changeledger check --commits [<base>]`
+    //   before requesting review. The fenced example is retired as a duplicate
+    //   rendering of the shape core states inline, not as a separate rule;
+    // RETIRED to core.md — "If shared files make a combined commit unavoidable,
+    //   record it in Log or the handoff and name every change sharing the surface"
+    //   is core's combined-commit paragraph, which keeps the obligation to record
+    //   what was combined and why and adds the second form the human decided on
+    //   2026-07-26, inseparable Plan tasks;
+    // PRESERVED — the branch and worktree rules verbatim (never `main`/`master`/
+    //   `dev`, branches created from and integrated into `git.integration_branch`
+    //   with `main` reserved for releases, inspect the worktree first and ask
+    //   before touching unrelated changes), "Implement one change at a time, even
+    //   while another already-delivered change waits in `in-validation`", the
+    //   `changeledger commit` entry of the mutation-command list, the review gate,
+    //   and the whole `## Correction isolation` section: it governs when a
+    //   correction may be committed relative to review and human validation, which
+    //   is lifecycle isolation rather than commit-unit behaviour, and neither CR3
+    //   nor the Plan asks for its removal.
+    'implement.md': 'add03ce9e00cf7ea98ff44756ecbb3530090cdae9cc5853025442a8b52d6ac3c',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -2108,10 +2189,14 @@ test('124835 CR6/CR7: invariants, exit gates, the ceiling and commits carry the 
     'If it cannot, split it before approval — an oversized change is the most common root cause of repeated review rounds',
     '`changeledger context spec` owns the sizing test and the split criteria',
     'After work has started, a failed verification is diagnosed, never auto-split: the blocked and review contexts own that classification',
-    'One commit per completed Plan task, plus one baseline commit of the change document before any code',
-    'A lifecycle transition is never a commit of its own — the Log is its record; the transition travels in the next real commit',
-    'Subjects follow `type(scope): description [#<id>]`; `changeledger commit` composes it',
-    '`changeledger context implement` owns the full contract',
+    // 20260726-124837 replaced this block's four-line summary with the full seat
+    // of commit behaviour; the 124837 CR2/CR4-CR6 tests own its text, and what
+    // stays here is the per-task and per-baseline obligation this criterion
+    // decided, in the wording that now carries it.
+    '**Task**: one per completed Plan task',
+    '**Baseline**: exactly one, the approved change document, before any code',
+    'is never a commit of its own; it travels inside the next real class',
+    'Subjects follow `type(scope): description [#<id>]`',
   ]) {
     assert.ok(core.includes(literal), `core is missing ${literal}`);
   }
@@ -2234,7 +2319,14 @@ test('124835 CR11: retired rules keep their owner and the retained sentences sta
   assert.doesNotMatch(fragment('spec.md'), viewer);
 
   // Each rule core stops carrying is asserted in the overlay that owns it.
-  assert.match(implement, /baseline commit of the approved change document before code/);
+  // 20260726-124837 reversed this one: the baseline commit came back to core as
+  // part of the single seat of commit behaviour, and `implement.md` must no
+  // longer carry it, so the claim is pinned in both directions.
+  assert.match(
+    core,
+    /\*\*Baseline\*\*: exactly one, the approved change document, before any code/,
+  );
+  assert.doesNotMatch(implement, /baseline commit/);
   // Old rule 6 was classified MOVED to review.md and no test pinned it, so the
   // claim could rot silently — the exact defect class the review flagged for the
   // other moved rules. Pinned here in the overlay's own wording.
@@ -2269,4 +2361,206 @@ test('130728 CR4: the current core composition clears its threshold', () => {
     }
   });
   assert.ok(!sweep.thrown, `the base sweep threw: ${sweep.thrown?.message}`);
+});
+
+// 20260726-124837 — commit behaviour gets a single seat. Committing happens in
+// every phase (authoring, implementation, correction, closure), so core owns it
+// and `implement.md` keeps only branch and worktree discipline. The composed
+// packs are the surface under test, because that is what an agent actually reads.
+function contractFragment(file) {
+  return fs.readFileSync(new URL(`../templates/contract/${file}`, import.meta.url), 'utf8');
+}
+
+// The `## Commits` block as it occupies lines in the fragment: heading included,
+// trailing blank separator excluded, so the count is what a reader would count.
+function commitsBlockLines() {
+  const lines = contractFragment('core.md').split('\n');
+  const start = lines.indexOf('## Commits');
+  assert.notEqual(start, -1, 'core.md has no `## Commits` block');
+  let end = lines.findIndex((line, at) => at > start && line.startsWith('## '));
+  if (end === -1) end = lines.length;
+  while (end > start && lines[end - 1].trim() === '') end -= 1;
+  return lines.slice(start, end);
+}
+
+test('124837 CR1: the attribution judgment is gone from the whole contract', () => {
+  const root = repo();
+  const judgment = 'later work could obscure attribution';
+  for (const mode of [undefined, 'implement']) {
+    assert.ok(
+      !buildContext(mode, root).replace(/\s+/g, ' ').includes(judgment),
+      `the ${mode ?? 'core'} pack still carries the attribution judgment`,
+    );
+  }
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  for (const file of fs.readdirSync(contractDir).filter((name) => name.endsWith('.md'))) {
+    assert.ok(
+      !contractFragment(file).replace(/\s+/g, ' ').includes(judgment),
+      `${file} still carries the attribution judgment`,
+    );
+  }
+});
+
+test('124837 CR2: core defines the four commit classes and the counting formula', () => {
+  const core = composedCore();
+  for (const literal of [
+    'A change branch carries four commit classes and no others',
+    '**Draft**: one per drafted change document, committed on its own — never several drafts in one commit',
+    '**Baseline**: exactly one, the approved change document, before any code',
+    "**Task**: one per completed Plan task, with that task's code, its test, its ticked box and its Log entries",
+    '**Handoff**: zero or one, only when work stops (review, blocked, session end) and document-only state would otherwise stay uncommitted',
+    'Granularity follows one test: whether the unit will be reverted, referenced or implemented independently',
+    'A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and is never a commit of its own; it travels inside the next real class',
+    'A change document is: a later implementation branch builds on it, `changeledger check --commits` references it by id, and it can be discarded alone',
+    'So `n` completed tasks yield `n + 1` commits, `n + 2` with a handoff, never one per transition',
+    'never defer them and reconstruct mixed diffs at the end',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+});
+
+test('124837 CR3: implement carries no commit unit or message mechanics', () => {
+  const root = repo();
+  const implement = buildContext('implement', root).replace(/\s+/g, ' ');
+  for (const literal of [
+    'baseline commit',
+    'one per completed Plan task',
+    'lifecycle-only transition',
+    'type(scope): description [#<id>]',
+    'ChangeLedger: [#A] [#B]',
+    'check --commits',
+  ]) {
+    assert.ok(!implement.includes(literal), `the implement pack still carries ${literal}`);
+  }
+  for (const literal of [
+    'Never implement approved changes on `main`, `master`, or `dev`',
+    'create or switch to a work branch or ask the human before continuing',
+    'When the config declares `git.integration_branch`, create change branches from it and integrate the finished result into it; `main` stays reserved for releases',
+    'Inspect the worktree first',
+    'If unrelated changes exist, do not include them silently; ask the human whether to stash, commit, ignore or include them before changing the worktree',
+  ]) {
+    assert.ok(implement.includes(literal), `the implement pack lost the Git rule ${literal}`);
+  }
+});
+
+test('124837 CR4: the message mechanics survive whole in core', () => {
+  const core = composedCore();
+  for (const literal of [
+    'Subjects follow `type(scope): description [#<id>]` with the real id and conventional type',
+    'One change keeps its marker at the end of the subject',
+    'two or more keep the subject clean and use one canonical body line, `ChangeLedger: [#A] [#B]` — never a comma list in one bracket',
+    'Ledger meta-commits (status, review, log, archive) carry markers like any other; only merge commits and `chore(release)` prep are exempt',
+    '`changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it, resolving the single `in-progress` change when `--id` is omitted and failing without committing if that is ambiguous or the subject is not conventional',
+    'Run `changeledger check --commits [<base>]` before requesting review',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+});
+
+test('124837 CR5: the unavoidable combined commit is covered in both forms', () => {
+  const core = composedCore();
+  for (const literal of [
+    'A combined commit is legitimate only when separation is impossible: several changes share the same files, or several Plan tasks are inseparable',
+    'Record in the Log what was combined and why',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+});
+
+test('124837 CR6: the contract requires inspecting the staged set after a hook failure', () => {
+  const core = composedCore();
+  for (const literal of [
+    'A failed `pre-commit` hook leaves the index staged, so inspect the staged set (`git diff --cached --name-only`) before retrying',
+    "fixing the cause is not enough if the index kept the previous attempt's files",
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+});
+
+// The ceiling is the bootstrap's `head -200`, so the criterion asks for reserve
+// against it, not for merely clearing it: 195 emitted lines leaves five lines for
+// future growth before any consuming repo's capture silently truncates.
+test('124837 CR7: the core pack keeps reserve under the bootstrap cut', () => {
+  const core = buildContext(undefined, repo());
+  const lines = emittedLines(core);
+  assert.ok(lines <= 195, `core keeps no reserve under the bootstrap cut: ${lines}/195`);
+  const block = commitsBlockLines();
+  assert.ok(block.length <= 28, `the core \`## Commits\` block is ${block.length} lines, not ≤ 28`);
+  // The budget file is owned by 20260727-194233: this change fits under the
+  // declared threshold instead of raising it.
+  assert.deepEqual(contextBudgets.base.core, { lines: 200, bytes: 12000 });
+  const bytes = Buffer.byteLength(core, 'utf8');
+  assert.ok(bytes < contextBudgets.base.core.bytes, `core is over its byte threshold: ${bytes}`);
+});
+
+// Every obligation that left `implement.md` is asserted here in core's own
+// wording, so the pin comment's "retired to core.md" claims cannot rot silently.
+test('124837 CR8: no obligation leaves implement.md without a named home', () => {
+  const core = contractFragment('core.md').replace(/\s+/g, ' ');
+  for (const [left, home] of [
+    [
+      'create a baseline commit of the approved change document before code',
+      '**Baseline**: exactly one, the approved change document, before any code',
+    ],
+    [
+      'Commit completed units with their tasks and Log',
+      "**Task**: one per completed Plan task, with that task's code, its test, its ticked box and its Log entries",
+    ],
+    [
+      'Do not create a dedicated commit for a lifecycle-only transition',
+      'is never a commit of its own; it travels inside the next real class',
+    ],
+    ['Coalesce it with the nearest meaningful commit', 'it travels inside the next real class'],
+    [
+      'Do not wait until the end to reconstruct mixed diffs',
+      'never defer them and reconstruct mixed diffs at the end',
+    ],
+    [
+      'one consolidated checkpoint persists pending state',
+      '**Handoff**: zero or one, only when work stops',
+    ],
+    [
+      'Commit messages use the canonical shape',
+      'Subjects follow `type(scope): description [#<id>]`',
+    ],
+    [
+      'One change keeps its marker at the end of the subject',
+      'One change keeps its marker at the end of the subject',
+    ],
+    ['never a comma list in one bracket', 'never a comma list in one bracket'],
+    [
+      'Ledger meta-commits (status, review, log, archive) carry markers',
+      'Ledger meta-commits (status, review, log, archive) carry markers like any other',
+    ],
+    [
+      'only merge commits and `chore(release)` prep are exempt',
+      'only merge commits and `chore(release)` prep are exempt',
+    ],
+    [
+      'composes and creates the commit for you',
+      '`changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it',
+    ],
+    [
+      'run it before requesting review',
+      'Run `changeledger check --commits [<base>]` before requesting review',
+    ],
+    ['If shared files make a combined commit unavoidable', 'several changes share the same files'],
+  ]) {
+    assert.ok(core.includes(home), `the obligation "${left}" has no home in core.md: ${home}`);
+  }
+  // And it really left: the retired wording is gone from every fragment.
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const whole = fs
+    .readdirSync(contractDir)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => contractFragment(name))
+    .join('\n')
+    .replace(/\s+/g, ' ');
+  for (const retired of [
+    'Commit completed units',
+    'Do not create a dedicated commit for a lifecycle-only transition',
+    'Commit messages use the canonical shape',
+  ]) {
+    assert.ok(!whole.includes(retired), `the contract still carries the retired ${retired}`);
+  }
 });

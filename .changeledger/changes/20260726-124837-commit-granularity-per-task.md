@@ -52,10 +52,17 @@ versiones potencialmente divergentes sin que nada las compare.
 ciclo rojo-verde; esa tarea, que ya es la unidad atómica del Plan, pasa a ser
 también la unidad atómica de commit.
 
-Todo el comportamiento de commits se consolida en el bloque `## Commits` de
-`core.md`, e `implement.md` queda **sin ninguna prosa de commits**. No se
+La **unidad de commit y la mecánica del mensaje** se consolidan en el bloque
+`## Commits` de `core.md`, e `implement.md` queda sin ninguna de las dos. No se
 reescribe el párrafo del juicio en su sitio: se retira de allí y su contenido,
 ya sin el juicio, vive en el core.
+
+Lo que **no** es unidad ni mecánica se queda donde está: la sección
+`## Correction isolation` de `implement.md` gobierna cuándo una corrección se
+mantiene sin commitear frente a review y validación humana, que es
+comportamiento de esa fase, y la lista de comandos de mutación conserva
+`changeledger commit` como ayuda de descubrimiento. Los rangos que se retiran
+son exactamente los que enumera el Plan.
 
 ### Qué contiene el bloque consolidado
 
@@ -105,9 +112,10 @@ ya sin el juicio, vive en el core.
 
 El core no puede pasar de **200 líneas emitidas** porque el bootstrap publicado
 en cada repo consumidor es `changeledger context 2>&1 | head -200`: por encima
-de ese corte, toda captura queda truncada e inválida. Medido hoy: el pack core
-está en 172 líneas emitidas y 9809 bytes, y el bloque `## Commits` actual ocupa
-7 líneas y 388 bytes de `core.md`.
+de ese corte, toda captura queda truncada e inválida. Medido al empezar: el pack
+core está en 172 líneas emitidas y **9834** bytes —no 9809, cifra anterior a que
+`20260727-194233` alargara la línea BEGIN con la ocupación—, y el bloque
+`## Commits` actual ocupa 7 líneas y 388 bytes de `core.md`.
 
 Por eso el tamaño entra como criterio con una salida explícita: si el bloque
 consolidado no cabe en el presupuesto declarado, **el implementador para y
@@ -216,8 +224,11 @@ Los criterios se comprueban sobre la salida compuesta de
 
 ## Plan
 
-- [ ] Consolidar en el bloque `## Commits` de `templates/contract/core.md` las cuatro clases de commit, el discriminante, la fórmula de conteo, la mecánica del subject y el body multi-change, las excepciones, el compositor y el linter, la mezcla inevitable en sus dos formas y la inspección del índice staged, actualizar el pin de snapshot de `core.md` con su comentario de clasificación y añadir la comprobación de reserva del core (195 líneas emitidas o menos, bloque de 28 líneas o menos), parando y preguntando al humano si el contenido no cabe en vez de retirar normativa; verify: `node --test test/context.test.mjs` (CR2, CR4, CR5, CR6, CR7)
-- [ ] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`; verify: `node --test test/context.test.mjs` (CR1, CR3, CR8)
+- [x] Consolidar en el bloque `## Commits` de `templates/contract/core.md` las cuatro clases de commit, el discriminante, la fórmula de conteo, la mecánica del subject y el body multi-change, las excepciones, el compositor y el linter, la mezcla inevitable en sus dos formas y la inspección del índice staged, actualizar el pin de snapshot de `core.md` con su comentario de clasificación y añadir la comprobación de reserva del core (195 líneas emitidas o menos, bloque de 28 líneas o menos), parando y preguntando al humano si el contenido no cabe en vez de retirar normativa; verify: `node --test test/context.test.mjs` (CR2, CR4, CR5, CR6, CR7)
+  - **Resolved:** `2026-07-27T21:11:09Z`
+- [x] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`; verify: `node --test test/context.test.mjs` (CR1, CR3, CR8)
+  - **Resolved:** `2026-07-27T21:11:09Z`
+- [ ] Actualizar en `test/cli.test.mjs` las siete aserciones del contrato instalado que fijan por substring la prosa de commits retirada de `templates/contract/implement.md`, apuntándolas a la sede nueva en `core.md`; verify: `node --test test/cli.test.mjs` (CR1, CR3)
 - [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
 
 ## Log
@@ -230,3 +241,6 @@ Los criterios se comprueban sobre la salida compuesta de
 - **2026-07-26T15:15:46Z** `[note]` Amendment while approved (human-authorized): Proposal extended to a fourth commit kind, Draft (one commit per authored change document, never batched), with the revert/reference/implement-independently discriminant; also adds the agent obligation to inspect the staged index before retrying a commit after any pre-commit hook failure (cross-ref 20260726-141124 for the CLI-side guard). Criterios verificables and the Plan task updated accordingly.
 - **2026-07-27T19:50:36Z** `[note]` Amendment while approved (human-authorized 2026-07-27): sede de todo el comportamiento de commits pasa a core.md e implement.md queda sin prosa de commits — decision humana de esta sesion, porque commitear es comun a toda fase y estaba repartido en ocho fragmentos. Anadida la mezcla inevitable de tareas del Plan inseparables (decision humana del 2026-07-26 que el documento contradecia). Techo del core como criterio con salida explicita de parar y preguntar. depends_on suma 20260727-194233 (umbral unico) y related_to suma 20260727-194234 (retirada de copias). Titulo actualizado.
 - **2026-07-27T20:53:59Z** `[status]` approved → in-progress
+- **2026-07-27T21:10:00Z** `[note]` Enmienda durante in-progress, sin re-aprobacion porque no expande alcance observable: aparece un SEGUNDO sitio de pins que el documento no anticipo. test/cli.test.mjs (test 214902 CR5/CR6) fija por substring siete frases de la prosa de commits que este change retira de implement.md, asi que el gate no puede pasar sin repuntarlas a la sede nueva. Anadida tarea de Plan para ello. Verificado que los siete pins nuevos muerden: mutando cada frase en core.md el test cae en las siete.
+- **2026-07-27T21:10:00Z** `[note]` Precisiones al documento: (1) el Proposal decia 'implement.md queda sin ninguna prosa de commits' y su propio Plan/CR3 solo enumeran la unidad y la mecanica del mensaje; ## Correction isolation es comportamiento de la fase de review y se queda, igual que changeledger commit en la lista de comandos. Redactado con precision; el delegado siguio Plan/CR3 y lo reporto en vez de obedecer en silencio. (2) la cifra de bytes del core estaba obsoleta: 9834, no 9809 — la linea BEGIN crecio al publicar la ocupacion en 20260727-194233.
+- **2026-07-27T21:11:09Z** `[note]` Tareas 1 y 2 en un commit combinado: son un solo movimiento de prosa —los criterios CR1 y CR3 comprueban ausencia en el pack implement y presencia en el pack core sobre la MISMA salida compuesta, y los dos pins de snapshot cambian a la vez—, asi que separarlas dejaria un commit intermedio con el contrato incoherente. Es exactamente la mezcla inevitable por tareas inseparables que este change legitima. Resultado medido: core 192/200 lineas y 11657/12000 bytes, bloque ## Commits en 27 lineas (techo 28), implement baja a 168/205 y 8205/10000. Ninguna normativa retirada para caber: sobran 3 lineas y 343 bytes.
