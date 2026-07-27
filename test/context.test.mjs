@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
-import { buildContext } from '../src/commands/context.mjs';
+import { buildContext, frameSections } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
 import {
@@ -1069,7 +1069,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(
       output.split('\n')[0],
       new RegExp(
-        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:\\d+ =====$`,
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:\\d+/\\d+ — bytes:\\d+/\\d+ =====$`,
       ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
@@ -1107,7 +1107,13 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   const { version } = JSON.parse(
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
+  // A bounded mode publishes its occupancy of both ceilings; an unbounded
+  // change-id capture publishes its count alone, so each shape has its own pin.
   const begin = (label) =>
+    new RegExp(
+      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — lines:\\d+/\\d+ — bytes:\\d+/\\d+ =====$`,
+    );
+  const beginUnbounded = (label) =>
     new RegExp(
       `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — lines:\\d+ =====$`,
     );
@@ -1128,7 +1134,7 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   }
 
   const byId = buildContext(id, root);
-  assert.match(byId.split('\n')[0], begin(`implement — change: #${id}`));
+  assert.match(byId.split('\n')[0], beginUnbounded(`implement — change: #${id}`));
   assert.equal(byId.trimEnd().split('\n').at(-1), end);
 });
 
@@ -1145,14 +1151,14 @@ test('124833 CR2: no mode emits a rev: segment on the BEGIN line or anywhere els
   const core = buildContext(undefined, root);
   assert.equal(
     core.split('\n')[0],
-    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)} =====`,
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)}/${contextBudgets.base.core.lines} — bytes:${Buffer.byteLength(core, 'utf8')}/${contextBudgets.base.core.bytes} =====`,
   );
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
     assert.equal(
       output.split('\n')[0],
-      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)} =====`,
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)}/${contextBudgets.base[mode].lines} — bytes:${Buffer.byteLength(output, 'utf8')}/${contextBudgets.base[mode].bytes} =====`,
     );
     assert.doesNotMatch(output, /rev:/);
   }
@@ -1845,6 +1851,80 @@ test('194233 CR4: no budget path warns, under the threshold or over it', () => {
   }
   const source = fs.readFileSync(new URL('./budget-support.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /emitWarning/);
+});
+
+// Occupancy published in the BEGIN line: `lines:<n>/<limit>` and
+// `bytes:<n>/<limit>` as the last segments, so an agent reads how much of the
+// ceiling it has spent without running anything.
+function publishedOccupancy(text) {
+  const begin = text.split('\n')[0];
+  const match = begin.match(/— lines:(\d+)\/(\d+) — bytes:(\d+)\/(\d+) =====$/);
+  assert.ok(match, `BEGIN line publishes no occupancy — ${begin}`);
+  return {
+    lines: Number(match[1]),
+    lineLimit: Number(match[2]),
+    bytes: Number(match[3]),
+    byteLimit: Number(match[4]),
+  };
+}
+
+test('194233 CR5: the BEGIN line publishes occupancy for both dimensions', () => {
+  const root = repo();
+  for (const [mode, budget] of Object.entries(contextBudgets.base)) {
+    const composed = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
+    const published = publishedOccupancy(composed);
+    assert.equal(published.lineLimit, budget.lines, `${mode} publishes a foreign line limit`);
+    assert.equal(published.byteLimit, budget.bytes, `${mode} publishes a foreign byte limit`);
+    assert.equal(
+      published.lines,
+      emittedLines(composed),
+      `${mode} line occupancy is not the real size`,
+    );
+    assert.equal(
+      published.bytes,
+      Buffer.byteLength(composed, 'utf8'),
+      `${mode} byte occupancy is not the real size`,
+    );
+    // The real CLI stdout, not only the composed string.
+    const cli = cliContext(root, mode === 'core' ? [] : [mode]);
+    assert.equal(publishedOccupancy(cli).bytes, Buffer.byteLength(cli, 'utf8'));
+  }
+  // An unbounded change-id capture has no entry in budgets.yml, so it publishes
+  // its exact count and invents no ceiling.
+  const id = '20260727-194233';
+  writeFillerChange(root, id, 10);
+  const unbounded = buildContext(id, root);
+  assert.equal(publishedLines(unbounded), emittedLines(unbounded));
+  assert.doesNotMatch(unbounded.split('\n')[0], /bytes:/);
+});
+
+test('194233 CR6: the published byte count is exact across a power-of-ten crossing', () => {
+  const budget = { lines: 200, bytes: 12000 };
+  // Calibrated, never hardcoded: measure the framing overhead on an empty body,
+  // then sweep the fillers that place the total across the 9xxx → 1xxxx boundary
+  // and demand the published figure equal the real size at every step, so the
+  // widening digit cannot desynchronize the count.
+  const overhead = Buffer.byteLength(frameSections('core', undefined, [''], budget), 'utf8');
+  const boundary = 10000 - overhead;
+  let crossed = false;
+  for (let filler = boundary - 30; filler <= boundary + 30; filler += 1) {
+    const framed = frameSections('core', undefined, ['y'.repeat(filler)], budget);
+    const published = publishedOccupancy(framed);
+    assert.equal(
+      published.bytes,
+      Buffer.byteLength(framed, 'utf8'),
+      `desynced at filler ${filler}`,
+    );
+    assert.equal(published.lines, emittedLines(framed));
+    if (published.bytes >= 10000) crossed = true;
+  }
+  assert.ok(crossed, 'the sweep never crossed the 10000-byte boundary');
+  // The non-convergence branch is reachable and named, not a comment: one pass
+  // cannot settle a figure that its own width changes.
+  assert.throws(
+    () => frameSections('core', undefined, ['z'.repeat(boundary)], budget, 1),
+    /did not converge/,
+  );
 });
 
 test('194233 CR7: assertWithinBudget has a single definition', () => {
