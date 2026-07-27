@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-07-26T22:13:09Z
+updated: 2026-07-27T00:57:51Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -70,7 +70,12 @@ YAML vivo y no la instantánea previa, porque una migración anterior de la mism
 cadena puede haber añadido el propio `review_required` que dispara la reparación.
 Nunca inserta una stage que la lista canónica del repo no declare: sin punto de
 inserción legítimo se abstiene y deja en pie el error exacto de `checkConfig`, en
-vez de fabricar una lista inválida y declararse terminada. El resumen
+vez de fabricar una lista inválida y declararse terminada. La misma 3 → 4 añade
+además la sección `readiness` cuando falta, copiando valores y comentario de
+`templates/config.yml` para que plantilla y migración no puedan divergir, y
+dejando intacto —byte a byte— cualquier `readiness` que el repo ya declarara,
+incluso malformado: esa clave es del usuario y su diagnóstico pertenece a
+`check`. El resumen
 de la migración expone la versión de origen real detectada, y CLI y visor
 comparten el mismo motor; el cliente del visor lee la versión soportada del
 payload del servidor en vez de duplicar la constante.

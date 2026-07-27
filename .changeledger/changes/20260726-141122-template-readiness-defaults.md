@@ -2,9 +2,10 @@
 id: "20260726-141122"
 title: Publicar los defaults de readiness en la plantilla
 type: bug
-status: in-progress
+status: done
 created: 2026-07-26T14:11:22Z
 depends_on: ["20260726-141119"]
+reviewed: true
 related_to: []
 owner: raruiz-hiberuscom
 ---
@@ -180,3 +181,9 @@ de alcance de este change.
 - **2026-07-27T00:20:02Z** `[note]` Tasks 1-5 done: template publishes readiness uncommented, migrateToV4 extended to add the section when absent (declared readiness untouched), CR1/CR2/CR3/CR4/CR5 covered. Task 6 (CR6) blocked: rewriting readiness.md:33-36 to assign the agent the duty pushes the composed spec context to 13541 bytes against the 13500-byte hard budget in templates/contract/budgets.yml (baseline 13455); even a degraded phrasing lands at 13514. Needs a human decision on that budget, which this change does not own.
 - **2026-07-27T00:36:29Z** `[note]` Roberto autoriza subir el hard cap de spec en templates/contract/budgets.yml para que quepa la obligacion de CR6, porque va a refactorizar spec al terminar estos changes. Se sube solo el hard, no el target: la composicion ya esta un 12% por encima del target (13482 B contra 12000), y esa senal debe seguir viva para ese refactor. budgets.yml no era superficie declarada de este change; la edicion entra por autorizacion humana explicita y queda registrada aqui
 - **2026-07-27T00:41:03Z** `[note]` Task 6 (CR6) done: readiness.md replaces the subjectless 'Repos tune recognition with' by an explicit agent obligation to verify readiness.target_patterns/verification_patterns against the repo stack and configure them when they do not match; the verify: recommendation and every other readiness rule are preserved. Snapshot pin for readiness.md updated with its classification comment. Human-authorized budget edit applied: spec hard.bytes 13500 -> 13700 in templates/contract/budgets.yml, target untouched so the 12%-over-target signal stays visible for the planned spec refactor. Composed spec: 300 lines / 13570 bytes (hard 310/13700). Task 7 (support): pnpm verify green, 788 tests, check reports 17 valid / 203 not validated.
+- **2026-07-27T00:42:06Z** `[status]` in-progress → in-review
+- **2026-07-27T00:53:33Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (consumidores de readiness y de la migracion v4), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-27T00:53:33Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T00:56:52Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T00:57:51Z** `[graduation]` spec: `readiness.md`
+- **2026-07-27T00:57:51Z** `[graduation]` spec: `architecture.md`
