@@ -2,7 +2,7 @@
 id: "20260726-124834"
 title: Bootstrap con captura acotada y verificable
 type: feature
-status: approved
+status: in-review
 created: 2026-07-26T12:48:34Z
 depends_on: ["20260726-130727"]
 related_to: ["20260726-124835"]
@@ -260,12 +260,49 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 - **And** `changeledger check` no reporta ningún error de referencia de
   contrato para `AGENTS.md`
 
+### CR7 — La equivalencia semántica sobrevive a la lista de bullets
+
+- **Given** un repo con el bloque `v4` instalado, y un `AGENTS.md` cuyo bloque
+  administrado difiere del canónico **solo** en sintaxis equivalente **dentro de
+  la lista**: `**ChangeLedger governs this repo.**` reescrito como
+  `__ChangeLedger governs this repo.__`, más un bullet reflowado con
+  continuación lazy de CommonMark
+- **When** se llama a `checkContract(repoRoot)`
+- **Then** no devuelve ningún error de referencia de contrato
+- **And** tras ejecutar `changeledger register`, el fichero queda **byte a byte
+  idéntico** al de entrada: no se reescribe
+
+### CR8 — La deriva se sigue detectando, dentro y fuera de la lista
+
+- **Given** un repo con bloque `v4`, y un `AGENTS.md` cuyo único cambio está en
+  el **párrafo del comando** —`head -200` sustituido por `head -500`—, que
+  `marked` lexa como `paragraph` propio y no como parte de la lista
+- **When** se llama a `checkContract(repoRoot)`
+- **Then** devuelve un error que contiene literalmente "has an outdated
+  ChangeLedger reference — run \`changeledger register\`"
+- **And** la misma detección ocurre alterando el texto **de un bullet** —la
+  condición de validez `CHANGELEDGER CONTEXT END`—, de modo que la proyección no
+  ignora el contenido de la lista
+- **And** reordenar dos bullets sin cambiar su texto también se reporta como
+  obsoleto, fijando dentro de listas la conservación de orden que la spec
+  `contract-discovery` ya afirma
+- **And** las dos últimas cláusulas son las que constituyen la evidencia
+  antiagujero: son las que fallan si se añade `list` a la whitelist sin recursar
+  en `token.items`. La primera se proyecta con recursión o sin ella, así que vale
+  como guarda de deriva de párrafo y no demuestra nada sobre la lista
+
 ## Plan
 
-- [ ] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; actualizar en `test/contract.test.mjs` la aserción que aún exige la prosa retirada "no pipes, filters, summaries, previews or voluntary output limits" (hoy en la línea 81, dentro de `212659 CR3`); verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3, CR4)
-- [ ] En `test/contract.test.mjs`, añadir una fixture con `bootstrapBlock(3)` literal y verificar que `checkContract` (`src/contract.mjs`) la marca obsoleta y que `changeledger register` la reemplaza por `bootstrapBlock(4)` sin tocar `LEGACY_CONTRACT_HASHES`; verify: `node --test test/contract.test.mjs` (CR5)
-- [ ] Ejecutar `changeledger register` (`bin/changeledger.mjs`) sobre este propio repo para regenerar `AGENTS.md` con el bloque v4; verify: `node bin/changeledger.mjs check` (CR6)
-- [ ] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+- [x] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; actualizar en `test/contract.test.mjs` la aserción que aún exige la prosa retirada "no pipes, filters, summaries, previews or voluntary output limits" (hoy en la línea 81, dentro de `212659 CR3`); verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3, CR4)
+  - **Resolved:** `2026-07-27T12:31:17Z`
+- [x] En `test/contract.test.mjs`, añadir una fixture con `bootstrapBlock(3)` literal y verificar que `checkContract` (`src/contract.mjs`) la marca obsoleta y que `changeledger register` la reemplaza por `bootstrapBlock(4)` sin tocar `LEGACY_CONTRACT_HASHES`; verify: `node --test test/contract.test.mjs` (CR5)
+  - **Resolved:** `2026-07-27T12:31:17Z`
+- [x] En `src/contract.mjs`, modelar el token de lista en la proyección de equivalencia: añadir `list` y `list_item` a `REFERENCE_TOKEN_TYPES` y hacer que `projectToken` recurse en `token.items`, para que un bloque con bullets pueda compararse como equivalente sin volver invisible el contenido de la lista; verify: `node --test test/contract.test.mjs` (CR7, CR8)
+  - **Resolved:** `2026-07-27T12:31:17Z`
+- [x] Ejecutar `changeledger register` (`bin/changeledger.mjs`) sobre este propio repo para regenerar `AGENTS.md` con el bloque v4; verify: `node bin/changeledger.mjs check` (CR6)
+  - **Resolved:** `2026-07-27T12:31:17Z`
+- [x] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T12:31:17Z`
 
 ## Log
 
@@ -290,3 +327,12 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 - **2026-07-26T14:05:40Z** `[status]` draft → approved
 - **2026-07-27T11:16:24Z** `[note]` Caducidades corregidas antes de implementar, con autorizacion de Roberto el 2026-07-27 (los changes se resolvieron en orden distinto al de creacion). Cuatro: (1) el texto decidido pedia reintentar con head -<lines + 2>; 130727 cerro la semantica al reves — lines:<N> es el total emitido, BEGIN y END incluidos — asi que pasa a head -<lines> y la frase lo explicita. (2) La Investigation citaba el bloque v3 con el parrafo --have que 124833 ya borro; anotado cual es el REFERENCE vigente. (3) Medidas actualizadas: core 132, spec 300, implement 198; la conclusion (solo el core cabe bajo 200) no cambia. (4) La tarea 1 del Plan apuntaba a 'lineas 74-86' y a una fixture de 'After a compaction' que ya no existe; el unico resto real es la asercion de 'no pipes, filters...' en test/contract.test.mjs:81, dentro de 212659 CR3.
 - **2026-07-27T11:16:25Z** `[note]` Anadido a CR2, tambien autorizado: el reintento debe contener literalmente 're-run with head -<lines>' y el bloque no debe contener 'lines + 2'. Sin esto ningun criterio cubria esa frase y la aritmetica equivocada habria entrado en el AGENTS.md de todo repo consumidor sin que nadie la atrapara. Nota sobre CR4: su segunda mitad (el bloque no contiene --have ni rev:) ya se cumple hoy porque 124833 lo limpio; queda como guarda de regresion y exige mutante que lo demuestre.
+- **2026-07-27T11:17:07Z** `[status]` approved → in-progress
+- **2026-07-27T12:07:23Z** `[note]` Alcance extendido con autorizacion explicita de Roberto el 2026-07-27, con re-aprobacion de los criterios nuevos en la conversacion. Bloqueo encontrado durante la implementacion y verificado por el orquestador: el texto decidido es el primer REFERENCE con lista de bullets; marked lo lexa como paragraph,space,paragraph,space,list dentro del blockquote, y 'list' no esta en REFERENCE_TOKEN_TYPES (src/contract.mjs:100), asi que projectReference devuelve null y hasEquivalentReference queda en false de forma incondicional. El estado 'equivalent' se vuelve inalcanzable: cualquier AGENTS.md semanticamente identico pero no byte-exacto se rechaza para siempre y register lo reescribe mientras el formateador lo vuelve a romper. Confirmado por la suite existente: 12 fallos (782/794), cinco de ellos son la garantia de los changes 150300 y 153633 — 150300 CR1, 153633 CR1/CR3, 153633 CR3, mas 150300 CR2 y 153633 CR2 en test/register.test.mjs. Resolucion elegida por Roberto: modelar el token en vez de re-decidir el texto, porque el formato de checklist es la sustancia del change y el fail-closed hizo su trabajo avisando de un token nuevo.
+- **2026-07-27T12:07:23Z** `[note]` Anadidos CR7 (la equivalencia semantica sobrevive a la lista, incluido que register no reescriba el fichero equivalente) y CR8 (la deriva dentro de un bullet se sigue detectando: contenido de un bullet, de otro bullet distinto, y reordenacion sin cambio de texto). CR8 es el criterio antiagujero: anadir list a la whitelist sin recursar en token.items volveria invisible todo el contenido de los bullets, comprando la equivalencia al precio de un bypass silencioso. La clausula de orden la aprobo Roberto explicitamente y fija dentro de listas la conservacion de orden que contract-discovery ya afirma. Anadida tambien la tarea de Plan correspondiente. test/register.test.mjs sigue vetado: 150300 CR2 y 153633 CR2 deben volver a pasar solas; si no, la implementacion de la recursion esta mal.
+- **2026-07-27T12:07:23Z** `[note]` Correccion a la tarea 1 del Plan: decia que la asercion de la linea 81 era el unico resto de prosa retirada. Son 7 los tests que la llevan — 212659 CR1/CR2, 212659 CR1, 212659 CR7, 212659 CR3, 124113 CR5 (hardcodea BEGIN v3), 150300 CR3/CR4 y 153633 CR4/CR5. Verificado por el orquestador ejecutando la suite. Tercera vez en esta iniciativa que un puntero del Plan resulta inexacto.
+- **2026-07-27T12:26:52Z** `[note]` Correccion de CR8, autorizada por Roberto el 2026-07-27, y el error es del orquestador. Mi redaccion decia que 'head -200' era 'el contenido de un bullet'. Es falso: marked lexa el bloque como paragraph, space, paragraph, space, list — el comando es su propio parrafo, antes de la lista. Yo tenia esa salida del lexer delante cuando redacte el criterio y no la mire. Consecuencia real, encontrada por el implementador al ejecutar el mutante que le exigi: la clausula 1 SOBREVIVIO a la recursion-quitada, porque el contenido de parrafo se proyecta con recursion o sin ella. Las clausulas 2 y 3 si fallaron, y CR7 paso — asi que el proposito antiagujero de CR8 se cumple, con dos clausulas en vez de tres. El texto de CR8 ahora describe la clausula 1 como lo que es (guarda de deriva de parrafo) y nombra explicitamente cuales son las dos que cargan la evidencia, para que ningun lector futuro repita mi error. Ningun test cambia; solo la descripcion. Cuarto puntero inexacto de la iniciativa y el primero en un criterio, no en un Plan.
+- **2026-07-27T12:26:52Z** `[note]` Veto sobre test/register.test.mjs levantado por Roberto el 2026-07-27, acotado a las dos cadenas de su helper privado reflowBootstrap (test/register.test.mjs:22-27). Motivo: 150300 CR2 es el unico fallo del gate y no es un defecto de la implementacion — muere en assert.notEqual(next, canonical) de la linea 143, es decir en la construccion de la fixture y antes de ejercitar comportamiento, porque su helper busca el literal '> Attempt to run **ChangeLedger** with changeledger context immediately after' que este change acaba de retirar, y el replace queda no-op. Verificado por el orquestador. 153633 CR2 volvio a verde solo, como se predijo, porque sus replaces se apoyan en la regex del marcador. El veto era una asuncion mia (crei que el fichero no haria falta), no un limite de diseno: retargetear fixtures que rompio la prosa retirada es la naturaleza de la tarea 1 y ya se hizo en 10 tests. La intencion del test no cambia.
+- **2026-07-27T12:31:16Z** `[note]` Unidad de commit: las cinco tareas del Plan van en un commit combinado. Razon verificada, no asumida. (a) Las tareas 1, 2 y 3 comparten src/contract.mjs y test/contract.test.mjs y estan encadenadas causalmente: la tarea 3 existe solo porque el texto de la tarea 1 introdujo el token de lista, y los 10 tests retargeteados no pasan hasta que la 3 aterriza. (b) La tarea 4 no es separable por una restriccion tecnica que comprobe: con BOOTSTRAP_VERSION=4 y un AGENTS.md en v3, checkContract devuelve literalmente ['AGENTS.md has an outdated ChangeLedger reference — run changeledger register'] — reproducido en un repo temporal. Un commit con src y tests pero sin el AGENTS.md regenerado seria un estado que falla el gate al hacerle checkout. (c) La tarea 5 es soporte y no produce artefacto. Incluye tambien el retarget colateral de reflowBootstrap en test/register.test.mjs, autorizado por Roberto.
+- **2026-07-27T12:31:16Z** `[note]` Verificaciones independientes del orquestador sobre el informe del implementador, todas ejecutadas: (1) el retarget de test/register.test.mjs toca exactamente 2 lineas dentro de reflowBootstrap y nada mas (git diff). (2) La equivalencia dispara la comparacion de arbol y no la identidad de bytes: en un repo temporal con el reflow aplicado, los bytes difieren (1074 -> 1073) y applyBootstrap devuelve status 'equivalent', con checkContract en []. Esto es lo que sostiene el valor de 150300 CR2: sin distinguir 'equivalent' de 'unchanged', un test verde no diria por que camino paso. (3) Gate completo: pnpm lint limpio, 798/798, changeledger check 18 valid.
+- **2026-07-27T12:32:04Z** `[status]` in-progress → in-review

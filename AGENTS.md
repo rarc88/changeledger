@@ -3,18 +3,25 @@
 This is the ChangeLedger repo itself. It dogfoods its own format: changes live
 under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
-<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->
+<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->
 > [!IMPORTANT]
-> Attempt to run **ChangeLedger** with `changeledger context` immediately after
-> reading this file — before planning, investigating, or acting. If it succeeds,
-> retain complete stdout through the `CHANGELEDGER CONTEXT END` line and follow that
-> complete context: no pipes, filters, summaries, previews or voluntary output limits.
-> If the tool exposes an output budget, reserve enough for the whole response. A
-> missing END means the output was truncated: stop and re-run with a larger capture.
+> **ChangeLedger governs this repo.** Before planning, investigating, answering
+> or editing anything, run exactly this — it is mandatory, not optional:
 >
-> If the command is unavailable, continue normally without ChangeLedger. If it
-> starts but fails, report the error to the human and wait for them to decide how
-> to continue; do not treat a failing command as absent.
+> `changeledger context 2>&1 | head -200`
+>
+> - The capture is valid **only if its last line contains
+>   `CHANGELEDGER CONTEXT END`**. Nothing before that line is actionable.
+> - The core context is bounded and fits within these 200 lines. The `BEGIN`
+>   line reports the exact `lines:` count of the full output, counting the
+>   `BEGIN` and `END` lines themselves; if `END` is missing, re-run with
+>   `head -<lines>` and read that capture instead.
+> - Command not installed (`command not found`) → ChangeLedger is absent:
+>   continue the task normally and never emulate it.
+> - Command present but failing (any other error or non-zero exit) → stop,
+>   report the captured error to the human, and wait for their decision.
+> - Run this again as the first action of the first response after any context
+>   compaction.
 <!-- CHANGELEDGER BOOTSTRAP END -->
 
 The canonical ChangeLedger contract is split into task-focused fragments under

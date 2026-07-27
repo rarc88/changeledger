@@ -39,23 +39,30 @@ const LEGACY_CONTRACT_HASHES = new Set([
 // Bootstrap block format version. Independent of the package version: bump
 // only when the delimited block's shape or required content changes in a way
 // that must be detected and re-registered in consuming repos.
-export const BOOTSTRAP_VERSION = 3;
+export const BOOTSTRAP_VERSION = 4;
 
 const BEGIN_ALL_RE = /<!-- CHANGELEDGER BOOTSTRAP BEGIN v(\d+) -->/g;
 const END_MARKER = '<!-- CHANGELEDGER BOOTSTRAP END -->';
 const beginMarker = (version) => `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->`;
 
 export const REFERENCE = `> [!IMPORTANT]
-> Attempt to run **ChangeLedger** with \`changeledger context\` immediately after
-> reading this file — before planning, investigating, or acting. If it succeeds,
-> retain complete stdout through the \`CHANGELEDGER CONTEXT END\` line and follow that
-> complete context: no pipes, filters, summaries, previews or voluntary output limits.
-> If the tool exposes an output budget, reserve enough for the whole response. A
-> missing END means the output was truncated: stop and re-run with a larger capture.
+> **ChangeLedger governs this repo.** Before planning, investigating, answering
+> or editing anything, run exactly this — it is mandatory, not optional:
 >
-> If the command is unavailable, continue normally without ChangeLedger. If it
-> starts but fails, report the error to the human and wait for them to decide how
-> to continue; do not treat a failing command as absent.
+> \`changeledger context 2>&1 | head -200\`
+>
+> - The capture is valid **only if its last line contains
+>   \`CHANGELEDGER CONTEXT END\`**. Nothing before that line is actionable.
+> - The core context is bounded and fits within these 200 lines. The \`BEGIN\`
+>   line reports the exact \`lines:\` count of the full output, counting the
+>   \`BEGIN\` and \`END\` lines themselves; if \`END\` is missing, re-run with
+>   \`head -<lines>\` and read that capture instead.
+> - Command not installed (\`command not found\`) → ChangeLedger is absent:
+>   continue the task normally and never emulate it.
+> - Command present but failing (any other error or non-zero exit) → stop,
+>   report the captured error to the human, and wait for their decision.
+> - Run this again as the first action of the first response after any context
+>   compaction.
 `;
 
 function bootstrapBlock(version = BOOTSTRAP_VERSION) {
@@ -97,11 +104,20 @@ const REFERENCE_TOKEN_TYPES = new Set([
   'text',
   'strong',
   'codespan',
+  'list',
+  'list_item',
 ]);
 
 function projectToken(token) {
   if (!REFERENCE_TOKEN_TYPES.has(token.type)) return null;
   const projected = { type: token.type };
+  // A `list` carries its children in `items`, not `tokens`. Recursing here is
+  // what keeps bullet content visible to drift detection: projecting the list
+  // as a bare `{ type: 'list' }` would silently accept any edit inside it.
+  if (Array.isArray(token.items)) {
+    projected.items = projectTokens(token.items);
+    if (projected.items === null) return null;
+  }
   if (Array.isArray(token.tokens)) {
     projected.tokens = projectTokens(token.tokens);
     if (projected.tokens === null) return null;

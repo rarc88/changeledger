@@ -21,8 +21,8 @@ function initializedRepo(agentsBody = '# Project rules\n') {
 
 function reflowBootstrap(text) {
   return text.replace(
-    '> Attempt to run **ChangeLedger** with `changeledger context` immediately after\n> reading this file — before planning, investigating, or acting.',
-    '>Attempt to run **ChangeLedger** with `changeledger context` immediately\n> after reading this file — before planning, investigating, or acting.',
+    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
+    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
   );
 }
 
