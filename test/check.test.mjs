@@ -65,6 +65,19 @@ test('a valid repo has no errors', () => {
   assert.deepEqual(errors, []);
 });
 
+// Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,
+// so a change without it already passed cleanly — no production change needed.
+test('20260726-124836 CR5: a change with no owner in frontmatter reports no error or warning', () => {
+  const c = change();
+  assert.equal('owner' in c.frontmatter, false);
+  const { errors, warnings } = run([c]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /owner/i.test(m)),
+    [],
+  );
+});
+
 test('CR1: missing frontmatter key is an error', () => {
   const c = change();
   delete c.frontmatter.title;
