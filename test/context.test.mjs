@@ -748,10 +748,17 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // "a new human message alone does not trigger a reload" rule are preserved
     // verbatim — the latter is now the sole reason a retained capture is not
     // reloaded. Every other rule in the fragment is preserved.
-    // 20260726-124835: core is rewritten as a routing contract. Rule by rule:
+    // 20260726-124835: core is rewritten as a routing contract, and the human's
+    // amendment then RESTORED three rules the first pass had retired without a
+    // criterion authorizing it. Every claim below is checked against the owning
+    // file's actual sentence, not against similar words, so a reader grepping a
+    // named literal finds it. Tally: 7 REPLACED entries, 3 RESTORED, 3 RETIRED
+    // and 3 MOVED entries covering 7 moved rules, grouped by owning file; every
+    // other rule of the old fragment is in the PRESERVED entry at the end.
     // REPLACED — "Documents under `.changeledger/` are ChangeLedger's persistent
-    //   truth" by an identity that separates authorized work (changes) from
-    //   persistent truth (specs) and names overlay authority;
+    //   truth" and rule 3's "Capture every authorized change in
+    //   `.changeledger/changes/`" by an identity that separates authorized work
+    //   (changes) from persistent truth (specs) and names overlay authority;
     // REPLACED — "a new human message alone does not trigger a reload" by "never
     //   load one speculatively and never reload one already held", which keeps
     //   the same load-bearing reason a retained capture is not reloaded and adds
@@ -761,7 +768,8 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   final result … praise, 'continue', or agent inference is not a decision"
     //   by "The human decides and the agent executes" plus the invariant "A human
     //   verdict is transmitted, never inferred; praise, 'continue' or agent
-    //   advice is not a decision";
+    //   advice is not a decision"; the matrix keeps `draft → approved` and
+    //   `in-validation → done` as the human-owned rows that carry the rest;
     // RESTORED to core by the human's amendment, after the first pass wrongly
     //   classified it REPLACED — rule 1's precondition and prohibition. The first
     //   invariant now reads "No artifact without explicit human authorization,
@@ -774,14 +782,17 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // REPLACED — "Delegate only with a clear boundary and benefit … ownership,
     //   expected output and integration criterion" by the work→owner table, "the
     //   stage context owns what the prompt must contain" and the portable
-    //   delegate-sizing paragraph; delegation.md keeps the full prompt contract;
+    //   delegate-sizing paragraph; delegation.md's "## Delegation prompt contract"
+    //   keeps the element list and "The boundary must state what the delegate
+    //   owns, what it returns and how the result integrates";
     // REPLACED — "Size the model to the task's difficulty and risk" by "Size the
     //   delegate to the work, not to the caller's convenience" with explicit
     //   tiers, stated without naming any provider's models;
     // REPLACED — "Do not over-shard or overlap write surfaces without an explicit
     //   integration plan" by "One owner per write surface; concurrent subagents
-    //   must not share files", with delegation.md's own wording still owning the
-    //   general rule;
+    //   must not share files", with delegation.md's "Do not run parallel agents
+    //   over the same files or conceptual surface unless overlap and integration
+    //   are explicit" still owning the general rule;
     // REPLACED — "Get a complete role skeleton to fill in with `changeledger
     //   agent-prompt <role>`" by "Get the prompt skeleton from `changeledger
     //   agent-prompt <role>`"; the four roles and the `post-review` semantics are
@@ -789,10 +800,17 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // RETIRED — the FIRST-capture recipe of "Read complete context before
     //   acting": "Running `changeledger context` is discovery, not compliance",
     //   "Capture the first invocation completely in one pass", reading through
-    //   the `CHANGELEDGER CONTEXT END` line, the unverifiable preview/summary/cap
-    //   prohibition and "exceptional recovery". 20260726-124834 gave the
-    //   bootstrap the exact bounded command and the END line as the validity
-    //   condition of the first capture, so core had no mechanism left to own;
+    //   the `CHANGELEDGER CONTEXT END` line and "exceptional recovery".
+    //   20260726-124834 gave the bootstrap the exact bounded command and the END
+    //   line as the validity condition of the first capture, so core had no
+    //   mechanism left to own;
+    // RETIRED — "Never request a preview, summary or voluntary line, byte or
+    //   token cap": an unverifiable negative with no successor wording. The
+    //   bootstrap's END-line validity condition is the check that replaced it for
+    //   the first load;
+    // RETIRED from the contract — "work performed without the CLI may diverge".
+    //   No fragment carries it; README.md still states it as product narrative,
+    //   which is not contract text an agent is handed;
     // RESTORED to core by the human's amendment — that EVERY capture is read
     //   complete, which is operation and not startup: `## Context modes` states
     //   "Every context capture is read complete in one pass — core, mode and
@@ -800,12 +818,18 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   "Run each only after reading the complete base output" it stands in for,
     //   and it is the rule `INCREMENTAL_NOTICE` in src/commands/context.mjs
     //   points at when an incremental capture claims it "applies here";
-    // RETIRED from core — "Files are the source of truth and may be edited
-    //   directly" and "CLI helpers are optional and preferred for error-prone
-    //   operations": operating detail no longer needed to decide what to do next;
-    // RETIRED from core — "Coding agents must know they share the codebase and
-    //   must not revert others' work", preserved in delegation.md as "do not
-    //   revert others' edits and report overlapping changes";
+    // MOVED to spec.md, not retired as the first pass recorded — "Files are the
+    //   source of truth and may be edited directly" and "CLI helpers are optional
+    //   and preferred for error-prone operations" live in
+    //   templates/contract/spec.md §"Repository layout and creation" as "Files
+    //   remain the source of truth and may be edited directly, but prefer the CLI
+    //   for timestamps, enums and markers that are easy to mistype";
+    // MOVED to delegation.md, not retired as the first pass recorded (its own
+    //   entry said "preserved in delegation.md", which is a move) — "Coding agents
+    //   must know they share the codebase and must not revert others' work" is
+    //   "Tell coding delegates they share the codebase: stay inside assigned
+    //   ownership, do not revert others' edits and report overlapping changes
+    //   instead of silently resolving them";
     // RESTORED to core by the human's amendment — the scoped reading of the stop,
     //   which the first pass MOVED to validation.md alone: `## Lifecycle` now
     //   reads "It stops only that change: never accept on the human's behalf, but
@@ -814,16 +838,30 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   "Keep working or idle?" is decided with core alone (20260703-220014 exists
     //   to establish that reading), and validation.md composes only for the
     //   change already stopped, so it cannot reach the orchestrator in time;
-    // MOVED to their owning overlays — "commit the approved change document before
-    //   code" (implement.md), "use a fresh clean-context reviewer before human
-    //   validation" (review.md) and "`changeledger graduate <id> --skip [reason]`"
-    //   (close.md); core keeps one-line invariants pointing at each owner;
-    // PRESERVED verbatim — the eight lifecycle states, the ten-row transition
-    //   matrix with its owner and mechanism columns, the `changeledger status`
-    //   note, the discard/reopen rules, "If no approved or in-progress change
-    //   applies…" with the `quick` lane, "Humans consume changes in `changeledger
-    //   view`", the pre-existing-divergence rule, the modes index and operational
-    //   discovery with its effective-policy sentence.
+    // MOVED to their owning overlays, each named by what that overlay actually
+    //   says — verbatim only in close.md, so the other three are quoted as they
+    //   now read: "commit the approved change document before code" is
+    //   implement.md's "After `approved → in-progress`, create a baseline commit
+    //   of the approved change document before code"; "use a fresh clean-context
+    //   reviewer before human validation" is review.md's "Review-required work
+    //   must be checked by a fresh subagent with clean context and a model sized
+    //   to the review difficulty"; rule 3's "An approved change governs code in
+    //   scope" is implement.md's "the approved change governs the code written
+    //   within its scope"; and "`changeledger graduate <id> --skip [reason]`" is
+    //   verbatim in close.md. Core keeps one-line invariants pointing at each
+    //   owner;
+    // PRESERVED — the ten-row transition matrix with its owner and mechanism
+    //   columns, the `changeledger status` note, the discard/reopen rules, "If no
+    //   approved or in-progress change applies…" with the `quick` lane, "Humans
+    //   consume changes in `changeledger view`", "Never implement a `draft`", the
+    //   modes index and operational discovery with its effective-policy sentence,
+    //   all verbatim modulo line wrapping; seven of the eight lifecycle states
+    //   verbatim, the `in-validation` bullet extended by the restored scoped stop.
+    //   Preserved but reworded, no obligation dropped: "Any pre-existing divergence
+    //   … must be reported" as "Pre-existing divergence … is reported"; rule 5's
+    //   "Keep lifecycle, tasks, ownership and Log current while working" without
+    //   the trailing clause; rule 4's "implement one change at a time on a
+    //   non-main branch" as "One change at a time, on a non-main branch".
     // ADDED — "Classify intent before acting", "Protect the orchestrator's
     //   context", "Stage exit gates", "Complexity ceiling" and "Commits".
     'core.md': 'cf16900fd01223e7f3cd87c111bf9e098088fd99a689c4c5f20ab0064b7a7572',
@@ -2134,6 +2172,7 @@ test('124835 CR11: retired rules keep their owner and the retained sentences sta
   const norm = (text) => text.replace(/\s+/g, ' ');
   const core = norm(buildContext(undefined, root));
   const implement = norm(buildContext('implement', root));
+  const review = norm(buildContext('review', root));
   const validation = norm(buildContext(validationId, root));
   const close = norm(buildContext(doneId, root));
   const contractDir = new URL('../templates/contract/', import.meta.url);
@@ -2160,6 +2199,13 @@ test('124835 CR11: retired rules keep their owner and the retained sentences sta
 
   // Each rule core stops carrying is asserted in the overlay that owns it.
   assert.match(implement, /baseline commit of the approved change document before code/);
+  // Old rule 6 was classified MOVED to review.md and no test pinned it, so the
+  // claim could rot silently — the exact defect class the review flagged for the
+  // other moved rules. Pinned here in the overlay's own wording.
+  assert.match(
+    review,
+    /Review-required work must be checked by a fresh subagent with clean context/,
+  );
   assert.match(validation, /This stop is scoped to this change/);
   assert.match(
     validation,
