@@ -49,7 +49,9 @@ rework the orchestrator pays for twice.
 
 ## Invariants
 
-- No artifact without explicit human authorization.
+- No artifact without explicit human authorization, and none before there is
+  enough clarity to document faithfully: a direct request such as “create the
+  change” is authorization; never invent missing requirements.
 - Never implement a `draft`.
 - One change at a time, on a non-main branch.
 - Keep lifecycle, tasks, ownership and Log current.
@@ -103,7 +105,10 @@ full contract.
 - `approved`: ready to start after the Git/worktree checks.
 - `in-progress`: implementation underway.
 - `in-review`: independent review required.
-- `in-validation`: stop for human acceptance or a reasoned rejection.
+- `in-validation`: stop for human acceptance or a reasoned rejection. It stops
+  only that change: never accept on the human's behalf, but reject with a reason
+  and start another approved change unless its direct or transitive `depends_on`
+  chain reaches one in `in-validation`.
 - `blocked`: an impediment or decision needs resolution.
 - `done`: the human accepted the complete result; provisional until durable closure.
 - `discarded`: terminal tombstone; never reopen it.
@@ -136,9 +141,10 @@ Valid modes: implement, review, spec, release.
 
 Escalate to a mode before acting. Before documenting, run
 `changeledger context spec`. Before executing, run `changeledger context
-implement` or `changeledger context <change-id>`. Run each only after reading
-the complete base output. Every mode and change-id context extends the core
-context already read; it never repeats it.
+implement` or `changeledger context <change-id>`. Every context capture is read
+complete in one pass — core, mode and change-id alike; a partial view is
+invalid. Every mode and change-id context extends the core context already read;
+it never repeats it.
 
 - `changeledger context spec`: author or refine a change.
 - `changeledger context implement`: execute an approved change.

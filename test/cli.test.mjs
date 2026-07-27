@@ -201,10 +201,15 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = contractText();
-  // 20260726-124835: the installed contract no longer carries core's capture
-  // section — the bootstrap owns capture and its validity condition — so the
-  // creation gate is asserted through the rewritten routing rules instead.
+  // 20260726-124835: the installed contract no longer carries core's first-capture
+  // recipe — the bootstrap owns making and verifying that capture — so the
+  // creation gate is asserted through the rewritten routing rules instead. Its
+  // amendment restores the two pins this test had deleted rather than repointed:
+  // the documentation precondition and what counts as authorization.
   assert.match(contract, /Classifying the human's intent is free and mandatory on every message/);
+  assert.match(contract, /enough clarity to document faithfully/);
+  assert.match(contract, /direct request such as “create the\s+change” is authorization/);
+  assert.match(contract, /never invent missing requirements/);
   assert.match(contract, /never load one speculatively and never reload one\s+already held/);
   assert.match(contract, /Escalate to a mode before acting/);
   assert.match(contract, /No artifact without explicit human authorization/);

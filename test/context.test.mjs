@@ -257,9 +257,12 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const second = buildContext(undefined, root);
   assert.equal(first, second);
   assert.match(first, /mode: core/);
-  // 20260726-124835: capture discipline belongs to the bootstrap, so core is
-  // asserted on what it now owns — routing by intent and context economy.
+  // 20260726-124835: making and verifying the FIRST capture belongs to the
+  // bootstrap, so core is asserted on what it now owns — routing by intent,
+  // context economy, and that every capture it hands out is read complete.
   assert.match(first, /Work is documented before code/);
+  assert.match(first, /Every context capture is read\s+complete in one pass/);
+  assert.match(first, /a partial view is\s+invalid/);
   assert.match(first, /Classifying the human's intent is free and mandatory on every message/);
   assert.match(first, /never load one speculatively and never reload one\s+already held/);
   assert.match(first, /Escalate to a mode before acting/);
@@ -267,7 +270,7 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
   assert.match(first, /If unsure, document\s+it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
-  assert.match(first, /extends the core\s+context already read; it never repeats it/);
+  assert.match(first, /extends the core\s+context already read;\s+it never repeats it/);
   assertWithinBudget('core', first, contextBudgets.base.core);
 });
 
@@ -437,15 +440,18 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
   const expected = [
     // 20260726-124835: the persistent-truth sentence, the conversation-first
     // rule and the authorization rule are restated by the rewritten identity and
-    // invariants; the in-validation stop and the graduation command moved to the
-    // overlays that own them, so core keeps only the trigger and the owner.
+    // invariants; the graduation command moved to the overlay that owns it, so
+    // core keeps only the trigger and the owner. Its amendment keeps the
+    // in-validation stop in core, repointed to the restored wording.
     [
       'core',
       /Work is documented before code: changes under `.changeledger\/changes\/` are authorized work/,
     ],
     ['core', /No artifact without explicit human authorization/],
+    ['core', /never invent missing requirements/],
     ['core', /only once the human authorizes documenting it/],
     ['core', /Never implement a `draft`/],
+    ['core', /It stops only that change/],
     ['core', /A human verdict is transmitted, never inferred/],
     ['core', /reload `changeledger context <id>`/],
     ['core', /the close overlay owns graduation and archive/],
@@ -756,10 +762,15 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   by "The human decides and the agent executes" plus the invariant "A human
     //   verdict is transmitted, never inferred; praise, 'continue' or agent
     //   advice is not a decision";
-    // REPLACED — rule 1's "enough clarity to document faithfully **and** the
-    //   human explicitly authorizes documentation" by the invariant "No artifact
-    //   without explicit human authorization" plus the intent row that reaches
-    //   `changeledger context spec` only once the human authorizes documenting it;
+    // RESTORED to core by the human's amendment, after the first pass wrongly
+    //   classified it REPLACED — rule 1's precondition and prohibition. The first
+    //   invariant now reads "No artifact without explicit human authorization,
+    //   and none before there is enough clarity to document faithfully: a direct
+    //   request such as “create the change” is authorization; never invent
+    //   missing requirements". The REPLACED claim named an authorization-only
+    //   invariant that carried neither obligation, and a repo-wide grep for
+    //   "invent missing|missing requirement|faithful" over templates/ and src/
+    //   returned nothing, so both were homeless;
     // REPLACED — "Delegate only with a clear boundary and benefit … ownership,
     //   expected output and integration criterion" by the work→owner table, "the
     //   stage context owns what the prompt must contain" and the portable
@@ -775,23 +786,38 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   agent-prompt <role>`" by "Get the prompt skeleton from `changeledger
     //   agent-prompt <role>`"; the four roles and the `post-review` semantics are
     //   preserved verbatim in core;
-    // RETIRED — the whole "Read complete context before acting" capture section
-    //   (one-pass capture, the END sentinel, "Running `changeledger context` is
-    //   discovery, not compliance", the preview/cap prohibition and "exceptional
-    //   recovery"). 20260726-124834 gave the bootstrap ownership of the capture
-    //   and its validity condition, so core had no mechanism left to own;
+    // RETIRED — the FIRST-capture recipe of "Read complete context before
+    //   acting": "Running `changeledger context` is discovery, not compliance",
+    //   "Capture the first invocation completely in one pass", reading through
+    //   the `CHANGELEDGER CONTEXT END` line, the unverifiable preview/summary/cap
+    //   prohibition and "exceptional recovery". 20260726-124834 gave the
+    //   bootstrap the exact bounded command and the END line as the validity
+    //   condition of the first capture, so core had no mechanism left to own;
+    // RESTORED to core by the human's amendment — that EVERY capture is read
+    //   complete, which is operation and not startup: `## Context modes` states
+    //   "Every context capture is read complete in one pass — core, mode and
+    //   change-id alike; a partial view is invalid". It replaces the narrower
+    //   "Run each only after reading the complete base output" it stands in for,
+    //   and it is the rule `INCREMENTAL_NOTICE` in src/commands/context.mjs
+    //   points at when an incremental capture claims it "applies here";
     // RETIRED from core — "Files are the source of truth and may be edited
     //   directly" and "CLI helpers are optional and preferred for error-prone
     //   operations": operating detail no longer needed to decide what to do next;
     // RETIRED from core — "Coding agents must know they share the codebase and
     //   must not revert others' work", preserved in delegation.md as "do not
     //   revert others' edits and report overlapping changes";
-    // MOVED to their owning overlays, each preserved there verbatim — "commit the
-    //   approved change document before code" (implement.md), "use a fresh
-    //   clean-context reviewer before human validation" (review.md), "`in-
-    //   validation` stops only that change … `depends_on` chain" (validation.md)
-    //   and "`changeledger graduate <id> --skip [reason]`" (close.md); core keeps
-    //   one-line invariants pointing at each owner;
+    // RESTORED to core by the human's amendment — the scoped reading of the stop,
+    //   which the first pass MOVED to validation.md alone: `## Lifecycle` now
+    //   reads "It stops only that change: never accept on the human's behalf, but
+    //   reject with a reason and start another approved change unless its direct
+    //   or transitive `depends_on` chain reaches one in `in-validation`".
+    //   "Keep working or idle?" is decided with core alone (20260703-220014 exists
+    //   to establish that reading), and validation.md composes only for the
+    //   change already stopped, so it cannot reach the orchestrator in time;
+    // MOVED to their owning overlays — "commit the approved change document before
+    //   code" (implement.md), "use a fresh clean-context reviewer before human
+    //   validation" (review.md) and "`changeledger graduate <id> --skip [reason]`"
+    //   (close.md); core keeps one-line invariants pointing at each owner;
     // PRESERVED verbatim — the eight lifecycle states, the ten-row transition
     //   matrix with its owner and mechanism columns, the `changeledger status`
     //   note, the discard/reopen rules, "If no approved or in-progress change
@@ -800,7 +826,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   discovery with its effective-policy sentence.
     // ADDED — "Classify intent before acting", "Protect the orchestrator's
     //   context", "Stage exit gates", "Complexity ceiling" and "Commits".
-    'core.md': 'd0ab6534ad61490911e56cfdc917ca035b242196a6ee8c80148466c20a3e61a4',
+    'core.md': 'cf16900fd01223e7f3cd87c111bf9e098088fd99a689c4c5f20ab0064b7a7572',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1271,10 +1297,14 @@ test('220014 CR1/CR4: core and validation scope the stop to one change, not the 
   const validationId = addChange(root, 'in-validation', '20260628-000001');
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
   const validation = buildContext(validationId, root).replace(/\s+/g, ' ');
-  // 20260726-124835: core no longer restates the stop; validation.md owns it and
-  // core keeps no summary that could drift from it.
-  assert.doesNotMatch(core, /`in-validation` stops only that change/);
-  assert.doesNotMatch(core, /start another approved change unless its `depends_on` chain/);
+  // 20260726-124835 amendment: core owns the scoped reading again. Whether to
+  // start another change or idle is decided before any overlay is loaded, so the
+  // rule cannot live only in validation.md, which composes for one change.
+  assert.match(core, /It stops only that change/);
+  assert.match(
+    core,
+    /start another approved change unless its direct or transitive `depends_on` chain reaches one in `in-validation`/,
+  );
   assert.match(
     validation,
     /start another approved change unless its direct or transitive `depends_on` chain reaches one in `in-validation`/,
@@ -1969,6 +1999,24 @@ test('124835 CR6/CR7: invariants, exit gates, the ceiling and commits carry the 
   const core = composedCore();
   for (const literal of [
     'No artifact without explicit human authorization',
+    // 20260726-124835 amendment: three obligations the rewrite retired without a
+    // criterion are restored, because they govern the flow and core owns flow.
+    // The documentation precondition and the anti-invention prohibition were
+    // homeless — zero hits across templates/ and src/ — so nothing else carried
+    // them.
+    'enough clarity to document faithfully',
+    'a direct request such as “create the change” is authorization',
+    'never invent missing requirements',
+    // The stop is scoped to one change: "keep working or idle?" is decided with
+    // core alone, before any overlay is loaded.
+    'It stops only that change',
+    "never accept on the human's behalf",
+    'reject with a reason and start another approved change',
+    'unless its direct or transitive `depends_on` chain reaches one in `in-validation`',
+    // The bootstrap owns the FIRST capture and its END validity condition; core
+    // owns that every capture, incremental ones included, is read complete.
+    'Every context capture is read complete in one pass',
+    'a partial view is invalid',
     'Never implement a `draft`',
     'One change at a time, on a non-main branch',
     'Keep lifecycle, tasks, ownership and Log current',
@@ -2064,11 +2112,12 @@ test('124835 CR10: core stops carrying what it no longer governs', () => {
     "must not revert others' work",
     'Do not over-shard or overlap write surfaces without an explicit integration plan',
     "Size the model to the task's difficulty and risk",
-    // Stage detail — implement, review, validation and close own it.
+    // Stage detail — implement, review and close own it. The in-validation stop
+    // is NOT on this list: the 20260726-124835 amendment restored it to core,
+    // because deciding whether to keep working is a core-only decision, so no
+    // criterion may demand its absence (CR6 demands its presence).
     'commit the approved change document before code',
     'use a fresh clean-context reviewer before human validation',
-    '`in-validation` stops only that change',
-    'start another approved change unless its `depends_on` chain',
     'changeledger graduate <id> --skip [reason]',
   ];
   for (const literal of retired) {
