@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { marked } from 'marked';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
@@ -263,15 +264,45 @@ test('124834 CR8: drift in the bounded command is still outdated', () => {
   rejects((text) => text.replace('head -200', 'head -500'), 'a changed capture bound is drift');
 });
 
-test('124834 CR8: drift in a different bullet is still outdated', () => {
-  rejects(
-    (text) =>
-      text.replace(
-        'Nothing before that line is actionable',
-        'Nothing after that line is actionable',
-      ),
-    'the projection must not ignore bullet content',
-  );
+// Enumerate the bullets with the same parser the projection uses, so the test's
+// notion of "a bullet" cannot drift from `projectToken`'s. Pinning individual
+// bullets by hand left the uncovered ones open: a projection that dropped any
+// subset of `items` (`slice(0, -1)`, `slice(1)`, …) survived. Deriving the set
+// from the parse makes coverage exhaustive and self-extending — a bullet added
+// to `REFERENCE` is verified without anyone remembering to extend this test.
+function referenceBullets() {
+  const blockquote = marked.lexer(REFERENCE).filter((token) => token.type !== 'space')[0];
+  assert.equal(blockquote?.type, 'blockquote', 'the reference must be a single blockquote');
+  const list = blockquote.tokens.find((token) => token.type === 'list');
+  assert.ok(list, 'the v4 reference must carry a bullet list');
+
+  const anchors = list.items.map((item) => {
+    const anchor = `> ${item.raw.split('\n')[0]}`;
+    assert.equal(
+      REFERENCE.split(anchor).length - 1,
+      1,
+      `each bullet must be locatable exactly once in the block: ${anchor}`,
+    );
+    return anchor;
+  });
+
+  // Cross-check the parsed count against an independent scan of the raw block.
+  // Two derivations agreeing is what makes the loop provably exhaustive; no
+  // bullet count is ever written down here.
+  const bulletLines = (REFERENCE.match(/^> - /gm) ?? []).length;
+  assert.ok(bulletLines > 0, 'the v4 reference must contain at least one bullet');
+  assert.equal(anchors.length, bulletLines, 'every bullet line must be enumerated');
+  return anchors;
+}
+
+test('124834 CR8: drift in every parsed bullet is still outdated', () => {
+  const bullets = referenceBullets();
+  for (const anchor of bullets) {
+    rejects(
+      (text) => text.replace(anchor, anchor.replace('> - ', '> - Never ')),
+      `drift must be detected in bullet ${bullets.indexOf(anchor) + 1}/${bullets.length}: ${anchor}`,
+    );
+  }
 });
 
 test('124834 CR8: reordering two bullets without changing their text is outdated', () => {
