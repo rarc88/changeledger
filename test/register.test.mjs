@@ -29,7 +29,7 @@ function reflowBootstrap(text) {
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
+    .replace('> to continue; do not treat', 'to continue; do not treat')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 

@@ -26,7 +26,7 @@ function reflowBootstrap(text) {
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
+    .replace('> to continue; do not treat', 'to continue; do not treat')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
@@ -67,7 +67,9 @@ test('212659 CR7: bootstrap leaves lifecycle authority to loaded context', () =>
   assert.doesNotMatch(agents, /spec\|implement\|review\|release/);
 });
 
-test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery', () => {
+// 20260726-124833 retired the revision-recovery half of 212659 CR4 together
+// with `--have`; the complete-capture rule of CR3 is preserved unchanged.
+test('212659 CR3: bootstrap preserves the complete-capture rule', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
@@ -79,11 +81,19 @@ test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery
   assert.match(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
   assert.match(agents, /output budget[\s\S]*whole response/i);
   assert.match(agents, /missing END[\s\S]*re-run with a larger capture/i);
-  assert.match(
-    agents,
-    /After a compaction[\s\S]*`changeledger context\s+>?\s*\[mode\] --have <rev>`/i,
-  );
-  assert.match(agents, /context or its revision was lost[\s\S]*load it completely again/i);
+});
+
+// 20260726-124833 CR5: the installed bootstrap no longer teaches a revision
+// check that the CLI cannot perform any more.
+test('124833 CR5: the installed bootstrap never mentions --have or a retained rev', () => {
+  const dir = root();
+  init(dir);
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.doesNotMatch(agents, /--have/);
+  assert.doesNotMatch(agents, /rev:/);
+  assert.doesNotMatch(agents, /After a compaction/i);
+  assert.doesNotMatch(agents, /retained capture/i);
+  assert.deepEqual(checkContract(dir), []);
 });
 
 test('212659 CR5: bootstrap contains no delegation mechanism', () => {
@@ -160,7 +170,7 @@ test('153633 CR1/CR3: check accepts the real Prettier lazy-continuation fixture'
   const canonical = fs.readFileSync(file, 'utf8');
   const reformatted = prettierBootstrap(canonical);
   assert.notEqual(reformatted, canonical);
-  assert.match(reformatted, /context\n\[mode\] --have/);
+  assert.match(reformatted, /decide how\nto continue; do not treat/);
 
   fs.writeFileSync(file, reformatted);
 

@@ -56,10 +56,6 @@ export const REFERENCE = `> [!IMPORTANT]
 > If the command is unavailable, continue normally without ChangeLedger. If it
 > starts but fails, report the error to the human and wait for them to decide how
 > to continue; do not treat a failing command as absent.
->
-> After a compaction, verify a retained capture with \`changeledger context
-> [mode] --have <rev>\` (the BEGIN line's \`rev:\`). If the context or its revision was lost,
-> load it completely again; a mismatch still returns the complete output.
 `;
 
 function bootstrapBlock(version = BOOTSTRAP_VERSION) {

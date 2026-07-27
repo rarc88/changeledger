@@ -152,8 +152,7 @@ changeledger agent-context <role> [id]  # self-contained context for that delega
 attempts `changeledger context` and, on success, immediately captures its full
 output through the END sentinel. When the command is unavailable it continues
 normally without ChangeLedger; when the executable fails it reports the error
-for human direction. A retained revision is checked with `--have <rev>` after
-compaction.
+for human direction.
 
 Roles are `investigation`, `implementation`, `review` and `post-review`.
 `post-review` is a read-only inspection of a change already in
