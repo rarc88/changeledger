@@ -19,13 +19,49 @@ const contextBudgets = JSON.parse(
 function assertWithinBudget(label, output, budget) {
   const lines = output.split('\n').length;
   const bytes = Buffer.byteLength(output, 'utf8');
-  if (lines > budget.target.lines || bytes > budget.target.bytes) {
-    process.emitWarning(
-      `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`,
-    );
+  const overTarget = lines > budget.target.lines || bytes > budget.target.bytes;
+  const targetBreach = `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`;
+  if (overTarget && !budget.strict_target) {
+    process.emitWarning(targetBreach);
   }
   assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
   assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
+  // An entry declaring `strict_target` is paid in every session and again after
+  // every compaction, so its target is a gate: a warning is exactly how core
+  // drifted past its own target with no gate ever saying so.
+  if (budget.strict_target) {
+    assert.ok(!overTarget, targetBreach);
+  }
+}
+
+// The budget policy is observable in two ways at once — whether it throws and
+// whether it warns — so both must be captured. Stubbing `process.emitWarning`
+// keeps the observation synchronous (the 'warning' event fires a tick later) and
+// the `finally` restore means no stub can outlive the block that installed it,
+// so nothing leaks into the next test.
+function captureBudget(run) {
+  const warnings = [];
+  const original = process.emitWarning;
+  process.emitWarning = (message) => {
+    warnings.push(String(message));
+  };
+  let thrown;
+  try {
+    run();
+  } catch (error) {
+    thrown = error;
+  } finally {
+    process.emitWarning = original;
+  }
+  return { warnings, thrown };
+}
+
+// Synthetic output of an exact size in the budget convention
+// (`split('\n').length`): `lines - 1` newlines plus filler up to `bytes`.
+function sizedOutput(lines, bytes) {
+  const newlines = lines - 1;
+  assert.ok(bytes >= newlines, `cannot fit ${lines} lines in ${bytes} bytes`);
+  return `${'x'.repeat(bytes - newlines)}${'\n'.repeat(newlines)}`;
 }
 
 const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
@@ -1620,4 +1656,112 @@ test('130727 CR4: the count stays exact across the 3-to-4 digit boundary', () =>
     assert.equal(emittedLines(cliContext(root, [id])), target);
     assertHeadIsExact(root, [id], target);
   }
+});
+
+test('130728 CR1: the core entry declares the raised budget and its strictness', () => {
+  assert.deepEqual(contextBudgets.base.core, {
+    target: { lines: 175, bytes: 11000 },
+    hard: { lines: 200, bytes: 12000 },
+    strict_target: true,
+  });
+  // Strictness is core-only: core is the sole composition paid in every session.
+  const flagless = [
+    ...Object.entries(contextBudgets.base).filter(([mode]) => mode !== 'core'),
+    ...Object.entries(contextBudgets.overlays).map(([status, budget]) => [
+      `${status} overlay`,
+      budget,
+    ]),
+    ['agent', contextBudgets.agent],
+  ];
+  // A new top-level group in budgets.yml must widen this sweep, not slip past it.
+  assert.deepEqual(Object.keys(contextBudgets).sort(), ['agent', 'base', 'overlays']);
+  assert.ok(flagless.length >= 9, `too few non-core entries checked: ${flagless.length}`);
+  for (const [label, budget] of flagless) {
+    assert.ok(!('strict_target' in budget), `${label} declares strict_target`);
+  }
+});
+
+test('130728 CR2: a strict budget fails at target instead of warning', () => {
+  const budget = {
+    target: { lines: 175, bytes: 11000 },
+    hard: { lines: 200, bytes: 12000 },
+    strict_target: true,
+  };
+  const overTarget = captureBudget(() =>
+    assertWithinBudget('core', sizedOutput(176, 9000), budget),
+  );
+  assert.ok(overTarget.thrown, 'strict target overflow did not throw');
+  assert.equal(overTarget.thrown.name, 'AssertionError');
+  assert.match(overTarget.thrown.message, /core exceeds target \(176\/175 lines/);
+  assert.deepEqual(overTarget.warnings, []);
+  // Both target dimensions gate, not lines alone: bytes drift on their own.
+  const overBytes = captureBudget(() =>
+    assertWithinBudget('core', sizedOutput(100, 11001), budget),
+  );
+  assert.ok(overBytes.thrown, 'strict byte-only target overflow did not throw');
+  assert.match(
+    overBytes.thrown.message,
+    /core exceeds target \(100\/175 lines, 11001\/11000 bytes\)/,
+  );
+  assert.deepEqual(overBytes.warnings, []);
+  // The hard limit keeps its own message and owns it when both bands break.
+  const overHard = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 9000), budget));
+  assert.ok(overHard.thrown, 'strict hard overflow did not throw');
+  assert.match(overHard.thrown.message, /core exceeds 200 lines: 201/);
+});
+
+test('130728 CR3: without strictness the target warns and never breaks the suite', () => {
+  const budget = { target: { lines: 280, bytes: 12000 }, hard: { lines: 310, bytes: 13500 } };
+  const overTarget = captureBudget(() =>
+    assertWithinBudget('spec', sizedOutput(300, 12500), budget),
+  );
+  assert.ok(!overTarget.thrown, `non-strict target overflow threw: ${overTarget.thrown?.message}`);
+  assert.deepEqual(overTarget.warnings, ['spec exceeds target (300/280 lines, 12500/12000 bytes)']);
+  // A byte-only overflow warns too, so the flagless branch reads both dimensions.
+  const overBytes = captureBudget(() =>
+    assertWithinBudget('spec', sizedOutput(100, 12001), budget),
+  );
+  assert.ok(!overBytes.thrown, `non-strict byte overflow threw: ${overBytes.thrown?.message}`);
+  assert.deepEqual(overBytes.warnings, ['spec exceeds target (100/280 lines, 12001/12000 bytes)']);
+  const overHard = captureBudget(() => assertWithinBudget('spec', sizedOutput(311, 12500), budget));
+  assert.ok(overHard.thrown, 'non-strict hard overflow did not throw');
+  assert.match(overHard.thrown.message, /spec exceeds 310 lines: 311/);
+  // Same lenience for the real flagless entries of budgets.yml, not a literal only.
+  const real = contextBudgets.base.spec;
+  const realOver = captureBudget(() =>
+    assertWithinBudget('spec', sizedOutput(real.target.lines + 1, real.target.bytes), real),
+  );
+  assert.ok(!realOver.thrown, `real flagless entry threw at target: ${realOver.thrown?.message}`);
+  assert.deepEqual(realOver.warnings, [
+    `spec exceeds target (${real.target.lines + 1}/${real.target.lines} lines, ${real.target.bytes}/${real.target.bytes} bytes)`,
+  ]);
+});
+
+test('130728 CR4: the current core composition clears the strict target', () => {
+  const root = repo();
+  const budget = contextBudgets.base.core;
+  const core = buildContext(undefined, root);
+  const lines = core.split('\n').length;
+  const bytes = Buffer.byteLength(core, 'utf8');
+  // Strictly below, not merely within: turning the gate on must not require one
+  // rewritten line of core.md, which is 20260726-124835's work, not this one's.
+  assert.ok(
+    lines < budget.target.lines,
+    `core is not below its target lines: ${lines}/${budget.target.lines}`,
+  );
+  assert.ok(
+    bytes < budget.target.bytes,
+    `core is not below its target bytes: ${bytes}/${budget.target.bytes}`,
+  );
+  // The 225213 CR6 sweep itself: no throw, and no core target warning.
+  const sweep = captureBudget(() => {
+    for (const [mode, entry] of Object.entries(contextBudgets.base)) {
+      assertWithinBudget(mode, mode === 'core' ? core : buildContext(mode, root), entry);
+    }
+  });
+  assert.ok(!sweep.thrown, `the base sweep threw: ${sweep.thrown?.message}`);
+  assert.deepEqual(
+    sweep.warnings.filter((warning) => warning.includes('core exceeds target')),
+    [],
+  );
 });

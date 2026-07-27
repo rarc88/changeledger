@@ -2,7 +2,7 @@
 id: "20260726-130728"
 title: Endurecer el presupuesto del contexto core
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-26T13:07:28Z
 depends_on: []
 related_to: ["20260726-124835", "20260726-130727"]
@@ -166,10 +166,14 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 
 ## Plan
 
-- [ ] Elevar la entrada `core` de `templates/contract/budgets.yml` a target 175/11000 y hard 200/12000 sin tocar el resto de entradas ni el texto del contrato; verify: `node --test test/context.test.mjs` (CR1, CR4)
-- [ ] Añadir `strict_target: true` a `base.core` en `templates/contract/budgets.yml` y hacer que `assertWithinBudget` de `test/context.test.mjs` afirme el target cuando la entrada lo declara, con el caso rojo-verde de la rama estricta y su límite duro; verify: `node --test test/context.test.mjs` (CR1, CR2)
-- [ ] Cubrir la rama no estricta de `assertWithinBudget` (aviso en target, fallo en hard) frente a las entradas sin bandera de `templates/contract/budgets.yml`; verify: `node --test test/context.test.mjs` (CR3)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Elevar la entrada `core` de `templates/contract/budgets.yml` a target 175/11000 y hard 200/12000 sin tocar el resto de entradas ni el texto del contrato; verify: `node --test test/context.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-07-27T13:25:21Z`
+- [x] Añadir `strict_target: true` a `base.core` en `templates/contract/budgets.yml` y hacer que `assertWithinBudget` de `test/context.test.mjs` afirme el target cuando la entrada lo declara, con el caso rojo-verde de la rama estricta y su límite duro; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-27T13:25:21Z`
+- [x] Cubrir la rama no estricta de `assertWithinBudget` (aviso en target, fallo en hard) frente a las entradas sin bandera de `templates/contract/budgets.yml`; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-27T13:25:21Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T13:25:21Z`
 
 ## Log
 
@@ -177,3 +181,6 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 - **2026-07-26T14:05:49Z** `[status]` draft → approved
 - **2026-07-27T13:14:02Z** `[note]` Caducidades corregidas antes de implementar, autorizadas por Roberto el 2026-07-27. (1) CR4 CAMBIA DE FORMA con su autorizacion explicita: pineaba '138 lineas y 8478 bytes' y hoy la medida es 133/8133, pero el arreglo no es actualizar el numero — es dejar de fijarlo. 20260726-124835 es el change inmediatamente siguiente y su trabajo es reescribir core.md, asi que un pin exacto seria un criterio que otro change de la misma tanda invalida, la misma clase que ya nos mordio en 141121. CR4 ahora afirma que la medida queda estrictamente por debajo del target 175/11000 y que el barrido no emite aviso; el proposito (probar que este change es independiente de la reescritura) queda intacto y deja de romperse cuando el contrato cambia una linea. La medida fechada vive en la Investigation como linea base. (2) Cifras del Request y de la Investigation actualizadas: 133 lineas y 8133 bytes, sigue sobre el target y a 7 lineas del hard, no a 2.
 - **2026-07-27T13:14:02Z** `[note]` SEXTA aparicion de la clase de puntero inexacto, y la primera total: NINGUNA referencia de linea de la Investigation sobrevivio. assertWithinBudget estaba citado en 16-26 y esta en 19; los sitios con label core en 139/162/265/493/851/929/1273 y estan en 235/258/361...; el barrido 225213 CR6 en 1098-1106 y esta en 1203, su gemelo de overlays en 1213; implement en 686 y esta en 808; spec en 1302 y esta en 1407/1523/1543; la copia en agent-context.test.mjs en 19 y esta en 20. Todas re-verificadas con grep -n y reescritas. Son prosa y no criterios, asi que no rompen tests, pero habrian desorientado al implementador. Anotado tambien en la Investigation el aviso de convencion: los 133 del test de presupuesto son 132 lineas realmente emitidas, el mismo numero que 130727 publica en lines:<N>; budgets.yml esta expresado en la convencion del test, no en la del consumidor.
+- **2026-07-27T13:14:46Z** `[status]` approved → in-progress
+- **2026-07-27T13:25:21Z** `[note]` Verificado por el orquestador, no aceptado por el informe. (1) Alcance del diff: solo budgets.yml y test/context.test.mjs; src/** y test/agent-context.test.mjs intactos. (2) strict_target aparece exactamente UNA vez en budgets.yml, sobre core, y los valores son los que pide CR1. (3) Gate: lint limpio, 802/802, check 18 valid. (4) La afirmacion mas valiosa del informe reproducida en copia aislada: el mutante ciego a bytes (overTarget reducido a 'lines > budget.target.lines') falla ahora 2 tests con 'strict byte-only target overflow did not throw'. Antes de que el implementador anadiera los casos byte-only dejaba la suite ENTERA en verde, con entradas reales que revientan solo por bytes (overlay in-validation, 2022/1700). Encontro y cerro el hueco por su cuenta; es la misma clase que en 124834 tuve que suspender para que se cerrara.
+- **2026-07-27T13:25:21Z** `[note]` Unidad de commit: las tareas 1, 2 y 3 van combinadas. La 1 y la 2 modifican LA MISMA LINEA de budgets.yml — las cifras elevadas y strict_target viven en la entrada core, un solo renglon (git diff --stat: 1 insercion, 1 borrado) — asi que son fisicamente inseparables. La 3 anade los casos de la rama no estricta al mismo assertWithinBudget que introduce la 2, y sin la 2 no hay rama que contrastar. La tarea 4 es soporte y no produce artefacto.
