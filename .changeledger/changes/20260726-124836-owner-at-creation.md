@@ -13,10 +13,10 @@ owner: raruiz-hiberuscom
 
 Hoy un change puede nacer sin responsable: `changeledger new` solo escribe la
 línea `owner:` en el frontmatter cuando se pasa `--owner` explícitamente
-(`src/commands/new.mjs:159`). Un draft recién creado queda sin dueño hasta que
-alguien lo lleva a `in-progress`, momento en el que `src/commands/agent.mjs:76`
-asigna automáticamente la identidad git local — pero solo si `owner` sigue
-vacío (`!fm.owner`).
+(condicional `owner ?` en `render()` de `src/commands/new.mjs`). Un draft recién
+creado queda sin dueño hasta que alguien lo lleva a `in-progress`, momento en el
+que `status()` en `src/commands/agent.mjs` asigna automáticamente la identidad
+git local — pero solo si `owner` sigue vacío (guard `!fm.owner`).
 
 Consecuencia observada: nadie es responsable de un draft abierto, y
 `changeledger list --owner <nombre>` no puede encontrar drafts de nadie porque
@@ -27,27 +27,32 @@ adquirirlo recién al empezar la implementación.
 
 Comportamiento actual, verificado en código:
 
-- `newChange()` en `src/commands/new.mjs:149-165` (`render()`) solo agrega
-  `owner: <valor>` al frontmatter si el parámetro `owner` es verdadero
-  (`...(owner ? [...] : [])`). El CLI (`bin/changeledger.mjs:104,116`) pasa
-  `owner: options.owner`, que es `undefined` si no se usó `--owner`. No hay
-  ninguna resolución de identidad git en esta ruta.
-- `status()` en `src/commands/agent.mjs:45,76-84` sí resuelve la identidad
-  local vía `ownerHandle(path.dirname(file))` (de `src/git.mjs:87-89`, que
-  intenta `gh api user --jq .login` y cae a `git config user.name`), pero solo
-  la aplica en la transición a `in-progress`, y solo cuando
-  `!fm.owner` — es decir, únicamente si el campo sigue vacío.
-- `src/git.mjs:87-89` (`ownerHandle`) y `src/git.mjs:63-69`
-  (`gitUser`)/`src/git.mjs:77-83` (`githubLogin`) son tolerantes: si no hay
-  identidad resoluble (CI, contenedor sin `gh` autenticado ni
+- `render()` en `src/commands/new.mjs` solo agrega `owner: <valor>` al
+  frontmatter si el parámetro `owner` es verdadero (`...(owner ? [...] : [])`).
+  El CLI pasa `owner: options.owner`, que es `undefined` si no se usó `--owner`.
+  No hay ninguna resolución de identidad git en esta ruta.
+- `status()` en `src/commands/agent.mjs` sí resuelve la identidad local vía
+  `ownerHandle(path.dirname(file))` —que intenta `gh api user --jq .login` y cae
+  a `git config user.name`—, pero solo la aplica en la transición a
+  `in-progress`, y solo cuando `!fm.owner`, es decir únicamente si el campo
+  sigue vacío.
+- `ownerHandle`, `gitUser` y `githubLogin` en `src/git.mjs` son tolerantes: si no
+  hay identidad resoluble (CI, contenedor sin `gh` autenticado ni
   `git config user.name`), devuelven `''` sin lanzar error.
 - `status()` ya recibe `ownerHandle` como dependencia inyectable en su firma
-  (`{ ownerHandle = defaultOwnerHandle, ... }`,
-  `src/commands/agent.mjs:26`), lo que permite a
-  `test/agent.test.mjs:125-146` fijar la identidad simulada
-  (`ownerHandle: () => 'raruiz'`) sin depender de la identidad git real de la
-  máquina que corre el test. `newChange()` no tiene hoy ningún punto de
-  inyección equivalente.
+  (`{ ownerHandle = defaultOwnerHandle, ... }`), lo que permite a los tests
+  `status to in-progress auto-assigns owner handle when empty`,
+  `status to in-progress does not overwrite an explicit owner` y
+  `status to in-progress tolerates a missing owner handle` de
+  `test/agent.test.mjs` fijar la identidad simulada sin depender de la identidad
+  git real de la máquina que corre la suite. `newChange()` no tiene hoy ningún
+  punto de inyección equivalente.
+- La ayuda de `--owner` en `bin/changeledger.mjs` anuncia
+  `set the initial owner (defaults to unassigned)`, que este cambio vuelve falso.
+- `.changeledger/specs/lifecycle.md` documenta como verdad persistente que el
+  `owner` "se autoasigna al pasar a `in-progress` (cuando empieza el trabajo)" y
+  que "no pisa un owner fijado a mano". La primera mitad queda incompleta al
+  nacer el owner en la creación, así que la spec entra en el alcance.
 - Riesgo identificado para la Especificación: si se hace que `newChange()`
   llame directamente a `ownerHandle()` de `src/git.mjs` sin poder inyectarla,
   los tests de creación (`test/cli.test.mjs`) quedarían no deterministas,
@@ -63,10 +68,14 @@ Un solo campo, no dos: `owner` significa "responsable actual", nunca "autor".
 - `changeledger new` asigna por defecto `owner` a la identidad git local
   (`ownerHandle`) cuando no se pasa `--owner`; un `--owner` explícito sigue
   ganando siempre.
-- La transición a `in-progress` **reasigna** `owner` a quien retoma el
-  trabajo, incondicionalmente — se elimina el guard `!fm.owner` en
-  `src/commands/agent.mjs:76`. La reasignación se sigue registrando como
-  evento `owner` automático en el Log, igual que hoy.
+- **El guard `!fm.owner` de `src/commands/agent.mjs` se conserva intacto.** La
+  autoasignación en `in-progress` sigue siendo la red para un change que llegue
+  a `approved` sin dueño —por ejemplo creado en CI o en un contenedor sin
+  identidad resoluble— y nunca pisa un owner ya escrito. Decisión humana del
+  2026-07-27.
+- La reasignación al implementador es **explícita**, con
+  `changeledger owner <id> <name>`, que ya existe y ya registra su evento
+  `[owner]` en el Log.
 - La autoría no se guarda en un campo nuevo: el Log es el registro. Se
   consideró y se descarta un campo `author`: sería superficie innecesaria
   (tocaría parser, check, viewer, métricas y templates para una pregunta que
@@ -79,32 +88,31 @@ Un solo campo, no dos: `owner` significa "responsable actual", nunca "autor".
   comportamiento que hoy.
 - `newChange()` gana un parámetro de dependencia inyectable para la
   resolución de identidad (`ownerHandle`, con el mismo valor por defecto que
-  usa `status()`: `src/git.mjs`'s `ownerHandle`), replicando el patrón que
-  `src/commands/agent.mjs` ya usa. Esto mantiene los tests de creación
-  deterministas sin depender de la identidad git/gh real de quien corre la
-  suite.
+  usa `status()`), replicando el patrón que `src/commands/agent.mjs` ya usa.
+  Esto mantiene los tests de creación deterministas sin depender de la identidad
+  git/gh real de quien corre la suite.
 
-### Trampa explícita a manejar
+### Consecuencia asumida
 
-Si el draft nace con owner y el guard `!fm.owner` se mantuviera, la
-asignación automática en `in-progress` nunca dispararía y quien redactó el
-draft seguiría siendo owner durante toda la implementación. Eso contradice
-una propiedad deliberada de esta herramienta
-(`templates/contract/readiness.md`): un modelo fuerte documenta y uno menos
-capaz implementa, así que redactor e implementador se esperan distintos.
-`owner` mentiría entonces sobre quién implementa, y también lo haría
-`list --owner` al filtrar por ese valor. Por eso la resolución elegida quita
-el guard en vez de conservarlo: `in-progress` reasigna siempre.
+Con el guard conservado, quien redacta el draft sigue siendo `owner` durante toda
+la implementación salvo reasignación manual. Eso tensiona una propiedad
+deliberada de la herramienta (`templates/contract/readiness.md`): un modelo
+fuerte documenta y uno menos capaz implementa, así que redactor e implementador
+se esperan distintos. En consecuencia `list --owner` y el desglose `byOwner` de
+métricas atribuyen el ciclo a quien documentó, no a quien implementó, hasta que
+alguien ejecute `changeledger owner`. El humano asumió explícitamente este coste
+el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 
 ### Alternativas descartadas
 
 - **Campo `author` separado además de `owner`.** Descartado: superficie
   nueva (parser, check, viewer, métricas, templates) para una pregunta de
   baja frecuencia que el Log ya responde.
-- **Mantener el guard `!fm.owner` y solo cambiar `new`.** Descartado:
-  reproduce exactamente la trampa — el owner de creación quedaría congelado
-  para siempre, y ya no habría forma de que la reasignación en
-  `in-progress` corrija la responsabilidad al empezar a implementar.
+- **Quitar el guard `!fm.owner` para que `in-progress` reasigne siempre.**
+  Descartado por decisión humana el 2026-07-27: la reasignación automática
+  también miente cuando el implementador es el mismo que documentó, y añade una
+  escritura silenciosa de frontmatter en cada arranque de trabajo. El precio de
+  conservarlo queda escrito arriba y la corrección es un comando explícito.
 - **Fallback especial para changes preexistentes sin `owner`.** Descartado
   como innecesario: la ausencia de `owner` ya es un estado válido hoy (campo
   opcional); no se necesita lógica de migración ni comparación de fechas.
@@ -131,11 +139,11 @@ el guard en vez de conservarlo: `in-progress` reasigna siempre.
 - **Then** la llamada retorna la ruta del archivo sin lanzar excepción
 - **And** el frontmatter del archivo generado no contiene ninguna clave `owner`
 
-### CR4 — `in-progress` reasigna el owner a la identidad de quien retoma el trabajo
-- **Given** un change en `status: approved` con `owner: ana` en frontmatter
-- **When** se ejecuta `status(id, 'in-progress', root, { ownerHandle: () => 'leo' })`
-- **Then** `parseChange(texto).frontmatter.owner` pasa a ser exactamente `'leo'`
-- **And** el body de la stage `Log` contiene una nueva entrada que matchea `` /`\[owner\]` set: leo \(auto\)/ ``
+### CR4 — la ayuda del CLI deja de anunciar el default antiguo
+- **Given** el comando `changeledger new --help`
+- **When** se lee la descripción de la opción `--owner`
+- **Then** no contiene la cadena `defaults to unassigned`
+- **And** anuncia que el default es la identidad git local
 
 ### CR5 — un change preexistente sin `owner` pasa `check` sin error
 - **Given** un change válido en cualquier stage activo, sin clave `owner` en
@@ -144,14 +152,22 @@ el guard en vez de conservarlo: `in-progress` reasigna siempre.
 - **Then** el comando termina con código de salida `0`
 - **And** no reporta ningún warning ni error relacionado con `owner`
 
+### CR6 — la verdad persistente describe el ciclo completo del owner
+- **Given** el fichero `.changeledger/specs/lifecycle.md` tras el cambio
+- **When** se lee su sección sobre `Log y owner`
+- **Then** declara que el `owner` nace en la creación con la identidad git local
+  y que un `--owner` explícito prevalece
+- **And** conserva que la autoasignación en `in-progress` cubre el change que
+  llega sin dueño y que no pisa un owner fijado a mano
+
 ## Plan
 
-- [ ] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, y usarlo para resolver `owner` cuando no se pase `--owner`; verify: `node --test test/cli.test.mjs` (CR1)
-- [ ] En `src/commands/new.mjs`, confirmar que un `owner` explícito sigue ganando sobre `ownerHandle()` (sin cambio de precedencia, solo verificar que el `owner ??`/`||` explícito no se pisa); verify: `node --test test/cli.test.mjs` (CR2)
-- [ ] En `src/commands/new.mjs`, confirmar que `ownerHandle()` devolviendo `''` no agrega línea `owner:` y `newChange()` no lanza; verify: `node --test test/cli.test.mjs` (CR3)
-- [ ] Quitar el guard `!fm.owner` en la asignación automática de `in-progress` en `src/commands/agent.mjs:76`, y actualizar el test existente `test/agent.test.mjs` ("status to in-progress does not overwrite an explicit owner") para reflejar la reasignación en vez de la preservación; verify: `node --test test/agent.test.mjs` (CR4)
+- [ ] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza; verify: `node --test test/cli.test.mjs` (CR1, CR2, CR3)
+- [ ] Actualizar en `bin/changeledger.mjs` la descripción de la opción `--owner` de `new` para que anuncie la identidad git local como default en vez de `defaults to unassigned`; verify: `node --test test/cli.test.mjs` (CR4)
 - [ ] En `src/check.mjs`, confirmar (sin cambio de lógica si ya cumple) que un change sin `owner` no genera warning ni error, y añadir el caso en `test/check.test.mjs`; verify: `node --test test/check.test.mjs` (CR5)
+- [ ] Actualizar la sección `Log y owner` de `.changeledger/specs/lifecycle.md` para describir el ciclo completo — owner en la creación, precedencia de `--owner`, autoasignación como red en `in-progress` sin pisar un owner manual; verify: `node bin/changeledger.mjs check` (CR6)
 - [ ] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
 
 ## Log
 - **2026-07-26T14:05:44Z** `[status]` draft → approved
+- **2026-07-27T19:53:11Z** `[note]` Amendment while approved (human-authorized 2026-07-27): el guard !fm.owner de agent.mjs se CONSERVA — el owner nace en el draft y la autoasignacion en in-progress queda solo como red para un change que llegue sin dueno. Retirado el CR4 anterior (reasignacion incondicional) y su tarea; el comportamiento del guard ya esta fijado por los tests existentes de agent.test.mjs y no se reafirma como criterio nuevo. Anadidos CR4 (ayuda del CLI: 'defaults to unassigned' queda falso) y CR6 (spec lifecycle.md documenta la autoasignacion como verdad persistente incompleta). Punteros de linea de la Investigation sustituidos por nombres de simbolo y de test.
