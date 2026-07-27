@@ -2,7 +2,7 @@
 id: "20260726-124836"
 title: Asignar owner al crear el change
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-26T12:48:36Z
 depends_on: []
 related_to: []
@@ -171,3 +171,4 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 ## Log
 - **2026-07-26T14:05:44Z** `[status]` draft → approved
 - **2026-07-27T19:53:11Z** `[note]` Amendment while approved (human-authorized 2026-07-27): el guard !fm.owner de agent.mjs se CONSERVA — el owner nace en el draft y la autoasignacion en in-progress queda solo como red para un change que llegue sin dueno. Retirado el CR4 anterior (reasignacion incondicional) y su tarea; el comportamiento del guard ya esta fijado por los tests existentes de agent.test.mjs y no se reafirma como criterio nuevo. Anadidos CR4 (ayuda del CLI: 'defaults to unassigned' queda falso) y CR6 (spec lifecycle.md documenta la autoasignacion como verdad persistente incompleta). Punteros de linea de la Investigation sustituidos por nombres de simbolo y de test.
+- **2026-07-27T21:34:24Z** `[status]` approved → in-progress
