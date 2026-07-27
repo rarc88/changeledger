@@ -168,9 +168,7 @@ truncada y hay que detenerse y re-ejecutar con mayor capacidad como
 recuperación excepcional. Si el entorno informa que el comando no existe, el
 agente continúa normalmente sin ChangeLedger; si el ejecutable comienza pero
 falla, presenta el error al humano y espera su decisión en vez de degradar
-silenciosamente. Tras una compactación, el `rev` retenido se comprueba con
-`changeledger context [mode] --have <rev>` y una captura perdida o desactualizada
-se recarga por completo. El bootstrap no contiene reglas de lifecycle,
+silenciosamente. El bootstrap no contiene reglas de lifecycle,
 delegación ni reconciliación de divergencias: esas políticas pertenecen al
 contexto que se carga cuando el CLI está disponible. No crea
 `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
