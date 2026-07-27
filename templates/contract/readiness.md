@@ -30,10 +30,11 @@ command or manual `verify:` clause. Examples:
 - [ ] Update Android rendering; verify: manual Android device check (CR2)
 ```
 
-Repos tune recognition with `readiness.target_patterns` and
-`readiness.verification_patterns`. For device/manual checks, prefer the stable
-structural convention `verification_patterns: ["verify:"]`; put the actual
-evidence in the task instead of listing every possible manual phrase in config.
+When starting work in a repo, the agent verifies that `readiness.target_patterns`
+and `readiness.verification_patterns` match that repo's stack, and configures
+them when they do not. For device/manual checks, prefer the stable structural
+convention `verification_patterns: ["verify:"]`; put the actual evidence in the
+task instead of listing every possible manual phrase in config.
 
 `changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
 tasks without traceability and CR-bearing tasks without configured target and

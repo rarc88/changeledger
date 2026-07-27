@@ -628,7 +628,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     'implement.md': 'e52078e83d25505f4771ffd6e3c0185503ac29cb90e0855301b799397d12cbb3',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
-    'readiness.md': '2b5e12497ae7d9d75e0f3a29e295796091db6b2ffb0587bdf598155ecb463422',
+    // 20260726-141122: the subjectless `Repos tune recognition with
+    // readiness.target_patterns and readiness.verification_patterns` is
+    // replaced by an obligation with a named subject: when starting work in a
+    // repo, the agent verifies both keys match that repo's stack and
+    // configures them when they do not. The `verification_patterns:
+    // ["verify:"]` recommendation for device/manual checks and every other
+    // readiness rule are preserved verbatim; nothing is retired.
+    'readiness.md': 'dbeacd7eea9ff743839d99b1ecf0fdc12785b5b7d37849853210aa3ed837c452',
     'release.md': '1d51cbad5171eea307deb9ed0a8759ef9db9b6d901943a4b46902364393f949a',
     // 20260705-134702: "Record exactly one verdict" names the orchestrator as recorder.
     // 20260704-144327 correction: the delegate checklist/tool boundary moves to the
@@ -1427,6 +1434,26 @@ test('141121 CR4: the bare spec composition resolves no type and holds its budge
   const output = buildContext('spec', root);
   assert.doesNotMatch(output, /Active stages\(/);
   assert.match(output, /# Definition of Ready/);
+  assertWithinBudget('spec', output, contextBudgets.base.spec);
+});
+
+// 20260726-141122 CR6 — `Repos tune recognition with` left the two readiness
+// keys unowned: no subject was obliged to check them, so an agent starting work
+// in a non-JS repo kept the JS-shaped defaults and could not approve a
+// well-formed change. The duty is now explicit and addressed to the agent.
+test('141122 CR6: readiness obliges the agent to match the two keys to the stack', () => {
+  const root = repo();
+  const output = buildContext('spec', root);
+  const normalized = output.replace(/\s+/g, ' ');
+  assert.doesNotMatch(normalized, /Repos tune recognition with/);
+  assert.match(
+    normalized,
+    /When starting work in a repo, the agent verifies that `readiness\.target_patterns` and `readiness\.verification_patterns` match that repo's stack, and configures them when they do not\./,
+  );
+  assert.match(
+    normalized,
+    /For device\/manual checks, prefer the stable structural convention `verification_patterns: \["verify:"\]`/,
+  );
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 

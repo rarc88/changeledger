@@ -1,7 +1,7 @@
 {
   "base": {
     "core": { "target": { "lines": 125, "bytes": 7500 }, "hard": { "lines": 140, "bytes": 9000 } },
-    "spec": { "target": { "lines": 280, "bytes": 12000 }, "hard": { "lines": 310, "bytes": 13500 } },
+    "spec": { "target": { "lines": 280, "bytes": 12000 }, "hard": { "lines": 310, "bytes": 13700 } },
     "implement": { "target": { "lines": 185, "bytes": 8500 }, "hard": { "lines": 205, "bytes": 10000 } },
     "review": { "target": { "lines": 70, "bytes": 3500 }, "hard": { "lines": 85, "bytes": 4500 } },
     "release": { "target": { "lines": 45, "bytes": 2500 }, "hard": { "lines": 60, "bytes": 3500 } }
