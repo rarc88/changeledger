@@ -2,9 +2,10 @@
 id: "20260726-124833"
 title: Eliminar el flag --have del contexto
 type: refactor
-status: in-progress
+status: done
 created: 2026-07-26T12:48:33Z
 depends_on: []
+reviewed: true
 related_to: ["20260726-124834", "20260726-124835"]
 owner: raruiz-hiberuscom
 ---
@@ -110,3 +111,9 @@ segmento `rev:<hash>` de la línea BEGIN:
 - **2026-07-27T00:58:40Z** `[status]` approved → in-progress
 - **2026-07-27T01:10:12Z** `[note]` Eliminado --have sin shim: opción y ayuda del CLI, rama options.have/unchangedBody/parámetros rev y extra de beginDelimiter en context.mjs, export contentRev en framing.mjs, párrafo rev:/--have en core.md (pin de fragmento actualizado con la regla clasificada como RETIRADA) y párrafo final del REFERENCE en contract.mjs. AGENTS.md re-sincronizado con changeledger register; BOOTSTRAP_VERSION se deja en 3 porque checkContract ya detecta el cambio de contenido a igual versión (verificado: reportó 'outdated' antes de register) y el salto 3→4 lo posee #20260726-124834. composeResult pasa a devolver el texto compuesto: mode/changeId/rev eran campos sin consumidor. Fixture prettierBootstrap de test/contract.test.mjs y test/register.test.mjs reapuntada a otra continuación perezosa del bloque; el fixture v2 histórico de register.test.mjs conserva --have a propósito. core 138→133 líneas / 8451→8119 bytes; spec 301 líneas / 13543→13522 bytes. Pendiente fuera de propiedad: README.md:155 y .changeledger/specs/contract-discovery.md siguen documentando --have/rev:. pnpm verify 785/785, changeledger check limpio.
 - **2026-07-27T01:11:52Z** `[note]` El orquestador borro tambien la frase de README.md:155 que documentaba 'A retained revision is checked with --have <rev> after compaction'. Ningun CR la cubre —el Request enumera CLI, context.mjs, core.md y el bloque REFERENCE, no el README— pero dejarla publicaria documentacion de un flag que ahora sale con error. Conviene escrutinio del revisor sobre esta edicion fuera de criterios
+- **2026-07-27T01:13:23Z** `[status]` in-progress → in-review
+- **2026-07-27T01:24:41Z** `[note]` Mandato de review dimensionado como revision completa del diff mas la superficie que gobierna (consumidores de lo borrado, en ambas direcciones: falta de retirada y retirada excesiva), no auditoria repo-wide, con disciplina de alcance como condicion de pass/fail
+- **2026-07-27T01:24:41Z** `[note]` Obligacion de graduacion registrada: .changeledger/specs/contract-discovery.md:94,99,147,154 todavia documenta 'Vigencia por revision' con rev:<hash> y --have. Hay que retirarlo al graduar; un skip congelaria en verdad persistente la descripcion de un flag que ya no existe
+- **2026-07-27T01:24:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T09:46:26Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T09:48:01Z** `[graduation]` spec: `contract-discovery.md`

@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-26T23:31:32Z
+updated: 2026-07-27T09:48:01Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833"]
 ---
 
 ## Discovery del contrato
@@ -91,16 +91,15 @@ Mientras el core completo siga disponible en la conversación activa, un nuevo
 mensaje humano por sí solo no provoca otra carga. Sólo una transición real de
 tarea o lifecycle solicita el modo o change id especializado que corresponda.
 
-**Vigencia por revisión.** Toda línea BEGIN incluye `rev:<hash>` (12 hex,
-derivado del contenido compuesto del modo con la config efectiva, excluyendo el
-framing para evitar autorreferencia). La versión del paquete no basta como
-prueba de vigencia porque el texto efectivo depende también de la config del
-repo. Tras una compactación, un agente que conserve el `rev` de su captura
-verifica con `changeledger context [mode] --have <rev>`: coincidencia →
-bloque corto framed que confirma `unchanged` con el mismo `rev` (exit 0, sin
-cuerpo); discrepancia → la salida completa normal. La primera captura de una
-sesión sigue siendo siempre completa y sin filtros; la mejora distingue
-"captura perdida" (recapturar) de "captura resumida cuya fuente no cambió".
+**Sin recuperación por revisión.** La línea BEGIN no lleva ningún segmento de
+revisión y no existe forma de preguntar si una captura retenida sigue vigente.
+Se intentó con un `rev:<hash>` y un flag `--have`, y se retiró: el único momento
+en que habrían servido es justo después de una compactación, que es exactamente
+cuando el `rev` retenido se ha perdido con el resto de la captura. Su caso útil
+era vacío y solo aportaban superficie de CLI, prosa de contrato y tests. La
+regla que sí resuelve el problema no cuesta código: mientras el core completo
+siga en la conversación activa no se recarga, y si se perdió, se recaptura
+entero.
 
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
