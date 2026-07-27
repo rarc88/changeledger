@@ -2,9 +2,9 @@
 id: "20260726-141122"
 title: Publicar los defaults de readiness en la plantilla
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-26T14:11:22Z
-depends_on: []
+depends_on: ["20260726-141119"]
 related_to: []
 owner: raruiz-hiberuscom
 ---
@@ -65,6 +65,18 @@ la clave está ausente; un repo que ya declaró `readiness` propio queda
 intacto (mismo patrón `Object.hasOwn` que usan las migraciones existentes). La
 migración es explícita (`changeledger config migrate`), no automática, igual
 que el resto del historial de `schema_version`.
+
+Corrección fechada el 2026-07-26, posterior a la aprobación de este documento:
+`20260726-141119` ya creó `migrateToV4` —para insertar las stages verificables
+en los tipos con `review_required: true`—, ya elevó `SUPPORTED_SCHEMA_VERSION`
+a 4 y ya subió los literales de esquema de los tests y de las dos
+configuraciones versionadas. Roberto decidió **plegar `readiness` dentro de esa
+misma v4** en vez de saltar a una v5, porque el esquema 4 aún no ha salido de
+este repo. Así que este change **extiende** `migrateToV4`, no la crea; las
+tareas 1 y 4 del Plan se reescribieron en consecuencia. Los seis criterios
+siguen siendo válidos tal cual: CR4 describe el efecto observable de la
+migración sobre un config en esquema 3, que no cambia por quién creara la
+función.
 
 **Obligación de contrato nueva:** `templates/contract/readiness.md:33-36` hoy
 solo dice que los repos "tune" `readiness.target_patterns` y
@@ -139,10 +151,10 @@ de alcance de este change.
 
 ## Plan
 
-- [ ] Descomentar y fijar `readiness:` en `templates/config.yml` (`target_patterns: ["src/**"]`, `verification_patterns: ["test/**"]`) con el comentario de que se exigen desde `approved` en adelante y deben adaptarse al stack del repo, y subir su `schema_version` de 3 a 4; verify: `node --test test/cli.test.mjs` (CR1)
+- [ ] Descomentar y fijar `readiness:` en `templates/config.yml` (`target_patterns: ["src/**"]`, `verification_patterns: ["test/**"]`) con el comentario de que se exigen desde `approved` en adelante y deben adaptarse al stack del repo; verify: `node --test test/cli.test.mjs` (CR1)
 - [ ] Añadir en `test/cli.test.mjs` un escenario end-to-end sobre `src/commands/init.mjs` y `src/commands/agent.mjs` que haga `init()` en un dir temporal, ajuste `.changeledger/config.yml` con `readiness: { target_patterns: ["lib/**"], verification_patterns: ["verify:"] }`, cree un change `bug` con la tarea Plan no-JS del Request y ejecute `approve()` + `src/check.mjs`, afirmando ausencia del texto `must name target and verification` y cero errores; verify: `node --test test/cli.test.mjs` (CR2)
 - [ ] Añadir un test en `test/check.test.mjs` sobre `src/check.mjs` que fije `config.readiness` propio y confirme que el hint de `readinessHint` reporta esos valores literalmente; verify: `node --test test/check.test.mjs` (CR3)
-- [ ] Implementar `migrateToV4` en `src/config-migration.mjs` (subir `SUPPORTED_SCHEMA_VERSION` a 4) que añade `readiness` con los valores de CR1 cuando la clave está ausente, y actualizar los literales `schema_version: 3` existentes en `test/config-migration.test.mjs` y `test/cli-bin.test.mjs` a 4 (incluyendo el caso de esquema futuro, que pasa a `5`); verify: `node --test test/config-migration.test.mjs` (CR4)
+- [ ] Extender `migrateToV4` en `src/config-migration.mjs` para que añada `readiness` con los valores de CR1 cuando la clave está ausente, ajustando los tests de esa migración cuyo resumen de cambios pase a incluir la línea nueva; verify: `node --test test/config-migration.test.mjs` (CR4)
 - [ ] Añadir a `test/config-migration.test.mjs`, sobre `src/config-migration.mjs`, el caso de un `readiness:` ya declarado por el usuario que permanece intacto tras migrar; verify: `node --test test/config-migration.test.mjs` (CR5)
 - [ ] Sustituir en `templates/contract/readiness.md:33-36` la oración pasiva `Repos tune recognition with...` por la obligación explícita del agente de verificar, al empezar a trabajar en un repo, que `readiness.target_patterns`/`readiness.verification_patterns` coincidan con su stack y configurarlos si no, conservando intacta la recomendación de `verification_patterns: ["verify:"]` para checks manuales; actualizar el hash de snapshot revisado de `readiness.md` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6)
 - [ ] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
@@ -157,3 +169,4 @@ de alcance de este change.
   para que los repos existentes también lo reciban.
 - **2026-07-26T15:05:07Z** `[status]` draft → approved
 - **2026-07-26T15:15:55Z** `[note]` Amendment while approved (human-authorized): rejected the bare-backtick target_patterns default (falsifies the readiness gate; (support) already covers tasks needing no validation). Decided fix instead: template ships readiness: uncommented with the current effective defaults (target_patterns=["src/**"], verification_patterns=["test/**"]) plus an adapt-to-your-stack comment; migration values updated to match; new CR6 assigns readiness.md the agent obligation to verify/configure target_patterns and verification_patterns against the repo's stack when starting work. CR1/CR2/CR4 and Plan tasks 1/2/4 updated; new Plan task for CR6. Diagnostic (error message) unchanged and out of scope.
+- **2026-07-27T00:03:43Z** `[status]` approved → in-progress
