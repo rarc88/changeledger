@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-26T18:26:56Z
+updated: 2026-07-27T21:33:27Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837"]
 ---
 
 ## Trazabilidad git
@@ -70,12 +70,35 @@ mismo motor de migración.
 El contrato canónico protege esa trazabilidad con un workflow git explícito:
 los agentes no implementan changes aprobados en `main`, `master` ni `dev`;
 revisan el worktree antes de empezar; commitean la documentación aprobada antes
-de tocar código; e implementan un change a la vez. Una unidad completada se
-commitea antes de continuar cuando otra tarea, change o modificación de la misma
-superficie podría volver ambigua la atribución. Los cambios no relacionados no
-se incluyen silenciosamente. Si archivos compartidos vuelven inevitable un
-commit combinado, se declara como excepción y se nombran los changes que
-comparten la superficie.
+de tocar código; e implementan un change a la vez. Los cambios no relacionados no
+se incluyen silenciosamente.
+
+**La unidad de commit es contable, no un juicio.** Una rama de change lleva
+cuatro clases y ninguna más: **Draft**, uno por documento redactado y commiteado
+en solitario; **Baseline**, exactamente uno con el documento aprobado antes de
+cualquier código; **Task**, uno por tarea del Plan completada con su código,
+test, casilla y Log; y **Handoff**, cero o uno cuando el trabajo se detiene y
+quedaría estado sin commitear, registrando por qué fue necesario. La granularidad
+se decide con una prueba: si la unidad se revertirá, referenciará o implementará
+de forma independiente. Una transición de lifecycle no lo es —el Log ya la
+registra— y **nunca es un commit propio**: viaja dentro de la siguiente clase
+real. Así, `n` tareas completadas producen `n + 1` commits, o `n + 2` con
+handoff. La versión anterior de esta regla pedía commitear "cuando la atribución
+pudiera volverse ambigua", un juicio cuya respuesta segura es siempre sí, y por
+eso invitaba al exceso que pretendía evitar.
+
+Un commit combinado es legítimo solo cuando separar es imposible: varios changes
+comparten los mismos archivos, o varias tareas del Plan son inseparables. En
+ambos casos se registra en el Log qué se combinó y por qué, nombrando cada change
+que comparte la superficie.
+
+**Sede única.** Todo este comportamiento —las clases, el discriminante, la
+fórmula, la forma del subject, el body multi-change, las excepciones, el
+compositor, el linter previo a review y la inspección del índice staged— vive en
+un solo bloque del contexto core, no repartido entre overlays de etapa.
+Commitear ocurre en todas las fases, así que su comportamiento es común a
+cualquiera y una regla escrita en cuatro sedes son cuatro versiones que pueden
+divergir sin que nada las compare.
 
 Cuando se declara una rama de integración, las ramas de change parten de ella y
 el resultado se integra de vuelta en ella; `main` queda reservado para releases.
