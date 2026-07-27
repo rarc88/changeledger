@@ -2,7 +2,7 @@
 id: "20260726-124837"
 title: Sede única del comportamiento de commits en el core
 type: refactor
-status: approved
+status: in-progress
 created: 2026-07-26T12:48:37Z
 depends_on: ["20260726-124835", "20260727-194233"]
 related_to: ["20260722-124656", "20260727-194234", "20260726-141119", "20260726-141124"]
@@ -229,3 +229,4 @@ Los criterios se comprueban sobre la salida compuesta de
 - **2026-07-26T14:05:46Z** `[status]` draft → approved
 - **2026-07-26T15:15:46Z** `[note]` Amendment while approved (human-authorized): Proposal extended to a fourth commit kind, Draft (one commit per authored change document, never batched), with the revert/reference/implement-independently discriminant; also adds the agent obligation to inspect the staged index before retrying a commit after any pre-commit hook failure (cross-ref 20260726-141124 for the CLI-side guard). Criterios verificables and the Plan task updated accordingly.
 - **2026-07-27T19:50:36Z** `[note]` Amendment while approved (human-authorized 2026-07-27): sede de todo el comportamiento de commits pasa a core.md e implement.md queda sin prosa de commits — decision humana de esta sesion, porque commitear es comun a toda fase y estaba repartido en ocho fragmentos. Anadida la mezcla inevitable de tareas del Plan inseparables (decision humana del 2026-07-26 que el documento contradecia). Techo del core como criterio con salida explicita de parar y preguntar. depends_on suma 20260727-194233 (umbral unico) y related_to suma 20260727-194234 (retirada de copias). Titulo actualizado.
+- **2026-07-27T20:53:59Z** `[status]` approved → in-progress
