@@ -176,7 +176,42 @@ function migrateToV3(doc, config, changes) {
   }
 }
 
-// 3 → 4: a type that demands independent review must activate the stages that
+// 3 → 4: two additive repairs. Readiness runs first because the stage repair
+// returns early on configs it cannot act on, and skipping readiness there would
+// leave exactly the defect this migration exists to fix.
+function migrateToV4(doc, changes) {
+  addReadinessSection(doc, changes);
+  activateReviewableStages(doc, changes);
+}
+
+// `readiness` shipped commented out, so every existing repo — however it is laid
+// out — silently inherited the JavaScript-shaped defaults `check` applies when
+// the key is absent, and could not approve a well-formed change. Publish the
+// block so it becomes visible and editable. A repo that already declares
+// `readiness` keeps it byte for byte: it is the user's key, and `check` owns any
+// diagnostic about its contents.
+function addReadinessSection(doc, changes) {
+  if (doc.has('readiness')) return;
+  const pair = templateSection('readiness');
+  pair.key.spaceBefore = true;
+  doc.contents.items.push(pair);
+  changes.push('added readiness section');
+}
+
+// The shipped template is the single source of truth for the published
+// defaults, so a migrated repo cannot drift from what `init` seeds. Fail loudly
+// rather than skip: a migration that silently omitted the section would leave
+// the repo with the defect it was run to remove.
+function templateSection(key) {
+  const text = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  const pair = parseDocument(text, { merge: false }).contents.items.find(
+    (item) => item.key?.value === key,
+  );
+  if (!pair) throw new Error(`templates/config.yml declares no "${key}" section to migrate from`);
+  return pair;
+}
+
+// A type that demands independent review must activate the stages that
 // make review possible — `specification` holds the criteria and `plan` the tasks
 // that cite them — the coupling `checkConfig` now enforces. Additive: only types
 // already declaring `review_required: true` are touched, and only to insert the
@@ -184,7 +219,7 @@ function migrateToV3(doc, config, changes) {
 // `review_required` added by migrateToV1 in the same run is seen here too.
 // A config with no canonical `stages` list is left alone: without it there is no
 // order to insert into, and `check` already reports the missing key.
-function migrateToV4(doc, changes) {
+function activateReviewableStages(doc, changes) {
   const canonicalNode = doc.get('stages', true);
   const typesNode = doc.get('types', true);
   if (!canonicalNode?.items || !typesNode?.items) return;
