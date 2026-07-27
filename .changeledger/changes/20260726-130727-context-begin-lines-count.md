@@ -32,12 +32,14 @@ Diseño decidido por el humano (no rediseñar, documentar):
 
 - La línea `BEGIN` de cualquier contexto publica `lines:<N>`, el conteo exacto
   de líneas de la salida completa (incluyendo las propias líneas BEGIN y END).
-- Endurecer el CLI frente a `EPIPE`: como el comando documentado en el
-  bootstrap canaliza stdout hacia `head`, el proceso puede escribir en un pipe
-  ya cerrado; no debe imprimir traza ni reportar fallo en ese caso.
 
 Fuera de alcance explícito:
 
+- Cualquier endurecimiento del CLI frente a `EPIPE`. Formaba parte del diseño
+  original y se retiró el 2026-07-27 con autorización humana explícita: el
+  supuesto defecto no es reproducible en el runtime soportado (ver
+  Investigation). Tocar `bin/changeledger.mjs` para instalar un handler de
+  `EPIPE` o de `process.stdout.on('error', ...)` queda fuera de alcance.
 - Reescribir el texto de `REFERENCE`/bootstrap en `src/contract.mjs` o subir
   `BOOTSTRAP_VERSION` — lo posee el change `20260726-124834` (relacionado;
   consume el campo `lines:<N>` que este change publica, y depende de que este
@@ -88,20 +90,43 @@ funciona también para ese caso.
 `beginDelimiter(mode, changeId, rev, extra)` documentada arriba es la que
 existe **antes** de que `20260726-124833` aterrice; la implementación de este
 change debe partir de la firma ya sin `rev` que deja ese prerrequisito, y no
-debe reintroducir `--have` ni `rev:` en ningún texto o parámetro.
+debe reintroducir `--have` ni `rev:` en ningún texto o parámetro. Confirmado el
+2026-07-27: ese change está `done`, la firma vigente es
+`beginDelimiter(mode, changeId)` y `contentRev` ya no existe en
+`src/framing.mjs`.
 
-**EPIPE — hueco real, no hipotético:** no existe manejo de `EPIPE` ni de
-`process.stdout.on('error', ...)` en `bin/changeledger.mjs` ni en
-`src/commands/context.mjs` (`grep -rn EPIPE src bin` no arroja resultados). El
-comando `context` escribe con `output(...)` → `console.log` por defecto
-(`src/commands/context.mjs:221-223`). Cuando stdout se canaliza a `head` y
-`head` cierra el pipe antes de que el proceso termine de escribir, Node
-levanta un error de escritura no capturado en el stream de stdout, que se
-propaga como excepción no controlada (traza + salida no-cero) salvo que se
-instale un handler. El comando documentado en el bootstrap del change
-`20260726-124834` (`changeledger context 2>&1 | head -200`) dispara
-exactamente este caso en la práctica, así que el endurecimiento es una `CR`
-real, no defensiva de más.
+**EPIPE — refutado el 2026-07-27, retirado del alcance.** El párrafo original
+de esta Investigation afirmaba que canalizar `context` hacia `head` provoca un
+error de escritura no capturado (traza + salida no-cero) salvo que se instale
+un handler. Es falso en el runtime soportado. Medido en Node v24.18.0 / macOS,
+sin ninguna implementación en el árbol:
+
+- `node bin/changeledger.mjs context 2>&1 | head -1` termina con `pipestatus
+  0 0`; el stream combinado contiene solo la línea `BEGIN`, sin la cadena
+  `EPIPE` y sin ninguna línea de traza `    at `. Un test escrito contra el
+  criterio retirado pasaba en verde **antes** de cualquier fix, así que no era
+  falsable.
+- La causa es que `console.log` se construye sobre un `Console` con
+  `ignoreErrors: true`, que traga los errores de escritura de stdout. Probado
+  también por la vía cruda: un bucle de ~20 MB con `process.stdout.write`
+  contra un pipe cerrado termina con exit 0 y sin `EPIPE`.
+- El disparador concreto que se citaba —`changeledger context 2>&1 | head
+  -200`— no puede cerrar el pipe antes de tiempo: el contexto core tiene 133
+  líneas, así que `head -200` lee hasta EOF. Publicar `lines:<N>` refuerza esto
+  en vez de crear el escenario: el consumidor canónico pasa `head -<N>` con `N`
+  exacto y también lee hasta EOF.
+
+Instalar el handler sería código defensivo muerto, contra la regla de fallar
+rápido y sin fallbacks silenciosos. No hay defecto que arreglar; el criterio y
+su tarea de Plan se retiran.
+
+**Corrección de medidas (2026-07-27).** Las cifras de tamaño citadas arriba se
+tomaron el 2026-07-26 y quedaron desfasadas al aterrizar los changes que editan
+fragmentos del contrato. Medidas de hoy sobre `buildContext`, como las mide el
+test de presupuesto: core 133/140 líneas y 8119/9000 bytes, `spec` 301/310 y
+13522/13700, `implement` 199/205 y 9841/10000. La conclusión no cambia: solo el
+core cabe bajo un límite fijo de 200 líneas. El margen en bytes es el dato a
+vigilar al añadir el segmento `lines:<N>` a la línea `BEGIN`.
 
 **Changes relacionados** (clasificados vía `changeledger search` y lectura
 directa, ninguno reutilizable para este alcance):
@@ -126,10 +151,6 @@ composición del cuerpo, sin iteración de punto fijo, porque el número de
 dígitos de `N` nunca cambia el conteo total de líneas (solo caracteres dentro
 de la misma línea).
 
-Endurecer `bin/changeledger.mjs` para que un `EPIPE` al escribir en stdout
-(pipe cerrado por un consumidor como `head`) no se propague como excepción no
-controlada: ni traza de pila ni salida no-cero por esa causa.
-
 Alternativas descartadas:
 
 - **Calcular `lines:<N>` con un cálculo de punto fijo (recomponer hasta que
@@ -137,12 +158,14 @@ Alternativas descartadas:
   añade líneas, así que un único cálculo posterior a la composición del
   cuerpo ya es exacto y estable; el punto fijo sería complejidad sin
   beneficio (verificado con la fixture de cruce 999→1000).
+- **Endurecer el CLI frente a `EPIPE`**. Retirada el 2026-07-27 con
+  autorización humana explícita tras refutar su premisa: el fallo no es
+  reproducible y su criterio no podía fallar (ver Investigation).
 
 Escenarios cubiertos por la especificación: contexto core (tamaño acotado por
 `budgets.yml`), contexto de modo (`spec`, tamaño variable pero acotado),
 contexto de change-id (tamaño no acotado por incrustar el documento del
-change), cruce del límite de dígitos de `N` (999 → 1000), y endurecimiento
-`EPIPE` del propio CLI.
+change) y cruce del límite de dígitos de `N` (999 → 1000).
 
 ## Specification
 
@@ -189,22 +212,10 @@ change), cruce del límite de dígitos de `N` (999 → 1000), y endurecimiento
 - **And** en ambos casos `head -<N>` conserva la línea `CHANGELEDGER CONTEXT
   END` como última línea
 
-### CR5 — El CLI no falla ni imprime traza ante un pipe cerrado (EPIPE)
-
-- **Given** el binario `bin/changeledger.mjs` de este repo
-- **When** se ejecuta `node bin/changeledger.mjs context 2>&1 | head -1` en un
-  shell (`head` cierra el pipe tras leer la primera línea antes de que el
-  proceso termine de escribir)
-- **Then** el stream de error combinado del pipeline no contiene la cadena
-  `EPIPE`
-- **And** el stream de error combinado no contiene ninguna traza de pila de
-  Node (sin líneas que empiecen con `    at `)
-
 ## Plan
 
 - [ ] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/framing.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
 - [ ] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Endurecer `bin/changeledger.mjs` para no propagar `EPIPE` como excepción no controlada al escribir en stdout; crear `test/cli-epipe.test.mjs` que lance el CLI real vía `child_process` en un pipeline con `head -1` y verifique la ausencia de `EPIPE` y de traza en el stderr combinado; verify: `node --test test/cli-epipe.test.mjs` (CR5)
 - [ ] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
 
 ## Log
@@ -217,3 +228,4 @@ change), cruce del límite de dígitos de `N` (999 → 1000), y endurecimiento
   CONTRACT (texto de bootstrap, `BOOTSTRAP_VERSION`) queda en
   `20260726-124834`, que ahora depende de este change.
 - **2026-07-26T14:05:48Z** `[status]` draft → approved
+- **2026-07-27T10:27:42Z** `[note]` [note] CR5 (endurecimiento EPIPE) y su tarea de Plan retirados con autorizacion humana explicita de Roberto el 2026-07-27. Motivo: el criterio no era falsable — su comando exacto (node bin/changeledger.mjs context 2>&1 | head -1) termina con pipestatus 0 0, sin la cadena EPIPE y sin traza, sin ninguna implementacion en el arbol; console.log usa un Console con ignoreErrors: true. Refutacion completa y medidas en la Investigation. El alcance queda solo lines:<N> (CR1-CR4).
