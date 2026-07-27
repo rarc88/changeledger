@@ -1166,6 +1166,51 @@ X
   assert.match(message, /verification_patterns=\["pnpm test"\]/);
 });
 
+// A repo that already declares its own `readiness` keeps them: publishing the
+// defaults in the template must never leak into a configured repo's diagnostic.
+test('141122 CR3: a repo with its own readiness sees its own patterns in the hint', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior somewhere else (CR1)
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['custom/**'],
+        verification_patterns: ['custom-verify:'],
+      },
+    },
+  );
+  const message = msgs(errors).find((m) => /Plan task for CR1/.test(m));
+  assert.ok(
+    message.includes('target_patterns=["custom/**"], verification_patterns=["custom-verify:"]'),
+    `hint must quote the repo's own patterns verbatim, got: ${message}`,
+  );
+});
+
 test('122611 CR3: verify clause can be the configured verification convention', () => {
   const { errors } = covResult(
     `---
