@@ -10,29 +10,14 @@ import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
+import {
+  assertWithinBudget,
+  contextBudgets,
+  emittedLines,
+  sizedOutput,
+} from './budget-support.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
-const contextBudgets = JSON.parse(
-  fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
-);
-
-function assertWithinBudget(label, output, budget) {
-  const lines = output.split('\n').length;
-  const bytes = Buffer.byteLength(output, 'utf8');
-  const overTarget = lines > budget.target.lines || bytes > budget.target.bytes;
-  const targetBreach = `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`;
-  if (overTarget && !budget.strict_target) {
-    process.emitWarning(targetBreach);
-  }
-  assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
-  assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
-  // An entry declaring `strict_target` is paid in every session and again after
-  // every compaction, so its target is a gate: a warning is exactly how core
-  // drifted past its own target with no gate ever saying so.
-  if (budget.strict_target) {
-    assert.ok(!overTarget, targetBreach);
-  }
-}
 
 // The budget policy is observable in two ways at once — whether it throws and
 // whether it warns — so both must be captured. Stubbing `process.emitWarning`
@@ -56,24 +41,9 @@ function captureBudget(run) {
   return { warnings, thrown };
 }
 
-// Synthetic output of an exact size in the budget convention
-// (`split('\n').length`): `lines - 1` newlines plus filler up to `bytes`.
-function sizedOutput(lines, bytes) {
-  const newlines = lines - 1;
-  assert.ok(bytes >= newlines, `cannot fit ${lines} lines in ${bytes} bytes`);
-  return `${'x'.repeat(bytes - newlines)}${'\n'.repeat(newlines)}`;
-}
-
 const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
 const END_LINE =
   '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
-
-// Total lines of the emitted output: the composed text ends with a single
-// trailing newline, so its newline count is exactly what `wc -l` reports for the
-// CLI stdout and exactly what `head -<N>` must be given.
-function emittedLines(text) {
-  return text.split('\n').length - 1;
-}
 
 function publishedLines(text) {
   const match = text.split('\n')[0].match(/lines:(\d+)/);
@@ -1784,7 +1754,7 @@ test('130727 CR3: an unbounded change-id context publishes its exact line count'
   const composed = buildContext(id, root);
   const n = publishedLines(composed);
   const largestBudget = Math.max(
-    ...Object.values(contextBudgets.base).map((budget) => budget.hard.lines),
+    ...Object.values(contextBudgets.base).map((budget) => budget.lines),
   );
   assert.ok(n > largestBudget, `change-id context is not unbounded: ${n} <= ${largestBudget}`);
   assert.equal(n, emittedLines(composed));
@@ -1812,102 +1782,88 @@ test('130727 CR4: the count stays exact across the 3-to-4 digit boundary', () =>
   }
 });
 
-test('130728 CR1: the core entry declares the raised budget and its strictness', () => {
-  assert.deepEqual(contextBudgets.base.core, {
-    target: { lines: 175, bytes: 11000 },
-    hard: { lines: 200, bytes: 12000 },
-    strict_target: true,
-  });
-  // Strictness is core-only: core is the sole composition paid in every session.
-  const flagless = [
-    ...Object.entries(contextBudgets.base).filter(([mode]) => mode !== 'core'),
+test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
+  // A new top-level group in budgets.yml must widen this sweep, not slip past it.
+  assert.deepEqual(Object.keys(contextBudgets).sort(), ['agent', 'base', 'overlays']);
+  const entries = [
+    ...Object.entries(contextBudgets.base),
     ...Object.entries(contextBudgets.overlays).map(([status, budget]) => [
       `${status} overlay`,
       budget,
     ]),
     ['agent', contextBudgets.agent],
   ];
-  // A new top-level group in budgets.yml must widen this sweep, not slip past it.
-  assert.deepEqual(Object.keys(contextBudgets).sort(), ['agent', 'base', 'overlays']);
-  assert.ok(flagless.length >= 9, `too few non-core entries checked: ${flagless.length}`);
-  for (const [label, budget] of flagless) {
-    assert.ok(!('strict_target' in budget), `${label} declares strict_target`);
+  assert.ok(entries.length >= 10, `too few entries checked: ${entries.length}`);
+  for (const [label, budget] of entries) {
+    assert.deepEqual(
+      Object.keys(budget).sort(),
+      ['bytes', 'lines'],
+      `${label} does not declare exactly lines and bytes`,
+    );
+    assert.equal(Number.isInteger(budget.lines), true, `${label} lines is not an integer`);
+    assert.equal(Number.isInteger(budget.bytes), true, `${label} bytes is not an integer`);
   }
+  // Core's line ceiling is not a chosen number: it is the bootstrap's `head -200`.
+  assert.deepEqual(contextBudgets.base.core, { lines: 200, bytes: 12000 });
 });
 
-test('130728 CR2: a strict budget fails at target instead of warning', () => {
-  const budget = {
-    target: { lines: 175, bytes: 11000 },
-    hard: { lines: 200, bytes: 12000 },
-    strict_target: true,
-  };
-  const overTarget = captureBudget(() =>
-    assertWithinBudget('core', sizedOutput(176, 9000), budget),
+test('194233 CR2: the threshold is measured in emitted lines', () => {
+  const budget = { lines: 200, bytes: 12000 };
+  // 200 emitted lines is `split('\n').length === 201` under the old convention:
+  // the exact boundary the previous counting unit reported as an overflow.
+  const atLimit = sizedOutput(200, 9000);
+  assert.equal(atLimit.split('\n').length, 201);
+  const exact = captureBudget(() => assertWithinBudget('core', atLimit, budget));
+  assert.ok(!exact.thrown, `the exact limit threw: ${exact.thrown?.message}`);
+  const over = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 9000), budget));
+  assert.ok(over.thrown, 'line overflow did not throw');
+  assert.equal(over.thrown.name, 'AssertionError');
+  assert.equal(over.thrown.message, 'core exceeds 200 lines: 201');
+});
+
+test('194233 CR3: crossing the byte threshold throws', () => {
+  const budget = { lines: 200, bytes: 12000 };
+  const exact = captureBudget(() => assertWithinBudget('core', sizedOutput(50, 12000), budget));
+  assert.ok(!exact.thrown, `the exact byte limit threw: ${exact.thrown?.message}`);
+  const over = captureBudget(() => assertWithinBudget('core', sizedOutput(50, 12001), budget));
+  assert.ok(over.thrown, 'byte overflow did not throw');
+  assert.equal(over.thrown.message, 'core exceeds 12000 bytes: 12001');
+});
+
+test('194233 CR4: no budget path warns, under the threshold or over it', () => {
+  const budget = { lines: 200, bytes: 12000 };
+  const under = captureBudget(() => assertWithinBudget('core', sizedOutput(199, 11999), budget));
+  assert.ok(!under.thrown, `a compliant output threw: ${under.thrown?.message}`);
+  assert.deepEqual(under.warnings, []);
+  // Every real entry stays silent too, so no lenient branch survives anywhere.
+  for (const [label, budget] of Object.entries(contextBudgets.base)) {
+    const over = captureBudget(() =>
+      assertWithinBudget(label, sizedOutput(budget.lines + 1, budget.bytes), budget),
+    );
+    assert.ok(over.thrown, `${label} did not throw past its threshold`);
+    assert.deepEqual(over.warnings, [], `${label} warned instead of failing`);
+  }
+  const source = fs.readFileSync(new URL('./budget-support.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /emitWarning/);
+});
+
+test('194233 CR7: assertWithinBudget has a single definition', () => {
+  const suites = fs
+    .readdirSync(fileURLToPath(new URL('.', import.meta.url)))
+    .filter((name) => name.endsWith('.mjs'));
+  // Anchored at line start so this very assertion, which names the helper inside
+  // a string, cannot count itself as a definition.
+  const definitions = suites.filter((name) =>
+    /^(export )?function assertWithinBudget\(/m.test(
+      fs.readFileSync(new URL(name, import.meta.url), 'utf8'),
+    ),
   );
-  assert.ok(overTarget.thrown, 'strict target overflow did not throw');
-  assert.equal(overTarget.thrown.name, 'AssertionError');
-  assert.match(overTarget.thrown.message, /core exceeds target \(176\/175 lines/);
-  assert.deepEqual(overTarget.warnings, []);
-  // Both target dimensions gate, not lines alone: bytes drift on their own.
-  const overBytes = captureBudget(() =>
-    assertWithinBudget('core', sizedOutput(100, 11001), budget),
-  );
-  assert.ok(overBytes.thrown, 'strict byte-only target overflow did not throw');
+  assert.deepEqual(definitions, ['budget-support.mjs']);
+  const agentSuite = fs.readFileSync(new URL('./agent-context.test.mjs', import.meta.url), 'utf8');
   assert.match(
-    overBytes.thrown.message,
-    /core exceeds target \(100\/175 lines, 11001\/11000 bytes\)/,
+    agentSuite,
+    /import \{[^}]*assertWithinBudget[^}]*\} from '\.\/budget-support\.mjs'/,
   );
-  assert.deepEqual(overBytes.warnings, []);
-  // The hard limit keeps its own message and owns it when both bands break.
-  const overHard = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 9000), budget));
-  assert.ok(overHard.thrown, 'strict hard overflow did not throw');
-  assert.match(overHard.thrown.message, /core exceeds 200 lines: 201/);
-  // The byte ceiling is the band that fires first in practice, so it is pinned
-  // exactly and at its boundary: `hard.bytes + 1`, with lines under both bands.
-  const overHardBytes = captureBudget(() =>
-    assertWithinBudget('core', sizedOutput(50, 12001), budget),
-  );
-  assert.ok(overHardBytes.thrown, 'strict byte-only hard overflow did not throw');
-  assert.equal(overHardBytes.thrown.message, 'core exceeds 12000 bytes: 12001');
-  assert.deepEqual(overHardBytes.warnings, []);
-});
-
-test('130728 CR3: without strictness the target warns and never breaks the suite', () => {
-  const budget = { target: { lines: 280, bytes: 12000 }, hard: { lines: 310, bytes: 13500 } };
-  const overTarget = captureBudget(() =>
-    assertWithinBudget('spec', sizedOutput(300, 12500), budget),
-  );
-  assert.ok(!overTarget.thrown, `non-strict target overflow threw: ${overTarget.thrown?.message}`);
-  assert.deepEqual(overTarget.warnings, ['spec exceeds target (300/280 lines, 12500/12000 bytes)']);
-  // A byte-only overflow warns too, so the flagless branch reads both dimensions.
-  const overBytes = captureBudget(() =>
-    assertWithinBudget('spec', sizedOutput(100, 12001), budget),
-  );
-  assert.ok(!overBytes.thrown, `non-strict byte overflow threw: ${overBytes.thrown?.message}`);
-  assert.deepEqual(overBytes.warnings, ['spec exceeds target (100/280 lines, 12001/12000 bytes)']);
-  const overHard = captureBudget(() => assertWithinBudget('spec', sizedOutput(311, 12500), budget));
-  assert.ok(overHard.thrown, 'non-strict hard overflow did not throw');
-  assert.match(overHard.thrown.message, /spec exceeds 310 lines: 311/);
-  // Flagless entries lose no byte ceiling either: pinned at `hard.bytes + 1`
-  // with lines under both bands. The target warning fires first and then the
-  // hard assertion throws — the documented order for a flagless entry.
-  const overHardBytes = captureBudget(() =>
-    assertWithinBudget('spec', sizedOutput(50, 13501), budget),
-  );
-  assert.ok(overHardBytes.thrown, 'non-strict byte-only hard overflow did not throw');
-  assert.equal(overHardBytes.thrown.message, 'spec exceeds 13500 bytes: 13501');
-  assert.deepEqual(overHardBytes.warnings, [
-    'spec exceeds target (50/280 lines, 13501/12000 bytes)',
-  ]);
-  // Same lenience for the real flagless entries of budgets.yml, not a literal only.
-  const real = contextBudgets.base.spec;
-  const realOver = captureBudget(() =>
-    assertWithinBudget('spec', sizedOutput(real.target.lines + 1, real.target.bytes), real),
-  );
-  assert.ok(!realOver.thrown, `real flagless entry threw at target: ${realOver.thrown?.message}`);
-  assert.deepEqual(realOver.warnings, [
-    `spec exceeds target (${real.target.lines + 1}/${real.target.lines} lines, ${real.target.bytes}/${real.target.bytes} bytes)`,
-  ]);
 });
 
 // 20260726-124835 — core is rewritten as a routing contract: what the human
@@ -2214,22 +2170,18 @@ test('124835 CR11: retired rules keep their owner and the retained sentences sta
   assert.match(close, /changeledger graduate <id> --skip \[reason\]/);
 });
 
-test('130728 CR4: the current core composition clears the strict target', () => {
+// 20260727-194233 retired the target band: this criterion now reads against the
+// single threshold, which is the same ceiling the strict target used to guard.
+test('130728 CR4: the current core composition clears its threshold', () => {
   const root = repo();
   const budget = contextBudgets.base.core;
   const core = buildContext(undefined, root);
-  const lines = core.split('\n').length;
+  const lines = emittedLines(core);
   const bytes = Buffer.byteLength(core, 'utf8');
-  // Strictly below, not merely within: turning the gate on must not require one
-  // rewritten line of core.md, which is 20260726-124835's work, not this one's.
-  assert.ok(
-    lines < budget.target.lines,
-    `core is not below its target lines: ${lines}/${budget.target.lines}`,
-  );
-  assert.ok(
-    bytes < budget.target.bytes,
-    `core is not below its target bytes: ${bytes}/${budget.target.bytes}`,
-  );
+  // Strictly below, not merely within: the gate must leave real headroom rather
+  // than pass by sitting exactly on the ceiling.
+  assert.ok(lines < budget.lines, `core is not below its line threshold: ${lines}/${budget.lines}`);
+  assert.ok(bytes < budget.bytes, `core is not below its byte threshold: ${bytes}/${budget.bytes}`);
   // The 225213 CR6 sweep itself: no throw, and no core target warning.
   const sweep = captureBudget(() => {
     for (const [mode, entry] of Object.entries(contextBudgets.base)) {

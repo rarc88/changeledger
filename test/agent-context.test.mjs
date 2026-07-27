@@ -9,25 +9,12 @@ import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const agentBudget = JSON.parse(
-  fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
-).agent;
-
-function assertWithinBudget(label, output, budget) {
-  const lines = output.split('\n').length;
-  const bytes = Buffer.byteLength(output, 'utf8');
-  if (lines > budget.target.lines || bytes > budget.target.bytes) {
-    process.emitWarning(
-      `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`,
-    );
-  }
-  assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
-  assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
-}
+const agentBudget = contextBudgets.agent;
 
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-repo-'));
