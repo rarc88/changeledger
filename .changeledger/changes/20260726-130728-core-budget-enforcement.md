@@ -2,9 +2,10 @@
 id: "20260726-130728"
 title: Endurecer el presupuesto del contexto core
 type: feature
-status: in-validation
+status: done
 created: 2026-07-26T13:07:28Z
 depends_on: []
+reviewed: true
 related_to: ["20260726-124835", "20260726-130727"]
 owner: raruiz-hiberuscom
 release_impact: none
@@ -194,3 +195,6 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 - **2026-07-27T13:51:45Z** `[note]` Ronda de confirmacion (contexto limpio, mandato minimo): PASS. La matriz de 8 celdas es completa — el revisor la derivo del codigo, no de la lista del implementador: 2 bandas x 2 metricas x 2 estados de estrictez, y 8 es el numero correcto. Las 8 celdas son load-bearing con una mutacion aislante cada una, matando 8 aserciones distintas. Ajuste al limite verificado: las cuatro loosenings +1 (hard.bytes, hard.lines, target.lines, target.bytes) mueren en ambos tests, asi que ninguna celda esta fijada solo pasado su limite. El dominio de valores de strict_target queda cerrado aguas arriba y no en la funcion, que lee veracidad: el deepStrictEqual de CR1 fija core exactamente a true (strict_target: 1 lo suspende) y el barrido sin bandera prohibe la clave (strict_target: false en spec lo suspende). No vacuo: los fixtures byte-only tienen 50 lineas contra bandas de 175/200 y 280/310, asi que prueban bytes y no lineas, y sus bytes son hard.bytes+1 exacto.
 - **2026-07-27T13:51:45Z** `[note]` Dos residuos que el revisor encontro y juzgo no suspensivos, y estoy de acuerdo. (a) Intercambiar las lineas 27 y 28 de assertWithinBudget SOBREVIVE: cuando hard.lines y hard.bytes revientan a la vez, ningun fixture lo cubre, asi que cual de los dos mensajes verdaderos reporta no esta fijado. No es puerta perdida — ambas aserciones siguen ahi y cada banda esta fijada por separado. (b) El mensaje de hard-lines esta fijado solo por substring: cambiar el verbo muere, pero anadirle un prefijo 'budget: ' sobrevive. Es codigo de la pasada 1 que esta correccion no tocaba, preexistente y cosmetico. Los dos van a seguimiento, no a retry.
 - **2026-07-27T13:51:45Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T13:57:11Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T14:00:00Z** `[note]` Graduado a contract-discovery. Verdad persistente escrita: el presupuesto del core es puerta y no aviso, la politica vive con la bandera strict_target JUNTO a las cifras que gobierna y no en el codigo de test, es la unica entrada que la declara, y la verificacion cubre las ocho combinaciones de banda/metrica/regimen fijadas en su limite exacto. Registrada tambien la razon concreta de exigir las ocho: basto no cubrir el techo de bytes para que borrarlo entero dejara la suite en verde, y en la practica los bytes se agotan antes que las lineas. No toque el parrafo de la regla general de captura del nucleo: sigue describiendo core.md, que este change no modifico y cuya reescritura posee 20260726-124835.
+- **2026-07-27T14:00:00Z** `[graduation]` spec: `contract-discovery.md`

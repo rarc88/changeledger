@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T13:08:25Z
+updated: 2026-07-27T14:00:00Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728"]
 ---
 
 ## Discovery del contrato
@@ -79,6 +79,23 @@ trabajo) tiene objetivos y límites duros en la única tabla ejecutable
 `templates/contract/budgets.yml`; los tests la cargan directamente. Los
 contextos posteriores amplían el core y fallan cerrado por instrucción si el
 agente aún no lo leyó completo.
+
+**El presupuesto del core es puerta, no aviso.** El resto de entradas avisa al
+pasar su objetivo y sólo falla en el límite duro; el core falla ya en el
+objetivo, porque es el único texto que se paga en cada sesión y otra vez tras
+cada compactación. La política se declara con la bandera `strict_target` **junto
+a las cifras que gobierna**, en la propia entrada de `budgets.yml`, no escondida
+en el código de test: quien lee el presupuesto ve qué régimen se le aplica. Es la
+única entrada que la declara.
+
+La distinción nació de una deriva observada: un aviso no detiene nada, y por eso
+el core pudo rebasar su objetivo sin que ningún gate lo dijera. La verificación
+de esa puerta cubre las ocho combinaciones de banda, métrica y régimen —objetivo
+y límite duro, líneas y bytes, con bandera y sin ella— y cada una queda fijada en
+su límite exacto, con el texto del fallo comprobado. La razón de exigir las ocho
+es concreta: bastó no cubrir el techo de bytes para que borrarlo entero dejara la
+suite en verde, y en la práctica los bytes son la banda que se agota antes que
+las líneas.
 
 Cada invocación se captura completa desde el primer intento. El consumidor no
 solicita previews, resúmenes ni límites voluntarios de líneas, bytes o tokens y,
