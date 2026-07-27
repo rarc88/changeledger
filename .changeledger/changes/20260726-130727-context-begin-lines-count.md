@@ -2,9 +2,10 @@
 id: "20260726-130727"
 title: Publicar el tamaño exacto del contexto en la línea BEGIN
 type: feature
-status: in-validation
+status: done
 created: 2026-07-26T13:07:27Z
 depends_on: ["20260726-124833"]
+reviewed: true
 related_to: ["20260726-124834"]
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -214,7 +215,7 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 
 ## Plan
 
-- [x] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/framing.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/commands/context.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
   - **Resolved:** `2026-07-27T10:38:46Z`
 - [x] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos; verify: `node --test test/context.test.mjs` (CR4)
   - **Resolved:** `2026-07-27T10:38:46Z`
@@ -241,3 +242,7 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 - **2026-07-27T10:49:05Z** `[note]` Hallazgo 1 del revisor, confirmado y corregido por el orquestador: la Investigation decia '133 lineas' para el core en el bloque de refutacion de EPIPE. Corregido a 132, el conteo real emitido. Verificado con node bin/changeledger.mjs context | wc -l = 132. Es prosa que escribi yo hoy y arrastraba la misma convencion equivocada (split sobre buildContext) que ya corregi en la nota anterior; el argumento sobre head -200 no cambia.
 - **2026-07-27T10:49:05Z** `[note]` Hallazgo 2 del revisor, confirmado y NO corregido: la tarea 1 del Plan localiza beginDelimiter en src/framing.mjs y en realidad vive en src/commands/context.mjs:34. Es inexactitud preexistente en el texto aprobado el 2026-07-26; la implementacion fue al fichero correcto y la tarea esta completa. No reescribo texto aprobado por mi cuenta: queda registrado aqui con la ubicacion correcta y se eleva a Roberto en el handoff.
 - **2026-07-27T10:49:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T10:58:04Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-27T10:59:46Z** `[note]` Puntero del Plan corregido con autorizacion explicita de Roberto el 2026-07-27: la tarea 1 decia beginDelimiter (src/framing.mjs) y ahora dice src/commands/context.mjs, que es donde vive (linea 34).
+- **2026-07-27T10:59:46Z** `[note]` Residuo NO tocado, se eleva a Roberto: .changeledger/specs/contract-discovery.md:152-153 sigue diciendo 'Tras una compactacion, el rev retenido se comprueba con changeledger context [mode] --have <rev>'. Es fuga de la graduacion de 20260726-124833, que retiro el flag y el segmento rev: y añadio el parrafo 'Sin recuperacion por revision' 50 lineas mas arriba sin limpiar esta. La spec se contradice a si misma y documenta un flag que hoy da error — clase del hallazgo 19. Solo corregi el literal del centinela BEGIN, que es verdad de este change.
+- **2026-07-27T10:59:46Z** `[graduation]` spec: `contract-discovery.md`

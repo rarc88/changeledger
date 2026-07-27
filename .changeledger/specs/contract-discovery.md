@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T09:48:01Z
+updated: 2026-07-27T10:59:46Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727"]
 ---
 
 ## Discovery del contrato
@@ -101,6 +101,25 @@ regla que sí resuelve el problema no cuesta código: mientras el core completo
 siga en la conversación activa no se recarga, y si se perdió, se recaptura
 entero.
 
+**Tamaño publicado en la propia salida.** La línea BEGIN de toda composición
+—core, modo y change id— cierra su descriptor con `lines:<N>`, el número exacto
+de líneas que el comando emite, contando la propia BEGIN y la END. Es el
+conteo real de la salida, no el de una convención interna: `changeledger
+context … | wc -l` devuelve `N`, `head -<N>` conserva la línea END como última
+y `head -<N-1>` la pierde. Un límite fijo no puede cumplir eso, porque solo el
+core está acotado por `budgets.yml`; los packs de modo varían y el contexto por
+change id incrusta el documento completo, sin cota. Publicar el número deja
+construir un `head` determinista para cualquier contexto sin conocer su tamaño
+de antemano, y el consumidor canónico lo usa con el `N` exacto, así que lee
+hasta EOF y nunca trunca.
+
+El valor se calcula en un único paso posterior a la composición del cuerpo, sin
+iteración de punto fijo: el número de dígitos de `N` solo añade caracteres
+dentro de la línea BEGIN y jamás cambia el recuento de líneas, de modo que
+inyectarlo no invalida la medida. El cruce de 999 a 1000 líneas está fijado por
+tests, y el propio `lines:<N>` no crea escenario de pipe cerrado: el consumidor
+que pasa el `N` exacto agota la salida.
+
 La regresión contractual se protege en dos niveles: una matriz semántica exige
 cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
 packs ajenos; snapshots SHA-256 normalizados de todos los fragmentos hacen
@@ -143,7 +162,7 @@ investigar o actuar— y conservar stdout completo desde esa primera ejecución
 hasta la línea `CHANGELEDGER CONTEXT END`, sin pipes, filtros, previews,
 resúmenes ni límites voluntarios. La completitud se verifica por centinela:
 toda salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode:
-<mode> [— change: #<id>] — v<version> — rev:<hash> =====` y cierra con una
+<mode> [— change: #<id>] — v<version> — lines:<N> =====` y cierra con una
 línea END autodetectora; si falta pese a la captura completa, la salida llegó
 truncada y hay que detenerse y re-ejecutar con mayor capacidad como
 recuperación excepcional. Si el entorno informa que el comando no existe, el
