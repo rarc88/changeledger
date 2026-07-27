@@ -228,8 +228,10 @@ Los criterios se comprueban sobre la salida compuesta de
   - **Resolved:** `2026-07-27T21:11:09Z`
 - [x] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`; verify: `node --test test/context.test.mjs` (CR1, CR3, CR8)
   - **Resolved:** `2026-07-27T21:11:09Z`
-- [ ] Actualizar en `test/cli.test.mjs` las siete aserciones del contrato instalado que fijan por substring la prosa de commits retirada de `templates/contract/implement.md`, apuntándolas a la sede nueva en `core.md`; verify: `node --test test/cli.test.mjs` (CR1, CR3)
-- [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Actualizar en `test/cli.test.mjs` las siete aserciones del contrato instalado que fijan por substring la prosa de commits retirada de `templates/contract/implement.md`, apuntándolas a la sede nueva en `core.md`; verify: `node --test test/cli.test.mjs` (CR1, CR3)
+  - **Resolved:** `2026-07-27T21:11:38Z`
+- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T21:11:39Z`
 
 ## Log
 
@@ -244,3 +246,4 @@ Los criterios se comprueban sobre la salida compuesta de
 - **2026-07-27T21:10:00Z** `[note]` Enmienda durante in-progress, sin re-aprobacion porque no expande alcance observable: aparece un SEGUNDO sitio de pins que el documento no anticipo. test/cli.test.mjs (test 214902 CR5/CR6) fija por substring siete frases de la prosa de commits que este change retira de implement.md, asi que el gate no puede pasar sin repuntarlas a la sede nueva. Anadida tarea de Plan para ello. Verificado que los siete pins nuevos muerden: mutando cada frase en core.md el test cae en las siete.
 - **2026-07-27T21:10:00Z** `[note]` Precisiones al documento: (1) el Proposal decia 'implement.md queda sin ninguna prosa de commits' y su propio Plan/CR3 solo enumeran la unidad y la mecanica del mensaje; ## Correction isolation es comportamiento de la fase de review y se queda, igual que changeledger commit en la lista de comandos. Redactado con precision; el delegado siguio Plan/CR3 y lo reporto en vez de obedecer en silencio. (2) la cifra de bytes del core estaba obsoleta: 9834, no 9809 — la linea BEGIN crecio al publicar la ocupacion en 20260727-194233.
 - **2026-07-27T21:11:09Z** `[note]` Tareas 1 y 2 en un commit combinado: son un solo movimiento de prosa —los criterios CR1 y CR3 comprueban ausencia en el pack implement y presencia en el pack core sobre la MISMA salida compuesta, y los dos pins de snapshot cambian a la vez—, asi que separarlas dejaria un commit intermedio con el contrato incoherente. Es exactamente la mezcla inevitable por tareas inseparables que este change legitima. Resultado medido: core 192/200 lineas y 11657/12000 bytes, bloque ## Commits en 27 lineas (techo 28), implement baja a 168/205 y 8205/10000. Ninguna normativa retirada para caber: sobran 3 lineas y 343 bytes.
+- **2026-07-27T21:11:39Z** `[note]` Tarea 4: gate completo verde — 822 tests, biome limpio (una linea reformateada por ancho tras repuntar los pins), changeledger check conforme.

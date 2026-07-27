@@ -237,9 +237,12 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
   assert.match(contract, /Inspect the\s+worktree/);
   assert.match(contract, /unrelated changes exist/);
-  assert.match(contract, /baseline commit of the approved change\s+document before code/);
+  assert.match(
+    contract,
+    /\*\*Baseline\*\*: exactly one, the approved change\s+document, before any code/,
+  );
   assert.match(contract, /Implement one\s+change at a\s+time/);
-  assert.match(contract, /Commit completed units/);
+  assert.match(contract, /\*\*Task\*\*: one per completed Plan task/);
   assert.match(
     contract,
     /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
@@ -250,11 +253,14 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   );
   assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
   assert.match(contract, /do not start another task or change\s+while a correction waits/i);
-  assert.match(contract, /If shared files make a combined commit\s+unavoidable/);
-  assert.match(contract, /approved.*in-progress.*baseline commit/i);
-  assert.match(contract, /Do not create a dedicated commit for a\s+lifecycle-only transition/);
-  assert.match(contract, /coalesce it with the nearest meaningful commit/i);
-  assert.match(contract, /handoff[\s\S]*one consolidated\s+checkpoint/i);
+  assert.match(
+    contract,
+    /several changes share the same files, or\s+several Plan tasks are inseparable/,
+  );
+  assert.match(contract, /four commit classes and no others/);
+  assert.match(contract, /is never a commit of its own; it travels inside the next real class/);
+  assert.match(contract, /never defer them and reconstruct mixed diffs at the end/);
+  assert.match(contract, /\*\*Handoff\*\*: zero or one, only when work stops/);
   assert.match(contract, /one final closure commit[\s\S]*graduation/i);
 });
 
