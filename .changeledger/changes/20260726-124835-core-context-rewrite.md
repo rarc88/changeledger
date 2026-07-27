@@ -294,9 +294,9 @@ haber detectado se trata como defecto de esa etapa.
   literales `claude`, `opus`, `sonnet`, `haiku`, `gpt`, `gemini`, `llama`,
   `anthropic` ni `openai`
 
-### CR6 — Los invariantes y la regla del trabajo sin change se conservan completos
+### CR6 — Los invariantes, el trabajo sin change y las tres reglas restituidas se conservan completos
 - **Given** la composición core normalizada
-- **When** se inspeccionan los bloques `## Invariants` y `## When no change is needed`
+- **When** se inspeccionan los bloques `## Invariants`, `## When no change is needed`, `## Lifecycle` y `## Context modes`
 - **Then** `## Invariants` contiene `No artifact without explicit human authorization`
 - **And** contiene ``Never implement a `draft` ``
 - **And** contiene `One change at a time, on a non-main branch`
@@ -309,6 +309,19 @@ haber detectado se trata como defecto de esa etapa.
 - **And** contiene `ask the human whether a purely operational, reversible edit with no persistent truth or observable behavior change should be done directly`
 - **And** contiene `If unsure, document it in ChangeLedger`
 - **And** contiene ``For small, reversible, single-concern work with observable behavior, use the `quick` type instead of bypassing documentation``
+- **And** —restitución autorizada por el humano: core enruta mejor sin perder
+  normativa— `## Invariants` exige la condición previa a documentar y la
+  prohibición de inventar: contiene `enough clarity to document faithfully`,
+  ``a direct request such as “create the change” is authorization`` y
+  `never invent missing requirements`
+- **And** `## Lifecycle` exige la lectura acotada del stop, que es la decisión de
+  seguir trabajando o no y por tanto de core: contiene `It stops only that change`,
+  ``never accept on the human's behalf``, `reject with a reason and start another approved change`
+  y ``unless its direct or transitive `depends_on` chain reaches one in `in-validation` ``
+- **And** `## Context modes` exige que toda captura se lea completa, incluidos los
+  contextos incrementales y de change-id —el bootstrap posee la primera captura y
+  su condición de validez; core posee que ninguna se lea parcial—: contiene
+  `Every context capture is read complete in one pass` y `a partial view is invalid`
 
 ### CR7 — Puertas de salida, techo de complejidad y commits usan el texto decidido
 - **Given** la composición core normalizada
@@ -355,7 +368,12 @@ haber detectado se trata como defecto de esa etapa.
   `rev:<hash>`
 - **And** el centinela END sigue siendo la última línea de la salida, porque lo emite el framing y no el fragmento
 - **And** no contiene `Files are the source of truth and may be edited directly`, `CLI helpers are optional and preferred for error-prone operations`, `Delegate only with a clear boundary and benefit`, `ownership, expected output and integration criterion`, `must not revert others' work`, `Do not over-shard or overlap write surfaces without an explicit integration plan` ni `Size the model to the task's difficulty and risk`
-- **And** no contiene `commit the approved change document before code`, `use a fresh clean-context reviewer before human validation`, `` `in-validation` stops only that change``, ``start another approved change unless its `depends_on` chain`` ni `changeledger graduate <id> --skip [reason]`
+- **And** no contiene `commit the approved change document before code`, `use a fresh clean-context reviewer before human validation` ni `changeledger graduate <id> --skip [reason]`
+- **And** la lectura acotada de `in-validation` y la regla de captura completa
+  salen de esta lista de retiradas: CR6 las exige restituidas en core, así que
+  ningún criterio puede pedir a la vez su ausencia. Sigue retirado el detalle de
+  la primera captura (`Capture the first invocation completely in one pass`,
+  ``read through the `CHANGELEDGER CONTEXT END` line``), que pertenece al bootstrap
 
 ### CR11 — Cada regla sigue en su dueño y las dos frases retenidas siguen en core
 - **Given** las composiciones normalizadas de core, `spec`, `implement`, el overlay `in-validation` y el overlay `done`
@@ -371,13 +389,24 @@ haber detectado se trata como defecto de esa etapa.
 - **Given** un repo ChangeLedger inicializado, el core reescrito y el presupuesto estricto de `20260726-130728` vigente
 - **When** se mide `buildContext(undefined, root)` y se ejecuta `node --test test/context.test.mjs test/cli.test.mjs`
 - **Then** el recuento de líneas en la convención `output.split('\n').length` es menor o igual que 175 y el tamaño menor o igual que 11000 bytes, sin aviso ni fallo de `core exceeds target`
-- **And** la medición proyectada del texto propuesto es 164-170 líneas en esa misma convención y ~10000 bytes, es decir la restricción vinculante es la de líneas
+- **And** con las tres reglas restituidas la medición queda en 173 líneas o menos en esa misma convención y 9800 bytes o menos, es decir la restricción vinculante sigue siendo la de líneas y `budgets.yml` no se toca
 - **And** en el test `234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss` se actualiza el digest esperado de `core.md`, mientras los de `delegation.md` y `spec.md` quedan intactos porque esos ficheros no se editan
-- **And** cada regla afectada queda clasificada en el comentario adyacente como preservada, reemplazada o retirada, nombrando el id `20260726-124835`
+- **And** cada regla afectada queda clasificada en el comentario adyacente como preservada, reemplazada, retirada o movida, nombrando el id `20260726-124835`
+- **And** la clasificación es verdadera regla a regla, comprobada contra el fichero
+  dueño y no contra palabras parecidas: cada regla movida nombra el texto que su
+  overlay dice realmente en vez de afirmar literalidad donde no la hay; la regla de
+  compartir el codebase queda **movida** a `templates/contract/delegation.md`;
+  ``Files are the source of truth and may be edited directly`` y `CLI helpers are
+  optional and preferred for error-prone operations` quedan **movidas** a
+  `templates/contract/spec.md` §`Repository layout and creation`; y el recuento
+  final coincide con las entradas realmente escritas
+- **And** el test `220014 CR1/CR4: core and validation scope the stop to one change, not the queue` vuelve a exigir la lectura acotada en core, con el texto restituido, en vez de afirmar su ausencia
+- **And** el test `214902 CR1-CR4/CR7/CR8` de `test/cli.test.mjs` recupera los dos pins que borró en vez de repuntar, ajustados al texto restituido: `enough clarity to document faithfully` y ``direct request such as “create the change” is authorization``
+- **And** el test `124835 CR2/CR3: the identity and the intent table route before any load` fija el emparejamiento intención→acción por fila `| intent | action |` completa, como ya hace `124835 CR4/CR5` con la tabla trabajo→dueño, y no por existencia independiente de etiqueta y acción
 - **And** la regla `new human message alone does not trigger a reload` queda clasificada como **reemplazada** por la cláusula `never load one speculatively and never reload one already held`, nunca como retirada sin más
 - **And** el test `CR1/CR5/CR7: core context is deterministic and within its budget` deja de exigir los literales de captura retirados y exige los del core reescrito
 - **And** el test `234939 CR1-CR10: restored invariants stay in their owning contexts` actualiza su lista de invariantes y sus aserciones sobre `fragments['core.md']`, sustituyendo `Size the model to the task's difficulty and risk` y `Do not over-shard or overlap write surfaces` —que dejan de existir en el repo— por la redacción equivalente que `delegation.md` ya posee, `Do not create one subagent per file, line or tiny mechanical edit` y `Use the strongest available models for ambiguous scope`
-- **And** el test `234939 CR11-CR20: dynamic packs retain the operational contract` actualiza su lista esperada, incluidos ``Documents under `.changeledger/` are ChangeLedger's persistent truth``, `` `in-validation` stops only that change `` y `changeledger graduate <id> --skip [reason]`
+- **And** el test `234939 CR11-CR20: dynamic packs retain the operational contract` actualiza su lista esperada, incluidos ``Documents under `.changeledger/` are ChangeLedger's persistent truth`` y `changeledger graduate <id> --skip [reason]`; la fila de core para la lectura acotada de `in-validation` se repunta al texto restituido en vez de eliminarse
 - **And** el test `214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction` de `test/cli.test.mjs` actualiza los literales de core que ve su `contractText()`
 - **And** el inventario de fragmentos no cambia: no se crean ni se borran ficheros en `templates/contract/`
 
@@ -393,6 +422,10 @@ haber detectado se trata como defecto de esa etapa.
   - **Resolved:** `2026-07-27T14:56:10Z`
 - [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-27T14:58:09Z`
+- [ ] Restituir en `templates/contract/core.md` las tres reglas que la reescritura retiró sin criterio: la condición previa a documentar y la prohibición de inventar requisitos en `## Invariants`, la lectura acotada de `in-validation` en `## Lifecycle` y la captura completa de todo contexto en `## Context modes`; repuntar `220014 CR1/CR4` y `234939 CR11-CR20`, recuperar los dos pins borrados en `test/cli.test.mjs`, y actualizar el digest de `core.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR6, CR10, CR12)
+- [ ] Reescribir el test `124835 CR2/CR3` para afirmar la fila `| intent | action |` completa y eliminar el `row.length` muerto, probándolo con el mutante que intercambia dos acciones de la tabla de intención en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR3, CR12)
+- [ ] Volver verdadero el comentario de clasificación del pin de `templates/contract/core.md`: texto real del overlay para cada regla movida, reclasificación de la regla de compartir el codebase y del par de ficheros como fuente de verdad, y recuento coincidente; verify: `node --test test/context.test.mjs` (CR12)
+- [ ] Ejecutar de nuevo el gate completo con el change en `in-progress`; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -407,3 +440,8 @@ haber detectado se trata como defecto de esa etapa.
 - **2026-07-27T14:56:10Z** `[note]` Digest de core.md: 8b42036...→ d0ab6534ad61490911e56cfdc917ca035b242196a6ee8c80148466c20a3e61a4, con clasificación regla a regla adyacente en el mapa: 8 reemplazadas, 3 retiradas, 4 movidas a su overlay, el bloque de captura retirado íntegro, y la lista explícita de lo preservado literal. 'new human message alone does not trigger a reload' queda REEMPLAZADA por 'never load one speculatively and never reload one already held', nunca retirada, como exige CR12. Los digests de delegation.md y spec.md no se tocan porque esos ficheros no se editan.
 - **2026-07-27T14:56:22Z** `[note]` Sitios de aserción reales: además de los cuatro que CR12 nombra, la retirada rompe tres tests más de test/context.test.mjs ('220014 CR1/CR4', '134704 CR1/CR2/CR3', '134703 CR1/CR2/CR3', '144327 CR5', '230608 CR1/CR2') y uno más de test/cli.test.mjs ('171002 CR1-CR5', que solo fallaba por el salto de línea de validation.md y se resuelve con \s+). Los once fallos eran genuinos y quedan documentados en la respuesta al humano. Además, CR1 y CR3-CR9 no tenían ningún sitio que los afirmara: se añaden cinco tests '124835 CR1', 'CR2/CR3', 'CR4/CR5', 'CR6/CR7', 'CR8/CR9' y 'CR10', cada uno con un mutante aislado verificado (orden de headings, fila de intención, nivel nombrado por proveedor, frase del reviewer, fila de la matriz y literal retirado reintroducido): los seis mueren.
 - **2026-07-27T14:58:09Z** `[note]` Tarea 5: 'pnpm verify' verde con el change todavía en in-progress. lint (biome, 82 ficheros sin arreglos), 809 tests con 0 fallos y 'changeledger check'. Última línea exacta: '✓ 18 change(s) valid — 203 not validated (archived or discarded)', exit 0. El candidato queda listo para review; la transición a in-review la despacha el orquestador.
+- **2026-07-27T15:00:13Z** `[note]` Mandato de review: COMPLETA, no spot check. Justificacion: core.md es el texto con el multiplicador mas alto del sistema (lo lee todo agente en cada sesion de cada repo consumidor), y el riesgo dominante de esta reescritura es que una regla se pierda en silencio. Puntos de escrutinio obligados: el comentario de clasificacion del pin (preservada/reemplazada/retirada regla por regla), si alguna regla retirada queda huerfana sin overlay que la posea, los nueve sitios de asercion repuntados sin quedar vacuos, los seis tests nuevos y su verificacion por mutacion, el reflujo de prosa a ~90 columnas sin cambiar literales, y la frase de disciplina de captura que sobrevive en Context modes.
+- **2026-07-27T15:00:13Z** `[status]` in-progress → in-review
+- **2026-07-27T15:13:34Z** `[review]` in-review → in-progress (retry): Clase del defecto: la retirada de reglas del core no esta completa ni fielmente clasificada. (1) La obligacion 'never invent missing requirements' de la regla 1, con su condicion 'enough clarity to document faithfully', quedo HUERFANA: cero hits en todo templates/ y src/, el comentario de clasificacion la declara reemplazada por un invariante que solo cubre autorizacion, y test/cli.test.mjs borro sus dos pins en vez de repuntarlos, sin que ningun criterio autorizara la retirada. (2) El test 124835 CR2/CR3 no fija el emparejamiento intencion-accion que CR3 exige: intercambiar las acciones de dos filas sobrevive al mutante, y el assert.ok(row.length > 0) es peso muerto. (3) El comentario de clasificacion incumple CR12 en tres puntos: 'preserved verbatim' es falso para 3 de 4 reglas movidas, una entrada marcada retirada declara en su propio texto que esta preservada en delegation.md, y 'Files are the source of truth' se marca retirada cuando vive en spec.md; el recuento real es 2 retiradas y 5 movidas. La correccion debe rehogar y clasificar la regla huerfana, fijar el emparejamiento por fila completa como ya hace CR4/CR5, y volver verdadero el comentario regla por regla.
+- **2026-07-27T15:22:05Z** `[note]` Roberto corrige el rumbo de la reescritura: el change nacio para que el core enrute mejor, no para adelgazarlo perdiendo normativa. Autoriza enmendar CR6, CR10 y CR12 ya en in-progress para RESTITUIR al core tres cosas que son flujo y por tanto suyas: (1) la lectura acotada de in-validation, o sea que para solo ese change y el agente puede arrancar otro aprobado salvo que su cadena depends_on alcance uno en in-validation; (2) la regla de captura completa aplicada a los contextos incrementales, con vista parcial invalida, que es el referente de INCREMENTAL_NOTICE y gobierna cada carga en lugar del arranque; (3) la prohibicion never invent missing requirements con su condicion enough clarity to document faithfully. Division de propiedad corregida: el bootstrap posee como hacer y verificar la PRIMERA captura, el core posee que toda captura se lee completa. No se toca src/commands/context.mjs: el referente colgante se arregla devolviendo la regla al core, no editando la nota.
+- **2026-07-27T15:28:57Z** `[note]` Enmienda autorizada por el humano tras el review 'fail --retry': el change existe para que el core enrute mejor, no para adelgazarlo perdiendo normativa. Se restituyen al core tres reglas y se enmiendan CR6, CR10 y CR12. Reparto de propiedad ratificado: el bootstrap posee como hacer y verificar la PRIMERA captura (comando acotado y linea END como condicion de validez); el core posee que TODA captura -incluidos los contextos incrementales y de change-id- se lee completa y que una vista parcial es invalida, porque eso es operacion y no arranque. CR6 pasa a exigir las tres restituciones (condicion 'enough clarity to document faithfully' con 'never invent missing requirements'; lectura acotada de in-validation; captura completa de todo contexto), CR10 las saca de su lista de retiradas manteniendo retirado el detalle de la primera captura, y CR12 exige clasificacion verdadera regla a regla, la recuperacion de los dos pins que test/cli.test.mjs borro y el emparejamiento por fila completa de la tabla de intencion. Cuatro tareas nuevas, sin renumerar criterios. No se toca src/commands/context.mjs: el referente colgante de INCREMENTAL_NOTICE se arregla devolviendo la regla al core.
