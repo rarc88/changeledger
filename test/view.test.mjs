@@ -833,10 +833,13 @@ test('111218 CR4: malformed readiness patterns return their validation cause', (
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const read = readProjectConfig(projects, current);
+  // The template ships `readiness` uncommented, so malform the block it already
+  // has instead of appending a second one (that would be a duplicate-key error).
   const candidate = read.body.content.replace(
-    'changes_dir:',
-    'readiness:\n  target_patterns:\n    source: true\n  verification_patterns: ["test/**"]\n\nchanges_dir:',
+    '  target_patterns: ["src/**"]',
+    '  target_patterns:\n    source: true',
   );
+  assert.notEqual(candidate, read.body.content, 'the malformed candidate must differ');
 
   const result = saveProjectConfig(projects, {
     project: current,

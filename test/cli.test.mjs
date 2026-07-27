@@ -8,13 +8,14 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
+import { approve } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
-import { contractTemplatesDir } from '../src/paths.mjs';
+import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -76,6 +77,89 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   init(root);
   const cfg = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   assert.match(cfg, /^tdd: true$/m);
+});
+
+test('141122 CR1: the template publishes readiness uncommented with an adapt-it comment', () => {
+  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  assert.ok(
+    template.includes(
+      'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
+    ),
+    `readiness must ship uncommented with the effective defaults, got:\n${template}`,
+  );
+  const comment = template
+    .slice(0, template.indexOf('readiness:'))
+    .split(/\n\s*\n/)
+    .pop();
+  assert.match(comment, /`approved`/);
+  assert.match(comment, /Adapt them to this repo's own layout/);
+  assert.match(comment, /lib\/\*\*/);
+});
+
+// A well-formed Ruby-flavoured bug: the Plan task names a `lib/` target and a
+// `verify:` clause, neither of which matches the JavaScript-shaped defaults.
+function rubyBug(id) {
+  return `---
+id: "${id}"
+title: Parser drops trailing commas
+type: bug
+status: draft
+created: 2026-07-26T14:11:22Z
+depends_on: []
+related_to: []
+---
+
+## Request
+
+The parser drops trailing commas.
+
+## Investigation
+
+\`lib/parser.rb\` truncates the token stream.
+
+## Specification
+
+### CR1 — Trailing commas survive parsing
+- **Given** the source \`[1, 2,]\`
+- **When** the parser runs
+- **Then** it yields \`[1, 2]\` without raising
+
+## Plan
+
+- [ ] Update \`lib/parser.rb\`; verify: \`bundle exec rspec spec/parser_spec.rb\` (CR1)
+
+## Log
+
+- **2026-07-26T14:11:22Z** \`[note]\` Draft.
+`;
+}
+
+test('141122 CR2: a fresh non-JS repo approves once readiness matches its stack', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const seeded = fs.readFileSync(configFile, 'utf8');
+  // The agent tunes the published keys to its own stack, as `readiness.md` requires.
+  const tuned = seeded
+    .replace('  target_patterns: ["src/**"]', '  target_patterns: ["lib/**"]')
+    .replace('  verification_patterns: ["test/**"]', '  verification_patterns: ["verify:"]');
+  assert.notEqual(tuned, seeded, 'the seeded config must expose readiness as a real key');
+  fs.writeFileSync(configFile, tuned);
+
+  const file = newChange(
+    { type: 'bug', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
+    root,
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  fs.writeFileSync(file, rubyBug(id));
+
+  assert.doesNotThrow(() => approve(id, root));
+
+  const logged = [];
+  const code = check([id, '--json'], root, { ...silentOutput(), log: (m) => logged.push(m) });
+  const report = JSON.parse(logged.join('\n'));
+  assert.deepEqual(report.errors, [], 'an approved non-JS change must report no errors');
+  assert.equal(code, 0);
 });
 
 test('235628 CR3/CR8: init seeds portable release impacts and contract boundary', () => {

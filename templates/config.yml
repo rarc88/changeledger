@@ -25,12 +25,14 @@ release:
     chore: none
     quick: patch
 
-# Optional Definition of Ready path/command hints. When present, tasks that
-# reference CRs should name at least one target and one verification matching
-# these patterns. Patterns can be path globs or literal command snippets.
-# readiness:
-#   target_patterns: ["src/**"]
-#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]
+# Definition of Ready path/command hints. Tasks that reference CRs must name at
+# least one target and one verification matching these patterns; a warning in
+# `draft`, an error from `approved` onward. Patterns can be path globs or literal
+# command snippets. Adapt them to this repo's own layout — for example
+# `target_patterns: ["lib/**"]` and `verification_patterns: ["verify:"]`.
+readiness:
+  target_patterns: ["src/**"]
+  verification_patterns: ["test/**"]
 
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
