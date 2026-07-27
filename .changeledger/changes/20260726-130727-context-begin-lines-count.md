@@ -2,7 +2,7 @@
 id: "20260726-130727"
 title: Publicar el tamaño exacto del contexto en la línea BEGIN
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-26T13:07:27Z
 depends_on: ["20260726-124833"]
 related_to: ["20260726-124834"]
@@ -111,7 +111,7 @@ sin ninguna implementación en el árbol:
   también por la vía cruda: un bucle de ~20 MB con `process.stdout.write`
   contra un pipe cerrado termina con exit 0 y sin `EPIPE`.
 - El disparador concreto que se citaba —`changeledger context 2>&1 | head
-  -200`— no puede cerrar el pipe antes de tiempo: el contexto core tiene 133
+  -200`— no puede cerrar el pipe antes de tiempo: el contexto core emite 132
   líneas, así que `head -200` lee hasta EOF. Publicar `lines:<N>` refuerza esto
   en vez de crear el escenario: el consumidor canónico pasa `head -<N>` con `N`
   exacto y también lee hasta EOF.
@@ -236,3 +236,8 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 - **2026-07-27T10:29:05Z** `[note]` [note] Decision del orquestador, no especificada por el documento: lines:<N> se publica como ultimo segmento del meta de la linea BEGIN, con el mismo separador em-dash que usan los segmentos existentes — p. ej. 'mode: core — v0.13.0 — lines:133'. Se declara aqui para que el revisor la escrute como decision mia, no del documento. Margen de bytes verificado hoy contra el hard de cada pack: core 881, spec 178, implement 159; el segmento cuesta ~14 B.
 - **2026-07-27T10:38:46Z** `[note]` Correccion a la nota anterior del orquestador: el ejemplo decia 'lines:133' para el core y el valor correcto es 132. Mi cifra salia de split('\n').length sobre buildContext, que cuenta un elemento vacio final; el implementador publico el conteo real de lineas emitidas (split('\n').length - 1), que es lo que exige CR1 y lo que hace exacto el head -<N>. Verificado por el orquestador: node bin/changeledger.mjs context | wc -l = 132, head -132 termina en la linea END y head -131 no. El formato del segmento (ultimo, separador em-dash) se mantiene tal como lo decidi.
 - **2026-07-27T10:38:46Z** `[note]` Unidad de commit: las tareas 1 y 2 del Plan van en un commit combinado. Comparten test/context.test.mjs y son inseparables — el test de CR4 se apoya en el helper emittedLines que introduce la tarea 1, y separarlas exigiria partir hunks del mismo fichero dejando un estado intermedio artificial. La tarea 3 es soporte (pnpm verify) y no produce artefacto propio.
+- **2026-07-27T10:40:36Z** `[status]` in-progress → in-review
+- **2026-07-27T10:41:08Z** `[note]` Mandato de review dimensionado antes de delegar: SUPERFICIE QUE GOBIERNA, no spot check ni auditoria completa. Justificacion: la produccion son 25 lineas, pero se sientan en la ruta de composicion que emite la linea BEGIN de TODO contexto — el propio bootstrap de la herramienta — y su correctitud es una cuestion exacta de off-by-one. La superficie a auditar es: (a) la ruta composeResult/beginDelimiter en src/commands/context.mjs; (b) toda asercion sobre la linea BEGIN en la suite completa, no solo en test/context.test.mjs; (c) la interaccion con los presupuestos de templates/contract/budgets.yml; (d) el limite con agent-context, que debia quedar intacto. Fuera del mandato: el resto de src/ y las specs. Se pasan al revisor las 11 decisiones no especificadas que declaro el implementador, mas las dos ediciones/decisiones del orquestador (formato del segmento y la correccion 133 a 132), con el mismo estandar de escrutinio.
+- **2026-07-27T10:49:05Z** `[note]` Hallazgo 1 del revisor, confirmado y corregido por el orquestador: la Investigation decia '133 lineas' para el core en el bloque de refutacion de EPIPE. Corregido a 132, el conteo real emitido. Verificado con node bin/changeledger.mjs context | wc -l = 132. Es prosa que escribi yo hoy y arrastraba la misma convencion equivocada (split sobre buildContext) que ya corregi en la nota anterior; el argumento sobre head -200 no cambia.
+- **2026-07-27T10:49:05Z** `[note]` Hallazgo 2 del revisor, confirmado y NO corregido: la tarea 1 del Plan localiza beginDelimiter en src/framing.mjs y en realidad vive en src/commands/context.mjs:34. Es inexactitud preexistente en el texto aprobado el 2026-07-26; la implementacion fue al fichero correcto y la tarea esta completa. No reescribo texto aprobado por mi cuenta: queda registrado aqui con la ubicacion correcta y se eleva a Roberto en el handoff.
+- **2026-07-27T10:49:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
