@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -24,6 +26,49 @@ function assertWithinBudget(label, output, budget) {
   }
   assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
   assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
+}
+
+const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+const END_LINE =
+  '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
+
+// Total lines of the emitted output: the composed text ends with a single
+// trailing newline, so its newline count is exactly what `wc -l` reports for the
+// CLI stdout and exactly what `head -<N>` must be given.
+function emittedLines(text) {
+  return text.split('\n').length - 1;
+}
+
+function publishedLines(text) {
+  const match = text.split('\n')[0].match(/lines:(\d+)/);
+  assert.ok(match, `BEGIN line publishes no lines:<N> — ${text.split('\n')[0]}`);
+  return Number(match[1]);
+}
+
+// Real `changeledger context ... 2>&1 | head -<n>` pipeline, so the count is
+// proven against actual CLI stdout and not only against the composed string.
+function headPipeline(root, args, n) {
+  const command = `node ${JSON.stringify(bin)} context${args
+    .map((arg) => ` ${JSON.stringify(arg)}`)
+    .join('')} 2>&1 | head -${n}`;
+  return execFileSync('/bin/sh', ['-c', command], { cwd: root, encoding: 'utf8' });
+}
+
+function cliContext(root, args) {
+  return execFileSync('node', [bin, 'context', ...args], { cwd: root, encoding: 'utf8' });
+}
+
+// Asserts the published N is the exact size of the CLI output: `head -N` keeps
+// END as its last line and `head -(N-1)` loses it.
+function assertHeadIsExact(root, args, n) {
+  assert.equal(headPipeline(root, args, n).trimEnd().split('\n').at(-1), END_LINE);
+  assert.notEqual(
+    headPipeline(root, args, n - 1)
+      .trimEnd()
+      .split('\n')
+      .at(-1),
+    END_LINE,
+  );
 }
 
 function repo() {
@@ -110,6 +155,56 @@ Body.
 - Note.
 `;
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', `${id}-${type}.md`), text);
+  return id;
+}
+
+// A `draft` change whose Investigation carries exactly `filler` extra lines, so
+// the total size of its change-id context is a linear function of `filler` and
+// a caller can calibrate an exact target instead of hardcoding a blob.
+function writeFillerChange(root, id, filler) {
+  const lines = [
+    '---',
+    `id: "${id}"`,
+    'title: Line count fixture',
+    'type: feature',
+    'status: draft',
+    'created: 2026-07-26T13:07:27Z',
+    'depends_on: []',
+    '---',
+    '',
+    '## Request',
+    '',
+    'Need an exact line count.',
+    '',
+    '## Investigation',
+    '',
+    'Current evidence.',
+    ...Array.from({ length: filler }, (_, index) => `Filler line ${index + 1}.`),
+    '',
+    '## Proposal',
+    '',
+    'Chosen behavior.',
+    '',
+    '## Specification',
+    '',
+    '### CR1 — Full criterion',
+    '- **Given** concrete input',
+    '- **When** context is requested',
+    '- **Then** exact criterion text is present',
+    '',
+    '## Plan',
+    '',
+    '- [ ] Update `src/example.mjs`; verify: `node --test test/example.test.mjs` (CR1)',
+    '',
+    '## Log',
+    '',
+    '- Decision retained.',
+    '',
+  ];
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-line-count-fixture.md`),
+    lines.join('\n'),
+  );
   return id;
 }
 
@@ -795,7 +890,7 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     assert.match(
       output.split('\n')[0],
       new RegExp(
-        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} =====$`,
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} — lines:\\d+ =====$`,
       ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
@@ -825,7 +920,9 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, /a partial view is invalid/i);
     assert.match(
       output.split('\n')[0],
-      new RegExp(`^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====$`),
+      new RegExp(
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:\\d+ =====$`,
+      ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
@@ -863,7 +960,9 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
   const begin = (label) =>
-    new RegExp(`^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} =====$`);
+    new RegExp(
+      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — lines:\\d+ =====$`,
+    );
   const end =
     '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
 
@@ -898,14 +997,14 @@ test('124833 CR2: no mode emits a rev: segment on the BEGIN line or anywhere els
   const core = buildContext(undefined, root);
   assert.equal(
     core.split('\n')[0],
-    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} =====`,
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)} =====`,
   );
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
     assert.equal(
       output.split('\n')[0],
-      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====`,
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)} =====`,
     );
     assert.doesNotMatch(output, /rev:/);
   }
@@ -913,7 +1012,7 @@ test('124833 CR2: no mode emits a rev: segment on the BEGIN line or anywhere els
   const byId = buildContext(id, root);
   assert.equal(
     byId.split('\n')[0],
-    `===== CHANGELEDGER CONTEXT BEGIN — mode: implement — change: #${id} — v${version} =====`,
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: implement — change: #${id} — v${version} — lines:${emittedLines(byId)} =====`,
   );
   assert.doesNotMatch(byId, /rev:/);
   assert.doesNotMatch(core, /rev:/);
@@ -1461,5 +1560,64 @@ test('141120 CR6: no status reachable by a type without review composes review',
       /mode: review/,
       `status ${status} must not compose the review mode`,
     );
+  }
+});
+
+// 20260726-130727 — the BEGIN line publishes `lines:<N>`, the exact total line
+// count of the emitted output, so any consumer can build a deterministic
+// `head -<N>` regardless of how large the context turns out to be.
+
+test('130727 CR1: core publishes its exact line count and head -<N> keeps END last', () => {
+  const root = repo();
+  const composed = buildContext(undefined, root);
+  const n = publishedLines(composed);
+  assert.equal(n, emittedLines(composed));
+  assert.equal(n, emittedLines(cliContext(root, [])));
+  assertHeadIsExact(root, [], n);
+});
+
+test('130727 CR2: the spec mode publishes its exact line count', () => {
+  const root = repo();
+  const composed = buildContext('spec', root);
+  const n = publishedLines(composed);
+  assert.equal(n, emittedLines(composed));
+  assert.equal(n, emittedLines(cliContext(root, ['spec'])));
+  assertHeadIsExact(root, ['spec'], n);
+});
+
+test('130727 CR3: an unbounded change-id context publishes its exact line count', () => {
+  const root = repo();
+  const id = '20260726-130727';
+  // Long embedded document: the output must exceed every fixed budget in
+  // `budgets.yml`, which is exactly why a fixed `head -200` cannot serve it.
+  writeFillerChange(root, id, 400);
+  const composed = buildContext(id, root);
+  const n = publishedLines(composed);
+  const largestBudget = Math.max(
+    ...Object.values(contextBudgets.base).map((budget) => budget.hard.lines),
+  );
+  assert.ok(n > largestBudget, `change-id context is not unbounded: ${n} <= ${largestBudget}`);
+  assert.equal(n, emittedLines(composed));
+  assert.equal(n, emittedLines(cliContext(root, [id])));
+  assertHeadIsExact(root, [id], n);
+});
+
+test('130727 CR4: the count stays exact across the 3-to-4 digit boundary', () => {
+  for (const target of [999, 1000]) {
+    const root = repo();
+    const id = '20260726-130727';
+    // Calibrated, never hardcoded: each filler line adds exactly one output
+    // line, so measuring an unpadded build yields the padding this contract
+    // needs today and re-derives it whenever a fragment changes.
+    writeFillerChange(root, id, 0);
+    const padding = target - emittedLines(buildContext(id, root));
+    assert.ok(padding >= 0, `contract already exceeds ${target} lines by ${-padding}`);
+    writeFillerChange(root, id, padding);
+
+    const composed = buildContext(id, root);
+    assert.equal(emittedLines(composed), target);
+    assert.equal(publishedLines(composed), target);
+    assert.equal(emittedLines(cliContext(root, [id])), target);
+    assertHeadIsExact(root, [id], target);
   }
 });

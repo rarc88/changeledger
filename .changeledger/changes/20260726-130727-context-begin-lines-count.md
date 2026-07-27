@@ -2,7 +2,7 @@
 id: "20260726-130727"
 title: Publicar el tamaño exacto del contexto en la línea BEGIN
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-26T13:07:27Z
 depends_on: ["20260726-124833"]
 related_to: ["20260726-124834"]
@@ -214,9 +214,12 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 
 ## Plan
 
-- [ ] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/framing.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+- [x] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/framing.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-27T10:38:46Z`
+- [x] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos; verify: `node --test test/context.test.mjs` (CR4)
+  - **Resolved:** `2026-07-27T10:38:46Z`
+- [x] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T10:39:45Z`
 
 ## Log
 
@@ -229,3 +232,7 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
   `20260726-124834`, que ahora depende de este change.
 - **2026-07-26T14:05:48Z** `[status]` draft → approved
 - **2026-07-27T10:27:42Z** `[note]` [note] CR5 (endurecimiento EPIPE) y su tarea de Plan retirados con autorizacion humana explicita de Roberto el 2026-07-27. Motivo: el criterio no era falsable — su comando exacto (node bin/changeledger.mjs context 2>&1 | head -1) termina con pipestatus 0 0, sin la cadena EPIPE y sin traza, sin ninguna implementacion en el arbol; console.log usa un Console con ignoreErrors: true. Refutacion completa y medidas en la Investigation. El alcance queda solo lines:<N> (CR1-CR4).
+- **2026-07-27T10:29:05Z** `[status]` approved → in-progress
+- **2026-07-27T10:29:05Z** `[note]` [note] Decision del orquestador, no especificada por el documento: lines:<N> se publica como ultimo segmento del meta de la linea BEGIN, con el mismo separador em-dash que usan los segmentos existentes — p. ej. 'mode: core — v0.13.0 — lines:133'. Se declara aqui para que el revisor la escrute como decision mia, no del documento. Margen de bytes verificado hoy contra el hard de cada pack: core 881, spec 178, implement 159; el segmento cuesta ~14 B.
+- **2026-07-27T10:38:46Z** `[note]` Correccion a la nota anterior del orquestador: el ejemplo decia 'lines:133' para el core y el valor correcto es 132. Mi cifra salia de split('\n').length sobre buildContext, que cuenta un elemento vacio final; el implementador publico el conteo real de lineas emitidas (split('\n').length - 1), que es lo que exige CR1 y lo que hace exacto el head -<N>. Verificado por el orquestador: node bin/changeledger.mjs context | wc -l = 132, head -132 termina en la linea END y head -131 no. El formato del segmento (ultimo, separador em-dash) se mantiene tal como lo decidi.
+- **2026-07-27T10:38:46Z** `[note]` Unidad de commit: las tareas 1 y 2 del Plan van en un commit combinado. Comparten test/context.test.mjs y son inseparables — el test de CR4 se apoya en el helper emittedLines que introduce la tarea 1, y separarlas exigiria partir hunks del mismo fichero dejando un estado intermedio artificial. La tarea 3 es soporte (pnpm verify) y no produce artefacto propio.

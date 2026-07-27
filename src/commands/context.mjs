@@ -31,9 +31,20 @@ function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();
 }
 
-function beginDelimiter(mode, changeId) {
+function beginDelimiter(mode, changeId, lines) {
   const change = changeId ? ` — change: #${changeId}` : '';
-  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}`);
+  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION} — lines:${lines}`);
+}
+
+function render(sections) {
+  return `${sections.join('\n\n')}\n`;
+}
+
+// Total lines of the emitted output. The rendered text ends with exactly one
+// trailing newline, so its newline count is what `wc -l` reports for the CLI
+// stdout and what a consumer must pass to `head -<N>`.
+function emittedLines(text) {
+  return text.split('\n').length - 1;
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
@@ -153,8 +164,14 @@ function composeResult(mode, fragments, options = {}) {
   if (dependencies) body.push(dependencies);
   if (relations) body.push(relations);
   if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
-  const sections = [beginDelimiter(mode, changeId), ...body, END_DELIMITER];
-  return `${sections.join('\n\n')}\n`;
+  // The BEGIN line publishes the exact total line count so any consumer can
+  // build a deterministic `head -<N>`. The circularity is only apparent: the
+  // digits of the count live inside the BEGIN line itself, so injecting them
+  // never adds or removes a line. One post-composition pass is exact — a
+  // fixed-point loop would be complexity without effect.
+  const sections = [beginDelimiter(mode, changeId, 0), ...body, END_DELIMITER];
+  sections[0] = beginDelimiter(mode, changeId, emittedLines(render(sections)));
+  return render(sections);
 }
 
 function requireRepo(cwd) {
