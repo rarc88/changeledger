@@ -1,11 +1,11 @@
 ---
 id: "20260726-124837"
-title: Unidad de commit igual a tarea del Plan
+title: Sede única del comportamiento de commits en el core
 type: refactor
 status: approved
 created: 2026-07-26T12:48:37Z
-depends_on: ["20260726-124835"]
-related_to: ["20260722-124656"]
+depends_on: ["20260726-124835", "20260727-194233"]
+related_to: ["20260722-124656", "20260727-194234", "20260726-141119", "20260726-141124"]
 owner: raruiz-hiberuscom
 ---
 
@@ -35,150 +35,190 @@ redactada de un modo que se autoviola:
 Se necesita sustituir el juicio por una unidad contable, de modo que la regla
 no dependa de que el agente estime "podría importar más adelante".
 
+Y hay un segundo problema, del que el primero es un síntoma: **el
+comportamiento de commits está repartido por ocho fragmentos**. Recuento por
+grep sobre `templates/contract/`: 21 menciones en `implement.md`, 6 en
+`review.md`, 5 en `core.md`, 2 en `validation.md`, 2 en `close.md`, 2 en
+`release.md`, 1 en `handoff.md` y 1 en `delegation.md`. Commitear ocurre en
+todas las fases —autoría, implementación, corrección y cierre—, así que su
+comportamiento es común a cualquiera de ellas y el core es quien lo explica.
+Repartirlo entre overlays es lo que permitió que la misma regla exista en cuatro
+versiones potencialmente divergentes sin que nada las compare.
+
 ## Proposal
 
-**Unidad de commit decidida: la tarea del Plan.** `templates/contract/readiness.md`
-ya exige dimensionar cada tarea del Plan a un ciclo rojo-verde; esa tarea,
-que ya es la unidad atómica del Plan, pasa a ser también la unidad atómica de
-commit. En una rama de change existen exactamente cuatro — y solo cuatro —
-clases de commit:
+**Unidad de commit decidida: la tarea del Plan**, y **sede única: `core.md`**.
+`templates/contract/readiness.md` ya exige dimensionar cada tarea del Plan a un
+ciclo rojo-verde; esa tarea, que ya es la unidad atómica del Plan, pasa a ser
+también la unidad atómica de commit.
 
-- **Draft**: uno por cada documento de change que se redacta, commiteado en
-  solitario — nunca varios borradores en un mismo commit. El discriminante que
-  decide la granularidad de commit es si la unidad se revertirá, referenciará
-  o implementará de forma independiente. Una transición de lifecycle no lo es
-  (su información ya vive en el Log, así que el commit la duplicaría), pero un
-  documento de change sí lo es: es el baseline sobre el que una futura rama de
-  implementación construye, `changeledger check --commits` lo referencia por
-  id, y puede descartarse en solitario. Si nueve documentos entran en un mismo
-  commit, la propiedad "documentado antes que el código" se mantiene cierta
-  pero deja de ser atribuible a ningún change concreto. Varios borradores
-  pueden compartir una misma rama de autoría, pero sus implementaciones deben
-  ir cada una a su propia rama.
-- **Baseline**: exactamente uno, con el documento del change, antes de
-  cualquier código. No es un commit de lifecycle: es el invariante "documentado
-  antes que el código" hecho verificable en el historial de git — sin él no
-  queda prueba en git de que el diseño precedió a la implementación.
-- **Task**: uno por cada tarea del Plan completada, con el código de esa tarea,
-  su test, su casilla marcada y sus entradas de Log.
-- **Handoff**: cero o uno, solo cuando el trabajo se detiene (pasa a review,
-  queda bloqueado, termina la sesión) y de otro modo quedaría sin commitear
-  estado que es solo documento.
+Todo el comportamiento de commits se consolida en el bloque `## Commits` de
+`core.md`, e `implement.md` queda **sin ninguna prosa de commits**. No se
+reescribe el párrafo del juicio en su sitio: se retira de allí y su contenido,
+ya sin el juicio, vive en el core.
 
-Una transición de lifecycle nunca es un commit propio: viaja dentro de
-cualquiera de las tres clases de la rama de implementación (baseline, task o
-handoff) que ocurra a continuación. Por tanto, en la rama de implementación de
-un change ya aprobado, `n` tareas completadas producen `n + 1` (baseline +
-tareas) o `n + 2` (más handoff) commits — nunca uno por transición. El commit
-Draft es anterior y externo a esa fórmula: ocurre en la rama de autoría, antes
-de que exista la rama de implementación.
+### Qué contiene el bloque consolidado
 
-### Aviso sobre el índice tras un commit fallido
+- **Las cuatro clases de commit**, y solo cuatro, en una rama de change:
+  - **Draft**: uno por cada documento de change que se redacta, commiteado en
+    solitario — nunca varios borradores en un mismo commit.
+  - **Baseline**: exactamente uno, con el documento del change, antes de
+    cualquier código.
+  - **Task**: uno por cada tarea del Plan completada, con el código de esa
+    tarea, su test, su casilla marcada y sus entradas de Log.
+  - **Handoff**: cero o uno, solo cuando el trabajo se detiene (pasa a review,
+    queda bloqueado, termina la sesión) y de otro modo quedaría sin commitear
+    estado que es solo documento.
+- **El discriminante** que decide la granularidad: si la unidad se revertirá,
+  referenciará o implementará de forma independiente. Una transición de
+  lifecycle no lo es —su información ya vive en el Log, así que el commit la
+  duplicaría—, pero un documento de change sí: es el baseline sobre el que una
+  futura rama de implementación construye, `changeledger check --commits` lo
+  referencia por id, y puede descartarse en solitario.
+- **Una transición de lifecycle nunca es un commit propio**: viaja dentro de la
+  siguiente clase real que ocurra. En la rama de implementación de un change
+  aprobado, `n` tareas completadas producen `n + 1` commits (baseline más
+  tareas) o `n + 2` con handoff, nunca uno por transición.
+- **La mecánica del mensaje**: la forma canónica del subject
+  `type(scope): description [#<id>]`, la regla de body multi-change
+  `ChangeLedger: [#A] [#B]` sin lista por comas dentro de un mismo corchete, las
+  excepciones de merge y `chore(release)`,
+  `changeledger commit -m "..." [--id <id>]` como compositor y
+  `changeledger check --commits [<base>]` como linter previo a la review.
+- **La mezcla inevitable**, en sus dos formas: cuando varios changes comparten
+  ficheros, y cuando varias tareas del Plan son inseparables. En ambos casos el
+  commit combinado es legítimo y la obligación es registrar en el Log qué se
+  combinó y por qué. Decisión humana del 2026-07-26 sobre el segundo caso, con
+  precedente vivido: las tareas 1, 3 y 4 de `20260726-141119` eran inseparables
+  porque `test/check.test.mjs` llevaba los guardas de las tres y el salto de
+  `SUPPORTED_SCHEMA_VERSION` las unía.
+- **La inspección del índice tras un hook fallido.** Observado de verdad en este
+  repo: cuando el hook `pre-commit` falla, git deja el índice staged intacto, así
+  que un `git add` más commit posteriores absorben en silencio los ficheros del
+  intento anterior. El contrato obliga a inspeccionar el conjunto staged (por
+  ejemplo `git diff --cached --name-only`) antes de reintentar un commit tras
+  cualquier fallo: corregir el motivo del fallo no basta si el índice quedó
+  contaminado. `20260726-141124` añadió la guarda equivalente del lado del CLI;
+  esta prosa es la obligación del agente y no duplica aquel alcance.
 
-Observado de verdad en este repo: cuando el hook `pre-commit` falla, git deja
-el índice staged intacto, así que un `git add` más commit posteriores absorben
-en silencio los archivos del intento fallido anterior. El contrato debe
-instruir al agente a inspeccionar el conjunto staged (p. ej. `git status` o
-`git diff --cached --name-only`) antes de reintentar un commit tras cualquier
-fallo — corregir el motivo del fallo no basta si el índice quedó contaminado.
-El change `20260726-141124` añade la guarda equivalente del lado del CLI
-(`commit()` rechaza un índice staged que mezcle ids de distintos changes);
-esta prosa se limita a la obligación del agente y no duplica el alcance de
-aquel change.
+### El límite de tamaño del core es un techo, no un objetivo
 
-### Qué se preserva sin cambios en `implement.md`
+El core no puede pasar de **200 líneas emitidas** porque el bootstrap publicado
+en cada repo consumidor es `changeledger context 2>&1 | head -200`: por encima
+de ese corte, toda captura queda truncada e inválida. Medido hoy: el pack core
+está en 172 líneas emitidas y 9809 bytes, y el bloque `## Commits` actual ocupa
+7 líneas y 388 bytes de `core.md`.
 
-La reescritura sustituye únicamente el párrafo del juicio de atribución
-(líneas 24 y 28-34); el resto de la sección de commits permanece intacto:
+Por eso el tamaño entra como criterio con una salida explícita: si el bloque
+consolidado no cabe en el presupuesto declarado, **el implementador para y
+pregunta**. No retira normativa para caber. Precedente que obliga a escribirlo:
+en `20260726-124835` un target estricto empujó a retirar tres reglas
+normativas, una de ellas huérfana.
 
-- La forma canónica del subject: `type(scope): description [#<id>]`.
-- La regla de body multi-change: `ChangeLedger: [#A] [#B]`, nunca una lista
-  separada por comas dentro de un mismo corchete.
-- Las excepciones: commits de merge y la preparación `chore(release)`.
-- `changeledger commit -m "..." [--id <id>]` como compositor del commit.
-- `changeledger check --commits [<base>]` como linter a ejecutar antes de
-  solicitar review.
-- Las reglas de rama y worktree de las líneas 18-22 (nunca implementar en
-  `main`/`master`/`dev`, ramas desde `git.integration_branch`, inspeccionar el
-  worktree antes de tocarlo).
-- La regla sobre registrar un commit combinado inevitable cuando varios
-  changes comparten archivos (nombrar cada change afectado en Log o handoff).
+### Qué NO se toca
+
+- `review.md`, `validation.md` y `close.md` conservan sus tres copias hasta que
+  `20260727-194234` las retire con core ya siendo la sede. Estrechar, parchear o
+  rodear esas copias en este change es salirse de alcance.
+- `templates/contract/budgets.yml`: lo posee `20260727-194233`, del que este
+  change depende para tener un umbral único ya vigente.
+- Las reglas de rama y worktree de `implement.md` (nunca `main`/`master`/`dev`,
+  ramas desde `git.integration_branch`, inspeccionar el worktree antes de
+  tocarlo), que no son comportamiento de commits y se quedan donde están.
 
 ### Fuera de alcance
 
-- Añadir un nuevo lint que cuente commits contra tareas del Plan completadas:
-  merece medirse más adelante, pero es superficie nueva y no la introduce este
-  change.
-- El bloque de cuatro líneas sobre commits que se añade a
-  `templates/contract/core.md`: lo posee el change `20260726-124835` (la
-  reescritura del contexto core). Este change no edita `core.md`.
-- La guarda del lado del CLI sobre el índice staged (rechazar en `commit()` un
-  índice que mezcle ids de distintos changes): la posee el change
-  `20260726-141124`. Este change solo añade la obligación del agente en el
-  contrato.
+- Añadir un lint que cuente commits contra tareas del Plan completadas: merece
+  medirse más adelante, pero es superficie nueva.
+- La guarda del lado del CLI sobre el índice staged: la posee
+  `20260726-141124`.
 
 ## Specification
 
 Los criterios se comprueban sobre la salida compuesta de
-`changeledger context implement` (vía `test/context.test.mjs`), que es donde el
-agente lee realmente el fragmento reescrito.
+`changeledger context` y `changeledger context implement` (vía
+`test/context.test.mjs`), que es donde el agente lee realmente los fragmentos.
 
-### CR1 — La frase de juicio de atribución desaparece
-
-- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
-- **When** se compone el contexto con `changeledger context implement`
-- **Then** la salida no contiene en ningún punto la cadena `later work could
+### CR1 — la frase de juicio de atribución desaparece del contrato
+- **Given** los fragmentos del contrato tras el cambio
+- **When** se compone el contexto core y el contexto `implement`
+- **Then** ninguna de las dos salidas contiene la cadena `later work could
   obscure attribution`
+- **And** un grep de esa cadena en `templates/contract/` no la encuentra en
+  ningún fragmento
 
-### CR2 — Las cuatro clases de commit quedan definidas con su fórmula de conteo
-
-- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
-- **When** se compone el contexto con `changeledger context implement`
+### CR2 — el core define las cuatro clases y la fórmula de conteo
+- **Given** el fragmento `templates/contract/core.md` tras el cambio
+- **When** se compone el contexto con `changeledger context`
 - **Then** la salida define el commit Draft en términos equivalentes a
   `one per drafted change document` y `committed on its own`, prohibiendo
   agrupar varios borradores en un mismo commit
-- **And** define el commit Baseline como `exactly one`, `containing the change
-  document`, `before any code`
+- **And** define el commit Baseline como `exactly one`, con el documento del
+  change, `before any code`
 - **And** define el commit Task como `one per completed Plan task` y el commit
   Handoff como `zero or one`
-- **And** declara que una transición de lifecycle
-  `travels in whichever of the [...] comes next`, es decir que nunca es un
-  commit propio
+- **And** declara que una transición de lifecycle nunca es un commit propio y
+  viaja en la siguiente clase real que ocurra
 
-### CR3 — El contrato obliga a inspeccionar el índice staged tras un hook fallido
-
-- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+### CR3 — `implement` queda sin ninguna definición de unidad de commit
+- **Given** el fragmento `templates/contract/implement.md` tras el cambio
 - **When** se compone el contexto con `changeledger context implement`
-- **Then** la salida instruye a inspeccionar el conjunto staged (en términos
-  equivalentes a `inspect the staged set`) antes de reintentar un commit tras un
+- **Then** la salida no contiene ninguna de las cadenas `baseline commit`,
+  `one per completed Plan task` ni `lifecycle-only transition`
+- **And** no contiene la forma canónica del subject `type(scope): description
+  [#<id>]` ni `ChangeLedger: [#A] [#B]` ni `check --commits`
+- **And** sigue conteniendo sin alterar las reglas de rama y worktree: nunca
+  `main`/`master`/`dev`, ramas desde `git.integration_branch` e inspeccionar el
+  worktree antes de tocarlo
+
+### CR4 — la mecánica del mensaje sobrevive íntegra en el core
+- **Given** el fragmento `templates/contract/core.md` tras el cambio
+- **When** se compone el contexto con `changeledger context`
+- **Then** la salida contiene la forma canónica del subject
+  `type(scope): description [#<id>]`, la regla de body multi-change
+  `ChangeLedger: [#A] [#B]` con la prohibición de lista por comas en un mismo
+  corchete, las excepciones de merge y `chore(release)`,
+  `changeledger commit -m "..." [--id <id>]` como compositor y
+  `changeledger check --commits [<base>]` como linter previo a la review
+
+### CR5 — el commit combinado inevitable queda cubierto en sus dos formas
+- **Given** el fragmento `templates/contract/core.md` tras el cambio
+- **When** se compone el contexto con `changeledger context`
+- **Then** la salida declara legítimo el commit combinado cuando varios changes
+  comparten ficheros y cuando varias tareas del Plan son inseparables
+- **And** en ambos casos obliga a registrar en el Log qué se combinó y por qué
+
+### CR6 — el contrato obliga a inspeccionar el índice tras un hook fallido
+- **Given** el fragmento `templates/contract/core.md` tras el cambio
+- **When** se compone el contexto con `changeledger context`
+- **Then** la salida instruye a inspeccionar el conjunto staged, en términos
+  equivalentes a `inspect the staged set`, antes de reintentar un commit tras un
   fallo del hook `pre-commit`
 
-### CR4 — Las reglas que se preservan siguen presentes sin alterar
-
-- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
-- **When** se compone el contexto con `changeledger context implement`
-- **Then** la salida sigue conteniendo la forma canónica del subject
-  `type(scope): description [#<id>]`, la regla de body multi-change
-  `ChangeLedger: [#A] [#B]` sin lista por comas, las excepciones de merge y
-  `chore(release)`, `changeledger commit -m "..." [--id <id>]` como compositor y
-  `changeledger check --commits [<base>]` como linter previo a la review
-- **And** siguen presentes sin cambio las reglas de rama y worktree (nunca
-  `main`/`master`/`dev`, ramas desde `git.integration_branch`, inspeccionar el
-  worktree antes de tocarlo) y la obligación de registrar un commit combinado
-  inevitable nombrando cada change que comparte la superficie
-
-### CR5 — El presupuesto del contexto implement sigue cumpliéndose
-
-- **Given** el fragmento `templates/contract/implement.md` tras la reescritura
+### CR7 — el core se mantiene con reserva bajo su techo
+- **Given** el árbol tras el cambio
 - **When** se ejecuta `node --test test/context.test.mjs`
-- **Then** `assertWithinBudget('implement', …)` pasa con el `target` y el `hard`
-  ya declarados para `implement` en `templates/contract/budgets.yml`
-- **And** no ha sido necesario modificar `budgets.yml`
+- **Then** el pack core mide **195 líneas emitidas o menos**, es decir conserva
+  al menos 5 líneas de reserva contra el corte de 200 del bootstrap
+- **And** el bloque `## Commits` de `templates/contract/core.md` ocupa 28 líneas
+  o menos
+- **And** el pack core sigue por debajo de su umbral de bytes sin que se haya
+  modificado `templates/contract/budgets.yml`
+
+### CR8 — ninguna regla se retira sin dueño verificado
+- **Given** el diff completo de este change
+- **When** se compara la normativa presente en el contrato antes y después
+- **Then** toda obligación que estuviera en `core.md` o `implement.md` antes del
+  cambio sigue localizable por grep en `templates/contract/` después
+- **And** el pin de snapshot de cada fragmento tocado clasifica cada regla
+  afectada como preservada, reemplazada o retirada, y para cada "retirada" nombra
+  el fragmento donde vive ahora la obligación
 
 ## Plan
 
-- [ ] Reescribir el párrafo de reglas de commit (líneas 24 y 28-34) en `templates/contract/implement.md` con las cuatro clases draft/baseline/task/handoff y el aviso de inspeccionar el índice staged tras un hook fallido descritos en el Proposal, sin tocar el resto de la sección de git/commits, y actualizar las aserciones de presencia/ausencia y el hash de snapshot revisado de `implement.md` en `test/context.test.mjs` acorde al nuevo texto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5)
-- [ ] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
+- [ ] Consolidar en el bloque `## Commits` de `templates/contract/core.md` las cuatro clases de commit, el discriminante, la fórmula de conteo, la mecánica del subject y el body multi-change, las excepciones, el compositor y el linter, la mezcla inevitable en sus dos formas y la inspección del índice staged, actualizar el pin de snapshot de `core.md` con su comentario de clasificación y añadir la comprobación de reserva del core (195 líneas emitidas o menos, bloque de 28 líneas o menos), parando y preguntando al humano si el contenido no cabe en vez de retirar normativa; verify: `node --test test/context.test.mjs` (CR2, CR4, CR5, CR6, CR7)
+- [ ] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`; verify: `node --test test/context.test.mjs` (CR1, CR3, CR8)
+- [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
 
 ## Log
 
@@ -188,3 +228,4 @@ agente lee realmente el fragmento reescrito.
   lifecycle como commit propio.
 - **2026-07-26T14:05:46Z** `[status]` draft → approved
 - **2026-07-26T15:15:46Z** `[note]` Amendment while approved (human-authorized): Proposal extended to a fourth commit kind, Draft (one commit per authored change document, never batched), with the revert/reference/implement-independently discriminant; also adds the agent obligation to inspect the staged index before retrying a commit after any pre-commit hook failure (cross-ref 20260726-141124 for the CLI-side guard). Criterios verificables and the Plan task updated accordingly.
+- **2026-07-27T19:50:36Z** `[note]` Amendment while approved (human-authorized 2026-07-27): sede de todo el comportamiento de commits pasa a core.md e implement.md queda sin prosa de commits — decision humana de esta sesion, porque commitear es comun a toda fase y estaba repartido en ocho fragmentos. Anadida la mezcla inevitable de tareas del Plan inseparables (decision humana del 2026-07-26 que el documento contradecia). Techo del core como criterio con salida explicita de parar y preguntar. depends_on suma 20260727-194233 (umbral unico) y related_to suma 20260727-194234 (retirada de copias). Titulo actualizado.
