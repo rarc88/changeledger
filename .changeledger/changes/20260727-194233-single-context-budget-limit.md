@@ -2,9 +2,10 @@
 id: "20260727-194233"
 title: Un solo límite por dimensión en los presupuestos de contexto
 type: feature
-status: in-validation
+status: done
 created: 2026-07-27T19:42:33Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260726-130728", "20260726-130727", "20260726-124835", "20260726-124837", "20260727-194234"]
 ---
@@ -240,3 +241,5 @@ parecidas.
 - **2026-07-27T20:32:16Z** `[note]` [review mandate] Segunda ronda, mandato minimo: spot check del diff de la correccion (6 lineas en test/context.test.mjs), sin auditar de nuevo la superficie ya verificada. Correccion sin commitear, como exige el aislamiento.
 - **2026-07-27T20:32:23Z** `[status]` in-progress → in-review
 - **2026-07-27T20:34:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T20:49:54Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T20:52:07Z** `[graduation]` spec: `contract-discovery.md`

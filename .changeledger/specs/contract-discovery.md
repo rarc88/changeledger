@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T16:16:46Z
+updated: 2026-07-27T20:52:07Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233"]
 ---
 
 ## Discovery del contrato
@@ -75,27 +75,33 @@ una sección separada, distingue enlaces salientes de backlinks entrantes y
 resuelve título y estado locales sin convertir la relación en dependencia.
 
 Toda composición base (sin el change seleccionado, cuya longitud pertenece al
-trabajo) tiene objetivos y límites duros en la única tabla ejecutable
-`templates/contract/budgets.yml`; los tests la cargan directamente. Los
-contextos posteriores amplían el core y fallan cerrado por instrucción si el
-agente aún no lo leyó completo.
+trabajo) tiene su presupuesto en la única tabla ejecutable
+`templates/contract/budgets.yml`; los tests la cargan directamente y `context` la
+lee para publicar el techo que se aplica. Los contextos posteriores amplían el
+core y fallan cerrado por instrucción si el agente aún no lo leyó completo.
 
-**El presupuesto del core es puerta, no aviso.** El resto de entradas avisa al
-pasar su objetivo y sólo falla en el límite duro; el core falla ya en el
-objetivo, porque es el único texto que se paga en cada sesión y otra vez tras
-cada compactación. La política se declara con la bandera `strict_target` **junto
-a las cifras que gobierna**, en la propia entrada de `budgets.yml`, no escondida
-en el código de test: quien lee el presupuesto ve qué régimen se le aplica. Es la
-única entrada que la declara.
+**Un umbral por dimensión, y todo umbral falla.** Cada entrada declara dos
+números planos, `lines` y `bytes`, sin banda de objetivo, sin aviso previo y sin
+banderas de régimen. Las dos dimensiones no son redundancia: las líneas las
+impone el `head -200` del bootstrap —por encima de ese corte, toda captura de
+todo repo consumidor queda truncada e inválida—, y los bytes son el coste que se
+paga en cada sesión y otra vez tras cada compactación. Nada acota el ancho de
+línea en markdown, así que contar líneas por sí solo no acota el tamaño.
 
-La distinción nació de una deriva observada: un aviso no detiene nada, y por eso
-el core pudo rebasar su objetivo sin que ningún gate lo dijera. La verificación
-de esa puerta cubre las ocho combinaciones de banda, métrica y régimen —objetivo
-y límite duro, líneas y bytes, con bandera y sin ella— y cada una queda fijada en
-su límite exacto, con el texto del fallo comprobado. La razón de exigir las ocho
-es concreta: bastó no cubrir el techo de bytes para que borrarlo entero dejara la
-suite en verde, y en la práctica los bytes son la banda que se agota antes que
-las líneas.
+Dos números por dimensión eran precisión falsa: cuando ambos fallan, el segundo
+es inalcanzable; cuando el primero solo avisa, no detiene nada, y así fue como el
+core rebasó su objetivo sin que ningún gate lo dijera. La medición es en **líneas
+emitidas**, la unidad que ve el consumidor y la que cuenta `head`, no una
+convención interna de test. Cada umbral queda fijado en su límite exacto y con el
+texto del fallo comprobado, porque bastó no cubrir el techo de bytes para que
+borrarlo entero dejara la suite en verde.
+
+**Un techo no es un objetivo.** Ninguna prosa normativa se retira para caber en
+un presupuesto: una regla sale de un fragmento sólo cuando su nueva sede está
+nombrada y un grep de la obligación misma —no de palabras parecidas— la encuentra
+allí. Si el contenido correcto no cabe, el trabajo se detiene y decide el humano.
+Nació de una retirada real: un objetivo estricto empujó a borrar tres reglas, una
+de ellas sin dueño en ningún otro fragmento.
 
 La propiedad de la captura está repartida. El bootstrap posee la primera: ordena
 un comando exacto y acotado, y declara la captura válida sólo si su última línea
@@ -123,12 +129,21 @@ regla que sí resuelve el problema no cuesta código: mientras el core completo
 siga en la conversación activa no se recarga, y si se perdió, se recaptura
 entero.
 
-**Tamaño publicado en la propia salida.** La línea BEGIN de toda composición
-—core, modo y change id— cierra su descriptor con `lines:<N>`, el número exacto
-de líneas que el comando emite, contando la propia BEGIN y la END. Es el
-conteo real de la salida, no el de una convención interna: `changeledger
-context … | wc -l` devuelve `N`, `head -<N>` conserva la línea END como última
-y `head -<N-1>` la pierde. Un límite fijo no puede cumplir eso, porque solo el
+**Tamaño y ocupación publicados en la propia salida.** La línea BEGIN de toda
+composición cierra su descriptor con el tamaño real, contando la propia BEGIN y
+la END, en la convención de líneas emitidas: `changeledger context … | wc -l`
+devuelve `N`, `head -<N>` conserva la línea END como última y `head -<N-1>` la
+pierde. Una composición acotada publica además cuánto ocupa de su techo en las
+dos dimensiones —`lines:<N>/<límite> — bytes:<N>/<límite>`—, así que el agente ve
+el margen que le queda sin ejecutar la suite. Un contexto por change id incrusta
+un documento de tamaño arbitrario y no está acotado: publica su conteo solo y no
+inventa un techo, aunque reutilice los fragmentos de un modo.
+
+La cifra de bytes forma parte del texto cuyo tamaño describe, así que se resuelve
+al punto fijo: componer, medir, reformatear y repetir hasta que lo publicado
+coincida con lo real. Converge porque el ancho del número solo crece al cruzar una
+potencia de diez, y si no converge en un número acotado de pasadas la composición
+falla ruidosamente en vez de publicar una cifra que no es el tamaño. Un límite fijo no puede cumplir eso, porque solo el
 core está acotado por `budgets.yml`; los packs de modo varían y el contexto por
 change id incrusta el documento completo, sin cota. Publicar el número deja
 construir un `head` determinista para cualquier contexto sin conocer su tamaño
@@ -204,7 +219,8 @@ accionable. El límite fijo de 200 es suficiente porque el core está acotado po
 BEGIN publica `lines:<N>` y se re-ejecuta con `head -<N>`. La completitud se
 verifica por centinela: toda salida de `context` abre con
 `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode> [— change: #<id>] —
-v<version> — lines:<N> =====` y cierra con una línea END autodetectora. El
+v<version> — lines:<N>[/<límite> — bytes:<N>/<límite>] =====` y cierra con una
+línea END autodetectora. El
 bloque distingue dos fallos que antes se mezclaban: comando no instalado
 (`command not found`) significa que ChangeLedger está ausente y el trabajo sigue
 con normalidad sin emularlo; comando presente que falla por cualquier otra causa
