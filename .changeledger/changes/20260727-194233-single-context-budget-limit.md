@@ -221,7 +221,8 @@ parecidas.
   - **Resolved:** `2026-07-27T20:11:53Z`
 - [x] Escribir en el comentario de `assertWithinBudget` y en la nota de proyecto de `AGENTS.md` que un límite es techo y no objetivo, y que retirar normativa para caber exige dueño nombrado y verificado por grep de la obligación; verify: `node --test test/cli.test.mjs` (support)
   - **Resolved:** `2026-07-27T20:12:45Z`
-- [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T20:14:04Z`
 
 ## Log
 
@@ -232,3 +233,4 @@ parecidas.
 - **2026-07-27T19:59:35Z** `[status]` approved → in-progress
 - **2026-07-27T20:05:35Z** `[note]` Tarea 1: umbral plano en budgets.yml (valor del hard vigente), helper unico en test/budget-support.mjs con conveniencia de lineas emitidas y sin emitWarning, importado por context y agent-context. Actualizados dos usos preexistentes que leian budget.hard.lines: el barrido de 130727 CR3 y el CR4 de 130728, cuyo enunciado pasa de 'clears the strict target' a 'clears its threshold' (misma cota, sin banda). Mutantes aislados verificados: sin asercion de bytes cae CR3; emittedLines contando el segmento vacio cae CR2; emitWarning en vez de fallo caen CR2 y CR4.
 - **2026-07-27T20:11:53Z** `[note]` Tarea 2: la linea BEGIN publica lines:n/limite y bytes:n/limite via frameSections, que itera al punto fijo (max 4 pasadas) y lanza nombrando la no convergencia. Dos decisiones que el documento no especificaba: (a) src/ ahora SI lee budgets.yml —consecuencia necesaria de publicar el limite, y el documento ya lo anticipaba diciendo que la unica superficie de producto es la linea BEGIN; (b) una captura de change-id NO publica limite, solo su conteo, porque incrusta un documento de tamano arbitrario y reutiliza el modo del overlay: publicarlo daba 'lines:352/310', un techo que no le aplica. Lo cazo el propio CR5 al ejecutarlo. Actualizados cuatro pins preexistentes del formato de la linea BEGIN (124833 CR2 y 213931 CR4/CR5/CR6, mas dos regex de modo puro) y anadido un pin aparte para la forma sin limite. Mutantes aislados: una sola pasada caen CR5 y CR6; publicar limite en change-id cae CR5; no publicar bytes caen CR5 y CR6. Suite completa 814 verde.
+- **2026-07-27T20:14:05Z** `[note]` Gate completo verde antes de pedir review: pnpm verify (814 tests, lint, check) y biome sin cambios pendientes. Ocupacion real publicada tras el cambio: core 172/200 lineas y 9834/12000 bytes; implement 198/205 y 9907/10000 (93 bytes de margen); spec 300/310 y 13589/13700 (111 bytes). El guard de commit de 20260726-141124 rechazo un indice que arrastraba el documento de 20260727-194234 por un git add -A: funciono en produccion real.
