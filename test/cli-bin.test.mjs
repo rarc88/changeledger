@@ -447,36 +447,24 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
   );
 });
 
-// 160444: `context --have <rev>` is wired through the real binary, not just
-// the module — a current rev gets the short `unchanged` block (no contract
-// body), a stale/unknown rev gets the full framed output with its END line.
-test('160444: context --have wires through the CLI for current and stale rev', () => {
+// 124833 CR1: `--have` was retired with the revision segment it served. It is
+// rejected as an unknown option and no longer appears in the help text, so a
+// caller carrying a stale habit fails loudly instead of being silently ignored.
+test('124833 CR1: context rejects --have as an unknown option', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  const first = runIn(root, env, 'context');
-  assert.equal(first.code, 0);
-  const [, rev] = first.out.match(/rev:([0-9a-f]+)/) ?? [];
-  assert.ok(rev, `expected a rev: in ${first.out}`);
+  const rejected = runIn(root, env, 'context', '--have', 'deadbeefcafe');
+  assert.equal(rejected.code, 1);
+  assert.match(rejected.err, /error: unknown option '--have'/);
 
-  const unchanged = runIn(root, env, 'context', '--have', rev);
-  assert.equal(unchanged.code, 0);
-  assert.match(unchanged.out, /unchanged/);
-  assert.match(unchanged.out, new RegExp(`rev:${rev}`));
-  assert.doesNotMatch(unchanged.out, /# ChangeLedger — Core Contract/);
-  assert.ok(
-    unchanged.out.split('\n').length < 10,
-    `--have with a current rev should be a short framed block, got ${unchanged.out}`,
-  );
-
-  const stale = runIn(root, env, 'context', '--have', '000000000000');
-  assert.equal(stale.code, 0);
-  assert.match(stale.out, /CHANGELEDGER CONTEXT END/);
-  assert.match(stale.out, /# ChangeLedger — Core Contract/);
-  assert.match(stale.out, new RegExp(`rev:${rev}`));
+  const help = runIn(root, env, 'context', '--help');
+  assert.equal(help.code, 0);
+  assert.doesNotMatch(help.out, /--have/);
+  assert.doesNotMatch(help.out, /rev:/);
 });
 
 test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () => {

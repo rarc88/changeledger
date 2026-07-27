@@ -231,10 +231,6 @@ program
     '[mode-or-change-id]',
     'spec|implement|review|release, or a change id (pack inferred from its status)',
   )
-  .option(
-    '--have <rev>',
-    'skip the full reload when this matches the current rev (short `unchanged` confirmation instead)',
-  )
   .addHelpText(
     'after',
     [
@@ -255,10 +251,6 @@ program
       'are inferred the same way from the change id; they are not modes you pass',
       'explicitly.',
       '',
-      'Each BEGIN line carries `rev:<hash>`. After a compaction, pass the rev your',
-      'retained capture carried as `--have <rev>`: a match prints a short confirmation',
-      'instead of reloading the full body; a mismatch prints the complete output.',
-      '',
       'Examples:',
       '  changeledger context',
       '  changeledger context spec',
@@ -266,10 +258,9 @@ program
       '  changeledger context review',
       '  changeledger context release',
       '  changeledger context 20260630-225212',
-      '  changeledger context --have 0123456789ab',
     ].join('\n'),
   )
-  .action(action((input, options) => context(input, { have: options.have })));
+  .action(action((input) => context(input)));
 
 program
   .command('agent-prompt')
