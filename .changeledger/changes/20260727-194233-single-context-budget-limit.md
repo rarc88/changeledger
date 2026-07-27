@@ -2,7 +2,7 @@
 id: "20260727-194233"
 title: Un solo límite por dimensión en los presupuestos de contexto
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-27T19:42:33Z
 depends_on: []
 owner: raruiz-hiberuscom
@@ -225,3 +225,5 @@ parecidas.
 - **2026-07-27T19:42:33Z** `[note]` Draft: colapsa target/hard/strict_target a un umbral por dimensión con el valor del hard vigente, pasa la convención a líneas emitidas y publica la ocupación en la línea BEGIN. Decisiones humanas de esta sesión: bytes y no tokens; sin recalibrar umbrales; sin tocar el bootstrap ni `BOOTSTRAP_VERSION`.
 - **2026-07-27T19:45:35Z** `[owner]` set: raruiz-hiberuscom
 - **2026-07-27T19:46:34Z** `[note]` Primera tarea combina el esquema de `budgets.yml` con su único lector: `src/` no lo consume y el helper de test es quien interpreta el umbral, así que separarlos dejaría una tarea sin target válido en readiness (test/** está fuera de target_patterns a propósito). CR8 retirado: el gate verde ya lo cubre el hook pre-commit y como criterio no era falsable.
+- **2026-07-27T19:58:04Z** `[status]` draft → approved
+- **2026-07-27T19:59:35Z** `[status]` approved → in-progress
