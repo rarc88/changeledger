@@ -2,9 +2,10 @@
 id: "20260726-124835"
 title: Reescribir el contexto core para enrutar por intención
 type: feature
-status: in-validation
+status: done
 created: 2026-07-26T12:48:35Z
 depends_on: ["20260726-124833", "20260726-124834", "20260726-130728"]
+reviewed: true
 related_to: ["20260722-124655", "20260722-124656", "20260726-124837"]
 owner: raruiz-hiberuscom
 ---
@@ -458,3 +459,5 @@ haber detectado se trata como defecto de esa etapa.
 - **2026-07-27T15:46:44Z** `[status]` in-progress → in-review
 - **2026-07-27T15:59:17Z** `[note]` Review PASS. Barrido de huerfanas desde cero: 33 unidades retiradas del core, todas con dueno verificado, ninguna huerfana. 16 mutantes aislados, todos muertos. Cuatro hallazgos no bloqueantes en prosa de comentario, vistos y deliberadamente no corregidos: el comentario de grupo de CR10 atribuye a delegation.md dos literales que son de spec.md; la clasificacion declara MOVED el commit baseline que el core sigue llevando reformulado en Commits; discovery-not-compliance figura RETIRED cuando corresponde REPLACED; y dos reglas quedan cubiertas por la clausula general sin nombrarse. Los cuatro yerran en la direccion segura: declaran perdida donde no la hay, no dueno donde no existe. Reabrir costaria otra ronda sin ganar enforcement.
 - **2026-07-27T15:59:18Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T16:14:11Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T16:16:46Z** `[graduation]` spec: `contract-discovery.md`

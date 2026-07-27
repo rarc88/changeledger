@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T14:00:00Z
+updated: 2026-07-27T16:16:46Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835"]
 ---
 
 ## Discovery del contrato
@@ -97,16 +97,21 @@ es concreta: bastó no cubrir el techo de bytes para que borrarlo entero dejara 
 suite en verde, y en la práctica los bytes son la banda que se agota antes que
 las líneas.
 
-Cada invocación se captura completa desde el primer intento. El consumidor no
-solicita previews, resúmenes ni límites voluntarios de líneas, bytes o tokens y,
-cuando su herramienta expone un presupuesto de salida, reserva capacidad para
-la respuesta entera. Una vista parcial nunca es contexto operativo válido. La
-ausencia de END después de esa captura deliberadamente completa es recuperación
-excepcional: se detiene el trabajo y se repite con mayor capacidad.
+La propiedad de la captura está repartida. El bootstrap posee la primera: ordena
+un comando exacto y acotado, y declara la captura válida sólo si su última línea
+contiene END. Esa condición positiva sustituyó a la prohibición previa de pedir
+previews, resúmenes o límites voluntarios de líneas, bytes o tokens — una
+negación que el consumidor no podía verificar y que se incumplía en la práctica.
+Si falta END, se repite con la capacidad que la propia línea BEGIN publica. El
+core posee el resto: toda captura de contexto se lee completa en una pasada
+—core, modo y change id por igual— y una vista parcial nunca es contexto
+operativo válido.
 
-Mientras el core completo siga disponible en la conversación activa, un nuevo
-mensaje humano por sí solo no provoca otra carga. Sólo una transición real de
-tarea o lifecycle solicita el modo o change id especializado que corresponda.
+El core está organizado para enrutar antes de cargar. Clasificar la intención de
+cada mensaje humano es obligatorio y gratuito; cargar un contexto no lo es.
+Nunca se carga uno especulativamente ni se recarga uno que ya se tiene: sólo una
+transición real de tarea o lifecycle solicita el modo o change id especializado
+que corresponda.
 
 **Sin recuperación por revisión.** La línea BEGIN no lleva ningún segmento de
 revisión y no existe forma de preguntar si una captura retenida sigue vigente.
