@@ -259,10 +259,15 @@ de huecos tempranos — solo un origen explícito `status:` puede adelantar la
 reconstrucción, solo hacia delante y solo entre `draft`/`approved`/`in-progress`;
 los orígenes implícitos de review/validation exigen siempre la secuencia exacta.
 Statuses no canónicos desactivan la validación del change (el grafo no modela
-esos estados). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
-el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
-fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
-(vacío si ninguno). No pisa un owner fijado a mano (`changeledger owner`).
+esos estados). El `owner` nace en la creación (`changeledger new`): se resuelve
+la identidad git local vía `ownerHandle` salvo que se pase `--owner` explícito,
+que siempre prevalece. `ownerHandle` prueba primero el username de GitHub (`gh
+api user --jq .login`), con fallback a `git config user.name` si `gh` falta o
+no está autenticado; tolerante (vacío si ninguno, sin fallar la creación — el
+change simplemente nace sin `owner`). Si un change llega a `in-progress` sin
+owner —creado en CI o en un entorno sin identidad resoluble—, `changeledger
+status` lo autoasigna con la misma resolución como red de seguridad; nunca pisa
+un owner ya fijado, a mano (`changeledger owner`) o desde la creación.
 
 ## Graduación
 
