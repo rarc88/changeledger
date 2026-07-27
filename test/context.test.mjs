@@ -583,7 +583,15 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // issues a verdict or moves the change"): the adjective now lives in the
     // role name itself. No rule is retired; the 20260710-201703 entry above
     // remains the historical record of when the role was introduced.
-    'core.md': 'b7b38cd7c56af9c94c65509b394adb197f99e16b247eaf66c9112c10675061ff',
+    // 20260726-124833: the post-compaction revision-check paragraph is RETIRED,
+    // not replaced. `rev:<hash>` and `--have <rev>` are gone from the CLI, so
+    // the rule they described has no mechanism left and no successor wording;
+    // the 20260711-103759 entry above stays as the historical record of when it
+    // was introduced. The surrounding one-pass full-capture rule and the
+    // "a new human message alone does not trigger a reload" rule are preserved
+    // verbatim — the latter is now the sole reason a retained capture is not
+    // reloaded. Every other rule in the fragment is preserved.
+    'core.md': '8b4203601cf9018fc6dd288cbe9ba332f108d51ba4d582c90b99b3607ec2aab7',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -787,7 +795,7 @@ test('20260629-210543 CR2: every supported status produces incremental change co
     assert.match(
       output.split('\n')[0],
       new RegExp(
-        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} — rev:[0-9a-f]{12} =====$`,
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — change: #${id} — v${version} =====$`,
       ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
@@ -817,9 +825,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(output, /a partial view is invalid/i);
     assert.match(
       output.split('\n')[0],
-      new RegExp(
-        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — rev:[0-9a-f]{12} =====$`,
-      ),
+      new RegExp(`^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====$`),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
   }
@@ -857,9 +863,7 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
   const begin = (label) =>
-    new RegExp(
-      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — rev:[0-9a-f]{12} =====$`,
-    );
+    new RegExp(`^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} =====$`);
   const end =
     '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====';
 
@@ -881,55 +885,38 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   assert.equal(byId.trimEnd().split('\n').at(-1), end);
 });
 
-// 20260711-103759: `rev:<12 hex>` lets an agent verify a retained capture is
-// still current without reprinting the contract.
-function extractRev(output) {
-  return output.split('\n')[0].match(/rev:([0-9a-f]{12})/)?.[1];
-}
-
-test('103759 CR1: the core rev is stable across repeated invocations', () => {
+// 20260726-124833 CR2: the `rev:<hash>` segment existed only to serve `--have`.
+// With the flag retired the BEGIN line carries no revision, in any mode, and the
+// substring never appears anywhere in the composed output.
+test('124833 CR2: no mode emits a rev: segment on the BEGIN line or anywhere else', () => {
   const root = repo();
-  const first = buildContext(undefined, root);
-  const second = buildContext(undefined, root);
-  const firstRev = extractRev(first);
-  assert.match(firstRev, /^[0-9a-f]{12}$/);
-  assert.equal(firstRev, extractRev(second));
-});
-
-test('103759 CR2: the rev changes when the effective policy changes', () => {
-  const root = repo();
-  const before = extractRev(buildContext(undefined, root));
-  setConfig(root, [[/^language: en$/m, 'language: es']]);
-  const after = extractRev(buildContext(undefined, root));
-  assert.notEqual(before, after);
-});
-
-test('103759 CR3: --have with the current rev returns a short unchanged confirmation', () => {
-  const root = repo();
-  const full = buildContext(undefined, root);
-  const rev = extractRev(full);
-  const short = buildContext(undefined, root, { have: rev });
-  assert.match(short.split('\n')[0], /— unchanged =====$/);
-  assert.match(short, new RegExp(`rev:${rev}`));
-  assert.match(short, /unchanged/);
-  assert.doesNotMatch(short, /# ChangeLedger — Core Contract/);
-  assert.equal(
-    short.trimEnd().split('\n').at(-1),
-    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+  const id = addChange(root, 'approved');
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
-  assert.ok(short.length < full.length);
-});
 
-test('103759 CR4: --have with a stale or invented rev returns the full normal output', () => {
-  const root = repo();
-  const full = buildContext(undefined, root);
-  const output = buildContext(undefined, root, { have: 'deadbeefcafe' });
-  assert.equal(output, full);
-  assert.match(output, /# ChangeLedger — Core Contract/);
+  const core = buildContext(undefined, root);
   assert.equal(
-    output.trimEnd().split('\n').at(-1),
-    '===== CHANGELEDGER CONTEXT END — if this line is missing, the output was truncated: stop and re-run =====',
+    core.split('\n')[0],
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} =====`,
   );
+
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    const output = buildContext(mode, root);
+    assert.equal(
+      output.split('\n')[0],
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} =====`,
+    );
+    assert.doesNotMatch(output, /rev:/);
+  }
+
+  const byId = buildContext(id, root);
+  assert.equal(
+    byId.split('\n')[0],
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: implement — change: #${id} — v${version} =====`,
+  );
+  assert.doesNotMatch(byId, /rev:/);
+  assert.doesNotMatch(core, /rev:/);
 });
 
 test('225213 CR8: core exposes the transversal effective policy without raw config', () => {

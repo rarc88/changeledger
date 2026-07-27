@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
-import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
+import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 
@@ -31,16 +31,9 @@ function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();
 }
 
-function beginDelimiter(mode, changeId, rev, extra = '') {
+function beginDelimiter(mode, changeId) {
   const change = changeId ? ` — change: #${changeId}` : '';
-  const revPart = rev ? ` — rev:${rev}` : '';
-  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}${revPart}${extra}`);
-}
-
-// Short confirmation body returned by `--have` when the caller's retained
-// revision still matches: no contract text, just the framed confirmation.
-function unchangedBody(rev) {
-  return `Context unchanged since rev:${rev}. Skip reload; continue with the retained capture.`;
+  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}`);
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
@@ -142,10 +135,8 @@ function relatedBlock(id, relatedTo, cwd) {
   return `## Related changes\n\n${lines.join('\n')}`;
 }
 
-// Composes the body (everything between the BEGIN and END lines), derives its
-// `rev` from that body alone — never from the framing lines that quote it —
-// then returns both the rev and the full rendered text so callers can decide
-// whether a `--have` match makes the full body unnecessary.
+// Composes the body (everything between the BEGIN and END lines) and returns
+// the full rendered text, framed by its BEGIN and END delimiters.
 function composeResult(mode, fragments, options = {}) {
   const {
     changeText,
@@ -162,9 +153,8 @@ function composeResult(mode, fragments, options = {}) {
   if (dependencies) body.push(dependencies);
   if (relations) body.push(relations);
   if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
-  const rev = contentRev(body.join('\n\n'));
-  const sections = [beginDelimiter(mode, changeId, rev), ...body, END_DELIMITER];
-  return { mode, changeId, rev, text: `${sections.join('\n\n')}\n` };
+  const sections = [beginDelimiter(mode, changeId), ...body, END_DELIMITER];
+  return `${sections.join('\n\n')}\n`;
 }
 
 function requireRepo(cwd) {
@@ -212,24 +202,12 @@ function composeInput(input, cwd, config) {
   });
 }
 
-// `options.have` names a previously captured `rev`. A match returns a short
-// framed `unchanged` confirmation instead of the full contract body; any
-// mismatch (stale or invented) falls back to the complete normal output.
-export function buildContext(input, cwd = process.cwd(), options = {}) {
+export function buildContext(input, cwd = process.cwd()) {
   const changeledgerDir = requireRepo(cwd);
   const config = loadConfig(changeledgerDir);
-  const result = composeInput(input, cwd, config);
-  if (options.have && options.have === result.rev) {
-    const sections = [
-      beginDelimiter(result.mode, result.changeId, result.rev, ' — unchanged'),
-      unchangedBody(result.rev),
-      END_DELIMITER,
-    ];
-    return `${sections.join('\n\n')}\n`;
-  }
-  return result.text;
+  return composeInput(input, cwd, config);
 }
 
-export function context(input, options = {}, cwd = process.cwd(), output = console.log) {
-  output(buildContext(input, cwd, options).trimEnd());
+export function context(input, cwd = process.cwd(), output = console.log) {
+  output(buildContext(input, cwd).trimEnd());
 }
