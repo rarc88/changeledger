@@ -863,7 +863,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   `changeledger commit` composes it", now extended with the full mechanics
     //   imported from `implement.md`. Every other block of the fragment is
     //   untouched.
-    'core.md': 'dade45b455b56e02acb6eff699999d40c5d34c37a1f6172d05459ed22cb0c343',
+    // PRESERVED (restored after review) — two obligations that left
+    //   `implement.md` had reached no home and a clean-context reviewer caught it:
+    //   the handoff checkpoint's duty to "record why" now rides the Handoff class
+    //   ("record why it was needed"), and the combined-commit duty to "name every
+    //   change sharing the surface" now rides the combined-commit sentence
+    //   ("naming every change that shares the surface"). Verified by grepping the
+    //   obligation itself, not similar words: both appear only in `core.md`.
+    'core.md': '6736cf3c9e5395143bd38bb64af484c05c656d324ea0a6feb1b35b678e96140b',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -931,7 +938,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   consolidated checkpoint persists pending state; record why and never create
     //   one per transition" is "**Handoff**: zero or one, only when work stops
     //   (review, blocked, session end) and document-only state would otherwise stay
-    //   uncommitted", with "never one per transition" carried by the formula;
+    //   uncommitted; record why it was needed", with "never one per transition"
+    //   carried by the formula. The "record why" clause reached no home on the first
+    //   pass and a clean-context reviewer caught it; core carries it now;
     // RETIRED to core.md — the whole message-mechanics block: the canonical subject
     //   shape and its `feat(scope): description [#20260629-234939]` example, "One
     //   change keeps its marker at the end of the subject", the
@@ -945,8 +954,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // RETIRED to core.md — "If shared files make a combined commit unavoidable,
     //   record it in Log or the handoff and name every change sharing the surface"
     //   is core's combined-commit paragraph, which keeps the obligation to record
-    //   what was combined and why and adds the second form the human decided on
-    //   2026-07-26, inseparable Plan tasks;
+    //   what was combined and why, keeps the duty to name every change sharing the
+    //   surface (restored after review — it reached no home on the first pass) and
+    //   adds the second form the human decided on 2026-07-26, inseparable Plan
+    //   tasks. The Log-or-handoff choice of venue narrows to the Log;
     // PRESERVED — the branch and worktree rules verbatim (never `main`/`master`/
     //   `dev`, branches created from and integrated into `git.integration_branch`
     //   with `main` reserved for releases, inspect the worktree first and ask

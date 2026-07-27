@@ -97,7 +97,7 @@ A change branch carries four commit classes and no others. **Draft**: one per dr
 committed on its own — never several drafts in one commit. **Baseline**: exactly one, the approved change
 document, before any code. **Task**: one per completed Plan task, with that task's code, its test, its
 ticked box and its Log entries. **Handoff**: zero or one, only when work stops (review, blocked, session
-end) and document-only state would otherwise stay uncommitted.
+end) and document-only state would otherwise stay uncommitted; record why it was needed.
 
 Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
 A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
@@ -115,7 +115,8 @@ archive) carry markers like any other; only merge commits and `chore(release)` p
 subject is not conventional. Run `changeledger check --commits [<base>]` before requesting review.
 
 A combined commit is legitimate only when separation is impossible: several changes share the same files, or
-several Plan tasks are inseparable. Record in the Log what was combined and why. A failed `pre-commit` hook
+several Plan tasks are inseparable. Record in the Log what was combined and why, naming every change that
+shares the surface. A failed `pre-commit` hook
 leaves the index staged, so inspect the staged set (`git diff --cached --name-only`) before retrying: fixing
 the cause is not enough if the index kept the previous attempt's files.
 
