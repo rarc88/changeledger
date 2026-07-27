@@ -149,6 +149,7 @@ test('141122 CR2: a fresh non-JS repo approves once readiness matches its stack'
   const file = newChange(
     { type: 'bug', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   fs.writeFileSync(file, rubyBug(id));
@@ -440,6 +441,7 @@ test('new uses the English slug for the file and keeps the title as content', ()
   const file = newChange(
     { type: 'bug', slug: 'token-expiry', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   assert.equal(path.basename(file), '20260613-150000-token-expiry.md');
 
@@ -471,6 +473,7 @@ test('103756 CR1: new scaffolds a quick change with only request and log', () =>
       now: '2026-06-13T15:00:00Z',
     },
     root,
+    { ownerHandle: () => '' },
   );
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.type, 'quick');
@@ -498,8 +501,66 @@ test('new normalizes the slug to kebab ascii', () => {
   const file = newChange(
     { type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
+});
+
+test('20260726-124836 CR1: new resolves owner from the injected git identity when --owner is omitted', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' },
+    root,
+    { ownerHandle: () => 'ana' },
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'ana');
+});
+
+// Confirm-only (Plan task 1, CR2): an explicit --owner already prevailed before
+// this change — newChange() passed `owner` straight through to render(), which
+// only gates on truthiness. No production change was needed for this criterion.
+test('20260726-124836 CR2: an explicit --owner still wins over the injected identity', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'chore', slug: 'x', title: 'X', owner: 'leo', now: '2026-06-13T15:00:00Z' },
+    root,
+    { ownerHandle: () => 'ana' },
+  );
+  const source = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(source).frontmatter.owner, 'leo');
+  assert.doesNotMatch(source, /owner: ana/);
+});
+
+test('20260726-124836 CR3: an unresolvable identity emits no owner line and does not throw', () => {
+  const root = tmp();
+  init(root);
+  let calls = 0;
+  let file;
+  assert.doesNotThrow(() => {
+    file = newChange({ type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' }, root, {
+      ownerHandle: () => {
+        calls += 1;
+        return '';
+      },
+    });
+  });
+  assert.equal(
+    calls,
+    1,
+    'the injected identity resolver must be consulted when --owner is omitted',
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal('owner' in c.frontmatter, false);
+});
+
+test('20260726-124836 CR4: --owner help text announces the local git identity default', async () => {
+  const bin = path.resolve('bin/changeledger.mjs');
+  const { stdout } = await execFileAsync(process.execPath, [bin, 'new', '--help']);
+  assert.doesNotMatch(stdout, /defaults to unassigned/);
+  assert.match(stdout, /defaults to the local git identity/);
 });
 
 test('new rejects a slug that normalizes to empty', () => {
@@ -507,7 +568,9 @@ test('new rejects a slug that normalizes to empty', () => {
   init(root);
   assert.throws(
     () =>
-      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root),
+      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root, {
+        ownerHandle: () => '',
+      }),
     /slug must contain at least one ASCII letter or number/,
   );
   assert.deepEqual(
@@ -520,9 +583,10 @@ test('new bumps the id to stay unique within the same second', () => {
   const root = tmp();
   init(root);
   const now = '2026-06-13T15:00:00Z';
-  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root);
+  const noOwner = { ownerHandle: () => '' };
+  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root, noOwner);
   const before = fs.readFileSync(a, 'utf8');
-  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root);
+  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root, noOwner);
   assert.equal(path.basename(a), '20260613-150000-one.md');
   assert.equal(path.basename(b), '20260613-150001-two.md');
   assert.equal(fs.readFileSync(a, 'utf8'), before, 'existing change file is not overwritten');
@@ -544,6 +608,7 @@ test('new recovers from an orphan id lock', () => {
   const file = newChange(
     { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
 
   assert.equal(path.basename(file), '20260613-150000-one.md');
@@ -574,6 +639,7 @@ test('new tolerates a lock removed while checking whether it is stale', () => {
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     assert.equal(path.basename(file), '20260613-150000-one.md');
   } finally {
@@ -601,6 +667,7 @@ test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () =
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     // After hitting the cap, acquireIdLock returned null → outer loop bumped the second
     assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped after spin cap');
@@ -632,6 +699,7 @@ test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live'
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     // isStaleLock returned false (EPERM → alive) → acquireIdLock returned null → second bumped
     assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped because lock was live');
@@ -658,6 +726,7 @@ test('new reserves ids atomically across concurrent processes', async () => {
     const file = newChange(
       { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
       process.argv[2],
+      { ownerHandle: () => '' },
     );
     console.log(file);
   `;

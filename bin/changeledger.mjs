@@ -101,7 +101,7 @@ program
   .argument('<type>', 'a type key configured in .changeledger/config.yml (types:)')
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
-  .option('--owner <name>', 'set the initial owner (defaults to unassigned)')
+  .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
   .addHelpText(
     'after',
     [

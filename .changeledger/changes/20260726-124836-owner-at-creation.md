@@ -162,13 +162,22 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 
 ## Plan
 
-- [ ] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza; verify: `node --test test/cli.test.mjs` (CR1, CR2, CR3)
-- [ ] Actualizar en `bin/changeledger.mjs` la descripción de la opción `--owner` de `new` para que anuncie la identidad git local como default en vez de `defaults to unassigned`; verify: `node --test test/cli.test.mjs` (CR4)
-- [ ] En `src/check.mjs`, confirmar (sin cambio de lógica si ya cumple) que un change sin `owner` no genera warning ni error, y añadir el caso en `test/check.test.mjs`; verify: `node --test test/check.test.mjs` (CR5)
-- [ ] Actualizar la sección `Log y owner` de `.changeledger/specs/lifecycle.md` para describir el ciclo completo — owner en la creación, precedencia de `--owner`, autoasignación como red en `in-progress` sin pisar un owner manual; verify: `node bin/changeledger.mjs check` (CR6)
-- [ ] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
+- [x] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza; verify: `node --test test/cli.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-27T21:57:12Z`
+- [x] Actualizar en `bin/changeledger.mjs` la descripción de la opción `--owner` de `new` para que anuncie la identidad git local como default en vez de `defaults to unassigned`; verify: `node --test test/cli.test.mjs` (CR4)
+  - **Resolved:** `2026-07-27T21:57:12Z`
+- [x] En `src/check.mjs`, confirmar (sin cambio de lógica si ya cumple) que un change sin `owner` no genera warning ni error, y añadir el caso en `test/check.test.mjs`; verify: `node --test test/check.test.mjs` (CR5)
+  - **Resolved:** `2026-07-27T21:57:12Z`
+- [x] Actualizar la sección `Log y owner` de `.changeledger/specs/lifecycle.md` para describir el ciclo completo — owner en la creación, precedencia de `--owner`, autoasignación como red en `in-progress` sin pisar un owner manual; verify: `node bin/changeledger.mjs check` (CR6)
+  - **Resolved:** `2026-07-27T21:57:12Z`
+- [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (support)
+  - **Resolved:** `2026-07-27T21:57:12Z`
+- [x] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-27T21:57:22Z`
 
 ## Log
 - **2026-07-26T14:05:44Z** `[status]` draft → approved
 - **2026-07-27T19:53:11Z** `[note]` Amendment while approved (human-authorized 2026-07-27): el guard !fm.owner de agent.mjs se CONSERVA — el owner nace en el draft y la autoasignacion en in-progress queda solo como red para un change que llegue sin dueno. Retirado el CR4 anterior (reasignacion incondicional) y su tarea; el comportamiento del guard ya esta fijado por los tests existentes de agent.test.mjs y no se reafirma como criterio nuevo. Anadidos CR4 (ayuda del CLI: 'defaults to unassigned' queda falso) y CR6 (spec lifecycle.md documenta la autoasignacion como verdad persistente incompleta). Punteros de linea de la Investigation sustituidos por nombres de simbolo y de test.
 - **2026-07-27T21:34:24Z** `[status]` approved → in-progress
+- **2026-07-27T21:57:11Z** `[note]` Enmienda durante in-progress, sin re-aprobacion porque no expande alcance observable: el cambio invalida una precondicion que dos helpers de test daban por hecha —que un change nace sin dueno— y tres tests preexistentes caian por eso. repoWithChange() en test/agent.test.mjs alimenta los tres tests que fijan la autoasignacion en in-progress, cuya precondicion ES el owner vacio, asi que inyecta identidad vacia y la precondicion queda explicita en vez de depender de la identidad git del host. doneRepo() en test/cli-bin.test.mjs lanza el binario real, que no admite inyeccion, asi que crea con --owner explicito; su test 105457 insertaba ademas una segunda linea owner: que ahora habria duplicado la clave de frontmatter. Anadida tarea de Plan. El delegado los reporto y paro en vez de tocar ficheros fuera de su ownership, que es lo correcto.
+- **2026-07-27T21:57:22Z** `[note]` Tareas 1 y 2 en un commit combinado: los tests de CR1/CR2/CR3 y de CR4 viven en el mismo fichero test/cli.test.mjs, asi que separarlas exigiria partir cambios dentro de un mismo fichero. Superficie compartida, registrado aqui.
