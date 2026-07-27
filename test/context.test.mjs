@@ -257,15 +257,15 @@ test('CR1/CR5/CR7: core context is deterministic and within its budget', () => {
   const second = buildContext(undefined, root);
   assert.equal(first, second);
   assert.match(first, /mode: core/);
-  assert.match(first, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(first, /Capture the first invocation completely in one pass/);
-  assert.match(first, /read through the `CHANGELEDGER CONTEXT END` line/);
-  assert.match(first, /follow the\s+current mode/);
-  assert.match(first, /exceptional recovery/);
-  assert.match(first, /new\s+human message alone does not trigger a reload/i);
+  // 20260726-124835: capture discipline belongs to the bootstrap, so core is
+  // asserted on what it now owns — routing by intent and context economy.
+  assert.match(first, /Work is documented before code/);
+  assert.match(first, /Classifying the human's intent is free and mandatory on every message/);
+  assert.match(first, /never load one speculatively and never reload one\s+already held/);
+  assert.match(first, /Escalate to a mode before acting/);
   assert.match(first, /If no approved or in-progress change applies/);
   assert.match(first, /ask the human whether a purely operational,\s+reversible edit/);
-  assert.match(first, /If unsure, document it in ChangeLedger/);
+  assert.match(first, /If unsure, document\s+it in ChangeLedger/);
   assert.match(first, /implement,? review,? spec,? release|context implement/);
   assert.match(first, /extends the core\s+context already read; it never repeats it/);
   assertWithinBudget('core', first, contextBudgets.base.core);
@@ -314,13 +314,19 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
   );
   const invariants = [
-    ['core', /Files are the source of truth and may be edited directly/],
-    ['core', /CLI helpers are optional and preferred for error-prone operations/],
-    ['core', /Delegate only with a clear boundary and benefit/],
-    ['core', /ownership, expected output and integration criterion/],
-    ['core', /must not revert others' work/],
-    ['core', /Do not over-shard or overlap write surfaces without an explicit integration plan/],
-    ['core', /Size the model to the task's difficulty and risk/],
+    // 20260726-124835: core stopped carrying file/CLI operating detail and the
+    // delegation-prompt summary. What core still owns is the routing decision;
+    // the prompt contract itself is asserted where delegation.md composes.
+    ['core', /Every stage overlay is the authority for its stage; core never duplicates it/],
+    ['core', /Reading code and writing code are the two heaviest consumers/],
+    ['core', /the stage context owns what the prompt must contain/],
+    [
+      'spec',
+      /The boundary must state what the delegate owns, what it returns and how the result integrates/,
+    ],
+    ['spec', /do not revert others' edits and report overlapping changes/],
+    ['spec', /Do not create one subagent per file, line or tiny mechanical edit/],
+    ['spec', /Use the strongest available models for ambiguous scope/],
     ['spec', /Keep each fact in one stage and link to it from the others/],
     [
       'spec',
@@ -367,14 +373,23 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
         fs.readFileSync(new URL(file, contractDir), 'utf8').replace(/\s+/g, ' '),
       ]),
   );
-  assert.match(fragments['core.md'], /Do not over-shard or overlap write surfaces/);
-  assert.match(fragments['core.md'], /Size the model to the task's difficulty and risk/);
-  assert.match(fragments['delegation.md'], /one subagent per file, line or tiny mechanical edit/);
+  // 20260726-124835: both rules left core.md, so they are asserted against the
+  // equivalent wording delegation.md already owned, plus a retirement guard so
+  // core cannot quietly grow a second copy of either one.
+  assert.match(
+    fragments['delegation.md'],
+    /Do not create one subagent per file, line or tiny mechanical edit/,
+  );
+  assert.match(
+    fragments['delegation.md'],
+    /Use the strongest available models for ambiguous scope/,
+  );
+  assert.doesNotMatch(fragments['core.md'], /Do not over-shard or overlap write surfaces/);
+  assert.doesNotMatch(fragments['core.md'], /Size the model to the task's difficulty and risk/);
   assert.match(
     fragments['delegation.md'],
     /parallel agents over the same files or conceptual surface/,
   );
-  assert.match(fragments['delegation.md'], /strongest available models for ambiguous scope/);
 
   for (const [status, id] of [
     ['blocked', blockedId],
@@ -420,15 +435,20 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     Object.entries(outputs).map(([context, output]) => [context, output.replace(/\s+/g, ' ')]),
   );
   const expected = [
-    ['core', /Documents under `.changeledger\/` are ChangeLedger's persistent truth/],
-    ['core', /Work starts with conversation/],
-    ['core', /human explicitly authorizes documentation/],
+    // 20260726-124835: the persistent-truth sentence, the conversation-first
+    // rule and the authorization rule are restated by the rewritten identity and
+    // invariants; the in-validation stop and the graduation command moved to the
+    // overlays that own them, so core keeps only the trigger and the owner.
+    [
+      'core',
+      /Work is documented before code: changes under `.changeledger\/changes\/` are authorized work/,
+    ],
+    ['core', /No artifact without explicit human authorization/],
+    ['core', /only once the human authorizes documenting it/],
     ['core', /Never implement a `draft`/],
-    // 20260703-220014: the global-sounding "Stop at in-validation" was replaced
-    // with a change-scoped stop that lets the agent pick up independent queued work.
-    ['core', /`in-validation` stops only that change/],
+    ['core', /A human verdict is transmitted, never inferred/],
     ['core', /reload `changeledger context <id>`/],
-    ['core', /changeledger graduate <id> --skip \[reason\]/],
+    ['core', /the close overlay owns graduation and archive/],
     ['core', /`discarded` never reopens/],
     ['core', /A `done` change can reopen only to finish its original scope/],
     ['spec', /changeledger new <type> <slug> "<title>"/],
@@ -722,7 +742,65 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // "a new human message alone does not trigger a reload" rule are preserved
     // verbatim — the latter is now the sole reason a retained capture is not
     // reloaded. Every other rule in the fragment is preserved.
-    'core.md': '8b4203601cf9018fc6dd288cbe9ba332f108d51ba4d582c90b99b3607ec2aab7',
+    // 20260726-124835: core is rewritten as a routing contract. Rule by rule:
+    // REPLACED — "Documents under `.changeledger/` are ChangeLedger's persistent
+    //   truth" by an identity that separates authorized work (changes) from
+    //   persistent truth (specs) and names overlay authority;
+    // REPLACED — "a new human message alone does not trigger a reload" by "never
+    //   load one speculatively and never reload one already held", which keeps
+    //   the same load-bearing reason a retained capture is not reloaded and adds
+    //   the speculative-load half (see the 20260726-124833 entry above, which
+    //   declared that rule load-bearing);
+    // REPLACED — "The human authorizes scope, approves drafts and accepts the
+    //   final result … praise, 'continue', or agent inference is not a decision"
+    //   by "The human decides and the agent executes" plus the invariant "A human
+    //   verdict is transmitted, never inferred; praise, 'continue' or agent
+    //   advice is not a decision";
+    // REPLACED — rule 1's "enough clarity to document faithfully **and** the
+    //   human explicitly authorizes documentation" by the invariant "No artifact
+    //   without explicit human authorization" plus the intent row that reaches
+    //   `changeledger context spec` only once the human authorizes documenting it;
+    // REPLACED — "Delegate only with a clear boundary and benefit … ownership,
+    //   expected output and integration criterion" by the work→owner table, "the
+    //   stage context owns what the prompt must contain" and the portable
+    //   delegate-sizing paragraph; delegation.md keeps the full prompt contract;
+    // REPLACED — "Size the model to the task's difficulty and risk" by "Size the
+    //   delegate to the work, not to the caller's convenience" with explicit
+    //   tiers, stated without naming any provider's models;
+    // REPLACED — "Do not over-shard or overlap write surfaces without an explicit
+    //   integration plan" by "One owner per write surface; concurrent subagents
+    //   must not share files", with delegation.md's own wording still owning the
+    //   general rule;
+    // REPLACED — "Get a complete role skeleton to fill in with `changeledger
+    //   agent-prompt <role>`" by "Get the prompt skeleton from `changeledger
+    //   agent-prompt <role>`"; the four roles and the `post-review` semantics are
+    //   preserved verbatim in core;
+    // RETIRED — the whole "Read complete context before acting" capture section
+    //   (one-pass capture, the END sentinel, "Running `changeledger context` is
+    //   discovery, not compliance", the preview/cap prohibition and "exceptional
+    //   recovery"). 20260726-124834 gave the bootstrap ownership of the capture
+    //   and its validity condition, so core had no mechanism left to own;
+    // RETIRED from core — "Files are the source of truth and may be edited
+    //   directly" and "CLI helpers are optional and preferred for error-prone
+    //   operations": operating detail no longer needed to decide what to do next;
+    // RETIRED from core — "Coding agents must know they share the codebase and
+    //   must not revert others' work", preserved in delegation.md as "do not
+    //   revert others' edits and report overlapping changes";
+    // MOVED to their owning overlays, each preserved there verbatim — "commit the
+    //   approved change document before code" (implement.md), "use a fresh
+    //   clean-context reviewer before human validation" (review.md), "`in-
+    //   validation` stops only that change … `depends_on` chain" (validation.md)
+    //   and "`changeledger graduate <id> --skip [reason]`" (close.md); core keeps
+    //   one-line invariants pointing at each owner;
+    // PRESERVED verbatim — the eight lifecycle states, the ten-row transition
+    //   matrix with its owner and mechanism columns, the `changeledger status`
+    //   note, the discard/reopen rules, "If no approved or in-progress change
+    //   applies…" with the `quick` lane, "Humans consume changes in `changeledger
+    //   view`", the pre-existing-divergence rule, the modes index and operational
+    //   discovery with its effective-policy sentence.
+    // ADDED — "Classify intent before acting", "Protect the orchestrator's
+    //   context", "Stage exit gates", "Complexity ceiling" and "Commits".
+    'core.md': 'd0ab6534ad61490911e56cfdc917ca035b242196a6ee8c80148466c20a3e61a4',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1193,8 +1271,14 @@ test('220014 CR1/CR4: core and validation scope the stop to one change, not the 
   const validationId = addChange(root, 'in-validation', '20260628-000001');
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
   const validation = buildContext(validationId, root).replace(/\s+/g, ' ');
-  assert.match(core, /`in-validation` stops only that change/);
-  assert.match(core, /start another approved change unless its `depends_on` chain/);
+  // 20260726-124835: core no longer restates the stop; validation.md owns it and
+  // core keeps no summary that could drift from it.
+  assert.doesNotMatch(core, /`in-validation` stops only that change/);
+  assert.doesNotMatch(core, /start another approved change unless its `depends_on` chain/);
+  assert.match(
+    validation,
+    /start another approved change unless its direct or transitive `depends_on` chain reaches one in `in-validation`/,
+  );
   assert.match(validation, /This stop is scoped to this change/);
   assert.match(validation, /stops entirely/);
   assert.match(validation, /does not invent work or touch delivered\s+results/);
@@ -1350,11 +1434,11 @@ test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close o
   assert.match(close, /sets `reviewed: true`/);
 
   // CR2: core keeps only the trigger; no two-step procedure summary.
+  // 20260726-124835: the trigger shrank to the reload plus the owner, so not even
+  // the `--skip` command survives in core.
   assert.match(core, /reload `changeledger context <id>`/);
-  assert.match(
-    core,
-    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
-  );
+  assert.match(core, /the close overlay owns graduation and archive/);
+  assert.doesNotMatch(core, /changeledger graduate <id> --skip \[reason\]/);
   assert.doesNotMatch(core, /a new spec is a two-step/);
 });
 
@@ -1380,7 +1464,11 @@ test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', ()
   for (const row of rows) assert.match(norm, row, `matrix missing row ${row}`);
 
   assert.doesNotMatch(core, /human acceptance or rejection/);
-  assert.match(norm, /praise, “continue”, or agent inference is not a decision/);
+  // 20260726-124835: the non-inference rule became an invariant, reworded.
+  assert.match(
+    norm,
+    /A human verdict is transmitted, never inferred; praise, “continue” or agent advice is not a decision/,
+  );
 
   // CR1: status never owns done or discarded.
   assert.doesNotMatch(norm, /done \| agent \| `changeledger status`/);
@@ -1400,9 +1488,10 @@ test('144327 CR5: core discovers agent-prompt before a draft exists, within budg
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
   // The minimum delegation rule points at the on-demand skeleton command.
+  // 20260726-124835: same pointer and same four roles, shorter wording.
   assert.match(
     norm,
-    /Get a complete role skeleton to fill in with `changeledger agent-prompt <role>` \(investigation \| implementation \| review \| post-review\)/,
+    /Get the prompt skeleton from `changeledger agent-prompt <role>` \(investigation \| implementation \| review \| post-review\)/,
   );
   // The skeleton bodies are NOT inlined into the core, and the pointer is not
   // duplicated into the delegation fragment.
@@ -1418,16 +1507,13 @@ test('230608 CR1/CR2: core defers exhaustive detail to owning packs', () => {
   const root = repo();
   const core = buildContext(undefined, root).replace(/\s+/g, ' ');
   // CR1: the delegation-prompt summary reads as a minimum, not a complete list.
-  assert.match(
-    core,
-    /Each delegation prompt states at least ownership, expected output and integration criterion; the task context carries the full prompt contract/,
-  );
+  // 20260726-124835: core stopped listing the minimum elements at all and now
+  // names the owner instead, which is the strongest form of the same deferral.
+  assert.match(core, /the stage context owns what the prompt must contain/);
+  assert.doesNotMatch(core, /ownership, expected output and integration criterion/);
   // CR2: graduation is not a settled binary — core offers graduate OR skip and
   // defers the --new/--into two-step to the close overlay (20260705-134704).
-  assert.match(
-    core,
-    /graduate persistent truth or run `changeledger graduate <id> --skip \[reason\]`/,
-  );
+  assert.match(core, /the close overlay owns graduation and archive/);
   assert.doesNotMatch(core, /a new spec is a two-step/);
   assert.ok(core.length > 0);
 });
@@ -1754,6 +1840,243 @@ test('130728 CR3: without strictness the target warns and never breaks the suite
   assert.deepEqual(realOver.warnings, [
     `spec exceeds target (${real.target.lines + 1}/${real.target.lines} lines, ${real.target.bytes}/${real.target.bytes} bytes)`,
   ]);
+});
+
+// 20260726-124835 — core is rewritten as a routing contract: what the human
+// wants, and who does the work, both decided before any stage context is loaded.
+// The composed core is the surface under test, since that is what an agent pays.
+function composedCore() {
+  return buildContext(undefined, repo()).replace(/\s+/g, ' ');
+}
+
+test('124835 CR1: core exposes the eleven blocks in the decided order', () => {
+  const core = buildContext(undefined, repo());
+  const blocks = [
+    '# ChangeLedger — Core Contract',
+    '## Classify intent before acting',
+    "## Protect the orchestrator's context",
+    '## Invariants',
+    '## When no change is needed',
+    '## Stage exit gates',
+    '## Complexity ceiling',
+    '## Commits',
+    '## Lifecycle',
+    '## Context modes',
+    '## Operational discovery',
+  ];
+  const positions = blocks.map((block) => {
+    const at = core.indexOf(`\n${block}\n`);
+    assert.notEqual(at, -1, `core is missing the block ${block}`);
+    return at;
+  });
+  assert.deepEqual(
+    positions,
+    [...positions].sort((a, b) => a - b),
+    `core blocks are out of order: ${blocks}`,
+  );
+  // The two retired headings, and nothing else, leave the fragment.
+  assert.doesNotMatch(core, /## Read complete context before acting/);
+  assert.doesNotMatch(core, /## Files and delegation/);
+  assert.equal(core.match(/^## /gm).length, blocks.length - 1);
+});
+
+test('124835 CR2/CR3: the identity and the intent table route before any load', () => {
+  const core = composedCore();
+  for (const literal of [
+    'Work is documented before code',
+    'changes under `.changeledger/changes/` are authorized work; specs under `.changeledger/specs/` are persistent truth',
+    'The human decides and the agent executes',
+    'Every stage overlay is the authority for its stage; core never duplicates it',
+    "Classifying the human's intent is free and mandatory on every message",
+    'never load one speculatively and never reload one already held',
+    '| Intent | First action |',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+  assert.ok(!core.includes("Documents under `.changeledger/` are ChangeLedger's persistent truth"));
+  // Every observed intent routes to exactly one first action.
+  const rows = [
+    ['asks, explores or wants understanding', '`changeledger search <terms>` before reading code'],
+    [
+      'reports a problem or asks for new work',
+      '`changeledger context spec` only once the human authorizes documenting it',
+    ],
+    ['names a change or says "continue"', '`changeledger context <id>`'],
+    [
+      'asks what is pending',
+      '`changeledger list --status <s>`, `--pending graduation`, `--pending archive`',
+    ],
+    ['asks to review finished work', '`changeledger context review` in a fresh clean context'],
+    ['asks to release', '`changeledger context release`'],
+    ['requests an edit no change covers', 'ask the human: `quick` type or operational edit'],
+    ['gives a verdict', 'transmit it with the lifecycle command; never infer one'],
+  ];
+  for (const [intent, action] of rows) {
+    assert.ok(core.includes(`| ${intent} |`), `no intent row for ${intent}`);
+    const row = core.slice(core.indexOf(`| ${intent} |`)).split(' |')[1];
+    assert.ok(core.includes(action), `${intent} is missing its first action ${action}`);
+    assert.ok(row.length > 0);
+  }
+});
+
+test('124835 CR4/CR5: work is split by owner and the delegate is sized portably', () => {
+  const core = composedCore();
+  for (const literal of [
+    'Context exhaustion causes compaction, and compaction causes drift and invented facts',
+    'Reading code and writing code are the two heaviest consumers',
+    'delegate them by default',
+    'inline only when trivially small',
+    '| Work | Owner |',
+    '| reading or searching beyond ~3 files to answer one question | subagent |',
+    '| any implementation task with its own verify command | subagent |',
+    '| independent review of finished work | subagent with a fresh clean context |',
+    '| reading a change document, a spec or CLI output | orchestrator |',
+    '| talking to the human, deciding scope, integrating results | orchestrator, never delegated |',
+    'Every delegation is one level deep: a subagent never delegates further',
+    'One owner per write surface',
+    'concurrent subagents must not share files',
+    'Get the prompt skeleton from `changeledger agent-prompt <role>` (investigation | implementation | review | post-review)',
+    'the stage context owns what the prompt must contain',
+    'A subagent returns findings or a diff receipt, not narrative',
+    "Size the delegate to the work, not to the caller's convenience",
+    'cheapest tier and low effort for mechanical lookups and bounded mechanical edits',
+    'mid tier for bounded reasoning over a single surface',
+    'top tier and high effort for deep analysis, ambiguity, cross-cutting design and adversarial review',
+    'Default to mid tier when unsure',
+    'Under-sizing a hard task produces rework the orchestrator pays for twice',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+  // Tiers are relative on purpose: ChangeLedger runs on any host, so the contract
+  // never names a provider's catalogue, which changes and is not portable.
+  const lowered = core.toLowerCase();
+  for (const vendor of [
+    'claude',
+    'opus',
+    'sonnet',
+    'haiku',
+    'gpt',
+    'gemini',
+    'llama',
+    'anthropic',
+    'openai',
+  ]) {
+    assert.ok(!lowered.includes(vendor), `core names the model catalogue: ${vendor}`);
+  }
+});
+
+test('124835 CR6/CR7: invariants, exit gates, the ceiling and commits carry the decided text', () => {
+  const core = composedCore();
+  for (const literal of [
+    'No artifact without explicit human authorization',
+    'Never implement a `draft`',
+    'One change at a time, on a non-main branch',
+    'Keep lifecycle, tasks, ownership and Log current',
+    'Pre-existing divergence between specs and code is reported to the human, never reconciled by inference',
+    'Wait if it affects the current task',
+    'if unrelated, report it without expanding scope',
+    'A human verdict is transmitted, never inferred',
+    'praise, “continue” or agent advice is not a decision',
+    'No silent repository edits when no change applies',
+    'reload `changeledger context <id>`',
+    'the close overlay owns graduation and archive',
+    'If no approved or in-progress change applies, do not silently edit repository files',
+    'ask the human whether a purely operational, reversible edit with no persistent truth or observable behavior change should be done directly',
+    'If unsure, document it in ChangeLedger',
+    'For small, reversible, single-concern work with observable behavior, use the `quick` type instead of bypassing documentation',
+    'Every stage verifies its own output; no stage depends on the next one to learn whether its work is correct',
+    'The exit transition of a stage is its self-verification point',
+    'the implementer proves the change meets its criteria before requesting review',
+    'The reviewer is the last line of defence, not a design oracle and not a source of requirements',
+    "A review finding that the previous stage's own exit criteria should have caught is a defect of that stage, not a normal review round",
+    'A change must be implementable and verifiable in one bounded pass',
+    'If it cannot, split it before approval — an oversized change is the most common root cause of repeated review rounds',
+    '`changeledger context spec` owns the sizing test and the split criteria',
+    'After work has started, a failed verification is diagnosed, never auto-split: the blocked and review contexts own that classification',
+    'One commit per completed Plan task, plus one baseline commit of the change document before any code',
+    'A lifecycle transition is never a commit of its own — the Log is its record; the transition travels in the next real commit',
+    'Subjects follow `type(scope): description [#<id>]`; `changeledger commit` composes it',
+    '`changeledger context implement` owns the full contract',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+});
+
+test('124835 CR8/CR9: lifecycle, modes and operational discovery survive the rewrite', () => {
+  const raw = buildContext(undefined, repo());
+  const core = raw.replace(/\s+/g, ' ');
+  for (const literal of [
+    '`draft`: documentation awaiting human approval; no implementation',
+    '`approved`: ready to start after the Git/worktree checks',
+    '`in-progress`: implementation underway',
+    '`in-review`: independent review required',
+    '`in-validation`: stop for human acceptance or a reasoned rejection',
+    '`blocked`: an impediment or decision needs resolution',
+    '`done`: the human accepted the complete result; provisional until durable closure',
+    '`discarded`: terminal tombstone; never reopen it',
+    '| Transition | Owner | Mechanism |',
+    '`changeledger status <id> <status>` performs agent-owned moves and does not accept `approved`, `done`, `discarded` or reopening',
+    'discard reason is required and logged',
+    '`discarded` never reopens',
+    'A `done` change can reopen only to finish its original scope',
+    'Valid modes: implement, review, spec, release',
+    '`changeledger context <change-id>`: infer the correct context from lifecycle',
+    'extends the core context already read; it never repeats it',
+    '`changeledger list --status approved`',
+    '`changeledger list --pending graduation`',
+    '`changeledger list --pending archive`',
+    '`changeledger search <terms...>`',
+    'before scanning files',
+    'Each context delivers the effective policy that applies to its task, so you never read `.changeledger/config.yml` raw to operate',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+  // The matrix keeps exactly ten rows of three columns; 134703 owns their text.
+  const matrix = raw
+    .slice(raw.indexOf('| Transition | Owner | Mechanism |'))
+    .split('\n\n')[0]
+    .split('\n')
+    .slice(2);
+  assert.equal(matrix.length, 10, `the transition matrix has ${matrix.length} rows, not 10`);
+  for (const row of matrix) {
+    assert.equal(row.split('|').length, 5, `matrix row is not owner+mechanism: ${row}`);
+  }
+});
+
+test('124835 CR10: core stops carrying what it no longer governs', () => {
+  const core = buildContext(undefined, repo());
+  const normalized = core.replace(/\s+/g, ' ');
+  const retired = [
+    // Capture — the bootstrap owns it since 20260726-124834.
+    'Running `changeledger context` is discovery, not compliance',
+    'Capture the first invocation completely in one pass',
+    'read through the `CHANGELEDGER CONTEXT END` line',
+    'exceptional recovery',
+    'new human message alone does not trigger a reload',
+    // Regression guard only: 20260726-124833 already removed both.
+    '--have',
+    'rev:<hash>',
+    // Tool operation and the delegation prompt contract — delegation.md owns them.
+    'Files are the source of truth and may be edited directly',
+    'CLI helpers are optional and preferred for error-prone operations',
+    'Delegate only with a clear boundary and benefit',
+    'ownership, expected output and integration criterion',
+    "must not revert others' work",
+    'Do not over-shard or overlap write surfaces without an explicit integration plan',
+    "Size the model to the task's difficulty and risk",
+    // Stage detail — implement, review, validation and close own it.
+    'commit the approved change document before code',
+    'use a fresh clean-context reviewer before human validation',
+    '`in-validation` stops only that change',
+    'start another approved change unless its `depends_on` chain',
+    'changeledger graduate <id> --skip [reason]',
+  ];
+  for (const literal of retired) {
+    assert.ok(!normalized.includes(literal), `core still carries ${literal}`);
+  }
+  // The END sentinel is emitted by the framing, so retiring the capture section
+  // cannot cost the one line every consumer uses to prove the output is whole.
+  assert.equal(core.trimEnd().split('\n').at(-1), END_LINE);
 });
 
 // 20260726-124835 CR11 — the rewrite pushes stage detail out of core, so every

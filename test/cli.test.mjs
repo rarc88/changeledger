@@ -201,18 +201,19 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 
 test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
   const contract = contractText();
-  assert.match(contract, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(contract, /Capture the first invocation completely in one pass/);
-  assert.match(contract, /Never request a preview, summary\s+or voluntary line, byte or token cap/);
-  assert.match(contract, /new\s+human message alone does not trigger a reload/i);
-  assert.match(contract, /follow the\s+current mode/);
-  assert.match(contract, /exceptional recovery/i);
-  assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
-  assert.match(contract, /direct request such\s+as “create the change” is authorization/);
-  assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
+  // 20260726-124835: the installed contract no longer carries core's capture
+  // section — the bootstrap owns capture and its validity condition — so the
+  // creation gate is asserted through the rewritten routing rules instead.
+  assert.match(contract, /Classifying the human's intent is free and mandatory on every message/);
+  assert.match(contract, /never load one speculatively and never reload one\s+already held/);
+  assert.match(contract, /Escalate to a mode before acting/);
+  assert.match(contract, /No artifact without explicit human authorization/);
+  assert.match(contract, /only once the human authorizes documenting it/);
+  assert.match(contract, /ask the human: `quick` type or operational edit/);
+  assert.match(contract, /The human decides and the agent\s+executes/);
   assert.match(contract, /If no approved or in-progress change applies/);
   assert.match(contract, /ask the human whether a purely operational,\s+reversible edit/);
-  assert.match(contract, /If unsure, document it in ChangeLedger/);
+  assert.match(contract, /If unsure, document\s+it in ChangeLedger/);
   assert.match(
     contract,
     /materially expands observable scope, obtain explicit human\s+authorization/,
@@ -259,7 +260,9 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
   assert.match(contract, /in-validation → done.*human.*viewer/);
   assert.match(contract, /human accepted the complete result/);
-  assert.match(contract, /agent never accepts on the human's behalf/i);
+  // 20260726-124835: core stopped restating this; validation.md is the only owner
+  // left, and it wraps the sentence across a line.
+  assert.match(contract, /agent\s+never accepts on the human's behalf/i);
   assert.match(contract, /`discarded` never reopens/);
   assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });

@@ -1,67 +1,101 @@
 # ChangeLedger — Core Contract
 
-Documents under `.changeledger/` are ChangeLedger's persistent truth. Work using
-ChangeLedger is documented before code; work performed without the CLI may diverge.
+Work is documented before code: changes under `.changeledger/changes/` are authorized work;
+specs under `.changeledger/specs/` are persistent truth. The human decides and the agent
+executes. Every stage overlay is the authority for its stage; core never duplicates it.
 
-## Read complete context before acting
+## Classify intent before acting
 
-Running `changeledger context` is discovery, not compliance by itself. Capture the first invocation completely in one pass
-and read through the `CHANGELEDGER CONTEXT END` line, then follow the current mode. Never request a preview, summary
-or voluntary line, byte or token cap; if the tool exposes an output budget,
-reserve enough for the whole response. A missing END after this deliberate full
-capture is exceptional recovery: stop and re-run with a larger capture before
-planning or acting on the partial output.
+Classifying the human's intent is free and mandatory on every message; loading a stage
+context is not, so never load one speculatively and never reload one already held.
 
-While the complete core remains available in the active conversation, a new
-human message alone does not trigger a reload. Load only the specialized mode or
-change-id context required by a real task or lifecycle transition.
+| Intent | First action |
+|---|---|
+| asks, explores or wants understanding | answer from the repo: `changeledger search <terms>` before reading code |
+| reports a problem or asks for new work | conversation first, then `changeledger context spec` only once the human authorizes documenting it |
+| names a change or says "continue" | `changeledger context <id>` |
+| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |
+| asks to review finished work | `changeledger context review` in a fresh clean context |
+| asks to release | `changeledger context release` |
+| requests an edit no change covers | ask the human: `quick` type or operational edit |
+| gives a verdict | transmit it with the lifecycle command; never infer one |
 
-1. Work starts with conversation. Read-only investigation may clarify a request,
-   but create no change or implementation artifact until there is enough clarity
-   to document faithfully **and** the human explicitly authorizes documentation. A direct request such
-   as “create the change” is authorization; never invent missing requirements.
-2. The human authorizes scope, approves drafts and accepts the final result. A
-   decision may come from the viewer or an explicit active conversation message
-   identifying the change and verdict; praise, “continue”, or agent inference is
-   not a decision. The agent executes but never makes human decisions.
-3. Capture every authorized change in `.changeledger/changes/`. Any pre-existing
-   divergence between specs and code must be reported to the human, never
-   reconciled by inference. Wait if it affects the current task; if unrelated,
-   report it without expanding scope. An approved change governs code in scope.
-4. Never implement a `draft`. After approval, implement one change at a time on
-   a non-main branch and commit the approved change document before code.
-5. Keep lifecycle, tasks, ownership and Log current while working.
-6. For types that require review, use a fresh clean-context reviewer before
-   human validation.
-7. `in-validation` stops only that change; the agent never accepts on the human's behalf, but may reject with a reason and start another approved change unless its `depends_on` chain (direct or transitive) reaches an `in-validation` change.
-8. After human acceptance, reload `changeledger context <id>` for the `done`
-   change, then graduate persistent truth or run `changeledger graduate <id>
-   --skip [reason]`; archive only after that decision. The close overlay owns
-   the full graduation recipe.
+## Protect the orchestrator's context
 
-If no approved or in-progress change applies, do not silently edit repository
-files. Create or update a change, or ask the human whether a purely operational,
-reversible edit with no persistent truth or observable behavior change should be
-done directly. If unsure, document it in ChangeLedger. For small, reversible,
-single-concern work with observable behavior, use the `quick` type instead of
-bypassing documentation — see `changeledger context spec`.
+Context exhaustion causes compaction, and compaction causes drift and invented facts. Reading
+code and writing code are the two heaviest consumers: delegate them by default and inline
+only when trivially small.
+
+| Work | Owner |
+|---|---|
+| reading or searching beyond ~3 files to answer one question | subagent |
+| any implementation task with its own verify command | subagent |
+| independent review of finished work | subagent with a fresh clean context |
+| reading a change document, a spec or CLI output | orchestrator |
+| talking to the human, deciding scope, integrating results | orchestrator, never delegated |
+
+Every delegation is one level deep: a subagent never delegates further. One owner per write
+surface; concurrent subagents must not share files. Get the prompt skeleton from
+`changeledger agent-prompt <role>` (investigation | implementation | review | post-review);
+the stage context owns what the prompt must contain. A subagent returns findings or a diff
+receipt, not narrative. `post-review` is a read-only inspection of a change already in
+`in-validation`; it never issues a verdict or moves the change.
+
+Size the delegate to the work, not to the caller's convenience: cheapest tier and low effort
+for mechanical lookups and bounded mechanical edits; mid tier for bounded reasoning over a
+single surface; top tier and high effort for deep analysis, ambiguity, cross-cutting design
+and adversarial review. Default to mid tier when unsure. Under-sizing a hard task produces
+rework the orchestrator pays for twice.
+
+## Invariants
+
+- No artifact without explicit human authorization.
+- Never implement a `draft`.
+- One change at a time, on a non-main branch.
+- Keep lifecycle, tasks, ownership and Log current.
+- Pre-existing divergence between specs and code is reported to the human, never reconciled
+  by inference. Wait if it affects the current task; if unrelated, report it without
+  expanding scope.
+- A human verdict is transmitted, never inferred; praise, “continue” or agent advice is not
+  a decision.
+- No silent repository edits when no change applies.
+- After human acceptance, reload `changeledger context <id>`: the close overlay owns
+  graduation and archive.
+
+## When no change is needed
+
+If no approved or in-progress change applies, do not silently edit repository files. Create
+or update a change, or ask the human whether a purely operational, reversible edit with no
+persistent truth or observable behavior change should be done directly. If unsure, document
+it in ChangeLedger. For small, reversible, single-concern work with observable behavior, use
+the `quick` type instead of bypassing documentation — see `changeledger context spec`.
 
 Humans consume changes in `changeledger view`; write for the rendered view.
 
-## Files and delegation
+## Stage exit gates
 
-Files are the source of truth and may be edited directly. CLI helpers are
-optional and preferred for error-prone operations such as timestamps, lifecycle
-transitions and task markers.
+Every stage verifies its own output; no stage depends on the next one to learn whether its
+work is correct. The exit transition of a stage is its self-verification point: the
+implementer proves the change meets its criteria before requesting review. The reviewer is
+the last line of defence, not a design oracle and not a source of requirements. A review
+finding that the previous stage's own exit criteria should have caught is a defect of that
+stage, not a normal review round.
 
-Delegate only with a clear boundary and benefit. Each delegation prompt states at least
-ownership, expected output and integration criterion; the task context carries the full
-prompt contract. Get a complete role skeleton to fill in with `changeledger agent-prompt
-<role>` (investigation | implementation | review | post-review). Coding agents must know they
-share the codebase and must not revert others' work. Do not over-shard or overlap write
-surfaces without an explicit integration plan. Size the model to the task's difficulty
-and risk. `post-review` is a read-only inspection of a change already in
-`in-validation`; it never issues a verdict or moves the change.
+## Complexity ceiling
+
+A change must be implementable and verifiable in one bounded pass. If it cannot, split it
+before approval — an oversized change is the most common root cause of repeated review
+rounds, and `changeledger context spec` owns the sizing test and the split criteria. After
+work has started, a failed verification is diagnosed, never auto-split: the blocked and
+review contexts own that classification.
+
+## Commits
+
+One commit per completed Plan task, plus one baseline commit of the change document before
+any code. A lifecycle transition is never a commit of its own — the Log is its record; the
+transition travels in the next real commit. Subjects follow `type(scope): description
+[#<id>]`; `changeledger commit` composes it, and `changeledger context implement` owns the
+full contract.
 
 ## Lifecycle
 
