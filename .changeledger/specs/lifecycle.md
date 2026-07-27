@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-26T22:55:09Z
+updated: 2026-07-27T00:01:34Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -57,13 +57,19 @@ transición directa a `in-validation`. El núcleo no ejecuta hooks, formatters n
 comandos externos configurables como efecto lateral; esos gates pertenecen al
 repositorio anfitrión.
 
-**Auditoría post-review.** Un change en `in-validation` admite una inspección
-delegada estrictamente read-only: `changeledger agent-context audit <id>` entrega
-una cápsula autocontenida con el change, sus criterios y una frontera explícita
-de no mutación (archivos, Git, ledger). El delegado devuelve hallazgos y
+**Inspección post-review.** Un change en `in-validation` admite una inspección
+delegada estrictamente read-only: `changeledger agent-context post-review <id>`
+entrega una cápsula autocontenida con el change, sus criterios y una frontera
+explícita de no mutación (archivos, Git, ledger). El delegado devuelve hallazgos y
 evidencia, nunca un veredicto que mueva el lifecycle, y la operación no cambia el
 status ni añade entradas al Log. El contexto `review` conserva su restricción a
 `in-review` y su receta de veredicto única.
+
+El rol se llama `post-review`, no `audit`, y sin alias de compatibilidad: `audit`
+es además un **tipo** de change configurado, y compartir la cadena en dos
+espacios de nombres sin relación hacía que el error de puerta del rol se leyera
+como un fallo del tipo. El nombre elegido es el que el propio contrato ya usaba
+para describir la actividad, y no colisiona con ningún tipo, rol ni status.
 
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo

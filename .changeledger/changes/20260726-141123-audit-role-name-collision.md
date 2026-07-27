@@ -2,9 +2,10 @@
 id: "20260726-141123"
 title: Resolver la colisión del nombre audit
 type: bug
-status: in-validation
+status: done
 created: 2026-07-26T14:11:23Z
 depends_on: []
+reviewed: true
 related_to: []
 owner: raruiz-hiberuscom
 ---
@@ -127,3 +128,5 @@ compatibilidad, así que `audit` deja de resolver como rol sin excepción.
 - **2026-07-26T23:53:51Z** `[status]` in-progress → in-review
 - **2026-07-26T23:56:19Z** `[note]` Mandato de la ronda de confirmacion: minimo, acotado al comentario de clasificacion del snapshot y a las dos notas de Log, sin re-revisar el renombrado ya aprobado
 - **2026-07-26T23:56:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T00:00:51Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T00:01:34Z** `[graduation]` spec: `lifecycle.md`
