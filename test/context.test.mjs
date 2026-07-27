@@ -1756,6 +1756,53 @@ test('130728 CR3: without strictness the target warns and never breaks the suite
   ]);
 });
 
+// 20260726-124835 CR11 — the rewrite pushes stage detail out of core, so every
+// rule that leaves must be provably still owned somewhere, and the two sentences
+// the human decided NOT to move must provably stay in core: relocating them into
+// `delegation.md` and `spec.md` added 205 bytes to the composed `spec` pack,
+// overflowing its hard byte cap by 41, so `budgets.yml` and every fragment other
+// than `core.md` stay untouched by this change.
+test('124835 CR11: retired rules keep their owner and the retained sentences stay in core', () => {
+  const root = repo();
+  const validationId = addChange(root, 'in-validation', '20260726-124801');
+  const doneId = addChange(root, 'done', '20260726-124802');
+  const norm = (text) => text.replace(/\s+/g, ' ');
+  const core = norm(buildContext(undefined, root));
+  const implement = norm(buildContext('implement', root));
+  const validation = norm(buildContext(validationId, root));
+  const close = norm(buildContext(doneId, root));
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragment = (file) => norm(fs.readFileSync(new URL(file, contractDir), 'utf8'));
+  const delegation = fragment('delegation.md');
+
+  for (const pattern of [
+    /one subagent per file, line or tiny mechanical edit/,
+    /parallel agents over the same files or conceptual surface/,
+    /strongest available models for ambiguous scope/,
+    /for roles that write, the expected baseline \(branch or commit\) the delegate must verify/,
+  ]) {
+    assert.match(delegation, pattern, `delegation.md is missing ${pattern}`);
+  }
+
+  // Retained in core, and absent from the fragment each one would have moved to.
+  const postReview =
+    /`post-review` is a read-only inspection of a change already in `in-validation`; it never issues a verdict or moves the change/;
+  assert.match(core, postReview);
+  assert.doesNotMatch(delegation, postReview);
+  const viewer = /Humans consume changes in `changeledger view`; write for the rendered view/;
+  assert.match(core, viewer);
+  assert.doesNotMatch(fragment('spec.md'), viewer);
+
+  // Each rule core stops carrying is asserted in the overlay that owns it.
+  assert.match(implement, /baseline commit of the approved change document before code/);
+  assert.match(validation, /This stop is scoped to this change/);
+  assert.match(
+    validation,
+    /direct or transitive `depends_on` chain reaches one in `in-validation`/,
+  );
+  assert.match(close, /changeledger graduate <id> --skip \[reason\]/);
+});
+
 test('130728 CR4: the current core composition clears the strict target', () => {
   const root = repo();
   const budget = contextBudgets.base.core;
