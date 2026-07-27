@@ -5,7 +5,7 @@ type: feature
 status: approved
 created: 2026-07-26T13:07:28Z
 depends_on: []
-related_to: ["20260726-124835"]
+related_to: ["20260726-124835", "20260726-130727"]
 owner: raruiz-hiberuscom
 release_impact: none
 ---
@@ -15,8 +15,10 @@ release_impact: none
 El contexto core es el único texto contractual que se paga en cada sesión y otra
 vez tras cada compactación. Su presupuesto vive en `templates/contract/budgets.yml`
 y hoy vale target 125 líneas / 7500 bytes y hard 140 líneas / 9000 bytes, mientras
-la composición real mide 138 líneas y 8478 bytes: ya está por encima del target y
-a dos líneas del límite duro, sin que nada se haya detenido nunca.
+la composición real ya está por encima del target y cerca del límite duro, sin que
+nada se haya detenido nunca. (Medida el 2026-07-26 al redactar: 138 líneas y 8478
+bytes, a dos líneas del hard. Ver la actualización de la Investigation para la
+medida vigente.)
 
 Se pide subir la entrada `core` a target 175 líneas / 11000 bytes y hard 200
 líneas / 12000 bytes, y que **solo para esa entrada** el test de presupuesto falle
@@ -53,11 +55,37 @@ que itera `contextBudgets.base` y compone `buildContext(undefined, root)` para
 `core`. El barrido gemelo de overlays (1108-1121) y las medidas de `implement`
 (686) y `spec` (1302) son las que deben seguir avisando en target.
 
-Con target 175/11000, el texto actual del core (138 líneas, 8478 bytes) queda en
-verde incluso con el fallo estricto activado. Por eso este change es independiente
-y puede aterrizar antes de cualquier reescritura del texto.
+Con target 175/11000, el texto actual del core queda en verde incluso con el fallo
+estricto activado. Por eso este change es independiente y puede aterrizar antes de
+cualquier reescritura del texto.
 
-Existe una copia de `assertWithinBudget` en `test/agent-context.test.mjs:19`, que
+**Actualización 2026-07-27 — medidas y punteros re-verificados.** Las cifras y las
+referencias de línea de arriba se tomaron el 2026-07-26 y envejecieron al aterrizar
+`141119`–`141124`, `124833`, `130727` y `124834`. Medido de nuevo hoy, en la misma
+convención que usa el test de presupuesto (`output.split('\n').length`):
+
+- **core = 133 líneas y 8133 bytes**, frente a target 125/7500 y hard 140/9000. Es
+  decir: sigue por encima del target, y a 7 líneas del límite duro en vez de a 2.
+  Con el target propuesto de 175/11000 queda holgadamente en verde, así que la
+  conclusión del Request no cambia.
+- Cuidado con la convención: el test de presupuesto cuenta un elemento vacío final,
+  así que sus 133 son 132 líneas realmente emitidas — el mismo número que
+  `20260726-130727` publica en `lines:<N>`. Las cifras de `budgets.yml` están
+  expresadas en la convención del test, no en la del consumidor.
+
+Referencias de línea vigentes, todas comprobadas con `grep -n` hoy (ninguna de las
+que citaba este documento sobrevivió):
+
+- `assertWithinBudget` en `test/context.test.mjs:19` (el documento decía 16-26).
+- Llamadas con label `core`: `235`, `258`, `361` y siguientes (decía 139, 162, 265,
+  493, 851, 929, 1273).
+- Barrido `225213 CR6: every base composition…` en `1203`; el gemelo de overlays en
+  `1213` (decía 1098-1106 y 1108-1121).
+- Medida de `implement` en `808` (decía 686); medidas de `spec` en `1407`, `1523` y
+  `1543` (decía 1302).
+- La copia de `assertWithinBudget` en `test/agent-context.test.mjs:20` (decía 19).
+
+Existe una copia de `assertWithinBudget` en `test/agent-context.test.mjs:20`, que
 solo mide cápsulas de agente contra `agent`. Ninguna entrada medida allí declarará
 estrictez, luego su comportamiento es idéntico; la duplicación es previa a este
 change y se deja fuera de alcance para no ampliar la superficie.
@@ -122,10 +150,19 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 - **And** una salida de 311 líneas contra ese mismo presupuesto lanza `AssertionError` con `spec exceeds 310 lines: 311`
 
 ### CR4 — La composición core vigente queda en verde con el presupuesto estricto
-- **Given** un repo ChangeLedger inicializado y `templates/contract/core.md` sin cambios
+- **Given** un repo ChangeLedger inicializado
 - **When** se mide `buildContext(undefined, root)` contra `base.core`
-- **Then** la medición es 138 líneas y 8478 bytes, ambas por debajo del target 175/11000
-- **And** el barrido `225213 CR6` no lanza ni emite ningún aviso con `core exceeds target`
+- **Then** su recuento de líneas y de bytes queda **estrictamente por debajo** del
+  target 175 / 11000, de modo que activar el fallo estricto no exige tocar
+  `templates/contract/core.md` y este change es independiente de su reescritura
+- **And** el barrido `225213 CR6` no lanza ni emite ningún aviso con
+  `core exceeds target`
+- **Nota de forma (2026-07-27, autorizada por el humano):** este criterio **no**
+  fija cifras exactas a propósito. Hacerlo lo rompería en cuanto
+  `20260726-124835` reescriba `core.md`, que es el change inmediatamente
+  siguiente; el pin exacto sería un criterio que otro change de la misma tanda
+  invalida. La medida fechada vive en la Investigation como línea base, no como
+  aserción.
 
 ## Plan
 
@@ -138,3 +175,5 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 
 - **2026-07-26T13:20:00Z** `[note]` Draft creado al separar el mecanismo de presupuesto de la reescritura del texto core (`20260726-124835`): aquí viven las cifras 175/200 y el fallo estricto en target solo para `core`. Tipo `feature` en vez de `refactor` porque el contrato de este repo solo activa `## Specification` para `feature` y `bug`, y los criterios son obligatorios; `release_impact: none` conserva la semántica de release de un refactor.
 - **2026-07-26T14:05:49Z** `[status]` draft → approved
+- **2026-07-27T13:14:02Z** `[note]` Caducidades corregidas antes de implementar, autorizadas por Roberto el 2026-07-27. (1) CR4 CAMBIA DE FORMA con su autorizacion explicita: pineaba '138 lineas y 8478 bytes' y hoy la medida es 133/8133, pero el arreglo no es actualizar el numero — es dejar de fijarlo. 20260726-124835 es el change inmediatamente siguiente y su trabajo es reescribir core.md, asi que un pin exacto seria un criterio que otro change de la misma tanda invalida, la misma clase que ya nos mordio en 141121. CR4 ahora afirma que la medida queda estrictamente por debajo del target 175/11000 y que el barrido no emite aviso; el proposito (probar que este change es independiente de la reescritura) queda intacto y deja de romperse cuando el contrato cambia una linea. La medida fechada vive en la Investigation como linea base. (2) Cifras del Request y de la Investigation actualizadas: 133 lineas y 8133 bytes, sigue sobre el target y a 7 lineas del hard, no a 2.
+- **2026-07-27T13:14:02Z** `[note]` SEXTA aparicion de la clase de puntero inexacto, y la primera total: NINGUNA referencia de linea de la Investigation sobrevivio. assertWithinBudget estaba citado en 16-26 y esta en 19; los sitios con label core en 139/162/265/493/851/929/1273 y estan en 235/258/361...; el barrido 225213 CR6 en 1098-1106 y esta en 1203, su gemelo de overlays en 1213; implement en 686 y esta en 808; spec en 1302 y esta en 1407/1523/1543; la copia en agent-context.test.mjs en 19 y esta en 20. Todas re-verificadas con grep -n y reescritas. Son prosa y no criterios, asi que no rompen tests, pero habrian desorientado al implementador. Anotado tambien en la Investigation el aviso de convencion: los 133 del test de presupuesto son 132 lineas realmente emitidas, el mismo numero que 130727 publica en lines:<N>; budgets.yml esta expresado en la convencion del test, no en la del consumidor.
