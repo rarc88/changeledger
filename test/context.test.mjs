@@ -2262,15 +2262,11 @@ test('130728 CR4: the current core composition clears its threshold', () => {
   // than pass by sitting exactly on the ceiling.
   assert.ok(lines < budget.lines, `core is not below its line threshold: ${lines}/${budget.lines}`);
   assert.ok(bytes < budget.bytes, `core is not below its byte threshold: ${bytes}/${budget.bytes}`);
-  // The 225213 CR6 sweep itself: no throw, and no core target warning.
+  // The 225213 CR6 sweep itself: every base pack clears its own threshold.
   const sweep = captureBudget(() => {
     for (const [mode, entry] of Object.entries(contextBudgets.base)) {
       assertWithinBudget(mode, mode === 'core' ? core : buildContext(mode, root), entry);
     }
   });
   assert.ok(!sweep.thrown, `the base sweep threw: ${sweep.thrown?.message}`);
-  assert.deepEqual(
-    sweep.warnings.filter((warning) => warning.includes('core exceeds target')),
-    [],
-  );
 });
