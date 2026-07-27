@@ -2,7 +2,7 @@
 id: "20260726-124835"
 title: Reescribir el contexto core para enrutar por intención
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-26T12:48:35Z
 depends_on: ["20260726-124833", "20260726-124834", "20260726-130728"]
 related_to: ["20260722-124655", "20260722-124656", "20260726-124837"]
@@ -30,8 +30,10 @@ presupuesto: solo el reparto de verdad entre core y sus overlays.
 
 ## Investigation
 
-Medición actual de la composición core (`buildContext(undefined, root)`):
-138 líneas y 8478 bytes. El presupuesto contra el que se mide esta reescritura es
+Medición actual de la composición core (`buildContext(undefined, root)`, medida
+el 2026-07-27): 132 líneas emitidas, 133 en la convención del test
+(`output.split('\n').length`, la que aplica `assertWithinBudget`) y 8133 bytes en
+el repo de fixture. El presupuesto contra el que se mide esta reescritura es
 el que deja `20260726-130728`: target 175 líneas / 11000 bytes, hard 200 / 12000,
 y fallo —no aviso— al pasar el target para la entrada `core`. Esa puerta ya está
 en su sitio cuando esta reescritura empieza, así que cada commit del texto se mide
@@ -39,29 +41,31 @@ contra un límite objetivo.
 
 La composición es determinista y aislable: `src/commands/context.mjs` compone
 core solo (`composeInput` con `incremental: false`, fragmentos `['core']`) y
-ningún modo lo repite; la diferencia entre `core.md` (131 líneas, 8212 bytes) y
-la salida compuesta es fija: +7 líneas y +266 bytes de BEGIN, línea de política,
-END y separadores. Esto permite fijar criterios sobre la salida compuesta.
+ningún modo lo repite; la diferencia entre `core.md` (126 líneas, 7901 bytes) y
+la salida compuesta es fija: +6 líneas emitidas y +232 bytes de BEGIN, línea de
+política, END y separadores —el segmento `rev:` dejó la línea BEGIN con
+`20260726-124833`—. Esto permite fijar criterios sobre la salida compuesta.
 
 Tres trabajos conviven en el fichero:
 
-1. Captura del contexto — `core.md` líneas 6-22: cómo capturar en una pasada, el
-   centinela `CHANGELEDGER CONTEXT END`, y el párrafo de `rev:`/`--have` para
-   recapturar tras compactación. Son negativos inverificables («nunca pidas un
-   preview») y la línea de cierre («si falta esta línea, la salida se truncó»)
-   solo la puede leer un agente que no la necesitaba. `20260726-124834` da al
-   bootstrap la propiedad de la captura y su validez, y `20260726-124833` elimina
-   `--have`, así que estas líneas quedan sin dueño en core.
-2. Operación de la herramienta — líneas 56-69 («Files and delegation»): fichero
+1. Captura del contexto — sección `## Read complete context before acting` de
+   `core.md`: cómo capturar en una pasada, el centinela
+   `CHANGELEDGER CONTEXT END` y la regla de no recargar un core ya retenido. Son
+   negativos inverificables («nunca pidas un preview») y la línea de cierre («si
+   falta esta línea, la salida se truncó») solo la puede leer un agente que no la
+   necesitaba. `20260726-124833` ya retiró de esa sección el párrafo de
+   `rev:`/`--have`, y `20260726-124834` da al bootstrap la propiedad de la captura
+   y su validez, así que estas líneas quedan sin dueño en core.
+2. Operación de la herramienta — sección `## Files and delegation`: fichero
    como fuente de verdad, mínimos del prompt de delegación y esqueleto de rol.
    `templates/contract/delegation.md` ya contiene el contrato completo del prompt
-   (líneas 45-58) y se compone en los modos `spec` e `implement`
-   (`MODE_CONTEXT` en `src/commands/context.mjs`), y `spec.md` ya declara que los
-   ficheros son la fuente de verdad. Core duplica a su overlay.
-3. Reglas de etapa — reglas numeradas 4, 6, 7 y 8 (líneas 36-45): commit del
-   documento antes del código, reviewer fresco de contexto limpio, trabajo
-   paralelo mientras otro change espera en `in-validation`, y la receta de
-   graduación. `implement.md`, `review.md`, `validation.md` y `close.md` ya son
+   (sección `## Delegation prompt contract`) y se compone en los modos `spec` e
+   `implement` (`MODE_CONTEXT` en `src/commands/context.mjs`), y `spec.md` ya
+   declara que los ficheros son la fuente de verdad. Core duplica a su overlay.
+3. Reglas de etapa — reglas numeradas 4, 6, 7 y 8, dentro del tramo que va de la
+   regla 4 a la 8 de la lista numerada: commit del documento antes del código,
+   reviewer fresco de contexto limpio, trabajo paralelo mientras otro change
+   espera en `in-validation`, y la receta de graduación. `implement.md`, `review.md`, `validation.md` y `close.md` ya son
    dueños de ese detalle; `validation.md` incluso enuncia la cadena
    `depends_on` completa que core resume peor.
 
@@ -83,11 +87,30 @@ orquestador decide delegar —antes de cargar cualquier modo— no tiene criteri
 coste observado es infradimensionar tareas duras y pagar el retrabajo dos veces.
 
 La red de seguridad contra pérdida silenciosa de reglas es el test de snapshot
-`test/context.test.mjs:514` («234939 CR10/CR11»), que exige clasificar cada
-regla afectada como preservada, reemplazada o retirada al actualizar el digest.
-Ese test es el único mecanismo que impide que la reescritura pierda una regla sin
-dejar rastro, y por eso la clasificación es parte del alcance y no un comentario
-opcional.
+`234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss` de
+`test/context.test.mjs`, que exige clasificar cada regla afectada como
+preservada, reemplazada o retirada al actualizar el digest. Ese test es el único
+mecanismo que impide que la reescritura pierda una regla sin dejar rastro, y por
+eso la clasificación es parte del alcance y no un comentario opcional. Su
+comentario de `20260726-124833` declara además que la regla
+`new human message alone does not trigger a reload` es hoy load-bearing —«the
+sole reason a retained capture is not reloaded»—, así que su desaparición del
+texto solo es legítima si se clasifica como reemplazada por la cláusula
+equivalente del core reescrito.
+
+El texto literal de core no está afirmado solo en ese snapshot. Verificado hoy,
+cuatro sitios más rompen al retirarlo: `CR1/CR5/CR7: core context is
+deterministic and within its budget` (fija los literales de captura),
+`234939 CR1-CR10: restored invariants stay in their owning contexts` (su lista de
+invariantes y sus aserciones sobre `fragments['core.md']`, con los literales
+`Size the model to the task's difficulty and risk` y `Do not over-shard or
+overlap write surfaces`, que hoy solo existen en `core.md`),
+`234939 CR11-CR20: dynamic packs retain the operational contract` (su lista
+esperada) —los tres en `test/context.test.mjs`— y
+`214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and
+friction` de `test/cli.test.mjs`, cuyo `contractText()` concatena todos los
+`templates/contract/*.md` y por tanto ve también la reescritura. Sin cubrirlos,
+los `verify:` del Plan no revelan la rotura y `pnpm verify` falla al final.
 
 ## Proposal
 
@@ -103,17 +126,21 @@ líneas:
 1. Identidad — 5 líneas.
 2. `## Classify intent before acting` — ~22 líneas, con tabla intención → primera
    acción.
-3. `## Protect the orchestrator's context` — ~23 líneas, con tabla trabajo →
-   dueño y el dimensionado del delegado.
+3. `## Protect the orchestrator's context` — ~25 líneas, con tabla trabajo →
+   dueño, el dimensionado del delegado y la semántica del rol `post-review`.
 4. `## Invariants` — ~10 líneas.
-5. `## When no change is needed` — ~8 líneas.
+5. `## When no change is needed` — ~11 líneas, incluida la frase del viewer.
 6. `## Stage exit gates` — ~8 líneas; absorbe lo que habría sido un bloque
    separado de roles.
 7. `## Complexity ceiling` — 4 líneas.
 8. `## Commits` — ~5 líneas.
 9. `## Lifecycle` — ~30 líneas, estados y matriz completa.
-10. `## Operational discovery` — ~8 líneas.
-11. `## Context modes` — ~8 líneas.
+10. `## Context modes` — ~8 líneas.
+11. `## Operational discovery` — ~8 líneas.
+
+Los bloques 10 y 11 conservan el orden que ya tiene el fichero (`## Context
+modes` antes de `## Operational discovery`): reordenarlos no compra nada y no es
+trabajo de este change.
 
 El bloque 3 incorpora el dimensionado del delegado, decidido con el humano y
 enunciado de forma portable: el contrato nunca nombra los modelos de un
@@ -127,12 +154,20 @@ decidido es:
 > tier when unsure. Under-sizing a hard task produces rework the orchestrator pays
 > for twice.
 
+El bloque 6 enuncia solo el principio de autoverificación por etapa. Hoy no
+existe ninguna puerta que rechace una transición porque los criterios enumerables
+de la etapa fallen: `assertTransition` valida únicamente la legalidad del
+lifecycle, y `assertChangeTextValid` → `checkCoverage` rechaza defectos de
+estructura de readiness (Given/When/Then ausentes, referencias a criterios
+inexistentes, tareas con CR sin objetivo y verificación), nunca criterios de
+aceptación incumplidos. Esa puerta es alcance de `20260722-124655` y
+`20260722-124656`, ambos todavía en `draft`, así que core no puede afirmarla como
+comportamiento existente.
+
 Salidas de core y su destino:
 
 - Sección «Read complete context before acting» y la autorreferencia de
   truncamiento: al bootstrap (`20260726-124834`).
-- Párrafo `rev:`/`--have`/recaptura tras compactación: `--have` desaparece
-  (`20260726-124833`) y el bootstrap es dueño de la recarga.
 - Prosa del contrato de prompt de delegación: se queda en `delegation.md`, ya
   compuesto en `spec` e `implement`. Core conserva solo la decisión de
   enrutamiento, el dimensionado del delegado y el puntero a
@@ -140,24 +175,33 @@ Salidas de core y su destino:
 - Detalle de las reglas 4, 6, 7 y 8: a su overlay (implement, review,
   validation, close). Core conserva como máximo un invariante de una línea.
 
-Dos frases desplazadas se reubican en su dueño en vez de retirarse: la semántica
-del rol `audit` pasa a `delegation.md` y «Humans consume changes in
-`changeledger view`; write for the rendered view» pasa a `spec.md`, que es quien
-gobierna la autoría.
+Dos frases se quedan en `core.md`, y esto es una decisión medida, no un descuido:
+la semántica del rol `post-review` y «Humans consume changes in `changeledger
+view`; write for the rendered view». Desplazarlas a `delegation.md` y `spec.md`
+añade 205 bytes al pack `spec` compuesto, que hoy mide 13536 bytes contra un
+techo duro de 13700, así que lo desbordaría en 41 bytes, y dejaría el pack
+`implement` compuesto con 17 bytes de margen (9983 sobre 10000). El test
+`130728 CR4: the current core composition clears the strict target` mide cada
+entrada `base` contra su techo duro, de modo que el traslado no podría pasar a
+verde. El humano eligió cancelar ambos traslados en vez de subir ningún
+presupuesto: `budgets.yml` no se toca y ningún fragmento distinto de `core.md` se
+edita en este change.
 
 Preservaciones obligatorias, cada una con criterio propio: la regla de que hay
-trabajo que no necesita change (`core.md` 47-52), la lista completa de estados
-con la matriz de transiciones y sus columnas de dueño y mecanismo, los
-invariantes, los comandos de descubrimiento operativo con la política efectiva
-por contexto, y el índice de modos.
+trabajo que no necesita change (el párrafo `If no approved or in-progress change
+applies…`), la lista completa de estados con la matriz de transiciones y sus
+columnas de dueño y mecanismo, los invariantes, los comandos de descubrimiento
+operativo con la política efectiva por contexto, y el índice de modos.
 
 Presupuesto: la reescritura debe aterrizar en 175 líneas compuestas o menos y
 11000 bytes o menos, las cifras que `20260726-130728` ya dejó vigentes con fallo
-estricto en target. La proyección revisada del texto propuesto es ~165 líneas y
-~9800 bytes —la anterior era ~160/~9400, y el bloque 3 crece 5 líneas al
-incorporar el dimensionado del delegado—, así que la restricción vinculante sigue
-siendo la de líneas, con ~10 líneas de margen que son evolución futura y no
-espacio a rellenar.
+estricto en target. Todas las cifras de líneas de esta proyección usan la
+convención del test (`output.split('\n').length` sobre la salida de
+`buildContext`), que es la misma con la que `assertWithinBudget` compara el
+presupuesto. La proyección revisada es 164-170 líneas y ~10000 bytes: la anterior
+era ~165/~9800 y cancelar los dos traslados devuelve a core unas 5 líneas y los
+205 bytes de ambas frases. La restricción vinculante sigue siendo la de líneas,
+con al menos 5 líneas de margen que son evolución futura y no espacio a rellenar.
 
 Alternativas descartadas:
 
@@ -173,6 +217,10 @@ Alternativas descartadas:
 - Nombrar niveles de modelo por proveedor para que el criterio sea inequívoco:
   ata el contrato a un catálogo que cambia y que no existe en todos los
   anfitriones; los niveles relativos son portables.
+- Subir el techo duro de `spec` (y el margen de `implement`) para acomodar los
+  dos traslados: el humano lo descartó explícitamente. Un presupuesto que se
+  ensancha para que quepa un traslado deja de ser una puerta, y ninguna de las
+  dos frases gana nada por cambiar de fichero.
 
 Escenario principal: el orquestador recibe un mensaje humano, clasifica la
 intención con la tabla de core sin cargar nada, y solo entonces carga el contexto
@@ -191,7 +239,7 @@ haber detectado se trata como defecto de esa etapa.
   `## Classify intent before acting`, `## Protect the orchestrator's context`,
   `## Invariants`, `## When no change is needed`, `## Stage exit gates`,
   `## Complexity ceiling`, `## Commits`, `## Lifecycle`,
-  `## Operational discovery` y `## Context modes`
+  `## Context modes` y `## Operational discovery`
 - **And** no contiene los headings retirados `## Read complete context before acting`
   ni `## Files and delegation`
 
@@ -229,7 +277,7 @@ haber detectado se trata como defecto de esa etapa.
 - **And** contiene filas para `reading or searching beyond ~3 files to answer one question` → `subagent`, `any implementation task with its own verify command` → `subagent`, `independent review of finished work` → `subagent with a fresh clean context`, `reading a change document, a spec or CLI output` → `orchestrator` y `talking to the human, deciding scope, integrating results` → `orchestrator, never delegated`
 - **And** contiene `Every delegation is one level deep: a subagent never delegates further`
 - **And** contiene `One owner per write surface` y `concurrent subagents must not share files`
-- **And** contiene ``Get the prompt skeleton from `changeledger agent-prompt <role>` (investigation | implementation | review | audit)``
+- **And** contiene ``Get the prompt skeleton from `changeledger agent-prompt <role>` (investigation | implementation | review | post-review)``
 - **And** contiene `the stage context owns what the prompt must contain`
 - **And** contiene `A subagent returns findings or a diff receipt, not narrative`
 
@@ -266,7 +314,7 @@ haber detectado se trata como defecto de esa etapa.
 - **Given** la composición core normalizada
 - **When** se inspeccionan los bloques `## Stage exit gates`, `## Complexity ceiling` y `## Commits`
 - **Then** `## Stage exit gates` contiene `Every stage verifies its own output; no stage depends on the next one to learn whether its work is correct`
-- **And** contiene `The exit transition of a stage is its self-verification point, and the CLI refuses the transition when that stage's enumerable criteria fail`
+- **And** contiene `The exit transition of a stage is its self-verification point`
 - **And** contiene `The implementer proves the change meets its criteria before requesting review`
 - **And** contiene `The reviewer is the last line of defence, not a design oracle and not a source of requirements`
 - **And** contiene `A review finding that the previous stage's own exit criteria should have caught is a defect of that stage, not a normal review round`
@@ -301,36 +349,44 @@ haber detectado se trata como defecto de esa etapa.
 ### CR10 — Core deja de contener lo que ya no gobierna
 - **Given** la composición core
 - **When** se buscan las reglas retiradas de captura, delegación y etapa
-- **Then** no contiene ``Running `changeledger context` is discovery, not compliance``, `Capture the first invocation completely in one pass`, ``read through the `CHANGELEDGER CONTEXT END` line``, `exceptional recovery`, `new human message alone does not trigger a reload`, `--have` ni `rev:<hash>`
+- **Then** no contiene ``Running `changeledger context` is discovery, not compliance``, `Capture the first invocation completely in one pass`, ``read through the `CHANGELEDGER CONTEXT END` line``, `exceptional recovery` ni `new human message alone does not trigger a reload`
+- **And** como guarda de regresión contra su reintroducción —`20260726-124833` ya
+  los eliminó, aquí no queda trabajo pendiente— tampoco contiene `--have` ni
+  `rev:<hash>`
 - **And** el centinela END sigue siendo la última línea de la salida, porque lo emite el framing y no el fragmento
 - **And** no contiene `Files are the source of truth and may be edited directly`, `CLI helpers are optional and preferred for error-prone operations`, `Delegate only with a clear boundary and benefit`, `ownership, expected output and integration criterion`, `must not revert others' work`, `Do not over-shard or overlap write surfaces without an explicit integration plan` ni `Size the model to the task's difficulty and risk`
 - **And** no contiene `commit the approved change document before code`, `use a fresh clean-context reviewer before human validation`, `` `in-validation` stops only that change``, ``start another approved change unless its `depends_on` chain`` ni `changeledger graduate <id> --skip [reason]`
 
-### CR11 — Cada frase desplazada aparece en su dueño
-- **Given** las composiciones de `spec`, `implement`, el overlay `in-validation` y el overlay `done`
-- **When** se buscan las reglas que salieron de core
-- **Then** `templates/contract/delegation.md` conserva `one subagent per file, line or tiny mechanical edit`, `parallel agents over the same files or conceptual surface`, `strongest available models for ambiguous scope` y `for roles that write, the expected baseline (branch or commit) the delegate must verify`
-- **And** `templates/contract/delegation.md` contiene ahora `` `audit` is a read-only post-review inspection of a change already in `in-validation`; it never issues a verdict or moves the change ``, y esa frase aparece en los modos `spec` e `implement` y no en core
-- **And** `spec` contiene ahora ``Humans consume changes in `changeledger view`; write for the rendered view`` y core no lo contiene
+### CR11 — Cada regla sigue en su dueño y las dos frases retenidas siguen en core
+- **Given** las composiciones normalizadas de core, `spec`, `implement`, el overlay `in-validation` y el overlay `done`
+- **When** se buscan las reglas que salieron de core y las dos frases que el humano decidió no desplazar
+- **Then** `templates/contract/delegation.md` conserva `one subagent per file, line or tiny mechanical edit`, `parallel agents over the same files or conceptual surface`, `strongest available models for ambiguous scope` y `for roles that write, the expected baseline (branch or commit) the delegate must verify`, sin editarse en este change
+- **And** la composición core conserva `` `post-review` is a read-only inspection of a change already in `in-validation`; it never issues a verdict or moves the change ``, y `templates/contract/delegation.md` no la contiene
+- **And** la composición core conserva ``Humans consume changes in `changeledger view`; write for the rendered view``, y `templates/contract/spec.md` no la contiene
 - **And** `implement` contiene `baseline commit of the approved change document before code`
 - **And** el overlay `in-validation` contiene `This stop is scoped to this change` y ``direct or transitive `depends_on` chain reaches one in `in-validation` ``
 - **And** el overlay `done` contiene `changeledger graduate <id> --skip [reason]`
 
 ### CR12 — La reescritura queda medida y clasificada
 - **Given** un repo ChangeLedger inicializado, el core reescrito y el presupuesto estricto de `20260726-130728` vigente
-- **When** se mide `buildContext(undefined, root)` y se ejecuta el test de snapshots `234939 CR10/CR11` de `test/context.test.mjs`
-- **Then** el recuento de líneas es menor o igual que 175 y el tamaño menor o igual que 11000 bytes, sin aviso ni fallo de `core exceeds target`
-- **And** la medición proyectada del texto propuesto es ~165 líneas y ~9800 bytes, es decir la restricción vinculante es la de líneas
-- **And** los digest esperados de `core.md`, `delegation.md` y `spec.md` se actualizan al nuevo contenido normalizado
+- **When** se mide `buildContext(undefined, root)` y se ejecuta `node --test test/context.test.mjs test/cli.test.mjs`
+- **Then** el recuento de líneas en la convención `output.split('\n').length` es menor o igual que 175 y el tamaño menor o igual que 11000 bytes, sin aviso ni fallo de `core exceeds target`
+- **And** la medición proyectada del texto propuesto es 164-170 líneas en esa misma convención y ~10000 bytes, es decir la restricción vinculante es la de líneas
+- **And** en el test `234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss` se actualiza el digest esperado de `core.md`, mientras los de `delegation.md` y `spec.md` quedan intactos porque esos ficheros no se editan
 - **And** cada regla afectada queda clasificada en el comentario adyacente como preservada, reemplazada o retirada, nombrando el id `20260726-124835`
+- **And** la regla `new human message alone does not trigger a reload` queda clasificada como **reemplazada** por la cláusula `never load one speculatively and never reload one already held`, nunca como retirada sin más
+- **And** el test `CR1/CR5/CR7: core context is deterministic and within its budget` deja de exigir los literales de captura retirados y exige los del core reescrito
+- **And** el test `234939 CR1-CR10: restored invariants stay in their owning contexts` actualiza su lista de invariantes y sus aserciones sobre `fragments['core.md']`, sustituyendo `Size the model to the task's difficulty and risk` y `Do not over-shard or overlap write surfaces` —que dejan de existir en el repo— por la redacción equivalente que `delegation.md` ya posee, `Do not create one subagent per file, line or tiny mechanical edit` y `Use the strongest available models for ambiguous scope`
+- **And** el test `234939 CR11-CR20: dynamic packs retain the operational contract` actualiza su lista esperada, incluidos ``Documents under `.changeledger/` are ChangeLedger's persistent truth``, `` `in-validation` stops only that change `` y `changeledger graduate <id> --skip [reason]`
+- **And** el test `214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction` de `test/cli.test.mjs` actualiza los literales de core que ve su `contractText()`
 - **And** el inventario de fragmentos no cambia: no se crean ni se borran ficheros en `templates/contract/`
 
 ## Plan
 
-- [ ] Reubicar la semántica del rol `audit` en `templates/contract/delegation.md` y la frase del viewer en `templates/contract/spec.md`, con sus aserciones de propiedad y sus digest revisados; verify: `node --test test/context.test.mjs` (CR11)
+- [ ] Reubicar dentro de `templates/contract/core.md` la frase del rol `post-review` desde la sección retirada `## Files and delegation` al bloque `## Protect the orchestrator's context`, dejar la frase del viewer en el bloque `## When no change is needed`, y reescribir en `test/context.test.mjs` las aserciones de propiedad de CR11 como preservación en core, sin editar `delegation.md` ni `spec.md`; verify: `node --test test/context.test.mjs` (CR11)
 - [ ] Reescribir los bloques 1-3 de `templates/contract/core.md` (identidad, `## Classify intent before acting`, `## Protect the orchestrator's context` con el dimensionado portable del delegado) y ajustar las aserciones de core afectadas; verify: `node --test test/context.test.mjs` (CR2, CR3, CR4, CR5)
-- [ ] Reescribir los bloques 4-8 de `templates/contract/core.md` (`## Invariants`, `## When no change is needed`, `## Stage exit gates`, `## Complexity ceiling`, `## Commits`) y retirar de core la sección de captura, el párrafo `--have`, la prosa de delegación y el detalle de las reglas 4, 6, 7 y 8; verify: `node --test test/context.test.mjs` (CR6, CR7, CR10)
-- [ ] Cerrar `templates/contract/core.md` conservando intactos los bloques 9-11 (`## Lifecycle`, `## Operational discovery`, `## Context modes`), fijar el orden final de headings, el digest y la clasificación de reglas, y medir la composición contra el presupuesto estricto; verify: `node --test test/context.test.mjs` (CR1, CR8, CR9, CR12)
+- [ ] Reescribir los bloques 4-8 de `templates/contract/core.md` (`## Invariants`, `## When no change is needed`, `## Stage exit gates`, `## Complexity ceiling`, `## Commits`) y retirar de core la sección de captura, la prosa de delegación y el detalle de las reglas 4, 6, 7 y 8, actualizando los literales de core que afirman `test/context.test.mjs` y `test/cli.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR6, CR7, CR10)
+- [ ] Cerrar `templates/contract/core.md` conservando intactos los bloques 9-11 (`## Lifecycle`, `## Context modes`, `## Operational discovery`), fijar el orden final de headings, el digest y la clasificación de reglas, y medir la composición contra el presupuesto estricto; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR8, CR9, CR12)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
@@ -338,3 +394,5 @@ haber detectado se trata como defecto de esa etapa.
 - **2026-07-26T12:56:42Z** `[note]` Draft creado: core pasa a ser contrato de enrutamiento por intención y delegación, con criterio de admisión explícito, presupuesto 175/200 y target estricto solo para core.
 - **2026-07-26T13:25:00Z** `[note]` Draft acotado: el mecanismo de presupuesto (cifras de `budgets.yml` y fallo estricto en target) sale a `20260726-130728`, que pasa a ser prerrequisito de ejecución. Se incorpora al bloque 3 el dimensionado del delegado, decidido con el humano y enunciado sin nombrar modelos de ningún proveedor. 19 criterios y 6 tareas quedan en 12 y 5.
 - **2026-07-26T14:05:42Z** `[status]` draft → approved
+- **2026-07-27T14:36:21Z** `[note]` Enmienda autorizada explícitamente por el humano con el change todavía en `approved` y antes de `in-progress`: diez changes hermanos aterrizaron desde el borrador y parte del documento era falso. (1) El rol `audit` se renombró a `post-review` sin alias (`20260726-141123`), así que CR4 y CR11 dejan de exigir el nombre retirado. (2) El humano eligió cancelar los dos traslados de prosa en vez de subir presupuesto: desplazar la frase del rol y la del viewer añade 205 bytes al pack `spec` compuesto, que desbordaría su techo duro en 41 bytes y dejaría `implement` con 17 de margen; ambas se quedan en `core.md`, `budgets.yml` no se toca, ningún fragmento distinto de `core.md` se edita y las cláusulas de CR11 pasan a ser de preservación. (3) CR12 nombra los cuatro sitios de aserción que la retirada de texto rompe además del snapshot (`CR1/CR5/CR7`, `234939 CR1-CR10`, `234939 CR11-CR20` y `214902 CR1-CR4/CR7/CR8` de `test/cli.test.mjs`), y dos tareas del Plan añaden `test/cli.test.mjs` a su verify para que la rotura salga antes de `pnpm verify`. (4) CR7 deja de afirmar que el CLI rechaza la transición cuando fallan los criterios enumerables de la etapa: ese mecanismo no existe (`assertTransition` solo valida legalidad de lifecycle y `checkCoverage` solo defectos de estructura de readiness) y la puerta queda atribuida a `20260722-124655` y `20260722-124656`, aún en `draft`; el principio de autoverificación por etapa se conserva íntegro. (5) CR1 se alinea al orden real del fichero, `## Context modes` antes de `## Operational discovery`, sin introducir reordenación como trabajo. (6) Sale del Plan y de la lista de salidas el párrafo `--have`, ya eliminado por `20260726-124833`; las cláusulas de CR10 sobre `--have` y `rev:<hash>` quedan etiquetadas como guarda de regresión. (7) Cifras refrescadas y etiquetadas por convención: core compuesto 132 líneas emitidas / 133 en la convención del test (`output.split('\n').length`) / 8133 bytes, `core.md` 126 líneas / 7901 bytes, delta de framing +6 líneas emitidas / +232 bytes; todo puntero de línea pasa a nombre de test, heading o regla. (8) La regla `new human message alone does not trigger a reload` se clasifica como reemplazada por `never load one speculatively and never reload one already held`, no como retirada. Proyección de core restated: 164-170 líneas en la convención del test y ~10000 bytes, dentro del target 175/11000. Siguen 12 criterios y 5 tareas, sin renumerar.
+- **2026-07-27T14:37:41Z** `[status]` approved → in-progress
