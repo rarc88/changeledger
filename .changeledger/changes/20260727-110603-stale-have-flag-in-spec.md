@@ -2,9 +2,10 @@
 id: "20260727-110603"
 title: Retirar la referencia al flag --have de la spec
 type: quick
-status: in-validation
+status: done
 created: 2026-07-27T11:06:03Z
 depends_on: []
+reviewed: true
 related_to: ["20260726-124833", "20260726-130727", "20260726-141123"]
 owner: raruiz-hiberuscom
 ---
@@ -38,3 +39,5 @@ otros ficheros.
 - **2026-07-27T11:06:30Z** `[status]` approved → in-progress
 - **2026-07-27T11:07:27Z** `[note]` Borradas las dos frases de contract-discovery.md que instruian 'changeledger context [mode] --have <rev>'. Verificado despues: las unicas menciones que quedan a rev:<hash> y --have son las de las lineas 96-98, dentro del parrafo 'Sin recuperacion por revision', que las describe en pasado como retiradas — que es lo correcto. Ningun otro fichero tocado. Gate: pnpm verify verde, changeledger check 18 valid.
 - **2026-07-27T11:07:28Z** `[status]` in-progress → in-validation
+- **2026-07-27T11:14:58Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T11:17:34Z** `[graduation]` spec: `contract-discovery.md`
