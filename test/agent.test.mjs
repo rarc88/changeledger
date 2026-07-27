@@ -35,9 +35,14 @@ function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
+  // Born ownerless on purpose: these tests pin the `in-progress` auto-assignment,
+  // whose precondition is an empty `owner`. Since 20260726-124836 `new` resolves
+  // the local git identity by default, so the resolver is injected here to keep
+  // the precondition explicit instead of depending on the host's git identity.
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   // give it a task to operate on
   const text = fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] do it\n');

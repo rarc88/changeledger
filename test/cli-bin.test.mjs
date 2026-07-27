@@ -58,7 +58,10 @@ function doneRepo() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver, and since
+  // 20260726-124836 `new` defaults to the host's git identity, which would make
+  // the owner-filter assertions depend on who runs the suite.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const changeFile = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -299,7 +302,7 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
     .readFileSync(changeFile, 'utf8')
     .replace(
       'status: done',
-      'status: done\nreviewed: true\nowner: Roberto Ruiz',
+      'status: done\nreviewed: true',
     )}\n## Log\n\n- **2026-07-18T12:00:00Z** \`[graduation]\` skipped: no durable truth\n`;
   assert.match(candidate, /\[graduation\]` skipped: no durable truth/);
   fs.writeFileSync(changeFile, candidate);
