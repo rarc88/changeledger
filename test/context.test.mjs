@@ -1708,6 +1708,14 @@ test('130728 CR2: a strict budget fails at target instead of warning', () => {
   const overHard = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 9000), budget));
   assert.ok(overHard.thrown, 'strict hard overflow did not throw');
   assert.match(overHard.thrown.message, /core exceeds 200 lines: 201/);
+  // The byte ceiling is the band that fires first in practice, so it is pinned
+  // exactly and at its boundary: `hard.bytes + 1`, with lines under both bands.
+  const overHardBytes = captureBudget(() =>
+    assertWithinBudget('core', sizedOutput(50, 12001), budget),
+  );
+  assert.ok(overHardBytes.thrown, 'strict byte-only hard overflow did not throw');
+  assert.equal(overHardBytes.thrown.message, 'core exceeds 12000 bytes: 12001');
+  assert.deepEqual(overHardBytes.warnings, []);
 });
 
 test('130728 CR3: without strictness the target warns and never breaks the suite', () => {
@@ -1726,6 +1734,17 @@ test('130728 CR3: without strictness the target warns and never breaks the suite
   const overHard = captureBudget(() => assertWithinBudget('spec', sizedOutput(311, 12500), budget));
   assert.ok(overHard.thrown, 'non-strict hard overflow did not throw');
   assert.match(overHard.thrown.message, /spec exceeds 310 lines: 311/);
+  // Flagless entries lose no byte ceiling either: pinned at `hard.bytes + 1`
+  // with lines under both bands. The target warning fires first and then the
+  // hard assertion throws — the documented order for a flagless entry.
+  const overHardBytes = captureBudget(() =>
+    assertWithinBudget('spec', sizedOutput(50, 13501), budget),
+  );
+  assert.ok(overHardBytes.thrown, 'non-strict byte-only hard overflow did not throw');
+  assert.equal(overHardBytes.thrown.message, 'spec exceeds 13500 bytes: 13501');
+  assert.deepEqual(overHardBytes.warnings, [
+    'spec exceeds target (50/280 lines, 13501/12000 bytes)',
+  ]);
   // Same lenience for the real flagless entries of budgets.yml, not a literal only.
   const real = contextBudgets.base.spec;
   const realOver = captureBudget(() =>
