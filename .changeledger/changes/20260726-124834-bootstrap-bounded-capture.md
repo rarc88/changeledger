@@ -68,11 +68,17 @@ Fuera de alcance explícito:
 > If the command is unavailable, continue normally without ChangeLedger. If it
 > starts but fails, report the error to the human and wait for them to decide how
 > to continue; do not treat a failing command as absent.
->
-> After a compaction, verify a retained capture with `changeledger context
-> [mode] --have <rev>` (the BEGIN line's `rev:`). If the context or its revision was lost,
-> load it completely again; a mismatch still returns the complete output.
 ```
+
+**Actualización 2026-07-27.** El bloque citado arriba es el que existía al
+redactar este documento. `20260726-124833` ya retiró de él el párrafo final
+sobre `--have`/`rev:` y dejó `BOOTSTRAP_VERSION` en 3 a propósito, para que el
+salto a 4 lo hiciera este change. El `REFERENCE` vigente
+(`src/contract.mjs:49-60`) es exactamente el bloque de arriba **sin** ese
+párrafo. Consecuencia para la Especificación: la segunda mitad de CR4 —que el
+bloque no contenga `--have` ni `rev:`— **ya se cumple hoy**; se conserva como
+guarda de regresión, no como comportamiento nuevo, y su verificación exige un
+mutante que lo demuestre.
 
 `BOOTSTRAP_VERSION = 3` (`src/contract.mjs:42`). `bootstrapBlock()` envuelve
 `REFERENCE` entre `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${version} -->` y
@@ -88,6 +94,22 @@ documentado; `spec` tiene `hard.lines: 310` — puede superar 200. Por eso el
 texto de bootstrap fija `head -200` solo como comando por defecto (contexto
 core) y remite al campo `lines:` de la línea BEGIN —publicado por el change
 `20260726-130727`— para los casos en que la salida supera ese límite.
+
+**Actualización 2026-07-27 — semántica de `lines:` y medidas de hoy.** Las
+cifras de arriba se tomaron el 2026-07-26 y envejecieron al aterrizar los
+changes que editan fragmentos del contrato. Medidas de hoy con el mismo comando:
+core = 132 líneas, `spec` = 300, `implement` = 198. La conclusión no cambia:
+solo el core cabe siempre bajo 200.
+
+Más importante, `20260726-130727` cerró la semántica del campo: **`lines:<N>` es
+el conteo total de líneas emitidas, incluyendo la propia línea `BEGIN` y la
+`END`**. Verificado: `changeledger context | wc -l` devuelve `N`, `head -<N>`
+conserva la línea END como última y `head -<N-1>` la pierde. Está graduado así
+en `.changeledger/specs/contract-discovery.md`. El texto decidido de este
+documento pedía reintentar con `head -<lines + 2>`, aritmética que solo tendría
+sentido si `lines:` excluyera los centinelas. Corregido a `head -<lines>` con
+autorización de Roberto el 2026-07-27, y la frase explicita ahora que el conteo
+incluye BEGIN y END, para que el agente consumidor no deduzca lo contrario.
 
 **Retiro de versión — hecho verificado en el propio código y en el historial
 git, no supuesto:** el comentario en `src/contract.mjs:39-42` dice que
@@ -142,8 +164,9 @@ adaptado solo donde un hecho verificado lo exigía — ninguno lo exigió):
 > - The capture is valid **only if its last line contains
 >   `CHANGELEDGER CONTEXT END`**. Nothing before that line is actionable.
 > - The core context is bounded and fits within these 200 lines. The `BEGIN`
->   line reports the exact `lines:` count of the full output; if `END` is
->   missing, re-run with `head -<lines + 2>` and read that capture instead.
+>   line reports the exact `lines:` count of the full output, counting the
+>   `BEGIN` and `END` lines themselves; if `END` is missing, re-run with
+>   `head -<lines>` and read that capture instead.
 > - Command not installed (`command not found`) → ChangeLedger is absent:
 >   continue the task normally and never emulate it.
 > - Command present but failing (any other error or non-zero exit) → stop,
@@ -190,6 +213,9 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
   `CHANGELEDGER CONTEXT END`**"
 - **And** ya **no** contiene la frase "no pipes, filters, summaries, previews
   or voluntary output limits"
+- **And** la instrucción de reintento por truncamiento contiene literalmente
+  ``re-run with `head -<lines>` `` y el bloque completo **no** contiene la
+  cadena `lines + 2`
 
 ### CR3 — Distinción comando ausente vs. comando presente que falla se preserva
 
@@ -236,7 +262,7 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 
 ## Plan
 
-- [ ] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; actualizar en `test/contract.test.mjs` las fixtures que aún esperan la prosa retirada ("no pipes, filters...", "After a compaction...--have <rev>`", líneas 74-86); verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3, CR4)
+- [ ] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; actualizar en `test/contract.test.mjs` la aserción que aún exige la prosa retirada "no pipes, filters, summaries, previews or voluntary output limits" (hoy en la línea 81, dentro de `212659 CR3`); verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3, CR4)
 - [ ] En `test/contract.test.mjs`, añadir una fixture con `bootstrapBlock(3)` literal y verificar que `checkContract` (`src/contract.mjs`) la marca obsoleta y que `changeledger register` la reemplaza por `bootstrapBlock(4)` sin tocar `LEGACY_CONTRACT_HASHES`; verify: `node --test test/contract.test.mjs` (CR5)
 - [ ] Ejecutar `changeledger register` (`bin/changeledger.mjs`) sobre este propio repo para regenerar `AGENTS.md` con el bloque v4; verify: `node bin/changeledger.mjs check` (CR6)
 - [ ] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
@@ -262,3 +288,5 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
   perdió: cada CR y tarea removidos aquí reaparecen sin cambios de fondo en
   `20260726-130727`.
 - **2026-07-26T14:05:40Z** `[status]` draft → approved
+- **2026-07-27T11:16:24Z** `[note]` Caducidades corregidas antes de implementar, con autorizacion de Roberto el 2026-07-27 (los changes se resolvieron en orden distinto al de creacion). Cuatro: (1) el texto decidido pedia reintentar con head -<lines + 2>; 130727 cerro la semantica al reves — lines:<N> es el total emitido, BEGIN y END incluidos — asi que pasa a head -<lines> y la frase lo explicita. (2) La Investigation citaba el bloque v3 con el parrafo --have que 124833 ya borro; anotado cual es el REFERENCE vigente. (3) Medidas actualizadas: core 132, spec 300, implement 198; la conclusion (solo el core cabe bajo 200) no cambia. (4) La tarea 1 del Plan apuntaba a 'lineas 74-86' y a una fixture de 'After a compaction' que ya no existe; el unico resto real es la asercion de 'no pipes, filters...' en test/contract.test.mjs:81, dentro de 212659 CR3.
+- **2026-07-27T11:16:25Z** `[note]` Anadido a CR2, tambien autorizado: el reintento debe contener literalmente 're-run with head -<lines>' y el bloque no debe contener 'lines + 2'. Sin esto ningun criterio cubria esa frase y la aritmetica equivocada habria entrado en el AGENTS.md de todo repo consumidor sin que nadie la atrapara. Nota sobre CR4: su segunda mitad (el bloque no contiene --have ni rev:) ya se cumple hoy porque 124833 lo limpio; queda como guarda de regresion y exige mutante que lo demuestre.
