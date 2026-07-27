@@ -1924,28 +1924,21 @@ test('124835 CR2/CR3: the identity and the intent table route before any load', 
     assert.ok(core.includes(literal), `core is missing ${literal}`);
   }
   assert.ok(!core.includes("Documents under `.changeledger/` are ChangeLedger's persistent truth"));
-  // Every observed intent routes to exactly one first action.
-  const rows = [
-    ['asks, explores or wants understanding', '`changeledger search <terms>` before reading code'],
-    [
-      'reports a problem or asks for new work',
-      '`changeledger context spec` only once the human authorizes documenting it',
-    ],
-    ['names a change or says "continue"', '`changeledger context <id>`'],
-    [
-      'asks what is pending',
-      '`changeledger list --status <s>`, `--pending graduation`, `--pending archive`',
-    ],
-    ['asks to review finished work', '`changeledger context review` in a fresh clean context'],
-    ['asks to release', '`changeledger context release`'],
-    ['requests an edit no change covers', 'ask the human: `quick` type or operational edit'],
-    ['gives a verdict', 'transmit it with the lifecycle command; never infer one'],
-  ];
-  for (const [intent, action] of rows) {
-    assert.ok(core.includes(`| ${intent} |`), `no intent row for ${intent}`);
-    const row = core.slice(core.indexOf(`| ${intent} |`)).split(' |')[1];
-    assert.ok(core.includes(action), `${intent} is missing its first action ${action}`);
-    assert.ok(row.length > 0);
+  // Every observed intent routes to exactly one first action, asserted as the
+  // whole `| intent | action |` row the way the work→owner table already is.
+  // Checking the label and the action independently pinned neither pairing: a
+  // mutant that swapped the actions of two rows kept this test green.
+  for (const row of [
+    '| asks, explores or wants understanding | answer from the repo: `changeledger search <terms>` before reading code |',
+    '| reports a problem or asks for new work | conversation first, then `changeledger context spec` only once the human authorizes documenting it |',
+    '| names a change or says "continue" | `changeledger context <id>` |',
+    '| asks what is pending | `changeledger list --status <s>`, `--pending graduation`, `--pending archive` |',
+    '| asks to review finished work | `changeledger context review` in a fresh clean context |',
+    '| asks to release | `changeledger context release` |',
+    '| requests an edit no change covers | ask the human: `quick` type or operational edit |',
+    '| gives a verdict | transmit it with the lifecycle command; never infer one |',
+  ]) {
+    assert.ok(core.includes(row), `core is missing the intent row ${row}`);
   }
 });
 
