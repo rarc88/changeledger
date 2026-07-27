@@ -219,7 +219,8 @@ parecidas.
   - **Resolved:** `2026-07-27T20:05:35Z`
 - [x] Publicar la ocupación `lines:<n>/<límite>` y `bytes:<n>/<límite>` en el último segmento de la línea BEGIN de `src/commands/context.mjs`, resolviendo el punto fijo de los bytes por iteración acotada y fallando ruidosamente si no converge; verify: `node --test test/context.test.mjs test/framing.test.mjs` (CR5, CR6)
   - **Resolved:** `2026-07-27T20:11:53Z`
-- [ ] Escribir en el comentario de `assertWithinBudget` y en la nota de proyecto de `AGENTS.md` que un límite es techo y no objetivo, y que retirar normativa para caber exige dueño nombrado y verificado por grep de la obligación; verify: `node --test test/cli.test.mjs` (support)
+- [x] Escribir en el comentario de `assertWithinBudget` y en la nota de proyecto de `AGENTS.md` que un límite es techo y no objetivo, y que retirar normativa para caber exige dueño nombrado y verificado por grep de la obligación; verify: `node --test test/cli.test.mjs` (support)
+  - **Resolved:** `2026-07-27T20:12:45Z`
 - [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
 
 ## Log
