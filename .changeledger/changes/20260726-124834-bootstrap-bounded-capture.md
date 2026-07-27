@@ -2,9 +2,10 @@
 id: "20260726-124834"
 title: Bootstrap con captura acotada y verificable
 type: feature
-status: in-validation
+status: done
 created: 2026-07-26T12:48:34Z
 depends_on: ["20260726-130727"]
+reviewed: true
 related_to: ["20260726-124835"]
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -347,3 +348,7 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 - **2026-07-27T12:55:28Z** `[status]` in-progress → in-review
 - **2026-07-27T13:02:41Z** `[note]` Ronda de confirmacion (contexto limpio, mandato minimo): PASS. La exhaustividad es real y no circular. El revisor probo que el helper comparte solo la libreria marked, no la ruta de projectToken/projectTokens/REFERENCE_TOKEN_TYPES, asi que ninguna mutacion ahi puede desplazar la enumeracion: detectadas las 5 caidas de item, slice(0,-1), slice(-40) sobre text, split('n')[0] sobre text y el borrado de 'list_item' de la whitelist. Los cinco bullets son individualmente load-bearing, uno por ejecucion. Self-extending verificado en ambos sentidos: con un sexto bullet anadido a REFERENCE el test enumera seis y cubre el nuevo sin editar el test; con el bullet 3 borrado reporta 4/4. No vacuo: sin literal de conteo, imposible iterar cero veces (falla con 'the v4 reference must carry a bullet list'), y una mutacion no-op falla con 'the fixture must actually change the block'. El unico artefacto compartido de verdad es REFERENCE, que se mueve en bloque — pero eso es un cambio de spec, no un debilitamiento, y queda fijado aparte por 124834 CR3 y por la clausula de orden. Ningun mutante superviviente.
 - **2026-07-27T13:02:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T13:06:03Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-27T13:08:25Z** `[note]` Obligacion de graduacion cerrada, con una correccion al revisor. El revisor senalo contract-discovery.md:84 Y :162-163 como la misma contradiccion; verifique y no lo son. La linea 84 describe la regla del NUCLEO ('el consumidor no solicita previews, resumenes ni limites voluntarios'), y templates/contract/core.md:9-10 sigue diciendo exactamente eso — comprobado por grep. Ese fragmento no lo toco este change y su reescritura la posee 20260726-124835. Si la hubiera 'arreglado' habria dejado la spec contradiciendo al core vigente y habria pisado alcance ajeno. La contradiccion real era solo la descripcion del BOOTSTRAP (:159-171), que seguia narrando el mecanismo v3. Reescrita: comando acotado exacto, condicion de validez positiva, reintento por lines:<N>, distincion ausente vs presente-que-falla, y re-ejecucion tras compactacion. Anadido tambien un parrafo explicito de que la regla general del nucleo no queda derogada, porque lo que el bootstrap prescribe es un comando acotado y no libertad de recorte.
+- **2026-07-27T13:08:25Z** `[note]` Graduada tambien la verdad nueva sobre la proyeccion de equivalencia: modela list y list_item y recursa en items, con la razon de por que la recursion es load-bearing (whitelistear sin recursar compraria tolerancia al formateador a cambio de un bypass silencioso), que la cobertura se deriva del parseo y recorre todos los bullets, que sigue fallando cerrado ante checkbox y link, y que 'ordered' no se modela a proposito con su consecuencia exacta. Sin esto, la spec describiria una whitelist de tokens sin decir que las listas ya entran ni por que.
+- **2026-07-27T13:08:25Z** `[graduation]` spec: `contract-discovery.md`

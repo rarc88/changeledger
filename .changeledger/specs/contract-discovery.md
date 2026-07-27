@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T11:17:34Z
+updated: 2026-07-27T13:08:25Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834"]
 ---
 
 ## Discovery del contrato
@@ -127,6 +127,20 @@ fallar cualquier eliminación silenciosa. Cambiar el contrato exige reclasificar
 explícitamente la regla afectada como preservada, reemplazada o retirada antes
 de actualizar el snapshot.
 
+**La proyección de equivalencia modela listas.** El árbol que compara dos
+bloques de bootstrap incluye `list` y `list_item`, y recursa en los `items`, de
+modo que un bloque con bullets puede reconocerse como equivalente sin que el
+contenido de la lista se vuelva invisible a la detección de deriva. Ese matiz no
+es cosmético: whitelistear el tipo sin recursar compraría la tolerancia al
+formateador al precio de un bypass silencioso, y la deriva de cualquier bullet
+—texto u orden— pasaría por equivalente. La cobertura se deriva del propio
+parseo y recorre todos los bullets, así que una instrucción añadida al bloque
+queda protegida sin ampliar los tests. Sigue fallando cerrado ante lo que no
+modela: un `checkbox` de tarea o un `link` dentro de un bullet marcan el bloque
+como obsoleto en vez de aceptarse. `ordered` no se modela a propósito, de forma
+que convertir todos los bullets a lista numerada se acepta —preserva el texto y
+el orden de cada instrucción— mientras una conversión parcial sí se detecta.
+
 ## Bootstrap y migración
 
 `init` exige el `AGENTS.md` raíz y añade una caja de alerta delimitada a
@@ -156,19 +170,30 @@ token, anidamiento, orden y valores significativos —incluido código inline—
 falla cerrado ante tokens no modelados, contenido fuera del blockquote,
 cambios de párrafo o delimitadores ausentes, duplicados, desordenados o unidos
 a texto. Cualquier diferencia semántica restaura el bloque canónico. El
-bootstrap mantiene un único punto de entrada: `changeledger context`. Ordena
-intentarlo directamente nada más leer el archivo —antes de planificar,
-investigar o actuar— y conservar stdout completo desde esa primera ejecución
-hasta la línea `CHANGELEDGER CONTEXT END`, sin pipes, filtros, previews,
-resúmenes ni límites voluntarios. La completitud se verifica por centinela:
-toda salida de `context` abre con `===== CHANGELEDGER CONTEXT BEGIN — mode:
-<mode> [— change: #<id>] — v<version> — lines:<N> =====` y cierra con una
-línea END autodetectora; si falta pese a la captura completa, la salida llegó
-truncada y hay que detenerse y re-ejecutar con mayor capacidad como
-recuperación excepcional. Si el entorno informa que el comando no existe, el
-agente continúa normalmente sin ChangeLedger; si el ejecutable comienza pero
-falla, presenta el error al humano y espera su decisión en vez de degradar
-silenciosamente. El bootstrap no contiene reglas de lifecycle,
+bootstrap mantiene un único punto de entrada: `changeledger context`.
+
+**El bootstrap manda un comando acotado, no una prohibición.** Desde el formato
+v4 no ordena "no recortes la salida" —una negación que el arnés incumple sin que
+el agente lo note— sino un comando exacto, `changeledger context 2>&1 |
+head -200`, más una **condición de validez positiva**: la captura vale sólo si su
+última línea contiene `CHANGELEDGER CONTEXT END`, y nada anterior a esa línea es
+accionable. El límite fijo de 200 es suficiente porque el core está acotado por
+`budgets.yml`; cuando la salida lo supera, el reintento no se adivina: la línea
+BEGIN publica `lines:<N>` y se re-ejecuta con `head -<N>`. La completitud se
+verifica por centinela: toda salida de `context` abre con
+`===== CHANGELEDGER CONTEXT BEGIN — mode: <mode> [— change: #<id>] —
+v<version> — lines:<N> =====` y cierra con una línea END autodetectora. El
+bloque distingue dos fallos que antes se mezclaban: comando no instalado
+(`command not found`) significa que ChangeLedger está ausente y el trabajo sigue
+con normalidad sin emularlo; comando presente que falla por cualquier otra causa
+detiene el trabajo, presenta el error capturado al humano y espera su decisión en
+vez de degradar en silencio. Y ordena re-ejecutarlo como primera acción de la
+primera respuesta tras cualquier compactación, sin depender de ningún estado
+retenido.
+
+La regla general de captura completa del núcleo (§ arriba) no la deroga esto: lo
+que el bootstrap prescribe es un comando acotado y verificable, no la libertad
+del consumidor para elegir su propio recorte. El bootstrap no contiene reglas de lifecycle,
 delegación ni reconciliación de divergencias: esas políticas pertenecen al
 contexto que se carga cuando el CLI está disponible. No crea
 `.changeledger/AGENTS.md`, no necesita permisos de symlink y no añade entradas a
