@@ -2,7 +2,7 @@
 id: "20260726-124836"
 title: Asignar owner al crear el change
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-26T12:48:36Z
 depends_on: []
 related_to: []
@@ -181,3 +181,9 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **2026-07-27T21:34:24Z** `[status]` approved → in-progress
 - **2026-07-27T21:57:11Z** `[note]` Enmienda durante in-progress, sin re-aprobacion porque no expande alcance observable: el cambio invalida una precondicion que dos helpers de test daban por hecha —que un change nace sin dueno— y tres tests preexistentes caian por eso. repoWithChange() en test/agent.test.mjs alimenta los tres tests que fijan la autoasignacion en in-progress, cuya precondicion ES el owner vacio, asi que inyecta identidad vacia y la precondicion queda explicita en vez de depender de la identidad git del host. doneRepo() en test/cli-bin.test.mjs lanza el binario real, que no admite inyeccion, asi que crea con --owner explicito; su test 105457 insertaba ademas una segunda linea owner: que ahora habria duplicado la clave de frontmatter. Anadida tarea de Plan. El delegado los reporto y paro en vez de tocar ficheros fuera de su ownership, que es lo correcto.
 - **2026-07-27T21:57:22Z** `[note]` Tareas 1 y 2 en un commit combinado: los tests de CR1/CR2/CR3 y de CR4 viven en el mismo fichero test/cli.test.mjs, asi que separarlas exigiria partir cambios dentro de un mismo fichero. Superficie compartida, registrado aqui.
+- **2026-07-27T22:03:23Z** `[status]` in-progress → in-review
+- **2026-07-27T22:03:23Z** `[note]` [review mandate] Mandato: superficie que gobierna — el diff completo del change mas todo sitio que cree changes en tests. Puntos de escrutinio: (a) determinismo real, que ningun test dependa de la identidad git/gh del host; (b) que el guard !fm.owner siga intacto y sus tres tests sigan probando lo que dicen tras inyectar identidad vacia en el helper; (c) que las dos tareas confirm-only no hayan colado logica nueva; (d) que la spec lifecycle.md describa el ciclo completo sin volverse changelog; (e) el cambio de (CR1) a (support) en la tarea 6.
+- **2026-07-27T22:16:04Z** `[review]` in-review → in-progress (retry): templates/contract/spec.md:59-61 sigue afirmando la verdad previa al cambio: que el owner lo asigna la transición approved → in-progress, sin mencionar que changeledger new lo resuelve al crear. Es el fragmento del contrato que se sirve a los repos consumidores, así que un agente en otro repo recibe el origen equivocado del owner. El mismo razonamiento que la Investigation usó para meter lifecycle.md en el alcance aplica literalmente aquí.
+- **2026-07-27T22:18:06Z** `[status]` in-progress → in-review
+- **2026-07-27T22:18:06Z** `[note]` [review mandate] Segunda ronda, mandato minimo: spot check de la correccion en templates/contract/spec.md, su pin y el presupuesto del pack spec, que reventó con la primera redaccion (13730/13700) y cupo tras comprimir prosa nueva mia sin perder ninguna de las tres afirmaciones (nace en creacion, --owner gana, in-progress solo si falta): 13664/13700, 36 bytes de margen. Correccion sin commitear.
+- **2026-07-27T22:20:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)

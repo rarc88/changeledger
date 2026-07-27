@@ -1006,7 +1006,15 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260726-141119: the activation matrix marks `specification` active for
     // `refactor`, so a type that requires independent review always carries
     // verifiable criteria. Every other row and rule is preserved.
-    'spec.md': '6c960405ab4e10ba003068ccf8ff590a433e10499c261925382e0e99e50ed59d',
+    // 20260726-124836: REPLACED — "`approved → in-progress` assigns an absent
+    //   owner via `gh api user --jq .login`, then `git config user.name`" by the
+    //   full cycle: `new` resolves the identity at creation, an explicit
+    //   `--owner` wins, and the `in-progress` assignment survives as the net that
+    //   fills an owner still absent. The override command and the meaning of
+    //   absence are preserved verbatim; no obligation is retired. A clean-context
+    //   reviewer caught this fragment still stating the pre-change origin, which
+    //   matters because this is the contract served to consuming repos.
+    'spec.md': '408de70dc6cd431e39a02a6ce4fc17857b608a70f8a12aec24c551d5a076b285',
     // 20260703-220014: added that the stop is scoped to this change, names the blocking
     // depends_on chain and stops entirely only when every candidate is blocked.
     // 20260715-122950: additive final-mutation gate for reviewed and direct

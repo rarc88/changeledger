@@ -56,8 +56,9 @@ lifecycle progress and cycles. Use optional `related_to` for useful context that
 must not impose execution order or affect readiness. Both accept local ids and
 external `project:id` refs; declare a local relation once, deriving its backlink.
 
-`owner` identifies responsibility. `approved → in-progress` assigns an absent
-owner via `gh api user --jq .login`, then `git config user.name`. Override with
+`owner` identifies responsibility and is born at creation: `new` resolves it via
+`gh api user --jq .login`, then `git config user.name`, unless `--owner` sets it;
+`approved → in-progress` fills it only if still absent. Override with
 `changeledger owner <id> <name|->`; absence means unassigned.
 
 Keep each fact in one stage and link to it from the others. Do not let summaries
