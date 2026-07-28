@@ -29,6 +29,7 @@ export function isVisible(c, f) {
     if (c.owner ? !owners.has(c.owner) : !f.includeUnassigned) return false;
   }
   if (f.statuses.size && !f.statuses.has(c.status)) return false;
+  if (f.pendingGraduation && c.pending_graduation !== true) return false;
   const q = f.text.toLowerCase();
   if (!q) return true;
   return haystack(c).includes(q);

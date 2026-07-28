@@ -11,6 +11,7 @@ const emptyProjectFilters = () => ({
   owners: [],
   includeUnassigned: false,
   statuses: [],
+  pendingGraduation: false,
   showArchived: false,
   showDiscarded: false,
 });
@@ -26,6 +27,7 @@ export const state = {
     owners: new Set(),
     includeUnassigned: false,
     statuses: new Set(),
+    pendingGraduation: false,
     showArchived: false,
     showDiscarded: false,
   },
@@ -47,6 +49,7 @@ function currentProjectFilters() {
     owners: [...state.filters.owners],
     includeUnassigned: state.filters.includeUnassigned,
     statuses: [...state.filters.statuses],
+    pendingGraduation: state.filters.pendingGraduation,
     showArchived: state.filters.showArchived,
     showDiscarded: state.filters.showDiscarded,
   };
@@ -80,6 +83,7 @@ function applyProjectFilters(id) {
       ? filters.statuses.filter((value) => typeof value === 'string')
       : [],
   );
+  state.filters.pendingGraduation = filters.pendingGraduation === true;
   state.filters.showArchived = filters.showArchived === true;
   state.filters.showDiscarded = filters.showDiscarded === true;
 }
@@ -243,9 +247,16 @@ export function toggleStatusFilter(status) {
 
 export function clearStatusFilters() {
   state.filters.statuses.clear();
+  state.filters.pendingGraduation = false;
   state.filters.showArchived = false;
   state.filters.showDiscarded = false;
   persistViewerState();
+}
+
+export function togglePendingGraduation() {
+  state.filters.pendingGraduation = !state.filters.pendingGraduation;
+  persistViewerState();
+  return state.filters.pendingGraduation;
 }
 
 export function toggleShowArchived() {

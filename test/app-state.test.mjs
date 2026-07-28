@@ -34,6 +34,8 @@ test('105206 CR3: legacy single filters restore as sets and serialize arrays', a
   assert.deepEqual(saved.types, ['feature']);
   assert.deepEqual(saved.owners, ['ana']);
   assert.equal(saved.includeUnassigned, false);
+  assert.equal(state.filters.pendingGraduation, false);
+  assert.equal(saved.pendingGraduation, false);
 });
 
 test('231428: initial state has correct defaults', async () => {
@@ -52,6 +54,7 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.filters.owner, 'all');
   assert.equal(state.filters.showArchived, false);
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, false);
   assert.equal(state.filters.statuses.size, 0);
 });
 
@@ -128,10 +131,12 @@ test('125850 CR1/CR10: clearStatusFilters empties statuses and visibility toggle
   state.filters.statuses.add('in-validation');
   state.filters.showArchived = true;
   state.filters.showDiscarded = true;
+  state.filters.pendingGraduation = true;
   clearStatusFilters();
   assert.equal(state.filters.statuses.size, 0);
   assert.equal(state.filters.showArchived, false);
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, false);
 });
 
 test('231428: toggleShowArchived flips and returns new value', async () => {
@@ -176,6 +181,7 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   first.toggleStatusFilter('draft');
   first.toggleShowArchived();
   first.toggleShowDiscarded();
+  first.togglePendingGraduation();
   first.setView('table');
   first.setSortKey('progress');
   first.setSortKey('progress');
@@ -193,6 +199,7 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   assert.deepEqual([...second.state.filters.statuses], ['draft']);
   assert.equal(second.state.filters.showArchived, true);
   assert.equal(second.state.filters.showDiscarded, true);
+  assert.equal(second.state.filters.pendingGraduation, true);
   assert.equal(second.state.sortKey, 'progress');
   assert.equal(second.state.sortDir, -1);
   assert.equal(second.state.detailMode, 'floating');
@@ -237,6 +244,7 @@ test('111219 CR3: project selection preserves independent filters', async () => 
     selectProject,
     setOwnerFilter,
     setTypeFilter,
+    togglePendingGraduation,
     toggleShowDiscarded,
   } = await freshState();
   initializeProjects(
@@ -248,6 +256,7 @@ test('111219 CR3: project selection preserves independent filters', async () => 
   );
   setTypeFilter('feature');
   state.filters.statuses.add('draft');
+  togglePendingGraduation();
   selectProject('beta');
   setTypeFilter('bug');
   setOwnerFilter('bob');
@@ -258,11 +267,13 @@ test('111219 CR3: project selection preserves independent filters', async () => 
   assert.deepEqual([...state.filters.statuses], ['draft']);
   assert.equal(state.filters.owner, 'all');
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, true);
 
   selectProject('beta');
   assert.equal(state.filters.type, 'bug');
   assert.equal(state.filters.owner, 'bob');
   assert.equal(state.filters.showDiscarded, true);
+  assert.equal(state.filters.pendingGraduation, false);
 });
 
 test('111219 CR4: missing selected project falls back and rewrites snapshot', async () => {
@@ -348,10 +359,12 @@ test('111219 CR7: Clear persists empty statuses and disabled visibility', async 
   mod.toggleStatusFilter('done');
   mod.toggleShowArchived();
   mod.toggleShowDiscarded();
+  mod.togglePendingGraduation();
   mod.clearStatusFilters();
 
   const saved = JSON.parse(store.value(mod.VIEWER_STATE_KEY));
   assert.deepEqual(saved.projects.alpha.statuses, []);
   assert.equal(saved.projects.alpha.showArchived, false);
   assert.equal(saved.projects.alpha.showDiscarded, false);
+  assert.equal(saved.projects.alpha.pendingGraduation, false);
 });

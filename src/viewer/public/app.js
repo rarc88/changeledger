@@ -29,6 +29,7 @@ import {
   state,
   toggleGlobalMode,
   toggleOwnerFilter,
+  togglePendingGraduation,
   toggleShowArchived,
   toggleShowDiscarded,
   toggleStatusFilter,
@@ -194,11 +195,16 @@ export function renderChoiceFilter(host, label, choices, selected, toggle, clear
 
 export function renderStatusFilter() {
   const sf = $('#status-filter');
+  const summary = state.filters.pendingGraduation
+    ? state.filters.statuses.size
+      ? `${state.filters.statuses.size + 1} selected`
+      : 'Pending graduation'
+    : statusSummary(state.filters.statuses);
   litRender(
     html`<details class="filter-menu">
       <summary class="filter-trigger">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
-        <span data-status-summary>${statusSummary(state.filters.statuses)}</span>
+        <span data-status-summary>${summary}</span>
         <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true">
           <path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path>
         </svg>
@@ -213,6 +219,11 @@ export function renderStatusFilter() {
               <span>${status.replaceAll('-', ' ')}</span>
             </label>`,
           )}
+          <label class="check-option">
+            <input type="checkbox" data-pending-graduation .checked=${state.filters.pendingGraduation} />
+            <span class="check-box" aria-hidden="true"></span>
+            <span>Pending graduation</span>
+          </label>
         </div>
         <div class="filter-heading visibility-heading"><span>Visibility</span></div>
         <div class="filter-options">
@@ -236,6 +247,11 @@ export function renderStatusFilter() {
       render();
     };
   });
+  sf.querySelector('[data-pending-graduation]').onchange = () => {
+    togglePendingGraduation();
+    renderStatusFilter();
+    render();
+  };
   sf.querySelector('[data-clear-status]').onclick = () => {
     clearStatusFilters();
     renderStatusFilter();

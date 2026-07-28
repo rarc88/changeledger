@@ -415,6 +415,38 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   );
 });
 
+test('141643 CR3: pending graduation combines with every visible-change filter but not Graph', () => {
+  const filters = {
+    text: 'needle',
+    types: new Set(['feature']),
+    owners: new Set(['ana']),
+    includeUnassigned: false,
+    statuses: new Set(['done']),
+    pendingGraduation: true,
+    showArchived: false,
+    showDiscarded: false,
+  };
+  const matching = {
+    ...baseChange(),
+    title: 'Needle change',
+    status: 'done',
+    owner: 'ana',
+    pending_graduation: true,
+  };
+
+  assert.equal(isVisible(matching, filters), true);
+  assert.equal(isVisible({ ...matching, pending_graduation: false }, filters), false);
+  assert.equal(isVisible({ ...matching, type: 'bug' }, filters), false);
+  assert.equal(isVisible({ ...matching, owner: 'bob' }, filters), false);
+  assert.equal(isVisible({ ...matching, status: 'draft' }, filters), false);
+  assert.equal(isVisible({ ...matching, title: 'Other' }, filters), false);
+  assert.equal(
+    passesTombstones({ ...matching, pending_graduation: false }, filters),
+    true,
+    'Graph keeps its tombstone-only filter semantics',
+  );
+});
+
 test('111457 CR8: legacy prose is ordinary spec content, not graduation metadata', () => {
   const body = `# Architecture
 
@@ -1544,6 +1576,34 @@ test('124934: clearing statuses preserves Lit markers for the next render', () =
     fixture.querySelector('[data-clear-status]').click();
 
     assert.doesNotThrow(renderStatusFilter);
+    assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'All statuses');
+  } finally {
+    fixture.remove();
+  }
+});
+
+test('141643 CR3: Status menu toggles and clears pending graduation without losing Lit markers', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = '<div id="status-filter"></div><section id="board"></section>';
+  document.body.append(fixture);
+  appState.repo = { changes: [], statuses: ['draft', 'done'] };
+  appState.filters.statuses = new Set();
+  appState.filters.pendingGraduation = false;
+  appState.currentView = 'board';
+
+  try {
+    renderStatusFilter();
+    const pending = fixture.querySelector('[data-pending-graduation]');
+    assert.ok(pending);
+    assert.match(pending.closest('label').textContent, /Pending graduation/);
+    pending.click();
+    assert.equal(appState.filters.pendingGraduation, true);
+    assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'Pending graduation');
+
+    fixture.querySelector('[data-clear-status]').click();
+    assert.equal(appState.filters.pendingGraduation, false);
+    assert.doesNotThrow(renderStatusFilter);
+    assert.equal(fixture.querySelector('[data-pending-graduation]').checked, false);
     assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'All statuses');
   } finally {
     fixture.remove();
