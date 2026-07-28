@@ -882,7 +882,17 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   change sharing the surface" now rides the combined-commit sentence
     //   ("naming every change that shares the surface"). Verified by grepping the
     //   obligation itself, not similar words: both appear only in `core.md`.
-    'core.md': '6736cf3c9e5395143bd38bb64af484c05c656d324ea0a6feb1b35b678e96140b',
+    // 20260728-151336: REPLACED — "only merge commits and `chore(release)` prep
+    //   are exempt" by "only merge commits, `chore(release)` prep and a
+    //   `ChangeLedger: none — <reason>` body are exempt", so the same sentence
+    //   now also names the declared operational commit exemption implemented in
+    //   `src/git.mjs` (`commitMarkerViolation`/`lintCommitRange`) and composed by
+    //   `changeledger commit --no-change <reason>`. No obligation moved fragment
+    //   or file: grepped `templates/contract/` for "merge commits", "chore(release)"
+    //   and "ChangeLedger: none" and every hit is this one line in `core.md`.
+    //   Nothing is retired — the merge and `chore(release)` exemptions are
+    //   preserved verbatim, only extended with the new third case.
+    'core.md': '9577f956217a9a014a5885c040687b4e1e4e688884fd3b3c53ebff98f83aef67',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -2673,7 +2683,7 @@ test('124837 CR4: the message mechanics survive whole in core', () => {
     'Subjects follow `type(scope): description [#<id>]` with the real id and conventional type',
     'One change keeps its marker at the end of the subject',
     'two or more keep the subject clean and use one canonical body line, `ChangeLedger: [#A] [#B]` — never a comma list in one bracket',
-    'Ledger meta-commits (status, review, log, archive) carry markers like any other; only merge commits and `chore(release)` prep are exempt',
+    'Ledger meta-commits (status, review, log, archive) carry markers like any other; only merge commits, `chore(release)` prep and a `ChangeLedger: none — <reason>` body are exempt',
     '`changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it, resolving the single `in-progress` change when `--id` is omitted and failing without committing if that is ambiguous or the subject is not conventional',
     'Run `changeledger check --commits [<base>]` before requesting review',
   ]) {
@@ -2758,7 +2768,7 @@ test('124837 CR8: no obligation leaves implement.md without a named home', () =>
     ],
     [
       'only merge commits and `chore(release)` prep are exempt',
-      'only merge commits and `chore(release)` prep are exempt',
+      'only merge commits, `chore(release)` prep and a `ChangeLedger: none — <reason>` body are exempt',
     ],
     [
       'composes and creates the commit for you',

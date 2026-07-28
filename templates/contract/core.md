@@ -109,7 +109,7 @@ transition; never defer them and reconstruct mixed diffs at the end.
 Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
 its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,
 `ChangeLedger: [#A] [#B]` — never a comma list in one bracket. Ledger meta-commits (status, review, log,
-archive) carry markers like any other; only merge commits and `chore(release)` prep are exempt.
+archive) carry markers like any other; only merge commits, `chore(release)` prep and a `ChangeLedger: none — <reason>` body are exempt.
 `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]` composes and creates it, resolving the single
 `in-progress` change when `--id` is omitted and failing without committing if that is ambiguous or the
 subject is not conventional. Run `changeledger check --commits [<base>]` before requesting review.
