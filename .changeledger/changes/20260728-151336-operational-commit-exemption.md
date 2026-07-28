@@ -2,9 +2,10 @@
 id: "20260728-151336"
 title: Dar forma legal al commit operativo
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T15:13:36Z
 depends_on: []
+reviewed: true
 related_to: ["20260726-141124", "20260726-124837", "20260727-194234"]
 owner: raruiz-hiberuscom
 ---
@@ -164,3 +165,5 @@ del core.
 - **2026-07-28T16:26:52Z** `[note]` Correccion del orquestador, sin commitear, para ronda de confirmacion con mandato minimo. Un test nuevo en test/check.test.mjs que fija el \S de NONE_REASON_RE: body 'ChangeLedger: none —  padded reason' con dos espacios tras la raya debe dar malformed ChangeLedger body. Verificado por mi: pasa con el codigo actual (124/124) y muere con la mutacion \S.* a .* (124 tests, 1 fallo, justo ese). src/git.mjs restaurado byte-exacto, git diff vacio. Gate completo 857/857. El comentario del test declara por que existe: body.trim() en commitsInRange ya rechaza una razon enteramente blanca, asi que el unico efecto observable del \S es rechazar relleno entre la raya y una razon real. Esa afirmacion viene del review, no de mi, y hay que verificarla antes de dejarla en un comentario permanente: ya escribi una vez el mecanismo equivocado en este mismo change.
 - **2026-07-28T16:33:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-28T16:33:42Z** `[note]` Ronda de confirmacion con mandato minimo: PASS, sin defectos. El test nuevo pasa 124/124 y muere solo (123 pass, 1 fail) con la mutacion \S.* a .*; ningun otro test depende de ella. El comentario queda verificado en sus dos mitades por ejecucion, no por lectura: body.trim() en src/git.mjs:212 rechaza la razon enteramente blanca con y sin \S, y de siete cuerpos probados solo cambian de veredicto los dos de relleno -tabulador y NBSP-, que es la clase que el comentario nombra. El revisor escaneo todos los code points y confirmo que en Node v24.18.0 los conjuntos de whitespace de \s y String.trim() son identicos hasta U+3000, asi que la discrepancia que sospechaba no existe y no esconde ningun efecto adicional. Confirmado por segunda vez el hueco del espacio de ancho cero: una razon U+200B se acepta con y sin \S porque no es whitespace para ninguna definicion; va al follow-up junto a los marcadores dentro de la razon.
+- **2026-07-28T16:37:30Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-28T16:39:23Z** `[graduation]` spec: `git-traceability.md`

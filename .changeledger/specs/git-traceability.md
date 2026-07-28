@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-28T01:11:42Z
+updated: 2026-07-28T16:39:23Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336"]
 ---
 
 ## Trazabilidad git
@@ -41,8 +41,23 @@ ningún comando del lifecycle realiza.
 
 `changeledger check --commits [base]` acepta exclusivamente esas dos formas y
 reporta la causa concreta de marcadores ausentes, ambiguos o mal formados;
-exime merges y `chore(release)`. `gitRefs()` busca en el mensaje completo y
-presenta el subject limpio. El runner de `git.mjs` sanea
+exime merges, `chore(release)` y el **commit operativo declarado**.
+
+El commit operativo es la forma legal de commitear trabajo que ningún change
+cubre: su body es exactamente `ChangeLedger: none — <razón>` con razón no vacía.
+La exención sólo se activa con esa declaración positiva, nunca por omisión —
+olvidar el marcador sigue fallando— y la razón es obligatoria porque un commit sin
+documento de change no tiene otro sitio donde registrar su porqué. `ChangeLedger:
+none` sin razón es error propio; la declaración no convive con ningún marcador en
+el subject. `changeledger commit -m "<subject>" --no-change "<razón>"` la compone y
+es mutuamente excluyente con `--id`, ignorando la resolución del change en curso:
+una declaración explícita no puede depender del estado ambiente del repositorio.
+
+`gitRefs()` busca en el mensaje completo y presenta el subject limpio. **Residual
+declarado**: por eso un id citado dentro de la razón de un commit operativo queda
+atribuido a ese change, aunque el commit declare que ninguno lo cubre; la regla de
+no coexistencia sólo inspecciona el subject. Cerrarlo exige decidir si las razones
+pueden citar ids. El runner de `git.mjs` sanea
 `GIT_DIR`/`GIT_WORK_TREE` del entorno heredado para que hooks anidados no
 redirijan comandos git al repo equivocado. `git.mjs` distingue dos perfiles de
 ejecución: las consultas tolerantes (`defaultRun`) degradan en silencio a vacío,
