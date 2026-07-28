@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-07-26T12:48:37Z
 depends_on: ["20260726-124835", "20260727-194233"]
+archived: true
 reviewed: true
 related_to: ["20260722-124656", "20260727-194234", "20260726-141119", "20260726-141124"]
 owner: raruiz-hiberuscom
@@ -257,3 +258,4 @@ Los criterios se comprueban sobre la salida compuesta de
 - **2026-07-27T21:26:56Z** `[note]` Correccion confirmada por revisor fresco. Aclaracion de conteo que el revisor senalo: el bloque ## Commits mide 28 lineas del encabezado a su ultima linea con contenido —la convencion que codifica commitsBlockLines() y contra la que CR7 verifica— y 29 si se cuenta el blanco separador anterior al siguiente encabezado. No hay incumplimiento, pero la correccion lo llevo de 27 a 28: el bloque queda SIN margen contra su techo y cualquier anadido futuro lo rompe. El core queda en 193/200 lineas y 11728/12000 bytes.
 - **2026-07-27T21:32:22Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T21:33:27Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

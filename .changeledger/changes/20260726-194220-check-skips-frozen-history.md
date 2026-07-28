@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-26T19:42:20Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260726-141119", "20260613-222915", "20260711-103802"]
@@ -396,3 +397,4 @@ Ambos son contexto, no prerrequisitos.
 - **2026-07-26T21:09:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-26T21:21:13Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-26T21:24:30Z** `[graduation]` spec: `validation.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

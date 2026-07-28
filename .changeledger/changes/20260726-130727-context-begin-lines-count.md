@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T13:07:27Z
 depends_on: ["20260726-124833"]
+archived: true
 reviewed: true
 related_to: ["20260726-124834"]
 owner: raruiz-hiberuscom
@@ -246,3 +247,4 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 - **2026-07-27T10:59:46Z** `[note]` Puntero del Plan corregido con autorizacion explicita de Roberto el 2026-07-27: la tarea 1 decia beginDelimiter (src/framing.mjs) y ahora dice src/commands/context.mjs, que es donde vive (linea 34).
 - **2026-07-27T10:59:46Z** `[note]` Residuo NO tocado, se eleva a Roberto: .changeledger/specs/contract-discovery.md:152-153 sigue diciendo 'Tras una compactacion, el rev retenido se comprueba con changeledger context [mode] --have <rev>'. Es fuga de la graduacion de 20260726-124833, que retiro el flag y el segmento rev: y añadio el parrafo 'Sin recuperacion por revision' 50 lineas mas arriba sin limpiar esta. La spec se contradice a si misma y documenta un flag que hoy da error — clase del hallazgo 19. Solo corregi el literal del centinela BEGIN, que es verdad de este change.
 - **2026-07-27T10:59:46Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

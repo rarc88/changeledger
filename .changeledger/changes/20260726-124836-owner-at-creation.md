@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T12:48:36Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: []
 owner: raruiz-hiberuscom
@@ -224,3 +225,4 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **2026-07-28T00:40:49Z** `[note]` Casilla de la tarea 6 marcada tarde: su trabajo estaba hecho, verificado y commiteado en ac2cdb0a, pero marque done sobre el indice 7 cuando la de hermeticidad ERA la 7, y al insertar despues la tarea de los helpers los indices se desplazaron. La casilla quedo apuntando al gate y la de hermeticidad sin marcar. Nada lo detecta: una casilla sin marcar es legitima y check no compara casillas con commits.
 - **2026-07-28T00:41:53Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-28T00:44:09Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

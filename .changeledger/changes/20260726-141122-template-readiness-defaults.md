@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-26T14:11:22Z
 depends_on: ["20260726-141119"]
+archived: true
 reviewed: true
 related_to: []
 owner: raruiz-hiberuscom
@@ -187,3 +188,4 @@ de alcance de este change.
 - **2026-07-27T00:56:52Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T00:57:51Z** `[graduation]` spec: `readiness.md`
 - **2026-07-27T00:57:51Z** `[graduation]` spec: `architecture.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

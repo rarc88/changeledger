@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-07-27T19:42:34Z
 depends_on: ["20260726-124837"]
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260727-194233"]
@@ -162,3 +163,4 @@ donde el agente lee realmente el fragmento.
 - **2026-07-28T01:01:24Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-28T01:09:48Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-28T01:11:42Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-26T14:11:20Z
 depends_on: ["20260726-141119"]
+archived: true
 reviewed: true
 related_to: ["20260726-141121"]
 owner: raruiz-hiberuscom
@@ -187,3 +188,4 @@ comparte los consumidores de los puntos 5 y 6, sin imponer orden de ejecución.
 - **2026-07-26T22:50:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-26T22:53:55Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-26T22:55:09Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

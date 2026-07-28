@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-26T14:11:23Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: []
 owner: raruiz-hiberuscom
@@ -130,3 +131,4 @@ compatibilidad, así que `audit` deja de resolver como rol sin excepción.
 - **2026-07-26T23:56:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-27T00:00:51Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T00:01:34Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

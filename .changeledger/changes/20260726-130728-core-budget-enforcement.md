@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T13:07:28Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260726-124835", "20260726-130727"]
 owner: raruiz-hiberuscom
@@ -198,3 +199,4 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 - **2026-07-27T13:57:11Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T14:00:00Z** `[note]` Graduado a contract-discovery. Verdad persistente escrita: el presupuesto del core es puerta y no aviso, la politica vive con la bandera strict_target JUNTO a las cifras que gobierna y no en el codigo de test, es la unica entrada que la declara, y la verificacion cubre las ocho combinaciones de banda/metrica/regimen fijadas en su limite exacto. Registrada tambien la razon concreta de exigir las ocho: basto no cubrir el techo de bytes para que borrarlo entero dejara la suite en verde, y en la practica los bytes se agotan antes que las lineas. No toque el parrafo de la regla general de captura del nucleo: sigue describiendo core.md, que este change no modifico y cuya reescritura posee 20260726-124835.
 - **2026-07-27T14:00:00Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

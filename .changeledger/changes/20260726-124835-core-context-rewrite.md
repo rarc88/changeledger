@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T12:48:35Z
 depends_on: ["20260726-124833", "20260726-124834", "20260726-130728"]
+archived: true
 reviewed: true
 related_to: ["20260722-124655", "20260722-124656", "20260726-124837"]
 owner: raruiz-hiberuscom
@@ -461,3 +462,4 @@ haber detectado se trata como defecto de esa etapa.
 - **2026-07-27T15:59:18Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-27T16:14:11Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T16:16:46Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

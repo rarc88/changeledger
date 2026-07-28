@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-07-26T13:16:03Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260711-204419"]
 owner: raruiz-hiberuscom
@@ -45,3 +46,4 @@ la invocación, y `pnpm verify` completo.
 - **2026-07-26T13:49:10Z** `[status]` in-progress → in-validation
 - **2026-07-26T13:51:40Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-26T14:10:12Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

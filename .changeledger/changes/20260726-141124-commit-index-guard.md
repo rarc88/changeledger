@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T14:11:24Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260726-124837", "20260726-131603"]
 owner: raruiz-hiberuscom
@@ -367,3 +368,4 @@ pertenecían a dos estrategias superadas.
 - **2026-07-26T17:47:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-26T18:21:27Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-26T18:26:56Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

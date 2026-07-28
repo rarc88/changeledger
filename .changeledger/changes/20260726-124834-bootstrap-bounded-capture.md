@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-26T12:48:34Z
 depends_on: ["20260726-130727"]
+archived: true
 reviewed: true
 related_to: ["20260726-124835"]
 owner: raruiz-hiberuscom
@@ -352,3 +353,4 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 - **2026-07-27T13:08:25Z** `[note]` Obligacion de graduacion cerrada, con una correccion al revisor. El revisor senalo contract-discovery.md:84 Y :162-163 como la misma contradiccion; verifique y no lo son. La linea 84 describe la regla del NUCLEO ('el consumidor no solicita previews, resumenes ni limites voluntarios'), y templates/contract/core.md:9-10 sigue diciendo exactamente eso — comprobado por grep. Ese fragmento no lo toco este change y su reescritura la posee 20260726-124835. Si la hubiera 'arreglado' habria dejado la spec contradiciendo al core vigente y habria pisado alcance ajeno. La contradiccion real era solo la descripcion del BOOTSTRAP (:159-171), que seguia narrando el mecanismo v3. Reescrita: comando acotado exacto, condicion de validez positiva, reintento por lines:<N>, distincion ausente vs presente-que-falla, y re-ejecucion tras compactacion. Anadido tambien un parrafo explicito de que la regla general del nucleo no queda derogada, porque lo que el bootstrap prescribe es un comando acotado y no libertad de recorte.
 - **2026-07-27T13:08:25Z** `[note]` Graduada tambien la verdad nueva sobre la proyeccion de equivalencia: modela list y list_item y recursa en items, con la razon de por que la recursion es load-bearing (whitelistear sin recursar compraria tolerancia al formateador a cambio de un bypass silencioso), que la cobertura se deriva del parseo y recorre todos los bullets, que sigue fallando cerrado ante checkbox y link, y que 'ordered' no se modela a proposito con su consecuencia exacta. Sin esto, la spec describiria una whitelist de tokens sin decir que las listas ya entran ni por que.
 - **2026-07-27T13:08:25Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-26T14:11:21Z
 depends_on: ["20260726-141119"]
+archived: true
 reviewed: true
 related_to: ["20260726-141120"]
 owner: raruiz-hiberuscom
@@ -139,3 +140,4 @@ composición de `changeledger context`. No se duplica su alcance.
 - **2026-07-26T23:27:06Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-26T23:30:27Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-26T23:31:32Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

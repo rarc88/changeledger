@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-27T19:42:33Z
 depends_on: []
+archived: true
 reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260726-130728", "20260726-130727", "20260726-124835", "20260726-124837", "20260727-194234"]
@@ -243,3 +244,4 @@ parecidas.
 - **2026-07-27T20:34:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-27T20:49:54Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T20:52:07Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived

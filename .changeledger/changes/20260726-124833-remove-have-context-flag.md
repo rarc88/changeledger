@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-07-26T12:48:33Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260726-124834", "20260726-124835"]
 owner: raruiz-hiberuscom
@@ -117,3 +118,4 @@ segmento `rev:<hash>` de la línea BEGIN:
 - **2026-07-27T01:24:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-27T09:46:26Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-27T09:48:01Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T13:31:39Z** `[archive]` archived
