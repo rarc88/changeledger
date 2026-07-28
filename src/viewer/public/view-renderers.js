@@ -152,6 +152,34 @@ export function specsListHtml(specs, fmtDateTime) {
   );
 }
 
+const LEDGER_CATEGORIES = [
+  ['specs', 'Specs'],
+  ['project-docs', 'Project docs'],
+  ['contract', 'Contract'],
+  ['templates', 'Templates'],
+];
+
+export function ledgerViewHtml(category, specs, fmtDateTime) {
+  return html`
+    <div class="ledger-categories" role="group" aria-label="Ledger categories">
+      ${LEDGER_CATEGORIES.map(
+        ([value, label]) => html`<button
+          type="button"
+          class=${`tab${category === value ? ' active' : ''}`}
+          data-ledger-category=${value}
+          aria-pressed=${String(category === value)}
+        >${label}</button>`,
+      )}
+    </div>
+    <div class="ledger-content" data-ledger-content=${category}>
+      ${
+        category === 'specs'
+          ? html`<div class="specs-view">${specsListHtml(specs, fmtDateTime)}</div>`
+          : nothing
+      }
+    </div>`;
+}
+
 export function fmtDuration(ms) {
   if (!ms || ms < 0) return '—';
   const h = ms / 3600000;

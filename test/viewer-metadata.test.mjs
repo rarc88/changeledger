@@ -34,6 +34,7 @@ const {
   projectMutation,
   projectsViewTemplate,
   requestUnregisterConfirmation,
+  renderLedger,
   bindReopenAction,
   reopenPanel,
   renderChoiceFilter,
@@ -242,7 +243,7 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
 test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -260,6 +261,12 @@ test('111219 CR1/CR2: restored state hydrates search, active view and global mod
   assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
   assert.ok(!root.querySelector('#global').classList.contains('hidden'));
   assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+
+  appState.globalMode = false;
+  appState.currentView = 'ledger';
+  syncViewerShell(root, false);
+  assert.ok(root.querySelector('#view-ledger').classList.contains('active'));
+  assert.ok(!root.querySelector('#ledger').classList.contains('hidden'));
 });
 
 test('141859 CR1: the static shell renames the Specs view hook to Ledger', () => {
@@ -276,7 +283,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
   const shell = () => {
     const root = document.createElement('div');
     root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-      ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
         .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
         .join('')}
       <section id="global"></section>`;
@@ -306,7 +313,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
 test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -1705,6 +1712,86 @@ test('155720 CR3: cards are ordered by updated descending', () => {
     [...host.querySelectorAll('.spec-title')].map((el) => el.textContent),
     ['Newest', 'Middle', 'Oldest'],
   );
+});
+
+test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four categories', () => {
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    text: appState.filters.text,
+    category: appState.ledgerCategory,
+  };
+  appState.repo = {
+    changes: [],
+    specs: [
+      spec({
+        title: 'Older truth',
+        updated: '2026-01-01T00:00:00Z',
+        tags: ['architecture'],
+        body: '# Older\n\nSafe **summary**.',
+      }),
+      spec({
+        title: 'Newest truth',
+        updated: '2026-07-01T00:00:00Z',
+        tags: ['viewer'],
+        body: `# Newest\n\n${XSS} searchable summary.`,
+      }),
+    ],
+  };
+  appState.filters.text = '';
+  appState.ledgerCategory = 'specs';
+
+  try {
+    renderLedger(root);
+    const controls = [...root.querySelectorAll('[data-ledger-category]')];
+    assert.deepEqual(
+      controls.map((button) => button.textContent.trim()),
+      ['Specs', 'Project docs', 'Contract', 'Templates'],
+    );
+    assert.equal(controls[0].getAttribute('aria-pressed'), 'true');
+    assert.ok(controls[0].classList.contains('active'));
+    assert.deepEqual(
+      [...root.querySelectorAll('.spec-title')].map((title) => title.textContent),
+      ['Newest truth', 'Older truth'],
+    );
+    assert.equal(root.querySelector('.spec-card .pill').textContent, 'viewer');
+    assert.match(root.querySelector('.spec-card .spec-excerpt').textContent, /searchable summary/);
+    assert.equal(root.querySelector('img'), null);
+
+    appState.filters.text = 'older';
+    renderLedger(root);
+    assert.deepEqual(
+      [...root.querySelectorAll('.spec-title')].map((title) => title.textContent),
+      ['Older truth'],
+    );
+
+    appState.filters.text = '';
+    renderLedger(root);
+    root.querySelector('[data-ledger-category="contract"]').click();
+    assert.equal(appState.ledgerCategory, 'contract');
+    assert.equal(
+      root.querySelector('[data-ledger-category="contract"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.ok(root.querySelector('[data-ledger-category="contract"]').classList.contains('active'));
+    assert.equal(root.querySelectorAll('.spec-card').length, 0);
+    const mount = root.querySelector('[data-ledger-content="contract"]');
+    assert.ok(mount);
+    assert.equal(mount.children.length, 0, 'document content is intentionally deferred');
+  } finally {
+    appState.repo = previous.repo;
+    appState.filters.text = previous.text;
+    appState.ledgerCategory = previous.category;
+  }
+});
+
+test('141859 CR1: top-level dispatch binds Ledger rather than the retired Specs view', () => {
+  const source = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /#view-ledger['"]\)\.onclick\s*=\s*\(\)\s*=>\s*activateView\(['"]ledger['"]\)/,
+  );
+  assert.doesNotMatch(source, /#view-specs['"]\)\.onclick/);
 });
 
 test('113924: requestUnregisterConfirmation still accepts legacy ask override', () => {

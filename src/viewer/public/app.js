@@ -22,6 +22,7 @@ import {
   restoreViewerState,
   selectProject,
   setDetailPresentation,
+  setLedgerCategory,
   setRepo,
   setSortKey,
   setTextFilter,
@@ -50,7 +51,7 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, metricsHtml, sortSpecsByUpdated, specsListHtml } from './view-renderers.js';
+import { graphSvg, ledgerViewHtml, metricsHtml, sortSpecsByUpdated } from './view-renderers.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -276,7 +277,7 @@ function visibleChanges() {
 function render() {
   if (state.currentView === 'graph') renderGraph();
   else if (state.currentView === 'table') renderTable();
-  else if (state.currentView === 'specs') renderSpecs();
+  else if (state.currentView === 'ledger') renderLedger();
   else if (state.currentView === 'metrics') renderMetrics();
   else if (state.currentView === 'projects') renderProjects();
   else renderBoard();
@@ -792,20 +793,24 @@ function sortVal(c, key) {
   return String(c[key] ?? '');
 }
 
-/* Specs view */
-function renderSpecs() {
+/* Ledger view */
+export function renderLedger(root = $('#ledger')) {
   const q = state.filters.text.toLowerCase();
   const specs = sortSpecsByUpdated(
     (state.repo.specs || []).filter(
       (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
     ),
   );
-  litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
-  $('#specs')
-    .querySelectorAll('.spec-card')
-    .forEach((el) => {
-      el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
-    });
+  litRender(ledgerViewHtml(state.ledgerCategory, specs, fmtDateTime), root);
+  root.querySelectorAll('[data-ledger-category]').forEach((button) => {
+    button.onclick = () => {
+      setLedgerCategory(button.dataset.ledgerCategory);
+      renderLedger(root);
+    };
+  });
+  root.querySelectorAll('.spec-card').forEach((el) => {
+    el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
+  });
 }
 
 function openSpec(s) {
@@ -876,7 +881,7 @@ export function handleSpecBodyClick(event, _openSpecByName) {
   _openSpecByName(href);
 }
 
-const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
+const VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics', 'projects'];
 
 // The shared metrics module is dynamic-imported once and cached: the client
 // computes metrics itself, over the filtered set, instead of duplicating
@@ -1745,7 +1750,7 @@ function bootstrap() {
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
   $('#view-graph').onclick = () => activateView('graph');
-  $('#view-specs').onclick = () => activateView('specs');
+  $('#view-ledger').onclick = () => activateView('ledger');
   $('#view-metrics').onclick = () => activateView('metrics');
   $('#view-projects').onclick = () => activateView('projects');
   $('#project').onchange = async (e) => {
