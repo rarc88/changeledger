@@ -868,7 +868,8 @@ test('141643 CR4/CR5: desktop board is the sole two-axis viewport and all lanes 
   assert.doesNotMatch(boardRule, /overflow-[xy]:/);
   assert.match(boardRule, /display:\s*grid/);
   assert.match(boardRule, /grid-auto-flow:\s*column/);
-  assert.match(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
+  assert.match(boardRule, /grid-template-rows:\s*minmax\(max-content,\s*100%\)/);
+  assert.doesNotMatch(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
   assert.match(
     boardRule,
     /grid-auto-columns:\s*clamp\(190px,\s*calc\(\(100vw - 140px\) \/ 6\),\s*400px\)/,

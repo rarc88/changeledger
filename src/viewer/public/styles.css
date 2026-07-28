@@ -560,7 +560,7 @@ body {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: clamp(190px, calc((100vw - 140px) / 6), 400px);
-  grid-template-rows: minmax(100%, max-content);
+  grid-template-rows: minmax(max-content, 100%);
   gap: 14px;
   padding: 16px;
   height: calc(100dvh - var(--header-height));
