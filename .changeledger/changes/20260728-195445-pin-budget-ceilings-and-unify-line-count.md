@@ -2,7 +2,7 @@
 id: "20260728-195445"
 title: "Higiene del mecanismo de presupuestos: techos pinneados y un solo contador"
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-28T19:54:45Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-194157"]
@@ -162,7 +162,8 @@ Comprobado contra el árbol, no heredado del acta:
   - **Resolved:** `2026-07-28T20:27:26Z`
 - [x] Pinnear por valor las 11 entradas de `templates/contract/budgets.yml` en una sede única, que falle al mover, añadir o quitar un número nombrando la entrada y la dimensión; verify: `node --test test/context.test.mjs` (CR1, CR2)
   - **Resolved:** `2026-07-28T20:40:20Z`
-- [ ] Correr el gate completo `pnpm verify` tras la implementación (support)
+- [x] Correr el gate completo `pnpm verify` tras la implementación (support)
+  - **Resolved:** `2026-07-28T20:42:44Z`
 
 ## Log
 - **2026-07-28T20:16:52Z** `[status]` draft → approved
@@ -172,3 +173,6 @@ Comprobado contra el árbol, no heredado del acta:
 - **2026-07-28T20:40:35Z** `[note]` Tarea 2: pin de valores en sede única en test/context.test.mjs. declaredCeilings() DERIVA las 11 rutas de budgets.yml parseado; PINNED_CEILINGS es la única enumeración literal de los 22 numeros. CR1 compara valor a valor nombrando ruta y dimension; CR2 compara conjuntos de rutas, asi que caza adicion y eliminacion. Agujero reproducido antes del pin: con base.spec.tokens subido a 3451 la suite daba 81/81 en verde.
 - **2026-07-28T20:40:45Z** `[note]` Decision del orquestador con evidencia: retirada la asercion duplicada 'Roberto's number' (base.core.tokens == 4000) de 170429 CR4, porque el pin nuevo cubre ese numero y mantenerla dejaba una regla con dos duenos, el defecto que este change existe para matar. Verificado por mi, no solo por el delegado: con base.core.tokens en 2000 (por debajo del contenido real) 170429 CR4 sigue fallando por su propio proposito, 'a declared ceiling is not met today: core exceeds 2000 tokens: 2571', en el assert.ok(!sweep.thrown) del barrido, no en una comparacion de valor. Con 4001 muere 195445 CR1. Ambos tests siguen vivos por razones propias. Mutantes aislados y restaurados editando; budgets.yml byte-identico a HEAD.
 - **2026-07-28T20:40:54Z** `[note]` Punto de escrutinio para el revisor, no defecto: un grupo NUEVO de primer nivel en budgets.yml (p.ej. capsules) no lo ve declaredCeilings(), que solo recorre base, overlays, blocks y agent. Lo caza budgetEntries() con su deepEqual de claves de primer nivel, verificado por el delegado anadiendo capsules temporalmente: falla nombrando 'capsules' y rompe en cascada 194233 CR1, 194233 CR4 y 170429 CR1. El agujero esta cerrado por la suite, aunque no por 195445 CR2 en si. Deliberadamente sin tocar.
+- **2026-07-28T20:42:44Z** `[note]` Tarea 3: gate local completo antes de pedir review. 'pnpm verify' EXIT=0 -- biome check 86 ficheros sin fixes aplicados, node --test 923/923, changeledger check 0 errores. Los 4 warnings que quedan son todos de 20260728-194157 (CH-19), preexistentes y ajenos a este change.
+- **2026-07-28T20:43:05Z** `[status]` in-progress → in-review
+- **2026-07-28T20:43:30Z** `[note]` Commit de handoff: el trabajo se detiene para delegar el review y el unico delta pendiente es document-only (casilla de la tarea 3 de support, notas de Log y el status a in-review). No hay codigo que lo acompanie, asi que no cabe en una clase de tarea; se commitea como handoff para que el revisor reciba baseline..HEAD coherente y ninguna edicion del entregable quede sin rastro.
