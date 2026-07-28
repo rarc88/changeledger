@@ -184,7 +184,8 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
   - **Resolved:** `2026-07-27T21:57:12Z`
 - [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (support)
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [ ] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un guard en `test/git.test.mjs` que recorra el árbol de test y falle nombrando fichero y línea cuando un sitio de creación pierda su inyección, sin añadir superficie a `src/`; verify: `node --test test/git.test.mjs` (CR7)
+- [x] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un guard en `test/git.test.mjs` que recorra el árbol de test y falle nombrando fichero y línea cuando un sitio de creación pierda su inyección, sin añadir superficie a `src/`; verify: `node --test test/git.test.mjs` (CR7)
+  - **Resolved:** `2026-07-28T00:40:49Z`
 - [x] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-27T21:57:22Z`
 
@@ -219,3 +220,4 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **2026-07-28T00:32:41Z** `[note]` Correccion del sexto retry: la exencion de ayuda se acota al token que sigue a 'new'. Verificado por construccion: un spawn que crea con '--help' como valor de titulo ahora falla, y new --help y new -h legitimos siguen exentos.
 - **2026-07-28T00:32:41Z** `[status]` in-progress → in-review
 - **2026-07-28T00:35:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-28T00:40:49Z** `[note]` Casilla de la tarea 6 marcada tarde: su trabajo estaba hecho, verificado y commiteado en ac2cdb0a, pero marque done sobre el indice 7 cuando la de hermeticidad ERA la 7, y al insertar despues la tarea de los helpers los indices se desplazaron. La casilla quedo apuntando al gate y la de hermeticidad sin marcar. Nada lo detecta: una casilla sin marcar es legitima y check no compara casillas con commits.
