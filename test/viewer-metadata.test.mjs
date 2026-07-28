@@ -856,6 +856,48 @@ test('20260704-103715 CR1/CR2/CR4/CR5: detail CSS keeps the toolbar fixed and di
   assert.match(css, /\.stage\s*\{[^}]*scroll-margin-top:/s);
 });
 
+test('141643 CR4/CR5: desktop board is the sole two-axis viewport and all lanes share its effective height', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const boardRule = css.match(/\/\* Board \*\/\s*\.board\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const bodyRule = css.match(/\.column-body\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(boardRule, /height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\)/);
+  assert.match(boardRule, /overflow:\s*auto/);
+  assert.doesNotMatch(boardRule, /overflow-[xy]:/);
+  assert.match(boardRule, /display:\s*grid/);
+  assert.match(boardRule, /grid-auto-flow:\s*column/);
+  assert.match(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
+  assert.match(
+    boardRule,
+    /grid-auto-columns:\s*clamp\(190px,\s*calc\(\(100vw - 140px\) \/ 6\),\s*400px\)/,
+  );
+  assert.match(boardRule, /align-items:\s*stretch/);
+  assert.match(columnRule, /display:\s*flex/);
+  assert.match(columnRule, /flex-direction:\s*column/);
+  assert.match(bodyRule, /flex:\s*1\s+0\s+auto/);
+  assert.doesNotMatch(css, /proxy[-_ ]scroll|scrollbar[-_ ]proxy|sync(?:ed|hronized)?[-_ ]scroll/i);
+  assert.match(app, /new ResizeObserver\(syncHeaderHeight\)\.observe\(topbar\)/);
+  assert.match(app, /setProperty\('--header-height',\s*`\$\{topbar\.offsetHeight\}px`\)/);
+});
+
+test('141643 CR6: mobile board restores natural stacked lanes without internal overflow', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const responsive = css.slice(css.indexOf('/* Responsive: stack on narrow viewports (mobile) */'));
+  const mobileBoard =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\.board\s*\{([^}]*)\}/)?.[1] ?? '';
+  const mobileColumn =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\.column\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(mobileBoard, /display:\s*flex/);
+  assert.match(mobileBoard, /flex-direction:\s*column/);
+  assert.match(mobileBoard, /height:\s*auto/);
+  assert.match(mobileBoard, /overflow:\s*visible/);
+  assert.match(mobileColumn, /width:\s*100%/);
+  assert.match(mobileColumn, /flex:\s*0\s+0\s+auto/);
+});
+
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
   const fixture = document.createElement('div');
   fixture.innerHTML = `<div class="hidden" id="lightbox"><button type="button">Close</button><div class="canvas"></div></div>

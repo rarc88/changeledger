@@ -557,11 +557,15 @@ body {
 
 /* Board */
 .board {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(190px, calc((100vw - 140px) / 6), 400px);
+  grid-template-rows: minmax(100%, max-content);
   gap: 14px;
   padding: 16px;
-  overflow-x: auto;
-  align-items: flex-start;
+  height: calc(100dvh - var(--header-height));
+  overflow: auto;
+  align-items: stretch;
 }
 .board,
 .detail,
@@ -592,6 +596,8 @@ body {
   border-radius: 999px;
 }
 .column {
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -614,6 +620,7 @@ body {
   font-weight: 500;
 }
 .column-body {
+  flex: 1 0 auto;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -1494,8 +1501,10 @@ body {
     display: none;
   }
   .board {
+    display: flex;
     flex-direction: column;
-    overflow-x: visible;
+    height: auto;
+    overflow: visible;
   }
   .column {
     max-width: none;
