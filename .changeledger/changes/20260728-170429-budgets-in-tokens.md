@@ -117,14 +117,21 @@ never a goal: never remove normative prose to fit one"*— porque cada una por
 separado justifica el abuso contrario: una vacía normativa para encajar, la otra
 rellena porque sobra.
 
-Documentar eso obligó primero a cerrar el **hallazgo 13**: `readiness.target_patterns`
-no cubría `AGENTS.md`, así que ninguna tarea con criterio podía targetearlo —warning
-en `draft`, error en `approved`— aunque sea un fichero de producción versionado.
-Roberto lo añadió el 2026-07-28. Este change **cierra la clase, no la instancia**:
-añade también `hooks/**`, porque `hooks/pre-commit` está versionado y es producción
-real —corre `lint-staged`, `pnpm test` y `check`— y hoy ninguna tarea con criterio
-puede tocarlo. Arreglar sólo el caso que estorbaba sería el patrón de corrección que
-esta iniciativa existe para eliminar.
+Documentar eso topó con el **hallazgo 13**: `readiness.target_patterns` no cubría
+`AGENTS.md`, así que ninguna tarea con criterio podía targetearlo —warning en
+`draft`, error en `approved`— aunque sea un fichero de producción versionado.
+**Roberto añadió `AGENTS.md` y después `hooks/**` directamente, el 2026-07-28**,
+cerrando la clase completa en vez de sólo el caso que estorbaba: `hooks/pre-commit`
+está versionado y es producción real, corre `lint-staged`, `pnpm test` y `check`.
+
+Lo que queda por hacer aquí no es la configuración, que ya está, sino su **pin de
+regresión**: verificado que **ningún test fija los `target_patterns` de este
+repositorio** —las referencias en `test/check.test.mjs` usan fixtures sintéticos con
+sus propios patrones (`app/**`, `packages/**`, `custom/**`)—, así que hoy retirar
+`AGENTS.md` o `hooks/**` no rompe nada y la cobertura se perdería en silencio. Ese
+pin es el trabajo falsable de CR7, y por eso el criterio está redactado sobre el
+guard y no sobre el estado: enunciarlo como "los patrones incluyen X" describiría
+algo que ya es verdad y no podría fallar.
 
 Alternativas descartadas:
 
@@ -176,16 +183,16 @@ Alternativas descartadas:
 - **Then** afirma que disponer de margen no autoriza a consumirlo y que cada cosa que entra a un contexto va pensada y optimizada
 - **And** conserva en el mismo párrafo la regla de que un techo nunca es objetivo y que no se retira prosa normativa para encajar
 
-### CR7 — Ninguna ruta de producción versionada queda fuera de los patrones de target
-- **Given** `.changeledger/config.yml`
-- **When** se leen `readiness.target_patterns`
-- **Then** incluyen `AGENTS.md` y `hooks/**`
-- **And** una tarea con criterio que nombre `hooks/pre-commit` y una verificación pasa readiness sin warnings
+### CR7 — La cobertura de las rutas de producción versionadas no puede perderse en silencio
+- **Given** la configuración de este repositorio, cuyos `readiness.target_patterns` ya cubren `AGENTS.md` y `hooks/**`
+- **When** una tarea con criterio nombra `hooks/pre-commit` o `AGENTS.md` junto a una verificación
+- **Then** `changeledger check` no emite ningún warning de target sobre esa tarea
+- **And** retirar `AGENTS.md` o `hooks/**` de `readiness.target_patterns` hace fallar el gate nombrando la ruta de producción que queda sin cubrir
 
 ## Plan
 
 - [ ] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y declarar la unidad en el fragmento del contrato que describe los presupuestos; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR4)
-- [ ] Añadir `AGENTS.md` y `hooks/**` a `readiness.target_patterns` en `.changeledger/config.yml`; verify: `node --test test/check.test.mjs` (CR7)
+- [ ] Fijar en `.changeledger/config.yml` que los `readiness.target_patterns` de este repositorio cubren toda ruta de producción versionada, con un pin que falle al retirar `AGENTS.md` o `hooks/**`; verify: `node --test test/check.test.mjs` (CR7)
 - [ ] Añadir a `AGENTS.md` la regla de que el margen no es permiso de gasto, en el párrafo que ya prohíbe tratar el techo como objetivo; verify: `node --test test/contract.test.mjs` (CR6)
 - [ ] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
 - [ ] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR5)
@@ -196,3 +203,4 @@ Alternativas descartadas:
 - **2026-07-28T17:04:29Z** `[note]` Draft creado. Alcance ampliado por Roberto para absorber los dos techos que viven hardcodeados en test/context.test.mjs y que ninguna migración de unidad alcanzaría; el barrido confirma que la clase son sólo esos dos. Techos declarados = los que el contenido de hoy cumple, decisión de Roberto: spec está a 3118 tokens y bajarlo necesita margen de core que este change provee, así que declarar 2500 dejaría el gate rojo y convertiría el techo en objetivo. La capa de transporte (head derivado, bump de bootstrap) y la higiene del mecanismo (pins, emittedLines, convergencia) salen a changes propios por techo de complejidad.
 - **2026-07-28T17:07:08Z** `[note]` Enmendado antes de aprobar por dos warnings de readiness. CR3 llevaba budgets.yml sin ruta y target_patterns exige templates/**; corregido a templates/contract/budgets.yml. CR6 retirado: AGENTS.md no esta en readiness.target_patterns, asi que ninguna tarea con criterio puede targetearlo y el criterio pasaria de warning en draft a error en approved. Es el hallazgo 13 en vivo, el mismo caso que hooks/**, sobre un fichero de produccion versionado. La regla que Roberto pidio para AGENTS.md sale a un change quick, que activa solo Request y Log y por tanto no pasa por readiness.
 - **2026-07-28T17:20:29Z** `[note]` Enmendado por tres decisiones de Roberto del 2026-07-28. (1) BOOTSTRAP_VERSION se queda en 4, la v4 no es publica todavia: abarata CH-17, con el aviso de que mantener la version cambiando el contenido del bloque cae en el hallazgo 26 -register calcula estado replaced y reescribe el AGENTS.md del consumidor sin avisar, porque solo avisa al subir version-; inocuo hoy porque no hay consumidor. (2) Roberto anadio AGENTS.md a readiness.target_patterns, asi que CR6 vuelve a este change; se cierra la CLASE anadiendo tambien hooks/**, porque hooks/pre-commit es produccion versionada y ninguna tarea con criterio puede tocarlo -hallazgo 13-. (3) Sobre spec: en tokens no habra fallo, el techo declarado lo cumplen los 3118 de hoy. En lineas mide 301 contra un head de modos de 250, asi que ese head nace en 350. Verificado que solo el head del core es caro de cambiar porque vive en el bloque bootstrap publicado en src/contract.mjs:52; los heads de modo viven en prosa del contrato y se mueven sin coste ni deriva, asi que bajarlo a 250 tras CH-0b es gratis.
+- **2026-07-28T17:31:41Z** `[note]` Roberto anadio hooks/** ademas de AGENTS.md, cerrando la clase del hallazgo 13 el mismo. Eso deja CR7 con su Then ya satisfecho, asi que se reformula sobre el guard y no sobre el estado: verificado que ningun test fija los target_patterns de este repositorio -las referencias de test/check.test.mjs usan fixtures sinteticos con app/**, packages/** y custom/**-, luego hoy retirar AGENTS.md o hooks/** no rompe nada y la cobertura se perderia en silencio. El trabajo falsable de CR7 es ese pin de regresion. Corregido tambien el Proposal, que afirmaba que este change anade hooks/** cuando ya estaba anadido: prosa describiendo trabajo hecho, la misma clase del hallazgo 53.
