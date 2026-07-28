@@ -147,7 +147,19 @@ export function gitUser(cwd, run = defaultRun) {
   }
 }
 
+// Counts real invocations of the default `gh` runner (never an injected test
+// double), so CR7 — the suite must not reach the network when creating
+// changes — is falsifiable instead of asserted on faith. Counting happens
+// before the subprocess call so a failed/absent `gh` still registers as an
+// attempted invocation.
+let ghRunCount = 0;
+
+export function ghRunInvocations() {
+  return ghRunCount;
+}
+
 function defaultGhRun(args) {
+  ghRunCount++;
   return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 

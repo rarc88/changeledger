@@ -2,7 +2,7 @@
 id: "20260726-124836"
 title: Asignar owner al crear el change
 type: feature
-status: in-validation
+status: in-progress
 created: 2026-07-26T12:48:36Z
 depends_on: []
 related_to: []
@@ -160,6 +160,16 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **And** conserva que la autoasignación en `in-progress` cubre el change que
   llega sin dueño y que no pisa un owner fijado a mano
 
+### CR7 — la suite no alcanza la red al crear changes
+- **Given** el árbol tras el cambio, con `src/git.mjs` instrumentado para contar
+  cada invocación de su runner de `gh`
+- **When** se ejecuta la suite completa
+- **Then** el número de invocaciones de `gh api user` es exactamente el que
+  producen los tests cuya materia es la propia resolución de identidad, y ninguna
+  más procedente de la creación de changes
+- **And** un test que cree un change sin afirmar nada sobre `owner` inyecta una
+  identidad determinista en lugar de resolver la del host
+
 ## Plan
 
 - [x] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza; verify: `node --test test/cli.test.mjs` (CR1, CR2, CR3)
@@ -172,6 +182,7 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
   - **Resolved:** `2026-07-27T21:57:12Z`
 - [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (support)
   - **Resolved:** `2026-07-27T21:57:12Z`
+- [ ] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un conteo de invocaciones sobre el runner de `gh` de `src/git.mjs`; verify: `node --test test/git.test.mjs` (CR7)
 - [x] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-27T21:57:22Z`
 
@@ -187,3 +198,6 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **2026-07-27T22:18:06Z** `[status]` in-progress → in-review
 - **2026-07-27T22:18:06Z** `[note]` [review mandate] Segunda ronda, mandato minimo: spot check de la correccion en templates/contract/spec.md, su pin y el presupuesto del pack spec, que reventó con la primera redaccion (13730/13700) y cupo tras comprimir prosa nueva mia sin perder ninguna de las tres afirmaciones (nace en creacion, --owner gana, in-progress solo si falta): 13664/13700, 36 bytes de margen. Correccion sin commitear.
 - **2026-07-27T22:20:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-27T23:39:34Z** `[validation]` in-validation → in-progress (agent rejected): Reabierto con autorización humana explícita (2026-07-27) para incorporar el arreglo de un defecto que este mismo change introdujo: poner ownerHandle() en el camino de new hace que cada creación de change en un test que no inyecte el resolver lance un subproceso de red gh api user. Medido: 35 a 107 invocaciones, suite de 18.7s a 24.4s. Ninguna aserción depende del valor, así que la puerta seguía verde. Es alcance original del change, no trabajo nuevo.
+- **2026-07-27T23:39:44Z** `[note]` Anadido CR7 y su tarea con autorizacion humana explicita: la suite debe volver a ser hermetica. Ningun test que cree un change puede alcanzar la red salvo que la resolucion de identidad sea el sujeto del propio test.
+- **2026-07-28T00:01:10Z** `[note]` Tarea 7 (CR7): suite hermetica otra vez. Medido con un shim de gh en PATH que registra cada subproceso real: 68 invocaciones y 24.60s antes, 5 invocaciones y 17.26s despues, 829 tests. 21 sitios corregidos en view (9), agent (6 mas el helper reach y 5 transiciones a in-progress que heredaban la precondicion), graduate (1) y cli-bin (5 spawns con --owner explicito). Instrumentacion minima en src/git.mjs: un contador en defaultGhRun mas ghRunInvocations() como lector; no cambia comportamiento y hace CR7 falsable. Mutante: revertir la inyeccion de repoWithChange() sube a 41 invocaciones en ese fichero y mata dos tests. HALLAZGO RESIDUAL NO TOCADO, preexistente y fuera de alcance: status() en src/commands/agent.mjs resuelve ownerHandle() de forma ANSIOSA en toda transicion a in-progress, antes de consultar el guard !fm.owner, asi que llama a gh aunque el owner ya exista. Explica 3 de las 5 invocaciones que quedan. Candidato a change propio.

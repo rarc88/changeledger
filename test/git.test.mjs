@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import { ghRunInvocations, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -87,6 +87,23 @@ test('CR4: ownerHandle is empty when neither is available', () => {
     throw new Error('nope');
   };
   assert.equal(ownerHandle('/x', boom, boom), '');
+});
+
+// --- ghRunInvocations (CR7: makes "the suite never reaches the network on
+// change creation" falsifiable instead of an unverified claim) ---
+
+test('CR7: an injected ghRun never touches ghRunInvocations', () => {
+  const before = ghRunInvocations();
+  githubLogin(() => 'injected');
+  assert.equal(ghRunInvocations(), before);
+});
+
+test('CR7: ghRunInvocations counts each real invocation of the default gh runner', () => {
+  const before = ghRunInvocations();
+  githubLogin(); // no run injected — reaches defaultGhRun for real
+  assert.equal(ghRunInvocations(), before + 1);
+  githubLogin();
+  assert.equal(ghRunInvocations(), before + 2);
 });
 
 // --- mutatingRun (git run variant that surfaces stderr on failure) ---

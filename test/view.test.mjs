@@ -88,6 +88,7 @@ function draftChange(root) {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { current } = resolveProjects(root, true);
@@ -265,6 +266,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
   const file = newChange(
     { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const specsDir = path.join(root, '.changeledger', 'specs');
@@ -482,6 +484,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
@@ -496,16 +499,18 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
   const acceptedFile = newChange(
     { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const rejectedFile = newChange(
     { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:01Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
   const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
   for (const id of [acceptedId, rejectedId]) {
     status(id, 'approved', root);
-    status(id, 'in-progress', root);
+    status(id, 'in-progress', root, { ownerHandle: () => '' });
     status(id, 'in-review', root);
     review(id, 'pass', {}, root);
   }
@@ -539,6 +544,7 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   const file = newChange(
     { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   fs.writeFileSync(
     file,
@@ -546,7 +552,7 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
@@ -565,10 +571,11 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
   const file = newChange(
     { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
@@ -586,10 +593,11 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
   const file = newChange(
     { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   validation(id, 'pass', {}, root);
@@ -613,6 +621,7 @@ test('171002 CR2: changeStatus rejects agent-owned or premature moves without wr
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);

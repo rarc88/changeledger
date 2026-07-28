@@ -369,14 +369,20 @@ function repoWithChore() {
   const file = newChange(
     { type: 'chore', slug: 'c', title: 'C', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   return { root, file, id };
 }
 
+// repoWithChange() deliberately produces an owner-less change (see its own
+// comment), so the pre-existing in-progress auto-assign guard (!fm.owner)
+// fires here for every caller. None of reach()'s callers assert anything
+// about owner, so inject a deterministic empty identity to keep the suite
+// hermetic instead of reaching the host's real gh/git identity.
 const reach = (id, root, target) => {
   for (const s of ['approved', 'in-progress', 'in-review']) {
-    status(id, s, root);
+    status(id, s, root, { ownerHandle: () => '' });
     if (s === target) return;
   }
 };
@@ -402,10 +408,11 @@ function repoWithAudit() {
   const file = newChange(
     { type: 'audit', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   return { root, file, id };
 }
 
@@ -443,7 +450,7 @@ test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
 test('171002 CR5: a chore goes directly to in-validation, not done', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-validation', root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'in-validation');
@@ -696,7 +703,7 @@ test('171002 CR3: human rejection requires a reason and returns to in-progress',
 test('171002 CR2: generic status cannot close a change on behalf of the human', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-validation', root);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
@@ -727,7 +734,7 @@ test('CR8: review fail --block escalates to blocked with the reason', () => {
 test('CR9: review requires status in-review', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => review(id, 'pass', {}, root),
@@ -757,10 +764,12 @@ function repoWithTwoSamePrefix() {
   const fileA = newChange(
     { type: 'feature', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const fileB = newChange(
     { type: 'feature', slug: 'b', title: 'B', now: '2026-06-13T12:00:01Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
   const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
@@ -824,7 +833,7 @@ test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', 
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   // Drive the feature through review and human validation to test terminal done.
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
@@ -851,6 +860,7 @@ function repoWithTwoTasks() {
   const file = newChange(
     { type: 'feature', slug: 'race', title: 'Race', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const text = fs
     .readFileSync(file, 'utf8')
@@ -906,6 +916,7 @@ test('212314 CR2: a lock on one change does not block mutating another change', 
   const secondFile = newChange(
     { type: 'feature', slug: 'other', title: 'Other', now: '2026-06-13T12:00:01Z' },
     first.root,
+    { ownerHandle: () => '' },
   );
   const secondText = fs
     .readFileSync(secondFile, 'utf8')

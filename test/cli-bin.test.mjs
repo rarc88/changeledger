@@ -98,7 +98,8 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
   assert.equal(runIn(root, env, 'approve', id).code, 0);
@@ -133,7 +134,8 @@ test('125139 CR4/CR6/CR8: decision commands fail closed and explain human author
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const file = path.join(
     root,
@@ -478,7 +480,8 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const file = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -527,7 +530,8 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
   status(id, 'approved', root);
@@ -644,7 +648,8 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   // chore: no review gate, but human validation is still required.
   status(id, 'approved', root);
