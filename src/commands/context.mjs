@@ -42,38 +42,27 @@ function packBudget(mode) {
   return budgetCache.base[mode];
 }
 
-// A capture publishes how much of its ceiling it occupies. A change-id capture
-// is unbounded by design — it embeds a document of any size — so it has no entry
-// in `budgets.yml` and publishes its exact count without inventing a ceiling.
-function beginDelimiter(mode, changeId, occupancy) {
+// A capture publishes how many lines it occupies of its ceiling, and nothing
+// else: lines are what the bootstrap's `head` consumes. The token ceiling is
+// applied by this repository's tests, so no consuming repo has to install a
+// tokenizer to read a capture. A change-id capture is unbounded by design — it
+// embeds a document of any size — so it has no entry in `budgets.yml` and
+// publishes its exact count without inventing a ceiling.
+function beginDelimiter(mode, changeId, lines, budget) {
   const change = changeId ? ` — change: #${changeId}` : '';
-  const budget = occupancy.budget;
-  const size = budget
-    ? `lines:${occupancy.lines}/${budget.lines} — bytes:${occupancy.bytes}/${budget.bytes}`
-    : `lines:${occupancy.lines}`;
+  const size = budget ? `lines:${lines}/${budget.lines}` : `lines:${lines}`;
   return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION} — ${size}`);
 }
 
-// The published byte count is part of the text whose size it reports, so widening
-// a digit changes the total. Iterate to the fixed point instead of approximating:
-// it settles because the figure's width only grows when it crosses a power of
-// ten. Failing loudly beats publishing a number that is not the real size.
-const MAX_FRAMING_PASSES = 4;
-
-export function frameSections(mode, changeId, body, budget, maxPasses = MAX_FRAMING_PASSES) {
-  const occupancy = { lines: 0, bytes: 0, budget };
-  for (let pass = 0; pass < maxPasses; pass += 1) {
-    const sections = [beginDelimiter(mode, changeId, occupancy), ...body, END_DELIMITER];
-    const rendered = render(sections);
-    const lines = emittedLines(rendered);
-    const bytes = Buffer.byteLength(rendered, 'utf8');
-    if (lines === occupancy.lines && bytes === occupancy.bytes) return rendered;
-    occupancy.lines = lines;
-    occupancy.bytes = bytes;
-  }
-  throw new Error(
-    `Context framing for "${mode}" did not converge in ${maxPasses} passes: published size keeps changing`,
-  );
+// The published figure is part of the text whose size it reports, so it is
+// measured on a first framing and published by a second. Two passes are exact and
+// no iteration is needed: widening the figure by a digit cannot add a line, since
+// it stays on the same BEGIN line. Framing the body twice with the same delimiter
+// shape is what makes the second count equal to the first.
+export function frameSections(mode, changeId, body, budget) {
+  const frame = (lines) =>
+    render([beginDelimiter(mode, changeId, lines, budget), ...body, END_DELIMITER]);
+  return frame(emittedLines(frame(0)));
 }
 
 function render(sections) {
@@ -204,7 +193,7 @@ function composeResult(mode, fragments, options = {}) {
   if (dependencies) body.push(dependencies);
   if (relations) body.push(relations);
   if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
-  // The BEGIN line publishes the exact size so any consumer can build a
+  // The BEGIN line publishes the exact line count so any consumer can build a
   // deterministic `head -<N>` and see the occupancy of its ceiling.
   // A change-id capture embeds a document of any size, so no ceiling applies to
   // it even though it reuses a mode's fragments: it publishes its count alone.

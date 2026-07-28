@@ -154,10 +154,11 @@ Alternativas descartadas:
 - **And** ninguna entrada declara `bytes`, y ningún test compara bytes contra un techo
 
 ### CR2 — La unidad es un tokenizador de referencia fijado y declarado
-- **Given** `package.json` y el fragmento del contrato que describe los presupuestos
-- **When** se instala el proyecto y se lee el contrato
+- **Given** `package.json` y el párrafo de presupuestos de `AGENTS.md`, que es donde vive hoy la descripción del mecanismo
+- **When** se instala el proyecto y se lee esa convención
 - **Then** el tokenizador es una `devDependency` con versión exacta, sin rango `^` ni `~`
-- **And** el contrato declara que la unidad es "tokens según un tokenizador de referencia fijado", no los tokens que consume un modelo concreto
+- **And** `AGENTS.md` declara que la unidad es "tokens según un tokenizador de referencia fijado", no los tokens que consume un modelo concreto
+- **And** ningún fragmento de `templates/contract/` gana esa declaración, porque el techo de tokens lo aplican los tests de este repositorio y no lo hereda ningún consumidor
 
 ### CR3 — Ningún techo de tamaño vive fuera del fichero de presupuestos
 - **Given** el árbol tras el cambio
@@ -177,11 +178,12 @@ Alternativas descartadas:
 - **Then** la línea BEGIN termina en `lines:<N>/<límite>` y no contiene `bytes:` ni `tokens:`
 - **And** una captura de change-id sigue publicando `lines:<N>` sin techo, porque incrusta un documento arbitrario
 
-### CR6 — `AGENTS.md` declara que el margen no es permiso de gasto
+### CR6 — El párrafo de presupuestos de `AGENTS.md` describe el mecanismo vigente y declara que el margen no es permiso de gasto
 - **Given** `AGENTS.md` de este repositorio
 - **When** se lee el párrafo que gobierna los presupuestos
 - **Then** afirma que disponer de margen no autoriza a consumirlo y que cada cosa que entra a un contexto va pensada y optimizada
 - **And** conserva en el mismo párrafo la regla de que un techo nunca es objetivo y que no se retira prosa normativa para encajar
+- **And** ya no afirma que cada entrada declara un techo de `bytes` ni que toda captura publica la ocupación de ambas dimensiones en la línea `BEGIN`, porque este change retira ambas cosas
 
 ### CR7 — La cobertura de las rutas de producción versionadas no puede perderse en silencio
 - **Given** la configuración de este repositorio, cuyos `readiness.target_patterns` ya cubren `AGENTS.md` y `hooks/**`
@@ -191,11 +193,14 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y declarar la unidad en el fragmento del contrato que describe los presupuestos; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR4)
+- [x] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y guardar que ningún fragmento de `templates/**` declare la unidad; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR4)
+  - **Resolved:** `2026-07-28T18:48:46Z`
 - [ ] Fijar en `.changeledger/config.yml` que los `readiness.target_patterns` de este repositorio cubren toda ruta de producción versionada, con un pin que falle al retirar `AGENTS.md` o `hooks/**`; verify: `node --test test/check.test.mjs` (CR7)
-- [ ] Añadir a `AGENTS.md` la regla de que el margen no es permiso de gasto, en el párrafo que ya prohíbe tratar el techo como objetivo; verify: `node --test test/contract.test.mjs` (CR6)
-- [ ] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
-- [ ] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR5)
+- [ ] Reescribir el párrafo de presupuestos de `AGENTS.md` para declarar la unidad del tokenizador, retirar la descripción de `bytes` y de la doble publicación, y añadir que el margen no es permiso de gasto; verify: `node --test test/contract.test.mjs` (CR2, CR6)
+- [x] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-28T18:48:47Z`
+- [x] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR5)
+  - **Resolved:** `2026-07-28T18:49:09Z`
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
@@ -206,3 +211,5 @@ Alternativas descartadas:
 - **2026-07-28T17:31:41Z** `[note]` Roberto anadio hooks/** ademas de AGENTS.md, cerrando la clase del hallazgo 13 el mismo. Eso deja CR7 con su Then ya satisfecho, asi que se reformula sobre el guard y no sobre el estado: verificado que ningun test fija los target_patterns de este repositorio -las referencias de test/check.test.mjs usan fixtures sinteticos con app/**, packages/** y custom/**-, luego hoy retirar AGENTS.md o hooks/** no rompe nada y la cobertura se perderia en silencio. El trabajo falsable de CR7 es ese pin de regresion. Corregido tambien el Proposal, que afirmaba que este change anade hooks/** cuando ya estaba anadido: prosa describiendo trabajo hecho, la misma clase del hallazgo 53.
 - **2026-07-28T17:35:21Z** `[status]` draft → approved
 - **2026-07-28T17:36:50Z** `[status]` approved → in-progress
+- **2026-07-28T17:44:00Z** `[note]` Enmienda de CR2 y CR6 autorizada por Roberto el 2026-07-28, antes de escribir codigo. Verificado que NINGUN fragmento de templates/contract describe los presupuestos -el unico match de ceiling en core.md es Complexity ceiling, otra cosa- y que la descripcion vive en AGENTS.md:49-54. CR2 nombraba por tanto una sede inexistente y habria mandado al implementador a anadir prosa a un core con 2 lineas de margen, reventando el techo por el motivo equivocado; ahora nombra AGENTS.md y declara que ningun fragmento gana esa declaracion, porque los tokens los aplican nuestros tests con una devDependency mientras las lineas las consume el head de cualquier consumidor. CR6 estaba incompleto: ese mismo parrafo afirma que cada entrada declara bytes y que toda captura publica ambas dimensiones, y este change vuelve falsas las dos mitades, asi que se anade la clausula que obliga a retirar esa descripcion caduca -hallazgo 53, que se habria colado estando delante-. Cero criterios nuevos y cero superficie nueva: los dos ya tocaban AGENTS.md. La enmienda queda sin commitear y viaja dentro del primer commit de tarea, porque una edicion de documento no es clase de commit propia.
+- **2026-07-28T18:49:52Z** `[note]` Tareas 1, 4 y 5 completadas por el grupo A: budgets.yml en tokens/lines con techos medidos, gpt-tokenizer 3.4.0 como devDependency de version exacta, los dos techos huerfanos absorbidos -core 195 lineas y el bloque core-commits 28-, y la linea BEGIN publicando solo lines. Verificado por el orquestador: 863/863 verde, las cinco capturas publican lines sin bytes ni tokens, y bajar core-commits de 28 a 27 falla nombrando la entrada. Dos aportes del delegado que no estaban pedidos: una mutacion le sobrevivio -su patron para detectar techos hardcodeados no cazaba emittedLines(core) <= 195 porque el operando izquierdo era una llamada- y la cerro anclando el patron a la medicion; y retiro el punto fijo iterado con argumento, porque existia solo por el ancho de la cifra de bytes y una cifra de lineas mas ancha no puede anadir una linea, lo que CIERRA el defecto de maxPasses=1 que estaba aparcado para el change de higiene. Correccion de mis cifras: las medi antes de retirar el segmento de bytes, asi que estaban infladas por el propio texto de la linea BEGIN, y mi implement 1701/168 era la ocupacion de este repo y no el maximo entre fixtures, que es la base correcta para fijar un techo. ERROR MIO: use git checkout sobre budgets.yml con trabajo sin commitear al restaurar una mutacion, revirtiendolo al baseline y destruyendo el fichero del delegado; restaurado verbatim y gate verde de nuevo. Es la regla de restaurar editando y nunca con git, que impongo a cada delegado y me salte. Tambien marque la tarea 3 como hecha sin estarlo y deje el texto de la tarea 1 con la sede caduca de CR2; ambos corregidos.

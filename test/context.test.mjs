@@ -15,6 +15,8 @@ import {
   contextBudgets,
   emittedLines,
   sizedOutput,
+  TOKENIZER_PACKAGE,
+  tokenCount,
 } from './budget-support.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
@@ -1245,7 +1247,7 @@ test('CR3/CR4: explicit modes work and unknown input has the exact error', () =>
     assert.match(
       output.split('\n')[0],
       new RegExp(
-        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:\\d+/\\d+ — bytes:\\d+/\\d+ =====$`,
+        `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:\\d+/\\d+ =====$`,
       ),
     );
     assert.equal(output.trimEnd().split('\n').at(-1), end);
@@ -1283,11 +1285,11 @@ test('213931 CR4/CR5/CR6: context output is delimited, versioned and within budg
   const { version } = JSON.parse(
     fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
-  // A bounded mode publishes its occupancy of both ceilings; an unbounded
+  // A bounded mode publishes its occupancy of the line ceiling; an unbounded
   // change-id capture publishes its count alone, so each shape has its own pin.
   const begin = (label) =>
     new RegExp(
-      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — lines:\\d+/\\d+ — bytes:\\d+/\\d+ =====$`,
+      `^===== CHANGELEDGER CONTEXT BEGIN — mode: ${label} — v${version} — lines:\\d+/\\d+ =====$`,
     );
   const beginUnbounded = (label) =>
     new RegExp(
@@ -1327,14 +1329,14 @@ test('124833 CR2: no mode emits a rev: segment on the BEGIN line or anywhere els
   const core = buildContext(undefined, root);
   assert.equal(
     core.split('\n')[0],
-    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)}/${contextBudgets.base.core.lines} — bytes:${Buffer.byteLength(core, 'utf8')}/${contextBudgets.base.core.bytes} =====`,
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)}/${contextBudgets.base.core.lines} =====`,
   );
 
   for (const mode of ['spec', 'implement', 'review', 'release']) {
     const output = buildContext(mode, root);
     assert.equal(
       output.split('\n')[0],
-      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)}/${contextBudgets.base[mode].lines} — bytes:${Buffer.byteLength(output, 'utf8')}/${contextBudgets.base[mode].bytes} =====`,
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)}/${contextBudgets.base[mode].lines} =====`,
     );
     assert.doesNotMatch(output, /rev:/);
   }
@@ -2103,63 +2105,77 @@ test('194234 CR5: each retirement names its new home and the home holds it', () 
   assert.match(core, /\*\*Handoff\*\*: zero or one/);
 });
 
-test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
-  // A new top-level group in budgets.yml must widen this sweep, not slip past it.
-  assert.deepEqual(Object.keys(contextBudgets).sort(), ['agent', 'base', 'overlays']);
+// Every entry of the budget file, labelled. A new top-level group must widen this
+// list, not slip past it: it is the single place the whole file is enumerated.
+function budgetEntries() {
+  assert.deepEqual(Object.keys(contextBudgets).sort(), ['agent', 'base', 'blocks', 'overlays']);
   const entries = [
     ...Object.entries(contextBudgets.base),
     ...Object.entries(contextBudgets.overlays).map(([status, budget]) => [
       `${status} overlay`,
       budget,
     ]),
+    ...Object.entries(contextBudgets.blocks).map(([block, budget]) => [`${block} block`, budget]),
     ['agent', contextBudgets.agent],
   ];
-  assert.ok(entries.length >= 10, `too few entries checked: ${entries.length}`);
-  for (const [label, budget] of entries) {
+  assert.ok(entries.length >= 11, `too few entries checked: ${entries.length}`);
+  return entries;
+}
+
+// 20260728-170429 replaced the byte dimension with tokens: this criterion now
+// reads against the two dimensions the budget file declares today.
+test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
+  for (const [label, budget] of budgetEntries()) {
     assert.deepEqual(
       Object.keys(budget).sort(),
-      ['bytes', 'lines'],
-      `${label} does not declare exactly lines and bytes`,
+      ['lines', 'tokens'],
+      `${label} does not declare exactly tokens and lines`,
     );
     assert.equal(Number.isInteger(budget.lines), true, `${label} lines is not an integer`);
-    assert.equal(Number.isInteger(budget.bytes), true, `${label} bytes is not an integer`);
+    assert.equal(Number.isInteger(budget.tokens), true, `${label} tokens is not an integer`);
   }
-  // Core's line ceiling is not a chosen number: it is the bootstrap's `head -200`.
-  assert.deepEqual(contextBudgets.base.core, { lines: 200, bytes: 12000 });
 });
 
 test('194233 CR2: the threshold is measured in emitted lines', () => {
-  const budget = { lines: 200, bytes: 12000 };
+  const budget = { lines: 200, tokens: 4000 };
   // 200 emitted lines is `split('\n').length === 201` under the old convention:
   // the exact boundary the previous counting unit reported as an overflow.
-  const atLimit = sizedOutput(200, 9000);
+  const atLimit = sizedOutput(200, 2000);
   assert.equal(atLimit.split('\n').length, 201);
   const exact = captureBudget(() => assertWithinBudget('core', atLimit, budget));
   assert.ok(!exact.thrown, `the exact limit threw: ${exact.thrown?.message}`);
-  const over = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 9000), budget));
+  const over = captureBudget(() => assertWithinBudget('core', sizedOutput(201, 2000), budget));
   assert.ok(over.thrown, 'line overflow did not throw');
   assert.equal(over.thrown.name, 'AssertionError');
   assert.equal(over.thrown.message, 'core exceeds 200 lines: 201');
 });
 
-test('194233 CR3: crossing the byte threshold throws', () => {
-  const budget = { lines: 200, bytes: 12000 };
-  const exact = captureBudget(() => assertWithinBudget('core', sizedOutput(50, 12000), budget));
-  assert.ok(!exact.thrown, `the exact byte limit threw: ${exact.thrown?.message}`);
-  const over = captureBudget(() => assertWithinBudget('core', sizedOutput(50, 12001), budget));
-  assert.ok(over.thrown, 'byte overflow did not throw');
-  assert.equal(over.thrown.message, 'core exceeds 12000 bytes: 12001');
+// 20260728-170429 replaced the byte dimension with tokens: the criterion keeps its
+// shape — crossing the cost dimension's threshold fails — under the new unit.
+test('194233 CR3: crossing the token threshold throws', () => {
+  // Calibrated, never hardcoded: BPE merges make a character count a poor proxy
+  // for a token count, so the boundary is measured off the synthetic output
+  // instead of assumed from its length.
+  const output = sizedOutput(50, 4000);
+  const tokens = tokenCount(output);
+  const exact = captureBudget(() => assertWithinBudget('core', output, { lines: 200, tokens }));
+  assert.ok(!exact.thrown, `the exact token limit threw: ${exact.thrown?.message}`);
+  const over = captureBudget(() =>
+    assertWithinBudget('core', output, { lines: 200, tokens: tokens - 1 }),
+  );
+  assert.ok(over.thrown, 'token overflow did not throw');
+  assert.equal(over.thrown.message, `core exceeds ${tokens - 1} tokens: ${tokens}`);
 });
 
 test('194233 CR4: no budget path warns, under the threshold or over it', () => {
-  const budget = { lines: 200, bytes: 12000 };
-  const under = captureBudget(() => assertWithinBudget('core', sizedOutput(199, 11999), budget));
+  const budget = { lines: 200, tokens: 4000 };
+  const under = captureBudget(() => assertWithinBudget('core', sizedOutput(199, 2000), budget));
   assert.ok(!under.thrown, `a compliant output threw: ${under.thrown?.message}`);
   assert.deepEqual(under.warnings, []);
   // Every real entry stays silent too, so no lenient branch survives anywhere.
-  for (const [label, budget] of Object.entries(contextBudgets.base)) {
+  for (const [label, budget] of budgetEntries()) {
     const over = captureBudget(() =>
-      assertWithinBudget(label, sizedOutput(budget.lines + 1, budget.bytes), budget),
+      assertWithinBudget(label, sizedOutput(budget.lines + 1), budget),
     );
     assert.ok(over.thrown, `${label} did not throw past its threshold`);
     assert.deepEqual(over.warnings, [], `${label} warned instead of failing`);
@@ -2168,41 +2184,31 @@ test('194233 CR4: no budget path warns, under the threshold or over it', () => {
   assert.doesNotMatch(source, /emitWarning/);
 });
 
-// Occupancy published in the BEGIN line: `lines:<n>/<limit>` and
-// `bytes:<n>/<limit>` as the last segments, so an agent reads how much of the
-// ceiling it has spent without running anything.
+// Occupancy published in the BEGIN line: `lines:<n>/<limit>` as the last segment,
+// so an agent reads how much of the ceiling it has spent without running anything.
 function publishedOccupancy(text) {
   const begin = text.split('\n')[0];
-  const match = begin.match(/— lines:(\d+)\/(\d+) — bytes:(\d+)\/(\d+) =====$/);
+  const match = begin.match(/— lines:(\d+)\/(\d+) =====$/);
   assert.ok(match, `BEGIN line publishes no occupancy — ${begin}`);
-  return {
-    lines: Number(match[1]),
-    lineLimit: Number(match[2]),
-    bytes: Number(match[3]),
-    byteLimit: Number(match[4]),
-  };
+  return { lines: Number(match[1]), lineLimit: Number(match[2]) };
 }
 
-test('194233 CR5: the BEGIN line publishes occupancy for both dimensions', () => {
+// 20260728-170429 retired the byte segment, so the published occupancy is the line
+// dimension alone: the token ceiling never reaches a consuming repo.
+test('194233 CR5: the BEGIN line publishes its line occupancy', () => {
   const root = repo();
   for (const [mode, budget] of Object.entries(contextBudgets.base)) {
     const composed = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
     const published = publishedOccupancy(composed);
     assert.equal(published.lineLimit, budget.lines, `${mode} publishes a foreign line limit`);
-    assert.equal(published.byteLimit, budget.bytes, `${mode} publishes a foreign byte limit`);
     assert.equal(
       published.lines,
       emittedLines(composed),
       `${mode} line occupancy is not the real size`,
     );
-    assert.equal(
-      published.bytes,
-      Buffer.byteLength(composed, 'utf8'),
-      `${mode} byte occupancy is not the real size`,
-    );
     // The real CLI stdout, not only the composed string.
     const cli = cliContext(root, mode === 'core' ? [] : [mode]);
-    assert.equal(publishedOccupancy(cli).bytes, Buffer.byteLength(cli, 'utf8'));
+    assert.equal(publishedOccupancy(cli).lines, emittedLines(cli));
   }
   // An unbounded change-id capture has no entry in budgets.yml, so it publishes
   // its exact count and invents no ceiling.
@@ -2210,36 +2216,28 @@ test('194233 CR5: the BEGIN line publishes occupancy for both dimensions', () =>
   writeFillerChange(root, id, 10);
   const unbounded = buildContext(id, root);
   assert.equal(publishedLines(unbounded), emittedLines(unbounded));
-  assert.doesNotMatch(unbounded.split('\n')[0], /bytes:/);
+  assert.doesNotMatch(unbounded.split('\n')[0], /\/\d+ =====$/);
 });
 
-test('194233 CR6: the published byte count is exact across a power-of-ten crossing', () => {
-  const budget = { lines: 200, bytes: 12000 };
+// 20260728-170429: with bytes retired the published figure is the line count, and
+// a wider figure cannot add a line — it stays on the same BEGIN line. So the
+// criterion now demands exactness across the 3-to-4 digit crossing of that count.
+test('194233 CR6: the published line count is exact across a power-of-ten crossing', () => {
+  const budget = { lines: 2000, tokens: 400000 };
   // Calibrated, never hardcoded: measure the framing overhead on an empty body,
-  // then sweep the fillers that place the total across the 9xxx → 1xxxx boundary
-  // and demand the published figure equal the real size at every step, so the
-  // widening digit cannot desynchronize the count.
-  const overhead = Buffer.byteLength(frameSections('core', undefined, [''], budget), 'utf8');
-  const boundary = 10000 - overhead;
+  // then sweep the fillers that place the total across the 999 → 1000 boundary and
+  // demand the published figure equal the real size at every step, so the widening
+  // digit cannot desynchronize the count.
+  const overhead = emittedLines(frameSections('core', undefined, [''], budget));
+  const boundary = 1000 - overhead;
   let crossed = false;
-  for (let filler = boundary - 30; filler <= boundary + 30; filler += 1) {
-    const framed = frameSections('core', undefined, ['y'.repeat(filler)], budget);
+  for (let filler = boundary - 5; filler <= boundary + 5; filler += 1) {
+    const framed = frameSections('core', undefined, ['y\n'.repeat(filler)], budget);
     const published = publishedOccupancy(framed);
-    assert.equal(
-      published.bytes,
-      Buffer.byteLength(framed, 'utf8'),
-      `desynced at filler ${filler}`,
-    );
-    assert.equal(published.lines, emittedLines(framed));
-    if (published.bytes >= 10000) crossed = true;
+    assert.equal(published.lines, emittedLines(framed), `desynced at filler ${filler}`);
+    if (published.lines >= 1000) crossed = true;
   }
-  assert.ok(crossed, 'the sweep never crossed the 10000-byte boundary');
-  // The non-convergence branch is reachable and named, not a comment: one pass
-  // cannot settle a figure that its own width changes.
-  assert.throws(
-    () => frameSections('core', undefined, ['z'.repeat(boundary)], budget, 1),
-    /did not converge/,
-  );
+  assert.ok(crossed, 'the sweep never crossed the 1000-line boundary');
 });
 
 test('194233 CR7: assertWithinBudget has a single definition', () => {
@@ -2583,11 +2581,14 @@ test('130728 CR4: the current core composition clears its threshold', () => {
   const budget = contextBudgets.base.core;
   const core = buildContext(undefined, root);
   const lines = emittedLines(core);
-  const bytes = Buffer.byteLength(core, 'utf8');
+  const tokens = tokenCount(core);
   // Strictly below, not merely within: the gate must leave real headroom rather
   // than pass by sitting exactly on the ceiling.
   assert.ok(lines < budget.lines, `core is not below its line threshold: ${lines}/${budget.lines}`);
-  assert.ok(bytes < budget.bytes, `core is not below its byte threshold: ${bytes}/${budget.bytes}`);
+  assert.ok(
+    tokens < budget.tokens,
+    `core is not below its token threshold: ${tokens}/${budget.tokens}`,
+  );
   // The 225213 CR6 sweep itself: every base pack clears its own threshold.
   const sweep = captureBudget(() => {
     for (const [mode, entry] of Object.entries(contextBudgets.base)) {
@@ -2711,20 +2712,21 @@ test('124837 CR6: the contract requires inspecting the staged set after a hook f
   }
 });
 
-// The ceiling is the bootstrap's `head -200`, so the criterion asks for reserve
-// against it, not for merely clearing it: 195 emitted lines leaves five lines for
-// future growth before any consuming repo's capture silently truncates.
+// The reserve is the gap between `base.core.lines` and the bootstrap's `head -200`
+// literal in `src/contract.mjs`: the declared ceiling is the operative one, and the
+// cut sits above it so future growth has room before any consuming repo's capture
+// silently truncates. 20260728-170429 moved that operative ceiling out of this
+// assertion and into `budgets.yml`, so lowering it there fails naming the entry.
 test('124837 CR7: the core pack keeps reserve under the bootstrap cut', () => {
   const core = buildContext(undefined, repo());
-  const lines = emittedLines(core);
-  assert.ok(lines <= 195, `core keeps no reserve under the bootstrap cut: ${lines}/195`);
-  const block = commitsBlockLines();
-  assert.ok(block.length <= 28, `the core \`## Commits\` block is ${block.length} lines, not ≤ 28`);
-  // The budget file is owned by 20260727-194233: this change fits under the
-  // declared threshold instead of raising it.
-  assert.deepEqual(contextBudgets.base.core, { lines: 200, bytes: 12000 });
-  const bytes = Buffer.byteLength(core, 'utf8');
-  assert.ok(bytes < contextBudgets.base.core.bytes, `core is over its byte threshold: ${bytes}`);
+  assertWithinBudget('core', core, contextBudgets.base.core);
+  // The `## Commits` block has its own named entry, so one section cannot quietly
+  // eat the reserve the whole pack shares.
+  assertWithinBudget(
+    'core-commits block',
+    commitsBlockLines().join('\n'),
+    contextBudgets.blocks['core-commits'],
+  );
 });
 
 // Every obligation that left `implement.md` is asserted here in core's own
@@ -2797,4 +2799,161 @@ test('124837 CR8: no obligation leaves implement.md without a named home', () =>
   ]) {
     assert.ok(!whole.includes(retired), `the contract still carries the retired ${retired}`);
   }
+});
+
+// 20260728-170429 — the budget unit becomes tokens plus lines, and bytes go. The
+// two dimensions do different jobs: tokens are the cost actually paid on every
+// message, lines are the transport the bootstrap `head` has to cover. Bytes were a
+// proxy that overstated whitespace ×6.6, so a capture that added no content could
+// break its ceiling and a tight ceiling pushed normative prose out of a fragment.
+
+// Byte measurement, as source text. The pattern escapes the `.` and the `(`, so
+// its own source text does not match it: it cannot count itself as an occurrence.
+const BYTE_MEASURE = /Buffer\.byteLength\(/;
+
+// A measured size compared against a numeric literal — a ceiling written into the
+// suite instead of read from the budget file. The left side has to be a
+// measurement, so a loop bound is not swept: `emittedLines(...)`, `tokenCount(...)`,
+// any `.length`, or the local names the suites measure into. Same self-exclusion:
+// every alternative here is followed by `|` or `)`, never by a comparison, so the
+// pattern's own source text does not match it.
+const LITERAL_CEILING =
+  /(?:emittedLines\([^)]*\)|tokenCount\([^)]*\)|\.length|\blines\b|\btokens\b|\bbytes\b)\s*<=?\s*\d/;
+
+// Only the suites that measure a composed capture. `cli-bin.test.mjs` bounds the
+// CLI root help, which is not a capture and has no entry in the budget file, so it
+// is not in this class and this change does not own it.
+const CAPTURE_SUITES = ['context.test.mjs', 'agent-context.test.mjs', 'budget-support.mjs'];
+
+function suiteSource(name) {
+  return fs.readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
+}
+
+test('170429 CR1: the budget is expressed in tokens and lines, never in bytes', () => {
+  for (const [label, budget] of budgetEntries()) {
+    assert.deepEqual(
+      Object.keys(budget).sort(),
+      ['lines', 'tokens'],
+      `${label} does not declare exactly tokens and lines`,
+    );
+  }
+  // The file as text, not only the parsed shape: no stray byte dimension survives.
+  const raw = fs.readFileSync(
+    new URL('../templates/contract/budgets.yml', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(raw, /bytes/, 'the budget file still declares a byte dimension');
+  // No suite measures bytes at all any more, so none can compare them to a ceiling.
+  const measuring = CAPTURE_SUITES.filter((name) => BYTE_MEASURE.test(suiteSource(name)));
+  assert.deepEqual(measuring, [], 'a suite still measures bytes');
+});
+
+test('170429 CR2: the tokenizer is a devDependency pinned to an exact version', () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const pinned = manifest.devDependencies?.[TOKENIZER_PACKAGE];
+  assert.ok(pinned, `${TOKENIZER_PACKAGE} is not a devDependency`);
+  // Exact, with no range: a BPE update must not silently move ten ceilings.
+  assert.match(
+    pinned,
+    /^\d+\.\d+\.\d+$/,
+    `${TOKENIZER_PACKAGE} is not pinned to an exact version: ${pinned}`,
+  );
+  assert.equal(
+    manifest.dependencies?.[TOKENIZER_PACKAGE],
+    undefined,
+    'the tokenizer leaked into runtime dependencies, so every consuming repo would install it',
+  );
+  // No contract fragment gains the unit's declaration: a consuming repo inherits
+  // the line ceiling its `head` needs, never a token ceiling only our tests apply.
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const declaring = fs
+    .readdirSync(contractDir)
+    .filter((name) => name.endsWith('.md'))
+    .filter((name) => /token/i.test(contractFragment(name)));
+  assert.deepEqual(declaring, [], 'a contract fragment declares the token unit');
+});
+
+test('170429 CR3: no size ceiling lives hardcoded in a suite that measures a capture', () => {
+  for (const name of CAPTURE_SUITES) {
+    assert.doesNotMatch(
+      suiteSource(name),
+      LITERAL_CEILING,
+      `${name} hardcodes a size ceiling instead of reading it from the budget file`,
+    );
+  }
+  // The two absorbed orphans have named entries, so lowering either one fails the
+  // gate with the entry in the message.
+  assert.equal(Number.isInteger(contextBudgets.base.core.lines), true);
+  assert.equal(Number.isInteger(contextBudgets.blocks['core-commits'].lines), true);
+});
+
+test('170429 CR4: every declared ceiling is met by today content', () => {
+  const root = repo();
+  // Roberto's number, pinned by value: the core pays 4000 tokens and no more.
+  assert.equal(contextBudgets.base.core.tokens, 4000);
+  const sweep = captureBudget(() => {
+    for (const [mode, budget] of Object.entries(contextBudgets.base)) {
+      const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
+      assertWithinBudget(mode, output, budget);
+    }
+    let index = 0;
+    for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
+      const id = writeRawChange(root, { id: `20260728-17042${index}`, status });
+      index += 1;
+      const base = buildContext(id, root).split('\n# Selected change')[0];
+      assertWithinBudget(`${status} overlay`, base, budget);
+    }
+    assertWithinBudget(
+      'core-commits block',
+      commitsBlockLines().join('\n'),
+      contextBudgets.blocks['core-commits'],
+    );
+  });
+  assert.ok(!sweep.thrown, `a declared ceiling is not met today: ${sweep.thrown?.message}`);
+  assert.deepEqual(sweep.warnings, [], 'a budget path warned instead of passing or failing');
+});
+
+test('170429 CR5: the BEGIN line publishes lines and nothing else', () => {
+  const root = repo();
+  const id = addChange(root, 'approved');
+  const { version } = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  // Exact strings, never a partial match: a partial regex let the byte segment
+  // survive unnoticed once already.
+  const core = buildContext(undefined, root);
+  assert.equal(
+    core.split('\n')[0],
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: core — v${version} — lines:${emittedLines(core)}/${contextBudgets.base.core.lines} =====`,
+  );
+  for (const mode of ['spec', 'implement', 'review', 'release']) {
+    const output = buildContext(mode, root);
+    assert.equal(
+      output.split('\n')[0],
+      `===== CHANGELEDGER CONTEXT BEGIN — mode: ${mode} — v${version} — lines:${emittedLines(output)}/${contextBudgets.base[mode].lines} =====`,
+    );
+  }
+  // A change-id capture embeds a document of any size, so it keeps publishing its
+  // count with no ceiling at all.
+  const byId = buildContext(id, root);
+  assert.equal(
+    byId.split('\n')[0],
+    `===== CHANGELEDGER CONTEXT BEGIN — mode: implement — change: #${id} — v${version} — lines:${emittedLines(byId)} =====`,
+  );
+  for (const capture of [core, byId]) {
+    assert.doesNotMatch(capture.split('\n')[0], /bytes:/);
+    assert.doesNotMatch(capture.split('\n')[0], /tokens:/);
+  }
+  // The real CLI stdout, not only the composed string.
+  assert.equal(cliContext(root, []).split('\n')[0], core.split('\n')[0]);
+});
+
+test('170429 CR2: the token count comes from the pinned reference tokenizer', () => {
+  // The unit is not "what a model sees" but "tokens according to a pinned
+  // tokenizer", so the count must be the tokenizer's and not a character proxy.
+  assert.equal(tokenCount(''), 0);
+  assert.equal(tokenCount('hello world'), 2);
+  // A count no character heuristic reproduces: the ratio moves with the content.
+  const dense = 'x'.repeat(400);
+  assert.ok(tokenCount(dense) < dense.length, 'the count is a character count');
 });
