@@ -2127,6 +2127,70 @@ function budgetEntries() {
   return entries;
 }
 
+// Every group `budgets.yml` declares today, by dotted path paired with its live
+// value. Unlike `budgetEntries()` above (which only checks shape and today's
+// fit), this is keyed by the actual nesting so a mutation names exactly which
+// path moved: `base.spec`, `blocks.core-commits`, `overlays.discarded`.
+function declaredCeilings() {
+  const out = { agent: contextBudgets.agent };
+  for (const [name, budget] of Object.entries(contextBudgets.base)) out[`base.${name}`] = budget;
+  for (const [name, budget] of Object.entries(contextBudgets.overlays)) {
+    out[`overlays.${name}`] = budget;
+  }
+  for (const [name, budget] of Object.entries(contextBudgets.blocks)) {
+    out[`blocks.${name}`] = budget;
+  }
+  return out;
+}
+
+// 20260728-195445: the single place every declared ceiling is pinned by its
+// literal value. `194233 CR1` only checks shape (two integers) and `170429
+// CR4` only checks that today's content still fits — neither one catches a
+// ceiling raised to make a failure go away, which is exactly what a ceiling
+// exists to prevent. This object is the one sede: a new group widens it here,
+// not in a second copy.
+const PINNED_CEILINGS = {
+  'base.core': { tokens: 4000, lines: 195 },
+  'base.spec': { tokens: 3450, lines: 310 },
+  'base.implement': { tokens: 2000, lines: 205 },
+  'base.review': { tokens: 900, lines: 85 },
+  'base.release': { tokens: 500, lines: 60 },
+  agent: { tokens: 350, lines: 60 },
+  'overlays.blocked': { tokens: 500, lines: 84 },
+  'overlays.in-validation': { tokens: 450, lines: 54 },
+  'overlays.done': { tokens: 1000, lines: 108 },
+  'overlays.discarded': { tokens: 200, lines: 48 },
+  'blocks.core-commits': { tokens: 650, lines: 28 },
+};
+
+test('195445 CR1: every declared ceiling is pinned by value', () => {
+  const declared = declaredCeilings();
+  for (const [path, budget] of Object.entries(declared)) {
+    const pinned = PINNED_CEILINGS[path];
+    assert.ok(pinned, `${path} has no pinned value`);
+    assert.equal(
+      budget.tokens,
+      pinned.tokens,
+      `${path} tokens ceiling moved: expected ${pinned.tokens}, got ${budget.tokens}`,
+    );
+    assert.equal(
+      budget.lines,
+      pinned.lines,
+      `${path} lines ceiling moved: expected ${pinned.lines}, got ${budget.lines}`,
+    );
+  }
+});
+
+test('195445 CR2: an entry the pin does not cover fails', () => {
+  const declaredPaths = Object.keys(declaredCeilings()).sort();
+  const pinnedPaths = Object.keys(PINNED_CEILINGS).sort();
+  assert.deepEqual(
+    declaredPaths,
+    pinnedPaths,
+    'budgets.yml and the pin disagree on which ceilings exist',
+  );
+});
+
 // 20260728-170429 replaced the byte dimension with tokens: this criterion now
 // reads against the two dimensions the budget file declares today.
 test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
@@ -2913,8 +2977,6 @@ test('170429 CR3: no size ceiling lives hardcoded in a suite that measures a cap
 
 test('170429 CR4: every declared ceiling is met by today content', () => {
   const root = repo();
-  // Roberto's number, pinned by value: the core pays 4000 tokens and no more.
-  assert.equal(contextBudgets.base.core.tokens, 4000);
   const sweep = captureBudget(() => {
     for (const [mode, budget] of Object.entries(contextBudgets.base)) {
       const output = mode === 'core' ? buildContext(undefined, root) : buildContext(mode, root);
