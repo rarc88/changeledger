@@ -1714,12 +1714,24 @@ test('155720 CR3: cards are ordered by updated descending', () => {
   );
 });
 
-test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four categories', () => {
+test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four categories', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'project-docs', documents: [] },
+        { category: 'contract', documents: [] },
+        { category: 'templates', documents: [] },
+      ],
+    }),
+    getDocument: async () => assert.fail('no document should be selected'),
+  });
   const root = document.createElement('section');
   const previous = {
     repo: appState.repo,
     text: appState.filters.text,
     category: appState.ledgerCategory,
+    project: appState.currentProject,
   };
   appState.repo = {
     changes: [],
@@ -1740,9 +1752,10 @@ test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four 
   };
   appState.filters.text = '';
   appState.ledgerCategory = 'specs';
+  appState.currentProject = 'alpha';
 
   try {
-    renderLedger(root);
+    await renderLedger(root, browser);
     const controls = [...root.querySelectorAll('[data-ledger-category]')];
     assert.deepEqual(
       controls.map((button) => button.textContent.trim()),
@@ -1759,15 +1772,15 @@ test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four 
     assert.equal(root.querySelector('img'), null);
 
     appState.filters.text = 'older';
-    renderLedger(root);
+    await renderLedger(root, browser);
     assert.deepEqual(
       [...root.querySelectorAll('.spec-title')].map((title) => title.textContent),
       ['Older truth'],
     );
 
     appState.filters.text = '';
-    renderLedger(root);
-    root.querySelector('[data-ledger-category="contract"]').click();
+    await renderLedger(root, browser);
+    await root.querySelector('[data-ledger-category="contract"]').onclick();
     assert.equal(appState.ledgerCategory, 'contract');
     assert.equal(
       root.querySelector('[data-ledger-category="contract"]').getAttribute('aria-pressed'),
@@ -1777,12 +1790,271 @@ test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four 
     assert.equal(root.querySelectorAll('.spec-card').length, 0);
     const mount = root.querySelector('[data-ledger-content="contract"]');
     assert.ok(mount);
-    assert.equal(mount.children.length, 0, 'document content is intentionally deferred');
+    assert.equal(
+      mount.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
   } finally {
     appState.repo = previous.repo;
     appState.filters.text = previous.text;
     appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
   }
+});
+
+test('141859 CR3/CR5: documentary Ledger renders a deterministic tree and escaped source', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const calls = [];
+  const browser = createLedgerBrowser({
+    getTree: async (project) => {
+      calls.push(['tree', project]);
+      return {
+        categories: [
+          {
+            category: 'templates',
+            documents: [
+              { path: 'z-last.yaml', format: 'source' },
+              { path: 'agent/prompts.yml', format: 'source' },
+              { path: 'config.yml', format: 'source' },
+            ],
+          },
+        ],
+      };
+    },
+    getDocument: async (project, category, path) => {
+      calls.push(['document', project, category, path]);
+      return {
+        category,
+        path,
+        format: 'source',
+        content: '<img src=x onerror=alert(1)>\nkey: &value',
+      };
+    },
+  });
+  const root = document.createElement('section');
+  document.body.append(root);
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'templates';
+  appState.currentProject = 'alpha';
+
+  try {
+    await renderLedger(root, browser);
+    assert.deepEqual(
+      [...root.querySelectorAll('[data-ledger-document]')].map(
+        (button) => button.dataset.ledgerDocument,
+      ),
+      ['agent/prompts.yml', 'config.yml', 'z-last.yaml'],
+    );
+    assert.equal(
+      root.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
+
+    const selected = root.querySelector('[data-ledger-document="config.yml"]');
+    await selected.onclick();
+    const current = root.querySelector('[data-ledger-document="config.yml"]');
+    assert.equal(current.getAttribute('aria-current'), 'page');
+    assert.ok(current.classList.contains('active'));
+    assert.equal(
+      root.querySelector('.ledger-source code').textContent,
+      '<img src=x onerror=alert(1)>\nkey: &value',
+    );
+    assert.equal(root.querySelector('.ledger-article img'), null);
+    assert.deepEqual(calls, [
+      ['tree', 'alpha'],
+      ['document', 'alpha', 'templates', 'config.yml'],
+    ]);
+
+    let scrolled = false;
+    const tree = root.querySelector('[data-ledger-tree]');
+    tree.scrollIntoView = () => {
+      scrolled = true;
+    };
+    root.querySelector('[data-ledger-back]').click();
+    assert.equal(document.activeElement, tree);
+    assert.equal(scrolled, true);
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+    root.remove();
+  }
+});
+
+test('141859 CR5: documentary Markdown is sanitized and Mermaid remains expandable', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const originalMermaid = globalThis.mermaid;
+  globalThis.mermaid = {
+    run: async ({ nodes }) => {
+      for (const node of nodes) node.innerHTML = '<svg><text>diagram</text></svg>';
+    },
+  };
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'project-docs', documents: [{ path: 'README.md', format: 'markdown' }] },
+      ],
+    }),
+    getDocument: async () => ({
+      category: 'project-docs',
+      path: 'README.md',
+      format: 'markdown',
+      content:
+        '# Readme\n\n<script>alert(1)</script><style>body{display:none}</style>[bad](javascript:alert(1))\n\n```mermaid\ngraph TD; A-->B;\n```',
+    }),
+  });
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'project-docs';
+  appState.currentProject = 'alpha';
+  try {
+    await renderLedger(root, browser);
+    await root.querySelector('[data-ledger-document="README.md"]').onclick();
+    assert.equal(root.querySelector('.ledger-article script'), null);
+    assert.equal(root.querySelector('.ledger-article style'), null);
+    assert.equal(root.querySelector('.ledger-article a[href^="javascript:"]'), null);
+    const diagram = root.querySelector('.ledger-article .mermaid');
+    assert.ok(diagram.querySelector('svg'));
+    assert.equal(diagram.getAttribute('role'), 'button');
+    assert.equal(diagram.getAttribute('aria-label'), 'Expand diagram');
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+    if (originalMermaid === undefined) delete globalThis.mermaid;
+    else globalThis.mermaid = originalMermaid;
+  }
+});
+
+test('141859 CR3/CR5: documentary loading, empty and errors remain explicit without fallback', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  let resolveTree;
+  const loadingBrowser = createLedgerBrowser({
+    getTree: () =>
+      new Promise((resolve) => {
+        resolveTree = resolve;
+      }),
+    getDocument: async () => assert.fail('empty trees cannot open a document'),
+  });
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'contract';
+  appState.currentProject = 'alpha';
+  try {
+    const loading = renderLedger(root, loadingBrowser);
+    assert.match(root.textContent, /Loading documents/);
+    assert.match(root.textContent, /Select a document/);
+    resolveTree({ categories: [{ category: 'contract', documents: [] }] });
+    await loading;
+    assert.match(root.textContent, /No documents available/);
+    assert.match(root.textContent, /Select a document/);
+
+    const errorBrowser = createLedgerBrowser({
+      getTree: async () => {
+        throw new Error('project path is gone');
+      },
+      getDocument: async () => assert.fail('tree errors cannot open a document'),
+    });
+    await renderLedger(root, errorBrowser);
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'project path is gone');
+    assert.equal(errorBrowser.state.selectedPath, null);
+
+    const missingBrowser = createLedgerBrowser({
+      getTree: async () => ({
+        categories: [
+          { category: 'contract', documents: [{ path: 'core.md', format: 'markdown' }] },
+        ],
+      }),
+      getDocument: async () => {
+        throw new Error('document not found');
+      },
+    });
+    await renderLedger(root, missingBrowser);
+    await root.querySelector('[data-ledger-document="core.md"]').onclick();
+    assert.equal(
+      root.querySelector('.ledger-article-panel [role="alert"]').textContent,
+      'document not found',
+    );
+    assert.equal(missingBrowser.state.selectedPath, 'core.md');
+    assert.equal(root.querySelector('[data-ledger-document]').getAttribute('aria-current'), 'page');
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+  }
+});
+
+test('141859 CR5: only same-category allowlisted relative document links are intercepted', async () => {
+  const { handleLedgerDocumentLink, resolveLedgerDocumentLink } = await import(
+    '../src/viewer/public/ledger-browser.js'
+  );
+  const documents = [
+    { path: 'guide/start.md', format: 'markdown' },
+    { path: 'guide/next.md', format: 'markdown' },
+    { path: 'root.md', format: 'markdown' },
+  ];
+  assert.equal(resolveLedgerDocumentLink('next.md', 'guide/start.md', documents), 'guide/next.md');
+  for (const href of [
+    'https://example.com/x.md',
+    '/root.md',
+    '../root.md',
+    './next.md',
+    'guide\\next.md',
+    'missing.md',
+  ]) {
+    assert.equal(resolveLedgerDocumentLink(href, 'guide/start.md', documents), null, href);
+  }
+
+  let prevented = false;
+  let opened;
+  const event = {
+    target: { closest: () => ({ getAttribute: () => 'next.md' }) },
+    preventDefault: () => {
+      prevented = true;
+    },
+  };
+  assert.equal(
+    handleLedgerDocumentLink(event, 'guide/start.md', documents, (path) => {
+      opened = path;
+    }),
+    true,
+  );
+  assert.equal(prevented, true);
+  assert.equal(opened, 'guide/next.md');
+});
+
+test('141859 CR8: Ledger documentary layout is independently scrollable and stacks on mobile', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const browserRule = css.match(/\.ledger-document-browser\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const treeRule = css.match(/\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const articleRule = css.match(/\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const mobile = css.slice(css.lastIndexOf('@media (max-width: 680px)'));
+
+  assert.match(browserRule, /grid-template-columns:/);
+  assert.match(browserRule, /minmax\(0,\s*1fr\)/);
+  assert.match(treeRule, /overflow:\s*auto/);
+  assert.match(articleRule, /overflow:\s*auto/);
+  assert.match(
+    mobile,
+    /\.ledger-document-browser\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+  );
+  assert.match(mobile, /\.ledger-back\s*\{[^}]*display:/s);
+  assert.match(mobile, /overflow-x:\s*hidden/);
 });
 
 test('141859 CR1: top-level dispatch binds Ledger rather than the retired Specs view', () => {

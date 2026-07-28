@@ -1,6 +1,8 @@
 import {
   getConfigMigrationPreview,
   getGitRefs,
+  getLedgerDocument,
+  getLedgerTree,
   getProjectConfigStructured,
   getProjects,
   getRepo,
@@ -37,6 +39,7 @@ import {
   toggleTypeFilter,
   toggleUnassignedOwner,
 } from './app-state.js';
+import { createLedgerBrowser, handleLedgerDocumentLink } from './ledger-browser.js';
 import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
@@ -68,6 +71,12 @@ export {
 } from './view-parts.js';
 
 const $ = (sel) => document.querySelector(sel);
+
+export const ledgerBrowser = createLedgerBrowser({
+  getTree: getLedgerTree,
+  getDocument: getLedgerDocument,
+});
+export const ledgerBrowserState = ledgerBrowser.state;
 
 initMermaid();
 
@@ -793,24 +802,66 @@ function sortVal(c, key) {
   return String(c[key] ?? '');
 }
 
-/* Ledger view */
-export function renderLedger(root = $('#ledger')) {
+async function paintLedger(root, browser) {
   const q = state.filters.text.toLowerCase();
   const specs = sortSpecsByUpdated(
     (state.repo.specs || []).filter(
       (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
     ),
   );
-  litRender(ledgerViewHtml(state.ledgerCategory, specs, fmtDateTime), root);
+  litRender(ledgerViewHtml(state.ledgerCategory, specs, fmtDateTime, browser.state), root);
   root.querySelectorAll('[data-ledger-category]').forEach((button) => {
-    button.onclick = () => {
+    button.onclick = async () => {
       setLedgerCategory(button.dataset.ledgerCategory);
-      renderLedger(root);
+      await renderLedger(root, browser);
     };
   });
   root.querySelectorAll('.spec-card').forEach((el) => {
     el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
   });
+  root.querySelectorAll('[data-ledger-document]').forEach((button) => {
+    button.onclick = () => openLedgerDocument(button.dataset.ledgerDocument, root, browser);
+  });
+  const tree = root.querySelector('[data-ledger-tree]');
+  const back = root.querySelector('[data-ledger-back]');
+  if (back && tree) {
+    back.onclick = () => {
+      tree.focus();
+      tree.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
+  const article = root.querySelector('.ledger-article');
+  if (article && browser.state.document?.format === 'markdown') {
+    article.onclick = (event) =>
+      handleLedgerDocumentLink(
+        event,
+        browser.state.selectedPath,
+        browser.state.documents,
+        (path) => void openLedgerDocument(path, root, browser),
+      );
+    await renderExpandableMermaid(article);
+  }
+}
+
+/* Ledger view */
+export async function renderLedger(root = $('#ledger'), browser = ledgerBrowser) {
+  const context = browser.setContext(state.currentProject, state.ledgerCategory);
+  await paintLedger(root, browser);
+  await context;
+  if (
+    browser.state.project === state.currentProject &&
+    browser.state.category === state.ledgerCategory
+  ) {
+    await paintLedger(root, browser);
+  }
+}
+
+export async function openLedgerDocument(path, root = $('#ledger'), browser = ledgerBrowser) {
+  const opening = browser.open(path);
+  await paintLedger(root, browser);
+  const opened = await opening;
+  await paintLedger(root, browser);
+  return opened;
 }
 
 function openSpec(s) {

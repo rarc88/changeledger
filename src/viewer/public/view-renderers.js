@@ -1,5 +1,6 @@
 import { cssIdent } from './security.js';
 import { html, nothing, svg } from './templates.js';
+import { ledgerDocumentBrowserHtml } from './view-parts.js';
 
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -159,7 +160,7 @@ const LEDGER_CATEGORIES = [
   ['templates', 'Templates'],
 ];
 
-export function ledgerViewHtml(category, specs, fmtDateTime) {
+export function ledgerViewHtml(category, specs, fmtDateTime, browserState) {
   return html`
     <div class="ledger-categories" role="group" aria-label="Ledger categories">
       ${LEDGER_CATEGORIES.map(
@@ -175,7 +176,7 @@ export function ledgerViewHtml(category, specs, fmtDateTime) {
       ${
         category === 'specs'
           ? html`<div class="specs-view">${specsListHtml(specs, fmtDateTime)}</div>`
-          : nothing
+          : ledgerDocumentBrowserHtml(browserState)
       }
     </div>`;
 }

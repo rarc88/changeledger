@@ -455,6 +455,55 @@ test('190009 CR3: getRepo rejects when server returns 410', async () => {
   }
 });
 
+test('141859 CR3: Ledger client GETs encode project, category and logical document path', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () =>
+        url.startsWith('/api/ledger-tree')
+          ? { categories: [] }
+          : { category: 'project-docs', path: 'A B.md', format: 'markdown', content: '# A' },
+    };
+  };
+  try {
+    const { getLedgerDocument, getLedgerTree } = await import('../src/viewer/public/api.js');
+    assert.deepEqual(await getLedgerTree('alpha & beta'), { categories: [] });
+    assert.equal(
+      (await getLedgerDocument('alpha & beta', 'project-docs', 'A B.md')).content,
+      '# A',
+    );
+    assert.deepEqual(calls, [
+      '/api/ledger-tree?project=alpha%20%26%20beta',
+      '/api/ledger-document?project=alpha%20%26%20beta&category=project-docs&path=A%20B.md',
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('141859 CR3/CR5: Ledger client GETs expose controlled server errors', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 410,
+    json: async () => ({ error: 'project path is gone' }),
+  });
+  try {
+    const { getLedgerDocument, getLedgerTree } = await import('../src/viewer/public/api.js');
+    await assert.rejects(() => getLedgerTree('gone'), /project path is gone/);
+    await assert.rejects(
+      () => getLedgerDocument('gone', 'contract', 'core.md'),
+      /project path is gone/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('113924 CR6: migration apply client rejects HTTP conflict with server message', async () => {
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
