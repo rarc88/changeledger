@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-28T15:13:36Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260726-141124", "20260726-124837", "20260727-194234"]
 owner: raruiz-hiberuscom
@@ -167,3 +168,4 @@ del core.
 - **2026-07-28T16:33:42Z** `[note]` Ronda de confirmacion con mandato minimo: PASS, sin defectos. El test nuevo pasa 124/124 y muere solo (123 pass, 1 fail) con la mutacion \S.* a .*; ningun otro test depende de ella. El comentario queda verificado en sus dos mitades por ejecucion, no por lectura: body.trim() en src/git.mjs:212 rechaza la razon enteramente blanca con y sin \S, y de siete cuerpos probados solo cambian de veredicto los dos de relleno -tabulador y NBSP-, que es la clase que el comentario nombra. El revisor escaneo todos los code points y confirmo que en Node v24.18.0 los conjuntos de whitespace de \s y String.trim() son identicos hasta U+3000, asi que la discrepancia que sospechaba no existe y no esconde ningun efecto adicional. Confirmado por segunda vez el hueco del espacio de ancho cero: una razon U+200B se acepta con y sin \S porque no es whitespace para ninguna definicion; va al follow-up junto a los marcadores dentro de la razon.
 - **2026-07-28T16:37:30Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-28T16:39:23Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-28T19:41:27Z** `[archive]` archived

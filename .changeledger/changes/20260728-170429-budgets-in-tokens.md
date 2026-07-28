@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-28T17:04:29Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260727-194233", "20260726-130728", "20260726-124834", "20260726-124837"]
 owner: raruiz-hiberuscom
@@ -228,3 +229,4 @@ Alternativas descartadas:
 - **2026-07-28T19:33:58Z** `[note]` Ronda de confirmacion con mandato minimo: PASS. Los dos fixes verificados por mutacion en copia, y F1 probado en DOS subdirectorios distintos -agent-prompts/review.md y agent-contexts/investigation.md- para confirmar que cerro la clase y no el caso del revisor. El guard derivado falla en las dos direcciones y no tropieza con LITERAL_CEILING, comprobado ejecutando la regex contra el fuente. Alcance: un solo fichero, una sola linea preexistente. HALLAZGO CONFIRMADO Y EXPLOTABLE: el revisor inyecto la frase retirada que vigila 124837 CR1 en agent-contexts/investigation.md y la suite siguio verde 79/79, asi que las tres guardas no recursivas -194234 CR4, 124837 CR1, 124837 CR8- son un hueco real, estructuralmente identico al que se acaba de cerrar. Observacion no bloqueante: bootstrapHeadCut hace REFERENCE.match(/head -(\d+)/) y destructura sin comprobar nulo, asi que si REFERENCE dejase de contener el patron lanzaria TypeError en vez de nombrar la ausencia del corte; contradice el principio de que lo indecidible aborta Y SE NOMBRA. Recomendado que viaje con el change de las tres guardas, misma familia y mismo fichero.
 - **2026-07-28T19:37:07Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-28T19:40:36Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-28T19:41:27Z** `[archive]` archived
