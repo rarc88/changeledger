@@ -53,6 +53,12 @@ export function serializeLedgerUrl(state, currentUrl) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+export function serializeNonLedgerUrl(currentUrl) {
+  const url = toUrl(currentUrl);
+  url.search = '';
+  return `${url.pathname}${url.hash}`;
+}
+
 export function writeLedgerRoute(state, { location, history, mode }) {
   if (mode !== 'push' && mode !== 'replace') {
     throw new TypeError('history mode must be push or replace');
@@ -60,4 +66,25 @@ export function writeLedgerRoute(state, { location, history, mode }) {
   const url = serializeLedgerUrl(state, location);
   history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', url);
   return true;
+}
+
+export function createLedgerNavigation({ location, history }) {
+  const write = (state, mode) => writeLedgerRoute(state, { location, history, mode });
+  const clear = (mode, view) => {
+    if (mode !== 'push' && mode !== 'replace') {
+      throw new TypeError('history mode must be push or replace');
+    }
+    history[mode === 'push' ? 'pushState' : 'replaceState'](
+      { view },
+      '',
+      serializeNonLedgerUrl(location),
+    );
+    return true;
+  };
+  return {
+    read: () => readLedgerRoute(location),
+    push: (state) => write(state, 'push'),
+    replace: (state) => write(state, 'replace'),
+    clear,
+  };
 }

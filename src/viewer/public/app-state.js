@@ -153,14 +153,17 @@ export function restoreViewerState(storageLike) {
   return true;
 }
 
-export function initializeProjects(projects, serverCurrent) {
+export function initializeProjects(projects, serverCurrent, { exact = false } = {}) {
   state.projectsList = projects;
   const alive = new Set(projects.filter((project) => project.alive).map((project) => project.id));
-  const selected = alive.has(state.currentProject)
-    ? state.currentProject
-    : alive.has(serverCurrent)
-      ? serverCurrent
-      : (projects.find((project) => project.alive)?.id ?? null);
+  const selected =
+    exact && state.currentProject
+      ? state.currentProject
+      : alive.has(state.currentProject)
+        ? state.currentProject
+        : alive.has(serverCurrent)
+          ? serverCurrent
+          : (projects.find((project) => project.alive)?.id ?? null);
   if (selected !== state.currentProject) {
     saveCurrentProjectFilters();
     state.currentProject = selected;

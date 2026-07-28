@@ -111,7 +111,8 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
   - **Resolved:** `2026-07-28T16:27:18Z`
 - [x] Escribir primero pruebas de árbol, Markdown, YAML, enlaces y estados vacíos, y después implementar el navegador documental en `src/viewer/public/api.js`, `src/viewer/public/app.js`, módulos de render asociados y `src/viewer/public/styles.css`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR3, CR5, CR8)
   - **Resolved:** `2026-07-28T16:38:51Z`
-- [ ] Escribir primero pruebas de integración de proyecto, categoría, documento y `popstate`, y después conectar el routing al ciclo de render en `src/viewer/public/app.js` y `test/viewer-routing.test.mjs`; verify: `node --test test/viewer-routing.test.mjs test/viewer-metadata.test.mjs` y validación manual de reload, URL compartida, Back/Forward y layout móvil/escritorio (CR2, CR6, CR7, CR8)
+- [x] Escribir primero pruebas de integración de proyecto, categoría, documento y `popstate`, y después conectar el routing al ciclo de render en `src/viewer/public/app.js` y `test/viewer-routing.test.mjs`; verify: `node --test test/viewer-routing.test.mjs test/viewer-metadata.test.mjs` y validación manual de reload, URL compartida, Back/Forward y layout móvil/escritorio (CR2, CR6, CR7, CR8)
+  - **Resolved:** `2026-07-28T16:59:32Z`
 - [ ] Actualizar `.changeledger/specs/viewer.md` y `.changeledger/specs/architecture.md` y ejecutar la calidad completa; verify: `pnpm verify` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
 
 ## Log
@@ -119,3 +120,4 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 - **2026-07-28T14:18:59Z** `[note]` Draft creado para reunir Specs y documentos allowlisted bajo una navegación Ledger compartible.
 - **2026-07-28T14:33:11Z** `[status]` draft → approved (human via conversation)
 - **2026-07-28T16:04:49Z** `[status]` approved → in-progress
+- **2026-07-28T16:59:40Z** `[note]` Validación Chrome headless: reload y URL compartida restauran categoría/documento; Back/Forward recorren grid y documentos; missing doc permanece explícito; a 1280 px árbol y artículo son paneles contiguos y a 680 px se apilan sin overflow horizontal.

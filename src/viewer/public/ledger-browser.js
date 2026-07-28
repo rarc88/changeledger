@@ -119,7 +119,19 @@ export function createLedgerBrowser({ getTree, getDocument }) {
     }
   }
 
-  return { state, setContext, open, clearSelection: resetDocument };
+  async function restore(path) {
+    if (!state.documents.some((document) => document.path === path)) {
+      documentRevision++;
+      state.selectedPath = path;
+      state.document = null;
+      state.documentStatus = 'error';
+      state.documentError = 'Document not found';
+      return false;
+    }
+    return open(path);
+  }
+
+  return { state, setContext, open, restore, clearSelection: resetDocument };
 }
 
 export function buildLedgerDocumentTree(documents) {

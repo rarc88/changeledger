@@ -1,11 +1,44 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  createLedgerNavigation,
   parseLedgerUrl,
   readLedgerRoute,
   serializeLedgerUrl,
+  serializeNonLedgerUrl,
   writeLedgerRoute,
 } from '../src/viewer/public/viewer-routing.js';
+
+function memoryNavigation(initialUrl) {
+  const location = { href: initialUrl };
+  const entries = [{ url: initialUrl, state: null }];
+  let index = 0;
+  const write = (replace, state, url) => {
+    const absolute = new URL(url, location.href).href;
+    if (replace) entries[index] = { url: absolute, state };
+    else {
+      entries.splice(index + 1);
+      entries.push({ url: absolute, state });
+      index++;
+    }
+    location.href = absolute;
+  };
+  const history = {
+    pushState: (state, _title, url) => write(false, state, url),
+    replaceState: (state, _title, url) => write(true, state, url),
+    back() {
+      if (index > 0) index--;
+      location.href = entries[index].url;
+      return entries[index];
+    },
+    forward() {
+      if (index < entries.length - 1) index++;
+      location.href = entries[index].url;
+      return entries[index];
+    },
+  };
+  return { location, history, entries };
+}
 
 test('141859 CR6: valid Ledger URLs parse to exact shareable state', () => {
   assert.deepEqual(
@@ -155,4 +188,62 @@ test('141859 CR6: popstate-friendly reads inspect injected location without hist
   });
   assert.equal(writes, 0);
   assert.ok(history);
+});
+
+test('141859 CR6/CR7: injectable navigation pushes canonical Ledger entries and clears them for other views', () => {
+  const memory = memoryNavigation('https://viewer.test/?view=ledger&project=old&category=specs');
+  const navigation = createLedgerNavigation(memory);
+
+  navigation.push({ view: 'ledger', project: 'alpha', category: 'specs', doc: null });
+  navigation.push({
+    view: 'ledger',
+    project: 'alpha',
+    category: 'templates',
+    doc: 'config.yml',
+  });
+  navigation.clear('push', 'board');
+
+  assert.equal(memory.entries.length, 4);
+  assert.equal(
+    memory.entries[1].url,
+    'https://viewer.test/?view=ledger&project=alpha&category=specs',
+  );
+  assert.equal(
+    memory.entries[2].url,
+    'https://viewer.test/?view=ledger&project=alpha&category=templates&doc=config.yml',
+  );
+  assert.equal(memory.entries[3].url, 'https://viewer.test/');
+  assert.deepEqual(memory.entries[3].state, { view: 'board' });
+
+  memory.history.back();
+  assert.deepEqual(navigation.read(), {
+    kind: 'valid',
+    state: {
+      view: 'ledger',
+      project: 'alpha',
+      category: 'templates',
+      doc: 'config.yml',
+    },
+  });
+  memory.history.back();
+  assert.equal(navigation.read().state.doc, null);
+  memory.history.forward();
+  assert.equal(navigation.read().state.doc, 'config.yml');
+  assert.equal(memory.entries.length, 4, 'reads and traversal never add entries');
+});
+
+test('141859 CR6: replace canonicalizes bootstrap without adding history', () => {
+  const memory = memoryNavigation('https://viewer.test/?view=ledger&project=stale');
+  const navigation = createLedgerNavigation(memory);
+  navigation.replace({ view: 'ledger', project: 'stored', category: 'contract', doc: null });
+  assert.equal(memory.entries.length, 1);
+  assert.equal(
+    memory.location.href,
+    'https://viewer.test/?view=ledger&project=stored&category=contract',
+  );
+  navigation.clear('replace', 'table');
+  assert.equal(memory.entries.length, 1);
+  assert.equal(memory.location.href, 'https://viewer.test/');
+  assert.deepEqual(memory.entries[0].state, { view: 'table' });
+  assert.equal(serializeNonLedgerUrl('https://viewer.test/path?doc=stale#top'), '/path#top');
 });

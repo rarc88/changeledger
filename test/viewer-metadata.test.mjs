@@ -14,6 +14,7 @@ globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
 const { render } = await import('lit-html');
 const {
+  activateView,
   boardStatuses,
   applyDetailPresentation,
   bindApproveAction,
@@ -24,6 +25,7 @@ const {
   choiceFilterSummary,
   closeFilterMenusOnOutsideClick,
   collectFormPatch,
+  configureViewerNavigation,
   createDiagramLightbox,
   cssIdent,
   esc,
@@ -35,6 +37,7 @@ const {
   projectsViewTemplate,
   requestUnregisterConfirmation,
   renderLedger,
+  restoreLedgerRouteSelection,
   bindReopenAction,
   reopenPanel,
   renderChoiceFilter,
@@ -44,6 +47,7 @@ const {
   restoreInitialViewerShell,
   resetValidationState,
   scrollToStage,
+  selectViewerProject,
   runValidationSubmission,
   setConfirmImpl,
   setPromptImpl,
@@ -66,6 +70,16 @@ const { closeButton, referenceDetails, specBody, validationPanel } = await impor
 const { graphSvg, metricsHtml, specsListHtml } = await import(
   '../src/viewer/public/view-renderers.js'
 );
+
+const viewerShell = () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button><select id="project"></select>
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  return root;
+};
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -2055,6 +2069,249 @@ test('141859 CR8: Ledger documentary layout is independently scrollable and stac
   );
   assert.match(mobile, /\.ledger-back\s*\{[^}]*display:/s);
   assert.match(mobile, /overflow-x:\s*hidden/);
+});
+
+test('141859 CR6/CR7: valid startup URL overrides storage while invalid partial URL does not', () => {
+  const previous = {
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+    globalMode: appState.globalMode,
+  };
+  const writes = [];
+  const storage = {
+    getItem: () =>
+      JSON.stringify({
+        version: 1,
+        currentProject: 'stored',
+        currentView: 'ledger',
+        ledgerCategory: 'contract',
+        projects: {},
+      }),
+    setItem: (_key, value) => writes.push(value),
+  };
+
+  try {
+    const route = restoreInitialViewerShell(viewerShell(), () => storage, {
+      href: 'https://viewer.test/?view=ledger&project=url-project&category=templates&doc=config.yml',
+    });
+    assert.equal(route.kind, 'valid');
+    assert.equal(appState.currentProject, 'url-project');
+    assert.equal(appState.currentView, 'ledger');
+    assert.equal(appState.ledgerCategory, 'templates');
+    assert.ok(writes.every((snapshot) => !snapshot.includes('config.yml')));
+
+    const invalid = restoreInitialViewerShell(viewerShell(), () => storage, {
+      href: 'https://viewer.test/?view=ledger&project=partial',
+    });
+    assert.equal(invalid.kind, 'invalid');
+    assert.equal(appState.currentProject, 'stored');
+    assert.equal(appState.ledgerCategory, 'contract');
+  } finally {
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+    appState.globalMode = previous.globalMode;
+  }
+});
+
+test('141859 CR7: exact deep-link project initialization never falls back to another project', async () => {
+  const { initializeProjects } = await import('../src/viewer/public/app-state.js');
+  const previous = appState.currentProject;
+  appState.currentProject = 'missing';
+  try {
+    assert.equal(
+      initializeProjects(
+        [
+          { id: 'alpha', alive: true },
+          { id: 'dead', alive: false },
+        ],
+        'alpha',
+        { exact: true },
+      ),
+      'missing',
+    );
+    assert.equal(appState.currentProject, 'missing');
+  } finally {
+    appState.currentProject = previous;
+  }
+});
+
+test('141859 CR6/CR7: route restoration opens exact documents and keeps stale selections explicit without pushes', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'templates', documents: [{ path: 'config.yml', format: 'source' }] },
+      ],
+    }),
+    getDocument: async (_project, category, path) => ({
+      category,
+      path,
+      format: 'source',
+      content: 'key: value',
+    }),
+  });
+  const root = document.createElement('section');
+  const historyCalls = [];
+  configureViewerNavigation({
+    push: (route) => historyCalls.push(['push', route]),
+    replace: (route) => historyCalls.push(['replace', route]),
+    clear: (...args) => historyCalls.push(['clear', ...args]),
+  });
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+  };
+  appState.repo = { changes: [], specs: [] };
+
+  try {
+    const ensureProject = async (project) => ({
+      ok: project === 'alpha',
+      error: 'Project not found',
+    });
+    assert.equal(
+      await restoreLedgerRouteSelection(
+        { view: 'ledger', project: 'alpha', category: 'templates', doc: 'config.yml' },
+        { root, browser, ensureProject },
+      ),
+      true,
+    );
+    assert.equal(browser.state.selectedPath, 'config.yml');
+    assert.equal(root.querySelector('.ledger-source').textContent, 'key: value');
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: null },
+      { root, browser, ensureProject },
+    );
+    assert.equal(browser.state.selectedPath, null);
+    assert.equal(
+      root.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: 'missing.yml' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(browser.state.selectedPath, 'missing.yml');
+    assert.match(root.querySelector('[role="alert"]').textContent, /Document not found/);
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'specs', doc: 'missing.md' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'Spec not found');
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'unknown', category: 'templates', doc: 'config.yml' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(appState.currentProject, 'unknown');
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'Project not found');
+    assert.deepEqual(historyCalls, [], 'bootstrap and popstate restoration never write history');
+  } finally {
+    configureViewerNavigation(null);
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+  }
+});
+
+test('141859 CR2/CR6: Ledger user actions push one canonical entry each and non-Ledger clears it', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'templates', documents: [{ path: 'config.yml', format: 'source' }] },
+      ],
+    }),
+    getDocument: async (_project, category, path) => ({
+      category,
+      path,
+      format: 'source',
+      content: 'key: value',
+    }),
+  });
+  const calls = [];
+  configureViewerNavigation({
+    push: (route) => calls.push(['push', structuredClone(route)]),
+    replace: (route) => calls.push(['replace', structuredClone(route)]),
+    clear: (mode, view) => calls.push(['clear', mode, view]),
+  });
+  const fixture = viewerShell();
+  fixture.innerHTML += '<div id="overlay" class="hidden"><div id="detail"></div></div>';
+  document.body.append(fixture);
+  const root = fixture.querySelector('#ledger');
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+    text: appState.filters.text,
+  };
+  appState.repo = {
+    changes: [],
+    specs: [
+      {
+        name: 'viewer.md',
+        title: 'Viewer',
+        updated: '2026-07-01T00:00:00Z',
+        tags: [],
+        body: '# Viewer',
+        graduated_from: [],
+      },
+    ],
+  };
+  appState.currentProject = 'alpha';
+  appState.currentView = 'ledger';
+  appState.ledgerCategory = 'specs';
+  appState.filters.text = '';
+
+  try {
+    await renderLedger(root, browser);
+    root.querySelector('.spec-card').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'specs', doc: 'viewer.md' },
+    ]);
+
+    await root.querySelector('[data-ledger-category="templates"]').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: null },
+    ]);
+    await root.querySelector('[data-ledger-document="config.yml"]').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: 'config.yml' },
+    ]);
+
+    await selectViewerProject('beta', { loadProject: async () => true });
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'beta', category: 'templates', doc: null },
+    ]);
+
+    activateView('ledger', { renderContent: false });
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'beta', category: 'templates', doc: null },
+    ]);
+    activateView('board', { renderContent: false });
+    assert.deepEqual(calls.pop(), ['clear', 'push', 'board']);
+  } finally {
+    configureViewerNavigation(null);
+    fixture.remove();
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+    appState.filters.text = previous.text;
+  }
 });
 
 test('141859 CR1: top-level dispatch binds Ledger rather than the retired Specs view', () => {

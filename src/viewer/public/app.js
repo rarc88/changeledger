@@ -55,6 +55,7 @@ import {
   validationPanel,
 } from './view-parts.js';
 import { graphSvg, ledgerViewHtml, metricsHtml, sortSpecsByUpdated } from './view-renderers.js';
+import { createLedgerNavigation, readLedgerRoute } from './viewer-routing.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -77,10 +78,31 @@ export const ledgerBrowser = createLedgerBrowser({
   getDocument: getLedgerDocument,
 });
 export const ledgerBrowserState = ledgerBrowser.state;
+let viewerNavigation = null;
+let openedSpecName = null;
+
+export function configureViewerNavigation(navigation) {
+  viewerNavigation = navigation;
+}
+
+function currentLedgerRoute(doc = null) {
+  if (state.currentView !== 'ledger' || !state.currentProject) return null;
+  return {
+    view: 'ledger',
+    project: state.currentProject,
+    category: state.ledgerCategory,
+    doc,
+  };
+}
+
+function writeCurrentLedgerRoute(mode, doc = null) {
+  const route = currentLedgerRoute(doc);
+  if (route && viewerNavigation) viewerNavigation[mode](route);
+}
 
 initMermaid();
 
-async function loadProjects() {
+async function loadProjects(initialRoute = { kind: 'absent' }) {
   const { projects, current, localOnly } = await getProjects();
   state.projectsList = projects;
   state.localOnly = localOnly;
@@ -92,30 +114,44 @@ async function loadProjects() {
     ),
     sel,
   );
-  initializeProjects(projects, current);
-  if (state.currentProject) sel.value = state.currentProject;
+  initializeProjects(projects, current, { exact: initialRoute.kind === 'valid' });
+  if (state.currentProject && projects.some((project) => project.id === state.currentProject)) {
+    sel.value = state.currentProject;
+  }
   sel.style.display = projects.length > 1 ? '' : 'none';
+  if (initialRoute.kind === 'valid') {
+    await restoreLedgerRouteSelection(initialRoute.state);
+    return;
+  }
   await load();
+  if (state.currentView === 'ledger' && state.currentProject) {
+    writeCurrentLedgerRoute('replace');
+  } else {
+    viewerNavigation?.clear('replace', state.currentView);
+  }
 }
 
 async function load() {
   if (!state.currentProject) {
     if (state.currentView === 'projects') {
       syncViewerShell();
-      return;
+      return true;
     }
     showNoProjects();
-    return;
+    return false;
   }
   try {
     const text = await getRepo(state.currentProject);
-    if (text === state.lastJson) return;
+    if (text === state.lastJson) return true;
     setRepo(text);
     normalizeRepoState(state.repo);
     hydrateFilters();
     syncViewerShell();
+    return true;
   } catch (e) {
-    litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+    if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
+    else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+    return false;
   }
 }
 
@@ -672,8 +708,15 @@ async function loadGitRefs(id) {
 }
 
 function closeDetail() {
-  $('#overlay').classList.add('hidden');
-  document.documentElement.classList.remove('detail-open');
+  $('#overlay')?.classList.add('hidden');
+  document.documentElement?.classList.remove('detail-open');
+}
+
+function closeLedgerSpec({ historyMode = 'push' } = {}) {
+  const wasOpen = openedSpecName !== null;
+  openedSpecName = null;
+  closeDetail();
+  if (wasOpen && historyMode) writeCurrentLedgerRoute(historyMode);
 }
 
 let diagramLightbox = null;
@@ -812,7 +855,9 @@ async function paintLedger(root, browser) {
   litRender(ledgerViewHtml(state.ledgerCategory, specs, fmtDateTime, browser.state), root);
   root.querySelectorAll('[data-ledger-category]').forEach((button) => {
     button.onclick = async () => {
+      openedSpecName = null;
       setLedgerCategory(button.dataset.ledgerCategory);
+      writeCurrentLedgerRoute('push');
       await renderLedger(root, browser);
     };
   });
@@ -856,15 +901,72 @@ export async function renderLedger(root = $('#ledger'), browser = ledgerBrowser)
   }
 }
 
-export async function openLedgerDocument(path, root = $('#ledger'), browser = ledgerBrowser) {
-  const opening = browser.open(path);
+export async function openLedgerDocument(
+  path,
+  root = $('#ledger'),
+  browser = ledgerBrowser,
+  { historyMode = 'push', restore = false } = {},
+) {
+  const opening = browser[restore ? 'restore' : 'open'](path);
+  if (historyMode && browser.state.selectedPath === path) {
+    writeCurrentLedgerRoute(historyMode, path);
+  }
   await paintLedger(root, browser);
   const opened = await opening;
   await paintLedger(root, browser);
   return opened;
 }
 
-function openSpec(s) {
+function renderLedgerRouteError(root, message) {
+  litRender(html`<p class="ledger-error" role="alert">${message}</p>`, root);
+}
+
+async function ensureLedgerProject(project) {
+  const match = state.projectsList.find((candidate) => candidate.id === project);
+  if (!match) return { ok: false, error: 'Project not found' };
+  if (!match.alive) return { ok: false, error: 'Project path is gone' };
+  const selector = $('#project');
+  if (selector) selector.value = project;
+  return (await load())
+    ? { ok: true }
+    : { ok: false, error: 'Unable to load the requested project' };
+}
+
+export async function restoreLedgerRouteSelection(
+  route,
+  { root = $('#ledger'), browser = ledgerBrowser, ensureProject = ensureLedgerProject } = {},
+) {
+  setView('ledger');
+  state.globalMode = false;
+  if (state.currentProject !== route.project) selectProject(route.project);
+  setLedgerCategory(route.category);
+  openedSpecName = null;
+  browser.clearSelection();
+  closeDetail();
+
+  const project = await ensureProject(route.project);
+  if (!project?.ok) {
+    renderLedgerRouteError(root, project?.error || 'Project not found');
+    return false;
+  }
+
+  await renderLedger(root, browser);
+  if (!route.doc) return true;
+  if (route.category === 'specs') {
+    const spec = (state.repo?.specs ?? []).find((candidate) => candidate.name === route.doc);
+    if (!spec) {
+      renderLedgerRouteError(root, 'Spec not found');
+      return false;
+    }
+    openSpec(spec, { historyMode: null });
+    return true;
+  }
+  return openLedgerDocument(route.doc, root, browser, { historyMode: null, restore: true });
+}
+
+function openSpec(s, { historyMode = 'push' } = {}) {
+  openedSpecName = s.name ?? null;
+  if (historyMode) writeCurrentLedgerRoute(historyMode, openedSpecName);
   renderOpenedDetail(
     html`
     ${detailToolbar(state.detailMode, state.detailSize)}
@@ -882,9 +984,9 @@ function openSpec(s) {
   applyDetailPresentation();
   bindDetailPresentation();
   const detail = $('#detail');
-  detail.querySelector('.close').onclick = closeDetail;
+  detail.querySelector('.close').onclick = () => closeLedgerSpec();
   overlay.onclick = (e) => {
-    if (e.target === overlay) closeDetail();
+    if (e.target === overlay) closeLedgerSpec();
   };
   detail.onclick = (e) => handleSpecBodyClick(e, (href) => openSpecByName(href, state, openSpec));
   detail.querySelectorAll('[data-change]').forEach((el) => {
@@ -977,7 +1079,11 @@ export function syncViewerShell(root = document, renderContent = true) {
   else render();
 }
 
-export function restoreInitialViewerShell(root = document, getStorage = () => window.localStorage) {
+export function restoreInitialViewerShell(
+  root = document,
+  getStorage = () => window.localStorage,
+  location = null,
+) {
   let browserStorage = null;
   try {
     browserStorage = getStorage();
@@ -985,7 +1091,15 @@ export function restoreInitialViewerShell(root = document, getStorage = () => wi
     // Storage access itself may be forbidden (opaque origins/privacy policy).
   }
   restoreViewerState(browserStorage);
+  const route = location ? readLedgerRoute(location) : { kind: 'absent' };
+  if (route.kind === 'valid') {
+    selectProject(route.state.project);
+    setView('ledger');
+    setLedgerCategory(route.state.category);
+    state.globalMode = false;
+  }
   syncViewerShell(root, false);
+  return route;
 }
 
 let managedProject = null;
@@ -1695,15 +1809,32 @@ export function bindProjectViewActions(root, handlers) {
     unregister.onclick = () => handlers.unregister(root.querySelector('.project-editor'));
 }
 
-function activateView(v) {
+export function activateView(v, { renderContent = true, historyMode = 'push' } = {}) {
   setView(v);
+  openedSpecName = null;
+  ledgerBrowser.clearSelection();
+  closeDetail();
+  if (historyMode && viewerNavigation) {
+    if (v === 'ledger') writeCurrentLedgerRoute(historyMode);
+    else viewerNavigation.clear(historyMode, v);
+  }
   $('#toggle-global').classList.remove('active');
   $('#global').classList.add('hidden');
   for (const name of VIEWS) {
     $(`#view-${name}`).classList.toggle('active', v === name);
     $(`#${name}`).classList.toggle('hidden', v !== name);
   }
-  render();
+  if (renderContent) render();
+}
+
+export async function selectViewerProject(nextProject, { loadProject = load } = {}) {
+  selectProject(nextProject);
+  openedSpecName = null;
+  ledgerBrowser.clearSelection();
+  const selector = $('#project');
+  if (selector) selector.value = nextProject;
+  if (state.currentView === 'ledger') writeCurrentLedgerRoute('push');
+  return loadProject();
 }
 
 // Global search: query every project server-side, render grouped results.
@@ -1772,8 +1903,29 @@ const fmtDate = (iso) => {
 
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
+async function restoreViewerLocation(event) {
+  const route = viewerNavigation?.read() ?? { kind: 'absent' };
+  if (route.kind === 'valid') {
+    await restoreLedgerRouteSelection(route.state);
+    return;
+  }
+  const view = event?.state?.view;
+  if (VIEWS.includes(view) && view !== 'ledger') {
+    activateView(view, { historyMode: null });
+  } else if (route.kind === 'invalid') {
+    renderLedgerRouteError($('#ledger'), 'Invalid Ledger URL');
+  }
+}
+
 function bootstrap() {
-  restoreInitialViewerShell();
+  configureViewerNavigation(
+    createLedgerNavigation({ location: window.location, history: window.history }),
+  );
+  const initialRoute = restoreInitialViewerShell(
+    document,
+    () => window.localStorage,
+    window.location,
+  );
   diagramLightbox = createDiagramLightbox({
     overlay: $('#diagram-overlay'),
     canvas: $('#diagram-canvas'),
@@ -1814,14 +1966,17 @@ function bootstrap() {
       }
       configDirty = false;
     }
-    selectProject(nextProject);
-    load();
+    await selectViewerProject(nextProject);
   };
   document.onkeydown = (e) => {
-    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) closeDetail();
+    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) {
+      if (openedSpecName) closeLedgerSpec();
+      else closeDetail();
+    }
   };
 
-  loadProjects();
+  window.onpopstate = (event) => void restoreViewerLocation(event);
+  void loadProjects(initialRoute);
   setInterval(load, 5000);
 
   // The topbar wraps to multiple rows at content-dependent widths, so the
