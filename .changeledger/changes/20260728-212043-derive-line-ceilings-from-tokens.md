@@ -107,32 +107,53 @@ Mover cualquier techo obliga ahora a actualizar `PINNED_CEILINGS` en
 `test/context.test.mjs`. Es el mecanismo funcionando como se diseñó —un techo no se
 mueve en silencio— y este change es el primero que lo paga, a propósito.
 
-### Dos cosas quedan fuera, medidas y nombradas
+### Los overlays sí caben, medidos con un repo de fixture
 
-**1. Los overlays y la entrada `agent` no se derivan aquí, porque no están medidos.**
-Sus techos derivados (`blocked` 50, `in-validation` 45, `done` 100, `discarded` 20,
-`agent` 35) están **por debajo** de sus techos de líneas actuales (84, 54, 108, 48,
-60), así que derivarlos podría apretar de verdad y no holgadamente. Medirlos exige
-montar un repo de fixture con un change por status, que es andamiaje propio. Derivar
-sin medir sería exactamente lo que este proyecto llama afirmar sin verificar. Queda
-como follow-up con su propia medición.
+Medido el 2026-07-28 con un change por status, comparando contra el **uso real** y no
+contra el techo actual —que fue el error de una versión previa de este documento—:
 
-**2. Hallazgo nuevo, y no es de este change: `agent-prompt` no está acotado por nada.**
-Verificado el 2026-07-28: la entrada `agent` (350 tokens / 60 líneas) la aplica
-`144327 CR8` en `test/agent-context.test.mjs` sobre `buildAgentContext`, es decir sobre
-las cápsulas de **contexto**. Las cuatro cápsulas de **prompt** miden **433, 478, 398 y
-414 tokens** —las cuatro por encima de 350— y `pnpm verify` pasa en verde, porque
-ningún test las mide contra un techo. Es un techo que no puede fallar para la mitad de
-lo que la tabla del acta creía cubrir. No se toca aquí: es superficie distinta y
-decidir si `agent-prompt` comparte techo con `agent-context` o tiene el suyo es una
-decisión, no un arreglo mecánico.
+| overlay | líneas hoy | tokens hoy | `lines` derivado | ¿cabe? |
+|---|---|---|---|---|
+| `blocked` | 45 | 439/500 | 50 | sí |
+| `in-validation` | 37 | 392/450 | 45 | sí |
+| `done` | 76 | **900/1000** | 100 | sí |
+| `discarded` | 15 | 131/200 | 20 | sí |
+
+Los cuatro entran, así que se derivan aquí. Se anota que **`done` está a 900 de 1000
+tokens**: cabe, pero es el margen más estrecho del fichero y el primero que va a
+morder. No se toca su techo de tokens en este change porque los techos de tokens son
+decisiones de coste del humano, no derivaciones.
+
+### La entrada `agent` estaba en 350 contra una decisión de 1000, y no cubría los prompts
+
+Dos defectos, uno dentro del otro.
+
+**El valor está mal.** La decisión registrada es **1000 tokens** para las cápsulas
+—`agent-prompt` y `agent-context` juntas—. `20260728-170429` shipeó `agent: 350`, que
+nadie decidió. Reafirmado por Roberto el 2026-07-28: *"que agent-prompt y agent-context
+tengan 1000 tokens de limite, no lo dejemos justos sino siempre estaremos en esto una y
+otra vez"*.
+
+**Y no se aplica donde hace falta.** La entrada la aplica `144327 CR8` en
+`test/agent-context.test.mjs` sobre `buildAgentContext`, es decir **sólo** sobre las
+cápsulas de contexto. Las cuatro cápsulas de prompt miden **433, 478, 398 y 414
+tokens** y `pnpm verify` pasa en verde, porque **ningún test las mide contra un techo**.
+Un techo que no puede fallar para la mitad de lo que declara cubrir.
+
+Los dos se arreglan aquí porque son la misma entrada del mismo fichero y el segundo
+sin el primero rompería el árbol: aplicar 350 sobre los prompts los reprobaría a los
+cuatro. Con 1000 el más grande (478) queda al 48% y ninguna prosa se retira para caber,
+que es la condición que `AGENTS.md` exige.
+
+Consecuencia sobre el derivado: `agent` pasa de 35 líneas a **100**, muy por encima de
+las 46 de la cápsula más larga. Afloja en las dos dimensiones.
 
 ### Relaciones
 
 - `related_to: 20260728-170429`: decidió tokens como unidad y dejó el techo de líneas
   a mano. Archivado, no impone orden.
 - `related_to: 20260728-195445`: su pin de valores obliga a declarar cada techo que se
-  mueva. En `in-validation`.
+  mueva. Aceptado, graduado a `contract-discovery` y archivado el 2026-07-28.
 - `related_to: 20260728-164620`: beneficiario directo — su bloque candidato está a
   28/28 líneas. No es prerequisito en ninguna dirección.
 
@@ -141,8 +162,10 @@ decisión, no un arreglo mecánico.
 Un principio: **el techo de `lines` es `tokens ÷ 10`, y el `head` del `core` es ese
 mismo número.** Ninguno se teclea a mano.
 
-Alcance: las cinco entradas `base` y `blocks.core-commits` —las seis medidas— más el
-literal del `head`, su guarda de deriva y el pin de valores.
+Alcance: **las once entradas**, todas medidas, más el literal del `head`, su guarda de
+deriva y el pin de valores. Y una corrección de valor: `agent` sube a los **1000
+tokens** que estaban decididos, y su techo pasa a aplicarse también sobre
+`agent-prompt`.
 
 | entrada | tokens | `lines` hoy | `lines` derivado |
 |---|---|---|---|
@@ -151,6 +174,11 @@ literal del `head`, su guarda de deriva y el pin de valores.
 | `base.implement` | 2000 | 205 | **200** |
 | `base.review` | 900 | 85 | **90** |
 | `base.release` | 500 | 60 | **50** |
+| `agent` | **350 → 1000** | 60 | **100** |
+| `overlays.blocked` | 500 | 84 | **50** |
+| `overlays.in-validation` | 450 | 54 | **45** |
+| `overlays.done` | 1000 | 108 | **100** |
+| `overlays.discarded` | 200 | 48 | **20** |
 | `blocks.core-commits` | 650 | 28 | **65** |
 
 Alternativas descartadas:
@@ -167,11 +195,11 @@ Alternativas descartadas:
 
 ## Specification
 
-### CR1 — Cada techo de líneas del alcance es su techo de tokens entre diez
-- **Given** `templates/contract/budgets.yml` con las cinco entradas `base` y `blocks.core-commits`
-- **When** se lee cada una de esas seis entradas
+### CR1 — Cada techo de líneas es su techo de tokens entre diez
+- **Given** `templates/contract/budgets.yml` con sus once entradas
+- **When** se lee cada entrada
 - **Then** su `lines` es exactamente `Math.floor(tokens / 10)`, y `base.core.lines` vale `400`
-- **And** un test recorre esas seis entradas y falla nombrando la entrada y los dos números cuando la relación no se cumple
+- **And** un test recorre **las once** y falla nombrando la entrada y los dos números cuando la relación no se cumple
 - **And** con `base.spec.lines` puesto a `344` en `budgets.yml` ese test falla nombrando `base.spec`
 
 ### CR2 — El `head` del bootstrap es el techo de líneas del core, por igualdad
@@ -199,9 +227,17 @@ Alternativas descartadas:
 - **Then** es mayor que `10`, así que el techo de tokens se agota antes que el de líneas
 - **And** un test lo afirma comparando la densidad observada contra `10` y falla si el `core` se volviera menos denso, que es la señal de que el `head` hay que subirlo a propósito
 
+### CR6 — La entrada `agent` vale 1000 tokens y acota las dos clases de cápsula
+- **Given** `templates/contract/budgets.yml` y las cápsulas que emiten `changeledger agent-prompt <rol>` y `changeledger agent-context <rol> [id]`
+- **When** se mide cada una de las cuatro cápsulas de prompt (`investigation`, `implementation`, `review`, `post-review`) contra la entrada `agent`
+- **Then** `agent.tokens` vale `1000`, `agent.lines` vale `100`, y las cuatro cápsulas de prompt caben en las dos dimensiones
+- **And** con `agent.tokens` bajado a `400` la cápsula `implementation` falla nombrando su rol y `tokens`, porque mide `478`
+- **And** las cápsulas de `agent-context` siguen acotadas por la misma entrada, sin un segundo techo que pueda discrepar
+
 ## Plan
 
-- [ ] Derivar los seis techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
+- [ ] Derivar los once techos de `lines` en `templates/contract/budgets.yml`, subir `agent.tokens` a `1000`, y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
+- [ ] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test; verify: `node --test test/agent-context.test.mjs` (CR6)
 - [ ] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`; verify: `node --test test/contract.test.mjs` (CR2)
 - [ ] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda; verify: `node --test test/contract.test.mjs` (CR3)
 - [ ] Afirmar en `test/context.test.mjs` que la densidad observada del `core` supera 10 tokens por línea, con `templates/contract/budgets.yml` como sujeto del techo; verify: `node --test test/context.test.mjs` (CR5)
@@ -212,3 +248,4 @@ Alternativas descartadas:
 - **2026-07-28T21:20:43Z** `[note]` Draft creado por priorización explícita de Roberto para desbloquear el presupuesto. Medido: core 193/195 líneas contra 2577/4000 tokens, así que la dimensión que bloquea es líneas con 2 de margen mientras 1423 tokens quedan inutilizables. El core es el único outlier de densidad (13.4 tok/línea contra ~10.3 del resto) porque es casi todo tablas, y su techo de líneas se fijó a mano en vez de derivarlo. Derivado da 400, que a esa densidad son ~106 líneas de prosa nueva disponibles.
 - **2026-07-28T21:20:44Z** `[note]` Alcance reducido a lo medido: cinco entradas base más blocks.core-commits. Los overlays y la entrada agent quedan fuera porque sus techos derivados caen por debajo de sus techos actuales y medirlos exige montar un repo de fixture con un change por status; derivarlos sin medir sería afirmar sin verificar. Verificado además que ningún fragmento del contrato publica hoy un head, así que la mecanización via register/ensureReference también queda fuera.
 - **2026-07-28T21:20:45Z** `[note]` Hallazgo nuevo encontrado midiendo, ajeno a este change: la entrada agent la aplica 144327 CR8 sobre buildAgentContext, es decir sobre las cápsulas de contexto, y las cuatro cápsulas de agent-prompt miden 433/478/398/414 tokens contra un techo de 350 sin que nada falle, porque ningún test las mide. Techo que no puede fallar para la mitad de lo que cubría en la tabla del acta. Necesita decisión, no arreglo mecánico.
+- **2026-07-28T21:40:50Z** `[note]` Alcance ampliado por instruccion de Roberto (2026-07-28): entra CR6 y las once entradas. Correccion de un error mio de razonamiento: dije que derivar los overlays podia apretar porque compare el derivado contra el TECHO actual en vez de contra el USO real. Medido con repo de fixture, un change por status: blocked 45l/439t, in-validation 37l/392t, done 76l/900t, discarded 15l/131t. Los cuatro caben en su derivado, asi que entran. Se anota que done esta a 900/1000 tokens, el margen mas estrecho del fichero. Y correccion de otro error mio: reporte el techo de agent como decision pendiente cuando la decision de 1000 tokens ya estaba registrada en el acta desde CH-0; 170429 shipeo 350, que nadie decidio. Palabras de Roberto: no lo dejemos justos sino siempre estaremos en esto una y otra vez.
