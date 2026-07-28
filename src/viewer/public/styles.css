@@ -804,6 +804,21 @@ body {
   background: var(--accent);
   color: #07101d;
 }
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+.card-approve {
+  min-height: 30px;
+  padding-inline: 11px;
+}
+.card-approve:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
 .button-danger {
   border-color: rgba(248, 81, 73, 0.48);
   background: rgba(248, 81, 73, 0.08);

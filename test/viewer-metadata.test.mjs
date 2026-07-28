@@ -16,6 +16,8 @@ const { render } = await import('lit-html');
 const {
   boardStatuses,
   applyDetailPresentation,
+  bindApproveAction,
+  bindBoardInteractions,
   bindDetailPresentation,
   bindProjectViewActions,
   card,
@@ -26,6 +28,7 @@ const {
   cssIdent,
   esc,
   isVisible,
+  moveStatus,
   openChangeById,
   passesTombstones,
   projectMutation,
@@ -315,6 +318,133 @@ test('175732 CR1: a payload in id/type/status does not create active HTML in a c
   const host = parse(card({ ...baseChange(), id: XSS, type: XSS, status: XSS }));
   assert.equal(host.querySelector('img'), null, 'no injected <img>');
   assert.equal(host.querySelectorAll('[onerror]').length, 0, 'no event-handler attribute');
+});
+
+test('141643 CR1/CR6: every draft card has an accessible Approve button and non-drafts do not', () => {
+  const draft = parse(card(baseChange()));
+  const approve = draft.querySelector('[data-approve]');
+  assert.ok(approve);
+  assert.equal(approve.tagName, 'BUTTON');
+  assert.equal(approve.type, 'button');
+  assert.equal(approve.textContent.trim(), 'Approve');
+  assert.equal(approve.getAttribute('aria-label'), `Approve change ${baseChange().id}`);
+
+  for (const status of ['approved', 'in-progress', 'done', 'discarded']) {
+    assert.equal(parse(card({ ...baseChange(), status })).querySelector('[data-approve]'), null);
+  }
+});
+
+test('141643 CR1/CR2: approval is single-flight, stops detail opening, and preserves draft-only drag', async () => {
+  const draft = baseChange();
+  const approved = { ...baseChange(), id: '20260613-120001', status: 'approved' };
+  const board = document.createElement('section');
+  const draftColumn = document.createElement('div');
+  const approvedColumn = document.createElement('div');
+  draftColumn.className = 'column';
+  draftColumn.dataset.status = 'draft';
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  render(card(draft), draftColumn);
+  render(card(approved), approvedColumn);
+  board.append(draftColumn, approvedColumn);
+
+  const calls = [];
+  let resolveApproval;
+  let detailsOpened = 0;
+  bindBoardInteractions(board, [draft, approved], {
+    open: () => detailsOpened++,
+    move: (id, status) => {
+      calls.push([id, status]);
+      if (calls.length === 1) {
+        return new Promise((resolve) => {
+          resolveApproval = resolve;
+        });
+      }
+      return Promise.resolve(true);
+    },
+  });
+
+  const draftCard = draftColumn.querySelector('.card');
+  const approvedCard = approvedColumn.querySelector('.card');
+  const approve = draftCard.querySelector('[data-approve]');
+  approve.click();
+  approve.click();
+  assert.deepEqual(calls, [[draft.id, 'approved']]);
+  assert.equal(detailsOpened, 0);
+  assert.equal(approve.disabled, true);
+
+  const values = new Map();
+  const dataTransfer = {
+    effectAllowed: '',
+    setData: (type, value) => values.set(type, value),
+    getData: (type) => values.get(type) ?? '',
+  };
+  const dragStart = new window.Event('dragstart', { bubbles: true, cancelable: true });
+  Object.defineProperty(dragStart, 'dataTransfer', { value: dataTransfer });
+  draftCard.dispatchEvent(dragStart);
+  assert.equal(dataTransfer.effectAllowed, 'move');
+  assert.equal(dataTransfer.getData('text/plain'), draft.id);
+
+  const drop = new window.Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
+  approvedColumn.dispatchEvent(drop);
+  assert.equal(calls.length, 1, 'button and drop share one pending approval per id');
+
+  resolveApproval(true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(approve.disabled, false);
+  assert.equal(draftCard.getAttribute('draggable'), 'true');
+  assert.equal(approvedCard.hasAttribute('draggable'), false);
+
+  approvedColumn.dispatchEvent(drop);
+  assert.deepEqual(calls.at(-1), [draft.id, 'approved']);
+
+  dataTransfer.setData('text/plain', approved.id);
+  approvedColumn.dispatchEvent(drop);
+  assert.equal(calls.length, 2, 'a non-draft cannot initiate approval by drop');
+});
+
+test('141643 CR1: approval success reloads; failure keeps the draft, reports, and re-enables', async () => {
+  appState.currentProject = 'project-alpha';
+  const success = parse(card({ ...baseChange(), id: 'success' }));
+  const successCard = success.querySelector('.card');
+  const requests = [];
+  const errors = [];
+  let reloads = 0;
+  bindApproveAction(successCard, (id, status) =>
+    moveStatus(id, status, undefined, {
+      request: async (...args) => {
+        requests.push(args);
+        return { ok: true, json: async () => ({ ok: true }) };
+      },
+      reload: async () => reloads++,
+      onError: (message) => errors.push(message),
+    }),
+  );
+  successCard.querySelector('[data-approve]').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined]]);
+  assert.equal(reloads, 1);
+  assert.deepEqual(errors, []);
+
+  const failure = parse(card({ ...baseChange(), id: 'failure' }));
+  document.body.append(failure);
+  const failureCard = failure.querySelector('.card');
+  bindApproveAction(failureCard, (id, status) =>
+    moveStatus(id, status, undefined, {
+      request: async () => ({ ok: false, json: async () => ({ error: 'approval denied' }) }),
+      reload: async () => reloads++,
+      onError: (message) => errors.push(message),
+    }),
+  );
+  const failureButton = failureCard.querySelector('[data-approve]');
+  failureButton.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(errors.at(-1), 'approval denied');
+  assert.equal(reloads, 1);
+  assert.ok(failureCard.isConnected, 'the draft remains rendered after failure');
+  assert.equal(failureButton.disabled, false);
+  failure.remove();
 });
 
 test('175732 CR1: a payload in a stage heading does not create active HTML', () => {

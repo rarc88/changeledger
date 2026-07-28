@@ -296,17 +296,54 @@ function renderBoard() {
     }),
     board,
   );
+  bindBoardInteractions(board, state.repo.changes);
+}
+
+const pendingApprovals = new Set();
+
+async function approveOnce(id, move, buttons = []) {
+  if (pendingApprovals.has(id)) return false;
+  pendingApprovals.add(id);
+  for (const button of buttons) button.disabled = true;
+  try {
+    return await move(id, 'approved');
+  } finally {
+    pendingApprovals.delete(id);
+    for (const button of buttons) button.disabled = false;
+  }
+}
+
+export function bindApproveAction(cardRoot, move = moveStatus) {
+  const button = cardRoot.querySelector('[data-approve]');
+  if (!button) return;
+  const id = cardRoot.dataset.id;
+  button.disabled = pendingApprovals.has(id);
+  button.onclick = async (event) => {
+    event.stopPropagation();
+    await approveOnce(id, move, [button]);
+  };
+}
+
+export function bindBoardInteractions(
+  board,
+  changes,
+  { open = openDetail, move = moveStatus } = {},
+) {
   // Dragging is reserved for initial approval. Final validation uses explicit
   // detail actions because rejection requires a reason.
   board.querySelectorAll('.card').forEach((el) => {
-    el.onclick = () => openDetail(el.dataset.id);
-    const c = state.repo.changes.find((x) => String(x.id) === String(el.dataset.id));
+    el.onclick = () => open(el.dataset.id);
+    const c = changes.find((x) => String(x.id) === String(el.dataset.id));
     if (c && c.status === 'draft') {
+      bindApproveAction(el, move);
       el.setAttribute('draggable', 'true');
       el.ondragstart = (e) => {
         e.dataTransfer.setData('text/plain', el.dataset.id);
         e.dataTransfer.effectAllowed = 'move';
       };
+    } else {
+      el.removeAttribute('draggable');
+      el.ondragstart = null;
     }
   });
   const approvedCol = board.querySelector('.column[data-status="approved"]');
@@ -320,27 +357,38 @@ function renderBoard() {
       e.preventDefault();
       approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
-      const c = state.repo.changes.find((x) => String(x.id) === String(id));
-      if (c && c.status === 'draft') moveStatus(id, 'approved');
+      const c = changes.find((x) => String(x.id) === String(id));
+      if (c && c.status === 'draft') {
+        const buttons = [...board.querySelectorAll('.card')]
+          .filter((cardRoot) => String(cardRoot.dataset.id) === String(id))
+          .map((cardRoot) => cardRoot.querySelector('[data-approve]'))
+          .filter(Boolean);
+        approveOnce(id, move, buttons);
+      }
     };
   }
 }
 
 // Persist a human-owned lifecycle move, then refresh the board.
-async function moveStatus(id, status, reason) {
+export async function moveStatus(
+  id,
+  status,
+  reason,
+  { request = postStatus, reload = load, onError = showToast } = {},
+) {
   try {
-    const res = await postStatus(state.currentProject, id, status, reason);
+    const res = await request(state.currentProject, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
-      showToast(out.error || 'status change failed');
+      onError(out.error || 'status change failed');
       return;
     }
   } catch (e) {
-    showToast(e.message);
+    onError(e.message);
     return;
   }
   invalidateCache();
-  await load();
+  await reload();
   return true;
 }
 

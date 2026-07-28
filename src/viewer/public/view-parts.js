@@ -183,6 +183,18 @@ export function card(c) {
         ${c.owner ? html`<span class="owner">@${c.owner}</span>` : nothing}
         ${blocked}
       </div>
+      ${
+        c.status === 'draft'
+          ? html`<div class="card-actions">
+              <button
+                type="button"
+                class="button button-primary card-approve"
+                data-approve
+                aria-label=${`Approve change ${c.id}`}
+              >Approve</button>
+            </div>`
+          : nothing
+      }
     </div>`;
 }
 
