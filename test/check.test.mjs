@@ -1956,6 +1956,33 @@ test('151336: a reason that is only whitespace is rejected, not treated as prese
   assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
 });
 
+// Pins the `\S` in NONE_REASON_RE, which the review found to be a surviving
+// mutant: `body.trim()` in commitsInRange already rejects a wholly blank reason,
+// so `\S`'s only observable effect is refusing padding between the em dash and a
+// real reason. Without this test, relaxing `(\S.*)` to `(.*)` leaves the suite
+// green and the declaration's single-space grammar stops being enforced.
+test('151336: extra whitespace between the em dash and the reason is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none —  padded reason',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
 test('151336: a plain hyphen instead of an em dash is rejected', () => {
   const { root, git } = gitFixture();
   git(['checkout', '-q', '-b', 'feature']);
