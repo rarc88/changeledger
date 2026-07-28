@@ -700,6 +700,42 @@ Roberto lo autorice**, porque el primero exige una decisión de especificación.
    Confirmado dos veces, por el review completo y por la ronda de confirmación.
    Adversarial-only: una razón visualmente vacía no surge por accidente.
 
+### CH-17 — El `head` se deriva del techo
+
+Capa de transporte, separada de CH-0 por techo de complejidad. Alcance:
+
+- `head` derivado del **techo de tokens ÷ 10**, redondeado a **múltiplos de 50**, y
+  escrito por `register`/`ensureReference`; nunca a mano.
+- Tres números: **core 400**, **modos 350** (no 250: `spec` mide 301 líneas y bajará
+  a 250 tras CH-0b), **cápsulas 100**. `context <id>` sin `head`.
+- **`BOOTSTRAP_VERSION` se queda en 4** (decisión de Roberto, 2026-07-28: la v4 no es
+  pública). Consecuencia conocida y aceptada: con la versión quieta y el contenido
+  cambiando, `register` calcula estado `replaced` y **reescribe el `AGENTS.md` del
+  consumidor sin avisar** — hallazgo 26. Inocuo hoy porque no hay consumidor de v4.
+- **Coste asimétrico verificado**: sólo el head del core es caro de mover, porque el
+  literal `head -200` vive en el bloque bootstrap publicado (`src/contract.mjs:52`) y
+  `test/contract.test.mjs` tiene un test de deriva sobre él. Los heads de modo viven
+  en prosa del contrato y se mueven sin coste ni deriva.
+- **Hueco que CH-0 dejó abierto**: `base.core.lines` colapsó a 195, así que el
+  `head -200` del bootstrap queda *por encima* del techo declarado como reserva —
+  y **nada pinnea que `head ≥ base.core.lines`**. No es regresión (nunca se
+  comparaban), y su sede natural es este change.
+- `agent-context` no publica segmento de tamaño (B8).
+
+### CH-18 — Higiene del mecanismo de presupuestos
+
+Alcance **reducido** por lo que CH-0 cerró de paso:
+
+- **B5, vivo**: pinnear cada techo por valor. Antes sólo `base.core` lo estaba.
+- **B7, vivo**: unificar los dos `emittedLines` (`src/commands/context.mjs` y
+  `test/budget-support.mjs`), que discrepan en texto sin salto final.
+- **B6, CERRADO por CH-0**: la aserción de convergencia con `maxPasses=1` desapareció
+  con el punto fijo iterado. El delegado lo retiró con argumento —existía sólo porque
+  el ancho de la cifra de *bytes* cambiaba el total, y una cifra de líneas más ancha
+  no puede añadir una línea— y lo reportó en vez de decidirlo en silencio.
+- **B4, CERRADO por CH-0**: el techo del bloque `## Commits` vive ahora en
+  `budgets.yml` como `blocks.core-commits`.
+
 ## 5. Excluido a propósito — no re-litigar
 
 Registro de decisiones ya tomadas, del barrido de las 18 Logs:
@@ -751,10 +787,16 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 
 ## 7. Orden propuesto
 
+Hechos: **CH-4**, **CH-14**. En curso: **CH-0**. Orden restante:
+
 ```
-CH-4  → CH-14 → CH-5a → CH-5b → CH-11 → CH-12 → CH-0 → CH-0b
-      → CH-1 → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-8 → CH-6 → CH-7
+CH-18 → CH-17 → CH-0b → CH-1 → CH-19 → CH-15 → CH-5a → CH-5b → CH-11 → CH-12
+     → CH-1 → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
 ```
+
+CH-18 y CH-17 van pegados a CH-0 porque comparten su superficie y su contexto
+está fresco. **CH-15 espera a CH-0b**: su bloque candidato mide 28 líneas exactas
+contra un techo de 28, y CH-0b libera margen de core al consolidar `delegation`.
 
 Razón: CH-4, CH-5a y CH-5b son baratos y atacan el coste directamente — CH-4 deja
 de fabricar veredictos falsos, CH-5a deja de mandar auditorías completas por
@@ -810,8 +852,82 @@ vacío. `changeledger check`: `✓ 2 change(s) valid — 221 not validated`. Ram
 |---|---|---|---|
 | CH-4 | `20260722-124656` | **done, graduado a `lifecycle`** (2026-07-28) | aceptado por Roberto; pendiente de archivar a propósito, para dejarlo reabrible hasta que CH-15 aterrice |
 | CH-14 | `20260728-151336` | **done, graduado a `git-traceability`** (2026-07-28) | 5 CR, 3 tareas, **un commit por tarea**; review PASS con ~50 intentos de escape; `\S` fijado con ronda de confirmación. Pendiente de archivar |
-| CH-15 | — | propuesto, sin documentar | unidad de commit = change; toca el mismo bloque que CH-14 |
-| CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver abajo |
+| CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change; bloque candidato medido en 28/28, espera el margen que CH-0b libera |
+| CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
+| CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
+| CH-17 | — | sin documentar | `head` derivado; contexto fresco tras CH-0 |
+| CH-18 | — | sin documentar | higiene; alcance reducido, B4 y B6 ya cerrados |
+| CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
+
+### CH-19 — Las guardas del contrato barren todo subfragmento
+
+`20260728-194157` — **`draft`, BLOQUEADO por el hallazgo 41**.
+
+Tres guardas exhaustivas-negativas de `test/context.test.mjs` —`194234 CR4`,
+`124837 CR1`, `124837 CR8`— enumeran sólo el nivel superior de
+`templates/contract/`, así que son ciegas a **8 de 20** fragmentos, los de
+`agent-contexts/` y `agent-prompts/`, versionados y publicados. Esas guardas **son**
+el mecanismo del hallazgo 38: garantizan que retirar prosa normativa no pierde nada.
+Con un 40% de los ficheros fuera de su barrido, dan una garantía que no tienen.
+
+**Explotable, probado**: un revisor inyectó en
+`templates/contract/agent-contexts/investigation.md` la frase retirada que
+`124837 CR1` vigila y la suite siguió en **79/79 verde**.
+
+El arreglo no es añadir el flag en tres sitios: es **una sola sede** para la
+enumeración, porque cuatro copias de la misma son lo que dejó tres atrás cuando la
+cuarta se corrigió en CH-0. Lleva dentro el residuo de `bootstrapHeadCut()`, que
+destructura `REFERENCE.match(...)` sin comprobar nulo y lanzaría `TypeError` en vez
+de nombrar la ausencia del corte.
+
+**Por qué está bloqueado, y es el mejor argumento para CH-1 que ha aparecido.** Todo
+su entregable vive en `test/context.test.mjs`, y `test/**` es patrón de
+**verificación**, no de **target**. Así que **ninguna** de sus tareas pasa readiness:
+4 warnings en `draft` que serían **errores en `approved`**. No hay tarea de `src/` ni
+`templates/` con la que fusionarlas —el apaño que usaron `194233` y `124837`— porque
+el change es puramente endurecimiento de guardas. Las tres salidas conocidas son
+todas malas: `test/**` en `target_patterns` vuelve vacío el requisito para todo el
+repo; `(support)` en todo es el bypass que desactiva la trazabilidad; y bajar el tipo
+a `chore` deja cero diagnósticos.
+
+**Un change cuyo entregable es enteramente una guarda de test no tiene hoy forma
+legal de documentarse con criterios.** Eso es el hallazgo 41 en su forma más pura, y
+CH-19 espera a **CH-1** (gramática del Plan por tags), que separa el campo de target
+del de verificación y mata la clase.
+
+### Hallazgos nuevos del 2026-07-28 (tarde), sin change asignado
+
+1. **`.changeledger/specs/contract-discovery.md` documenta los bytes y el formato
+   `lines/bytes` de la línea BEGIN como verdad vigente.** Cuarta aparición hoy de la
+   clase 19/48, y actualización obligatoria al graduar CH-0. Las tres anteriores:
+   `lifecycle.md` con el orden viejo del gate (CH-4), `git-traceability.md` con las
+   dos exenciones viejas (CH-14), y esta.
+2. **`test/cli-bin.test.mjs:370` (`lines.length <= 60`) es el único techo de tamaño
+   hardcodeado que queda** en el repo. Fuera de la clase a propósito: acota el help
+   del CLI, no una captura de contexto.
+3. **Nada pinnea `head ≥ base.core.lines`.** → CH-17.
+
+### Tres errores del orquestador en CH-0, todos de la misma familia
+
+Roberto los señaló y atribuyó a la longitud de la sesión (~600k). La forma les da
+la razón: ninguno es de razonamiento, los tres son **actuar sobre el modelo mental
+en vez de sobre el estado real**.
+
+1. **`git checkout --` sobre un fichero con trabajo sin commitear.** Restauraba un
+   mutante y en realidad revirtió `budgets.yml` al baseline, **destruyendo el trabajo
+   del delegado** (23 tests rojos). Restaurado verbatim. Es la regla *restaurar
+   editando, nunca con git* que se exige en cada prompt de delegación.
+2. **Marcar como hecha una tarea que no lo estaba.** El orden del Plan cambió al
+   insertar tareas y se marcó por el orden mental. Cazado sólo porque se imprimió el
+   Plan después; sin eso el ledger habría afirmado trabajo inexistente.
+3. **Enmendar criterios y olvidar las tareas.** CR2 pasó a apuntar a `AGENTS.md` y la
+   tarea 1 siguió diciendo "el fragmento del contrato". El delegado siguió el
+   criterio; si hubiera seguido la tarea, habría añadido prosa a un core con 2 líneas
+   de margen.
+
+**Contramedida**: releer el estado por CLI o por fichero **inmediatamente antes** de
+cada mutación —no confiar en lo leído hace veinte turnos— y no usar `git checkout`
+en un árbol con trabajo vivo.
 
 **Cómo quedó la exención (CH-14).** Un commit queda exento del marcador cuando su
 body es exactamente `ChangeLedger: none — <razón>` con razón no vacía. La frase de
