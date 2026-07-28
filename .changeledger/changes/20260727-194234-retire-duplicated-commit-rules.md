@@ -2,9 +2,10 @@
 id: "20260727-194234"
 title: Retirar las reglas de commit repetidas en los overlays
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-27T19:42:34Z
 depends_on: ["20260726-124837"]
+reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260727-194233"]
 ---
@@ -159,3 +160,5 @@ donde el agente lee realmente el fragmento.
 - **2026-07-28T00:59:31Z** `[status]` in-progress → in-review
 - **2026-07-28T00:59:31Z** `[note]` [review mandate] Segunda ronda, mandato minimo: solo la restauracion de los dos sitios residuales y la correccion de la nota falsa del Log. El resto —orfandad, pins, CR1-CR5 por mutacion, comportamiento de fase— ya confirmado limpio.
 - **2026-07-28T01:01:24Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-28T01:09:48Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-28T01:11:42Z** `[graduation]` spec: `git-traceability.md`

@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-27T21:33:27Z
+updated: 2026-07-28T01:11:42Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234"]
 ---
 
 ## Trazabilidad git
@@ -99,6 +99,15 @@ un solo bloque del contexto core, no repartido entre overlays de etapa.
 Commitear ocurre en todas las fases, así que su comportamiento es común a
 cualquiera y una regla escrita en cuatro sedes son cuatro versiones que pueden
 divergir sin que nada las compare.
+
+Los overlays de etapa conservan solo lo que es comportamiento de su fase y no la
+unidad de commit: `review` gobierna qué ocurre con una corrección sin commitear
+según el veredicto, `validation` remite al commit final del cierre y aísla las
+correcciones no confirmadas tras un rechazo, y `close` define qué contiene ese
+commit de cierre y cuándo la graduación o el skip son por sí mismos la evidencia.
+Un puntero de un overlay hacia contenido de otro fragmento se retira cuando su
+destino se mueve: al consolidar, el que remitía al checkpoint del contrato de
+implementación quedó apuntando a una sección vacía.
 
 Cuando se declara una rama de integración, las ramas de change parten de ella y
 el resultado se integra de vuelta en ella; `main` queda reservado para releases.
