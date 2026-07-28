@@ -2,7 +2,7 @@
 id: "20260728-195445"
 title: "Higiene del mecanismo de presupuestos: techos pinneados y un solo contador"
 type: bug
-status: draft
+status: approved
 created: 2026-07-28T19:54:45Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-194157"]
@@ -163,3 +163,4 @@ Comprobado contra el árbol, no heredado del acta:
 - [ ] Correr el gate completo `pnpm verify` tras la implementación (support)
 
 ## Log
+- **2026-07-28T20:16:52Z** `[status]` draft → approved
