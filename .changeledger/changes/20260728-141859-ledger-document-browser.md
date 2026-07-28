@@ -2,7 +2,7 @@
 id: "20260728-141859"
 title: Reunir specs y contratos en la sección Ledger
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-28T14:18:59Z
 depends_on: []
 related_to:
@@ -101,7 +101,8 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 
 ## Plan
 
-- [ ] Escribir primero pruebas de allowlist, traversal, symlinks, tamaño y proyecto, y después implementar la lectura contenida en `src/viewer/domain.mjs`, `src/viewer/server/router.mjs` y `test/view.test.mjs`; verify: `node --test test/view.test.mjs test/repo.test.mjs` (CR3, CR4)
+- [x] Escribir primero pruebas de allowlist, traversal, symlinks, tamaño y proyecto, y después implementar la lectura contenida en `src/viewer/domain.mjs`, `src/viewer/server/router.mjs` y `test/view.test.mjs`; verify: `node --test test/view.test.mjs test/repo.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-28T16:11:25Z`
 - [ ] Escribir primero pruebas puras de query params, precedencia y history, y después crear el módulo de routing bajo `src/viewer/public/` y su test dedicado; verify: `node --test test/app-state.test.mjs test/viewer-routing.test.mjs` (CR6, CR7)
 - [ ] Escribir primero la migración del snapshot v1 y después actualizar `src/viewer/public/app-state.js`, `src/viewer/public/index.html`, `test/app-state.test.mjs` y `test/viewer-metadata.test.mjs`; verify: `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1, CR7)
 - [ ] Escribir primero regresiones del grid y detalle actuales y después integrar Specs dentro de Ledger en `src/viewer/public/app.js`, `src/viewer/public/view-renderers.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR1, CR2)
@@ -113,3 +114,4 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 
 - **2026-07-28T14:18:59Z** `[note]` Draft creado para reunir Specs y documentos allowlisted bajo una navegación Ledger compartible.
 - **2026-07-28T14:33:11Z** `[status]` draft → approved (human via conversation)
+- **2026-07-28T16:04:49Z** `[status]` approved → in-progress

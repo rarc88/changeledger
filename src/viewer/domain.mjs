@@ -18,7 +18,7 @@ import {
   SUPPORTED_SCHEMA_VERSION,
 } from '../config-migration.mjs';
 import { computeMetrics } from '../metrics.mjs';
-import { nowUtc } from '../paths.mjs';
+import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
 import { parseYaml } from '../yaml.mjs';
@@ -57,6 +57,168 @@ export function serialize(repo) {
 }
 
 const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
+
+const LEDGER_CATEGORIES = ['project-docs', 'contract', 'templates'];
+const PROJECT_DOCUMENTS = new Set(['README.md', 'AGENTS.md', 'INTENT.md']);
+const LEDGER_FORMATS = new Map([
+  ['.md', 'markdown'],
+  ['.yml', 'source'],
+  ['.yaml', 'source'],
+]);
+const MAX_LEDGER_DOCUMENT_SIZE = 1024 * 1024;
+
+function ledgerProject(projects, id) {
+  const project = projects.find((item) => item.id === id);
+  if (!project) return { code: 404, body: { error: 'no project' } };
+  if (!project.alive) return { code: 410, body: { error: 'project path is gone' } };
+  return { project };
+}
+
+function ledgerRoot(project, category) {
+  if (category === 'project-docs') return project.path;
+  if (category === 'contract') return path.join(templatesDir, 'contract');
+  if (category === 'templates') return templatesDir;
+  return null;
+}
+
+function ledgerFormat(logicalPath) {
+  return LEDGER_FORMATS.get(path.posix.extname(logicalPath)) ?? null;
+}
+
+function validLogicalPath(logicalPath) {
+  if (typeof logicalPath !== 'string' || !logicalPath) return false;
+  if (path.posix.isAbsolute(logicalPath) || path.isAbsolute(logicalPath)) return false;
+  if (logicalPath.includes('\0') || logicalPath.includes('\\')) return false;
+  const segments = logicalPath.split('/');
+  return segments.every((segment) => segment && segment !== '.' && segment !== '..');
+}
+
+function isInside(root, target) {
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return relative === '' || (relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function resolveLedgerDocument(project, category, logicalPath) {
+  if (!LEDGER_CATEGORIES.includes(category) || !validLogicalPath(logicalPath)) return null;
+  const format = ledgerFormat(logicalPath);
+  if (!format) return null;
+  if (category === 'project-docs' && !PROJECT_DOCUMENTS.has(logicalPath)) return null;
+  if (category === 'templates' && logicalPath.split('/')[0] === 'contract') return null;
+
+  const root = ledgerRoot(project, category);
+  try {
+    const candidate = path.resolve(root, ...logicalPath.split('/'));
+    if (!isInside(root, candidate) || !fs.existsSync(candidate)) return null;
+    const realRoot = fs.realpathSync(root);
+    const realFile = fs.realpathSync(candidate);
+    if (!isInside(realRoot, realFile) || !fs.statSync(realFile).isFile()) return null;
+    return { file: realFile, format };
+  } catch {
+    return null;
+  }
+}
+
+function listInstalledDocuments(project, category) {
+  const root = ledgerRoot(project, category);
+  const documents = [];
+  let realRoot;
+  try {
+    realRoot = fs.realpathSync(root);
+    if (!fs.statSync(realRoot).isDirectory()) return documents;
+  } catch {
+    return documents;
+  }
+
+  function visit(directory, prefix, ancestors) {
+    let realDirectory;
+    try {
+      realDirectory = fs.realpathSync(directory);
+      if (!isInside(realRoot, realDirectory) || !fs.statSync(realDirectory).isDirectory()) return;
+    } catch {
+      return;
+    }
+    if (ancestors.has(realDirectory)) return;
+    const nextAncestors = new Set(ancestors).add(realDirectory);
+
+    let entries;
+    try {
+      entries = fs
+        .readdirSync(directory, { withFileTypes: true })
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (category === 'templates' && !prefix && entry.name === 'contract') continue;
+      const logicalPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (!validLogicalPath(logicalPath)) continue;
+      const candidate = path.join(directory, entry.name);
+      let realCandidate;
+      let stat;
+      try {
+        realCandidate = fs.realpathSync(candidate);
+        if (!isInside(realRoot, realCandidate)) continue;
+        stat = fs.statSync(realCandidate);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) {
+        visit(candidate, logicalPath, nextAncestors);
+      } else if (stat.isFile()) {
+        const resolved = resolveLedgerDocument(project, category, logicalPath);
+        if (resolved) documents.push({ path: logicalPath, format: resolved.format });
+      }
+    }
+  }
+
+  visit(root, '', new Set());
+  return documents.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+export function listLedgerTree(projects, id) {
+  const found = ledgerProject(projects, id);
+  if (!found.project) return found;
+  const projectDocuments = [...PROJECT_DOCUMENTS].sort().flatMap((logicalPath) => {
+    const resolved = resolveLedgerDocument(found.project, 'project-docs', logicalPath);
+    return resolved ? [{ path: logicalPath, format: resolved.format }] : [];
+  });
+  return {
+    code: 200,
+    body: {
+      categories: [
+        { category: 'project-docs', documents: projectDocuments },
+        { category: 'contract', documents: listInstalledDocuments(found.project, 'contract') },
+        { category: 'templates', documents: listInstalledDocuments(found.project, 'templates') },
+      ],
+    },
+  };
+}
+
+export function readLedgerDocument(projects, { project: id, category, path: logicalPath }) {
+  const found = ledgerProject(projects, id);
+  if (!found.project) return found;
+  const resolved = resolveLedgerDocument(found.project, category, logicalPath);
+  if (!resolved) return { code: 404, body: { error: 'document not found' } };
+
+  let descriptor;
+  try {
+    descriptor = fs.openSync(resolved.file, 'r');
+    const stat = fs.fstatSync(descriptor);
+    if (!stat.isFile()) return { code: 404, body: { error: 'document not found' } };
+    if (stat.size > MAX_LEDGER_DOCUMENT_SIZE) {
+      return { code: 413, body: { error: 'document too large' } };
+    }
+    const content = fs.readFileSync(descriptor, 'utf8');
+    return {
+      code: 200,
+      body: { category, path: logicalPath, format: resolved.format, content },
+    };
+  } catch {
+    return { code: 404, body: { error: 'document not found' } };
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+  }
+}
 
 // The project list and which one is "current" (the repo the command ran in).
 export function resolveProjects(cwd, localOnly) {

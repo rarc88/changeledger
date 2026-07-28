@@ -487,6 +487,203 @@ test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empt
   assert.deepEqual(result.specs, []);
 });
 
+test('141859 CR3: ledger tree exposes only sorted logical documents from each allowlist', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Read me\n');
+  fs.writeFileSync(path.join(root, 'INTENT.md'), '# Intent\n');
+  fs.writeFileSync(path.join(root, 'NOTES.md'), '# Private notes\n');
+  fs.mkdirSync(path.join(root, 'docs'));
+  fs.writeFileSync(path.join(root, 'docs', 'README.md'), '# Nested\n');
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, {
+    path: `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+  });
+
+  assert.equal(response.status, 200);
+  const { categories } = JSON.parse(response.body);
+  assert.deepEqual(
+    categories.map(({ category }) => category),
+    ['project-docs', 'contract', 'templates'],
+  );
+  const byCategory = Object.fromEntries(
+    categories.map(({ category, documents }) => [category, documents]),
+  );
+  assert.deepEqual(byCategory['project-docs'], [
+    { path: 'AGENTS.md', format: 'markdown' },
+    { path: 'INTENT.md', format: 'markdown' },
+    { path: 'README.md', format: 'markdown' },
+  ]);
+  assert.ok(byCategory.contract.some(({ path: logical }) => logical === 'core.md'));
+  assert.ok(
+    byCategory.contract.some(({ path: logical }) => logical === 'agent-prompts/implementation.md'),
+  );
+  assert.ok(byCategory.templates.some(({ path: logical }) => logical === 'config.yml'));
+  assert.ok(byCategory.templates.every(({ path: logical }) => !logical.startsWith('contract/')));
+  for (const documents of Object.values(byCategory)) {
+    assert.deepEqual(
+      documents.map(({ path: logical }) => logical),
+      documents.map(({ path: logical }) => logical).toSorted(),
+    );
+    assert.ok(
+      documents.every(
+        ({ path: logical, format }) =>
+          !path.isAbsolute(logical) &&
+          !logical.includes(root) &&
+          (format === 'markdown' || format === 'source'),
+      ),
+    );
+  }
+});
+
+test('141859 CR3/CR4: ledger reads project, contract and template documents by logical path', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Project readme\n');
+  const { current } = resolveProjects(root, true);
+  const query = (category, logicalPath) =>
+    `/api/ledger-document?project=${encodeURIComponent(current)}&category=${encodeURIComponent(category)}&path=${encodeURIComponent(logicalPath)}`;
+
+  const project = await memoryRequest(root, { path: query('project-docs', 'README.md') });
+  assert.equal(project.status, 200);
+  assert.deepEqual(JSON.parse(project.body), {
+    category: 'project-docs',
+    path: 'README.md',
+    format: 'markdown',
+    content: '# Project readme\n',
+  });
+
+  const contract = await memoryRequest(root, { path: query('contract', 'budgets.yml') });
+  assert.equal(contract.status, 200);
+  assert.deepEqual(Object.keys(JSON.parse(contract.body)), [
+    'category',
+    'path',
+    'format',
+    'content',
+  ]);
+  assert.equal(JSON.parse(contract.body).format, 'source');
+
+  const template = await memoryRequest(root, { path: query('templates', 'config.yml') });
+  assert.equal(template.status, 200);
+  assert.equal(JSON.parse(template.body).category, 'templates');
+  assert.equal(JSON.parse(template.body).format, 'source');
+});
+
+test('141859 CR4: ledger document paths fail closed with one generic response', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Read me\n');
+  const { current } = resolveProjects(root, true);
+  const cases = [
+    ['', 'README.md'],
+    ['unknown', 'README.md'],
+    ['project-docs', ''],
+    ['project-docs', '/README.md'],
+    ['project-docs', '\0README.md'],
+    ['project-docs', 'dir\\README.md'],
+    ['contract', 'agent-prompts//implementation.md'],
+    ['contract', './core.md'],
+    ['contract', '../README.md'],
+    ['contract', 'core.txt'],
+    ['project-docs', 'NOTES.md'],
+    ['templates', 'contract/core.md'],
+    ['contract', 'missing.md'],
+  ];
+
+  for (const [category, logicalPath] of cases) {
+    const response = await memoryRequest(root, {
+      path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=${encodeURIComponent(category)}&path=${encodeURIComponent(logicalPath)}`,
+    });
+    assert.equal(response.status, 404, `${category}:${JSON.stringify(logicalPath)}`);
+    assert.deepEqual(JSON.parse(response.body), { error: 'document not found' });
+    assert.ok(!response.body.includes(root));
+  }
+
+  const missingPath = await memoryRequest(root, {
+    path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs`,
+  });
+  assert.equal(missingPath.status, 404);
+  assert.deepEqual(JSON.parse(missingPath.body), { error: 'document not found' });
+});
+
+test('141859 CR3/CR4: escaping symlinks and non-regular files are never listed or read', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-secret-'));
+  fs.writeFileSync(path.join(outside, 'secret.md'), 'do not expose\n');
+  fs.symlinkSync(path.join(outside, 'secret.md'), path.join(root, 'README.md'));
+  fs.rmSync(path.join(root, 'AGENTS.md'));
+  fs.mkdirSync(path.join(root, 'AGENTS.md'));
+  const { current } = resolveProjects(root, true);
+
+  const tree = await memoryRequest(root, {
+    path: `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+  });
+  assert.equal(tree.status, 200);
+  assert.deepEqual(JSON.parse(tree.body).categories[0].documents, []);
+
+  for (const logicalPath of ['README.md', 'AGENTS.md']) {
+    const response = await memoryRequest(root, {
+      path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs&path=${logicalPath}`,
+    });
+    assert.equal(response.status, 404);
+    assert.deepEqual(JSON.parse(response.body), { error: 'document not found' });
+    assert.ok(!response.body.includes('secret'));
+  }
+});
+
+test('141859 CR4: ledger APIs require an exact live project even for installed documents', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+
+  for (const route of [
+    '/api/ledger-tree?project=unknown',
+    '/api/ledger-document?project=unknown&category=contract&path=core.md',
+  ]) {
+    const response = await memoryRequest(root, { path: route, localOnly: false });
+    assert.equal(response.status, 404);
+    assert.deepEqual(JSON.parse(response.body), { error: 'no project' });
+  }
+
+  fs.rmSync(path.join(root, '.changeledger'), { recursive: true });
+  for (const route of [
+    `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+    `/api/ledger-document?project=${encodeURIComponent(current)}&category=contract&path=core.md`,
+  ]) {
+    const response = await memoryRequest(root, { path: route, localOnly: false });
+    assert.equal(response.status, 410);
+    assert.deepEqual(JSON.parse(response.body), { error: 'project path is gone' });
+  }
+});
+
+test('141859 CR4: ledger rejects documents over 1 MiB before returning content', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), 'x'.repeat(1024 * 1024 + 1));
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, {
+    path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs&path=README.md`,
+  });
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(JSON.parse(response.body), { error: 'document too large' });
+  assert.ok(response.body.length < 100);
+});
+
+test('141859 CR4: ledger APIs reject non-GET methods and advertise GET', async () => {
+  isolatedHome();
+  const root = newRepo();
+
+  for (const route of ['/api/ledger-tree', '/api/ledger-document']) {
+    const response = await memoryRequest(root, { method: 'POST', path: route });
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.allow, 'GET');
+  }
+});
+
 function isolatedHome() {
   process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
 }
