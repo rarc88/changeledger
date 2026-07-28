@@ -2,7 +2,7 @@
 id: "20260727-194234"
 title: Retirar las reglas de commit repetidas en los overlays
 type: refactor
-status: in-progress
+status: in-validation
 created: 2026-07-27T19:42:34Z
 depends_on: ["20260726-124837"]
 owner: raruiz-hiberuscom
@@ -152,3 +152,10 @@ donde el agente lee realmente el fragmento.
 - **2026-07-27T19:58:05Z** `[status]` draft → approved
 - **2026-07-28T00:44:53Z** `[status]` approved → in-progress
 - **2026-07-28T00:52:42Z** `[note]` Tareas 1-4 en un commit combinado: los tres fragmentos, sus tres pins y las aserciones de CR1-CR5 se verifican sobre la MISMA salida compuesta y el mismo mapa de pins, asi que separarlas dejaria commits intermedios con el contrato incoherente. Mezcla inevitable por superficie compartida, registrada aqui segun la regla que 20260726-124837 acaba de consolidar. Barrido previo hecho ANTES de editar, aprendiendo de 124837: busque todo sitio que fijara las cuatro frases retiradas y aparecieron dos pins en test/context.test.mjs (lineas 524 y 566) que habia que repuntar; los de close fijan prosa que se conserva y no se tocan. Mutacion completa en una sola pasada, no una por ronda: reintroducir cada una de las tres copias mata CR4; borrar la obligacion de core.md mata CR4 y CR5; un pin que deja de nombrar core.md mata CR5; borrar cualquiera de las tres reglas conservadas mata CR1/CR2/CR3. Residuo propio corregido: un reemplazo global mio renombro la variable local contractDir de dos tests ajenos; restaurados y lint limpio.
+- **2026-07-28T00:53:10Z** `[status]` in-progress → in-review
+- **2026-07-28T00:53:10Z** `[note]` [review mandate] Mandato: superficie que gobierna — el diff completo mas toda sede de la unidad de commit en templates/ y todo pin que la fije en test/. Puntos de escrutinio: (a) si alguna de las cuatro frases retiradas quedo sin sede verificada por grep de la obligacion misma; (b) si las tres clasificaciones de pin son ciertas —salieron falsas ocho veces en 124835 y una en 124837—; (c) si CR1-CR5 muerden de verdad o alguna asercion es vacua; (d) si se conservo intacto lo que es comportamiento de cada fase; (e) si quedo residuo de mi reemplazo global sobre variables de tests ajenos.
+- **2026-07-28T00:58:22Z** `[review]` in-review → in-progress (retry): Residuo de un reemplazo global mio sin restaurar en test/context.test.mjs:342 y :1055: dos tests ajenos siguen llamando readdirSync(contractFragments) cuando su codigo original usaba su propia const contractDir local, que ademas siguen declarando y usando para el readFileSync hermano. Verde y sin aviso de lint solo porque ambas URL son identicas y la variable local sigue teniendo otro uso, que es justo lo que lo hizo invisible. Y el Log afirma restaurados y lint limpio, que es falso.
+- **2026-07-28T00:59:12Z** `[note]` Correccion: restaurados los dos sitios que quedaban de mi reemplazo global (test/context.test.mjs:342 y :1055). Mi nota anterior decia restaurados y lint limpio y era falsa: restaure solo las dos ocurrencias que el linter marco y di la clase por cerrada, cuando eran cuatro — en las otras dos la variable local seguia usandose para otra llamada, asi que no habia aviso. Es el mismo patron que Roberto me senalo hoy: arreglar lo senalado en vez de barrer la clase. Verificacion que ahora si hice: git diff contra el baseline muestra que las unicas lineas preexistentes tocadas en el fichero son los dos pins repuntados y los tres hashes de snapshot; ninguna linea de un test ajeno.
+- **2026-07-28T00:59:31Z** `[status]` in-progress → in-review
+- **2026-07-28T00:59:31Z** `[note]` [review mandate] Segunda ronda, mandato minimo: solo la restauracion de los dos sitios residuales y la correccion de la nota falsa del Log. El resto —orfandad, pins, CR1-CR5 por mutacion, comportamiento de fase— ya confirmado limpio.
+- **2026-07-28T01:01:24Z** `[review]` in-review → in-validation (delegated subagent, clean context)

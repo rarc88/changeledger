@@ -339,7 +339,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const fragments = Object.fromEntries(
     fs
-      .readdirSync(contractFragments)
+      .readdirSync(contractDir)
       .filter((file) => file.endsWith('.md'))
       .map((file) => [
         file,
@@ -1052,7 +1052,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
-    .readdirSync(contractFragments)
+    .readdirSync(contractDir)
     .filter((file) => file.endsWith('.md'))
     .sort();
   assert.deepEqual(actualFiles, Object.keys(expected), 'contract fragment inventory changed');
