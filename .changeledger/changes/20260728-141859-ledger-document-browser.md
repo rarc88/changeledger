@@ -2,9 +2,10 @@
 id: "20260728-141859"
 title: Reunir specs y contratos en la sección Ledger
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T14:18:59Z
 depends_on: []
+reviewed: true
 related_to:
   - "20260623-125850"
   - "20260627-111218"
@@ -126,3 +127,5 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 - **2026-07-28T17:18:45Z** `[review]` in-review → in-progress (retry): La lectura documental permite escape y exceso de tamaño bajo TOCTOU; Markdown conserva atributos style; categorías URL desconocidas redirigen silenciosamente; respuestas repo obsoletas pueden sobrescribir el proyecto actual; y enlaces relativos allowlisted con ./ o ../ no navegan.
 - **2026-07-28T17:37:08Z** `[status]` in-progress → in-review
 - **2026-07-28T17:46:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-28T19:29:45Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-28T19:33:08Z** `[graduation]` spec: `viewer.md`
