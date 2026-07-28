@@ -198,6 +198,11 @@ program
     collect,
     [],
   )
+  .option(
+    '--no-change <reason>',
+    'declare an operational commit outside any change (mutually exclusive with --id): ' +
+      'composes a marker-less subject and a ChangeLedger: none — <reason> body',
+  )
   .addHelpText(
     'after',
     [
@@ -206,16 +211,29 @@ program
       'zero or multiple in-progress changes require --id explicitly. Repeat --id',
       'for a multi-id commit: the clean subject gets a ChangeLedger: [#A] [#B] body.',
       '',
+      '--no-change <reason> declares a purely operational, reversible edit that no',
+      'change covers: the subject carries no marker and the body becomes exactly',
+      '"ChangeLedger: none — <reason>". It never falls back to the in-progress',
+      'change, and cannot be combined with --id.',
+      '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
       '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
       '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+      '  changeledger commit -m "docs(workflow): record the sieve" --no-change "no change covers it"',
     ].join('\n'),
   )
   .action(
     action((options) => {
+      // Commander's `--no-` prefix is normally reserved for negating a boolean
+      // flag (e.g. `--no-color`) and stores the value under the name with
+      // "no-" stripped — here that means `options.change`, not
+      // `options.noChange`, even though this option takes a required
+      // argument rather than being a boolean. Absent, it defaults to the
+      // negate placeholder `true`; only a string means the flag was given.
+      const noChange = typeof options.change === 'string' ? options.change : undefined;
       const subject = commit(
-        { message: options.message, ids: options.id },
+        { message: options.message, ids: options.id, noChange },
         process.cwd(),
         undefined,
         console.log,

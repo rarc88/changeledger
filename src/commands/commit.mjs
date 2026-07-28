@@ -60,20 +60,40 @@ function unicodeForms(value) {
 // commit. Never invokes git unless the subject and id resolution both succeed
 // — no partial/incorrect commit is ever created. Returns the final subject.
 export function commit(
-  { message, ids = [] } = {},
+  { message, ids = [], noChange } = {},
   cwd = process.cwd(),
   run = mutatingRun,
   log = console.log,
 ) {
+  if (noChange !== undefined && ids.length > 0) {
+    throw new Error('--no-change and --id are mutually exclusive');
+  }
+
   if (!message || !SUBJECT_RE.test(message)) {
     throw new Error(
       `Subject must follow the conventional form "type(scope): description", got: "${message ?? ''}"`,
     );
   }
 
+  let noChangeReason;
+  if (noChange !== undefined) {
+    if (/[\r\n]/.test(noChange)) {
+      throw new Error('--no-change reason must not contain a newline');
+    }
+    noChangeReason = noChange.trim();
+    if (!noChangeReason) {
+      throw new Error('--no-change requires a non-empty reason');
+    }
+  }
+
   const repo = loadRepo(cwd);
+  // An explicit --no-change is a positive declaration and must not depend on
+  // ambient repository state: id resolution (including the single-in-progress
+  // auto-resolve) is skipped entirely, even when a change happens to be
+  // in-progress, so the declaration's effect never varies with what else is
+  // going on in the repo.
   let resolvedIds = ids;
-  if (!resolvedIds.length) {
+  if (noChange === undefined && !resolvedIds.length) {
     const active = repo.changes.filter((c) => c.frontmatter.status === 'in-progress');
     if (active.length !== 1) {
       if (active.length === 0) {
@@ -123,12 +143,23 @@ export function commit(
     );
   }
 
-  const markers = resolvedIds.map((id) => `[#${id}]`).join(' ');
-  const multiple = resolvedIds.length > 1;
-  const subject = multiple ? message : `${message} ${markers}`;
-  const args = multiple
-    ? ['commit', '-m', subject, '-m', `ChangeLedger: ${markers}`]
-    : ['commit', '-m', subject];
+  let subject;
+  let args;
+  if (noChange !== undefined) {
+    // Em dash, single space either side — must match NONE_REASON_RE in
+    // src/git.mjs byte for byte, and stand alone as the whole body: never
+    // sharing a line with other content, so it can't silently blend with a
+    // second declaration or unrelated prose.
+    subject = message;
+    args = ['commit', '-m', subject, '-m', `ChangeLedger: none — ${noChangeReason}`];
+  } else {
+    const markers = resolvedIds.map((id) => `[#${id}]`).join(' ');
+    const multiple = resolvedIds.length > 1;
+    subject = multiple ? message : `${message} ${markers}`;
+    args = multiple
+      ? ['commit', '-m', subject, '-m', `ChangeLedger: ${markers}`]
+      : ['commit', '-m', subject];
+  }
   run(args, repo.repoRoot);
   return subject;
 }

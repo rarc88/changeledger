@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
 import { approve } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
+import { commit } from '../src/commands/commit.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -43,6 +44,76 @@ function contractText() {
     .map((name) => fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8'))
     .join('\n');
 }
+
+// --- 20260728-151336 CR4 fixtures: commit()'s --no-change declaration ---
+//
+// This suite may itself run inside this repo's own pre-commit hook, which
+// exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
+// inherited, every git call below would silently operate on the outer repo
+// instead of the scratch fixture — strip them so tests are hook-safe.
+const COMMIT_GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete COMMIT_GIT_ENV[key];
+}
+function gitFor(root, args) {
+  return execFileSync('git', args, { cwd: root, env: COMMIT_GIT_ENV, encoding: 'utf8' });
+}
+
+// A scratch repo that is both a real git repo and a minimal ChangeLedger repo
+// (commit.mjs resolves the active change via loadRepo).
+function commitFixtureRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-commit-'));
+  gitFor(root, ['init', '-q']);
+  gitFor(root, ['config', 'user.email', 'test@example.com']);
+  gitFor(root, ['config', 'user.name', 'Test']);
+  gitFor(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'changes_dir: .changeledger/changes\n',
+  );
+  return root;
+}
+
+function commitFixtureWriteChange(root, id, status) {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-x.md`),
+    `---\nid: "${id}"\ntitle: X\ntype: feature\nstatus: ${status}\ncreated: 2026-07-11T00:00:00Z\ndepends_on: []\n---\n\n## Request\n`,
+  );
+}
+
+function commitFixtureStageFile(root, name, content) {
+  const target = path.join(root, name);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  gitFor(root, ['add', name]);
+}
+
+function commitFixtureCommitCount(root) {
+  try {
+    return Number(gitFor(root, ['rev-list', '--count', 'HEAD']).trim());
+  } catch {
+    return 0;
+  }
+}
+
+function commitFixtureLastSubject(root) {
+  return gitFor(root, ['log', '-1', '--pretty=%s']).trim();
+}
+
+function commitFixtureLastBody(root) {
+  return gitFor(root, ['log', '-1', '--pretty=%b']).trim();
+}
+
+const commitNoop = () => {};
 
 test('init creates .changeledger/ with config and no per-machine contract artifact', () => {
   const root = tmp();
@@ -940,4 +1011,125 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
   assert.match(failure.stderr, /Plan task for CR1 must name target and verification/);
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'the refusal must not touch the document');
   assert.equal(parseChange(before).frontmatter.status, 'in-progress');
+});
+
+// 20260728-151336 CR4 — the CLI composes the `ChangeLedger: none — <reason>`
+// operational-commit declaration and refuses to combine it with --id.
+test('151336 CR4: --no-change and --id are mutually exclusive and create no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () =>
+      commit(
+        { message: 'docs(x): y', ids: ['20260711-000001'], noChange: 'reason' },
+        root,
+        undefined,
+        commitNoop,
+      ),
+    (e) => /--no-change/.test(e.message) && /--id/.test(e.message),
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
+});
+
+test('151336 CR4: an empty --no-change reason is refused and creates no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () => commit({ message: 'docs(x): y', noChange: '   ' }, root, undefined, commitNoop),
+    (e) => e.message === '--no-change requires a non-empty reason',
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
+});
+
+test('151336 CR4: --no-change composes a marker-less subject and an exact none body, valid under check --commits', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'seed.txt', 'seed\n');
+  gitFor(root, ['commit', '-m', 'chore(seed): base']);
+  gitFor(root, ['branch', 'base']);
+  commitFixtureStageFile(root, 'docs/workflow-hardening.md', 'notes\n');
+
+  const subject = commit(
+    {
+      message: 'docs(workflow): record the sieve',
+      noChange: 'acta de análisis, ningún change la cubre',
+    },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(workflow): record the sieve');
+  assert.equal(commitFixtureLastSubject(root), 'docs(workflow): record the sieve');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  );
+
+  const messages = [];
+  const output = { log: (m) => messages.push(m), error: (m) => messages.push(m) };
+  assert.equal(check(['--commits', 'base'], root, output), 0);
+});
+
+test('151336 CR4: --no-change ignores an in-progress change instead of attaching its marker', () => {
+  const root = commitFixtureRepo();
+  commitFixtureWriteChange(root, '20260711-000001', 'in-progress');
+  commitFixtureStageFile(root, 'docs/note.md', 'x');
+
+  const subject = commit(
+    { message: 'docs(x): y', noChange: 'operational edit, no change covers it' },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(x): y');
+  assert.equal(commitFixtureLastSubject(root), 'docs(x): y');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — operational edit, no change covers it',
+  );
+});
+
+// A scenario where in-progress auto-resolution would itself throw (ambiguous:
+// two candidates) — the sharpest proof that --no-change skips resolution
+// altogether rather than merely discarding a resolved id afterwards. If
+// resolution ran, this would throw "Ambiguous: 2 changes are in-progress
+// ..." instead of succeeding.
+test('151336 CR4: --no-change succeeds even when in-progress resolution would itself be ambiguous', () => {
+  const root = commitFixtureRepo();
+  commitFixtureWriteChange(root, '20260711-000001', 'in-progress');
+  commitFixtureWriteChange(root, '20260711-000002', 'in-progress');
+  commitFixtureStageFile(root, 'docs/note.md', 'x');
+
+  const subject = commit(
+    { message: 'docs(x): y', noChange: 'operational edit, no change covers it' },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(x): y');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — operational edit, no change covers it',
+  );
+});
+
+test('151336 CR4: a --no-change reason containing a newline is refused and creates no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () =>
+      commit(
+        { message: 'docs(x): y', noChange: 'first line\nsecond line' },
+        root,
+        undefined,
+        commitNoop,
+      ),
+    (e) => e.message === '--no-change reason must not contain a newline',
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
 });

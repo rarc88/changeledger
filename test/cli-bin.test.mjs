@@ -671,3 +671,118 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   assert.match(after, /Body kept\./);
   assert.doesNotMatch(after, /2020-01-01T00:00:00Z/);
 });
+
+// --- 20260728-151336 CR4: `changeledger commit --no-change <reason>` ---
+//
+// A real git repo is required here (unlike the rest of this file, which only
+// exercises the ChangeLedger ledger): the CLI must actually create a git
+// commit and `check --commits` must lint it. Strip the outer repo's
+// GIT_DIR/GIT_WORK_TREE/etc so a run inside this repo's own pre-commit hook
+// cannot redirect these git calls onto the outer repo.
+const NO_CHANGE_GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete NO_CHANGE_GIT_ENV[key];
+}
+function noChangeGit(root, args) {
+  return execFileSync('git', args, { cwd: root, env: NO_CHANGE_GIT_ENV, encoding: 'utf8' });
+}
+
+// A git + ChangeLedger repo with one seed commit, branched as `base` so
+// `check --commits base` has something to diff against.
+function noChangeRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  noChangeGit(root, ['init', '-q']);
+  noChangeGit(root, ['config', 'user.email', 'test@example.com']);
+  noChangeGit(root, ['config', 'user.name', 'Test']);
+  noChangeGit(root, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  noChangeGit(root, ['add', '-A']);
+  noChangeGit(root, ['commit', '-m', 'chore(init): seed']);
+  noChangeGit(root, ['branch', 'base']);
+  return { root, env };
+}
+
+// A plain commit through the bin, with neither --no-change nor --id: proves
+// commander's `--no-` negate default (`options.change === true` when the flag
+// is absent) is correctly treated as "not passed", not as a truthy reason.
+test('151336 CR4: a plain commit with no --no-change and no --id still succeeds', () => {
+  const { root, env } = noChangeRepo();
+  fs.writeFileSync(path.join(root, 'plain.txt'), 'x\n');
+  noChangeGit(root, ['add', 'plain.txt']);
+
+  const committed = runIn(root, env, 'commit', '-m', 'chore(x): plain', '--id', '20260711-000001');
+  assert.equal(committed.code, 0, committed.err);
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%s']).trim(),
+    'chore(x): plain [#20260711-000001]',
+  );
+});
+
+test('151336 CR4: commit -h documents --no-change', () => {
+  const { code, out } = run('commit', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /--no-change <reason>/);
+});
+
+test('151336 CR4: --no-change composes a marker-less commit that check --commits accepts', () => {
+  const { root, env } = noChangeRepo();
+  fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs', 'workflow-hardening.md'), 'notes\n');
+  noChangeGit(root, ['add', 'docs/workflow-hardening.md']);
+
+  const committed = runIn(
+    root,
+    env,
+    'commit',
+    '-m',
+    'docs(workflow): record the sieve',
+    '--no-change',
+    'acta de análisis, ningún change la cubre',
+  );
+  assert.equal(committed.code, 0);
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%s']).trim(),
+    'docs(workflow): record the sieve',
+  );
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%b']).trim(),
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  );
+
+  const checked = runIn(root, env, 'check', '--commits', 'base');
+  assert.equal(checked.code, 0);
+});
+
+test('151336 CR4: --no-change and --id are mutually exclusive and create no commit', () => {
+  const { root, env } = noChangeRepo();
+  fs.writeFileSync(path.join(root, 'docs-note.md'), 'x\n');
+  noChangeGit(root, ['add', 'docs-note.md']);
+  const before = noChangeGit(root, ['rev-list', '--count', 'HEAD']).trim();
+
+  const conflict = runIn(
+    root,
+    env,
+    'commit',
+    '-m',
+    'docs(x): y',
+    '--no-change',
+    'reason',
+    '--id',
+    '20260711-000001',
+  );
+  assert.equal(conflict.code, 1);
+  assert.match(conflict.err, /--no-change/);
+  assert.match(conflict.err, /--id/);
+  assert.equal(noChangeGit(root, ['rev-list', '--count', 'HEAD']).trim(), before);
+});
