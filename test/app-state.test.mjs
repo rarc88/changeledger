@@ -43,6 +43,7 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.repo, null);
   assert.equal(state.lastJson, '');
   assert.equal(state.currentView, 'board');
+  assert.equal(state.ledgerCategory, 'specs');
   assert.equal(state.sortKey, 'id');
   assert.equal(state.sortDir, 1);
   assert.equal(state.currentProject, null);
@@ -56,6 +57,71 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.filters.showDiscarded, false);
   assert.equal(state.filters.pendingGraduation, false);
   assert.equal(state.filters.statuses.size, 0);
+});
+
+test('141859 CR7: legacy Specs snapshots migrate to Ledger Specs', async () => {
+  const mod = await freshState();
+  const store = memoryStorage({
+    [mod.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentProject: 'alpha',
+      currentView: 'specs',
+      ledgerCategory: 'contract',
+      text: 'preserved',
+      projects: { alpha: { types: ['feature'], statuses: ['draft'] } },
+    }),
+  });
+
+  assert.equal(mod.restoreViewerState(store), true);
+  assert.equal(mod.state.currentView, 'ledger');
+  assert.equal(mod.state.ledgerCategory, 'specs');
+  assert.equal(mod.state.filters.text, 'preserved');
+  assert.deepEqual([...mod.state.filters.types], ['feature']);
+  assert.deepEqual([...mod.state.filters.statuses], ['draft']);
+  assert.equal(mod.serializeViewerState().currentView, 'ledger');
+  assert.equal(mod.serializeViewerState().ledgerCategory, 'specs');
+});
+
+test('141859 CR1/CR7: valid Ledger category state round-trips with existing persistence', async () => {
+  const first = await freshState();
+  const store = memoryStorage();
+  first.restoreViewerState(store);
+  first.initializeProjects([{ id: 'alpha', alive: true }], 'alpha');
+  first.setTextFilter('ledger truth');
+  first.setView('ledger');
+  assert.equal(first.setLedgerCategory('contract'), 'contract');
+
+  const saved = JSON.parse(store.value(first.VIEWER_STATE_KEY));
+  assert.equal(saved.currentView, 'ledger');
+  assert.equal(saved.ledgerCategory, 'contract');
+  assert.equal(saved.text, 'ledger truth');
+  assert.equal(saved.currentProject, 'alpha');
+
+  const second = await freshState();
+  assert.equal(second.restoreViewerState(store), true);
+  assert.equal(second.state.currentView, 'ledger');
+  assert.equal(second.state.ledgerCategory, 'contract');
+  assert.equal(second.state.filters.text, 'ledger truth');
+  assert.equal(second.state.currentProject, 'alpha');
+});
+
+test('141859 CR7: invalid persisted and mutated Ledger categories fall back to Specs', async () => {
+  const restored = await freshState();
+  const store = memoryStorage({
+    [restored.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentView: 'ledger',
+      ledgerCategory: 'filesystem',
+      projects: {},
+    }),
+  });
+  assert.equal(restored.restoreViewerState(store), true);
+  assert.equal(restored.state.currentView, 'ledger');
+  assert.equal(restored.state.ledgerCategory, 'specs');
+
+  assert.equal(restored.setLedgerCategory('templates'), 'templates');
+  assert.equal(restored.setLedgerCategory('filesystem'), 'specs');
+  assert.equal(JSON.parse(store.value(restored.VIEWER_STATE_KEY)).ledgerCategory, 'specs');
 });
 
 test('231428: setRepo parses json and caches it', async () => {

@@ -1,6 +1,7 @@
 export const VIEWER_STATE_KEY = 'changeledger.viewer-state.v1';
 
-const VALID_VIEWS = new Set(['board', 'table', 'graph', 'specs', 'metrics', 'projects']);
+const VALID_VIEWS = new Set(['board', 'table', 'graph', 'ledger', 'metrics', 'projects']);
+const VALID_LEDGER_CATEGORIES = new Set(['specs', 'project-docs', 'contract', 'templates']);
 const VALID_SORT_KEYS = new Set(['id', 'title', 'type', 'status', 'progress', 'deps']);
 const VALID_DETAIL_MODES = new Set(['side', 'floating']);
 const VALID_DETAIL_SIZES = new Set(['compact', 'wide', 'full']);
@@ -33,6 +34,7 @@ export const state = {
   },
   projectFilters: {},
   currentView: 'board',
+  ledgerCategory: 'specs',
   sortKey: 'id',
   sortDir: 1,
   currentProject: null,
@@ -94,6 +96,7 @@ export function serializeViewerState() {
     version: 1,
     currentProject: state.currentProject,
     currentView: state.currentView,
+    ledgerCategory: state.ledgerCategory,
     globalMode: state.globalMode,
     text: state.filters.text,
     sortKey: state.sortKey,
@@ -124,7 +127,15 @@ export function restoreViewerState(storageLike) {
   }
   if (snapshot?.version !== 1 || typeof snapshot !== 'object') return false;
   if (typeof snapshot.currentProject === 'string') state.currentProject = snapshot.currentProject;
-  if (typeof snapshot.currentView === 'string') state.currentView = snapshot.currentView;
+  if (snapshot.currentView === 'specs') {
+    state.currentView = 'ledger';
+    state.ledgerCategory = 'specs';
+  } else {
+    if (typeof snapshot.currentView === 'string') state.currentView = snapshot.currentView;
+    state.ledgerCategory = VALID_LEDGER_CATEGORIES.has(snapshot.ledgerCategory)
+      ? snapshot.ledgerCategory
+      : 'specs';
+  }
   state.globalMode = snapshot.globalMode === true;
   if (typeof snapshot.text === 'string') state.filters.text = snapshot.text;
   if (typeof snapshot.sortKey === 'string') state.sortKey = snapshot.sortKey;
@@ -162,6 +173,7 @@ export function initializeProjects(projects, serverCurrent) {
 
 export function normalizeRepoState(repo) {
   if (!VALID_VIEWS.has(state.currentView)) state.currentView = 'board';
+  if (!VALID_LEDGER_CATEGORIES.has(state.ledgerCategory)) state.ledgerCategory = 'specs';
   if (!VALID_SORT_KEYS.has(state.sortKey)) {
     state.sortKey = 'id';
     state.sortDir = 1;
@@ -275,6 +287,12 @@ export function setView(view) {
   state.currentView = view;
   state.globalMode = false;
   persistViewerState();
+}
+
+export function setLedgerCategory(category) {
+  state.ledgerCategory = VALID_LEDGER_CATEGORIES.has(category) ? category : 'specs';
+  persistViewerState();
+  return state.ledgerCategory;
 }
 
 export function selectProject(id) {

@@ -262,6 +262,16 @@ test('111219 CR1/CR2: restored state hydrates search, active view and global mod
   assert.ok(root.querySelector('#graph').classList.contains('hidden'));
 });
 
+test('141859 CR1: the static shell renames the Specs view hook to Ledger', () => {
+  const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
+  const shell = new JSDOM(html).window.document;
+
+  assert.equal(shell.querySelector('#view-ledger')?.textContent, 'Ledger');
+  assert.ok(shell.querySelector('section#ledger.ledger-view'));
+  assert.equal(shell.querySelector('#view-specs'), null);
+  assert.equal(shell.querySelector('section#specs'), null);
+});
+
 test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates blocked storage access', () => {
   const shell = () => {
     const root = document.createElement('div');
