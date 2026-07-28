@@ -238,6 +238,8 @@ test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule'
     assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
   );
   // The no-verdict return the contract names is a graph edge, not a review verdict.
+  // Only `canTransition` is asserted here: `assertTransition('in-review',
+  // 'in-progress')` is already pinned by `171002 CR1/CR3` above, and this repo
+  // keeps one home per truth.
   assert.equal(canTransition('in-review', 'in-progress'), true);
-  assert.doesNotThrow(() => assertTransition('in-review', 'in-progress'));
 });

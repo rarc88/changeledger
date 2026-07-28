@@ -994,7 +994,11 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   apply the same post-transition formatter and affected-check gate, and they
     //   gain no review gate ("do not invent a review gate for them" stays in
     //   `review.md`, its only home — grepped). Only "move directly", which is what
-    //   licensed skipping the gate, is replaced;
+    //   licensed skipping the gate, is replaced; the state-path half of that same
+    //   phrase — that these types skip `in-review` entirely — survives verbatim at
+    //   pre-existing `review.md` ("Types without `review_required` move directly
+    //   from `in-progress` to `in-validation`"), which is its home and is pinned by
+    //   the assertion above in this file, so no clause of the phrase is homeless;
     // ADDED — step 3 now states that the gate never runs after the transition and
     //   that the transition refuses an invalid candidate (the CR3 guard in
     //   `src/commands/agent.mjs`), and a new step 4 requires reapplying the
