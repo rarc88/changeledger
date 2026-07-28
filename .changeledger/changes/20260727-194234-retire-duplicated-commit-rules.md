@@ -134,11 +134,16 @@ donde el agente lee realmente el fragmento.
 
 ## Plan
 
-- [ ] Retirar de `templates/contract/review.md` las dos frases que repiten la unidad de commit, conservando el bloque de corrección y retry, y actualizar el pin de snapshot de `review.md` en `test/context.test.mjs` con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR1)
-- [ ] Retirar de `templates/contract/validation.md` la frase de la transición sin commit dedicado, conservando la remisión al cierre y el aislamiento tras rechazo, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR2)
-- [ ] Retirar de `templates/contract/close.md` la prohibición repetida, conservando la composición del commit de cierre y la evidencia sin lifecycle pendiente, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR3)
-- [ ] Verificar en `templates/contract/` que la obligación queda solo en `core.md` y que las tres entradas de pin nombran esa sede, añadiendo la aserción correspondiente en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
-- [ ] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Retirar de `templates/contract/review.md` las dos frases que repiten la unidad de commit, conservando el bloque de corrección y retry, y actualizar el pin de snapshot de `review.md` en `test/context.test.mjs` con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR1)
+  - **Resolved:** `2026-07-28T00:52:18Z`
+- [x] Retirar de `templates/contract/validation.md` la frase de la transición sin commit dedicado, conservando la remisión al cierre y el aislamiento tras rechazo, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR2)
+  - **Resolved:** `2026-07-28T00:52:18Z`
+- [x] Retirar de `templates/contract/close.md` la prohibición repetida, conservando la composición del commit de cierre y la evidencia sin lifecycle pendiente, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR3)
+  - **Resolved:** `2026-07-28T00:52:18Z`
+- [x] Verificar en `templates/contract/` que la obligación queda solo en `core.md` y que las tres entradas de pin nombran esa sede, añadiendo la aserción correspondiente en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
+  - **Resolved:** `2026-07-28T00:52:18Z`
+- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-28T00:52:19Z`
 
 ## Log
 
@@ -146,3 +151,4 @@ donde el agente lee realmente el fragmento.
 - **2026-07-27T19:48:05Z** `[owner]` set: raruiz-hiberuscom
 - **2026-07-27T19:58:05Z** `[status]` draft → approved
 - **2026-07-28T00:44:53Z** `[status]` approved → in-progress
+- **2026-07-28T00:52:42Z** `[note]` Tareas 1-4 en un commit combinado: los tres fragmentos, sus tres pins y las aserciones de CR1-CR5 se verifican sobre la MISMA salida compuesta y el mismo mapa de pins, asi que separarlas dejaria commits intermedios con el contrato incoherente. Mezcla inevitable por superficie compartida, registrada aqui segun la regla que 20260726-124837 acaba de consolidar. Barrido previo hecho ANTES de editar, aprendiendo de 124837: busque todo sitio que fijara las cuatro frases retiradas y aparecieron dos pins en test/context.test.mjs (lineas 524 y 566) que habia que repuntar; los de close fijan prosa que se conserva y no se tocan. Mutacion completa en una sola pasada, no una por ronda: reintroducir cada una de las tres copias mata CR4; borrar la obligacion de core.md mata CR4 y CR5; un pin que deja de nombrar core.md mata CR5; borrar cualquiera de las tres reglas conservadas mata CR1/CR2/CR3. Residuo propio corregido: un reemplazo global mio renombro la variable local contractDir de dos tests ajenos; restaurados y lint limpio.

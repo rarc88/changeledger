@@ -24,10 +24,9 @@ recording any verdict, apply the formatter again and repeat affected checks,
 always including `changeledger check`, before commit or handoff. ChangeLedger
 runs no configurable formatter, hook or external command as a mutation side effect.
 
-A review verdict alone needs no commit. A pass leaves `in-validation` for
-closure unless it confirms uncommitted correction; then correction, tests and
-ledger form a commit. Retry keeps the diff isolated. Handoff may use the
-implementation contract's checkpoint.
+A pass leaves `in-validation` for closure unless it confirms uncommitted
+correction; then correction, tests and ledger form a commit. Retry keeps the diff
+isolated.
 
 After `fail --retry`, the correction remains uncommitted until another fresh
 reviewer passes it. After the transition, run `changeledger context <id>` before

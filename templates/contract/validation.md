@@ -22,6 +22,6 @@ update Specification/Plan as needed and repeat configured review and gates. The 
 never accepts on the human's behalf. Before durable closure, `done` may reopen with
 reason only for original scope; broader behavior needs a new change. `discarded` never reopens.
 
-The validation transition alone does not require a dedicated commit. After
-acceptance, graduate or skip, then make the close overlay's final commit containing
-pending lifecycle Log and graduation truth. After rejection, isolate unconfirmed corrections.
+After acceptance, graduate or skip, then make the close overlay's final commit
+containing pending lifecycle Log and graduation truth. After rejection, isolate
+unconfirmed corrections.

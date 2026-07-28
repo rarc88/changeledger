@@ -339,7 +339,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const fragments = Object.fromEntries(
     fs
-      .readdirSync(contractDir)
+      .readdirSync(contractFragments)
       .filter((file) => file.endsWith('.md'))
       .map((file) => [
         file,
@@ -521,7 +521,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['review', /changeledger review <id> pass/],
     ['review', /changeledger review <id> fail --retry "<reason>"/],
     ['review', /changeledger review <id> fail --block "<reason>"/],
-    ['review', /review verdict alone needs no commit/i],
+    // 20260727-194234: the commit-unit rule moved to core; review keeps only
+    // what belongs to its phase — what happens to an uncommitted correction.
+    ['review', /A pass leaves `in-validation` for closure unless it confirms uncommitted/],
     [
       'review',
       /Types without `review_required` move directly from `in-progress` to `in-validation`/,
@@ -563,7 +565,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['validation', /Do not modify the result or mark it done/],
     ['validation', /Rejection requires a reason and returns the same change to `in-progress`/],
     ['validation', /run `changeledger context <id>` before modifying implementation/],
-    ['validation', /validation transition alone does not require a dedicated commit/i],
+    // 20260727-194234: same move; validation keeps the pointer to the closure
+    // commit and the isolation of unconfirmed corrections.
+    ['validation', /make the close overlay's final commit/],
     ['discarded', /Preserve its reason and dependencies/],
     ['discarded', /requires a new authorized change/],
     [
@@ -661,7 +665,15 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // the closure modes, reviewed semantics and commit recipe are preserved.
     // 20260718-105457: the queries gain optional owner scoping; graduation stays
     // individual and archive preview/action equivalence is preserved per filter.
-    'close.md': '10960f9878b3011e6f463c7509e6fe2a86382319ac4e36fe3b9c011d5bd288a7',
+    // 20260727-194234: RETIRED to core.md — "Do not create separate commits whose
+    //   only content is one of those transitions" is core's "A lifecycle
+    //   transition ... is never a commit of its own; it travels inside the next
+    //   real class". PRESERVED verbatim: the closure commit that coalesces
+    //   pending lifecycle Log with the graduation decision and the durable spec
+    //   edit, and the rule that without pending lifecycle the graduation or skip
+    //   is itself the closure evidence. Those are close's own phase, not the
+    //   commit unit, so they stay.
+    'close.md': '6d8a85df319493b7f3914de60ca38010306342c85d893af7d5b57b8eb13a2028',
     // 20260701-213931: the anti-truncation rule was replaced, not retired — completeness is
     // now verified through the CHANGELEDGER CONTEXT END sentinel instead of a tool blocklist.
     // 20260701-230608: two rules replaced, none retired — the delegation-prompt summary now
@@ -986,7 +998,15 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // and points to that single checklist owner. Rules moved, none retired.
     // 20260715-122950: additive post-verdict formatter/check gate; existing
     // independent-review and verdict rules are preserved, none retired.
-    'review.md': '2c4413030668a069c595a567178f87e111520efab07dfead0aa31f0398acf687',
+    // 20260727-194234: RETIRED to core.md — "A review verdict alone needs no
+    //   commit" is core's "A lifecycle transition ... is never a commit of its
+    //   own"; "Handoff may use the implementation contract's checkpoint" is
+    //   core's "**Handoff**: zero or one, only when work stops", which is also
+    //   where the checkpoint now lives, so the pointer had lost its target.
+    //   PRESERVED: what a pass does with an uncommitted correction, that retry
+    //   keeps the diff isolated, and the whole `fail --retry` block — review-phase
+    //   behaviour, not the commit unit.
+    'review.md': '42cf8eb078039e7305ff9fb704c02bae67a6f6823bc83b0cdf547c6f3fe58da4',
     // 20260711-103756: the type enum and activation matrix gain the `quick`
     // row, plus a new paragraph documenting its eligibility and the
     // discard-and-recreate rule for scope growth. Existing rules preserved.
@@ -1023,11 +1043,16 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // conversation decisions; human ownership and non-inference are preserved.
     // Review correction restored Specification/Plan updates, wider-scope change
     // creation, host-only gates and lifecycle/graduation closure evidence.
-    'validation.md': 'f4b3e879e1c95cefa0c20e4da9960d1532383fb4f90aff480b382d4bbe49eec7',
+    // 20260727-194234: RETIRED to core.md — "The validation transition alone
+    //   does not require a dedicated commit" is core's "A lifecycle transition ...
+    //   is never a commit of its own". PRESERVED verbatim: the pointer to the
+    //   close overlay's final commit after acceptance and the isolation of
+    //   unconfirmed corrections after rejection.
+    'validation.md': 'b758e66cef7e1be231a02616f527ca0c62c00e265185b1091305cfa9dcd4f42b',
   };
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const actualFiles = fs
-    .readdirSync(contractDir)
+    .readdirSync(contractFragments)
     .filter((file) => file.endsWith('.md'))
     .sort();
   assert.deepEqual(actualFiles, Object.keys(expected), 'contract fragment inventory changed');
@@ -1886,6 +1911,83 @@ test('130727 CR4: the count stays exact across the 3-to-4 digit boundary', () =>
     assert.equal(emittedLines(cliContext(root, [id])), target);
     assertHeadIsExact(root, [id], target);
   }
+});
+
+// 20260727-194234 — the commit unit had four homes: core plus a copy in review,
+// validation and close. Retiring the three leaves one sede, so two sedes can no
+// longer drift apart unnoticed.
+const contractFragments = new URL('../templates/contract/', import.meta.url);
+
+const RETIRED_COPIES = [
+  'A review verdict alone needs no commit',
+  "Handoff may use the implementation contract's checkpoint",
+  'The validation transition alone does not require a dedicated commit',
+  'Do not create separate commits whose only',
+];
+
+test('194234 CR1/CR2/CR3: each overlay drops the copy and keeps its own phase', () => {
+  const root = repo();
+  // review: the verdict-commit rule goes, the correction rules stay.
+  const review = buildContext('review', root);
+  assert.doesNotMatch(review, /A review verdict alone needs no commit/);
+  assert.doesNotMatch(review, /Handoff may use the implementation contract's checkpoint/);
+  assert.match(
+    review,
+    /After `fail --retry`, the correction remains uncommitted until another fresh/,
+  );
+  assert.match(review, /After pass, commit correction \+ ledger before asking/);
+  // in-validation overlay: the transition-commit rule goes, the pointers stay.
+  const validation = buildContext(addChange(root, 'in-validation'), root);
+  assert.doesNotMatch(validation, /does not require a dedicated commit/);
+  assert.match(validation, /make the close overlay's final commit/);
+  assert.match(validation, /After rejection, isolate\s+unconfirmed corrections/);
+  // close overlay: the prohibition goes, the closure commit's content stays.
+  const close = buildContext(addChange(root, 'done'), root);
+  assert.doesNotMatch(close, /Do not create separate commits whose only/);
+  assert.match(close, /one final closure commit that coalesces any/);
+  assert.match(close, /the graduation\s+or skip itself remains the meaningful closure evidence/);
+});
+
+test('194234 CR4: the commit unit has a single home', () => {
+  const root = repo();
+  const fragments = fs
+    .readdirSync(contractFragments)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => [name, fs.readFileSync(new URL(name, contractFragments), 'utf8')]);
+  for (const copy of RETIRED_COPIES) {
+    const holders = fragments.filter(([, text]) => text.includes(copy)).map(([name]) => name);
+    assert.deepEqual(holders, [], `retired copy still present: ${copy}`);
+  }
+  // The obligation itself lives in core and nowhere else.
+  const obligation = 'is never a commit of its own';
+  const holders = fragments.filter(([, text]) => text.includes(obligation)).map(([name]) => name);
+  assert.deepEqual(holders, ['core.md']);
+  // And the packs that used to repeat it no longer compose it.
+  assert.match(buildContext(undefined, root), new RegExp(obligation));
+  for (const mode of ['review', 'implement']) {
+    assert.doesNotMatch(buildContext(mode, root), new RegExp(obligation));
+  }
+  for (const status of ['in-validation', 'done']) {
+    const id = addChange(root, status);
+    assert.doesNotMatch(buildContext(id, root), new RegExp(obligation));
+  }
+});
+
+test('194234 CR5: each retirement names its new home and the home holds it', () => {
+  const suite = fs.readFileSync(new URL('./context.test.mjs', import.meta.url), 'utf8');
+  const core = fs.readFileSync(new URL('core.md', contractFragments), 'utf8');
+  for (const fragment of ['review.md', 'validation.md', 'close.md']) {
+    // The comment block immediately above the pin is where the classification
+    // lives; requiring the sede by name is what stops a vague "retired".
+    const pin = suite.indexOf(`'${fragment}':`);
+    assert.notEqual(pin, -1, `${fragment} has no snapshot pin`);
+    const comment = suite.slice(Math.max(0, pin - 1200), pin);
+    assert.match(comment, /RETIRED to core\.md/, `${fragment} does not name core.md as the home`);
+  }
+  // The named home really holds the obligation — grep of the obligation itself,
+  // not of similar words.
+  assert.match(core, /is never a commit of its own/);
+  assert.match(core, /\*\*Handoff\*\*: zero or one/);
 });
 
 test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {

@@ -50,9 +50,8 @@ with legacy prose markers can migrate them deterministically with
 
 After `--into` or `--skip`, create one final closure commit that coalesces any
 pending `in-review → in-validation → done` ledger updates with the graduation
-decision and durable spec edit. Do not create separate commits whose only
-content is one of those transitions. If no lifecycle state is pending, the
-graduation or skip itself remains the meaningful closure evidence.
+decision and durable spec edit. If no lifecycle state is pending, the graduation
+or skip itself remains the meaningful closure evidence.
 
 Operational inspection and visibility:
 
