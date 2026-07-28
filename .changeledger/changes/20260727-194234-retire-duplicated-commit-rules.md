@@ -2,7 +2,7 @@
 id: "20260727-194234"
 title: Retirar las reglas de commit repetidas en los overlays
 type: refactor
-status: draft
+status: in-progress
 created: 2026-07-27T19:42:34Z
 depends_on: ["20260726-124837"]
 owner: raruiz-hiberuscom
@@ -144,3 +144,5 @@ donde el agente lee realmente el fragmento.
 
 - **2026-07-27T19:42:34Z** `[note]` Draft: retira las tres copias de la unidad de commit que quedan en review, validation y close una vez que `20260726-124837` deja `core.md` como sede única. Conserva en cada overlay lo que es comportamiento de su fase. Recuento de partida verificado por grep: la misma regla en cuatro sedes.
 - **2026-07-27T19:48:05Z** `[owner]` set: raruiz-hiberuscom
+- **2026-07-27T19:58:05Z** `[status]` draft → approved
+- **2026-07-28T00:44:53Z** `[status]` approved → in-progress
