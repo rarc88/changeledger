@@ -13,6 +13,7 @@ import {
   archive,
   archiveGraduated,
   discard,
+  isPendingGraduation,
   list,
   log,
   owner,
@@ -314,6 +315,26 @@ test('131649 CR1/CR2: list owns graduation and archive pending queries', () => {
     list({ pending: 'archive' }, root).map((change) => change.id),
     ['20260613-120003', '20260613-120004'],
   );
+});
+
+test('141643 CR3: pending graduation is exactly done with reviewed other than true', () => {
+  const change = (status, reviewed, stages = []) => ({
+    frontmatter: { status, ...(reviewed === undefined ? {} : { reviewed }) },
+    stages,
+  });
+  const graduationMarker = [
+    {
+      key: 'log',
+      body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `legacy.md`',
+    },
+  ];
+
+  assert.equal(isPendingGraduation(change('done', undefined)), true);
+  assert.equal(isPendingGraduation(change('done', false)), true);
+  assert.equal(isPendingGraduation(change('done', 'true')), true);
+  assert.equal(isPendingGraduation(change('done', undefined, graduationMarker)), true);
+  assert.equal(isPendingGraduation(change('done', true)), false);
+  assert.equal(isPendingGraduation(change('in-validation', undefined)), false);
 });
 
 test('131649 CR3-CR5: list combines owner, unowned, status and type filters', () => {

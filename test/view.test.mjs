@@ -301,6 +301,84 @@ The viewer serializes specs.
   assert.match(body.specs[0].body, /serializes specs/);
 });
 
+test('141643 CR3: /api/repo serializes canonical pending graduation for markers and scaffolds', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const writeChange = ({ slug, now, status = 'done', reviewed, graduationMarker = false }) => {
+    const file = newChange({ type: 'bug', slug, title: slug, now }, root, {
+      ownerHandle: () => '',
+    });
+    let text = fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        'status: draft',
+        `status: ${status}${reviewed === undefined ? '' : `\nreviewed: ${reviewed}`}`,
+      );
+    if (graduationMarker) {
+      text = text.replace(
+        '## Log\n',
+        '## Log\n\n- **2026-06-13T12:00:00Z** `[graduation]` spec: `legacy.md`\n',
+      );
+    }
+    fs.writeFileSync(file, text);
+    return parseChange(text).frontmatter.id;
+  };
+
+  const scaffolded = writeChange({ slug: 'scaffolded', now: '2026-06-13T12:00:01Z' });
+  const marked = writeChange({
+    slug: 'marked',
+    now: '2026-06-13T12:00:02Z',
+    graduationMarker: true,
+  });
+  const explicitFalse = writeChange({
+    slug: 'explicit-false',
+    now: '2026-06-13T12:00:03Z',
+    reviewed: false,
+  });
+  const reviewed = writeChange({
+    slug: 'reviewed',
+    now: '2026-06-13T12:00:04Z',
+    reviewed: true,
+  });
+  const active = writeChange({
+    slug: 'active',
+    now: '2026-06-13T12:00:05Z',
+    status: 'in-validation',
+  });
+  const specsDir = path.join(root, '.changeledger', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(specsDir, 'scaffolded.md'),
+    `---
+title: scaffolded
+updated: 2026-06-13T12:00:00Z
+tags: [bug]
+graduated_from: []
+---
+
+# scaffolded
+
+<!-- changeledger:spec-scaffold -->
+
+> Scaffold from change ${scaffolded}.
+`,
+  );
+
+  const { current } = resolveProjects(root, true);
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  assert.equal(res.status, 200);
+  const pendingById = Object.fromEntries(
+    JSON.parse(res.body).changes.map((change) => [change.id, change.pending_graduation]),
+  );
+  assert.deepEqual(pendingById, {
+    [scaffolded]: true,
+    [marked]: true,
+    [explicitFalse]: true,
+    [reviewed]: false,
+    [active]: false,
+  });
+});
+
 test('190007 CR3: token with </script> is escaped in the token assignment line', async () => {
   isolatedHome();
   const root = newRepo();

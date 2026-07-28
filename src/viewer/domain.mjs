@@ -9,6 +9,7 @@ import {
   reopen as applyReopen,
   status as applyStatusCmd,
   validation as applyValidation,
+  isPendingGraduation,
 } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
@@ -36,6 +37,7 @@ export function serialize(repo) {
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
       archived: c.frontmatter.archived === true,
+      pending_graduation: isPendingGraduation(c),
       created: c.frontmatter.created,
       depends_on: c.frontmatter.depends_on ?? [],
       related_to: c.frontmatter.related_to ?? [],
