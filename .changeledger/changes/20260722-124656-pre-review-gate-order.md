@@ -2,9 +2,10 @@
 id: "20260722-124656"
 title: Ejecutar el gate local antes de entrar en review
 type: bug
-status: draft
+status: in-progress
 created: 2026-07-22T12:46:56Z
 depends_on: []
+owner: raruiz-hiberuscom
 related_to: ["20260615-150510", "20260629-234939", "20260704-114323", "20260726-141120"]
 ---
 
@@ -118,3 +119,6 @@ prohibiéndola en tipos sin review. La salida sigue abierta.
 
 - **2026-07-22T12:46:56Z** `[note]` Draft separa fallo de preparación y fallo de review: gates externos antes del lifecycle, validación estructural atómica durante la transición.
 - **2026-07-28T13:45:34Z** `[note]` Enmendado el 2026-07-28 tras verificar sus supuestos contra el árbol. Retirado el criterio de escritura atómica: src/atomic-write.mjs ya usa temp+fsync+rename bajo withFileLock y el criterio no podía fallar. Retirada la tarea de métricas: reviewRetryCount ya filtra type=review. Corregida la Investigation: status <id> in-progress SÍ existe como vía sin veredicto y el defecto es que ningún fragmento la nombra. Añadido CR3, falsable: ninguna validación corre hoy en el camino de escritura a in-review. Punteros de línea sustituidos por nombres de sección y símbolo.
+- **2026-07-28T13:57:55Z** `[status]` draft → approved (human via conversation)
+- **2026-07-28T13:58:41Z** `[status]` approved → in-progress
+- **2026-07-28T13:58:41Z** `[owner]` set: raruiz-hiberuscom (auto)
