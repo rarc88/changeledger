@@ -100,11 +100,15 @@ Los techos se declaran a partir de la ocupación medida más aire declarado, con
 core en los 4000 tokens que Roberto fijó. Ninguna entrada declara un techo que su
 contenido de hoy no cumpla.
 
-`AGENTS.md` gana la cara que le falta: tener presupuesto de sobra no autoriza a
-consumirlo. Va en el **mismo párrafo** que la regla existente —*"A ceiling is never
-a goal: never remove normative prose to fit one"*— porque cada una por separado
-justifica el abuso contrario: una vacía normativa para encajar, la otra rellena
-porque sobra.
+La regla que Roberto pidió para `AGENTS.md` —tener presupuesto de sobra no autoriza
+a consumirlo, junto a la existente *"A ceiling is never a goal"*— **sale a un change
+`quick`**, no por tamaño sino porque no puede documentarse aquí: `AGENTS.md` no está
+en `readiness.target_patterns` (que cubre `src/**`, `bin/**`, `templates/**`,
+`.changeledger/config.yml` y `.changeledger/specs/**`), así que **ninguna tarea con
+criterio puede targetearlo** y el criterio fallaría al aprobar. Es el hallazgo 13 —
+el mismo caso que `hooks/**`— ocurriendo sobre un fichero de producción versionado.
+`quick` activa sólo Request y Log, así que no pasa por readiness y es el vehículo
+correcto para prosa de convención de un solo concern.
 
 Alternativas descartadas:
 
@@ -150,20 +154,14 @@ Alternativas descartadas:
 - **Then** la línea BEGIN termina en `lines:<N>/<límite>` y no contiene `bytes:` ni `tokens:`
 - **And** una captura de change-id sigue publicando `lines:<N>` sin techo, porque incrusta un documento arbitrario
 
-### CR6 — `AGENTS.md` declara que el margen no es permiso de gasto
-- **Given** `AGENTS.md` de este repositorio
-- **When** se lee el párrafo que gobierna los presupuestos
-- **Then** afirma que disponer de margen no autoriza a consumirlo y que cada cosa que entra a un contexto va pensada y optimizada
-- **And** conserva en el mismo párrafo la regla de que un techo nunca es objetivo y que no se retira prosa normativa para encajar
-
 ## Plan
 
 - [ ] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y declarar la unidad en el fragmento del contrato que describe los presupuestos; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR4)
-- [ ] Mover a `budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
+- [ ] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
 - [ ] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR5)
-- [ ] Añadir a `AGENTS.md` la regla de que el margen no es permiso de gasto, en el párrafo que ya prohíbe tratar el techo como objetivo; verify: `node --test test/contract.test.mjs` (CR6)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
 
 - **2026-07-28T17:04:29Z** `[note]` Draft creado. Alcance ampliado por Roberto para absorber los dos techos que viven hardcodeados en test/context.test.mjs y que ninguna migración de unidad alcanzaría; el barrido confirma que la clase son sólo esos dos. Techos declarados = los que el contenido de hoy cumple, decisión de Roberto: spec está a 3118 tokens y bajarlo necesita margen de core que este change provee, así que declarar 2500 dejaría el gate rojo y convertiría el techo en objetivo. La capa de transporte (head derivado, bump de bootstrap) y la higiene del mecanismo (pins, emittedLines, convergencia) salen a changes propios por techo de complejidad.
+- **2026-07-28T17:07:08Z** `[note]` Enmendado antes de aprobar por dos warnings de readiness. CR3 llevaba budgets.yml sin ruta y target_patterns exige templates/**; corregido a templates/contract/budgets.yml. CR6 retirado: AGENTS.md no esta en readiness.target_patterns, asi que ninguna tarea con criterio puede targetearlo y el criterio pasaria de warning en draft a error en approved. Es el hallazgo 13 en vivo, el mismo caso que hooks/**, sobre un fichero de produccion versionado. La regla que Roberto pidio para AGENTS.md sale a un change quick, que activa solo Request y Log y por tanto no pasa por readiness.
