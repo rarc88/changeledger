@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-28T19:40:36Z
+updated: 2026-07-28T21:27:12Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445"]
 ---
 
 ## Discovery del contrato
@@ -108,6 +108,21 @@ presupuestos**: el techo operativo de líneas del core y el del bloque `## Commi
 del core dejaron de ser literales en un test y son entradas declaradas, la segunda
 bajo un grupo `blocks`. El techo de líneas del core se compara además contra el
 corte que declara el propio bootstrap, así que no puede rebasarlo en silencio.
+
+**Que el contenido de hoy quepa y que el techo siga valiendo lo decidido son dos
+preguntas distintas**, y las dos están cerradas. Cada techo declarado está fijado
+**por valor** en una sede única: moverlo en cualquier dirección, añadir una entrada
+que esa sede no cubra o quitar una que sí cubre hace fallar el gate nombrando la
+entrada y la dimensión. Sin eso, subir el número era la forma más fácil de "arreglar"
+un fallo de presupuesto, que es precisamente lo que un techo existe para impedir. El
+conjunto de entradas se **deriva** del fichero de presupuestos y sólo los valores
+esperados se enumeran, así que no hay dos censos que puedan discrepar.
+
+El recuento de **líneas emitidas** tiene exactamente una implementación, y vive en el
+módulo de producción que publica la cifra; el soporte de test la reexporta en vez de
+copiarla, de modo que una copia conductualmente idéntica sigue siendo un defecto
+detectable. La semántica es que el último segmento cuenta salvo que esté vacío: un
+texto sin salto de línea final termina igualmente en una línea real.
 
 **Un techo no es un objetivo.** Ninguna prosa normativa se retira para caber en
 un presupuesto: una regla sale de un fragmento sólo cuando su nueva sede está
