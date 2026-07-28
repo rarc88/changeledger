@@ -716,17 +716,28 @@ Capa de transporte, separada de CH-0 por techo de complejidad. Alcance:
   literal `head -200` vive en el bloque bootstrap publicado (`src/contract.mjs:52`) y
   `test/contract.test.mjs` tiene un test de deriva sobre él. Los heads de modo viven
   en prosa del contrato y se mueven sin coste ni deriva.
-- **Hueco que CH-0 dejó abierto**: `base.core.lines` colapsó a 195, así que el
-  `head -200` del bootstrap queda *por encima* del techo declarado como reserva —
-  y **nada pinnea que `head ≥ base.core.lines`**. No es regresión (nunca se
-  comparaban), y su sede natural es este change.
+- ~~**Hueco que CH-0 dejó abierto**: nada pinnea que `head ≥ base.core.lines`.~~
+  **CERRADO por CH-0**, verificado el 2026-07-28: `befd4508` añadió a `124837 CR7`
+  la aserción `base.core.lines <= bootstrapHeadCut()`, y el corte se **parsea** del
+  bloque `REFERENCE` publicado en vez de copiarse como segundo literal, así que los
+  dos no pueden derivar. Queda dentro del alcance de CH-17 el residuo de
+  `bootstrapHeadCut()` — destructura `REFERENCE.match(...)` sin comprobar nulo —,
+  que CH-19 también reclama: **una sola sede, decidir cuál**.
 - `agent-context` no publica segmento de tamaño (B8).
 
 ### CH-18 — Higiene del mecanismo de presupuestos
 
 Alcance **reducido** por lo que CH-0 cerró de paso:
 
-- **B5, vivo**: pinnear cada techo por valor. Antes sólo `base.core` lo estaba.
+- **B5, vivo**: pinnear cada techo por valor. Verificado el 2026-07-28: el **único**
+  número pinneado es `base.core.tokens` (`test/context.test.mjs`, `170429 CR4`,
+  *"Roberto's number, pinned by value"*). `budgets.yml` declara **11 entradas** —
+  `base` ×5, `agent`, `overlays` ×4, `blocks.core-commits` (la que añadió CH-0)— por
+  dos dimensiones cada una: **22 números, 21 sin pin**. `170429 CR4` sólo comprueba
+  que el contenido de hoy **cabe**, así que subir cualquier techo pasa el gate entero
+  en silencio. Deriva: los comentarios de `test/budget-support.mjs` y de `170429 CR2`
+  siguen diciendo **"ten ceilings"**, cierto antes de que `blocks.core-commits`
+  existiera. Si "diez" contaba packs y no entradas, hay que decidirlo, no adivinarlo.
 - **B7, vivo**: unificar los dos `emittedLines` (`src/commands/context.mjs` y
   `test/budget-support.mjs`), que discrepan en texto sin salto final.
 - **B6, CERRADO por CH-0**: la aserción de convergencia con `maxPasses=1` desapareció
@@ -844,14 +855,17 @@ primera pasada de esta criba y solo apareció al revisar el mapa.
 ## 9. Estado del ledger y registro de ejecución
 
 Los 18 de la fase A **archivados** el 2026-07-28 (`chore(ledger): archive the
-graduated initiative`, con los 18 marcadores en el body). `--pending archive`
-vacío. `changeledger check`: `✓ 2 change(s) valid — 221 not validated`. Rama única
+graduated initiative`, con los 18 marcadores en el body). Luego el trío cerrado
+—CH-4, CH-14, CH-0— también archivado (`98db5f79 chore(ledger): archive the closed
+trio`). Estado leído por CLI el 2026-07-28: `--status draft` da los **tres** drafts
+de la tabla y nada más; `check` da `0 error(s), 4 warning(s) — 3 change(s), 224 not
+validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 `change/workflow-core-drafts`.
 
 | change | id | estado | nota |
 |---|---|---|---|
-| CH-4 | `20260722-124656` | **done, graduado a `lifecycle`** (2026-07-28) | aceptado por Roberto; pendiente de archivar a propósito, para dejarlo reabrible hasta que CH-15 aterrice |
-| CH-14 | `20260728-151336` | **done, graduado a `git-traceability`** (2026-07-28) | 5 CR, 3 tareas, **un commit por tarea**; review PASS con ~50 intentos de escape; `\S` fijado con ronda de confirmación. Pendiente de archivar |
+| CH-4 | `20260722-124656` | **archivado** (2026-07-28) | graduado a `lifecycle`, aceptado por Roberto. Ya no es reabrible: trabajo posterior necesita change nuevo |
+| CH-14 | `20260728-151336` | **archivado** (2026-07-28) | graduado a `git-traceability`. 5 CR, 3 tareas, **un commit por tarea**; review PASS con ~50 intentos de escape; `\S` fijado con ronda de confirmación |
 | CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change; bloque candidato medido en 28/28, espera el margen que CH-0b libera |
 | CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
 | CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
@@ -905,7 +919,8 @@ del de verificación y mata la clase.
 2. **`test/cli-bin.test.mjs:370` (`lines.length <= 60`) es el único techo de tamaño
    hardcodeado que queda** en el repo. Fuera de la clase a propósito: acota el help
    del CLI, no una captura de contexto.
-3. **Nada pinnea `head ≥ base.core.lines`.** → CH-17.
+3. ~~**Nada pinnea `head ≥ base.core.lines`.** → CH-17.~~ **CERRADO por CH-0**
+   (`befd4508`, `124837 CR7`). Ver CH-17.
 
 ### Tres errores del orquestador en CH-0, todos de la misma familia
 
@@ -1018,4 +1033,12 @@ corrige.
 - H47 → sube de deuda a change (CH-11).
 - H7 descartado. H36 lo gestiona el humano. H23 se quita el bloque comentado.
 
-Nada pendiente de decisión. Siguiente paso: documentar **CH-4**.
+Nada pendiente de decisión de las de aquí. Siguiente paso: documentar **CH-18**.
+
+Decisiones abiertas que **sí** hacen falta, ninguna bloqueante para documentar:
+
+- **CH-16** sigue pendiente de autorizar, y su hueco 1 exige decidir si las razones
+  `ChangeLedger: none — …` pueden citar ids en absoluto.
+- El residuo de `bootstrapHeadCut()` lo reclaman CH-17 y CH-19: **una sola sede**.
+- `"ten ceilings"` en los comentarios: si contaba packs, se aclara; si contaba
+  entradas, son 11 desde CH-0.
