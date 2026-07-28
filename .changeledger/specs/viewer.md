@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-28T15:35:34Z
+updated: 2026-07-28T17:01:14Z
 tags: [ viewer ]
 graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457"]
 ---
@@ -23,14 +23,15 @@ transición pendiente por id. Durante el request el botón queda deshabilitado; 
 el mensaje existente. La autoridad sobre actores y transiciones permanece en
 [`lifecycle.md`](lifecycle.md); el viewer sólo ofrece estas interacciones humanas.
 La UI rinde board (kanban), table, graph
-(`depends_on` y `related_to`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
+(`depends_on` y `related_to`), Ledger y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
 multiselección; owner incluye `Unassigned` como booleano independiente de los
 nombres para no colisionar con un owner real. El cliente está dividido en módulos
 estáticos pequeños: `security.js` (escape/sanitización/Mermaid), `state.js`
 (filtros y tombstones), `api.js` (fetch), `templates.js` (lit-html y el wrapper
 único de Markdown sanitizado), `view-parts.js` (templates reutilizables),
-`view-renderers.js` (graph/specs/metrics) y `app-state.js` (estado global y
+`view-renderers.js` (graph/Ledger/metrics), `ledger-browser.js` (árbol y selección
+documental en memoria), `viewer-routing.js` (URL e history) y `app-state.js` (estado global y
 helpers de transición puros — repo, filtros, vista, proyecto, sort — sin tocar el
 DOM); `app.js` queda como bootstrap y wiring de eventos. El graph muestra un estado vacío cuando los filtros no dejan changes
 visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad del
@@ -79,13 +80,40 @@ ids resolubles muestran metadatos y abren el change; los ausentes siguen visible
 como `unavailable`, sin reinterpretar el cuerpo Markdown ni relajar la
 sanitización.
 
-La pestaña **Specs** dispone las cards en un grid responsive a ancho completo
-(al menos 3 columnas desde 1280 px, una columna bajo 680 px), ordenadas por
+La entrada superior **Ledger** reúne exactamente `Specs`, `Project docs`,
+`Contract` y `Templates`; la categoría activa usa estado visual y
+`aria-pressed`. `Specs` conserva la búsqueda, el detalle y el grid responsive a
+ancho completo (al menos 3 columnas desde 1280 px, una bajo 680 px), ordenado por
 `updated` descendente. Cada card muestra título, fecha, tags y un extracto en
-texto plano del primer párrafo de prosa del cuerpo — salta el historial de
-graduación, headings, blockquotes y fences, y elimina la sintaxis Markdown
-inline —, insertado siempre como texto, nunca como HTML interpretable. La
-búsqueda global y el click para abrir el detalle se conservan.
+texto plano del primer párrafo de prosa —salta historial de graduación, headings,
+blockquotes y fences y elimina Markdown inline—, insertado como texto. El detalle
+conserva toolbar, Markdown sanitizado, Mermaid, historial `graduated_from`,
+referencias y enlaces relativos entre specs.
+
+Las otras tres categorías presentan un árbol lógico determinista a la izquierda
+y un artículo de solo lectura a la derecha. Sin selección muestran exactamente
+`Select a document`; loading, árbol vacío, proyecto ausente/desaparecido y
+documento ausente tienen estados explícitos y nunca seleccionan otro destino por
+fallback. El fichero activo queda visible y marcado con `aria-current`. Markdown
+reutiliza `safeHtml` y Mermaid estricta; YAML/source se interpola únicamente como
+texto en `<pre><code>`. Solo un enlace relativo que resuelva a otro documento del
+mismo árbol/categoría navega dentro de Ledger; esquemas externos, paths absolutos,
+traversal y destinos fuera del árbol no se interceptan. En escritorio árbol y
+artículo son paneles adyacentes con scroll independiente; hasta 680 px se apilan
+sin overflow horizontal y el artículo ofrece `Back to documents`, que devuelve
+foco y viewport al árbol.
+
+La selección canónica usa `?view=ledger&project=<id>&category=<slug>` y `doc`
+opcional. Una URL Ledger válida prevalece sobre `localStorage` y restaura el
+proyecto, categoría y spec/documento exactos después de cargar repo y árbol;
+reload y una URL compartida reproducen la selección. Sin selección URL se
+mantiene el fallback del snapshot y, si Ledger queda activo, se canoniza con
+`replaceState`. Las acciones humanas de Ledger, proyecto, categoría y documento
+crean una sola entrada; bootstrap, polling y `popstate` no crean entradas, y
+Back/Forward restaura grids, estados `Select a document` y detalles sin loops.
+Salir a otra vista elimina los parámetros Ledger. Una URL parcial inválida no es
+un deep link; proyectos muertos/desconocidos y specs/documentos obsoletos se
+mantienen explícitos, sin redirección silenciosa.
 
 La pestaña **Metrics** respeta los filtros globales (type, status, owner,
 búsqueda) y comparte una única implementación de cálculo: el cliente importa
@@ -167,13 +195,15 @@ desregistro y errores usan dialogs/toasts propios accesibles; no dependen de
 `alert`, `confirm` ni `prompt` del navegador.
 
 El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
-sesión: proyecto seleccionado, vista, modo Global, búsqueda, orden, layout/ancho
-del detalle y filtros de
+sesión: proyecto seleccionado, vista, categoría Ledger, modo Global, búsqueda,
+orden, layout/ancho del detalle y filtros de
 cada proyecto. La restauración hidrata el shell antes de iniciar los fetches y
 normaliza proyectos o valores que ya no existen; cada proyecto mantiene sus
 propios filtros. Un storage ausente, corrupto, bloqueado o sin cuota nunca impide
 el arranque. El snapshot excluye tokens, rutas, YAML, contenido del repositorio,
-formularios y errores. Si no queda ningún proyecto vivo, la UI corrige el estado
+formularios, errores, paths documentales y contenido de documentos. Un snapshot
+v1 legado con `currentView: "specs"` migra a `currentView: "ledger"` y categoría
+`specs`; categorías inválidas vuelven de forma segura a `specs`. Si no queda ningún proyecto vivo, la UI corrige el estado
 a Board, desactiva Global y muestra el estado vacío visible.
 
 Los changes con `archived: true` se ocultan por defecto (toggle "Archived" para
@@ -188,11 +218,11 @@ la ruta se decodifica, se resuelve contra `publicDir`, se valida con
 `realpath`. Esto evita traversal codificado y escapes por directorios hermanos
 con prefijo común; las rutas `/api/*` y `/vendor/*` se resuelven antes de esa
 rama estática.
-**Frontera de confianza:** los documentos del repo son contenido no confiable
+**Frontera de confianza:** los documentos del repo o del paquete instalado son contenido no confiable
 aunque el repo sea local. El cuerpo Markdown se rinde vía `safeHtml` (marked →
 DOMPurify) antes de tocar el DOM; si `marked` o `DOMPurify` no cargan, `safeHtml`
 falla cerrado y muestra un mensaje en vez de insertar HTML no sanitizado. Mermaid
-se inicializa con `securityLevel: 'strict'`, de modo que ningún change/spec pueda
+se inicializa con `securityLevel: 'strict'`, de modo que ningún change/spec/documento pueda
 ejecutar JavaScript en el origen del visor. En modo global el visor lee el
 registro y muestra todos los proyectos (selector + autoenfoque), y la búsqueda
 "Global" (`GET /api/search?q=`) hace match full-text en todos los repos vivos y

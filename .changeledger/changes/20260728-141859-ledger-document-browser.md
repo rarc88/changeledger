@@ -113,7 +113,8 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
   - **Resolved:** `2026-07-28T16:38:51Z`
 - [x] Escribir primero pruebas de integración de proyecto, categoría, documento y `popstate`, y después conectar el routing al ciclo de render en `src/viewer/public/app.js` y `test/viewer-routing.test.mjs`; verify: `node --test test/viewer-routing.test.mjs test/viewer-metadata.test.mjs` y validación manual de reload, URL compartida, Back/Forward y layout móvil/escritorio (CR2, CR6, CR7, CR8)
   - **Resolved:** `2026-07-28T16:59:32Z`
-- [ ] Actualizar `.changeledger/specs/viewer.md` y `.changeledger/specs/architecture.md` y ejecutar la calidad completa; verify: `pnpm verify` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
+- [x] Actualizar `.changeledger/specs/viewer.md` y `.changeledger/specs/architecture.md` y ejecutar la calidad completa; verify: `pnpm verify` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
+  - **Resolved:** `2026-07-28T17:03:46Z`
 
 ## Log
 

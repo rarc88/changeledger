@@ -1,6 +1,6 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-07-27T00:57:51Z
+updated: 2026-07-28T17:01:14Z
 tags: [ architecture, cli, viewer ]
 graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122"]
 ---
@@ -40,7 +40,7 @@ flowchart TD
     VIEW[view] --> SRV
   end
   SRV[server node:http] --> REPO
-  SRV --> UI[visor: board / table / graph / specs / metrics]
+  SRV --> UI[visor: board / table / graph / Ledger / metrics]
 ```
 
 `bin/changeledger.mjs` define la interfaz de comandos con `commander`, manteniendo
@@ -85,6 +85,38 @@ archivos, orienta a consultar trabajo autorizado con `changeledger list --status
 approved` y decisiones de cierre pendientes con `changeledger graduate --pending`.
 La orientación es estática: no ejecuta esas consultas ni incorpora estado efímero
 al contexto determinista.
+
+## API documental del visor
+
+`GET /api/ledger-tree?project=<id>` entrega las categorías documentales como
+paths lógicos relativos y formato, nunca paths absolutos. Exige resolución exacta
+de un proyecto vivo incluso para fuentes instaladas: un id desconocido responde
+`404 {"error":"no project"}` y una entrada registrada cuya ruta desapareció,
+`410 {"error":"project path is gone"}`. `Project docs` incluye únicamente los
+`README.md`, `AGENTS.md` e `INTENT.md` existentes en la raíz del proyecto;
+`Contract`, recursivamente los `.md`, `.yml` y `.yaml` de
+`templates/contract/` instalado; `Templates`, esos mismos formatos del resto de
+`templates/`, excluyendo todo el subárbol `contract/`. Los ausentes se omiten y
+cada colección se ordena léxicamente. Specs conserva su payload y cuerpos en
+`/api/repo`; estos endpoints no la duplican.
+
+`GET /api/ledger-document?project=<id>&category=<slug>&path=<lógico>` solo lee
+una entrada exacta del árbol allowlisted y responde
+`{ category, path, format, content }`, con `format: "markdown"` para `.md` y
+`format: "source"` para YAML. Categoría/path vacío o desconocido, path absoluto,
+NUL, backslash, segmentos vacíos/`.`/`..`, extensión no permitida, fichero fuera
+de allowlist, no regular o escape por symlink fallan cerrado como
+`404 {"error":"document not found"}` sin revelar rutas locales. El tamaño se
+comprueba antes de leer: más de 1 MiB responde
+`413 {"error":"document too large"}`. Ambos endpoints aceptan solo GET; otro
+método responde 405 con `Allow: GET`.
+
+La enumeración y lectura resuelven primero contra la raíz lógica de su categoría
+y vuelven a comprobar `realpath` de raíz, directorios y fichero. Solo siguen
+symlinks cuyo destino real permanece contenido, evitan ciclos de directorios y
+omiten escapes; la lectura vuelve a exigir fichero regular y mide mediante el
+descriptor abierto. Así el árbol recursivo puede representar subdirectorios sin
+convertirse en un explorador genérico del filesystem.
 
 `changeledger search <términos...>` completa ese descubrimiento con búsqueda
 léxica determinista sobre changes (incluidos archivados) y specs: scoring
