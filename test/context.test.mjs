@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildContext, frameSections } from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
+import { REFERENCE } from '../src/contract.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
 import {
   assertWithinBudget,
@@ -2717,6 +2718,14 @@ test('124837 CR6: the contract requires inspecting the staged set after a hook f
 // cut sits above it so future growth has room before any consuming repo's capture
 // silently truncates. 20260728-170429 moved that operative ceiling out of this
 // assertion and into `budgets.yml`, so lowering it there fails naming the entry.
+// The cut itself is parsed out of the published `REFERENCE` block rather than
+// copied as a second literal, so the two can never drift without one of them
+// changing under this assertion's feet.
+function bootstrapHeadCut() {
+  const [, cut] = REFERENCE.match(/head -(\d+)/);
+  return Number(cut);
+}
+
 test('124837 CR7: the core pack keeps reserve under the bootstrap cut', () => {
   const core = buildContext(undefined, repo());
   assertWithinBudget('core', core, contextBudgets.base.core);
@@ -2726,6 +2735,14 @@ test('124837 CR7: the core pack keeps reserve under the bootstrap cut', () => {
     'core-commits block',
     commitsBlockLines().join('\n'),
     contextBudgets.blocks['core-commits'],
+  );
+  // The reserve itself: base.core.lines can never rise to or past the bootstrap's
+  // head cut, or a consuming repo's capture would silently truncate before the
+  // budgeted content ends.
+  const headCut = bootstrapHeadCut();
+  assert.ok(
+    contextBudgets.base.core.lines <= headCut,
+    `base.core.lines (${contextBudgets.base.core.lines}) leaves no reserve under the bootstrap's head -${headCut} cut`,
   );
 });
 
@@ -2865,9 +2882,12 @@ test('170429 CR2: the tokenizer is a devDependency pinned to an exact version', 
   );
   // No contract fragment gains the unit's declaration: a consuming repo inherits
   // the line ceiling its `head` needs, never a token ceiling only our tests apply.
+  // Recursive: the versioned `agent-contexts/` and `agent-prompts/` fragments
+  // compose into agent capsules and ship to consuming repos exactly like the
+  // top-level ones, so a top-level-only scan would leave them unchecked.
   const contractDir = new URL('../templates/contract/', import.meta.url);
   const declaring = fs
-    .readdirSync(contractDir)
+    .readdirSync(contractDir, { recursive: true })
     .filter((name) => name.endsWith('.md'))
     .filter((name) => /token/i.test(contractFragment(name)));
   assert.deepEqual(declaring, [], 'a contract fragment declares the token unit');
