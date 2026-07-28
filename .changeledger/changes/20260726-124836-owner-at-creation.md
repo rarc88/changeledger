@@ -2,7 +2,7 @@
 id: "20260726-124836"
 title: Asignar owner al crear el change
 type: feature
-status: in-progress
+status: in-validation
 created: 2026-07-26T12:48:36Z
 depends_on: []
 related_to: []
@@ -160,15 +160,17 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **And** conserva que la autoasignación en `in-progress` cubre el change que
   llega sin dueño y que no pisa un owner fijado a mano
 
-### CR7 — la suite no alcanza la red al crear changes
-- **Given** el árbol tras el cambio, con `src/git.mjs` instrumentado para contar
-  cada invocación de su runner de `gh`
-- **When** se ejecuta la suite completa
-- **Then** el número de invocaciones de `gh api user` es exactamente el que
-  producen los tests cuya materia es la propia resolución de identidad, y ninguna
-  más procedente de la creación de changes
-- **And** un test que cree un change sin afirmar nada sobre `owner` inyecta una
-  identidad determinista en lugar de resolver la del host
+### CR7 — ningún test crea un change sin inyectar identidad
+- **Given** el árbol de test tras el cambio
+- **When** se recorre cada `*.test.mjs` extrayendo toda llamada a `newChange` y
+  todo lanzamiento del CLI real con `new`
+- **Then** cada una inyecta una identidad determinista —el resolver en las
+  opciones, escrito en la llamada o en una variable declarada en el mismo
+  fichero, o `--owner` en el proceso lanzado— salvo que un `owner` literal
+  cortocircuite la resolución o que la llamada esté dentro de un `assert.throws`
+- **And** perder cualquiera de esas inyecciones hace fallar la comprobación
+  nombrando fichero y línea, incluido el caso de sustituirla por un objeto de
+  opciones vacío
 
 ## Plan
 
@@ -182,7 +184,7 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
   - **Resolved:** `2026-07-27T21:57:12Z`
 - [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (support)
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [ ] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un conteo de invocaciones sobre el runner de `gh` de `src/git.mjs`; verify: `node --test test/git.test.mjs` (CR7)
+- [ ] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un guard en `test/git.test.mjs` que recorra el árbol de test y falle nombrando fichero y línea cuando un sitio de creación pierda su inyección, sin añadir superficie a `src/`; verify: `node --test test/git.test.mjs` (CR7)
 - [x] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-27T21:57:22Z`
 
@@ -201,3 +203,19 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 - **2026-07-27T23:39:34Z** `[validation]` in-validation → in-progress (agent rejected): Reabierto con autorización humana explícita (2026-07-27) para incorporar el arreglo de un defecto que este mismo change introdujo: poner ownerHandle() en el camino de new hace que cada creación de change en un test que no inyecte el resolver lance un subproceso de red gh api user. Medido: 35 a 107 invocaciones, suite de 18.7s a 24.4s. Ninguna aserción depende del valor, así que la puerta seguía verde. Es alcance original del change, no trabajo nuevo.
 - **2026-07-27T23:39:44Z** `[note]` Anadido CR7 y su tarea con autorizacion humana explicita: la suite debe volver a ser hermetica. Ningun test que cree un change puede alcanzar la red salvo que la resolucion de identidad sea el sujeto del propio test.
 - **2026-07-28T00:01:10Z** `[note]` Tarea 7 (CR7): suite hermetica otra vez. Medido con un shim de gh en PATH que registra cada subproceso real: 68 invocaciones y 24.60s antes, 5 invocaciones y 17.26s despues, 829 tests. 21 sitios corregidos en view (9), agent (6 mas el helper reach y 5 transiciones a in-progress que heredaban la precondicion), graduate (1) y cli-bin (5 spawns con --owner explicito). Instrumentacion minima en src/git.mjs: un contador en defaultGhRun mas ghRunInvocations() como lector; no cambia comportamiento y hace CR7 falsable. Mutante: revertir la inyeccion de repoWithChange() sube a 41 invocaciones en ese fichero y mata dos tests. HALLAZGO RESIDUAL NO TOCADO, preexistente y fuera de alcance: status() en src/commands/agent.mjs resuelve ownerHandle() de forma ANSIOSA en toda transicion a in-progress, antes de consultar el guard !fm.owner, asi que llama a gh aunque el owner ya exista. Explica 3 de las 5 invocaciones que quedan. Candidato a change propio.
+- **2026-07-28T00:01:42Z** `[status]` in-progress → in-review
+- **2026-07-28T00:01:42Z** `[note]` [review mandate] Tercera ronda, mandato acotado al trabajo nuevo de CR7. Puntos de escrutinio: (a) si ghRunInvocations() es observabilidad legitima o una puerta trasera solo-para-test en codigo de produccion; (b) si alguna inyeccion cambio lo que un test afirma; (c) si las 5 invocaciones restantes son todas legitimas; (d) si el conteo es falsable de verdad.
+- **2026-07-28T00:08:33Z** `[review]` in-review → in-progress (retry): CR7 no es falsable. Su Given afirma que src/git.mjs queda instrumentado para hacerlo verificable, pero ghRunInvocations() solo lo consumen los dos tests que testean el propio contador: nada afirma un total ni un techo. Reproducido: quitando las inyecciones de test/view.test.mjs reaparecen llamadas de red reales y los 74 tests siguen verdes. Es superficie de produccion sin consumidor en src/ y no compra nada. Ademas el Log declara 21 sitios cuando son 31, y sus cifras de duracion no son reproducibles bajo un shim de gh. Sustituir el contador por un guard que recorra test/** y falle cuando un sitio de creacion no inyecte identidad, y retirar la superficie de produccion.
+- **2026-07-28T00:13:01Z** `[note]` Correccion del tercer retry: retirado el contador ghRunInvocations() de src/git.mjs y sus dos tests autorreferenciales; cero superficie de produccion nueva. CR7 pasa a verificarse con un guard que recorre test/**, extrae cada llamada a newChange balanceando parentesis y cada spawn de new, y falla nombrando fichero y linea cuando falta la inyeccion. El guard encontro a la primera CUATRO sitios que la inspeccion manual del review anterior habia dado por cubiertos en test/cli.test.mjs; tres eran falsos positivos mios (inyeccion pasada por variable, llamada dentro de assert.throws, mencion en prosa) y afinar cada uno fue lo que dio la regla honesta: cuenta de argumentos de nivel superior, owner explicito, y excepcion declarada para lo que lanza. Mutacion: la primera version del guard NO mordia porque la coma final inflaba el conteo de argumentos; solo se vio mutando. Corregido a contar segmentos no vacios, y ahora las tres mutaciones —agent, view y cli-bin perdiendo su inyeccion— lo matan. Cifras corregidas respecto al Log anterior: los sitios tocados son 31, no 21, y las duraciones que registre no son reproducibles bajo un shim de gh; la cifra defendible es el conteo de invocaciones.
+- **2026-07-28T00:13:09Z** `[status]` in-progress → in-review
+- **2026-07-28T00:13:10Z** `[note]` [review mandate] Cuarta ronda, mandato minimo: la correccion sin commitear —guard nuevo en test/git.test.mjs, retirada del contador en src/git.mjs. Sin re-auditar CR1-CR6 ni el barrido de sitios.
+- **2026-07-28T00:18:12Z** `[review]` in-review → in-progress (retry): CR7 y la tarea 6 del Plan siguen describiendo el contador de invocaciones de gh que la corrección anterior retiró de src/git.mjs: el documento especifica una instrumentación que ya no existe, y solo la cláusula And describe lo implementado. Además el guard tiene tres huecos reales que un revisor reprodujo: la ventana de assert.throws es un lookbehind de 40 caracteres y no un ámbito, así que exime una creación escrita en la línea siguiente; la exención por owner casa también owner: undefined, que sí alcanza la red; y el tercer argumento se cuenta sin inspeccionarse, así que un {} vacío exime usando el resolver por defecto.
+- **2026-07-28T00:20:24Z** `[note]` Correccion del cuarto retry. (1) CR7 y la tarea 6 reescritos: describian el contador de gh que ya se habia retirado, asi que el documento especificaba una instrumentacion inexistente. Ahora describen el guard sobre el arbol de test, que es lo implementado. (2) Cerrados los tres huecos que el revisor reprodujo: la exencion de assert.throws pasa de un lookbehind de 40 caracteres al ambito real de la llamada, calculado balanceando parentesis; la exencion por owner exige un literal no vacio, asi que owner: undefined ya no exime; y el tercer argumento se inspecciona en vez de contarse, resolviendo ademas el identificador contra su declaracion en el mismo fichero, asi que ni un objeto vacio ni una variable que deje de inyectar eximen. Cuatro mutaciones aisladas lo matan: inyeccion inline fuera, sustituida por {}, la variable deja de inyectar, y spawn sin --owner.
+- **2026-07-28T00:20:36Z** `[status]` in-progress → in-review
+- **2026-07-28T00:20:36Z** `[note]` [review mandate] Quinta ronda, mandato minimo: la correccion sin commitear — CR7 y tarea 6 reescritos, y los tres huecos del guard cerrados. Sin re-auditar nada mas.
+- **2026-07-28T00:28:10Z** `[note]` Correccion del quinto retry: en vez de estrechar CR7 para que describiera menos, se ensancho el guard para que cumpla lo que CR7 promete. Escanea ahora los cinco helpers que lanzan el binario en el arbol —run, runIn, runDirect, execFileSync, execFileAsync— en vez de uno solo, exime new --help y -h porque no crean nada, y lee test/ recursivamente para que una suite futura en un subdirectorio no quede sin escanear. Un fallo mio en el camino, cazado por mutacion y no por lectura: la regex de posicion de argv aceptaba 'new' tras [ o , pero no tras (, que es justo la forma runDirect('new', ...), asi que la primera version del ensanchamiento no mordia. Verificado: insertar un spawn por runDirect sin --owner ahora falla nombrando fichero y linea, y run('new','--help') sigue exento. Huecos residuales declarados y no cerrados, todos de baja alcanzabilidad: alias o re-export de newChange, identificador sombreado por una segunda declaracion, --owner con cadena vacia, y argv construido por spread.
+- **2026-07-28T00:28:19Z** `[note]` [review mandate] Sexta ronda, mandato minimo: solo el ensanchamiento del guard a los cinco helpers de spawn, la exencion de --help y la lectura recursiva. CR7 y los tres huecos anteriores ya confirmados en la ronda previa.
+- **2026-07-28T00:31:59Z** `[review]` in-review → in-progress (retry): La exención de --help en el guard de CR7 es demasiado amplia: comprueba /'(-h|--help)'/ sobre el texto completo de la llamada, así que un spawn que sí crea escapa si un literal '--help' aparece como valor de otro argumento, por ejemplo un título o un slug de fixture. Debe exigir que el token sea el que sigue inmediatamente a 'new'.
+- **2026-07-28T00:32:41Z** `[note]` Correccion del sexto retry: la exencion de ayuda se acota al token que sigue a 'new'. Verificado por construccion: un spawn que crea con '--help' como valor de titulo ahora falla, y new --help y new -h legitimos siguen exentos.
+- **2026-07-28T00:32:41Z** `[status]` in-progress → in-review
+- **2026-07-28T00:35:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)

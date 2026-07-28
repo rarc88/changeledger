@@ -4,10 +4,146 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { ghRunInvocations, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
+
+// Extracts the full text of every `<name>(` call in `source`, balancing
+// parentheses so a call spread over several lines is read whole. Returns
+// `{ line, text }` per call, so a violation can be reported where it lives.
+function callsTo(source, name) {
+  const calls = [];
+  const opener = `${name}(`;
+  for (let at = source.indexOf(opener); at !== -1; at = source.indexOf(opener, at + 1)) {
+    let depth = 0;
+    let end = at + opener.length - 1;
+    for (; end < source.length; end += 1) {
+      if (source[end] === '(') depth += 1;
+      else if (source[end] === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    calls.push({
+      start: at,
+      end,
+      line: source.slice(0, at).split('\n').length,
+      text: source.slice(at, end + 1),
+    });
+  }
+  return calls;
+}
+
+// Counts arguments at the call's top level, ignoring commas nested in objects,
+// arrays or inner calls. Empty segments do not count: a trailing comma is style,
+// not an argument, and counting it would let a dropped injection pass unseen.
+function topLevelArgs(callText) {
+  const inner = callText.slice(callText.indexOf('(') + 1, -1);
+  let depth = 0;
+  let current = '';
+  const args = [];
+  for (const character of inner) {
+    if ('([{'.includes(character)) depth += 1;
+    else if (')]}'.includes(character)) depth -= 1;
+    if (character === ',' && depth === 0) {
+      args.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  args.push(current);
+  return args.filter((argument) => argument.trim()).length;
+}
+
+// True when the call's options argument actually carries an identity resolver,
+// inline or through a variable declared in the same file. Presence of a third
+// argument is not enough: an empty `{}` would leave the default resolver running.
+function injectsResolver(callText, source) {
+  const inner = callText.slice(callText.indexOf('(') + 1, -1);
+  let depth = 0;
+  let current = '';
+  const args = [];
+  for (const character of inner) {
+    if ('([{'.includes(character)) depth += 1;
+    else if (')]}'.includes(character)) depth -= 1;
+    if (character === ',' && depth === 0) {
+      args.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  args.push(current);
+  const options = args.map((argument) => argument.trim()).filter(Boolean)[2];
+  if (!options) return false;
+  if (options.includes('ownerHandle')) return true;
+  const identifier = options.match(/^[A-Za-z_$][\w$]*$/);
+  if (!identifier) return false;
+  const declaration = source.match(new RegExp(`\\b(?:const|let|var)\\s+${options}\\s*=([^;]*);`));
+  return Boolean(declaration?.[1].includes('ownerHandle'));
+}
+
+// 20260726-124836 CR7: creating a change resolves the local git identity, which
+// runs `gh api user` — a network subprocess. A suite that creates changes
+// without injecting an identity therefore reaches api.github.com on every one of
+// them, and no assertion notices, because nothing depends on the value. This
+// guard is the falsifiable form of that criterion: drop an injection anywhere and
+// it names the file and line. A counter inside `src/git.mjs` could not do this —
+// its only reader would be its own unit test, so a regressed site stayed green.
+test('124836 CR7: no test creates a change without injecting an identity', () => {
+  const dir = path.dirname(new URL(import.meta.url).pathname);
+  // Recursive: a suite added under a subdirectory tomorrow must be scanned too.
+  const suites = fs
+    .readdirSync(dir, { recursive: true })
+    .filter((name) => String(name).endsWith('.test.mjs'));
+  const offenders = [];
+  for (const suite of suites) {
+    const source = fs.readFileSync(path.join(dir, suite), 'utf8');
+    const throwSpans = callsTo(source, 'assert.throws').map((call) => [call.start, call.end]);
+    // In-process creation: safe when the identity resolver is injected, or when
+    // an explicit owner short-circuits the resolution entirely.
+    for (const call of callsTo(source, 'newChange')) {
+      // Injected when a third argument is present — the options object carrying
+      // the resolver, whether written inline or held in a variable. Also safe
+      // when the first argument names an owner, which short-circuits resolution
+      // before any subprocess, and when the call is expected to throw.
+      // `newChange()` with no arguments is prose naming the function, not a call.
+      if (topLevelArgs(call.text) === 0) continue;
+      // Injected only when the options argument really carries the resolver:
+      // counting arguments would let an empty `{}` exempt while the default
+      // resolver still runs. The options may be written inline or held in a
+      // variable, so a bare identifier is resolved against its declaration.
+      if (injectsResolver(call.text, source)) continue;
+      // A literal owner short-circuits resolution before any subprocess.
+      // `owner: undefined` or a variable does not, so only a non-empty literal
+      // counts here.
+      if (/\bowner: '[^']+'/.test(call.text)) continue;
+      // A call the test expects to throw never reaches the resolver. Scope it to
+      // the actual `assert.throws(...)` span, not to a fixed lookbehind that a
+      // creation on the next line would slip through.
+      if (throwSpans.some(([from, to]) => call.start > from && call.end < to)) continue;
+      offenders.push(`${suite}:${call.line} newChange without an injected identity`);
+    }
+    // Spawned CLI: a child process takes no injection, so `--owner` is the only
+    // way to keep it off the network. Every helper in the tree that launches the
+    // binary is scanned, not just one of them — keying this to a single helper
+    // name let a sibling spawn escape unseen.
+    for (const helper of ['run', 'runIn', 'runDirect', 'execFileSync', 'execFileAsync']) {
+      for (const call of callsTo(source, helper)) {
+        if (!/(^|[[(,]\s*)'new'/.test(call.text)) continue;
+        // `new --help` prints usage and creates nothing. Scoped to the token
+        // right after `new`: a literal `--help` sitting in some other argument,
+        // such as a fixture title, must not exempt a call that really creates.
+        if (/'new',\s*'(-h|--help)'/.test(call.text)) continue;
+        if (call.text.includes('--owner')) continue;
+        offenders.push(`${suite}:${call.line} spawned \`new\` without --owner`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
 
 test('CR1: parses commits that reference the id', () => {
   const run = (args) => {
@@ -87,23 +223,6 @@ test('CR4: ownerHandle is empty when neither is available', () => {
     throw new Error('nope');
   };
   assert.equal(ownerHandle('/x', boom, boom), '');
-});
-
-// --- ghRunInvocations (CR7: makes "the suite never reaches the network on
-// change creation" falsifiable instead of an unverified claim) ---
-
-test('CR7: an injected ghRun never touches ghRunInvocations', () => {
-  const before = ghRunInvocations();
-  githubLogin(() => 'injected');
-  assert.equal(ghRunInvocations(), before);
-});
-
-test('CR7: ghRunInvocations counts each real invocation of the default gh runner', () => {
-  const before = ghRunInvocations();
-  githubLogin(); // no run injected — reaches defaultGhRun for real
-  assert.equal(ghRunInvocations(), before + 1);
-  githubLogin();
-  assert.equal(ghRunInvocations(), before + 2);
 });
 
 // --- mutatingRun (git run variant that surfaces stderr on failure) ---
