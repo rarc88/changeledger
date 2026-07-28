@@ -1793,6 +1793,237 @@ test('225638 CR4: check --commits rejects multi-change subjects and malformed bo
   assert.match(errors, /malformed ChangeLedger body/);
 });
 
+// --- ChangeLedger: none — <reason> operational commit exemption (20260728-151336 CR1-CR3) ---
+
+test('151336 CR1: ChangeLedger: none with a reason exempts the commit', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('151336 CR1: an identical commit without the declaration still reports missing marker', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'docs(workflow): record the findings sieve']);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} missing [#id] marker: "docs(workflow): record the findings sieve"`,
+  );
+});
+
+test('151336 CR2: ChangeLedger: none without a reason is an error', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none',
+  ]);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} ChangeLedger: none requires a reason: "docs(workflow): record the findings sieve"`,
+  );
+});
+
+test('151336 CR3: ChangeLedger: none cannot coexist with a subject marker', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve [#20260728-151336]',
+    '-m',
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  ]);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} ChangeLedger: none cannot coexist with an [#id] marker: "docs(workflow): record the findings sieve [#20260728-151336]"`,
+  );
+});
+
+// Ambiguous shapes near the grammar boundary — each is pinned deliberately,
+// not left to fall through silently (see AGENTS.md on the defect class this
+// repo keeps hitting: an exemption that activates on a form nobody intended).
+
+test('151336: leading/trailing whitespace around the declaration line is still accepted', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    '   ChangeLedger: none — acta de análisis, ningún change la cubre   ',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('151336: the declaration among other body lines is rejected, not silently matched', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'Explanation paragraph unrelated to the declaration.',
+    '-m',
+    'ChangeLedger: none — acta de análisis',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: a reason that is only whitespace is rejected, not treated as present', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none —    ',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: a plain hyphen instead of an em dash is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none - acta de análisis',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: ChangeLedger: none appearing inside a longer line is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'See ChangeLedger: none for context, no reason needed',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: the declaration appearing twice in the body is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none — first reason',
+    '-m',
+    'ChangeLedger: none — second reason',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
 // --- check --commits base from config (20260711-210115 CR1) ---
 
 test('210115 CR1: configured git.integration_branch is the default lint base', () => {

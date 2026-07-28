@@ -219,6 +219,15 @@ const MARKER_RE = /\[#[^\]\s]+\]$/;
 const ANY_MARKER_RE = /\[#[^\]\s]+\]/g;
 const MULTI_BODY_RE = /^ChangeLedger: (\[#[^\]\s]+\])( \[#[^\]\s]+\])+$/;
 
+// The operational-commit exemption: a body whose whole trimmed text is exactly
+// this declaration (house style: em dash, single space either side) exempts
+// the commit from the [#id] marker. Anchored on the full trimmed body — like
+// MULTI_BODY_RE — so the declaration must stand alone, never share the body
+// with other prose or a second declaration; those fall through to the
+// "malformed ChangeLedger body" catch below rather than silently matching.
+const NONE_BARE_RE = /^ChangeLedger: none$/;
+const NONE_REASON_RE = /^ChangeLedger: none — (\S.*)$/;
+
 export function hasCommitMarker(subject) {
   return MARKER_RE.test(subject.trim());
 }
@@ -228,6 +237,16 @@ function commitMarkerViolation({ subject, body }) {
   const trimmedBody = body.trim();
   const hasBodyLabel = trimmedBody.includes('ChangeLedger:');
   const validMultiBody = MULTI_BODY_RE.test(trimmedBody);
+
+  // The declaration is checked before the marker-shape rules below: a bare or
+  // reasoned `none` is a different grammar than the `[#id]` body label, and
+  // must resolve on its own terms rather than be judged as a malformed marker.
+  if (NONE_BARE_RE.test(trimmedBody)) return 'ChangeLedger: none requires a reason';
+  if (NONE_REASON_RE.test(trimmedBody)) {
+    return subjectMarkers.length > 0
+      ? 'ChangeLedger: none cannot coexist with an [#id] marker'
+      : null;
+  }
 
   if (subjectMarkers.length > 1) return 'multiple [#id] markers must be in the body';
   if (hasBodyLabel && !validMultiBody) return 'malformed ChangeLedger body';
@@ -239,8 +258,10 @@ function commitMarkerViolation({ subject, body }) {
 }
 
 // Lints `range`: every non-merge commit must carry a well-formed `[#id]`
-// marker, except `chore(release)` prep commits. Returns only the violations
-// (sha + subject); never throws for a clean range.
+// marker, except `chore(release)` prep commits and a body-declared
+// `ChangeLedger: none — <reason>` operational commit (see
+// commitMarkerViolation). Returns only the violations (sha + subject); never
+// throws for a clean range.
 export function lintCommitRange(repoRoot, range, run = defaultRun) {
   const commits = commitsInRange(repoRoot, range, run);
   const violations = [];

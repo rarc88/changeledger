@@ -137,7 +137,8 @@ del core.
 
 ## Plan
 
-- [ ] Aceptar la declaración `ChangeLedger: none — <razón>` en `commitMarkerViolation` y `lintCommitRange` de `src/git.mjs`, con razón obligatoria y sin coexistencia con marcadores; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+- [x] Aceptar la declaración `ChangeLedger: none — <razón>` en `commitMarkerViolation` y `lintCommitRange` de `src/git.mjs`, con razón obligatoria y sin coexistencia con marcadores; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+  - **Resolved:** `2026-07-28T15:30:36Z`
 - [ ] Añadir `--no-change <razón>` a `src/commands/commit.mjs` y su cableado en `bin/changeledger.mjs`, mutuamente exclusivo con `--id`; verify: `node --test test/cli.test.mjs test/cli-bin.test.mjs` (CR4)
 - [ ] Extender la frase de exenciones en `templates/contract/core.md` sin añadir línea al bloque `## Commits`; verify: `node --test test/context.test.mjs` (CR5)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
@@ -147,3 +148,4 @@ del core.
 - **2026-07-28T15:13:36Z** `[note]` Draft creado. Nace de reproducir el error al commitear un acta operativa: el core autoriza la edición y sus reglas de commit no dejan forma de commitearla. Diseño gobernado por una propiedad: omitir el marcador tiene que seguir fallando, así que la exención sólo se activa con declaración positiva y razón obligatoria.
 - **2026-07-28T15:18:11Z** `[status]` draft → approved
 - **2026-07-28T15:18:48Z** `[status]` approved → in-progress
+- **2026-07-28T15:30:36Z** `[note]` Tarea 1: src/git.mjs acepta la declaracion. Dos regex nuevas, NONE_BARE_RE y NONE_REASON_RE, y las comprobaciones corren ANTES de las reglas de forma del marcador porque la declaracion es otra gramatica, no un marcador mal formado. Cuatro mutaciones una a una, todas muertas: raya rota en NONE_REASON_RE, sufijo en el fallback missing marker, cadena de requires a reason, y debilitar la coexistencia de >0 a >1. El delegado cazo un defecto propio: su asercion negativa por regex parcial dejaba pasar la mutacion del fallback, y la endurecio a igualdad exacta. Verificado por el orquestador que la razon solo-espacios se rechaza por el \S de la propia regex, NO por el cleanup de git como afirmaba el informe: el guard no depende de ningun eje de configuracion externo. Hueco de calidad de mensaje para el revisor: ChangeLedger: none con raya y sin razon devuelve malformed ChangeLedger body en vez de requires a reason; CR2 solo especifica el caso sin raya.
