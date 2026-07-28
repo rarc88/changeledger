@@ -46,9 +46,12 @@ bootstrap above, not a linked or copied contract.
   so staged formatting stays compatible with partial commits.
 - Edit the convention in `templates/contract/`; keep each rule in one fragment
   so task contexts compose without duplicated truth.
-- Each entry in `templates/contract/budgets.yml` declares one `lines` and one
-  `bytes` ceiling, and every capture publishes its occupancy of both on the
-  `BEGIN` line. A ceiling is never a goal: never remove normative prose to fit
-  one. A rule may leave a fragment only when its new home is named and a grep of
-  the obligation itself — not of similar words — finds it there. If correct
-  content does not fit, stop and ask the human.
+- Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and
+  a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by
+  what a particular model consumes, and lines bound what the bootstrap `head`
+  must carry. A ceiling is never a goal: never remove normative prose to fit
+  one, and headroom under a ceiling is never permission to spend it — every
+  entry into a context is deliberate and optimized. A rule may leave a fragment
+  only when its new home is named and a grep of the obligation itself — not of
+  similar words — finds it there. If correct content does not fit, stop and ask
+  the human.

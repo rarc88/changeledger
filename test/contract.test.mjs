@@ -617,3 +617,32 @@ test('141119 CR5: refactor activates specification in every versioned artifact',
     'the default activation matrix must mark specification active for refactor',
   );
 });
+
+test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokenizer unit, drops bytes/dual-publish and bans spending headroom', () => {
+  const repoRoot = new URL('../', import.meta.url);
+  const normalized = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8').replace(/\s+/g, ' ');
+
+  const expectedParagraph =
+    'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and ' +
+    'a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by ' +
+    'what a particular model consumes, and lines bound what the bootstrap `head` ' +
+    'must carry. A ceiling is never a goal: never remove normative prose to fit ' +
+    'one, and headroom under a ceiling is never permission to spend it — every ' +
+    'entry into a context is deliberate and optimized. A rule may leave a fragment ' +
+    'only when its new home is named and a grep of the obligation itself — not of ' +
+    'similar words — finds it there. If correct content does not fit, stop and ask ' +
+    'the human.';
+
+  // Exact match, not a partial regex: any wording drift on the tokenizer unit
+  // (CR2) or on the kept/added budgets rules (CR6) fails this on its own.
+  assert.ok(
+    normalized.includes(expectedParagraph),
+    `AGENTS.md must carry the budgets paragraph verbatim; got:\n${normalized}`,
+  );
+
+  // CR6, belt and suspenders across the whole file, not just the paragraph:
+  // the retired per-entry `bytes` ceiling and dual-dimension BEGIN publish
+  // must not resurface anywhere, even outside the paragraph above.
+  assert.doesNotMatch(normalized, /`bytes` ceiling/);
+  assert.doesNotMatch(normalized, /publishes its occupancy of both/);
+});

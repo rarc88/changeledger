@@ -33,6 +33,8 @@ readiness:
     - "templates/**"
     - ".changeledger/config.yml"
     - ".changeledger/specs/**"
+    - "AGENTS.md"
+    - "hooks/**"
   verification_patterns:
     - "test/**"
     - "**/*.test.*"

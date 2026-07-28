@@ -1388,6 +1388,69 @@ test('020229 CR5: invalid readiness config fails clearly', () => {
   assert.ok(msgs(errors).some((m) => /readiness\.verification_patterns" entries/.test(m)));
 });
 
+// Pin for 20260728-170429 CR7: this repository's own readiness.target_patterns
+// must keep covering AGENTS.md and hooks/pre-commit, both versioned production
+// paths (hallazgo 13). No other test in this file exercises this repo's real
+// `.changeledger/config.yml` — every other readiness test above runs against a
+// synthetic fixture (`app/**`, `packages/**`, `custom/**`), so a silent removal
+// of either pattern from the real config would pass the whole suite unnoticed.
+// The patterns are read from the real file, not duplicated as a literal list,
+// so this pin tracks the config instead of drifting from it.
+test("20260728-170429 CR7: this repo's readiness keeps AGENTS.md and hooks/pre-commit covered", () => {
+  const repoConfig = parseYaml(
+    fs.readFileSync(new URL('../.changeledger/config.yml', import.meta.url), 'utf8'),
+  );
+  const realTargetPatterns = repoConfig.readiness.target_patterns;
+
+  const agentsTask = {
+    state: 'todo',
+    text: 'Update AGENTS.md; verify: node --test test/check.test.mjs (CR1)',
+    criteria: ['CR1'],
+  };
+  const hooksTask = {
+    state: 'todo',
+    text: 'Update hooks/pre-commit; verify: node --test test/check.test.mjs (CR2)',
+    criteria: ['CR2'],
+  };
+
+  const gapsWith = (target_patterns) =>
+    msgs(
+      checkRepo({
+        config: { ...tddConfig, readiness: { ...repoConfig.readiness, target_patterns } },
+        changes: [cov({ criteria: ['CR1', 'CR2'], tasks: [agentsTask, hooksTask] })],
+      }).errors,
+    ).filter((m) => /must name target and verification/.test(m));
+
+  assert.deepEqual(
+    gapsWith(realTargetPatterns),
+    [],
+    'the real target_patterns must cover both AGENTS.md and hooks/pre-commit today',
+  );
+
+  const formatPatterns = (patterns) => `[${patterns.map((p) => JSON.stringify(p)).join(', ')}]`;
+  const verificationHint = formatPatterns(repoConfig.readiness.verification_patterns);
+
+  const withoutAgentsMd = realTargetPatterns.filter((p) => p !== 'AGENTS.md');
+  assert.deepEqual(
+    gapsWith(withoutAgentsMd),
+    [
+      'Plan task for CR1 must name target and verification (configured readiness: ' +
+        `target_patterns=${formatPatterns(withoutAgentsMd)}, verification_patterns=${verificationHint})`,
+    ],
+    'removing AGENTS.md from target_patterns must fail the CR1 task that targets it',
+  );
+
+  const withoutHooks = realTargetPatterns.filter((p) => p !== 'hooks/**');
+  assert.deepEqual(
+    gapsWith(withoutHooks),
+    [
+      'Plan task for CR2 must name target and verification (configured readiness: ' +
+        `target_patterns=${formatPatterns(withoutHooks)}, verification_patterns=${verificationHint})`,
+    ],
+    'removing hooks/** from target_patterns must fail the CR2 task that targets it',
+  );
+});
+
 test('CR5: a type without specification is not coverage-checked', () => {
   const w = covWarn({
     frontmatter: { type: 'chore', status: 'approved' },
