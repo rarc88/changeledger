@@ -901,3 +901,43 @@ test('194220 CR11: the summary names what it did not validate when it also repor
   assert.equal(check([], frozenLedger(live), withoutFrozen), 1);
   assert.equal(lastLine(withoutFrozen), '1 error(s), 0 warning(s) — 2 change(s)');
 });
+
+// 20260722-124656 CR3 — the readiness refusal must be observable where the
+// orchestrator actually stands: a non-zero exit and every defect on stderr.
+test('124656 CR3: `status <id> in-review` exits non-zero and names every readiness defect', async () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => 'nobody' },
+  );
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Something\n- **Given** a thing\n',
+      )
+      .replace('## Plan\n', '## Plan\n\n- [ ] do the thing (CR1)\n'),
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  const bin = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileAsync(process.execPath, [bin, ...args], { cwd: root }).then(
+      (ok) => ({ code: 0, ...ok }),
+      (error) => error,
+    );
+
+  assert.equal((await run('approve', id)).code, 0);
+  assert.equal((await run('status', id, 'in-progress')).code, 0);
+  const before = fs.readFileSync(file, 'utf8');
+
+  const failure = await run('status', id, 'in-review');
+  assert.equal(failure.code, 1);
+  assert.match(failure.stderr, /CR1 is not test-grade: missing Given\/When\/Then/);
+  assert.match(failure.stderr, /Plan task for CR1 must name target and verification/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'the refusal must not touch the document');
+  assert.equal(parseChange(before).frontmatter.status, 'in-progress');
+});

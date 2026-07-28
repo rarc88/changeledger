@@ -43,16 +43,21 @@ Useful mutation commands:
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
 1. Confirm every Plan task is complete and its verification passes.
-2. `changeledger status <id> in-review`.
-3. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
-4. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
-5. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
-6. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
-7. After that mutation, apply the formatter again and repeat affected checks,
+2. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate.
+3. `changeledger status <id> in-review`. The gate decides whether a reviewable
+   candidate exists, so it never runs after this transition; the transition itself
+   refuses a candidate whose readiness is invalid and leaves the document untouched.
+4. Reapply the formatter to the change document and run `changeledger check`; if the
+   candidate changes again before the reviewer sees it, repeat every affected verification.
+5. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
+6. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
+7. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
+8. After that mutation, apply the formatter again and repeat affected checks,
    including `changeledger check`, before commit or human validation.
 
-Types without `review_required` move directly to `in-validation`, then apply the
-same post-transition formatter and affected-check gate. The host owns these
+Types without `review_required` pass the same local gate before
+`changeledger status <id> in-validation`, then apply the same post-transition
+formatter and affected-check gate. The host owns these
 commands; ChangeLedger mutations never run configurable hooks or external formatters.
 
 `in-validation`: human accepts; agent rejects with `changeledger validation <id> fail "<reason>"`.

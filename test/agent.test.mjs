@@ -447,6 +447,74 @@ test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
   );
 });
 
+// 20260722-124656 — the local gate decides whether a reviewable candidate exists,
+// so the transition that claims review started is the last place the readiness of
+// that candidate can still be refused instead of delegated to the reviewer.
+function repoWithUnreadyChange() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  // Two readiness defects at once: CR1 has no When/Then, and the Plan task that
+  // claims it names neither a target (`src/**`) nor a verification (`test/**`).
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Specification\n', '## Specification\n\n### CR1 — Something\n- **Given** a thing\n')
+    .replace('## Plan\n', '## Plan\n\n- [ ] do the thing (CR1)\n');
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  return { root, file, id };
+}
+
+test('124656 CR3: the in-review transition refuses an unready candidate', () => {
+  const { root, file, id } = repoWithUnreadyChange();
+  const before = fs.readFileSync(file, 'utf8');
+  let thrown;
+  try {
+    status(id, 'in-review', root);
+  } catch (error) {
+    thrown = error;
+  }
+  assert.ok(thrown, 'the transition must refuse an unready candidate');
+  // Every readiness defect is named, not just the first one found.
+  assert.match(thrown.message, /CR1 is not test-grade: missing Given\/When\/Then/);
+  assert.match(thrown.message, /Plan task for CR1 must name target and verification/);
+  // The refusal is byte-preserving: no status flip, and no Log entry at all.
+  const after = fs.readFileSync(file, 'utf8');
+  assert.equal(after, before);
+  const c = parseChange(after);
+  assert.equal(c.frontmatter.status, 'in-progress');
+  const logBody = c.stages.find((s) => s.key === 'log').body;
+  // CR2: neither a transition into in-review nor any review-typed event.
+  assert.doesNotMatch(logBody, /in-review/);
+  assert.doesNotMatch(logBody, /\[review\]/);
+});
+
+test('124656 CR3: a ready candidate still reaches in-review', () => {
+  const { root, file, id } = repoWithUnreadyChange();
+  const repaired = fs
+    .readFileSync(file, 'utf8')
+    .replace(
+      '### CR1 — Something\n- **Given** a thing\n',
+      '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '- [ ] do the thing (CR1)',
+      '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+    );
+  fs.writeFileSync(file, repaired);
+  status(id, 'in-review', root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'in-review');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → in-review/);
+});
+
 test('171002 CR5: a chore goes directly to in-validation, not done', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);

@@ -19,7 +19,11 @@ finding but never runs the verdict command:
 - `changeledger review <id> fail --block "<reason>"` — correction requires scope
   or product judgment; move to `blocked` for the human.
 
-The candidate reaches review only after host formatter and full gates. After
+The candidate reaches review only after the host formatter and full gates pass; a
+failure there means no reviewable candidate exists yet. When a local gate — not a
+reviewer — fails once the candidate already reached `in-review`, return it with
+`changeledger status <id> in-progress`, the no-verdict path, and
+never `changeledger review <id> fail --retry` for a failure no reviewer emitted. After
 recording any verdict, apply the formatter again and repeat affected checks,
 always including `changeledger check`, before commit or handoff. ChangeLedger
 runs no configurable formatter, hook or external command as a mutation side effect.

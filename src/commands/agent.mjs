@@ -55,6 +55,11 @@ export function status(
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
+    // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
+    // Validate the document as it still stands, before the status flip: readiness
+    // defects are errors only while the change is pre-review, so checking the
+    // post-flip text would silently exempt the very candidate under judgment.
+    if (newStatus === 'in-review') assertChangeTextValid(config, path.basename(file), text);
     text = setStatus(text, newStatus);
     const detail =
       actor === 'human' &&

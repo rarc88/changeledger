@@ -980,7 +980,30 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   correction may be committed relative to review and human validation, which
     //   is lifecycle isolation rather than commit-unit behaviour, and neither CR3
     //   nor the Plan asks for its removal.
-    'implement.md': 'add03ce9e00cf7ea98ff44756ecbb3530090cdae9cc5853025442a8b52d6ac3c',
+    // 20260722-124656: REPLACED — the ORDER of the ordered review gate, not its
+    //   content. "Apply the local formatter and full gates, including
+    //   `changeledger check`, to the exact review candidate" and
+    //   "`changeledger status <id> in-review`" trade places (was 2/3, now 3/2) and
+    //   the tail renumbers 4..7 → 5..8. Both sentences survive verbatim, so no
+    //   obligation moves fragment and none is retired; what changes is which one
+    //   must already have passed when the lifecycle claims review started;
+    // REPLACED — "Types without `review_required` move directly to
+    //   `in-validation`" by "pass the same local gate before
+    //   `changeledger status <id> in-validation`". The two obligations that
+    //   sentence carried are preserved verbatim in the same sentence: these types
+    //   apply the same post-transition formatter and affected-check gate, and they
+    //   gain no review gate ("do not invent a review gate for them" stays in
+    //   `review.md`, its only home — grepped). Only "move directly", which is what
+    //   licensed skipping the gate, is replaced;
+    // ADDED — step 3 now states that the gate never runs after the transition and
+    //   that the transition refuses an invalid candidate (the CR3 guard in
+    //   `src/commands/agent.mjs`), and a new step 4 requires reapplying the
+    //   formatter plus `changeledger check` to the document after the transition
+    //   and repeating every affected verification if the candidate changes again
+    //   before the reviewer sees it. Neither had a prior home: the old step 7
+    //   (now 8) governs the VERDICT mutation, not this transition, and it is
+    //   preserved verbatim. Nothing is retired from this fragment.
+    'implement.md': 'e17bcd09af8ded36f3443f7380ca073a07df96fc1230efa448869aa49f56e632',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -998,6 +1021,20 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // and points to that single checklist owner. Rules moved, none retired.
     // 20260715-122950: additive post-verdict formatter/check gate; existing
     // independent-review and verdict rules are preserved, none retired.
+    // 20260722-124656: REPLACED — "The candidate reaches review only after host
+    //   formatter and full gates" by the same order plus what a failure means:
+    //   "only after the host formatter and full gates pass; a failure there means
+    //   no reviewable candidate exists yet". The obligation is preserved and made
+    //   decidable; `implement.md` states the same order in its ordered gate, so the
+    //   two fragments no longer contradict each other.
+    // ADDED — the no-verdict return: when a local gate, not a reviewer, fails once
+    //   the candidate already reached `in-review`, `changeledger status <id>
+    //   in-progress` is the named path, and `changeledger review <id> fail --retry`
+    //   is forbidden for a failure no reviewer emitted. This obligation had no
+    //   prior home anywhere in the contract — grepped for "no-verdict" and for
+    //   "status <id> in-progress" across `templates/contract/`, and `review.md` is
+    //   the only holder — and this fragment owns the verdict commands, so it is
+    //   where the prohibition binds. Nothing is retired or moved.
     // 20260727-194234: RETIRED to core.md — "A review verdict alone needs no
     //   commit" is core's "A lifecycle transition ... is never a commit of its
     //   own"; "Handoff may use the implementation contract's checkpoint" is
@@ -1006,7 +1043,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   PRESERVED: what a pass does with an uncommitted correction, that retry
     //   keeps the diff isolated, and the whole `fail --retry` block — review-phase
     //   behaviour, not the commit unit.
-    'review.md': '42cf8eb078039e7305ff9fb704c02bae67a6f6823bc83b0cdf547c6f3fe58da4',
+    'review.md': 'c88c67ead5c241e8080cb776ac970c9c56a2e81e20b2f963d65e37c424d509c5',
     // 20260711-103756: the type enum and activation matrix gain the `quick`
     // row, plus a new paragraph documenting its eligibility and the
     // discard-and-recreate rule for scope growth. Existing rules preserved.
@@ -1553,7 +1590,10 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
   assert.match(implement, /move to `in-review` if the type requires independent review/);
   assert.match(
     implement,
-    /1\..*Plan task.*2\..*`changeledger status <id> in-review`.*3\..*formatter.*full gates.*4\..*`changeledger context review` once.*5\..*read-only reviewer.*6\..*`changeledger review <id> pass\|fail`.*7\..*formatter again.*affected checks.*`changeledger check`/,
+    // 20260722-124656 reordered steps 2 and 3: the local gate decides whether a
+    // reviewable candidate exists, so it runs before the lifecycle claims review
+    // started, and step 4 revalidates only what the transition altered.
+    /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*`changeledger context review` once.*6\..*read-only reviewer.*7\..*`changeledger review <id> pass\|fail`.*8\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
   assert.match(implement, /do not reload it to record the verdict unless context was lost/);
@@ -1579,6 +1619,65 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
 
   // CR2: the ordered recipe is owned by implement, not core or delegation.
   assert.doesNotMatch(core, /`changeledger status <id> in-review`.*`changeledger review <id> pass/);
+});
+
+// 20260722-124656 — the local gate decides whether a reviewable candidate exists.
+// While it ran after the transition, a gate failure left the lifecycle asserting
+// that review had begun and pushed the orchestrator towards a fabricated verdict.
+test('124656 CR1/CR2/CR4/CR5: the local gate precedes the in-review transition', () => {
+  const root = repo();
+  const norm = (s) => s.replace(/\s+/g, ' ');
+  const implement = norm(buildContext('implement', root));
+  const reviewOutput = buildContext('review', root);
+  const review = norm(reviewOutput);
+
+  // CR1: the gate step precedes the transition step in the ordered recipe.
+  const gate = implement.indexOf('Apply the local formatter and full gates');
+  const transition = implement.indexOf('`changeledger status <id> in-review`');
+  assert.notEqual(gate, -1, 'implement no longer names the local gate step');
+  assert.notEqual(transition, -1, 'implement no longer names the in-review transition');
+  assert.ok(gate < transition, 'the local gate must precede the in-review transition');
+  assert.match(
+    implement,
+    /2\. Apply the local formatter and full gates, including `changeledger check`, to the exact review candidate\. 3\. `changeledger status <id> in-review`\./,
+  );
+
+  // CR1: review states the same order instead of contradicting it.
+  assert.match(
+    review,
+    /The candidate reaches review only after the host formatter and full gates pass/,
+  );
+  assert.doesNotMatch(implement, /`changeledger status <id> in-review`\. \d+\. Apply the local/);
+
+  // CR2: the no-verdict return is named and the fabricated verdict forbidden.
+  assert.match(
+    review,
+    /return it with `changeledger status <id> in-progress`, the no-verdict path/,
+  );
+  assert.match(
+    review,
+    /never `changeledger review <id> fail --retry` for a failure no reviewer emitted/,
+  );
+
+  // CR4: only what the transition altered is revalidated, and any later
+  // alteration of the candidate repeats the affected verifications.
+  assert.match(
+    implement,
+    /Reapply the formatter to the change document and run `changeledger check`/,
+  );
+  assert.match(
+    implement,
+    /if the candidate changes again before the reviewer sees it, repeat every affected verification/,
+  );
+
+  // CR5: a type without review passes the same gate, and gains no review gate.
+  assert.match(
+    implement,
+    /Types without `review_required` pass the same local gate before `changeledger status <id> in-validation`/,
+  );
+  assert.match(review, /do not invent a review gate for them/);
+
+  assertWithinBudget('review', reviewOutput, contextBudgets.base.review);
 });
 
 test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close overlay', () => {

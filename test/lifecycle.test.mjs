@@ -229,3 +229,15 @@ test('125007 CR7: typed log text payloads round-trip without delimiter parsing',
     assert.equal(serializeLogEvent(parseLogEvent(line)), line);
   }
 });
+
+// 20260722-124656 CR3 — the readiness refusal lives on the write path in
+// `src/commands/agent.mjs`, never in the graph. Removing this edge would "fix"
+// an unready candidate by making every candidate unreachable, so pin it here.
+test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
+  );
+  // The no-verdict return the contract names is a graph edge, not a review verdict.
+  assert.equal(canTransition('in-review', 'in-progress'), true);
+  assert.doesNotThrow(() => assertTransition('in-review', 'in-progress'));
+});
