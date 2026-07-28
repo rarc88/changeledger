@@ -12,7 +12,7 @@ const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.document = window.document;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
-const { render } = await import('lit-html');
+const { html, render } = await import('lit-html');
 const {
   activateView,
   boardStatuses,
@@ -64,7 +64,7 @@ const {
   taskList,
 } = await import('../src/viewer/public/app.js');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
-const { closeButton, referenceDetails, specBody, validationPanel } = await import(
+const { approvalPanel, closeButton, referenceDetails, specBody, validationPanel } = await import(
   '../src/viewer/public/view-parts.js'
 );
 const { graphSvg, metricsHtml, specsListHtml } = await import(
@@ -110,6 +110,9 @@ const baseChange = () => ({
   stages: [],
   tasks: [],
 });
+const approvalDetail = (change) => html`
+  ${detailToolbar('side', 'wide', change.stages)} ${approvalPanel(change)}
+`;
 
 test('111218 CR1/CR2: projects view renders health, exact YAML text and safe metadata', () => {
   const host = parse(
@@ -351,21 +354,31 @@ test('175732 CR1: a payload in id/type/status does not create active HTML in a c
   assert.equal(host.querySelectorAll('[onerror]').length, 0, 'no event-handler attribute');
 });
 
-test('141643 CR1/CR6: every draft card has an accessible Approve button and non-drafts do not', () => {
-  const draft = parse(card(baseChange()));
-  const approve = draft.querySelector('[data-approve]');
-  assert.ok(approve);
-  assert.equal(approve.tagName, 'BUTTON');
-  assert.equal(approve.type, 'button');
-  assert.equal(approve.textContent.trim(), 'Approve');
-  assert.equal(approve.getAttribute('aria-label'), `Approve change ${baseChange().id}`);
-
-  for (const status of ['approved', 'in-progress', 'done', 'discarded']) {
-    assert.equal(parse(card({ ...baseChange(), status })).querySelector('[data-approve]'), null);
+test('141643 CR1/CR6: Approve uses the lifecycle panel, never the toolbar or cards', () => {
+  for (const status of ['draft', 'approved', 'in-progress', 'done', 'discarded']) {
+    const change = { ...baseChange(), status };
+    assert.equal(parse(card(change)).querySelector('[data-approve]'), null);
+    assert.equal(
+      parse(detailToolbar('side', 'wide', change.stages)).querySelector('[data-approve]'),
+      null,
+    );
+    const panel = parse(approvalPanel(change));
+    const actions = panel.querySelectorAll('[data-approve]');
+    assert.equal(actions.length, status === 'draft' ? 1 : 0);
+    if (status === 'draft') {
+      assert.equal(actions[0].tagName, 'BUTTON');
+      assert.equal(actions[0].type, 'button');
+      assert.equal(actions[0].textContent.trim(), 'Approve');
+      assert.equal(actions[0].getAttribute('aria-label'), `Approve change ${change.id}`);
+      assert.ok(actions[0].closest('.validation-actions'));
+      assert.ok(actions[0].closest('.approval-controls'));
+      assert.match(panel.textContent, /Human checkpoint/);
+      assert.match(panel.textContent, /Ready for approval/);
+    }
   }
 });
 
-test('141643 CR1/CR2: approval is single-flight, stops detail opening, and preserves draft-only drag', async () => {
+test('141643 CR1/CR2: detail approval and draft-only drag share one single-flight guard', async () => {
   const draft = baseChange();
   const approved = { ...baseChange(), id: '20260613-120001', status: 'approved' };
   const board = document.createElement('section');
@@ -397,11 +410,22 @@ test('141643 CR1/CR2: approval is single-flight, stops detail opening, and prese
 
   const draftCard = draftColumn.querySelector('.card');
   const approvedCard = approvedColumn.querySelector('.card');
-  const approve = draftCard.querySelector('[data-approve]');
-  approve.click();
-  approve.click();
+  const detail = parse(approvalDetail(draft));
+  const approve = detail.querySelector('[data-approve]');
+  let closes = 0;
+  bindApproveAction(detail, {
+    id: draft.id,
+    move: (id, status) => {
+      calls.push([id, status]);
+      return new Promise((resolve) => {
+        resolveApproval = resolve;
+      });
+    },
+    close: () => closes++,
+  });
+  const firstApproval = approve.onclick(new window.Event('click'));
+  const duplicateApproval = approve.onclick(new window.Event('click'));
   assert.deepEqual(calls, [[draft.id, 'approved']]);
-  assert.equal(detailsOpened, 0);
   assert.equal(approve.disabled, true);
 
   const values = new Map();
@@ -419,13 +443,18 @@ test('141643 CR1/CR2: approval is single-flight, stops detail opening, and prese
   const drop = new window.Event('drop', { bubbles: true, cancelable: true });
   Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
   approvedColumn.dispatchEvent(drop);
-  assert.equal(calls.length, 1, 'button and drop share one pending approval per id');
+  assert.equal(calls.length, 1, 'detail action and drop share one pending approval per id');
 
   resolveApproval(true);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(await firstApproval, true);
+  assert.equal(await duplicateApproval, false);
+  assert.equal(closes, 1);
   assert.equal(approve.disabled, false);
   assert.equal(draftCard.getAttribute('draggable'), 'true');
   assert.equal(approvedCard.hasAttribute('draggable'), false);
+
+  draftCard.click();
+  assert.equal(detailsOpened, 1);
 
   approvedColumn.dispatchEvent(drop);
   assert.deepEqual(calls.at(-1), [draft.id, 'approved']);
@@ -435,47 +464,271 @@ test('141643 CR1/CR2: approval is single-flight, stops detail opening, and prese
   assert.equal(calls.length, 2, 'a non-draft cannot initiate approval by drop');
 });
 
-test('141643 CR1: approval success reloads; failure keeps the draft, reports, and re-enables', async () => {
+test('141643 CR1/CR2: a detail action bound during a pending drop is re-enabled', async () => {
+  const draft = { ...baseChange(), id: 'drop-first' };
+  const board = document.createElement('section');
+  const approvedColumn = document.createElement('div');
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  board.append(approvedColumn);
+
+  let resolveApproval;
+  const approval = new Promise((resolve) => {
+    resolveApproval = resolve;
+  });
+  bindBoardInteractions(board, [draft], { move: () => approval });
+  approvedColumn.ondrop({
+    preventDefault() {},
+    dataTransfer: { getData: () => draft.id },
+  });
+
+  const detail = parse(approvalDetail(draft));
+  bindApproveAction(detail, { id: draft.id });
+  const approve = detail.querySelector('[data-approve]');
+  assert.equal(approve.disabled, true);
+
+  resolveApproval(false);
+  await approval;
+  await Promise.resolve();
+  assert.equal(approve.disabled, false);
+});
+
+test('141643 CR1/CR2: a detail opened during a successful drop closes with that operation', async () => {
+  const draft = { ...baseChange(), id: 'drop-success' };
+  const board = document.createElement('section');
+  const approvedColumn = document.createElement('div');
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  board.append(approvedColumn);
+
+  let resolveApproval;
+  const approval = new Promise((resolve) => {
+    resolveApproval = resolve;
+  });
+  let requests = 0;
+  bindBoardInteractions(board, [draft], {
+    move: () => {
+      requests++;
+      return approval;
+    },
+  });
+  approvedColumn.ondrop({
+    preventDefault() {},
+    dataTransfer: { getData: () => draft.id },
+  });
+
+  const detail = parse(approvalDetail(draft));
+  let closes = 0;
+  bindApproveAction(detail, { id: draft.id, close: () => closes++ });
+  assert.equal(detail.querySelector('[data-approve]').disabled, true);
+
+  resolveApproval(true);
+  await approval;
+  await Promise.resolve();
+  assert.equal(requests, 1);
+  assert.equal(closes, 1);
+});
+
+test('141643 CR1: approval completion cannot close a replacement detail', async () => {
+  const first = { ...baseChange(), id: 'first-detail' };
+  const second = { ...baseChange(), id: 'second-detail' };
+  const detail = parse(approvalDetail(first));
+  let resolveApproval;
+  let closes = 0;
+  bindApproveAction(detail, {
+    id: first.id,
+    move: () =>
+      new Promise((resolve) => {
+        resolveApproval = resolve;
+      }),
+    close: () => closes++,
+  });
+  const approval = detail.querySelector('[data-approve]').onclick(new window.Event('click'));
+
+  render(approvalDetail(second), detail);
+  bindApproveAction(detail, { id: second.id, close: () => closes++ });
+  resolveApproval(true);
+  assert.equal(await approval, true);
+  assert.equal(closes, 0);
+  assert.equal(
+    detail.querySelector('[data-approve]').getAttribute('aria-label'),
+    'Approve change second-detail',
+  );
+});
+
+test('141643 CR1: pending approvals are isolated by project and change id', async () => {
+  const change = { ...baseChange(), id: 'shared-id' };
+  const alpha = parse(approvalDetail(change));
+  let resolveAlpha;
+  let alphaCloses = 0;
+  bindApproveAction(alpha, {
+    id: change.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveAlpha = resolve;
+      }),
+    close: () => alphaCloses++,
+  });
+  const alphaApproval = alpha.querySelector('[data-approve]').onclick(new window.Event('click'));
+
+  const beta = parse(approvalDetail(change));
+  let betaCloses = 0;
+  bindApproveAction(beta, {
+    id: change.id,
+    project: 'beta',
+    move: async () => true,
+    close: () => betaCloses++,
+  });
+  assert.equal(beta.querySelector('[data-approve]').disabled, false);
+
+  resolveAlpha(true);
+  assert.equal(await alphaApproval, true);
+  assert.equal(alphaCloses, 1);
+  assert.equal(betaCloses, 0);
+});
+
+test('141643 CR1: finishing one approval cannot enable a reused button owned by another', async () => {
+  const first = { ...baseChange(), id: 'first-pending' };
+  const second = { ...baseChange(), id: 'second-pending' };
+  const detail = parse(approvalDetail(first));
+  let resolveFirst;
+  bindApproveAction(detail, {
+    id: first.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+  });
+  const reusedButton = detail.querySelector('[data-approve]');
+  const firstApproval = reusedButton.onclick(new window.Event('click'));
+
+  render(approvalDetail(second), detail);
+  let resolveSecond;
+  bindApproveAction(detail, {
+    id: second.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveSecond = resolve;
+      }),
+  });
+  const secondButton = detail.querySelector('[data-approve]');
+  assert.equal(secondButton, reusedButton, 'Lit reuses the approval button node');
+  const secondApproval = secondButton.onclick(new window.Event('click'));
+
+  resolveFirst(true);
+  assert.equal(await firstApproval, true);
+  assert.equal(secondButton.disabled, true);
+
+  resolveSecond(false);
+  assert.equal(await secondApproval, false);
+  assert.equal(secondButton.disabled, false);
+});
+
+test('141643 CR1: detail approval closes after reload success but stays open and re-enables on failure', async () => {
   appState.currentProject = 'project-alpha';
-  const success = parse(card({ ...baseChange(), id: 'success' }));
-  const successCard = success.querySelector('.card');
+  const successChange = { ...baseChange(), id: 'success' };
+  const success = parse(approvalDetail(successChange));
   const requests = [];
   const errors = [];
-  let reloads = 0;
-  bindApproveAction(successCard, (id, status) =>
-    moveStatus(id, status, undefined, {
-      request: async (...args) => {
-        requests.push(args);
-        return { ok: true, json: async () => ({ ok: true }) };
-      },
-      reload: async () => reloads++,
-      onError: (message) => errors.push(message),
-    }),
-  );
-  successCard.querySelector('[data-approve]').click();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  const sequence = [];
+  bindApproveAction(success, {
+    id: successChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async (...args) => {
+          requests.push(args);
+          return { ok: true, json: async () => ({ ok: true }) };
+        },
+        reload: async () => sequence.push('reload'),
+        onError: (message) => errors.push(message),
+      }),
+    close: () => sequence.push('close'),
+  });
+  const successButton = success.querySelector('[data-approve]');
+  assert.equal(await successButton.onclick(new window.Event('click')), true);
   assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined]]);
-  assert.equal(reloads, 1);
+  assert.deepEqual(sequence, ['reload', 'close']);
   assert.deepEqual(errors, []);
 
-  const failure = parse(card({ ...baseChange(), id: 'failure' }));
+  const failureChange = { ...baseChange(), id: 'failure' };
+  const failure = parse(approvalDetail(failureChange));
   document.body.append(failure);
-  const failureCard = failure.querySelector('.card');
-  bindApproveAction(failureCard, (id, status) =>
-    moveStatus(id, status, undefined, {
-      request: async () => ({ ok: false, json: async () => ({ error: 'approval denied' }) }),
-      reload: async () => reloads++,
-      onError: (message) => errors.push(message),
-    }),
-  );
-  const failureButton = failureCard.querySelector('[data-approve]');
-  failureButton.click();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  let failureCloses = 0;
+  bindApproveAction(failure, {
+    id: failureChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async () => ({ ok: false, json: async () => ({ error: 'approval denied' }) }),
+        reload: async () => sequence.push('unexpected reload'),
+        onError: (message) => errors.push(message),
+      }),
+    close: () => failureCloses++,
+  });
+  const failureButton = failure.querySelector('[data-approve]');
+  assert.equal(await failureButton.onclick(new window.Event('click')), false);
   assert.equal(errors.at(-1), 'approval denied');
-  assert.equal(reloads, 1);
-  assert.ok(failureCard.isConnected, 'the draft remains rendered after failure');
+  assert.equal(failureCloses, 0);
+  assert.ok(failure.isConnected, 'the draft detail remains open after failure');
   assert.equal(failureButton.disabled, false);
   failure.remove();
+
+  const reloadFailureChange = { ...baseChange(), id: 'reload-failure' };
+  const reloadFailure = parse(approvalDetail(reloadFailureChange));
+  document.body.append(reloadFailure);
+  let reloadFailureCloses = 0;
+  bindApproveAction(reloadFailure, {
+    id: reloadFailureChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+        reload: async () => false,
+        onError: (message) => errors.push(message),
+      }),
+    close: () => reloadFailureCloses++,
+  });
+  const reloadFailureButton = reloadFailure.querySelector('[data-approve]');
+  assert.equal(await reloadFailureButton.onclick(new window.Event('click')), false);
+  assert.equal(errors.at(-1), 'status changed but reload failed');
+  assert.equal(reloadFailureCloses, 0);
+  assert.ok(
+    reloadFailure.isConnected,
+    'the detail remains open when the approved state cannot reload',
+  );
+  assert.equal(reloadFailureButton.disabled, false);
+  reloadFailure.remove();
+});
+
+test('141643 CR1: a status move cannot validate by reloading another project', async () => {
+  appState.currentProject = 'alpha';
+  let resolveRequest;
+  const requestProjects = [];
+  const reloadProjects = [];
+  const errors = [];
+  const moving = moveStatus('project-switch', 'approved', undefined, {
+    project: 'alpha',
+    request: async (project) => {
+      requestProjects.push(project);
+      await new Promise((resolve) => {
+        resolveRequest = resolve;
+      });
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+    reload: async (project) => {
+      reloadProjects.push(project);
+      return true;
+    },
+    onError: (message) => errors.push(message),
+  });
+
+  appState.currentProject = 'beta';
+  resolveRequest();
+  assert.equal(await moving, false);
+  assert.deepEqual(requestProjects, ['alpha']);
+  assert.deepEqual(reloadProjects, []);
+  assert.equal(errors.at(-1), 'status changed but project changed before reload');
 });
 
 test('175732 CR1: a payload in a stage heading does not create active HTML', () => {
@@ -2173,8 +2426,30 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
     newer.resolve('{"marker":"newer"}');
     assert.equal(await newerLoad, true);
     older.resolve('{"marker":"older"}');
-    assert.equal(await olderLoad, false);
+    assert.equal(await olderLoad, true);
     assert.equal(appState.repo.marker, 'newer');
+
+    const superseded = deferred();
+    const polling = deferred();
+    const sameProjectRequests = [superseded, polling];
+    appState.lastJson = '';
+    const supersededLoad = load(() => sameProjectRequests.shift().promise, apply);
+    const pollingLoad = load(() => sameProjectRequests.shift().promise, apply);
+    let supersededSettled = false;
+    supersededLoad.then(() => {
+      supersededSettled = true;
+    });
+    superseded.resolve('{"marker":"superseded"}');
+    await Promise.resolve();
+    assert.equal(
+      supersededSettled,
+      false,
+      'a superseded reload waits for the active same-project load',
+    );
+    polling.resolve('{"marker":"polling"}');
+    assert.equal(await pollingLoad, true);
+    assert.equal(await supersededLoad, true);
+    assert.equal(appState.repo.marker, 'polling');
   } finally {
     appState.currentProject = previous.project;
     appState.repo = previous.repo;

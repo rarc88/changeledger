@@ -89,6 +89,25 @@ export function detailToolbar(mode = 'side', size = 'wide', stages = []) {
   </div>`;
 }
 
+export function approvalPanel(change) {
+  if (change?.status !== 'draft') return nothing;
+  return html`<section class="validation-actions approval-actions" aria-labelledby="approval-title">
+    <div class="validation-copy">
+      <span class="validation-kicker">Human checkpoint</span>
+      <h2 id="approval-title">Ready for approval</h2>
+      <p>Review the proposal, then approve it to make this change ready for implementation.</p>
+    </div>
+    <div class="approval-controls">
+      <button
+        type="button"
+        class="button button-primary detail-approve"
+        data-approve
+        aria-label=${`Approve change ${change.id}`}
+      >Approve</button>
+    </div>
+  </section>`;
+}
+
 export function validationPanel() {
   return html`<section class="validation-actions" aria-labelledby="validation-title">
     <div class="validation-copy">
@@ -245,18 +264,6 @@ export function card(c) {
         ${c.owner ? html`<span class="owner">@${c.owner}</span>` : nothing}
         ${blocked}
       </div>
-      ${
-        c.status === 'draft'
-          ? html`<div class="card-actions">
-              <button
-                type="button"
-                class="button button-primary card-approve"
-                data-approve
-                aria-label=${`Approve change ${c.id}`}
-              >Approve</button>
-            </div>`
-          : nothing
-      }
     </div>`;
 }
 

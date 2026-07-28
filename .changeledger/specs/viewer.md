@@ -1,8 +1,8 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-28T17:01:14Z
+updated: 2026-07-28T19:31:13Z
 tags: [ viewer ]
-graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457"]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643"]
 ---
 
 ## Presentación
@@ -14,13 +14,17 @@ headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
 body y exige una credencial efímera por proceso (inyectada en la página y
 enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
-permite que **el humano** apruebe un change `draft` desde el botón `Approve` de su
-card o arrastrándola a Approved, y acepte o rechace con motivo un change
-`in-validation` desde su detalle, además de reabrir uno provisional. Sólo los
-drafts exponen esa acción y son draggable; botón y drop comparten una única
-transición pendiente por id. Durante el request el botón queda deshabilitado; el
-éxito relee el repo y el error conserva el draft, rehabilita el control y muestra
-el mensaje existente. La autoridad sobre actores y transiciones permanece en
+permite que **el humano** apruebe un change `draft` mediante la acción accesible
+`Approve`, visible en un panel contextual dentro de su detalle/modal equivalente
+al de aceptar o rechazar validación y nunca en el toolbar, o arrastrando su card a
+Approved; también permite aceptar o rechazar con motivo un change
+`in-validation` desde su detalle y reabrir uno provisional. Las cards de draft no
+contienen `Approve`, pero siguen siendo las únicas draggable. La acción del
+detalle y el drop usan la misma transición humana y comparten una única petición
+pendiente por proyecto e id. Mientras está pendiente, la acción del detalle queda
+deshabilitada. El éxito relee el repo y sólo entonces cierra el modal; ante error
+el modal conserva abierto el draft, rehabilita la acción y muestra el mensaje
+existente. La autoridad sobre actores y transiciones permanece en
 [`lifecycle.md`](lifecycle.md); el viewer sólo ofrece estas interacciones humanas.
 La UI rinde board (kanban), table, graph
 (`depends_on` y `related_to`), Ledger y metrics, con búsqueda full-text, filtros (tipo, estado,

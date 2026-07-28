@@ -44,6 +44,7 @@ import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './s
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
+  approvalPanel,
   card,
   detailToolbar,
   referenceDetails,
@@ -81,6 +82,7 @@ export const ledgerBrowserState = ledgerBrowser.state;
 let viewerNavigation = null;
 let openedSpecName = null;
 let repoRequestRevision = 0;
+let latestRepoLoad = null;
 
 export function configureViewerNavigation(navigation) {
   viewerNavigation = navigation;
@@ -136,29 +138,47 @@ async function loadProjects(initialRoute = { kind: 'absent' }) {
   }
 }
 
-export async function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
+export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
   const revision = ++repoRequestRevision;
   const project = state.currentProject;
-  if (!project) {
-    if (state.currentView === 'projects') {
-      syncViewerShell();
-      return true;
+  const promise = (async () => {
+    if (!project) {
+      if (state.currentView === 'projects') {
+        syncViewerShell();
+        return true;
+      }
+      showNoProjects();
+      return false;
     }
-    showNoProjects();
-    return false;
-  }
-  try {
-    const text = await requestRepo(project);
-    if (revision !== repoRequestRevision || state.currentProject !== project) return false;
-    if (text === state.lastJson) return true;
-    applyRepo(text);
-    return true;
-  } catch (e) {
-    if (revision !== repoRequestRevision || state.currentProject !== project) return false;
-    if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
-    else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
-    return false;
-  }
+    try {
+      const text = await requestRepo(project);
+      if (revision !== repoRequestRevision || state.currentProject !== project) {
+        const latest = latestRepoLoad;
+        return state.currentProject === project &&
+          latest?.project === project &&
+          latest.revision > revision
+          ? latest.promise
+          : false;
+      }
+      if (text === state.lastJson) return true;
+      applyRepo(text);
+      return true;
+    } catch (e) {
+      if (revision !== repoRequestRevision || state.currentProject !== project) {
+        const latest = latestRepoLoad;
+        return state.currentProject === project &&
+          latest?.project === project &&
+          latest.revision > revision
+          ? latest.promise
+          : false;
+      }
+      if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
+      else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+      return false;
+    }
+  })();
+  latestRepoLoad = { revision, project, promise };
+  return promise;
 }
 
 function applyLoadedRepo(text) {
@@ -358,35 +378,63 @@ function renderBoard() {
   bindBoardInteractions(board, state.repo.changes);
 }
 
-const pendingApprovals = new Set();
+const pendingApprovals = new Map();
+const approveBindings = new WeakMap();
+const approvalKey = (project, id) => JSON.stringify([project, String(id)]);
 
-async function approveOnce(id, move, buttons = []) {
-  if (pendingApprovals.has(id)) return false;
-  pendingApprovals.add(id);
-  for (const button of buttons) button.disabled = true;
+async function approveOnce(project, id, move, buttons = [], onSuccess) {
+  const key = approvalKey(project, id);
+  const pending = pendingApprovals.get(key);
+  if (pending) {
+    for (const button of buttons) {
+      pending.buttons.set(button, approveBindings.get(button));
+      button.disabled = true;
+    }
+    if (onSuccess) pending.onSuccess.add(onSuccess);
+    return false;
+  }
+  const active = {
+    buttons: new Map(buttons.map((button) => [button, approveBindings.get(button)])),
+    onSuccess: new Set(onSuccess ? [onSuccess] : []),
+  };
+  pendingApprovals.set(key, active);
+  for (const button of active.buttons.keys()) button.disabled = true;
   try {
-    return await move(id, 'approved');
+    const approved = await move(id, 'approved', undefined, { project });
+    if (!approved) return false;
+    for (const complete of active.onSuccess) complete();
+    return true;
   } finally {
-    pendingApprovals.delete(id);
-    for (const button of buttons) button.disabled = false;
+    pendingApprovals.delete(key);
+    for (const [button, binding] of active.buttons) {
+      if (approveBindings.get(button) === binding) button.disabled = false;
+    }
   }
 }
 
-export function bindApproveAction(cardRoot, move = moveStatus) {
-  const button = cardRoot.querySelector('[data-approve]');
-  if (!button) return;
-  const id = cardRoot.dataset.id;
-  button.disabled = pendingApprovals.has(id);
-  button.onclick = async (event) => {
-    event.stopPropagation();
-    await approveOnce(id, move, [button]);
+export function bindApproveAction(
+  root,
+  { id, project = state.currentProject, move = moveStatus, close = closeDetail } = {},
+) {
+  const button = root.querySelector('[data-approve]');
+  if (!button || id == null) return;
+  const binding = {};
+  approveBindings.set(button, binding);
+  const closeCurrentDetail = () => {
+    const currentButton = root.querySelector('[data-approve]');
+    if (approveBindings.get(currentButton) === binding) close();
   };
+  const pending = pendingApprovals.get(approvalKey(project, id));
+  button.disabled = Boolean(pending);
+  pending?.buttons.set(button, binding);
+  pending?.onSuccess.add(closeCurrentDetail);
+  button.onclick = () => approveOnce(project, id, move, [button], closeCurrentDetail);
 }
 
 export function bindBoardInteractions(
   board,
   changes,
-  { open = openDetail, move = moveStatus } = {},
+  { project = state.currentProject, open = openDetail, move = moveStatus } = {},
 ) {
   // Dragging is reserved for initial approval. Final validation uses explicit
   // detail actions because rejection requires a reason.
@@ -394,7 +442,6 @@ export function bindBoardInteractions(
     el.onclick = () => open(el.dataset.id);
     const c = changes.find((x) => String(x.id) === String(el.dataset.id));
     if (c && c.status === 'draft') {
-      bindApproveAction(el, move);
       el.setAttribute('draggable', 'true');
       el.ondragstart = (e) => {
         e.dataTransfer.setData('text/plain', el.dataset.id);
@@ -418,11 +465,7 @@ export function bindBoardInteractions(
       const id = e.dataTransfer.getData('text/plain');
       const c = changes.find((x) => String(x.id) === String(id));
       if (c && c.status === 'draft') {
-        const buttons = [...board.querySelectorAll('.card')]
-          .filter((cardRoot) => String(cardRoot.dataset.id) === String(id))
-          .map((cardRoot) => cardRoot.querySelector('[data-approve]'))
-          .filter(Boolean);
-        approveOnce(id, move, buttons);
+        approveOnce(project, id, move);
       }
     };
   }
@@ -433,10 +476,15 @@ export async function moveStatus(
   id,
   status,
   reason,
-  { request = postStatus, reload = load, onError = showToast } = {},
+  {
+    project = state.currentProject,
+    request = postStatus,
+    reload = () => load(),
+    onError = showToast,
+  } = {},
 ) {
   try {
-    const res = await request(state.currentProject, id, status, reason);
+    const res = await request(project, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
       onError(out.error || 'status change failed');
@@ -446,8 +494,20 @@ export async function moveStatus(
     onError(e.message);
     return;
   }
+  if (state.currentProject !== project) {
+    onError('status changed but project changed before reload');
+    return false;
+  }
   invalidateCache();
-  await reload();
+  const reloaded = await reload(project);
+  if (state.currentProject !== project) {
+    onError('status changed but project changed before reload');
+    return false;
+  }
+  if (!reloaded) {
+    onError('status changed but reload failed');
+    return false;
+  }
   return true;
 }
 
@@ -622,6 +682,7 @@ function openDetail(id) {
     </div>
     ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}
     ${referenceDetails('Related changes', [...outgoing, ...incoming], changes, '↔')}
+    ${approvalPanel(c)}
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
     ${stages}
@@ -636,6 +697,7 @@ function openDetail(id) {
   applyDetailPresentation();
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
+  bindApproveAction($('#detail'), { id: c.id });
   const accept = $('#detail').querySelector('[data-validation="pass"]');
   if (accept) accept.onclick = () => submitValidation(c.id, 'done');
   const reject = $('#detail').querySelector('[data-validation="fail"]');

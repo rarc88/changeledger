@@ -723,12 +723,25 @@ body {
   opacity: 0.62;
   cursor: wait;
 }
+.approval-actions {
+  border-color: color-mix(in srgb, var(--status-approved) 32%, var(--line));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--status-approved) 9%, transparent),
+      transparent 48%
+    ),
+    var(--panel);
+}
 .validation-kicker {
   color: var(--status-in-validation);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+.approval-actions .validation-kicker {
+  color: var(--status-approved);
 }
 .validation-copy h2 {
   margin: 4px 0 3px;
@@ -748,6 +761,10 @@ body {
   grid-template-columns: auto minmax(190px, 1fr) auto;
   align-items: end;
   gap: 10px;
+  margin-top: 15px;
+}
+.approval-controls {
+  display: flex;
   margin-top: 15px;
 }
 .reopen-controls {
@@ -810,21 +827,6 @@ body {
   border-color: #67a9ff;
   background: var(--accent);
   color: #07101d;
-}
-.card-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
-}
-.card-approve {
-  min-height: 30px;
-  padding-inline: 11px;
-}
-.card-approve:disabled {
-  opacity: 0.58;
-  cursor: wait;
 }
 .button-danger {
   border-color: rgba(248, 81, 73, 0.48);
@@ -1126,6 +1128,10 @@ body {
 }
 .detail-toolbar-close {
   grid-column: 3;
+}
+.detail-approve:disabled {
+  opacity: 0.58;
+  cursor: wait;
 }
 
 .pipeline {
