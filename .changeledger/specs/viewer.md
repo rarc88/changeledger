@@ -1,6 +1,6 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-18T12:35:18Z
+updated: 2026-07-28T15:35:34Z
 tags: [ viewer ]
 graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457"]
 ---
@@ -14,10 +14,15 @@ headers defensivos (`nosniff`, `X-Frame-Options: DENY`, `no-store`), acota el
 body y exige una credencial efímera por proceso (inyectada en la página y
 enviada en `x-changeledger-token`) para escribir. Las escrituras exigen un `project`
 exacto, sin fallback al primero. Es de solo lectura salvo `POST /api/status`, que
-permite que **el humano** apruebe un change `draft` arrastrando su card y acepte o
-rechace con motivo un change `in-validation` desde su detalle, además de reabrir
-uno provisional. El agente puede rechazar o reabrir también desde el CLI; sólo
-la aprobación y aceptación permanecen humanas. La UI rinde board (kanban), table, graph
+permite que **el humano** apruebe un change `draft` desde el botón `Approve` de su
+card o arrastrándola a Approved, y acepte o rechace con motivo un change
+`in-validation` desde su detalle, además de reabrir uno provisional. Sólo los
+drafts exponen esa acción y son draggable; botón y drop comparten una única
+transición pendiente por id. Durante el request el botón queda deshabilitado; el
+éxito relee el repo y el error conserva el draft, rehabilita el control y muestra
+el mensaje existente. La autoridad sobre actores y transiciones permanece en
+[`lifecycle.md`](lifecycle.md); el viewer sólo ofrece estas interacciones humanas.
+La UI rinde board (kanban), table, graph
 (`depends_on` y `related_to`), specs y metrics, con búsqueda full-text, filtros (tipo, estado,
 owner) y render de markdown + mermaid. Type y owner son filtros inclusivos de
 multiselección; owner incluye `Unassigned` como booleano independiente de los
@@ -33,15 +38,29 @@ grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
 
-Los estados se filtran desde un menú compacto de selección múltiple. `Clear`
-restablece tanto los statuses como la visibilidad `Archived`/`Discarded`;
+Los estados se filtran desde un menú compacto de selección múltiple. `Pending
+graduation` usa el booleano que el servidor deriva del mismo predicado canónico
+que el CLI: `status === "done" && reviewed !== true`; un scaffold o marker no lo
+resuelve mientras `reviewed` no sea `true`. Se combina con AND con búsqueda,
+type, owner y statuses, y afecta Board, Table y Metrics; Graph conserva su
+semántica de tombstones. El valor se persiste por proyecto junto con los demás
+filtros. `Clear` lo desactiva y restablece tanto los statuses como la visibilidad
+`Archived`/`Discarded`;
 `Discarded` añade su lane al final del Board sin comprimir las siete columnas
-normales. Cada columna usa un ancho responsive entre 190 px y 400 px que garantiza al
-menos seis visibles sin scroll desde 1280 px; en vez de comprimirse para que
-las siete quepan, `.board` ofrece scroll horizontal para la restante. Título,
-id y owner de la card envuelven
+normales. En escritorio, `.board` mide `100dvh - var(--header-height)` y es el
+único contenedor nativo de scroll vertical y horizontal; `ResizeObserver`
+mantiene la variable sincronizada con la altura real de una topbar de una o más
+filas. Una única fila de grid toma como mínimo el alto disponible y crece hasta
+el contenido de la lane más alta, de modo que todas las columnas —incluida
+Approved vacía— comparten altura, `.column-body` rellena el espacio y el board
+absorbe el overflow de una columna larga sin sacar el scrollbar horizontal del
+borde inferior. Cada columna conserva un ancho responsive entre 190 px y 400 px
+que garantiza al menos seis visibles sin scroll desde 1280 px; en vez de
+comprimirse para que las siete quepan, el board permite llegar a la restante.
+Título, id y owner de la card envuelven
 tokens largos sin espacios (`overflow-wrap: anywhere`) para no desbordar la
-card; por debajo de 680 px las columnas siguen apilándose a ancho completo.
+card; hasta 680 px el board recupera altura natural y overflow visible, y las
+columnas se apilan a ancho completo sin scroll horizontal interno.
 Table conserva ID, título, type, status y progreso en una línea, centra
 verticalmente sus celdas y reserva el wrapping para dependencias; status usa un
 badge delineado distinto del type sólido. Los details presentan la validación
