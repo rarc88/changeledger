@@ -103,7 +103,8 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 
 - [x] Escribir primero pruebas de allowlist, traversal, symlinks, tamaño y proyecto, y después implementar la lectura contenida en `src/viewer/domain.mjs`, `src/viewer/server/router.mjs` y `test/view.test.mjs`; verify: `node --test test/view.test.mjs test/repo.test.mjs` (CR3, CR4)
   - **Resolved:** `2026-07-28T16:11:25Z`
-- [ ] Escribir primero pruebas puras de query params, precedencia y history, y después crear el módulo de routing bajo `src/viewer/public/` y su test dedicado; verify: `node --test test/app-state.test.mjs test/viewer-routing.test.mjs` (CR6, CR7)
+- [x] Escribir primero pruebas puras de query params, precedencia y history, y después crear el módulo de routing bajo `src/viewer/public/` y su test dedicado; verify: `node --test test/app-state.test.mjs test/viewer-routing.test.mjs` (CR6, CR7)
+  - **Resolved:** `2026-07-28T16:16:16Z`
 - [ ] Escribir primero la migración del snapshot v1 y después actualizar `src/viewer/public/app-state.js`, `src/viewer/public/index.html`, `test/app-state.test.mjs` y `test/viewer-metadata.test.mjs`; verify: `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1, CR7)
 - [ ] Escribir primero regresiones del grid y detalle actuales y después integrar Specs dentro de Ledger en `src/viewer/public/app.js`, `src/viewer/public/view-renderers.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR1, CR2)
 - [ ] Escribir primero pruebas de árbol, Markdown, YAML, enlaces y estados vacíos, y después implementar el navegador documental en `src/viewer/public/api.js`, `src/viewer/public/app.js`, módulos de render asociados y `src/viewer/public/styles.css`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR3, CR5, CR8)
