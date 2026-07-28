@@ -2,9 +2,10 @@
 id: "20260722-124656"
 title: Ejecutar el gate local antes de entrar en review
 type: bug
-status: in-validation
+status: done
 created: 2026-07-22T12:46:56Z
 depends_on: []
+reviewed: true
 owner: raruiz-hiberuscom
 related_to: ["20260615-150510", "20260629-234939", "20260704-114323", "20260726-141120"]
 ---
@@ -138,3 +139,5 @@ prohibiéndola en tipos sin review. La salida sigue abierta.
 - **2026-07-28T14:57:21Z** `[note]` Correccion del orquestador, sin commitear, para ronda de confirmacion con mandato minimo. Dos ediciones: (1) test/context.test.mjs, el comentario de clasificacion de implement.md ahora nombra review.md como sede superviviente de la mitad camino-de-estado de la frase move directly, y senala que esa sede esta pinneada por la asercion de este mismo fichero; (2) test/lifecycle.test.mjs, retirada la asercion assertTransition('in-review','in-progress') del pin 124656 porque duplica exactamente la del pin preexistente 171002 CR1/CR3; queda el canTransition, que no se afirma en ningun otro sitio -verificado: el happy path de CR1 no incluye in-review-. Mutacion aplicada por mi para probar que el pin recortado sigue mordiendo: quitar in-progress de los sucesores de in-review lo mata (17/2). Restaurado byte-exacto con git checkout, git diff vacio. Gate completo verde 836/836. El orquestador se somete al mismo estandar que el implementador: escrutar estas dos ediciones.
 - **2026-07-28T15:00:46Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-28T15:00:46Z** `[note]` Ronda de confirmacion con mandato minimo: PASS, sin defectos. Verificado por ejecucion: review.md:40 contiene la frase intacta en todo el historial del change, test/context.test.mjs:527-530 la pinnea, y ningun otro sitio afirma canTransition('in-review','in-progress') -el revisor trazo el BFS reachableWithoutReview y razono que in-review nunca es estado origen ahi porque CR6 lo hace inalcanzable sin review-. Mutacion re-derivada en copia: el pin recortado falla con AssertionError false !== true, 17/2, y restaurado da 19/19. Gate verde 836/836.
+- **2026-07-28T15:06:22Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-28T15:07:59Z** `[graduation]` spec: `lifecycle.md`

@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-28T00:44:09Z
+updated: 2026-07-28T15:07:59Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -17,6 +17,7 @@ stateDiagram-v2
     in_progress --> blocked
     in_review --> in_validation: review pass
     in_review --> in_progress: fail --retry
+    in_review --> in_progress: retorno sin veredicto (causa local)
     in_review --> blocked: fail --block
     in_validation --> done: humano acepta (viewer o conversación)
     in_validation --> in_progress: agente o humano rechaza con motivo
@@ -48,13 +49,28 @@ auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que e
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
 
-El estado revisado es el estado entregable: tras mover a `in-review`, el agente
-anfitrión aplica el formatter local y ejecuta los gates completos antes de
-delegar. Como el veredicto vuelve a mutar status y Log, antes del commit o del
-handoff reaplica el formatter y repite los checks afectados, incluido
-`changeledger check`. Los tipos sin review hacen lo mismo después de su
-transición directa a `in-validation`. El núcleo no ejecuta hooks, formatters ni
-comandos externos configurables como efecto lateral; esos gates pertenecen al
+El estado revisado es el estado entregable, y **el gate local decide si existe un
+candidato revisable**: el agente anfitrión aplica el formatter y ejecuta los gates
+completos **antes** de `changeledger status <id> in-review`, nunca después. Los
+tipos sin review pasan el mismo gate antes de su transición directa a
+`in-validation`. Si el gate falla, el change no se movió, así que no hay historia
+de review que deshacer; y si hubiera que retornar desde `in-review` por una causa
+local, la vía es `changeledger status <id> in-progress` —el retorno **sin
+veredicto**—, nunca `review fail --retry`, que registraría un veredicto que ningún
+revisor emitió y contaminaría Log y métricas.
+
+La transición a `in-review` **rechaza un candidato cuya readiness es inválida**:
+valida el documento tal como está, antes del cambio de status, y nombra cada
+defecto encontrado sin dejar rastro en el documento. Validar el texto posterior al
+cambio exoneraría al propio candidato bajo juicio, porque los defectos de readiness
+solo son errores mientras el change es previo a la revisión. El alcance es la
+readiness del documento, no los invariantes de repositorio.
+
+Como el veredicto vuelve a mutar status y Log, antes del commit o del handoff se
+reaplica el formatter y se repiten los checks afectados, incluido
+`changeledger check`; si el candidato cambia otra vez antes de que el revisor lo
+vea, se repite toda verificación afectada. El núcleo no ejecuta hooks, formatters
+ni comandos externos configurables como efecto lateral; esos gates pertenecen al
 repositorio anfitrión.
 
 **Inspección post-review.** Un change en `in-validation` admite una inspección
