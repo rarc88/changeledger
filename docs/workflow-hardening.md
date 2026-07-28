@@ -945,19 +945,17 @@ del de verificación y mata la clase.
    del CLI, no una captura de contexto.
 3. ~~**Nada pinnea `head ≥ base.core.lines`.** → CH-17.~~ **CERRADO por CH-0**
    (`befd4508`, `124837 CR7`). Ver CH-17.
-4. **La aritmética del resumen de `check` no cuadró al arrancar la sesión, y no
-   tengo explicación.** `checkRepo` hace `validated = targets.length` y
-   `notValidated = scoped.length - targets.length`, así que la suma es **idénticamente**
-   `changes.length`. Al arrancar, `check` dijo `3 change(s), 224 not validated` —suma
-   **227**— con **229** documentos en el árbol (`git ls-files .changeledger/changes`,
-   igual en `HEAD` y en `HEAD~1`). Tras crear CH-18 dice `4 change(s), 226 not
-   validated` = **230**, que sí cuadra, y es **determinista** en cinco corridas
-   seguidas. Entre las dos medidas sólo hubo un commit de `docs/` y un fichero de
-   change nuevo: ninguno de los dos puede hacer cargable un documento que antes no lo
-   era. Se registra sin causa **a propósito**: dos documentos que no aparecen en
-   ninguno de los dos conteos es exactamente la clase de fuga que estos resúmenes
-   existen para impedir. **Decisión de Roberto pendiente**: change propio o deuda
-   registrada.
+4. ~~La aritmética del resumen de `check` no cuadra.~~ **NO ES DEFECTO — explicado.**
+   `check` dijo `3 change(s), 224 not validated` (suma **227**) al arrancar y
+   `4 change(s), 226 not validated` (suma **230**) después, con un solo documento
+   creado por mí. La causa no está en el CLI —`checkRepo` hace
+   `notValidated = scoped.length - targets.length`, así que la suma es idénticamente
+   `changes.length`—: **entró un merge externo en la rama durante la sesión**,
+   `c1565036 Merge branch 'change/viewer-ledger-improvements'`, que trajo dos
+   documentos de change (`20260728-141643-viewer-board-ux`,
+   `20260728-141859-ledger-document-browser`) además de trabajo de viewer. 227 + 2 + 1
+   = 230. Mi baseline era el `git log` del arranque, ya caducado. **No hay change que
+   crear**; la lección es de método y va abajo.
 
 ### Tres errores del orquestador en CH-0, todos de la misma familia
 
@@ -980,6 +978,34 @@ en vez de sobre el estado real**.
 **Contramedida**: releer el estado por CLI o por fichero **inmediatamente antes** de
 cada mutación —no confiar en lo leído hace veinte turnos— y no usar `git checkout`
 en un árbol con trabajo vivo.
+
+### Dos errores más del orquestador, 2026-07-28 (CH-18), misma familia
+
+1. **La rama tiene un escritor externo, y mi baseline era el `git log` del arranque.**
+   Durante la sesión entró `c1565036 Merge branch 'change/viewer-ledger-improvements'`
+   desde otra identidad (los push a `origin` los hace `rarc88`; esta sesión es
+   `raruiz-hiberuscom` y **no tiene permiso de escritura**: `403`). Al reescribir un
+   commit hice `git reset --hard` contra el que **creía** que era el padre —el último
+   commit del arranque— y **descarté el merge**: 24 ficheros, 3673 líneas de trabajo
+   ajeno fuera del árbol. Recuperado íntegro porque había creado
+   `backup/pre-amend-9c80b0e` **antes** de tocar la historia. La contramedida de
+   arriba, aplicada a git: el padre se **lee** (`git rev-parse <commit>^`), no se
+   deduce del log de hace veinte turnos.
+2. **Escribí una verificación que no podía fallar, y me la creí.**
+   `git diff --stat A B && echo "IDENTICAL"` imprime `IDENTICAL` **siempre**, porque
+   `git diff` sin `--exit-code` sale 0 aunque haya diferencias. Afirmé "trees
+   identical" con 3673 líneas de diferencia delante. Es el hallazgo 43 —aserción
+   vacua— cometido por mí, en la comprobación que existía justo para impedir la
+   pérdida. La forma correcta es `git diff --quiet A B` y ramificar sobre su código de
+   salida.
+
+Y una fricción de herramienta, no un error de estado: **escribí a mano el body del
+commit operativo** en vez de usar `changeledger commit --no-change`, y la razón se
+envolvió a dos líneas físicas. El guard de CH-14 lo rechazó —
+`malformed ChangeLedger body`— y tenía razón: multipárrafo fue una de las ~50 rutas de
+escape que su revisor probó. Nota de diseño que esto expone: la única forma legal es
+una **sola línea**, así que una razón de más de ~72 caracteres no se puede envolver al
+estilo git convencional. El flag lo compone bien; a mano es una trampa.
 
 **Cómo quedó la exención (CH-14).** Un commit queda exento del marcador cuando su
 body es exactamente `ChangeLedger: none — <razón>` con razón no vacía. La frase de
