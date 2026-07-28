@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-28T14:18:59Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260623-125850"
@@ -129,3 +130,4 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 - **2026-07-28T17:46:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-28T19:29:45Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-28T19:33:08Z** `[graduation]` spec: `viewer.md`
+- **2026-07-28T19:42:55Z** `[archive]` archived
