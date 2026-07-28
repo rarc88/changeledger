@@ -5,7 +5,7 @@ type: feature
 status: draft
 created: 2026-07-28T16:46:20Z
 depends_on: []
-related_to: ["20260726-124837", "20260727-194234", "20260728-151336", "20260722-124656"]
+related_to: ["20260726-124837", "20260727-194234", "20260728-151336", "20260722-124656", "20260728-170429", "20260728-195445"]
 owner: raruiz-hiberuscom
 ---
 
@@ -66,11 +66,48 @@ revisor fresco la confirme, y que entonces *"correction, tests and ledger form a
 commit"*. Los dos changes cerrados hoy produjeron exactamente ese commit. El bloque
 declara cuatro clases y la práctica usa cinco.
 
-**Presupuesto.** El bloque `## Commits` mide **28 líneas contra un techo de 28**, y
-el core está a 193/200 líneas y 11770/12000 bytes. El cambio retira la fórmula
-`n + 1` / `n + 2`, la cláusula de reconstrucción y la mención a tareas inseparables,
-y añade una clase. Si el contenido correcto no cabe, el trabajo **para y pregunta**:
-no se retira normativa para encajar en un techo.
+**Presupuesto, remedido el 2026-07-28 tras `20260728-170429` y `20260728-195445`.**
+Los bytes ya no son una dimensión: `budgets.yml` declara `tokens` y `lines`, y este
+párrafo decía `11770/12000 bytes` porque el draft se redactó **antes** de que
+`170429` aterrizara. Medido ahora:
+
+| sujeto | líneas | tokens |
+|---|---|---|
+| `core` | 193/195 | 2577/4000 |
+| bloque `## Commits` | **28/28** | 549/650 |
+
+La dimensión que aprieta es **líneas**, no tokens: 2 de margen en el core frente a
+1423 tokens sin usar. El cambio retira la fórmula `n + 1` / `n + 2`, la cláusula de
+reconstrucción y la mención a tareas inseparables, y añade una clase, así que debería
+salir **neto negativo en líneas** — eso lo verifica el change, no se supone.
+
+Y un acoplamiento nuevo, creado por `20260728-195445`: mover cualquier techo obliga
+ahora a actualizar `PINNED_CEILINGS` en `test/context.test.mjs`. Es el mecanismo
+funcionando —un techo no se sube en silencio—, no un obstáculo.
+
+**La ventana sucia se ensancha, y hay que declararla.** Hoy el delta que escribe
+`changeledger status <id> in-progress` —`status` más una línea de `[status]` en el
+Log— lo absorbe el siguiente commit de tarea, porque el contrato dice que una
+transición nunca es commit propio y viaja dentro de la clase siguiente. Con **un
+solo** commit de implementación al final, ese delta queda sin commitear durante
+**toda** la implementación. Consecuencia directa: **entre `in-progress` y el commit de
+implementación el árbol nunca está limpio**, y toda delegación de esa ventana ve un
+árbol sucio.
+
+Ocurrió el 2026-07-28 implementando `20260728-195445`: el prompt de delegación exigía
+árbol limpio como condición de baseline, el delegado paró antes de escribir y reportó
+—correctamente— y costó una delegación entera. El error fue del orquestador, pero la
+causa raíz es que **el contrato no nombra en ninguna parte cuál es el conjunto sucio
+esperado durante la implementación**, así que quien redacta un baseline lo deduce, y
+deducir "limpio" es lo natural y es falso.
+
+Sede decidida: la declaración va a `templates/contract/implement.md`, que ya posee el
+gate ordenado de la etapa, **no** al bloque `## Commits` del core. Dos razones: es un
+hecho de la etapa de implementación, no de la taxonomía de clases; y el bloque está a
+28/28 líneas mientras `implement` está a 168/205 líneas y 1701/2000 tokens. La otra
+mitad —que una cláusula de baseline en un prompt de delegación declare el conjunto
+sucio esperado en vez de decir "limpio"— es del contrato de prompts de delegación y
+**no entra aquí**: su sede es el change de contrato de evidencia de la delegación.
 
 ## Proposal
 
@@ -142,17 +179,26 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 - **Then** la entrada clasifica la cláusula `never defer them and reconstruct mixed diffs at the end` como retirada, declarando que la sustituye una unidad de commit distinta y no que dejara de importar
 - **And** un grep de esa obligación no la encuentra en ningún otro fragmento
 
+### CR7 — El contrato nombra el conjunto sucio esperado durante la implementación
+- **Given** el fragmento `templates/contract/implement.md`
+- **When** se compone el contexto `implement`
+- **Then** declara que, entre `changeledger status <id> in-progress` y el commit de implementación, el documento del change queda modificado sin commitear y ése es el único delta esperado
+- **And** nombra que una transición de lifecycle no es commit propio y viaja dentro del commit de implementación, así que un árbol limpio no es una precondición válida en esa ventana
+- **And** el bloque `## Commits` del core no duplica esa declaración
+
 ### CR6 — El bloque cabe en su techo
 - **Given** el fragmento `templates/contract/core.md` reescrito
 - **When** se ejecuta la comprobación de tamaño del bloque
-- **Then** el bloque `## Commits` no supera las 28 líneas que esa comprobación fija
-- **And** el contexto core no supera su techo de líneas ni de bytes
+- **Then** el bloque `## Commits` no supera las 28 líneas de la entrada `blocks.core-commits` de `templates/contract/budgets.yml`
+- **And** el contexto `core` no supera ni su techo de `lines` ni su techo de `tokens`; los bytes dejaron de ser una dimensión con `20260728-170429`
 
 ## Plan
 
 - [ ] Reescribir el bloque `## Commits` de `templates/contract/core.md` con las cinco clases, retirando la fórmula por tarea y la cláusula de reconstrucción, y alinear el gate ordenado de `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [ ] Declarar en `templates/contract/implement.md` el conjunto sucio esperado entre `changeledger status <id> in-progress` y el commit de implementación, sin duplicarlo en el bloque `## Commits` del core; verify: `node --test test/context.test.mjs` (CR7)
 - [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
 
 ## Log
 
 - **2026-07-28T16:46:20Z** `[note]` Draft creado. Nace de que el commit por tarea resultó imposible al delegar el Plan completo en 124656 y costó 347k frente a 161k al delegar por tarea en 151336. El argumento decisivo es interno: una tarea del Plan no pasa el test de granularidad que el propio bloque enuncia. Verificado que ningún lint impone la regla hoy, así que retirarla no pierde garantía mecánica.
+- **2026-07-28T21:18:01Z** `[note]` Enmienda por instruccion de Roberto (2026-07-28): entra CR7, la ventana sucia. Razon mas fuerte que la observada: este change ENSANCHA la ventana en vez de estrecharla -- hoy el delta de 'status in-progress' lo absorbe el siguiente commit de tarea, y con un solo commit de implementacion queda sin commitear durante toda la implementacion. El contrato no nombra en ninguna parte el conjunto sucio esperado, asi que quien redacta un baseline deduce 'limpio' y eso es falso; costo una delegacion entera implementando 20260728-195445. Sede decidida: implement.md, que posee el gate de etapa, no el bloque Commits del core que esta a 28/28 lineas. La mitad de prompts de delegacion NO entra aqui: es del contrato de evidencia de la delegacion.
