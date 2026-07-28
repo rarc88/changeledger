@@ -2,7 +2,7 @@
 id: "20260728-151336"
 title: Dar forma legal al commit operativo
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-28T15:13:36Z
 depends_on: []
 related_to: ["20260726-141124", "20260726-124837", "20260727-194234"]
@@ -145,3 +145,5 @@ del core.
 ## Log
 
 - **2026-07-28T15:13:36Z** `[note]` Draft creado. Nace de reproducir el error al commitear un acta operativa: el core autoriza la edición y sus reglas de commit no dejan forma de commitearla. Diseño gobernado por una propiedad: omitir el marcador tiene que seguir fallando, así que la exención sólo se activa con declaración positiva y razón obligatoria.
+- **2026-07-28T15:18:11Z** `[status]` draft → approved
+- **2026-07-28T15:18:48Z** `[status]` approved → in-progress
