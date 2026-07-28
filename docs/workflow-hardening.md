@@ -226,8 +226,15 @@ Migración determinista con `fix`. Roberto ya lo dio por el candidato más renta
 - `namesTargetAndVerification` (`src/check.mjs:584-590`) busca **ambas listas de
   patrones sobre el mismo texto**, así que `test/**` no puede entrar en
   `target_patterns` sin volver vacío el requisito para todo el repo.
-- `hooks/**` no está en `readiness.target_patterns`, y `hooks/pre-commit` es
-  producción real.
+- ~~`hooks/**` no está en `readiness.target_patterns`.~~ **CERRADO por CH-0**
+  (`4693166e`), verificado el 2026-07-28: el patrón está en `.changeledger/config.yml`.
+- **Reproducido en vivo el 2026-07-28** redactando CH-18, que es la mejor evidencia
+  que ha dado esta clase: dos tareas envueltas a segunda línea física acabando en
+  `(CR3, CR4)` y `(CR1, CR2)` dieron **6 warnings** —cuatro CR "not covered by any
+  Plan task" más dos tareas que "references no criterion"— y **cero errores**. El
+  documento parecía mal redactado cuando estaba bien redactado; el defecto era el
+  ancla `$` a la línea física. Se arregló poniendo cada tarea en una sola línea, que
+  es precisamente el apaño que CH-1 elimina. Coste: una ronda de `check`.
 - Corolario de redacción: una tarea CR-bearing que solo añade guardas nombra como
   target **el módulo cuyo comportamiento fija**, nunca el fichero de test.
 
@@ -747,6 +754,23 @@ Alcance **reducido** por lo que CH-0 cerró de paso:
 - **B4, CERRADO por CH-0**: el techo del bloque `## Commits` vive ahora en
   `budgets.yml` como `blocks.core-commits`.
 
+**Documentado el 2026-07-28 como `20260728-195445`**, tipo `bug` (hay causa raíz y no
+hay alternativas de diseño que pesar), `release_impact: none`. Cuatro CR: los techos
+pinneados por valor en las dos direcciones (CR1), una entrada nueva que el pin no
+cubre falla (CR2), sede única del contador por **identidad de función** y no por
+igualdad de resultado (CR3), y la semántica canónica fijada sobre la entrada **sin**
+salto final, la única que separa las dos implementaciones (CR4).
+
+Decisión que el documento cierra para que no se re-decida al implementar: la sede
+canónica es `src/commands/context.mjs` —que ya exporta helpers a los tests y es el
+único sitio de `src/` que mide el tamaño de una captura— y `test/budget-support.mjs`
+lo re-exporta, así que **ningún import de test cambia**. Un módulo propio para una
+función de tres líneas se descartó como sobre-ingeniería.
+
+Descartado por vacuo (hallazgo 28): un CR que afirmara que la cifra publicada en la
+línea `BEGIN` no se mueve. Ya lo cubre la aserción viva que compara
+`publishedOccupancy(cli).lines` con `emittedLines(cli)`, así que no podría fallar.
+
 ## 5. Excluido a propósito — no re-litigar
 
 Registro de decisiones ya tomadas, del barrido de las 18 Logs:
@@ -869,8 +893,8 @@ validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 | CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change; bloque candidato medido en 28/28, espera el margen que CH-0b libera |
 | CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
 | CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
-| CH-17 | — | sin documentar | `head` derivado; contexto fresco tras CH-0 |
-| CH-18 | — | sin documentar | higiene; alcance reducido, B4 y B6 ya cerrados |
+| CH-17 | — | sin documentar | `head` derivado; contexto fresco tras CH-0. Alcance menor de lo escrito: el pin `head ≥ base.core.lines` ya está |
+| CH-18 | `20260728-195445` | **`draft`, sin aprobar** | tipo `bug`, `release_impact: none`; 4 CR, 2 tareas + 1 `(support)`; `check` limpio. Sólo B5 y B7 |
 | CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
 
 ### CH-19 — Las guardas del contrato barren todo subfragmento
@@ -921,6 +945,19 @@ del de verificación y mata la clase.
    del CLI, no una captura de contexto.
 3. ~~**Nada pinnea `head ≥ base.core.lines`.** → CH-17.~~ **CERRADO por CH-0**
    (`befd4508`, `124837 CR7`). Ver CH-17.
+4. **La aritmética del resumen de `check` no cuadró al arrancar la sesión, y no
+   tengo explicación.** `checkRepo` hace `validated = targets.length` y
+   `notValidated = scoped.length - targets.length`, así que la suma es **idénticamente**
+   `changes.length`. Al arrancar, `check` dijo `3 change(s), 224 not validated` —suma
+   **227**— con **229** documentos en el árbol (`git ls-files .changeledger/changes`,
+   igual en `HEAD` y en `HEAD~1`). Tras crear CH-18 dice `4 change(s), 226 not
+   validated` = **230**, que sí cuadra, y es **determinista** en cinco corridas
+   seguidas. Entre las dos medidas sólo hubo un commit de `docs/` y un fichero de
+   change nuevo: ninguno de los dos puede hacer cargable un documento que antes no lo
+   era. Se registra sin causa **a propósito**: dos documentos que no aparecen en
+   ninguno de los dos conteos es exactamente la clase de fuga que estos resúmenes
+   existen para impedir. **Decisión de Roberto pendiente**: change propio o deuda
+   registrada.
 
 ### Tres errores del orquestador en CH-0, todos de la misma familia
 
@@ -1033,12 +1070,17 @@ corrige.
 - H47 → sube de deuda a change (CH-11).
 - H7 descartado. H36 lo gestiona el humano. H23 se quita el bloque comentado.
 
-Nada pendiente de decisión de las de aquí. Siguiente paso: documentar **CH-18**.
+Nada pendiente de decisión de las de aquí. CH-18 documentado como
+`20260728-195445`. Siguiente paso: **aprobación de Roberto** para CH-18, y después
+documentar **CH-17**.
 
-Decisiones abiertas que **sí** hacen falta, ninguna bloqueante para documentar:
+Decisiones abiertas, ninguna bloqueante para documentar:
 
+- **CH-18 espera aprobación.** Nadie lo implementa hasta entonces.
 - **CH-16** sigue pendiente de autorizar, y su hueco 1 exige decidir si las razones
   `ChangeLedger: none — …` pueden citar ids en absoluto.
 - El residuo de `bootstrapHeadCut()` lo reclaman CH-17 y CH-19: **una sola sede**.
-- `"ten ceilings"` en los comentarios: si contaba packs, se aclara; si contaba
-  entradas, son 11 desde CH-0.
+- `"ten ceilings"` en los comentarios de `test/budget-support.mjs` y `170429 CR2`: si
+  contaba packs, se aclara; si contaba entradas, son 11 desde CH-0. **Fuera del
+  alcance de CH-18 a propósito**: es una decisión, no un defecto mecánico.
+- El descuadre del resumen de `check` (hallazgo nuevo 4): change propio o deuda.
