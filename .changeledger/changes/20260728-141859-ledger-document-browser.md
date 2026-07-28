@@ -2,7 +2,7 @@
 id: "20260728-141859"
 title: Reunir specs y contratos en la sección Ledger
 type: feature
-status: draft
+status: approved
 created: 2026-07-28T14:18:59Z
 depends_on: []
 related_to:
@@ -112,3 +112,4 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 ## Log
 
 - **2026-07-28T14:18:59Z** `[note]` Draft creado para reunir Specs y documentos allowlisted bajo una navegación Ledger compartible.
+- **2026-07-28T14:33:11Z** `[status]` draft → approved (human via conversation)
