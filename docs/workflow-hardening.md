@@ -826,16 +826,32 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 
 ## 7. Orden propuesto
 
-Hechos y archivados: **CH-4**, **CH-14**, **CH-0**. Orden restante:
+Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**. Orden restante:
 
 ```
-CH-18 → CH-17 → CH-0b → CH-1 → CH-19 → CH-15 → CH-5a → CH-5b → CH-11 → CH-12
-     → CH-1 → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
+CH-17 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
+     → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
 ```
 
-CH-18 y CH-17 van pegados a CH-0 porque comparten su superficie y su contexto
-está fresco. **CH-15 espera a CH-0b**: su bloque candidato mide 28 líneas exactas
-contra un techo de 28, y CH-0b libera margen de core al consolidar `delegation`.
+**Reordenado el 2026-07-28 por decisión de Roberto**, con el dato que lo motiva:
+`core` está a **193/195 líneas** contra **2577/4000 tokens**. La dimensión que
+bloquea es líneas, con 2 de margen, mientras 1423 tokens quedan inutilizables. CH-0
+movió la unidad a tokens y el alivio nunca llegó porque el techo de líneas siguió a
+mano. **CH-17 es el cuello de botella de todo lo demás**: casi todos los changes que
+quedan son prosa normativa, y hoy cada uno negocia contra 2 líneas. Derivado, el core
+pasa a ~106 líneas de margen real.
+
+**CH-15 sube al segundo puesto** y su bloqueo por CH-0b queda retirado: su
+`depends_on` está vacío en el ledger, el bloque `## Commits` tiene 101 tokens de
+margen, y el change es sustitutivo, así que debería salir neto negativo en líneas. Se
+mide al implementarlo, no se supone.
+
+Decisiones de Roberto del 2026-07-28 sobre el propio flujo:
+
+- **Más tipos de change**: se estudia después, no ahora.
+- **Relajar "one change at a time"** para changes cuyas superficies no se solapan:
+  inclinación expresada, **sin autorizar todavía**. Sería change propio y toca una
+  regla de seguridad de trazabilidad.
 
 Razón: CH-4, CH-5a y CH-5b son baratos y atacan el coste directamente — CH-4 deja
 de fabricar veredictos falsos, CH-5a deja de mandar auditorías completas por
@@ -894,11 +910,11 @@ validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 |---|---|---|---|
 | CH-4 | `20260722-124656` | **archivado** (2026-07-28) | graduado a `lifecycle`, aceptado por Roberto. Ya no es reabrible: trabajo posterior necesita change nuevo |
 | CH-14 | `20260728-151336` | **archivado** (2026-07-28) | graduado a `git-traceability`. 5 CR, 3 tareas, **un commit por tarea**; review PASS con ~50 intentos de escape; `\S` fijado con ronda de confirmación |
-| CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change; bloque candidato medido en 28/28, espera el margen que CH-0b libera |
+| CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change. **Enmendado el 2026-07-28** por instrucción de Roberto: entra **CR7**, la ventana sucia, porque este change la **ensancha** (con un solo commit de implementación el delta del lifecycle queda sin commitear toda la implementación). Sede decidida: `implement.md`, no el bloque `## Commits`. Corregidos los bytes que arrastraba de antes de CH-0. **`depends_on: []` — no está bloqueado en el ledger**; el bloqueo por CH-0b vivía sólo en la prosa de aquí |
 | CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
 | CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
-| CH-17 | — | sin documentar | `head` derivado; contexto fresco tras CH-0. Alcance menor de lo escrito: el pin `head ≥ base.core.lines` ya está |
-| CH-18 | `20260728-195445` | **`in-validation`** (2026-07-28) | tipo `bug`; 4 CR, 3 tareas, review **PASS** con mandato acotado. 4 commits: baseline, tarea 1, tarea 2, handoff + veredicto. `pnpm verify` EXIT=0, 923/923. Espera aceptación de Roberto |
+| CH-17 | `20260728-212043` | **`draft`, sin aprobar** (2026-07-28) | **priorizado por Roberto** para desbloquear el presupuesto. Techos de `lines` derivados de `tokens ÷ 10`; `base.core` 195 → **400**. 5 CR, 4 tareas + 1 `(support)`. Alcance **acotado a lo medido**: 5 entradas `base` + `blocks.core-commits`. Overlays y `agent` fuera, ver abajo |
+| CH-18 | `20260728-195445` | **archivado** (2026-07-28) | tipo `bug`; 4 CR, 3 tareas, review **PASS** con mandato acotado, **cero rondas de retry**. 6 commits: baseline, 2 de tarea, handoff, veredicto, cierre. Graduado a `contract-discovery`. `pnpm verify` EXIT=0, 923/923 |
 | CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
 
 ### CH-19 — Las guardas del contrato barren todo subfragmento
@@ -937,7 +953,29 @@ legal de documentarse con criterios.** Eso es el hallazgo 41 en su forma más pu
 CH-19 espera a **CH-1** (gramática del Plan por tags), que separa el campo de target
 del de verificación y mata la clase.
 
-### Hallazgos nuevos del 2026-07-28 (tarde), sin change asignado
+### Hallazgos nuevos del 2026-07-28 (noche), midiendo para CH-17
+
+1. **`agent-prompt` no está acotado por nada.** La entrada `agent` de `budgets.yml`
+   (350 tokens / 60 líneas) la aplica `144327 CR8` en `test/agent-context.test.mjs`
+   sobre `buildAgentContext`, es decir sobre las cápsulas de **contexto**. Las cuatro
+   cápsulas de **prompt** miden **433, 478, 398 y 414 tokens** —las cuatro por encima
+   de 350— y `pnpm verify` pasa en verde, porque **ningún test las mide contra un
+   techo**. La tabla de §6 de este acta las listaba juntas como si compartieran techo.
+   Es un techo que no puede fallar para la mitad de lo que se creía que cubría.
+   **Decisión pendiente de Roberto**: ¿comparten techo con `agent-context` o tienen el
+   suyo? No es arreglo mecánico. Fuera del alcance de CH-17 a propósito.
+2. **Los techos derivados de los overlays y de `agent` caen por debajo de los
+   actuales**: `blocked` 50 vs 84, `in-validation` 45 vs 54, `done` 100 vs 108,
+   `discarded` 20 vs 48, `agent` 35 vs 60. Derivarlos puede apretar de verdad, y
+   medirlos exige montar un repo de fixture con un change por status. CH-17 los deja
+   fuera **por no medidos**; derivar sin medir sería afirmar sin verificar. Follow-up
+   con su propia medición.
+3. **El hallazgo 41 golpeó tres veces en una sola sesión**: al redactar el Plan de
+   CH-18 (tareas envueltas), al redactar el de CH-17 (tarea de CR3 cuyo entregable es
+   sólo una guarda), y sigue bloqueando CH-19. Es el argumento acumulado más fuerte
+   para CH-1.
+
+### Hallazgos del 2026-07-28 (tarde), sin change asignado
 
 1. **`.changeledger/specs/contract-discovery.md` documenta los bytes y el formato
    `lines/bytes` de la línea BEGIN como verdad vigente.** Cuarta aparición hoy de la
