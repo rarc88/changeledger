@@ -34,6 +34,8 @@ test('105206 CR3: legacy single filters restore as sets and serialize arrays', a
   assert.deepEqual(saved.types, ['feature']);
   assert.deepEqual(saved.owners, ['ana']);
   assert.equal(saved.includeUnassigned, false);
+  assert.equal(state.filters.pendingGraduation, false);
+  assert.equal(saved.pendingGraduation, false);
 });
 
 test('231428: initial state has correct defaults', async () => {
@@ -41,6 +43,7 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.repo, null);
   assert.equal(state.lastJson, '');
   assert.equal(state.currentView, 'board');
+  assert.equal(state.ledgerCategory, 'specs');
   assert.equal(state.sortKey, 'id');
   assert.equal(state.sortDir, 1);
   assert.equal(state.currentProject, null);
@@ -52,7 +55,73 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.filters.owner, 'all');
   assert.equal(state.filters.showArchived, false);
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, false);
   assert.equal(state.filters.statuses.size, 0);
+});
+
+test('141859 CR7: legacy Specs snapshots migrate to Ledger Specs', async () => {
+  const mod = await freshState();
+  const store = memoryStorage({
+    [mod.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentProject: 'alpha',
+      currentView: 'specs',
+      ledgerCategory: 'contract',
+      text: 'preserved',
+      projects: { alpha: { types: ['feature'], statuses: ['draft'] } },
+    }),
+  });
+
+  assert.equal(mod.restoreViewerState(store), true);
+  assert.equal(mod.state.currentView, 'ledger');
+  assert.equal(mod.state.ledgerCategory, 'specs');
+  assert.equal(mod.state.filters.text, 'preserved');
+  assert.deepEqual([...mod.state.filters.types], ['feature']);
+  assert.deepEqual([...mod.state.filters.statuses], ['draft']);
+  assert.equal(mod.serializeViewerState().currentView, 'ledger');
+  assert.equal(mod.serializeViewerState().ledgerCategory, 'specs');
+});
+
+test('141859 CR1/CR7: valid Ledger category state round-trips with existing persistence', async () => {
+  const first = await freshState();
+  const store = memoryStorage();
+  first.restoreViewerState(store);
+  first.initializeProjects([{ id: 'alpha', alive: true }], 'alpha');
+  first.setTextFilter('ledger truth');
+  first.setView('ledger');
+  assert.equal(first.setLedgerCategory('contract'), 'contract');
+
+  const saved = JSON.parse(store.value(first.VIEWER_STATE_KEY));
+  assert.equal(saved.currentView, 'ledger');
+  assert.equal(saved.ledgerCategory, 'contract');
+  assert.equal(saved.text, 'ledger truth');
+  assert.equal(saved.currentProject, 'alpha');
+
+  const second = await freshState();
+  assert.equal(second.restoreViewerState(store), true);
+  assert.equal(second.state.currentView, 'ledger');
+  assert.equal(second.state.ledgerCategory, 'contract');
+  assert.equal(second.state.filters.text, 'ledger truth');
+  assert.equal(second.state.currentProject, 'alpha');
+});
+
+test('141859 CR7: invalid persisted and mutated Ledger categories fall back to Specs', async () => {
+  const restored = await freshState();
+  const store = memoryStorage({
+    [restored.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      currentView: 'ledger',
+      ledgerCategory: 'filesystem',
+      projects: {},
+    }),
+  });
+  assert.equal(restored.restoreViewerState(store), true);
+  assert.equal(restored.state.currentView, 'ledger');
+  assert.equal(restored.state.ledgerCategory, 'specs');
+
+  assert.equal(restored.setLedgerCategory('templates'), 'templates');
+  assert.equal(restored.setLedgerCategory('filesystem'), 'specs');
+  assert.equal(JSON.parse(store.value(restored.VIEWER_STATE_KEY)).ledgerCategory, 'specs');
 });
 
 test('231428: setRepo parses json and caches it', async () => {
@@ -128,10 +197,12 @@ test('125850 CR1/CR10: clearStatusFilters empties statuses and visibility toggle
   state.filters.statuses.add('in-validation');
   state.filters.showArchived = true;
   state.filters.showDiscarded = true;
+  state.filters.pendingGraduation = true;
   clearStatusFilters();
   assert.equal(state.filters.statuses.size, 0);
   assert.equal(state.filters.showArchived, false);
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, false);
 });
 
 test('231428: toggleShowArchived flips and returns new value', async () => {
@@ -176,6 +247,7 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   first.toggleStatusFilter('draft');
   first.toggleShowArchived();
   first.toggleShowDiscarded();
+  first.togglePendingGraduation();
   first.setView('table');
   first.setSortKey('progress');
   first.setSortKey('progress');
@@ -193,6 +265,7 @@ test('111219 CR1/CR2/CR8: snapshot round-trip restores complete safe viewer cont
   assert.deepEqual([...second.state.filters.statuses], ['draft']);
   assert.equal(second.state.filters.showArchived, true);
   assert.equal(second.state.filters.showDiscarded, true);
+  assert.equal(second.state.filters.pendingGraduation, true);
   assert.equal(second.state.sortKey, 'progress');
   assert.equal(second.state.sortDir, -1);
   assert.equal(second.state.detailMode, 'floating');
@@ -237,6 +310,7 @@ test('111219 CR3: project selection preserves independent filters', async () => 
     selectProject,
     setOwnerFilter,
     setTypeFilter,
+    togglePendingGraduation,
     toggleShowDiscarded,
   } = await freshState();
   initializeProjects(
@@ -248,6 +322,7 @@ test('111219 CR3: project selection preserves independent filters', async () => 
   );
   setTypeFilter('feature');
   state.filters.statuses.add('draft');
+  togglePendingGraduation();
   selectProject('beta');
   setTypeFilter('bug');
   setOwnerFilter('bob');
@@ -258,11 +333,13 @@ test('111219 CR3: project selection preserves independent filters', async () => 
   assert.deepEqual([...state.filters.statuses], ['draft']);
   assert.equal(state.filters.owner, 'all');
   assert.equal(state.filters.showDiscarded, false);
+  assert.equal(state.filters.pendingGraduation, true);
 
   selectProject('beta');
   assert.equal(state.filters.type, 'bug');
   assert.equal(state.filters.owner, 'bob');
   assert.equal(state.filters.showDiscarded, true);
+  assert.equal(state.filters.pendingGraduation, false);
 });
 
 test('111219 CR4: missing selected project falls back and rewrites snapshot', async () => {
@@ -348,10 +425,12 @@ test('111219 CR7: Clear persists empty statuses and disabled visibility', async 
   mod.toggleStatusFilter('done');
   mod.toggleShowArchived();
   mod.toggleShowDiscarded();
+  mod.togglePendingGraduation();
   mod.clearStatusFilters();
 
   const saved = JSON.parse(store.value(mod.VIEWER_STATE_KEY));
   assert.deepEqual(saved.projects.alpha.statuses, []);
   assert.equal(saved.projects.alpha.showArchived, false);
   assert.equal(saved.projects.alpha.showDiscarded, false);
+  assert.equal(saved.projects.alpha.pendingGraduation, false);
 });

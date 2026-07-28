@@ -1,6 +1,8 @@
 import {
   getConfigMigrationPreview,
   getGitRefs,
+  getLedgerDocument,
+  getLedgerTree,
   getProjectConfigStructured,
   getProjects,
   getRepo,
@@ -22,6 +24,7 @@ import {
   restoreViewerState,
   selectProject,
   setDetailPresentation,
+  setLedgerCategory,
   setRepo,
   setSortKey,
   setTextFilter,
@@ -29,16 +32,19 @@ import {
   state,
   toggleGlobalMode,
   toggleOwnerFilter,
+  togglePendingGraduation,
   toggleShowArchived,
   toggleShowDiscarded,
   toggleStatusFilter,
   toggleTypeFilter,
   toggleUnassignedOwner,
 } from './app-state.js';
+import { createLedgerBrowser, handleLedgerDocumentLink } from './ledger-browser.js';
 import { cssIdent, initMermaid, makeMermaidExpandable, renderMermaid } from './security.js';
 import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
+  approvalPanel,
   card,
   detailToolbar,
   referenceDetails,
@@ -49,7 +55,8 @@ import {
   tableRow,
   validationPanel,
 } from './view-parts.js';
-import { graphSvg, metricsHtml, sortSpecsByUpdated, specsListHtml } from './view-renderers.js';
+import { graphSvg, ledgerViewHtml, metricsHtml, sortSpecsByUpdated } from './view-renderers.js';
+import { createLedgerNavigation, readLedgerRoute } from './viewer-routing.js';
 
 export { cssIdent, esc, makeMermaidExpandable, safeHtml } from './security.js';
 export { boardStatuses, isVisible, passesTombstones } from './state.js';
@@ -67,9 +74,38 @@ export {
 
 const $ = (sel) => document.querySelector(sel);
 
+export const ledgerBrowser = createLedgerBrowser({
+  getTree: getLedgerTree,
+  getDocument: getLedgerDocument,
+});
+export const ledgerBrowserState = ledgerBrowser.state;
+let viewerNavigation = null;
+let openedSpecName = null;
+let repoRequestRevision = 0;
+let latestRepoLoad = null;
+
+export function configureViewerNavigation(navigation) {
+  viewerNavigation = navigation;
+}
+
+function currentLedgerRoute(doc = null) {
+  if (state.currentView !== 'ledger' || !state.currentProject) return null;
+  return {
+    view: 'ledger',
+    project: state.currentProject,
+    category: state.ledgerCategory,
+    doc,
+  };
+}
+
+function writeCurrentLedgerRoute(mode, doc = null) {
+  const route = currentLedgerRoute(doc);
+  if (route && viewerNavigation) viewerNavigation[mode](route);
+}
+
 initMermaid();
 
-async function loadProjects() {
+async function loadProjects(initialRoute = { kind: 'absent' }) {
   const { projects, current, localOnly } = await getProjects();
   state.projectsList = projects;
   state.localOnly = localOnly;
@@ -81,31 +117,75 @@ async function loadProjects() {
     ),
     sel,
   );
-  initializeProjects(projects, current);
-  if (state.currentProject) sel.value = state.currentProject;
+  initializeProjects(projects, current, { exact: initialRoute.kind === 'valid' });
+  if (state.currentProject && projects.some((project) => project.id === state.currentProject)) {
+    sel.value = state.currentProject;
+  }
   sel.style.display = projects.length > 1 ? '' : 'none';
-  await load();
-}
-
-async function load() {
-  if (!state.currentProject) {
-    if (state.currentView === 'projects') {
-      syncViewerShell();
-      return;
-    }
-    showNoProjects();
+  if (initialRoute.kind === 'valid') {
+    await restoreLedgerRouteSelection(initialRoute.state);
     return;
   }
-  try {
-    const text = await getRepo(state.currentProject);
-    if (text === state.lastJson) return;
-    setRepo(text);
-    normalizeRepoState(state.repo);
-    hydrateFilters();
-    syncViewerShell();
-  } catch (e) {
-    litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+  if (initialRoute.kind === 'invalid') {
+    renderLedgerRouteError($('#ledger'), 'Invalid Ledger URL');
+    return;
   }
+  await load();
+  if (state.currentView === 'ledger' && state.currentProject) {
+    writeCurrentLedgerRoute('replace');
+  } else {
+    viewerNavigation?.clear('replace', state.currentView);
+  }
+}
+
+export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
+  const revision = ++repoRequestRevision;
+  const project = state.currentProject;
+  const promise = (async () => {
+    if (!project) {
+      if (state.currentView === 'projects') {
+        syncViewerShell();
+        return true;
+      }
+      showNoProjects();
+      return false;
+    }
+    try {
+      const text = await requestRepo(project);
+      if (revision !== repoRequestRevision || state.currentProject !== project) {
+        const latest = latestRepoLoad;
+        return state.currentProject === project &&
+          latest?.project === project &&
+          latest.revision > revision
+          ? latest.promise
+          : false;
+      }
+      if (text === state.lastJson) return true;
+      applyRepo(text);
+      return true;
+    } catch (e) {
+      if (revision !== repoRequestRevision || state.currentProject !== project) {
+        const latest = latestRepoLoad;
+        return state.currentProject === project &&
+          latest?.project === project &&
+          latest.revision > revision
+          ? latest.promise
+          : false;
+      }
+      if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
+      else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
+      return false;
+    }
+  })();
+  latestRepoLoad = { revision, project, promise };
+  return promise;
+}
+
+function applyLoadedRepo(text) {
+  setRepo(text);
+  normalizeRepoState(state.repo);
+  hydrateFilters();
+  syncViewerShell();
 }
 
 export function showNoProjects(root = document) {
@@ -194,11 +274,16 @@ export function renderChoiceFilter(host, label, choices, selected, toggle, clear
 
 export function renderStatusFilter() {
   const sf = $('#status-filter');
+  const summary = state.filters.pendingGraduation
+    ? state.filters.statuses.size
+      ? `${state.filters.statuses.size + 1} selected`
+      : 'Pending graduation'
+    : statusSummary(state.filters.statuses);
   litRender(
     html`<details class="filter-menu">
       <summary class="filter-trigger">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.25h12M4.25 8h7.5M6.5 12.75h3"></path></svg>
-        <span data-status-summary>${statusSummary(state.filters.statuses)}</span>
+        <span data-status-summary>${summary}</span>
         <svg class="filter-chevron" viewBox="0 0 16 16" aria-hidden="true">
           <path d="m4.5 6.25 3.5 3.5 3.5-3.5"></path>
         </svg>
@@ -213,6 +298,11 @@ export function renderStatusFilter() {
               <span>${status.replaceAll('-', ' ')}</span>
             </label>`,
           )}
+          <label class="check-option">
+            <input type="checkbox" data-pending-graduation .checked=${state.filters.pendingGraduation} />
+            <span class="check-box" aria-hidden="true"></span>
+            <span>Pending graduation</span>
+          </label>
         </div>
         <div class="filter-heading visibility-heading"><span>Visibility</span></div>
         <div class="filter-options">
@@ -236,6 +326,11 @@ export function renderStatusFilter() {
       render();
     };
   });
+  sf.querySelector('[data-pending-graduation]').onchange = () => {
+    togglePendingGraduation();
+    renderStatusFilter();
+    render();
+  };
   sf.querySelector('[data-clear-status]').onclick = () => {
     clearStatusFilters();
     renderStatusFilter();
@@ -260,7 +355,7 @@ function visibleChanges() {
 function render() {
   if (state.currentView === 'graph') renderGraph();
   else if (state.currentView === 'table') renderTable();
-  else if (state.currentView === 'specs') renderSpecs();
+  else if (state.currentView === 'ledger') renderLedger();
   else if (state.currentView === 'metrics') renderMetrics();
   else if (state.currentView === 'projects') renderProjects();
   else renderBoard();
@@ -280,17 +375,81 @@ function renderBoard() {
     }),
     board,
   );
+  bindBoardInteractions(board, state.repo.changes);
+}
+
+const pendingApprovals = new Map();
+const approveBindings = new WeakMap();
+const approvalKey = (project, id) => JSON.stringify([project, String(id)]);
+
+async function approveOnce(project, id, move, buttons = [], onSuccess) {
+  const key = approvalKey(project, id);
+  const pending = pendingApprovals.get(key);
+  if (pending) {
+    for (const button of buttons) {
+      pending.buttons.set(button, approveBindings.get(button));
+      button.disabled = true;
+    }
+    if (onSuccess) pending.onSuccess.add(onSuccess);
+    return false;
+  }
+  const active = {
+    buttons: new Map(buttons.map((button) => [button, approveBindings.get(button)])),
+    onSuccess: new Set(onSuccess ? [onSuccess] : []),
+  };
+  pendingApprovals.set(key, active);
+  for (const button of active.buttons.keys()) button.disabled = true;
+  try {
+    const approved = await move(id, 'approved', undefined, { project });
+    if (!approved) return false;
+    for (const complete of active.onSuccess) complete();
+    return true;
+  } finally {
+    pendingApprovals.delete(key);
+    for (const [button, binding] of active.buttons) {
+      if (approveBindings.get(button) === binding) button.disabled = false;
+    }
+  }
+}
+
+export function bindApproveAction(
+  root,
+  { id, project = state.currentProject, move = moveStatus, close = closeDetail } = {},
+) {
+  const button = root.querySelector('[data-approve]');
+  if (!button || id == null) return;
+  const binding = {};
+  approveBindings.set(button, binding);
+  const closeCurrentDetail = () => {
+    const currentButton = root.querySelector('[data-approve]');
+    if (approveBindings.get(currentButton) === binding) close();
+  };
+  const pending = pendingApprovals.get(approvalKey(project, id));
+  button.disabled = Boolean(pending);
+  pending?.buttons.set(button, binding);
+  pending?.onSuccess.add(closeCurrentDetail);
+  button.onclick = () => approveOnce(project, id, move, [button], closeCurrentDetail);
+}
+
+export function bindBoardInteractions(
+  board,
+  changes,
+  { project = state.currentProject, open = openDetail, move = moveStatus } = {},
+) {
   // Dragging is reserved for initial approval. Final validation uses explicit
   // detail actions because rejection requires a reason.
   board.querySelectorAll('.card').forEach((el) => {
-    el.onclick = () => openDetail(el.dataset.id);
-    const c = state.repo.changes.find((x) => String(x.id) === String(el.dataset.id));
+    el.onclick = () => open(el.dataset.id);
+    const c = changes.find((x) => String(x.id) === String(el.dataset.id));
     if (c && c.status === 'draft') {
       el.setAttribute('draggable', 'true');
       el.ondragstart = (e) => {
         e.dataTransfer.setData('text/plain', el.dataset.id);
         e.dataTransfer.effectAllowed = 'move';
       };
+    } else {
+      el.removeAttribute('draggable');
+      el.ondragstart = null;
     }
   });
   const approvedCol = board.querySelector('.column[data-status="approved"]');
@@ -304,27 +463,51 @@ function renderBoard() {
       e.preventDefault();
       approvedCol.classList.remove('drop-target');
       const id = e.dataTransfer.getData('text/plain');
-      const c = state.repo.changes.find((x) => String(x.id) === String(id));
-      if (c && c.status === 'draft') moveStatus(id, 'approved');
+      const c = changes.find((x) => String(x.id) === String(id));
+      if (c && c.status === 'draft') {
+        approveOnce(project, id, move);
+      }
     };
   }
 }
 
 // Persist a human-owned lifecycle move, then refresh the board.
-async function moveStatus(id, status, reason) {
+export async function moveStatus(
+  id,
+  status,
+  reason,
+  {
+    project = state.currentProject,
+    request = postStatus,
+    reload = () => load(),
+    onError = showToast,
+  } = {},
+) {
   try {
-    const res = await postStatus(state.currentProject, id, status, reason);
+    const res = await request(project, id, status, reason);
     const out = await res.json();
     if (!res.ok) {
-      showToast(out.error || 'status change failed');
+      onError(out.error || 'status change failed');
       return;
     }
   } catch (e) {
-    showToast(e.message);
+    onError(e.message);
     return;
   }
+  if (state.currentProject !== project) {
+    onError('status changed but project changed before reload');
+    return false;
+  }
   invalidateCache();
-  await load();
+  const reloaded = await reload(project);
+  if (state.currentProject !== project) {
+    onError('status changed but project changed before reload');
+    return false;
+  }
+  if (!reloaded) {
+    onError('status changed but reload failed');
+    return false;
+  }
   return true;
 }
 
@@ -499,6 +682,7 @@ function openDetail(id) {
     </div>
     ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}
     ${referenceDetails('Related changes', [...outgoing, ...incoming], changes, '↔')}
+    ${approvalPanel(c)}
     ${c.status === 'in-validation' ? validationPanel() : nothing}
     ${reopenPanel(c.status)}
     ${stages}
@@ -513,6 +697,7 @@ function openDetail(id) {
   applyDetailPresentation();
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
+  bindApproveAction($('#detail'), { id: c.id });
   const accept = $('#detail').querySelector('[data-validation="pass"]');
   if (accept) accept.onclick = () => submitValidation(c.id, 'done');
   const reject = $('#detail').querySelector('[data-validation="fail"]');
@@ -598,8 +783,15 @@ async function loadGitRefs(id) {
 }
 
 function closeDetail() {
-  $('#overlay').classList.add('hidden');
-  document.documentElement.classList.remove('detail-open');
+  $('#overlay')?.classList.add('hidden');
+  document.documentElement?.classList.remove('detail-open');
+}
+
+function closeLedgerSpec({ historyMode = 'push' } = {}) {
+  const wasOpen = openedSpecName !== null;
+  openedSpecName = null;
+  closeDetail();
+  if (wasOpen && historyMode) writeCurrentLedgerRoute(historyMode);
 }
 
 let diagramLightbox = null;
@@ -728,23 +920,128 @@ function sortVal(c, key) {
   return String(c[key] ?? '');
 }
 
-/* Specs view */
-function renderSpecs() {
+async function paintLedger(root, browser) {
   const q = state.filters.text.toLowerCase();
   const specs = sortSpecsByUpdated(
     (state.repo.specs || []).filter(
       (s) => !q || `${s.title} ${(s.tags || []).join(' ')} ${s.body}`.toLowerCase().includes(q),
     ),
   );
-  litRender(specsListHtml(specs, fmtDateTime), $('#specs'));
-  $('#specs')
-    .querySelectorAll('.spec-card')
-    .forEach((el) => {
-      el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
-    });
+  litRender(ledgerViewHtml(state.ledgerCategory, specs, fmtDateTime, browser.state), root);
+  root.querySelectorAll('[data-ledger-category]').forEach((button) => {
+    button.onclick = async () => {
+      openedSpecName = null;
+      setLedgerCategory(button.dataset.ledgerCategory);
+      writeCurrentLedgerRoute('push');
+      await renderLedger(root, browser);
+    };
+  });
+  root.querySelectorAll('.spec-card').forEach((el) => {
+    el.onclick = () => openSpec(specs[Number(el.dataset.i)]);
+  });
+  root.querySelectorAll('[data-ledger-document]').forEach((button) => {
+    button.onclick = () => openLedgerDocument(button.dataset.ledgerDocument, root, browser);
+  });
+  const tree = root.querySelector('[data-ledger-tree]');
+  const back = root.querySelector('[data-ledger-back]');
+  if (back && tree) {
+    back.onclick = () => {
+      tree.focus();
+      tree.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
+  const article = root.querySelector('.ledger-article');
+  if (article && browser.state.document?.format === 'markdown') {
+    article.onclick = (event) =>
+      handleLedgerDocumentLink(
+        event,
+        browser.state.selectedPath,
+        browser.state.documents,
+        (path) => void openLedgerDocument(path, root, browser),
+      );
+    await renderExpandableMermaid(article);
+  }
 }
 
-function openSpec(s) {
+/* Ledger view */
+export async function renderLedger(root = $('#ledger'), browser = ledgerBrowser) {
+  const context = browser.setContext(state.currentProject, state.ledgerCategory);
+  await paintLedger(root, browser);
+  await context;
+  if (
+    browser.state.project === state.currentProject &&
+    browser.state.category === state.ledgerCategory
+  ) {
+    await paintLedger(root, browser);
+  }
+}
+
+export async function openLedgerDocument(
+  path,
+  root = $('#ledger'),
+  browser = ledgerBrowser,
+  { historyMode = 'push', restore = false } = {},
+) {
+  const opening = browser[restore ? 'restore' : 'open'](path);
+  if (historyMode && browser.state.selectedPath === path) {
+    writeCurrentLedgerRoute(historyMode, path);
+  }
+  await paintLedger(root, browser);
+  const opened = await opening;
+  await paintLedger(root, browser);
+  return opened;
+}
+
+function renderLedgerRouteError(root, message) {
+  litRender(html`<p class="ledger-error" role="alert">${message}</p>`, root);
+}
+
+async function ensureLedgerProject(project) {
+  const match = state.projectsList.find((candidate) => candidate.id === project);
+  if (!match) return { ok: false, error: 'Project not found' };
+  if (!match.alive) return { ok: false, error: 'Project path is gone' };
+  const selector = $('#project');
+  if (selector) selector.value = project;
+  return (await load())
+    ? { ok: true }
+    : { ok: false, error: 'Unable to load the requested project' };
+}
+
+export async function restoreLedgerRouteSelection(
+  route,
+  { root = $('#ledger'), browser = ledgerBrowser, ensureProject = ensureLedgerProject } = {},
+) {
+  setView('ledger');
+  state.globalMode = false;
+  if (state.currentProject !== route.project) selectProject(route.project);
+  setLedgerCategory(route.category);
+  openedSpecName = null;
+  browser.clearSelection();
+  closeDetail();
+
+  const project = await ensureProject(route.project);
+  if (!project?.ok) {
+    renderLedgerRouteError(root, project?.error || 'Project not found');
+    return false;
+  }
+
+  await renderLedger(root, browser);
+  if (!route.doc) return true;
+  if (route.category === 'specs') {
+    const spec = (state.repo?.specs ?? []).find((candidate) => candidate.name === route.doc);
+    if (!spec) {
+      renderLedgerRouteError(root, 'Spec not found');
+      return false;
+    }
+    openSpec(spec, { historyMode: null });
+    return true;
+  }
+  return openLedgerDocument(route.doc, root, browser, { historyMode: null, restore: true });
+}
+
+function openSpec(s, { historyMode = 'push' } = {}) {
+  openedSpecName = s.name ?? null;
+  if (historyMode) writeCurrentLedgerRoute(historyMode, openedSpecName);
   renderOpenedDetail(
     html`
     ${detailToolbar(state.detailMode, state.detailSize)}
@@ -762,9 +1059,9 @@ function openSpec(s) {
   applyDetailPresentation();
   bindDetailPresentation();
   const detail = $('#detail');
-  detail.querySelector('.close').onclick = closeDetail;
+  detail.querySelector('.close').onclick = () => closeLedgerSpec();
   overlay.onclick = (e) => {
-    if (e.target === overlay) closeDetail();
+    if (e.target === overlay) closeLedgerSpec();
   };
   detail.onclick = (e) => handleSpecBodyClick(e, (href) => openSpecByName(href, state, openSpec));
   detail.querySelectorAll('[data-change]').forEach((el) => {
@@ -812,7 +1109,7 @@ export function handleSpecBodyClick(event, _openSpecByName) {
   _openSpecByName(href);
 }
 
-const VIEWS = ['board', 'table', 'graph', 'specs', 'metrics', 'projects'];
+const VIEWS = ['board', 'table', 'graph', 'ledger', 'metrics', 'projects'];
 
 // The shared metrics module is dynamic-imported once and cached: the client
 // computes metrics itself, over the filtered set, instead of duplicating
@@ -857,7 +1154,11 @@ export function syncViewerShell(root = document, renderContent = true) {
   else render();
 }
 
-export function restoreInitialViewerShell(root = document, getStorage = () => window.localStorage) {
+export function restoreInitialViewerShell(
+  root = document,
+  getStorage = () => window.localStorage,
+  location = null,
+) {
   let browserStorage = null;
   try {
     browserStorage = getStorage();
@@ -865,7 +1166,18 @@ export function restoreInitialViewerShell(root = document, getStorage = () => wi
     // Storage access itself may be forbidden (opaque origins/privacy policy).
   }
   restoreViewerState(browserStorage);
+  const route = location ? readLedgerRoute(location) : { kind: 'absent' };
+  if (route.kind === 'valid') {
+    selectProject(route.state.project);
+    setView('ledger');
+    setLedgerCategory(route.state.category);
+    state.globalMode = false;
+  } else if (route.kind === 'invalid') {
+    setView('ledger');
+    state.globalMode = false;
+  }
   syncViewerShell(root, false);
+  return route;
 }
 
 let managedProject = null;
@@ -1575,15 +1887,32 @@ export function bindProjectViewActions(root, handlers) {
     unregister.onclick = () => handlers.unregister(root.querySelector('.project-editor'));
 }
 
-function activateView(v) {
+export function activateView(v, { renderContent = true, historyMode = 'push' } = {}) {
   setView(v);
+  openedSpecName = null;
+  ledgerBrowser.clearSelection();
+  closeDetail();
+  if (historyMode && viewerNavigation) {
+    if (v === 'ledger') writeCurrentLedgerRoute(historyMode);
+    else viewerNavigation.clear(historyMode, v);
+  }
   $('#toggle-global').classList.remove('active');
   $('#global').classList.add('hidden');
   for (const name of VIEWS) {
     $(`#view-${name}`).classList.toggle('active', v === name);
     $(`#${name}`).classList.toggle('hidden', v !== name);
   }
-  render();
+  if (renderContent) render();
+}
+
+export async function selectViewerProject(nextProject, { loadProject = load } = {}) {
+  selectProject(nextProject);
+  openedSpecName = null;
+  ledgerBrowser.clearSelection();
+  const selector = $('#project');
+  if (selector) selector.value = nextProject;
+  if (state.currentView === 'ledger') writeCurrentLedgerRoute('push');
+  return loadProject();
 }
 
 // Global search: query every project server-side, render grouped results.
@@ -1652,8 +1981,30 @@ const fmtDate = (iso) => {
 
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
+export async function restoreViewerLocation(event) {
+  const route = viewerNavigation?.read() ?? { kind: 'absent' };
+  if (route.kind === 'valid') {
+    await restoreLedgerRouteSelection(route.state);
+    return;
+  }
+  const view = event?.state?.view;
+  if (VIEWS.includes(view) && view !== 'ledger') {
+    activateView(view, { historyMode: null });
+  } else if (route.kind === 'invalid') {
+    activateView('ledger', { renderContent: false, historyMode: null });
+    renderLedgerRouteError($('#ledger'), 'Invalid Ledger URL');
+  }
+}
+
 function bootstrap() {
-  restoreInitialViewerShell();
+  configureViewerNavigation(
+    createLedgerNavigation({ location: window.location, history: window.history }),
+  );
+  const initialRoute = restoreInitialViewerShell(
+    document,
+    () => window.localStorage,
+    window.location,
+  );
   diagramLightbox = createDiagramLightbox({
     overlay: $('#diagram-overlay'),
     canvas: $('#diagram-canvas'),
@@ -1681,7 +2032,7 @@ function bootstrap() {
   $('#view-board').onclick = () => activateView('board');
   $('#view-table').onclick = () => activateView('table');
   $('#view-graph').onclick = () => activateView('graph');
-  $('#view-specs').onclick = () => activateView('specs');
+  $('#view-ledger').onclick = () => activateView('ledger');
   $('#view-metrics').onclick = () => activateView('metrics');
   $('#view-projects').onclick = () => activateView('projects');
   $('#project').onchange = async (e) => {
@@ -1694,14 +2045,17 @@ function bootstrap() {
       }
       configDirty = false;
     }
-    selectProject(nextProject);
-    load();
+    await selectViewerProject(nextProject);
   };
   document.onkeydown = (e) => {
-    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) closeDetail();
+    if (e.key === 'Escape' && !diagramLightbox.handleKeydown(e)) {
+      if (openedSpecName) closeLedgerSpec();
+      else closeDetail();
+    }
   };
 
-  loadProjects();
+  window.onpopstate = (event) => void restoreViewerLocation(event);
+  void loadProjects(initialRoute);
   setInterval(load, 5000);
 
   // The topbar wraps to multiple rows at content-dependent widths, so the

@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 import { marked } from 'marked';
 
 const { window } = new JSDOM('');
+globalThis.document = window.document;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
 const { makeMermaidExpandable, safeHtml } = await import('../src/viewer/public/app.js');
@@ -60,6 +61,16 @@ test('174431 CR1: style tags are removed from rendered markdown', () => {
   assert.match(out, /visible/);
 });
 
+test('141859 CR5: style attributes are removed from all rendered Markdown', () => {
+  const out = safeHtml(
+    '<p style="position:fixed;inset:0;background:red">visible</p><span style="display:none">text</span>',
+  );
+  const host = window.document.createElement('div');
+  host.innerHTML = out;
+  assert.equal(host.querySelector('[style]'), null, `style attribute survived: ${out}`);
+  assert.match(host.textContent, /visible/);
+});
+
 test('125850 CR5: a rendered Mermaid becomes keyboard-expandable', () => {
   const host = window.document.createElement('div');
   host.innerHTML = '<div class="mermaid"><svg><text>large diagram</text></svg></div>';
@@ -73,4 +84,32 @@ test('125850 CR5: a rendered Mermaid becomes keyboard-expandable', () => {
   assert.equal(diagram.getAttribute('aria-label'), 'Expand diagram');
   diagram.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
   assert.equal(opened, diagram);
+});
+
+test('141859 CR5: Ledger source documents render as literal code, never Markdown or HTML', async () => {
+  const { render } = await import('lit-html');
+  const { ledgerDocumentBrowserHtml } = await import('../src/viewer/public/view-parts.js');
+  const host = window.document.createElement('div');
+  render(
+    ledgerDocumentBrowserHtml({
+      category: 'templates',
+      documents: [{ path: 'config.yml', format: 'source' }],
+      selectedPath: 'config.yml',
+      treeStatus: 'ready',
+      documentStatus: 'ready',
+      document: {
+        category: 'templates',
+        path: 'config.yml',
+        format: 'source',
+        content: '<script>bad()</script>\nkey: **not markdown** & value',
+      },
+      treeError: null,
+      documentError: null,
+    }),
+    host,
+  );
+  const code = host.querySelector('pre.ledger-source > code');
+  assert.equal(code.textContent, '<script>bad()</script>\nkey: **not markdown** & value');
+  assert.equal(host.querySelector('script'), null);
+  assert.equal(host.querySelector('strong'), null);
 });

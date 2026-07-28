@@ -306,6 +306,10 @@ function matchesOwner(c, { owner: byOwner, unowned = false } = {}) {
   return true;
 }
 
+export function isPendingGraduation(c) {
+  return c.frontmatter.status === 'done' && c.frontmatter.reviewed !== true;
+}
+
 export function selectArchivableGraduated(changes, filters = {}) {
   assertOwnerFilter(filters);
   return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
@@ -390,7 +394,7 @@ export function list(
       if (byType && fm.type !== byType) return false;
       if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
-      if (pending === 'graduation' && !(fm.status === 'done' && fm.reviewed !== true)) return false;
+      if (pending === 'graduation' && !isPendingGraduation(c)) return false;
       return true;
     })
     .map((c) => ({

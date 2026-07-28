@@ -14,7 +14,7 @@ export function safeHtml(markdown) {
     return '<p class="empty">Markdown rendering is unavailable because a required viewer dependency failed to load.</p>';
   }
   const html = marked.parse(markdown || '');
-  return DOMPurify.sanitize(html, { FORBID_TAGS: ['style'] });
+  return DOMPurify.sanitize(html, { FORBID_TAGS: ['style'], FORBID_ATTR: ['style'] });
 }
 
 // Replace ```mermaid code blocks (rendered by marked as <pre><code>) with live
