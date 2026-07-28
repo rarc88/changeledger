@@ -787,7 +787,7 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 
 ## 7. Orden propuesto
 
-Hechos: **CH-4**, **CH-14**. En curso: **CH-0**. Orden restante:
+Hechos y archivados: **CH-4**, **CH-14**, **CH-0**. Orden restante:
 
 ```
 CH-18 → CH-17 → CH-0b → CH-1 → CH-19 → CH-15 → CH-5a → CH-5b → CH-11 → CH-12
