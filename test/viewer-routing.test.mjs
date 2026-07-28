@@ -78,6 +78,8 @@ test('141859 CR6/CR7: URL reads distinguish absent state from invalid partial Le
     '?view=ledger&project=alpha&category=',
     '?view=ledger&project=alpha&category=unknown',
     '?view=ledger&project=alpha&category=specs&doc=',
+    '?view=ledger&project=%E0%A4%A&category=specs',
+    '?view=ledger&project=alpha&category=%E0%A4%A',
     '?view=ledger&view=ledger&project=alpha&category=specs',
     '?view=ledger&project=alpha&project=beta&category=specs',
   ];

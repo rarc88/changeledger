@@ -27,6 +27,7 @@ import {
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { readLedgerDocument } from '../src/viewer/domain.mjs';
 
 const TOKEN = 'test-token';
 
@@ -720,6 +721,72 @@ test('141859 CR4: ledger rejects documents over 1 MiB before returning content',
   assert.equal(response.status, 413);
   assert.deepEqual(JSON.parse(response.body), { error: 'document too large' });
   assert.ok(response.body.length < 100);
+});
+
+test('141859 CR4: ledger descriptor rejects a final symlink swap after validation', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = path.join(root, 'README.md');
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-secret-'));
+  const secret = path.join(outside, 'secret.md');
+  fs.writeFileSync(file, '# Safe\n');
+  fs.writeFileSync(secret, '# Outside secret\n');
+  const validatedFile = fs.realpathSync(file);
+  const originalOpenSync = fs.openSync;
+  let swapped = false;
+
+  fs.openSync = function swapBeforeOpen(candidate, ...args) {
+    if (!swapped && path.resolve(candidate) === validatedFile) {
+      swapped = true;
+      fs.rmSync(file);
+      fs.symlinkSync(secret, file);
+    }
+    return originalOpenSync.call(this, candidate, ...args);
+  };
+  try {
+    const response = readLedgerDocument([{ id: 'alpha', path: root, alive: true }], {
+      project: 'alpha',
+      category: 'project-docs',
+      path: 'README.md',
+    });
+    assert.equal(swapped, true, 'the file was swapped after validation and before open');
+    assert.equal(response.code, 404);
+    assert.deepEqual(response.body, { error: 'document not found' });
+    assert.ok(!JSON.stringify(response.body).includes(outside));
+  } finally {
+    fs.openSync = originalOpenSync;
+  }
+});
+
+test('141859 CR4: ledger descriptor bounds a file that grows after fstat', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = path.join(root, 'README.md');
+  fs.writeFileSync(file, '# Initially small\n');
+  const originalFstatSync = fs.fstatSync;
+  let grown = false;
+
+  fs.fstatSync = function growAfterFstat(descriptor, ...args) {
+    const stat = originalFstatSync.call(this, descriptor, ...args);
+    if (!grown) {
+      grown = true;
+      fs.appendFileSync(file, 'x'.repeat(1024 * 1024 + 1));
+    }
+    return stat;
+  };
+  try {
+    const response = readLedgerDocument([{ id: 'alpha', path: root, alive: true }], {
+      project: 'alpha',
+      category: 'project-docs',
+      path: 'README.md',
+    });
+    assert.equal(grown, true, 'the descriptor file grew after its initial fstat');
+    assert.equal(response.code, 413);
+    assert.deepEqual(response.body, { error: 'document too large' });
+    assert.ok(JSON.stringify(response.body).length < 100);
+  } finally {
+    fs.fstatSync = originalFstatSync;
+  }
 });
 
 test('141859 CR4: ledger APIs reject non-GET methods and advertise GET', async () => {

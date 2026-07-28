@@ -2020,15 +2020,28 @@ test('141859 CR5: only same-category allowlisted relative document links are int
   const documents = [
     { path: 'guide/start.md', format: 'markdown' },
     { path: 'guide/next.md', format: 'markdown' },
+    { path: 'guide/deep/current.md', format: 'markdown' },
     { path: 'root.md', format: 'markdown' },
   ];
   assert.equal(resolveLedgerDocumentLink('next.md', 'guide/start.md', documents), 'guide/next.md');
+  assert.equal(
+    resolveLedgerDocumentLink('./next.md', 'guide/start.md', documents),
+    'guide/next.md',
+  );
+  assert.equal(
+    resolveLedgerDocumentLink('../next.md', 'guide/deep/current.md', documents),
+    'guide/next.md',
+  );
+  assert.equal(resolveLedgerDocumentLink('../root.md', 'guide/start.md', documents), 'root.md');
   for (const href of [
     'https://example.com/x.md',
     '/root.md',
-    '../root.md',
-    './next.md',
+    '../../root.md',
+    '%2Froot.md',
+    '%E0%A4%A',
     'guide\\next.md',
+    'guide%5Cnext.md',
+    'next.md%00',
     'missing.md',
   ]) {
     assert.equal(resolveLedgerDocumentLink(href, 'guide/start.md', documents), null, href);
@@ -2071,7 +2084,7 @@ test('141859 CR8: Ledger documentary layout is independently scrollable and stac
   assert.match(mobile, /overflow-x:\s*hidden/);
 });
 
-test('141859 CR6/CR7: valid startup URL overrides storage while invalid partial URL does not', () => {
+test('141859 CR6/CR7: valid startup URL overrides storage while invalid Ledger intent stays explicit', () => {
   const previous = {
     project: appState.currentProject,
     view: appState.currentView,
@@ -2084,7 +2097,7 @@ test('141859 CR6/CR7: valid startup URL overrides storage while invalid partial 
       JSON.stringify({
         version: 1,
         currentProject: 'stored',
-        currentView: 'ledger',
+        currentView: 'board',
         ledgerCategory: 'contract',
         projects: {},
       }),
@@ -2102,15 +2115,100 @@ test('141859 CR6/CR7: valid startup URL overrides storage while invalid partial 
     assert.ok(writes.every((snapshot) => !snapshot.includes('config.yml')));
 
     const invalid = restoreInitialViewerShell(viewerShell(), () => storage, {
-      href: 'https://viewer.test/?view=ledger&project=partial',
+      href: 'https://viewer.test/?view=ledger&project=partial&category=unknown',
     });
     assert.equal(invalid.kind, 'invalid');
     assert.equal(appState.currentProject, 'stored');
+    assert.equal(appState.currentView, 'ledger');
     assert.equal(appState.ledgerCategory, 'contract');
   } finally {
     appState.currentProject = previous.project;
     appState.currentView = previous.view;
     appState.ledgerCategory = previous.category;
+    appState.globalMode = previous.globalMode;
+  }
+});
+
+test('141859 CR6: stale repo responses cannot overwrite newer project or polling loads', async () => {
+  const { load } = await import('../src/viewer/public/app.js');
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const apply = (text) => {
+    appState.lastJson = text;
+    appState.repo = JSON.parse(text);
+  };
+  const previous = {
+    project: appState.currentProject,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+  };
+
+  try {
+    const alpha = deferred();
+    const beta = deferred();
+    const byProject = { alpha, beta };
+    appState.currentProject = 'alpha';
+    appState.lastJson = '';
+    const alphaLoad = load((project) => byProject[project].promise, apply);
+    appState.currentProject = 'beta';
+    const betaLoad = load((project) => byProject[project].promise, apply);
+    beta.resolve('{"marker":"beta"}');
+    assert.equal(await betaLoad, true);
+    alpha.resolve('{"marker":"alpha"}');
+    assert.equal(await alphaLoad, false);
+    assert.equal(appState.repo.marker, 'beta');
+
+    const older = deferred();
+    const newer = deferred();
+    const requests = [older, newer];
+    appState.currentProject = 'alpha';
+    appState.lastJson = '';
+    const olderLoad = load(() => requests.shift().promise, apply);
+    const newerLoad = load(() => requests.shift().promise, apply);
+    newer.resolve('{"marker":"newer"}');
+    assert.equal(await newerLoad, true);
+    older.resolve('{"marker":"older"}');
+    assert.equal(await olderLoad, false);
+    assert.equal(appState.repo.marker, 'newer');
+  } finally {
+    appState.currentProject = previous.project;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+  }
+});
+
+test('141859 CR7: invalid Ledger popstate stays visible without writing history', async () => {
+  const { restoreViewerLocation } = await import('../src/viewer/public/app.js');
+  const fixture = viewerShell();
+  document.body.append(fixture);
+  const calls = [];
+  const previous = {
+    view: appState.currentView,
+    globalMode: appState.globalMode,
+  };
+  configureViewerNavigation({
+    read: () => ({ kind: 'invalid' }),
+    push: (...args) => calls.push(['push', ...args]),
+    replace: (...args) => calls.push(['replace', ...args]),
+    clear: (...args) => calls.push(['clear', ...args]),
+  });
+
+  try {
+    appState.currentView = 'board';
+    await restoreViewerLocation({ state: null });
+    assert.equal(appState.currentView, 'ledger');
+    assert.equal(fixture.querySelector('#ledger').classList.contains('hidden'), false);
+    assert.equal(fixture.querySelector('#ledger [role="alert"]').textContent, 'Invalid Ledger URL');
+    assert.deepEqual(calls, []);
+  } finally {
+    configureViewerNavigation(null);
+    fixture.remove();
+    appState.currentView = previous.view;
     appState.globalMode = previous.globalMode;
   }
 });

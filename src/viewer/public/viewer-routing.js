@@ -9,22 +9,25 @@ function toUrl(urlLike) {
 }
 
 function isCanonicalState(state) {
+  const safeValue = (value) => typeof value === 'string' && !/[\0\uFFFD]/.test(value);
   return (
     state?.view === 'ledger' &&
-    typeof state.project === 'string' &&
+    safeValue(state.project) &&
     state.project.length > 0 &&
     LEDGER_CATEGORIES.has(state.category) &&
     (state.doc === undefined ||
       state.doc === null ||
-      (typeof state.doc === 'string' && state.doc.length > 0))
+      (safeValue(state.doc) && state.doc.length > 0))
   );
 }
 
 export function parseLedgerUrl(urlLike) {
-  const { searchParams } = toUrl(urlLike);
+  const url = toUrl(urlLike);
+  const { searchParams } = url;
   const hasSelection = ['project', 'category', 'doc'].some((key) => searchParams.has(key));
   const view = searchParams.get('view');
   if (view !== 'ledger') return hasSelection ? { kind: 'invalid' } : { kind: 'absent' };
+  if (/%(?![\da-f]{2})/i.test(url.search)) return { kind: 'invalid' };
   if (LEDGER_PARAMS.some((key) => searchParams.getAll(key).length > 1)) {
     return { kind: 'invalid' };
   }

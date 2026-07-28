@@ -163,19 +163,26 @@ export function buildLedgerDocumentTree(documents) {
 
 export function resolveLedgerDocumentLink(href, currentPath, documents) {
   if (typeof href !== 'string' || !href || typeof currentPath !== 'string') return null;
-  if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('/') || /[?#\\\0]/.test(href)) {
-    return null;
-  }
   let decoded;
   try {
     decoded = decodeURIComponent(href);
   } catch {
     return null;
   }
-  const segments = decoded.split('/');
-  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return null;
-  const base = currentPath.split('/').slice(0, -1);
-  const target = [...base, ...segments].join('/');
+  if (/^[a-z][a-z\d+.-]*:/i.test(decoded) || decoded.startsWith('/') || /[?#\\\0]/.test(decoded)) {
+    return null;
+  }
+  const targetSegments = currentPath.split('/').slice(0, -1);
+  for (const segment of decoded.split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!targetSegments.length) return null;
+      targetSegments.pop();
+    } else {
+      targetSegments.push(segment);
+    }
+  }
+  const target = targetSegments.join('/');
   return documents.some((document) => document.path === target) ? target : null;
 }
 

@@ -111,8 +111,9 @@ function resolveLedgerDocument(project, category, logicalPath) {
     if (!isInside(root, candidate) || !fs.existsSync(candidate)) return null;
     const realRoot = fs.realpathSync(root);
     const realFile = fs.realpathSync(candidate);
-    if (!isInside(realRoot, realFile) || !fs.statSync(realFile).isFile()) return null;
-    return { file: realFile, format };
+    const stat = fs.statSync(realFile);
+    if (!isInside(realRoot, realFile) || !stat.isFile()) return null;
+    return { file: realFile, format, identity: { dev: stat.dev, ino: stat.ino } };
   } catch {
     return null;
   }
@@ -202,13 +203,29 @@ export function readLedgerDocument(projects, { project: id, category, path: logi
 
   let descriptor;
   try {
-    descriptor = fs.openSync(resolved.file, 'r');
+    descriptor = fs.openSync(resolved.file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
     const stat = fs.fstatSync(descriptor);
-    if (!stat.isFile()) return { code: 404, body: { error: 'document not found' } };
+    if (
+      !stat.isFile() ||
+      stat.dev !== resolved.identity.dev ||
+      stat.ino !== resolved.identity.ino
+    ) {
+      return { code: 404, body: { error: 'document not found' } };
+    }
     if (stat.size > MAX_LEDGER_DOCUMENT_SIZE) {
       return { code: 413, body: { error: 'document too large' } };
     }
-    const content = fs.readFileSync(descriptor, 'utf8');
+    const buffer = Buffer.allocUnsafe(MAX_LEDGER_DOCUMENT_SIZE + 1);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const count = fs.readSync(descriptor, buffer, bytesRead, buffer.length - bytesRead, null);
+      if (count === 0) break;
+      bytesRead += count;
+    }
+    if (bytesRead > MAX_LEDGER_DOCUMENT_SIZE) {
+      return { code: 413, body: { error: 'document too large' } };
+    }
+    const content = buffer.subarray(0, bytesRead).toString('utf8');
     return {
       code: 200,
       body: { category, path: logicalPath, format: resolved.format, content },

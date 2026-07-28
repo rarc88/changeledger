@@ -80,6 +80,7 @@ export const ledgerBrowser = createLedgerBrowser({
 export const ledgerBrowserState = ledgerBrowser.state;
 let viewerNavigation = null;
 let openedSpecName = null;
+let repoRequestRevision = 0;
 
 export function configureViewerNavigation(navigation) {
   viewerNavigation = navigation;
@@ -123,6 +124,10 @@ async function loadProjects(initialRoute = { kind: 'absent' }) {
     await restoreLedgerRouteSelection(initialRoute.state);
     return;
   }
+  if (initialRoute.kind === 'invalid') {
+    renderLedgerRouteError($('#ledger'), 'Invalid Ledger URL');
+    return;
+  }
   await load();
   if (state.currentView === 'ledger' && state.currentProject) {
     writeCurrentLedgerRoute('replace');
@@ -131,8 +136,10 @@ async function loadProjects(initialRoute = { kind: 'absent' }) {
   }
 }
 
-async function load() {
-  if (!state.currentProject) {
+export async function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
+  const revision = ++repoRequestRevision;
+  const project = state.currentProject;
+  if (!project) {
     if (state.currentView === 'projects') {
       syncViewerShell();
       return true;
@@ -141,18 +148,24 @@ async function load() {
     return false;
   }
   try {
-    const text = await getRepo(state.currentProject);
+    const text = await requestRepo(project);
+    if (revision !== repoRequestRevision || state.currentProject !== project) return false;
     if (text === state.lastJson) return true;
-    setRepo(text);
-    normalizeRepoState(state.repo);
-    hydrateFilters();
-    syncViewerShell();
+    applyRepo(text);
     return true;
   } catch (e) {
+    if (revision !== repoRequestRevision || state.currentProject !== project) return false;
     if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
     else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
     return false;
   }
+}
+
+function applyLoadedRepo(text) {
+  setRepo(text);
+  normalizeRepoState(state.repo);
+  hydrateFilters();
+  syncViewerShell();
 }
 
 export function showNoProjects(root = document) {
@@ -1097,6 +1110,9 @@ export function restoreInitialViewerShell(
     setView('ledger');
     setLedgerCategory(route.state.category);
     state.globalMode = false;
+  } else if (route.kind === 'invalid') {
+    setView('ledger');
+    state.globalMode = false;
   }
   syncViewerShell(root, false);
   return route;
@@ -1903,7 +1919,7 @@ const fmtDate = (iso) => {
 
 // Wire the DOM and start polling. Guarded below so importing this module (tests)
 // has no side effects; only a real browser page bootstraps.
-async function restoreViewerLocation(event) {
+export async function restoreViewerLocation(event) {
   const route = viewerNavigation?.read() ?? { kind: 'absent' };
   if (route.kind === 'valid') {
     await restoreLedgerRouteSelection(route.state);
@@ -1913,6 +1929,7 @@ async function restoreViewerLocation(event) {
   if (VIEWS.includes(view) && view !== 'ledger') {
     activateView(view, { historyMode: null });
   } else if (route.kind === 'invalid') {
+    activateView('ledger', { renderContent: false, historyMode: null });
     renderLedgerRouteError($('#ledger'), 'Invalid Ledger URL');
   }
 }

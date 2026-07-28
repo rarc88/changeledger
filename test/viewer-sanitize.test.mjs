@@ -61,6 +61,16 @@ test('174431 CR1: style tags are removed from rendered markdown', () => {
   assert.match(out, /visible/);
 });
 
+test('141859 CR5: style attributes are removed from all rendered Markdown', () => {
+  const out = safeHtml(
+    '<p style="position:fixed;inset:0;background:red">visible</p><span style="display:none">text</span>',
+  );
+  const host = window.document.createElement('div');
+  host.innerHTML = out;
+  assert.equal(host.querySelector('[style]'), null, `style attribute survived: ${out}`);
+  assert.match(host.textContent, /visible/);
+});
+
 test('125850 CR5: a rendered Mermaid becomes keyboard-expandable', () => {
   const host = window.document.createElement('div');
   host.innerHTML = '<div class="mermaid"><svg><text>large diagram</text></svg></div>';
