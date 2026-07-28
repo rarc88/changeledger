@@ -2,7 +2,7 @@
 id: "20260728-195445"
 title: "Higiene del mecanismo de presupuestos: techos pinneados y un solo contador"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-28T19:54:45Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-194157"]
@@ -176,3 +176,7 @@ Comprobado contra el árbol, no heredado del acta:
 - **2026-07-28T20:42:44Z** `[note]` Tarea 3: gate local completo antes de pedir review. 'pnpm verify' EXIT=0 -- biome check 86 ficheros sin fixes aplicados, node --test 923/923, changeledger check 0 errores. Los 4 warnings que quedan son todos de 20260728-194157 (CH-19), preexistentes y ajenos a este change.
 - **2026-07-28T20:43:05Z** `[status]` in-progress → in-review
 - **2026-07-28T20:43:30Z** `[note]` Commit de handoff: el trabajo se detiene para delegar el review y el unico delta pendiente es document-only (casilla de la tarea 3 de support, notas de Log y el status a in-review). No hay codigo que lo acompanie, asi que no cabe en una clase de tarea; se commitea como handoff para que el revisor reciba baseline..HEAD coherente y ninguna edicion del entregable quede sin rastro.
+- **2026-07-28T20:54:49Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-28T20:55:01Z** `[note]` Review PASS con mandato acotado a la superficie que el change gobierna, no auditoria completa. Ataque de vacuidad corrido contra los cuatro CR: cada uno muere con un mutante aislado, y en tres de los cuatro es el UNICO test del arbol que cae, lo que descarta que pase de rebote. CR3 confirmado como el instrumento correcto: una copia local conductualmente identica solo la caza la identidad de funcion, una asercion por igualdad de resultados no habria podido. Revisor verifico las cuatro cifras que le pase como reclamaciones, incluida la restauracion byte-identica de budgets.yml (mismo blob 4a781574).
+- **2026-07-28T20:55:12Z** `[note]` O1, no bloqueante, y es defecto de MI redaccion del documento: la ultima clausula de CR4 (la captura publica en BEGIN el mismo numero que el contador canonico) es redundante. 194233 CR5 ya assertea published.lines === emittedLines(composed) para todos los modos base, y una vez CR3 prueba identidad de referencia esa asercion ES la de CR5. Desincronizar el contador publicado mata nueve tests preexistentes. No es vacua sino redundante, y el implementador la puso porque el documento la pedia. Ironia registrada: un change cuyo Request cita 'una regla con dos sedes' como el defecto anadio un dueno redundante mas de otra regla.
+- **2026-07-28T20:55:25Z** `[note]` O2, correccion a mi encuadre, verificada por mi: 'ten ceilings' NO es una decision pendiente entre packs y entradas. En aa5b8e1f~1 budgets.yml tenia exactamente 10 entradas (base x5 + agent + overlays x4) y el propio aa5b8e1f anadio blocks.core-commits dejandolas en 11, asi que el comentario contaba entradas y nacio rancio en su mismo commit. Es falso bajo cualquier lectura. Dejarlo fuera de este change sigue siendo correcto: ninguna de las dos lineas esta en bfc61045..a6f9e711 y CH-19 comparte ese fichero. Follow-up de una linea, no decision humana. O3, menor: el comentario nuevo de src/commands/context.mjs nombra un modulo de test, lo que invierte levemente la direccion de dependencia en prosa; ninguna obligacion depende de ello.
