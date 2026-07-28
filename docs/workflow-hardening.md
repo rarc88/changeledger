@@ -743,8 +743,12 @@ Alcance **reducido** por lo que CH-0 cerró de paso:
   dos dimensiones cada una: **22 números, 21 sin pin**. `170429 CR4` sólo comprueba
   que el contenido de hoy **cabe**, así que subir cualquier techo pasa el gate entero
   en silencio. Deriva: los comentarios de `test/budget-support.mjs` y de `170429 CR2`
-  siguen diciendo **"ten ceilings"**, cierto antes de que `blocks.core-commits`
-  existiera. Si "diez" contaba packs y no entradas, hay que decidirlo, no adivinarlo.
+  siguen diciendo **"ten ceilings"**. **No es una decisión pendiente** —así lo escribí
+  primero y era falso; lo corrigió el revisor de CH-18 y lo verifiqué—: en
+  `aa5b8e1f~1` `budgets.yml` tenía exactamente **10** entradas (`base` ×5, `agent`,
+  `overlays` ×4) y el propio `aa5b8e1f` añadió `blocks.core-commits` dejándolas en 11.
+  El comentario contaba **entradas** y **nació rancio en su mismo commit**. Es falso
+  bajo cualquier lectura, y es follow-up de una línea, no decisión humana.
 - **B7, vivo**: unificar los dos `emittedLines` (`src/commands/context.mjs` y
   `test/budget-support.mjs`), que discrepan en texto sin salto final.
 - **B6, CERRADO por CH-0**: la aserción de convergencia con `maxPasses=1` desapareció
@@ -894,7 +898,7 @@ validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 | CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
 | CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
 | CH-17 | — | sin documentar | `head` derivado; contexto fresco tras CH-0. Alcance menor de lo escrito: el pin `head ≥ base.core.lines` ya está |
-| CH-18 | `20260728-195445` | **`draft`, sin aprobar** | tipo `bug`, `release_impact: none`; 4 CR, 2 tareas + 1 `(support)`; `check` limpio. Sólo B5 y B7 |
+| CH-18 | `20260728-195445` | **`in-validation`** (2026-07-28) | tipo `bug`; 4 CR, 3 tareas, review **PASS** con mandato acotado. 4 commits: baseline, tarea 1, tarea 2, handoff + veredicto. `pnpm verify` EXIT=0, 923/923. Espera aceptación de Roberto |
 | CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
 
 ### CH-19 — Las guardas del contrato barren todo subfragmento
@@ -1102,11 +1106,19 @@ documentar **CH-17**.
 
 Decisiones abiertas, ninguna bloqueante para documentar:
 
-- **CH-18 espera aprobación.** Nadie lo implementa hasta entonces.
+- **CH-18 espera aceptación** en `in-validation`. Al graduar, la spec candidata es
+  `contract-discovery.md`, que el hallazgo nuevo 1 ya señala documentando bytes y el
+  formato viejo de la línea `BEGIN`. Leerla buscando afirmaciones que CH-18 vuelve
+  falsas: pasó tres de tres veces.
 - **CH-16** sigue pendiente de autorizar, y su hueco 1 exige decidir si las razones
   `ChangeLedger: none — …` pueden citar ids en absoluto.
 - El residuo de `bootstrapHeadCut()` lo reclaman CH-17 y CH-19: **una sola sede**.
-- `"ten ceilings"` en los comentarios de `test/budget-support.mjs` y `170429 CR2`: si
-  contaba packs, se aclara; si contaba entradas, son 11 desde CH-0. **Fuera del
-  alcance de CH-18 a propósito**: es una decisión, no un defecto mecánico.
-- El descuadre del resumen de `check` (hallazgo nuevo 4): change propio o deuda.
+- `"ten ceilings"`: **ya no es decisión**, es comentario falso desde su propio commit.
+  Follow-up de una línea, y su sede natural es CH-19, que comparte ese fichero.
+- El descuadre del resumen de `check` (hallazgo nuevo 4): **resuelto, no era defecto**;
+  lo causó el merge externo. Nada que decidir.
+- **Redundancia que introdujo mi redacción de CH-18** (O1 del review): la última
+  cláusula de CR4 duplica lo que `194233 CR5` ya afirma. No se arregla en CH-18 —está
+  aprobada y verificada— pero es candidata al barrido de aserciones de CH-9, y la
+  lección es de redacción: antes de escribir una cláusula de criterio, comprobar si
+  otro test del árbol ya la afirma.
