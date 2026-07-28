@@ -2,7 +2,7 @@
 id: "20260728-170429"
 title: Presupuestos de contexto en tokens
 type: feature
-status: draft
+status: in-progress
 created: 2026-07-28T17:04:29Z
 depends_on: []
 related_to: ["20260727-194233", "20260726-130728", "20260726-124834", "20260726-124837"]
@@ -204,3 +204,5 @@ Alternativas descartadas:
 - **2026-07-28T17:07:08Z** `[note]` Enmendado antes de aprobar por dos warnings de readiness. CR3 llevaba budgets.yml sin ruta y target_patterns exige templates/**; corregido a templates/contract/budgets.yml. CR6 retirado: AGENTS.md no esta en readiness.target_patterns, asi que ninguna tarea con criterio puede targetearlo y el criterio pasaria de warning en draft a error en approved. Es el hallazgo 13 en vivo, el mismo caso que hooks/**, sobre un fichero de produccion versionado. La regla que Roberto pidio para AGENTS.md sale a un change quick, que activa solo Request y Log y por tanto no pasa por readiness.
 - **2026-07-28T17:20:29Z** `[note]` Enmendado por tres decisiones de Roberto del 2026-07-28. (1) BOOTSTRAP_VERSION se queda en 4, la v4 no es publica todavia: abarata CH-17, con el aviso de que mantener la version cambiando el contenido del bloque cae en el hallazgo 26 -register calcula estado replaced y reescribe el AGENTS.md del consumidor sin avisar, porque solo avisa al subir version-; inocuo hoy porque no hay consumidor. (2) Roberto anadio AGENTS.md a readiness.target_patterns, asi que CR6 vuelve a este change; se cierra la CLASE anadiendo tambien hooks/**, porque hooks/pre-commit es produccion versionada y ninguna tarea con criterio puede tocarlo -hallazgo 13-. (3) Sobre spec: en tokens no habra fallo, el techo declarado lo cumplen los 3118 de hoy. En lineas mide 301 contra un head de modos de 250, asi que ese head nace en 350. Verificado que solo el head del core es caro de cambiar porque vive en el bloque bootstrap publicado en src/contract.mjs:52; los heads de modo viven en prosa del contrato y se mueven sin coste ni deriva, asi que bajarlo a 250 tras CH-0b es gratis.
 - **2026-07-28T17:31:41Z** `[note]` Roberto anadio hooks/** ademas de AGENTS.md, cerrando la clase del hallazgo 13 el mismo. Eso deja CR7 con su Then ya satisfecho, asi que se reformula sobre el guard y no sobre el estado: verificado que ningun test fija los target_patterns de este repositorio -las referencias de test/check.test.mjs usan fixtures sinteticos con app/**, packages/** y custom/**-, luego hoy retirar AGENTS.md o hooks/** no rompe nada y la cobertura se perderia en silencio. El trabajo falsable de CR7 es ese pin de regresion. Corregido tambien el Proposal, que afirmaba que este change anade hooks/** cuando ya estaba anadido: prosa describiendo trabajo hecho, la misma clase del hallazgo 53.
+- **2026-07-28T17:35:21Z** `[status]` draft → approved
+- **2026-07-28T17:36:50Z** `[status]` approved → in-progress
