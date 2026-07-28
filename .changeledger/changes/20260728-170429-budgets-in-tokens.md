@@ -2,9 +2,10 @@
 id: "20260728-170429"
 title: Presupuestos de contexto en tokens
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T17:04:29Z
 depends_on: []
+reviewed: true
 related_to: ["20260727-194233", "20260726-130728", "20260726-124834", "20260726-124837"]
 owner: raruiz-hiberuscom
 ---
@@ -225,3 +226,5 @@ Alternativas descartadas:
 - **2026-07-28T19:28:47Z** `[note]` Correccion de los dos defectos, sin commitear, para ronda de confirmacion con mandato minimo. F1: la enumeracion del guard de CR2 pasa a recursive, de 12 a 20 ficheros; reproducido el hueco antes -inyectar la declaracion en agent-prompts/review.md dejaba el test verde- y probado cerrado despues, el mutante ahora falla nombrando el fichero. F2: guard derivado nuevo dentro de 124837 CR7, bootstrapHeadCut() parsea head -(\d+) del REFERENCE de src/contract.mjs y asevera base.core.lines <= headCut; dos mutaciones lo matan, subir lines a 250 y encoger el head a 150, ambas nombrando la relacion. Verificado por el orquestador: 865/865 verde, un solo fichero tocado y una sola linea preexistente modificada, la del readdirSync. HALLAZGO DE CLASE del delegado, reportado y NO arreglado por estar fuera de su frontera: otras TRES guardas exhaustivas-negativas de las suites de captura tienen el mismo hueco no recursivo -194234 CR4, 124837 CR1 y 124837 CR8-, asi que una obligacion retirada podria reintroducirse en los 8 subfragmentos publicados sin que nada avise. Son criterios de otros changes; candidato a change propio.
 - **2026-07-28T19:33:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-28T19:33:58Z** `[note]` Ronda de confirmacion con mandato minimo: PASS. Los dos fixes verificados por mutacion en copia, y F1 probado en DOS subdirectorios distintos -agent-prompts/review.md y agent-contexts/investigation.md- para confirmar que cerro la clase y no el caso del revisor. El guard derivado falla en las dos direcciones y no tropieza con LITERAL_CEILING, comprobado ejecutando la regex contra el fuente. Alcance: un solo fichero, una sola linea preexistente. HALLAZGO CONFIRMADO Y EXPLOTABLE: el revisor inyecto la frase retirada que vigila 124837 CR1 en agent-contexts/investigation.md y la suite siguio verde 79/79, asi que las tres guardas no recursivas -194234 CR4, 124837 CR1, 124837 CR8- son un hueco real, estructuralmente identico al que se acaba de cerrar. Observacion no bloqueante: bootstrapHeadCut hace REFERENCE.match(/head -(\d+)/) y destructura sin comprobar nulo, asi que si REFERENCE dejase de contener el patron lanzaria TypeError en vez de nombrar la ausencia del corte; contradice el principio de que lo indecidible aborta Y SE NOMBRA. Recomendado que viaje con el change de las tres guardas, misma familia y mismo fichero.
+- **2026-07-28T19:37:07Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-28T19:40:36Z** `[graduation]` spec: `contract-discovery.md`

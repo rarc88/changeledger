@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-27T20:52:07Z
+updated: 2026-07-28T19:40:36Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429"]
 ---
 
 ## Discovery del contrato
@@ -81,20 +81,33 @@ lee para publicar el techo que se aplica. Los contextos posteriores amplían el
 core y fallan cerrado por instrucción si el agente aún no lo leyó completo.
 
 **Un umbral por dimensión, y todo umbral falla.** Cada entrada declara dos
-números planos, `lines` y `bytes`, sin banda de objetivo, sin aviso previo y sin
-banderas de régimen. Las dos dimensiones no son redundancia: las líneas las
-impone el `head -200` del bootstrap —por encima de ese corte, toda captura de
-todo repo consumidor queda truncada e inválida—, y los bytes son el coste que se
-paga en cada sesión y otra vez tras cada compactación. Nada acota el ancho de
-línea en markdown, así que contar líneas por sí solo no acota el tamaño.
+números planos, `tokens` y `lines`, sin banda de objetivo, sin aviso previo y sin
+banderas de régimen. Las dos dimensiones no son redundancia: **los tokens son el
+coste** que se paga en cada sesión y otra vez tras cada compactación, y **las
+líneas son el transporte**, lo que el `head` del bootstrap tiene que cubrir —por
+encima de ese corte, toda captura de todo repo consumidor queda truncada e
+inválida—. Nada acota el ancho de línea en markdown, así que contar líneas por sí
+solo no acota el coste.
+
+La unidad es **tokens según un tokenizador de referencia fijado**, no los tokens
+que consume un modelo concreto: contar por API sería exacto para ese modelo pero
+es red, no determinista y no gratuito, así que inservible como puerta. El
+tokenizador es una dependencia de desarrollo con versión exacta —una actualización
+de BPE movería todos los techos en silencio— y ningún repo consumidor lo instala,
+porque el techo de tokens lo aplican los tests del propio ChangeLedger. Los bytes
+se retiraron: sobreestiman el whitespace ×6,6, así que un cambio que no añade
+contenido podía reventar el techo.
 
 Dos números por dimensión eran precisión falsa: cuando ambos fallan, el segundo
 es inalcanzable; cuando el primero solo avisa, no detiene nada, y así fue como el
-core rebasó su objetivo sin que ningún gate lo dijera. La medición es en **líneas
-emitidas**, la unidad que ve el consumidor y la que cuenta `head`, no una
+core rebasó su objetivo sin que ningún gate lo dijera. La medición de líneas es en
+**líneas emitidas**, la unidad que ve el consumidor y la que cuenta `head`, no una
 convención interna de test. Cada umbral queda fijado en su límite exacto y con el
-texto del fallo comprobado, porque bastó no cubrir el techo de bytes para que
-borrarlo entero dejara la suite en verde.
+texto del fallo comprobado, y **ningún techo de tamaño vive fuera del fichero de
+presupuestos**: el techo operativo de líneas del core y el del bloque `## Commits`
+del core dejaron de ser literales en un test y son entradas declaradas, la segunda
+bajo un grupo `blocks`. El techo de líneas del core se compara además contra el
+corte que declara el propio bootstrap, así que no puede rebasarlo en silencio.
 
 **Un techo no es un objetivo.** Ninguna prosa normativa se retira para caber en
 un presupuesto: una regla sale de un fragmento sólo cuando su nueva sede está
@@ -134,16 +147,13 @@ composición cierra su descriptor con el tamaño real, contando la propia BEGIN 
 la END, en la convención de líneas emitidas: `changeledger context … | wc -l`
 devuelve `N`, `head -<N>` conserva la línea END como última y `head -<N-1>` la
 pierde. Una composición acotada publica además cuánto ocupa de su techo en las
-dos dimensiones —`lines:<N>/<límite> — bytes:<N>/<límite>`—, así que el agente ve
-el margen que le queda sin ejecutar la suite. Un contexto por change id incrusta
-un documento de tamaño arbitrario y no está acotado: publica su conteo solo y no
-inventa un techo, aunque reutilice los fragmentos de un modo.
-
-La cifra de bytes forma parte del texto cuyo tamaño describe, así que se resuelve
-al punto fijo: componer, medir, reformatear y repetir hasta que lo publicado
-coincida con lo real. Converge porque el ancho del número solo crece al cruzar una
-potencia de diez, y si no converge en un número acotado de pasadas la composición
-falla ruidosamente en vez de publicar una cifra que no es el tamaño. Un límite fijo no puede cumplir eso, porque solo el
+la dimensión que el consumidor necesita —`lines:<N>/<límite>`—, así que el agente
+ve el margen de transporte que le queda sin ejecutar la suite. **No publica
+tokens**: la cifra la aplican los tests y publicarla obligaría a todo repo
+consumidor a instalar el tokenizador para leer un número que no usa. Un contexto
+por change id incrusta un documento de tamaño arbitrario y no está acotado:
+publica su conteo solo y no inventa un techo, aunque reutilice los fragmentos de
+un modo. Un límite fijo no puede cumplir eso, porque solo el
 core está acotado por `budgets.yml`; los packs de modo varían y el contexto por
 change id incrusta el documento completo, sin cota. Publicar el número deja
 construir un `head` determinista para cualquier contexto sin conocer su tamaño
@@ -219,7 +229,7 @@ accionable. El límite fijo de 200 es suficiente porque el core está acotado po
 BEGIN publica `lines:<N>` y se re-ejecuta con `head -<N>`. La completitud se
 verifica por centinela: toda salida de `context` abre con
 `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode> [— change: #<id>] —
-v<version> — lines:<N>[/<límite> — bytes:<N>/<límite>] =====` y cierra con una
+v<version> — lines:<N>[/<límite>] =====` y cierra con una
 línea END autodetectora. El
 bloque distingue dos fallos que antes se mezclaban: comando no instalado
 (`command not found`) significa que ChangeLedger está ausente y el trabajo sigue
