@@ -2,7 +2,7 @@
 id: "20260728-195445"
 title: "Higiene del mecanismo de presupuestos: techos pinneados y un solo contador"
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-28T19:54:45Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-194157"]
@@ -158,9 +158,13 @@ Comprobado contra el árbol, no heredado del acta:
 
 ## Plan
 
-- [ ] Exportar el contador canónico de líneas emitidas desde `src/commands/context.mjs` con la semántica del último segmento y re-exportarlo desde `test/budget-support.mjs` sin tocar los imports existentes; verify: `node --test test/context.test.mjs` (CR3, CR4)
+- [x] Exportar el contador canónico de líneas emitidas desde `src/commands/context.mjs` con la semántica del último segmento y re-exportarlo desde `test/budget-support.mjs` sin tocar los imports existentes; verify: `node --test test/context.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-28T20:27:26Z`
 - [ ] Pinnear por valor las 11 entradas de `templates/contract/budgets.yml` en una sede única, que falle al mover, añadir o quitar un número nombrando la entrada y la dimensión; verify: `node --test test/context.test.mjs` (CR1, CR2)
 - [ ] Correr el gate completo `pnpm verify` tras la implementación (support)
 
 ## Log
 - **2026-07-28T20:16:52Z** `[status]` draft → approved
+- **2026-07-28T20:19:31Z** `[status]` approved → in-progress
+- **2026-07-28T20:27:40Z** `[note]` Tarea 1: el contador de líneas emitidas queda con sede única en src/commands/context.mjs, exportado con la semántica de último segmento; test/budget-support.mjs lo re-exporta y ningún import de test cambia. CR3 assertea identidad de función, no igualdad de resultado. Mutante A (revertir la semántica) mata CR4 con 1 !== 2 sobre "a\\nb"; mutante B (copia local en vez de re-export) mata CR3 por identidad; probados por separado y restaurados editando.
+- **2026-07-28T20:27:55Z** `[note]` Fricción del flujo, no defecto del change: el delegado paró antes de escribir porque mi instrucción de baseline exigía árbol limpio, y mi propia transición a in-progress deja el documento modificado. El contrato obliga a que la transición viaje dentro del commit de tarea, así que entre 'status in-progress' y el primer commit de tarea el árbol NO puede estar limpio. La cláusula de baseline debe descontar ese delta. Error mío, no del delegado.

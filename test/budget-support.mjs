@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { countTokens } from 'gpt-tokenizer/encoding/o200k_base';
+import { emittedLines } from '../src/commands/context.mjs';
 
 // Context budgets: one threshold per dimension, shared by every suite that
 // measures a composed context. Loaded from the contract so a test can never
@@ -21,14 +22,10 @@ export function tokenCount(text) {
   return countTokens(text);
 }
 
-// Emitted lines: what `wc -l` reports for the CLI stdout and what `head -<N>`
-// must be given. A composed context ends with a single trailing newline, so its
-// last split segment is empty and does not count; a text without that newline
-// still ends in a real line.
-export function emittedLines(text) {
-  const segments = text.split('\n');
-  return segments[segments.length - 1] === '' ? segments.length - 1 : segments.length;
-}
+// Re-exported so every suite that imports `emittedLines` from this module
+// keeps resolving, but the counter itself has a single home:
+// `src/commands/context.mjs`, whose BEGIN line publishes it.
+export { emittedLines };
 
 // A budget entry declares `tokens` and `lines`, and both are ceilings that fail —
 // there is no target band and no warning. A warning is exactly how core drifted

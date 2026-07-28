@@ -7,7 +7,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
-import { buildContext, frameSections } from '../src/commands/context.mjs';
+import {
+  buildContext,
+  emittedLines as contextEmittedLines,
+  frameSections,
+} from '../src/commands/context.mjs';
 import { init } from '../src/commands/init.mjs';
 import { REFERENCE } from '../src/contract.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
@@ -2976,4 +2980,23 @@ test('170429 CR2: the token count comes from the pinned reference tokenizer', ()
   // A count no character heuristic reproduces: the ratio moves with the content.
   const dense = 'x'.repeat(400);
   assert.ok(tokenCount(dense) < dense.length, 'the count is a character count');
+});
+
+test('195445 CR3: the emitted-lines counter has a single home', () => {
+  // `test/budget-support.mjs` must re-export the exact function
+  // `src/commands/context.mjs` exports — not an equivalent local copy.
+  assert.strictEqual(contextEmittedLines, emittedLines);
+});
+
+test('195445 CR4: the canonical counter counts a final line with no trailing newline', () => {
+  assert.equal(contextEmittedLines('a\nb\n'), 2);
+  assert.equal(contextEmittedLines('a\nb'), 2);
+  assert.equal(contextEmittedLines(''), 0);
+  assert.equal(contextEmittedLines('\n'), 1);
+
+  // The core capture the CLI emits publishes, in its BEGIN line, the same
+  // number the canonical counter returns for that same text.
+  const root = repo();
+  const core = buildContext(undefined, root);
+  assert.equal(publishedLines(core), contextEmittedLines(core));
 });

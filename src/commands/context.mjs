@@ -69,11 +69,15 @@ function render(sections) {
   return `${sections.join('\n\n')}\n`;
 }
 
-// Total lines of the emitted output. The rendered text ends with exactly one
-// trailing newline, so its newline count is what `wc -l` reports for the CLI
-// stdout and what a consumer must pass to `head -<N>`.
-function emittedLines(text) {
-  return text.split('\n').length - 1;
+// Emitted lines: what `wc -l` reports for the CLI stdout and what `head -<N>`
+// must be given. The rendered text ends with exactly one trailing newline, so
+// its last split segment is empty and does not count; a text without that
+// newline still ends in a real line. This is the single canonical home of
+// this count — `test/budget-support.mjs` imports and re-exports it rather
+// than keeping its own copy.
+export function emittedLines(text) {
+  const segments = text.split('\n');
+  return segments[segments.length - 1] === '' ? segments.length - 1 : segments.length;
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
