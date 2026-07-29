@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-29T20:32:57Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260728-194157", "20260720-125007", "20260729-185200"]
 owner: raruiz-hiberuscom
@@ -309,3 +310,4 @@ forma serializada de las tareas (campos arriba) sí es contrato para el viewer.
 - **2026-07-29T22:51:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-29T23:49:08Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-29T23:52:23Z** `[graduation]` spec: `readiness.md`
+- **2026-07-29T23:52:45Z** `[archive]` archived
