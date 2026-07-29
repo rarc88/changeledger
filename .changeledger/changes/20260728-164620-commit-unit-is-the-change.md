@@ -2,7 +2,7 @@
 id: "20260728-164620"
 title: La unidad de commit es el change, no la tarea del Plan
 type: feature
-status: draft
+status: approved
 created: 2026-07-28T16:46:20Z
 depends_on: []
 related_to: ["20260726-124837", "20260727-194234", "20260728-151336", "20260722-124656", "20260728-170429", "20260728-195445"]
@@ -66,24 +66,26 @@ revisor fresco la confirme, y que entonces *"correction, tests and ledger form a
 commit"*. Los dos changes cerrados hoy produjeron exactamente ese commit. El bloque
 declara cuatro clases y la práctica usa cinco.
 
-**Presupuesto, remedido el 2026-07-28 tras `20260728-170429` y `20260728-195445`.**
-Los bytes ya no son una dimensión: `budgets.yml` declara `tokens` y `lines`, y este
-párrafo decía `11770/12000 bytes` porque el draft se redactó **antes** de que
-`170429` aterrizara. Medido ahora:
+**Presupuesto: el problema desapareció.** Este párrafo ha caducado dos veces, y las
+dos por changes de la misma tanda. Decía `11770/12000 bytes` porque el draft es
+anterior a `20260728-170429`; luego decía `193/195` y `28/28` líneas, que era cierto
+hasta que `20260728-212043` derivó los techos de líneas del techo de tokens. Remedido
+el 2026-07-29, tras el cierre de ese change:
 
 | sujeto | líneas | tokens |
 |---|---|---|
-| `core` | 193/195 | 2577/4000 |
-| bloque `## Commits` | **28/28** | 549/650 |
+| `core` | 193/**400** | 2577/4000 |
+| bloque `## Commits` | 28/**125** | 549/**1250** |
 
-La dimensión que aprieta es **líneas**, no tokens: 2 de margen en el core frente a
-1423 tokens sin usar. El cambio retira la fórmula `n + 1` / `n + 2`, la cláusula de
-reconstrucción y la mención a tareas inseparables, y añade una clase, así que debería
-salir **neto negativo en líneas** — eso lo verifica el change, no se supone.
+**Ya no hay restricción que gobierne el diseño de este change.** El bloque tiene 97
+líneas y 701 tokens de margen donde antes tenía cero, así que la exigencia de salir
+*neto negativo en líneas* se retira: era una consecuencia del techo puesto a mano, no
+una propiedad deseable. El change se redacta por lo que la regla debe decir, y el
+tamaño se comprueba al final como cualquier otro.
 
-Y un acoplamiento nuevo, creado por `20260728-195445`: mover cualquier techo obliga
-ahora a actualizar `PINNED_CEILINGS` en `test/context.test.mjs`. Es el mecanismo
-funcionando —un techo no se sube en silencio—, no un obstáculo.
+Y un acoplamiento heredado de `20260728-195445`: mover cualquier techo obliga a
+actualizar `PINNED_CEILINGS` en `test/context.test.mjs`. Este change no mueve ninguno,
+así que no le aplica; se nombra para que no se descubra a mitad.
 
 **La ventana sucia se ensancha, y hay que declararla.** Hoy el delta que escribe
 `changeledger status <id> in-progress` —`status` más una línea de `[status]` en el
@@ -103,8 +105,10 @@ deducir "limpio" es lo natural y es falso.
 
 Sede decidida: la declaración va a `templates/contract/implement.md`, que ya posee el
 gate ordenado de la etapa, **no** al bloque `## Commits` del core. Dos razones: es un
-hecho de la etapa de implementación, no de la taxonomía de clases; y el bloque está a
-28/28 líneas mientras `implement` está a 168/205 líneas y 1701/2000 tokens. La otra
+hecho de la etapa de implementación, no de la taxonomía de clases. El presupuesto ya no
+entra en la decisión: tras `20260728-212043` el bloque tiene margen de sobra y
+`implement` está a 173/250 líneas y 1776/2500 tokens, así que la sede se elige por
+pertenencia, no por dónde caben las líneas. La otra
 mitad —que una cláusula de baseline en un prompt de delegación declare el conjunto
 sucio esperado en vez de decir "limpio"— es del contrato de prompts de delegación y
 **no entra aquí**: su sede es el change de contrato de evidencia de la delegación.
@@ -189,7 +193,7 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 ### CR6 — El bloque cabe en su techo
 - **Given** el fragmento `templates/contract/core.md` reescrito
 - **When** se ejecuta la comprobación de tamaño del bloque
-- **Then** el bloque `## Commits` no supera las 28 líneas de la entrada `blocks.core-commits` de `templates/contract/budgets.yml`
+- **Then** el bloque `## Commits` no supera ninguna de las dos dimensiones que declara la entrada `blocks.core-commits` de `templates/contract/budgets.yml`, leídas del fichero y no escritas como literal en el criterio
 - **And** el contexto `core` no supera ni su techo de `lines` ni su techo de `tokens`; los bytes dejaron de ser una dimensión con `20260728-170429`
 
 ## Plan
@@ -202,3 +206,5 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 
 - **2026-07-28T16:46:20Z** `[note]` Draft creado. Nace de que el commit por tarea resultó imposible al delegar el Plan completo en 124656 y costó 347k frente a 161k al delegar por tarea en 151336. El argumento decisivo es interno: una tarea del Plan no pasa el test de granularidad que el propio bloque enuncia. Verificado que ningún lint impone la regla hoy, así que retirarla no pierde garantía mecánica.
 - **2026-07-28T21:18:01Z** `[note]` Enmienda por instruccion de Roberto (2026-07-28): entra CR7, la ventana sucia. Razon mas fuerte que la observada: este change ENSANCHA la ventana en vez de estrecharla -- hoy el delta de 'status in-progress' lo absorbe el siguiente commit de tarea, y con un solo commit de implementacion queda sin commitear durante toda la implementacion. El contrato no nombra en ninguna parte el conjunto sucio esperado, asi que quien redacta un baseline deduce 'limpio' y eso es falso; costo una delegacion entera implementando 20260728-195445. Sede decidida: implement.md, que posee el gate de etapa, no el bloque Commits del core que esta a 28/28 lineas. La mitad de prompts de delegacion NO entra aqui: es del contrato de evidencia de la delegacion.
+- **2026-07-29T01:01:01Z** `[status]` draft → approved
+- **2026-07-29T01:02:13Z** `[note]` Refresco previo a implementar, tras el cierre de 20260728-212043. Tres cifras del documento habian caducado: la tabla de presupuesto decia core 193/195 y bloque 28/28, cuando ahora son 193/400 y 28/125 con 549/1250 tokens. Consecuencia de diseno, no cosmetica: LA RESTRICCION DESAPARECIO. El bloque tiene 97 lineas y 701 tokens de margen donde tenia cero, asi que se retira la exigencia de salir neto negativo en lineas -- era consecuencia del techo puesto a mano, no una propiedad deseable-- y la sede de CR7 se elige por pertenencia y no por donde caben las lineas. CR6 corregido: clavaba '28 lineas' como literal y con el techo en 125 la frase quedaba autocontradictoria y el criterio infalsificable; ahora lee las dos dimensiones del fichero. Y un fallo mio al editar: deje un parrafo duplicado sobre PINNED_CEILINGS y lo retire.
