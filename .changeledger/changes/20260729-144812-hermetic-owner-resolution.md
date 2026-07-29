@@ -2,7 +2,7 @@
 id: "20260729-144812"
 title: "La resolución del owner no lanza red: perezosa y con kill-switch en la suite"
 type: bug
-status: draft
+status: approved
 created: 2026-07-29T14:48:12Z
 depends_on: []
 related_to: ["20260726-124836", "20260614-182513"]
@@ -109,3 +109,4 @@ apagarse en entornos que exigen hermeticidad.
 ## Log
 
 - **2026-07-29T14:52:00Z** `[note]` Documentado en paralelo a la implementación de 20260729-143656 por instrucción de Roberto. Hechos de la Investigation verificados por grep/lectura en HEAD antes de redactar; la cifra 35→107/18,7s→24,4s es del review de 124836, citada con su fuente. Destino: carril WT-B del plan de worktrees (acta §13.4).
+- **2026-07-29T14:52:11Z** `[status]` draft → approved
