@@ -2,9 +2,11 @@
 id: "20260729-143656"
 title: Retirar los pins de hash del contrato en favor de guards de obligación
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-29T14:36:56Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260728-164620", "20260728-194157"]
 owner: raruiz-hiberuscom
 ---
@@ -176,3 +178,6 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 - **2026-07-29T15:54:52Z** `[note]` Corrección entregada por delegado (87k tokens, 45 tool calls) y verificada por el orquestador: test nuevo 143656 CR4 presente, cero literales hex64, cero self-reads, 944/944, lint limpio. Reprodujo ambos defectos en verde antes del fix (97/97 con cada mutante) y los tres mutantes post-fix fallaron nombrando el fichero exacto — incluido agent-contexts/investigation.md para la frase restaurada, que es recursiva por diseño del guard original; el residual de CH-19 (frase de 124837 CR1, guard no recursivo) queda intacto y así lo distingue CR4. Inventarios de agent-contexts/ y agent-prompts/ pinneados también tras confirmar por grep que ningún test existente los fijaba. Corrección SIN commitear a la espera del revisor de confirmación.
 - **2026-07-29T15:54:52Z** `[status]` in-progress → in-review
 - **2026-07-29T16:00:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T16:04:18Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-29T16:04:31Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-29T16:04:31Z** `[archive]` archived
