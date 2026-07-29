@@ -930,9 +930,13 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // RETIRED — "never defer them and reconstruct mixed diffs at the end". Not
     //   because it stopped mattering: a different commit unit replaces it. Under the
     //   per-task unit, deferring meant reconstructing several units' diffs at the end;
-    //   with the change as the unit there is one diff, and deferring it to the end of
-    //   the implementation IS the rule, so the clause became false rather than
-    //   obsolete. It has no home by design — grepped `reconstruct mixed diffs` across
+    //   164620 retired the clause on the ground that with the change as the unit there
+    //   is one diff and deferring it to the end IS the rule. 20260729-111349 retired
+    //   that ground with the count — the resolved selection is committed as it resolves,
+    //   so nothing is deferred to the end. The clause stays homeless for the opposite
+    //   reason: committing on resolution already forbids what it prohibited, so it is
+    //   redundant rather than false. It has no home by design — grepped
+    //   `reconstruct mixed diffs` across
     //   `templates/contract/` recursively, capsules included, and no fragment holds
     //   it. `164620 CR5` is the standing guard, and the `124837 CR8` home list drops
     //   its pair with the reason written in place;
@@ -944,12 +948,14 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   the change", the discriminant applied to the unit this change retires;
     // RETIRED (correction round) — "or several Plan tasks are inseparable", the second
     //   form of the combined commit that 124837 added on the human's 2026-07-26
-    //   decision. It is emptied, not merely unused: with the change as the unit every
-    //   Plan task travels in the one implementation commit, so inseparable tasks can
-    //   never be the reason separation is impossible. The clause is replaced by the
-    //   explicit "Plan tasks are never a reason — they all travel in the one
-    //   implementation commit", so the retired case is named rather than left to be
-    //   rediscovered, and `164620 H4/H5` guards it. The shared-files form and the duty
+    //   decision. It is emptied, not merely unused: 164620 emptied it because with the
+    //   change as the unit every Plan task travelled in the one implementation commit,
+    //   and 20260729-111349 keeps it empty on a different ground — each resolved
+    //   selection is committed on its own, so separating Plan tasks is always possible.
+    //   164620's replacement text ("they all travel in the one implementation commit")
+    //   is itself retired by `111349 CR3`; the current naming of the retired case is
+    //   "Plan tasks are never a reason — separating them is always possible, since each
+    //   resolved selection is committed on its own", and `164620 H4/H5` guards it. The shared-files form and the duty
     //   to record and name what was combined are preserved verbatim, so the obligation
     //   `124837 CR8` homes here ("If shared files make a combined commit unavoidable")
     //   still has its home;
@@ -1067,10 +1073,12 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   exactly one, the approved change document, before any code";
     // RETIRED to core.md, and the judgment deliberately dropped — "Commit completed
     //   units with their tasks and Log when later work could obscure attribution"
-    //   is the countable "**Implementation**: exactly one, the change's complete work
-    //   — code, tests, ticked boxes and Log entries" (124837 landed it as "**Task**:
-    //   one per completed Plan task"; 20260728-164620 widened the unit from the task
-    //   to the change without dropping anything it carries). The trailing clause
+    //   is "**Implementation**: one per resolved selection of work — its code, tests,
+    //   ticked boxes and Log entries" (124837 landed it as "**Task**: one per completed
+    //   Plan task"; 20260728-164620 widened the unit from the task to the whole change;
+    //   20260729-111349 narrowed it again to the resolved selection, which is the unit
+    //   the block's own discriminant selects — none of the three dropped anything the
+    //   obligation carries, and the home is no longer a count). The trailing clause
     //   was the whole defect: it asked the agent to guess whether attribution
     //   could matter later, and the safe guess is always yes, so it invited the
     //   excess it meant to prevent. CR1 forbids that clause anywhere in the
@@ -1078,17 +1086,25 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // RETIRED to core.md — "Do not create a dedicated commit for a lifecycle-only
     //   transition. Coalesce it with the nearest meaningful commit" is "is never a
     //   commit of its own; it travels inside the next real class", now with the
-    //   discriminant and a count that makes it measurable (124837's `n + 1` / `n + 2`
-    //   formula; 20260728-164620 replaced it with the per-change count, because the
-    //   formula depended on the per-task unit that change retires).
+    //   discriminant that makes it decidable (124837's `n + 1` / `n + 2` formula;
+    //   20260728-164620 replaced it with a per-change count, because the formula depended
+    //   on the per-task unit that change retires; 20260729-111349 dropped the count too —
+    //   the discriminant decides the unit and no fixed number of IMPLEMENTATION commits
+    //   survives in any fragment; the Baseline and Draft counts are untouched, since the
+    //   discriminant governs which units earn a commit, not how many of those two there
+    //   are).
     //   The `in-progress → in-review` example is dropped as an instance of the
     //   rule, not an obligation of its own;
     // RETIRED to core.md by 124837 as "never defer them and reconstruct mixed diffs
     //   at the end", then RETIRED outright by 20260728-164620 — "Do not wait until
     //   the end to reconstruct mixed diffs" now has no home in any fragment, because
-    //   a different commit unit replaces it: with the change as the unit, deferring to
-    //   the end of the implementation is the rule. The `core.md` pin above carries the
-    //   full classification and `164620 CR5` guards it;
+    //   a different commit unit replaces it. 164620 retired it on the grounds that with
+    //   the change as the unit, deferring to the end IS the rule — and 20260729-111349
+    //   retires that reasoning with the count: the resolved selection is committed as it
+    //   resolves, so nothing is deferred to the end. The obligation stays homeless all
+    //   the same, now for the opposite reason — deferring is no longer possible to
+    //   prohibit separately, because committing on resolution already forbids it. The
+    //   `core.md` pin above carries the full classification and `164620 CR5` guards it;
     // RETIRED to core.md — "If a handoff precedes the next meaningful commit, one
     //   consolidated checkpoint persists pending state; record why and never create
     //   one per transition" is "**Handoff**: mandatory whenever work stops in
@@ -1187,6 +1203,16 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   core's transition prohibition — it points at it, so 194234's single seat for
     //   "is never a commit of its own" is untouched, and this pack still does not
     //   compose that sentence.
+    // 20260729-111349 correction round REPLACED the sentence the first pass ADDED — "The
+    //   window is not one event: each resolved selection is committed as it resolves" by
+    //   "The window is not one event: core's Implementation class governs when each
+    //   selection is committed". The first form RESTATED core's commit-timing rule inside
+    //   a fragment whose own entry below declares every commit rule retired from it, so it
+    //   gave the rule a second seat — the duplicated-truth class `194234` retired. The new
+    //   form POINTS, exactly as the neighbouring "Core's commit classes carry those
+    //   transitions inside…" sentence already does. The obligation the sentence carries —
+    //   that the window admits N commits — is unchanged and still pinned by `111349 CR7`,
+    //   now in both directions: the pointer must be present and the restatement absent;
     // 20260729-111349 CR7: this fragment was the seat that survived the first pass, going
     // on to demand a single implementation commit while core had already made the unit the
     // resolved selection. It survived because every guard watched `core.md`; `111349 CR7`
@@ -1231,7 +1257,7 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   precondition anywhere in that window" and the delegation-baseline duty. Nothing in
     //   this fragment is RETIRED by this change, and the HOLDERS enumeration above is
     //   unaffected: no fragment gained or lost a "worktree", "uncommitted" or "dirty" hit.
-    'implement.md': '3dfe16ef355909c9bd04165dc4270fa231b68f06a0f7678f717510ab4b3ee6e7',
+    'implement.md': 'ac019965ced3ac581a5548b88fb99c463f005871d7bf0f2db6e7f11b8d319442',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -2985,10 +3011,11 @@ test('124837 CR1: the attribution judgment is gone from the whole contract', () 
 });
 
 // 20260728-164620 took over the class list and the counting formula: five classes
-// instead of four, and a per-change count instead of `n` per completed task. The
-// `164620 CR1` test owns the new list; what survives here is everything 124837
-// contributed that the new unit does not touch — the granularity test, the
-// transition rule and the change-document rationale.
+// instead of four, and a per-change count instead of `n` per completed task, which
+// 20260729-111349 replaced again with the resolved selection and no fixed count. The
+// `164620 CR1` test owns the class list; what survives here is everything 124837
+// contributed that neither later unit touches — the granularity test, the transition
+// rule and the change-document rationale.
 test('124837 CR2 / 164620 CR1: core owns the commit classes and the granularity test', () => {
   const core = composedCore();
   for (const literal of [
@@ -3141,9 +3168,11 @@ test('124837 CR8: no obligation leaves implement.md without a named home', () =>
     ],
     ['Coalesce it with the nearest meaningful commit', 'it travels inside the next real class'],
     // 'Do not wait until the end to reconstruct mixed diffs' is deliberately NOT in
-    // this list any more. 20260728-164620 retired it instead of rehoming it: with
-    // the change as the commit unit, deferring to the end of the implementation is
-    // the rule, so the obligation has no home by design. `164620 CR5` is its guard
+    // this list any more. 20260728-164620 retired it instead of rehoming it, on the
+    // ground that with the change as the commit unit deferring to the end was the rule.
+    // 20260729-111349 retired that ground — each resolved selection is committed as it
+    // resolves — and the obligation stays homeless for the opposite reason: committing
+    // on resolution already forbids deferring. `164620 CR5` is its guard
     // — it requires the retirement to be classified at the `core.md` pin and greps
     // every fragment to prove the clause really left.
     [
@@ -3518,12 +3547,16 @@ test('164620 CR6: the rewritten block and the core pack clear their declared cei
 test('164620 CR7: implement names the expected dirty set of the implementation window', () => {
   const implement = buildContext('implement', repo()).replace(/\s+/g, ' ');
   for (const literal of [
-    'Between `changeledger status <id> in-progress` and the implementation commit',
+    // Plural since 20260729-111349: the window closes over N implementation
+    // commits, one per resolved selection, so the singular forms these two
+    // literals used to pin no longer occur as written. Pinned in the plural
+    // rather than left as prefixes of it — a substring of the new prose still
+    // passes, but it stops discriminating and reads as fixing text the tree no
+    // longer contains.
+    'Between `changeledger status <id> in-progress` and the implementation commits',
     'the change document stays modified and uncommitted',
     'the only expected delta',
-    // Plural since the correction round: the window spans the entry into
-    // `in-progress` and the exit into `in-review`, both before the commit.
-    'carry those transitions inside the implementation commit',
+    'carry those transitions inside the implementation commits',
     'a clean worktree is not a valid precondition',
   ]) {
     assert.ok(implement.includes(literal), `the implement pack is missing ${literal}`);
@@ -3613,10 +3646,14 @@ test('164620 H3: the dirty-set grep claim names every fragment holding one of th
   }
 });
 
-// 20260728-164620 emptied the second form of the combined commit: with the change as
-// the unit, every Plan task travels in one commit by design, so "several Plan tasks
-// are inseparable" can never be the reason separation is impossible. The clause is
-// retired rather than left pinned, which is what the first pass did.
+// 20260728-164620 emptied the second form of the combined commit on the ground that with
+// the change as the unit, every Plan task travelled in one commit by design.
+// 20260729-111349 retired that ground — the unit is the resolved selection and the number
+// of implementation commits is not fixed — and the conclusion survives on the opposite
+// premise: each resolved selection is committed on its own, so separating Plan tasks is
+// always possible and "several Plan tasks are inseparable" can never be the reason
+// separation is impossible. The clause stays retired rather than left pinned, which is
+// what the first pass did.
 test('164620 H4/H5: the emptied combined-commit form and the stale unit sentence are gone', () => {
   const core = composedCore();
   assert.ok(
@@ -3811,10 +3848,17 @@ test('111349 CR7: no fragment demands one implementation commit per change', () 
   ]) {
     assert.ok(implement.includes(plural), `the implement pack is missing ${plural}`);
   }
-  // The window is N commits, not one event.
+  // The window is N commits, not one event — and the fragment says so by POINTING at
+  // core's class rather than restating when a selection is committed. Restating it here
+  // would give the timing rule a second seat, which is the class 124837 closed when it
+  // made core the single home of every commit rule.
   assert.ok(
-    implement.includes('each resolved selection is committed as it resolves'),
-    'the implement pack still treats the implementation window as a single commit event',
+    implement.includes("core's Implementation class governs when each selection is committed"),
+    'the implement pack no longer points at core for when each selection is committed',
+  );
+  assert.ok(
+    !implement.includes('each resolved selection is committed as it resolves'),
+    "the implement pack restates core's commit-timing rule instead of pointing at it",
   );
   // And admitting N must not cost the expected-delta set: it has no other home, so
   // simplifying the sentence would retire an obligation with nowhere to land.

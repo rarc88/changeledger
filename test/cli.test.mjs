@@ -333,8 +333,11 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   );
   assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
   assert.match(contract, /do not start another task or change\s+while a correction waits/i);
-  // 20260728-164620 emptied the second form: with the change as the commit unit every
-  // Plan task travels in one commit, so inseparable tasks can never be the reason.
+  // 20260728-164620 emptied the second form on the ground that with the change as the
+  // commit unit every Plan task travels in one commit. 20260729-111349 retired that
+  // ground — the unit is the resolved selection — but the conclusion survives on a
+  // different one: each resolved selection is committed on its own, so separating Plan
+  // tasks is always possible and inseparability can never be the reason.
   assert.match(contract, /separation is impossible: several changes share the same files/);
   assert.doesNotMatch(contract, /several Plan tasks are inseparable/);
   assert.match(contract, /five commit classes and no others/);

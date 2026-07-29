@@ -27,9 +27,9 @@ change document stays modified and uncommitted — its `status` field and every
 the exit into `in-review` — and so do the change's own code and tests, which those
 commits are the first to carry. Together they are the only expected delta, and
 "unrelated changes" above means a path belonging to neither the change document nor
-the change's authorized scope. The window is not one event: each resolved selection is
-committed as it resolves, so the expected delta shrinks selection by selection and what
-stays uncommitted is what no selection has resolved yet. Core's commit classes
+the change's authorized scope. The window is not one event: core's Implementation class
+governs when each selection is committed, so the expected delta shrinks selection by
+selection and what stays uncommitted is what no selection has resolved yet. Core's commit classes
 carry those transitions inside the implementation commits rather than a commit of
 their own, so a clean worktree is not a valid precondition anywhere in that window,
 and a delegation baseline states this expected set instead of demanding a clean tree.
