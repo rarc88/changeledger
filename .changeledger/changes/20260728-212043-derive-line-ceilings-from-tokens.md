@@ -2,7 +2,7 @@
 id: "20260728-212043"
 title: Los techos de líneas se derivan del techo de tokens
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-28T21:20:43Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-195445", "20260728-164620"]
@@ -303,3 +303,5 @@ Alternativas descartadas:
 - **2026-07-29T00:38:39Z** `[note]` Implementado en una sola delegacion. COMMIT COMBINADO, y la separacion era imposible no incomoda: tres tareas escriben templates/contract/budgets.yml y tres escriben test/context.test.mjs, y cualquier estado intermedio -- techos de tokens cambiados sin derivar las lineas, o lineas derivadas sin actualizar PINNED_CEILINGS -- deja la suite roja. Un commit por tarea habria producido seis commits rojos. Se registra aqui como exige el core.
 - **2026-07-29T00:38:48Z** `[note]` Resultado medido, que es el objetivo del change: core pasa de 193/195 lineas a 193/400, con 2577/4000 tokens y densidad 13.4. El margen real de prosa normativa pasa de 2 lineas a 106. Los tokens son ya el gate operativo: a esa densidad el core agota 4000 tokens hacia las ~298 lineas, muy por debajo de 400. pnpm verify EXIT=0, suite 932/932. TDD de CR6 con fallo literal previo: las cuatro capsulas de agent-prompt reprobaron contra el techo de 350 con 433, 478, 398 y 414 tokens antes de subirlo a 1250, lo que prueba que la aplicacion es real y que el techo estaba mal.
 - **2026-07-29T00:39:01Z** `[note]` Dos cosas del orquestador, declaradas para escrutinio del revisor. 1) Apliqué yo el formatter: biome exigia comillas dobles en un nombre de test que contiene un apostrofo (repo's), asi que pnpm verify salia 1 con la suite en verde. Es consecuencia de MI prompt, que prohibio al delegado correr pnpm verify; el cambio es solo comillas. 2) El marcador scaffold de base.spec obligo a ensanchar la forma esperada en 194233 CR1 y 170429 CR1, que exigian exactamente ['lines','tokens'] en TODA entrada. Verificado que el ensanchamiento es estrecho: spec queda en exactamente ['lines','scaffold','tokens'] y las otras diez siguen en exactamente ['lines','tokens'], asi que un bytes fugitivo seguiria fallando y la garantia de 170429 CR1 no se debilita. La causa es mi redaccion de CR7, que pidio que el fichero declarase la marca junto al valor, y budgets.yml es JSON puro y no admite comentarios.
+- **2026-07-29T00:39:56Z** `[status]` in-progress → in-review
+- **2026-07-29T00:40:10Z** `[note]` Commit de handoff: el trabajo se detiene para delegar el review y el unico delta pendiente es document-only (el status a in-review). Se commitea para que el revisor reciba un arbol coherente y ninguna edicion quede sin rastro.
