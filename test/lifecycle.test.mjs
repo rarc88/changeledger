@@ -56,6 +56,17 @@ test('171002 CR1: a review_required type cannot skip review before validation', 
   );
 });
 
+test('162616 CR3: an empty type does not deform the review-required message with a double space', () => {
+  assert.throws(
+    () =>
+      assertTransition('in-progress', 'in-validation', {
+        type: '',
+        reviewRequired: true,
+      }),
+    /^Error: changes must be reviewed before validation — move to in-review first$/,
+  );
+});
+
 test('171002 CR5: a non-review_required type goes from in-progress to validation', () => {
   assert.doesNotThrow(() =>
     assertTransition('in-progress', 'in-validation', { type: 'chore', reviewRequired: false }),

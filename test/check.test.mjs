@@ -217,6 +217,36 @@ example 20260613-130004
   });
   const sibling = (id, over = {}) =>
     change({ frontmatter: { id, ...over }, name: `${id}-sibling.md` });
+  // A `done`-but-unarchived and an archived-under-an-open-status source used to
+  // sit in this same fixture as further exempt cases, via the function's own
+  // (pre-162616) broader inline predicate. 162616 CR7 unifies on `frozenReason`,
+  // which does not consider either shape frozen — see the dedicated test below.
+  const changes = [
+    source,
+    sibling('20260613-130001'),
+    sibling('20260613-130002'),
+    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
+    sibling('20260613-130004'),
+  ];
+
+  const unclassified = run(changes).warnings.filter((warning) =>
+    warning.message.startsWith('mentions change'),
+  );
+  assert.deepEqual(unclassified, []);
+});
+
+// 20260729-162616 CR7: `checkUnclassifiedMentions` used to exempt via its own
+// inline `CLOSED_STATUSES.has(status) || archived === true`, broader than
+// `frozenReason` (only `discarded`, or `done` AND `archived`). Unifying on
+// `frozenReason` narrows the skip for exactly two shapes that the inline
+// predicate treated as frozen but `frozenReason` does not: a `done` change
+// that is not archived (still live work pending graduation/archive, per the
+// comment on `frozenReason` itself), and an `archived: true` change under an
+// open status (the comment on `frozenReason` already calls that combination an
+// anomaly that "stays validated instead of hiding"). Both are now checked like
+// any other change — this is a deliberate, documented behavioral consequence
+// of CR7, not a regression.
+test('162616 CR7: a done-unarchived change and an open-status-archived change are no longer exempt', () => {
   const closedSource = change({
     frontmatter: { id: '20260613-130005', status: 'done' },
     name: '20260613-130005-closed.md',
@@ -235,20 +265,16 @@ example 20260613-130004
       { key: 'log', body: '' },
     ],
   });
-  const changes = [
-    source,
-    sibling('20260613-130001'),
-    sibling('20260613-130002'),
-    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
-    sibling('20260613-130004'),
-    closedSource,
-    archivedSource,
-  ];
-
-  const unclassified = run(changes).warnings.filter((warning) =>
-    warning.message.startsWith('mentions change'),
-  );
-  assert.deepEqual(unclassified, []);
+  const target = change({
+    frontmatter: { id: '20260613-130004' },
+    name: '20260613-130004-target.md',
+  });
+  const { warnings } = run([closedSource, archivedSource, target]);
+  const unclassified = warnings
+    .filter((w) => w.message.startsWith('mentions change'))
+    .map((w) => w.file)
+    .sort();
+  assert.deepEqual(unclassified, ['20260613-130005-closed.md', '20260613-130006-archived.md']);
 });
 
 test('CR6: duplicate ids are an error', () => {
@@ -2620,4 +2646,131 @@ test('141119 CR4: the distributed config and review_required: false are legitima
   const opted = checkRepo({ config: optedOut, changes: [] });
   const optedAll = [...msgs(opted.errors), ...msgs(opted.warnings)];
   assert.ok(!optedAll.some((m) => m.includes('requires active stages')), optedAll.join('\n'));
+});
+
+// --- 20260729-162616: silent-failure sweep (CR4, CR6, CR7) ---
+
+test('162616 CR4: a chore citing an unknown criterion is diagnosed, not silently skipped', () => {
+  const { errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'approved' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (CR99)', criteria: ['CR99'] }],
+      }),
+    ],
+  });
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR99"/.test(m)));
+});
+
+test('162616 CR4: a chore with no CR references stays clean', () => {
+  const { errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'approved' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (support)', criteria: [] }],
+      }),
+    ],
+  });
+  assert.deepEqual(msgs(errors), []);
+});
+
+test('162616 CR4: the same unknown reference is a warning while the chore is still draft', () => {
+  const { warnings, errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'draft' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (CR99)', criteria: ['CR99'] }],
+      }),
+    ],
+  });
+  assert.deepEqual(msgs(errors), []);
+  assert.ok(msgs(warnings).some((m) => /Plan task references unknown criterion "CR99"/.test(m)));
+});
+
+test('162616 CR6: a discarded change never emits depends_on/related_to invariants of its own', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const frozen = change({
+    frontmatter: {
+      id: '20260613-120000',
+      status: 'discarded',
+      depends_on: ['20260613-199999'],
+      related_to: ['20260613-120000'],
+    },
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [frozen] }).errors);
+  assert.deepEqual(
+    errors.filter((m) =>
+      /depends_on references missing|related_to cannot reference|related_to references missing/.test(
+        m,
+      ),
+    ),
+    [],
+  );
+});
+
+test('162616 CR6: an open change with the same defects still emits its own errors', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const open = change({
+    frontmatter: { id: '20260613-130000', depends_on: ['20260613-199999'] },
+    name: '20260613-130000-y.md',
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [open] }).errors);
+  assert.ok(errors.includes('depends_on references missing change "20260613-199999"'));
+});
+
+test('162616 CR6: an open change referencing an existing frozen change resolves without error', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const frozen = change({ frontmatter: { id: '20260613-120000', status: 'discarded' } });
+  const open = change({
+    frontmatter: { id: '20260613-130000', depends_on: ['20260613-120000'] },
+    name: '20260613-130000-y.md',
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [frozen, open] }).errors);
+  assert.deepEqual(
+    errors.filter((m) => /depends_on references missing/.test(m)),
+    [],
+  );
+});
+
+test('162616 CR6: a done+archived change graduating to a missing spec does not emit', () => {
+  const frozen = change({
+    frontmatter: { id: '20260613-120000', status: 'done', archived: true },
+    stages: [
+      { key: 'request' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`\n' },
+    ],
+  });
+  const errors = msgs(checkRepo({ config, changes: [frozen], specs: [] }).errors);
+  assert.deepEqual(
+    errors.filter((m) => /graduated to a missing spec/.test(m)),
+    [],
+  );
+});
+
+test('162616 CR7: a discarded change is still exempt from its own unclassified-mention check', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const target = change({
+    frontmatter: { id: '20260613-130000' },
+    name: '20260613-130000-target.md',
+  });
+  const source = change({
+    frontmatter: { status: 'discarded' },
+    stages: [
+      { key: 'request', body: 'Builds on #20260613-130000 without declaring it.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const { warnings } = checkRepo({ config: cfg, changes: [source, target] });
+  assert.deepEqual(
+    msgs(warnings).filter((m) => /mentions change/.test(m)),
+    [],
+  );
 });

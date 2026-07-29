@@ -452,6 +452,93 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
   );
 });
 
+// 20260729-162616 CR1: `context <id>` used to degrade silently on an
+// undecidable type — an empty `Active stages(undefined)=` line, exit 0 — for
+// three distinct causes. The contract requires it to abort naming the cause
+// instead, exactly like `changeledger check` already does for the config-level
+// version of the same defect.
+function contextRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Test').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const changeFile = fs
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => path.join(root, '.changeledger', 'changes', name))
+    .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${item.id}"`));
+  return { root, env, id: item.id, changeFile, original: fs.readFileSync(changeFile, 'utf8') };
+}
+
+test('162616 CR1: an unknown type aborts naming it instead of an empty stages line', () => {
+  const { root, env, id, changeFile, original } = contextRepo();
+  fs.writeFileSync(changeFile, original.replace('type: chore', 'type: bogus'));
+
+  const { code, err, out } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /unknown type "bogus"/);
+  assert.doesNotMatch(out, /Active stages\(bogus\)=\s*$/m);
+});
+
+test('162616 CR1: a missing frontmatter type aborts naming it', () => {
+  const { root, env, id, changeFile, original } = contextRepo();
+  fs.writeFileSync(changeFile, original.replace(/^type: chore\n/m, ''));
+
+  const { code, err } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /missing frontmatter "type"/);
+});
+
+test('162616 CR1: a type whose config declares stages as a string aborts naming it', () => {
+  const { root, env, id } = contextRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('stages: [request, plan]', 'stages: "request, plan"'),
+  );
+
+  const { code, err } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /stages must be a list/);
+});
+
+test('162616 CR1: a valid type with valid stages produces the same capture as before', () => {
+  const { root, env, id } = contextRepo();
+  const { code, out } = runIn(root, env, 'context', id);
+  assert.equal(code, 0);
+  assert.match(out, /Active stages\(chore\)=request, plan/);
+});
+
+// 20260729-162616 CR5: `readiness.md` is the only fragment that defines the
+// `tdd` obligation, and it is excluded for a type that never activates
+// `specification` (chore has no such stage in the default template). The
+// policy line must not publish `tdd=` when its definition was never served.
+test('162616 CR5: the policy line omits tdd= for a type without specification', () => {
+  const { root, env, id } = contextRepo();
+  const { code, out } = runIn(root, env, 'context', id);
+  assert.equal(code, 0);
+  const policyLine = out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.doesNotMatch(policyLine, /tdd=/);
+});
+
+test('162616 CR5: a type with specification keeps the tdd= line identical to today', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Test').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const { code, out } = runIn(root, env, 'context', item.id);
+  assert.equal(code, 0);
+  const policyLine = out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policyLine, /tdd=on/);
+});
+
 // 124833 CR1: `--have` was retired with the revision segment it served. It is
 // rejected as an unknown option and no longer appears in the help text, so a
 // caller carrying a stale habit fails loudly instead of being silently ignored.

@@ -2,7 +2,7 @@
 id: "20260729-162616"
 title: "Lo que no se puede decidir aborta y se nombra: barrido de fallos silenciosos"
 type: bug
-status: approved
+status: in-review
 created: 2026-07-29T16:26:16Z
 depends_on: []
 related_to: ["20260726-194220", "20260726-141124"]
@@ -107,9 +107,14 @@ normalizar, prefijo colapsado) donde el contrato exige abortar nombrando.
 - **Given** `review()` en `src/commands/agent.mjs`
 - **When** registra `pass`, `fail --retry` o `fail --block`
 - **Then** cada salida pasa por `assertTransition` antes de escribir, con el
-  mismo contrato que `status()`/`validation()`/`discard()`/`reopen()`; un test
-  lo fija por comportamiento: una arista ilegal inyectada en config es
-  rechazada nombrándola y el documento queda byte-idéntico
+  mismo contrato que `status()`/`validation()`/`discard()`/`reopen()` —
+  paridad estructural y defensa en profundidad, con el precedente del
+  `assertTransition('done','in-progress')` de `reopen()`; el test fija que las
+  tres salidas legales siguen funcionando y que con un `current` ilegal el
+  comando falla nombrándolo y el documento queda byte-idéntico. (Enmendado con
+  autorización humana: la cláusula original exigía una arista ilegal inyectada
+  en config, inconstructible — `TRANSITIONS` es constante y su entrada
+  `in-review` refleja las tres salidas por construcción)
 
 ### CR3 — Ningún mensaje de error con tipo vacío deforma su plantilla
 
@@ -177,13 +182,24 @@ normalizar, prefijo colapsado) donde el contrato exige abortar nombrando.
 
 ## Plan
 
-- [ ] Abortar nombrando en `changePolicyBlock`/`fragmentsForType` de `src/commands/context.mjs` para tipo desconocido, ausente o `stages` malformadas, y omitir `tdd=` en `transversalPolicy` cuando la captura no sirve `readiness.md`; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` con los tres fixtures de CR1 en rojo antes del fix (CR1, CR5)
-- [ ] Añadir `assertTransition` a `review()` en `src/commands/agent.mjs` y arreglar la plantilla de tipo vacío en `src/lifecycle.mjs`; verify: `node --test test/agent.test.mjs test/lifecycle.test.mjs` con la arista ilegal rechazada y el mensaje literal fijado (CR2, CR3)
-- [ ] En `src/check.mjs`: diagnóstico de criterio desconocido para tipos sin `specification`, sujeto congelado excluido de los cuatro invariantes conservándolo como dato, y predicado único de congelado consumido por identidad; verify: `node --test test/check.test.mjs` con los fixtures de CR4 y CR6 en rojo antes del fix (CR4, CR6, CR7)
-- [ ] En `src/commands/commit.mjs`: whitelist insensible al casing con el vector de `update-index` reproducido en test, y abort nombrado cuando `changes_dir` colapsa a la raíz; verify: `node --test test/commit.test.mjs` con ambos bypasses en rojo antes del fix (CR8, CR9)
-- [ ] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Abortar nombrando en `changePolicyBlock`/`fragmentsForType` de `src/commands/context.mjs` para tipo desconocido, ausente o `stages` malformadas, y omitir `tdd=` en `transversalPolicy` cuando la captura no sirve `readiness.md`; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` con los tres fixtures de CR1 en rojo antes del fix (CR1, CR5)
+  - **Resolved:** `2026-07-29T18:06:42Z`
+- [x] Añadir `assertTransition` a `review()` en `src/commands/agent.mjs` y arreglar la plantilla de tipo vacío en `src/lifecycle.mjs`; verify: `node --test test/agent.test.mjs test/lifecycle.test.mjs` con las salidas legales intactas, el `current` ilegal rechazado nombrándolo y el mensaje literal fijado (CR2, CR3)
+  - **Resolved:** `2026-07-29T18:06:42Z`
+- [x] En `src/check.mjs`: diagnóstico de criterio desconocido para tipos sin `specification`, sujeto congelado excluido de los cuatro invariantes conservándolo como dato, y predicado único de congelado consumido por identidad; verify: `node --test test/check.test.mjs` con los fixtures de CR4 y CR6 en rojo antes del fix (CR4, CR6, CR7)
+  - **Resolved:** `2026-07-29T18:06:43Z`
+- [x] En `src/commands/commit.mjs`: whitelist insensible al casing con el vector de `update-index` reproducido en test, y abort nombrado cuando `changes_dir` colapsa a la raíz; verify: `node --test test/commit.test.mjs` con ambos bypasses en rojo antes del fix (CR8, CR9)
+  - **Resolved:** `2026-07-29T18:06:43Z`
+- [x] Correr el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T18:06:43Z`
 
 ## Log
 
 - **2026-07-29T16:32:00Z** `[note]` Documentado sobre reproducción delegada contra HEAD en fixtures, no sobre el acta. Corrige dos hechos del acta: la iteración sin filtrar es diseño documentado para el congelado-como-dato (el defecto es el sujeto emisor), y el bypass de casing no es alcanzable por `git add` normal en APFS (el vector real es índice inyectado o rebase con tree mal-caseado). Eleva uno: `changes_dir: "."` desactiva el guard para todo fichero, no solo la raíz. Hallazgo lateral (loadRepo revienta con cualquier .md de raíz bajo `changes_dir: "."`) registrado para CH-7, fuera de alcance.
 - **2026-07-29T16:33:18Z** `[status]` draft → approved
+- **2026-07-29T16:35:02Z** `[status]` approved → in-progress
+- **2026-07-29T16:35:02Z** `[note]` Implementación delegada en una sola pasada (las 4 tareas de src son una selección: mismos principios, tests acoplados por fixtures; el gate cierra). Baseline 1daa9cdb, worktree spec-ledger-wtb, rama change/silent-failure-sweep. Modelo mid-tier: defectos reproducidos, mecanismo decidido por criterio. Los tests de CR1/CR5 van a test/cli-bin.test.mjs para no colisionar con el carril de doctrina, que posee test/context.test.mjs.
+- **2026-07-29T17:06:40Z** `[note]` Implementación entregada (272k tokens, 113 tool calls) y verificada por el orquestador: 11 ficheros propios, 970/970, lint limpio, TRANSITIONS leído por el orquestador confirmando el hallazgo del delegado sobre CR2. Rojo-verde literal por criterio en el informe; CR7 con narrowing doble reportado (done-sin-archivar Y archived-bajo-status-abierto dejan de estar exentos en checkUnclassifiedMentions — el segundo no estaba nombrado en el documento; consistente con el doc comment de frozenReason). El test preexistente 105456 CR9 se partió dentro del fichero propio, documentado.
+- **2026-07-29T17:06:40Z** `[note]` Defecto de redacción en CR2, hallado por el delegado y verificado por el orquestador: la cláusula 'una arista ilegal inyectada en config es rechazada nombrándola' es inconstructible — TRANSITIONS es const hardcodeada y su entrada in-review refleja las tres salidas de review() por construcción; el guard reviewRequired solo dispara desde in-progress. El delegado implementó el cableado por paridad arquitectónica (precedente: el assertTransition de reopen()) y lo documentó en vez de fingir el rojo-verde. Es la clase del hallazgo 28 (criterio individual no falsable), cometida por el orquestador al redactar. Enmienda pendiente de decisión humana; el review no se delega hasta resolverla.
+- **2026-07-29T18:06:30Z** `[note]` CR2 y su tarea enmendados con autorización de Roberto ('arreglemos todo de una vez', respondiendo a la propuesta exacta): la cláusula inconstructible (arista ilegal inyectada en config) se sustituye por lo verificable — paridad estructural con assertTransition, salidas legales intactas, current ilegal rechazado con documento byte-idéntico. Dirección débil (retira una exigencia imposible), por eso la decidió el humano. El precedente de vacuidad equivalente ya existía en el árbol: el assertTransition de reopen().
+- **2026-07-29T18:06:43Z** `[status]` in-progress → in-review

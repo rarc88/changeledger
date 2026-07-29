@@ -868,6 +868,42 @@ test('CR9: review requires status in-review', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+// 20260729-162616 CR2: review() now validates every one of its three outcomes
+// through assertTransition, the same lifecycle authority status()/validation()/
+// discard()/reopen() already use — instead of writing setStatus directly once
+// its own bespoke `current !== 'in-review'` guard passes. Under today's graph
+// every in-review edge is legal (`in-review: ['in-validation', 'in-progress',
+// 'blocked']` mirrors review()'s three outcomes exactly), so assertTransition
+// can never actually throw through review() right now — exactly like the
+// equally-defensive call already in reopen() (`assertTransition('done',
+// 'in-progress', ...)`, always legal too). These tests pin the illegal-current
+// rejection (the only reachable one) across all three verdict paths, not just
+// `pass`, so a future edit that narrows the graph or the review-required gate
+// is enforced here the same way it already is for the other verbs.
+test('162616 CR2: review fail --retry rejects an illegal current status without writing', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'fail', { mode: 'retry', reason: 'x' }, root),
+    /review requires status in-review \(current: in-progress\)/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('162616 CR2: review fail --block rejects an illegal current status without writing', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'fail', { mode: 'block', reason: 'x' }, root),
+    /review requires status in-review \(current: in-progress\)/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
 test('CR10: review fail requires a reason', () => {
   const { root, file, id } = repoWithChange();
   reach(id, root, 'in-review');
