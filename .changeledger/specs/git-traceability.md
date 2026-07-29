@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-28T16:39:23Z
+updated: 2026-07-29T09:15:27Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336", "20260728-164620"]
 ---
 
 ## Trazabilidad git
@@ -88,24 +88,37 @@ revisan el worktree antes de empezar; commitean la documentación aprobada antes
 de tocar código; e implementan un change a la vez. Los cambios no relacionados no
 se incluyen silenciosamente.
 
-**La unidad de commit es contable, no un juicio.** Una rama de change lleva
-cuatro clases y ninguna más: **Draft**, uno por documento redactado y commiteado
-en solitario; **Baseline**, exactamente uno con el documento aprobado antes de
-cualquier código; **Task**, uno por tarea del Plan completada con su código,
-test, casilla y Log; y **Handoff**, cero o uno cuando el trabajo se detiene y
-quedaría estado sin commitear, registrando por qué fue necesario. La granularidad
-se decide con una prueba: si la unidad se revertirá, referenciará o implementará
-de forma independiente. Una transición de lifecycle no lo es —el Log ya la
-registra— y **nunca es un commit propio**: viaja dentro de la siguiente clase
-real. Así, `n` tareas completadas producen `n + 1` commits, o `n + 2` con
-handoff. La versión anterior de esta regla pedía commitear "cuando la atribución
-pudiera volverse ambigua", un juicio cuya respuesta segura es siempre sí, y por
-eso invitaba al exceso que pretendía evitar.
+**La unidad de commit es el change, y las clases son contables.** Una rama de
+change lleva **cinco** clases y ninguna más: **Draft**, uno por documento
+redactado y commiteado en solitario; **Baseline**, exactamente uno con el
+documento aprobado antes de cualquier código; **Implementation**, exactamente
+uno con el trabajo completo del change —código, tests, casillas y Log— creado
+cuando el gate local pasa y **antes** de delegar el review, de modo que
+`baseline..HEAD` es un rango fijo que el revisor inspecciona y el entregable no
+puede cambiar entre su informe y la historia; **Correction**, cero o más, cada
+una sin commitear hasta que un revisor fresco la confirma; y **Handoff**,
+obligatoria siempre que el trabajo se detiene en `blocked` o una sesión termina
+con estado sin commitear, registrando por qué fue necesario.
+
+La granularidad se decide con una prueba: si la unidad se revertirá,
+referenciará o implementará de forma independiente. Una transición de lifecycle
+no lo es —el Log ya la registra— y **nunca es un commit propio**: viaja dentro
+de la siguiente clase real. Un documento de change sí lo es. **Una tarea del
+Plan no**: se revierte, se referencia y se implementa con el resto del change,
+así que el change es la unidad de implementación. Así, un change produce **dos**
+commits, uno más por corrección confirmada y uno por handoff.
+
+Dos formulaciones anteriores quedaron retiradas por invitar cada una a su propio
+exceso: pedir commitear "cuando la atribución pudiera volverse ambigua" era un
+juicio cuya respuesta segura es siempre sí; y contar `n + 1` commits por `n`
+tareas completadas multiplicaba el coste de delegación por el número de tareas,
+porque el delegado no toca git y separar la unidad exigía reescribir el documento
+dos veces.
 
 Un commit combinado es legítimo solo cuando separar es imposible: varios changes
-comparten los mismos archivos, o varias tareas del Plan son inseparables. En
-ambos casos se registra en el Log qué se combinó y por qué, nombrando cada change
-que comparte la superficie.
+comparten los mismos archivos. Las tareas del Plan **nunca** son razón, porque
+todas viajan en el único commit de implementación. Se registra en el Log qué se
+combinó y por qué, nombrando cada change que comparte la superficie.
 
 **Sede única.** Todo este comportamiento —las clases, el discriminante, la
 fórmula, la forma del subject, el body multi-change, las excepciones, el

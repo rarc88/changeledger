@@ -2,9 +2,11 @@
 id: "20260728-164620"
 title: La unidad de commit es el change, no la tarea del Plan
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T16:46:20Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260726-124837", "20260727-194234", "20260728-151336", "20260722-124656", "20260728-170429", "20260728-195445"]
 owner: raruiz-hiberuscom
 ---
@@ -228,3 +230,6 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 - **2026-07-29T02:04:50Z** `[note]` El revisor juzgo mi enmienda de CR7 correcta, y con un argumento mejor que el mio: lo que la hace SEGURA no es la regla que invoque sino que es estrictamente MAS FUERTE -- ensancha el conjunto esperado y anade una clausula And, y una enmienda post-aprobacion que solo endurece no puede convertir un fallo en un pass. Ese es el test que separa corregir de blanquear. Dos matices que acepto: el criterio enumera 'codigo y tests del propio change' mientras el contrato define la exclusion por 'the change's authorized scope', que es MAS ANCHO y mejor -- un change autorizado a editar docs veria sus docs como unrelated bajo la enumeracion literal del criterio; el criterio se queda corto describiendo lo que el contrato logra, no al revés. Y el literal 'the only expected delta' de la asercion de CR7 habria casado tambien con la version falsa, asi que por si solo no discrimina: la garantia vive en la PAREJA con 164620 CR7 correction y sus tres negativos.
 - **2026-07-29T02:04:57Z** `[status]` in-progress → in-review
 - **2026-07-29T02:04:57Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T09:12:06Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-29T09:15:27Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-29T09:16:32Z** `[archive]` archived
