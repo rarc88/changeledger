@@ -2,7 +2,7 @@
 id: "20260729-143656"
 title: Retirar los pins de hash del contrato en favor de guards de obligación
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-07-29T14:36:56Z
 depends_on: []
 related_to: ["20260728-164620"]
@@ -106,7 +106,7 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 ### CR3 — Ningún test lee el código fuente de la propia suite
 
 - **Given** `test/context.test.mjs` en HEAD tras la implementación
-- **When** se ejecuta `grep -c "context.test.mjs'" test/context.test.mjs`
+- **When** se ejecuta `grep -c "readFileSync(new URL('./context.test.mjs'" test/context.test.mjs`
   buscando self-reads (`readFileSync` de la propia suite)
 - **Then** cero ocurrencias; los tests `164620 CR5` y `164620 H3` quedan
   retirados — su objeto (comentarios del mapa de pins) deja de existir, y el
@@ -135,14 +135,25 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 
 ## Plan
 
-- [ ] Reescribir la sección de regresión contractual de `.changeledger/specs/contract-discovery.md` al modelo vigente sin snapshots ni reclasificación; verify: `grep -c 'snapshots SHA-256' .changeledger/specs/contract-discovery.md` devuelve 0 (CR5)
-- [ ] Retirar de `test/context.test.mjs` el mapa de pins con su historial y el test `234939 CR10/CR11`, cuya decisión queda documentada en `.changeledger/specs/contract-discovery.md`; verify: `node --test test/context.test.mjs` y `grep -E "'[a-f0-9]{64}'" test/context.test.mjs` sin ocurrencias (CR1)
-- [ ] Convertir las obligaciones de `templates/contract/core.md` que `194234 CR5` afirma vía comentarios en aserciones directas sobre el fragmento, y retirar los self-reads `164620 CR5` y `164620 H3`; verify: `node --test test/context.test.mjs` y `grep -c "context.test.mjs'" test/context.test.mjs` devuelve 0 (CR2, CR3)
-- [ ] Verificar por mutación la protección restante de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada y techo `base.core` excedido, un mutante a la vez con fallo literal reportado; verify: `pnpm test` (CR4)
-- [ ] Correr el gate completo tras el retiro; verify: `pnpm verify` (support)
+- [x] Reescribir la sección de regresión contractual de `.changeledger/specs/contract-discovery.md` al modelo vigente sin snapshots ni reclasificación; verify: `grep -c 'snapshots SHA-256' .changeledger/specs/contract-discovery.md` devuelve 0 (CR5)
+  - **Resolved:** `2026-07-29T14:58:57Z`
+- [x] Retirar de `test/context.test.mjs` el mapa de pins con su historial y el test `234939 CR10/CR11`, cuya decisión queda documentada en `.changeledger/specs/contract-discovery.md`; verify: `node --test test/context.test.mjs` y `grep -E "'[a-f0-9]{64}'" test/context.test.mjs` sin ocurrencias (CR1)
+  - **Resolved:** `2026-07-29T14:58:57Z`
+- [x] Convertir las obligaciones de `templates/contract/core.md` que `194234 CR5` afirma vía comentarios en aserciones directas sobre el fragmento, y retirar los self-reads `164620 CR5` y `164620 H3`; verify: `node --test test/context.test.mjs` y `grep -c "readFileSync(new URL('./context.test.mjs'" test/context.test.mjs` devuelve 0 (CR2, CR3)
+  - **Resolved:** `2026-07-29T14:58:57Z`
+- [x] Verificar por mutación la protección restante de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada y techo `base.core` excedido, un mutante a la vez con fallo literal reportado; verify: `pnpm test` (CR4)
+  - **Resolved:** `2026-07-29T14:58:57Z`
+- [x] Correr el gate completo tras el retiro; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T14:58:58Z`
 
 ## Log
 
 - **2026-07-29T14:42:00Z** `[note]` Change autorizado por Roberto en conversación como primero de la tanda reorganizada, antes del change de doctrina (CH-0b+CH-5a+CH-5b). Datos del Request medidos en la misma sesión antes de redactar: conteos por `grep`/`wc` sobre el árbol en HEAD.
 - **2026-07-29T14:43:32Z** `[status]` draft → approved
 - **2026-07-29T14:44:47Z** `[status]` approved → in-progress
+- **2026-07-29T14:45:35Z** `[note]` Implementación delegada en una sola pasada (las 5 tareas son una selección: 4 acopladas por test/context.test.mjs y la spec, más el gate). Baseline 5b2e0503. Modelo mid-tier: trabajo acotado y bien especificado.
+- **2026-07-29T14:59:15Z** `[note]` Implementación entregada por delegado (141k tokens, 91 tool calls) y verificada por el orquestador contra el árbol: grep hex64=0, self-reads readFileSync de la propia suite=0, 'snapshots SHA-256' en la spec=0, tests 234939 CR10/CR11, 164620 CR5 y 164620 H3 ausentes, test nuevo 143656 CR2 presente. Gate corrido por el orquestador: pnpm verify verde, 943/943, lint limpio, check 0 errores. Mutantes M1-M4 con fallo/verde literal en el informe del delegado; restauración confirmada por git diff --stat limpio en templates/ y src/.
+- **2026-07-29T14:59:16Z** `[note]` Evidencia viva para CH-19, del mutante M3a: la frase retirada vigilada por 124837 CR1 inyectada en templates/contract/agent-contexts/investigation.md deja la suite en verde (97 pass en el fichero) porque el barrido usa readdirSync no recursivo; el mismo mutante sobre core.md sí falla nombrando el guard (M3b). No se tocó: es el hueco documentado de CH-19.
+- **2026-07-29T14:59:16Z** `[note]` Defecto de redacción en CR3 hallado por el delegado: el comando literal del criterio (grep -c "context.test.mjs'") devuelve 2 por dos substrings preexistentes ajenos (la lectura cruzada de agent-context.test.mjs y la entrada del array CAPTURE_SUITES), así que el Then=0 es insatisfacible tal como está escrito. La medida del objeto real del criterio (readFileSync de la propia suite) da 0. Enmienda pendiente de decisión humana; el review no se delega hasta resolverla.
+- **2026-07-29T15:06:06Z** `[note]` CR3 y su tarea del Plan enmendados con autorización de Roberto (conversación, 2026-07-29): el comando de medida pasa a grep -c "readFileSync(new URL('./context.test.mjs'" que mide el objeto real del criterio. Es corrección de medidor, no de comportamiento: el comando original devolvía 2 por substrings ajenos preexistentes y no podía pasar nunca. Por la letra de la regla de enmiendas convierte fallo en pass, por eso la decidió el humano y no el orquestador.
+- **2026-07-29T15:06:17Z** `[status]` in-progress → in-review

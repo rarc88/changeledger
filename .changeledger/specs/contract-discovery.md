@@ -205,12 +205,20 @@ inyectarlo no invalida la medida. El cruce de 999 a 1000 líneas está fijado po
 tests, y el propio `lines:<N>` no crea escenario de pipe cerrado: el consumidor
 que pasa el `N` exacto agota la salida.
 
-La regresión contractual se protege en dos niveles: una matriz semántica exige
-cada regla, comando, ejemplo y antipatrón en su output propietario y rechaza
-packs ajenos; snapshots SHA-256 normalizados de todos los fragmentos hacen
-fallar cualquier eliminación silenciosa. Cambiar el contrato exige reclasificar
-explícitamente la regla afectada como preservada, reemplazada o retirada antes
-de actualizar el snapshot.
+La regresión contractual se protege en tres niveles, ninguno un pin de hash:
+una matriz semántica exige cada regla, comando, ejemplo y antipatrón en su
+output propietario y rechaza packs ajenos; guards de obligación por grep
+comprueban que una frase retirada no reaparece y que cada obligación viva se
+encuentra en la sede de su fragmento dueño; y los presupuestos de
+`budgets.yml` acotan tokens y líneas de toda composición base. El nivel de
+pins SHA-256 sobre los fragmentos —snapshot normalizado por fragmento más la
+obligación de reclasificar cada regla afectada como preservada, reemplazada o
+retirada antes de actualizar el snapshot— se retiró (decisión de 2026-07-29,
+change `20260729-143656`): su comentario de clasificación no lo verificaba
+nadie y salió falso sin que nada lo notara, y un hash dice que algo cambió,
+nunca qué se perdió. La edición arbitraria de prosa que ese nivel cubría queda
+protegida por el review obligatorio que toda edición de fragmento atraviesa
+dentro de un change.
 
 **La proyección de equivalencia modela listas.** El árbol que compara dos
 bloques de bootstrap incluye `list` y `list_item`, y recursa en los `items`, de
