@@ -364,6 +364,7 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
   for (const kept of [
     /Delegation prompt contract/,
     /ChangeLedger is agnostic to how work is executed/,
+    /Do not delegate when the coordination costs more than the expected improvement in quality, speed or context control/,
     /Do not create one subagent per file, line or tiny mechanical edit/,
     /prefer one scoped delegate, a batch edit or a script verified by the main agent/,
   ]) {
@@ -1753,11 +1754,12 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
 
 // 20260728-212043 CR7: the token ceilings themselves are three decided values —
 // core, contexts, everything else — not eleven independent numbers. `base.spec`
-// is the one declared exception: it is above the 2500 contexts share because it
-// measures 3110 tokens today, so lowering it now would break the tree. The
-// scaffold marker lives in the entry itself (`194233 CR1` above pins its shape),
-// so a future reader cannot mistake 3450 for a settled decision the way this
-// change's own draft once did.
+// is the one declared exception: it is above the 2500 contexts share because
+// its measured usage, tracked in the `scaffold` note in
+// `templates/contract/budgets.yml` rather than duplicated here, is still
+// climbing toward it. The scaffold marker lives in the entry itself (`194233
+// CR1` above pins its shape), so a future reader cannot mistake 3450 for a
+// settled decision the way this change's own draft once did.
 test('20260728-212043 CR7: token ceilings are the three decided values, and spec is marked scaffold', () => {
   assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
   for (const context of ['implement', 'review', 'release']) {
@@ -3223,14 +3225,14 @@ test('162015 CR5: the evidence contract reaches each role through its own pack',
   const review = norm(buildContext('review', root));
 
   for (const clause of [
-    /Scope discipline is pass\/fail, and silently fixing a known residual breaks it/,
-    /Name the residuals you leave untouched instead of repairing them in passing/,
+    /Scope discipline is pass\/fail: leaving a known residual out of your report is a failure, same as touching one/,
     /Reproduce the original defect and quote its literal output before changing anything/,
-    /Show the new test failing before the fix and passing after it/,
-    /Mutate one thing at a time, restore it by editing, and prove the file is clean before the next mutant/,
+    /Show the new test failing before the fix, with its literal failure message, and passing after it/,
+    /Mutate one thing at a time, confirm it fails for the right reason, restore it by editing — never with git —/,
     /Treat figures, line numbers and pointers you were handed as data to verify, not as facts/,
     /Report any orchestrator instruction that contradicts this contract instead of silently obeying it/,
     /Stop and report when the work turns out to need a different type or a wider scope/,
+    /Report the list of decisions the document did not specify/,
   ]) {
     assert.match(spec, clause, `the spec pack is missing the implementer clause ${clause}`);
     assert.match(

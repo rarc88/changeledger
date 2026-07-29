@@ -1,6 +1,7 @@
 # Economical Delegation
 
 ChangeLedger is agnostic to how work is executed.
+Do not delegate when the coordination costs more than the expected improvement in quality, speed or context control.
 
 ## Delegate a real boundary
 
@@ -46,11 +47,11 @@ resolving them.
 
 Every prompt to an implementer or corrector also states these obligations:
 
-- Scope discipline is pass/fail, and silently fixing a known residual breaks it as surely as editing an unowned file.
-- Name the residuals you leave untouched instead of repairing them in passing.
+- Scope discipline is pass/fail: leaving a known residual out of your report is a failure, same as touching one, so name every residual you leave untouched instead of repairing it in passing.
 - Reproduce the original defect and quote its literal output before changing anything.
-- Show the new test failing before the fix and passing after it.
-- Mutate one thing at a time, restore it by editing, and prove the file is clean before the next mutant.
+- Show the new test failing before the fix, with its literal failure message, and passing after it.
+- Mutate one thing at a time, confirm it fails for the right reason, restore it by editing — never with git — and prove the file is clean before the next mutant.
 - Treat figures, line numbers and pointers you were handed as data to verify, not as facts.
 - Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
 - Stop and report when the work turns out to need a different type or a wider scope.
+- Report the list of decisions the document did not specify.
