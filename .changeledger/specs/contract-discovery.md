@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-28T21:27:12Z
+updated: 2026-07-29T00:59:10Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043"]
 ---
 
 ## Discovery del contrato
@@ -108,6 +108,29 @@ presupuestos**: el techo operativo de líneas del core y el del bloque `## Commi
 del core dejaron de ser literales en un test y son entradas declaradas, la segunda
 bajo un grupo `blocks`. El techo de líneas del core se compara además contra el
 corte que declara el propio bootstrap, así que no puede rebasarlo en silencio.
+
+**El techo de `lines` no se fija a mano: se deriva del de `tokens`.** Es
+`tokens ÷ 10` en toda entrada, redondeado hacia abajo. Los tokens son la dimensión
+que declara coste y por tanto la única que se decide; las líneas son transporte, así
+que su techo sale del anterior y deja de ser un límite editorial que negociar. Un
+techo de líneas puesto a mano fue exactamente lo que dejó el core con dos líneas de
+margen mientras le sobraban mil cuatrocientos tokens: la unidad se había movido a
+tokens y el límite operativo seguía siendo el otro.
+
+De ahí que **el suelo de densidad sea normativo**: si un pack cae por debajo de 10
+tokens por línea, es el techo de líneas el que muerde primero, y eso es la señal de
+subir el corte a propósito en vez de descubrir un truncamiento en un repo consumidor.
+
+Los techos de tokens son **pocos y decididos**, no uno por pack: el core paga más que
+cualquier otro contexto, los demás contextos comparten un mismo valor, y todo lo que
+no es un contexto —cápsulas de delegación, overlays de lifecycle, bloques con techo
+propio— comparte otro. Un valor que excede su clase **se marca en el propio fichero**
+como andamio temporal, con su condición de salida nombrada, y un test exige esa marca:
+así un techo provisional no puede volver a leerse como una decisión tomada.
+
+El techo de las cápsulas de delegación cubre **las dos** clases, los esqueletos de
+prompt y las cápsulas de contexto. Cubrir sólo una dejaba un techo que no podía fallar
+para la mitad de lo que declaraba acotar.
 
 **Que el contenido de hoy quepa y que el techo siga valiendo lo decidido son dos
 preguntas distintas**, y las dos están cerradas. Cada techo declarado está fijado
@@ -237,10 +260,13 @@ bootstrap mantiene un único punto de entrada: `changeledger context`.
 **El bootstrap manda un comando acotado, no una prohibición.** Desde el formato
 v4 no ordena "no recortes la salida" —una negación que el arnés incumple sin que
 el agente lo note— sino un comando exacto, `changeledger context 2>&1 |
-head -200`, más una **condición de validez positiva**: la captura vale sólo si su
+head -400`, más una **condición de validez positiva**: la captura vale sólo si su
 última línea contiene `CHANGELEDGER CONTEXT END`, y nada anterior a esa línea es
-accionable. El límite fijo de 200 es suficiente porque el core está acotado por
-`budgets.yml`; cuando la salida lo supera, el reintento no se adivina: la línea
+accionable. Ese corte **no es un número elegido**: es exactamente el techo de
+`lines` del core, y los dos se afirman **por igualdad**, así que ninguno puede
+moverse sin el otro. No lleva reserva por encima a propósito — una reserva
+implicaría que el `head` informa del tamaño, y la condición de validez es la línea
+`END`, no el número. Cuando la salida supera el corte, el reintento no se adivina: la línea
 BEGIN publica `lines:<N>` y se re-ejecuta con `head -<N>`. La completitud se
 verifica por centinela: toda salida de `context` abre con
 `===== CHANGELEDGER CONTEXT BEGIN — mode: <mode> [— change: #<id>] —

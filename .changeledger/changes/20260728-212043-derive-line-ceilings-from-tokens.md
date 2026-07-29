@@ -2,9 +2,11 @@
 id: "20260728-212043"
 title: Los techos de líneas se derivan del techo de tokens
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T21:20:43Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260728-170429", "20260728-195445", "20260728-164620"]
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -308,3 +310,6 @@ Alternativas descartadas:
 - **2026-07-29T00:53:55Z** `[note]` Review PASS con mandato acotado, modelo top y ataque de vacuidad sobre los siete CR: cada uno tiene un mutante aislado que lo hace fallar con el mensaje que su CR promete. Las tres preguntas subtiles resueltas a favor con evidencia: (1) la igualdad head==base.core.lines no prohibe ningun estado legitimo -- un fichero de exactamente 400 lineas conserva su ultima linea bajo head -400 -- y captura estrictamente mas que el <=, porque head -401 con lines 400 era un estado que el <= aceptaba; (2) CR3 es el UNICO detector de su clase, probado cegando la comparacion solo al descenso: de 36 tests falla exactamente 1, el nuevo; (3) el ensanchamiento de forma no pierde garantia, probado con tres mutantes -- bytes en spec falla, bytes en overlays.done falla, scaffold colado en overlays.done falla -- y la condicion label==='spec' es estrecha por construccion porque budgetEntries() etiqueta overlays y bloques con sufijo.
 - **2026-07-29T00:54:09Z** `[note]` Actuado sobre los hallazgos del revisor. D2 CORREGIDO: el Alcance decia que agent sube a 1000 tokens mientras la tabla, CR6 y el codigo dicen 1250 -- contradiccion interna de mi propia redaccion al enmendar. Reescrito a 1250. Mi grep no la encontro porque el valor estaba partido entre dos lineas fisicas ('**1000\\ntokens**'), el mismo modo de fallo que ya tuve buscando 'One owner per write surface'. D1 PENDIENTE PARA LA GRADUACION, no es defecto de este change: .changeledger/specs/contract-discovery.md sigue publicando 'changeledger context 2>&1 | head -200' y afirmando que 'El limite fijo de 200 es suficiente porque el core esta acotado por budgets.yml'. Las dos afirmaciones son FALSAS tras este change. Verificado por mi leyendo el fichero. Es la clase 19/48 otra vez y hay que arreglarlo al graduar. D3 a D5 quedan fuera de superficie: acta desactualizada, una discrepancia aparente del redondeo a 50 que el revisor comprobo y descarto, y un nit de comentario en presente.
 - **2026-07-29T00:54:18Z** `[note]` Error mio en el prompt del review, que el revisor cazo y reporto en vez de obedecer: le di el rango be649477..HEAD, que EXCLUYE el commit de implementacion porque be649477 ES ese commit. Reviso be649477^..HEAD, el correcto, y lo declaro antes de empezar. Un revisor que hubiera obedecido habria revisado 3 lineas de handoff y devuelto un pass vacio.
+- **2026-07-29T00:57:22Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-29T00:59:10Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-29T00:59:40Z** `[archive]` archived
