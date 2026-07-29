@@ -1733,3 +1733,19 @@ no silencioso; clase de CH-7 (hallazgo 11).
 Ambos en `draft`, pendientes de aprobación. Destinos: doctrina en el checkout
 principal (WT-A); barrido en worktree WT-B con rama nueva desde el tip **después**
 de commitear su baseline (lección del ciclo anterior escrita arriba).
+
+### Ciclo de la segunda tanda — estado al 2026-07-29 (noche)
+
+| change | estado | nota |
+|---|---|---|
+| Doctrina `20260729-162015` | **corrección en curso** tras `validation fail --human` | review top-tier PASS con deformación auditada (cero cuantificadores añadidos, guards re-pinneados 430→440 aserciones) y 4 hallazgos LOW; decisión de Roberto: *"arreglemos todo de una vez"* — F1 (mitad negativa del cuándo-delegar sin sede), F2 (tres sub-obligaciones comprimidas en la Proposal, la sustantiva: el mutante falla por la razón correcta), F3 (la lista de decisiones no especificadas tenía consumidor sin productor), F4 (comentario rancio 3110) se corrigen ahora, no en CH-5a. Restricción: CR6 obliga a seguir bajo 301/191 líneas, así que la corrección comprime prosa sin perder obligación o para y pregunta |
+| Barrido `20260729-162616` | **in-review** (commit `1a639c77`) | 9 CR implementados con rojo-verde literal; 970/970. **CR2 enmendado con autorización humana**: su cláusula original era inconstructible (hallazgo 28 del orquestador al redactar — `TRANSITIONS` es constante y `in-review` refleja las tres salidas de `review()` por construcción); sustituida por paridad estructural verificable. CR7 destapó un **segundo narrowing** no nombrado: `archived: true` bajo status abierto también deja de estar exento del check de menciones — consistente con el doc comment de `frozenReason`, punto de escrutinio del review |
+
+Hechos nuevos para el registro: el contrato de evidencia (ya shipeado en la
+doctrina) funcionó en su primer uso real — el implementador del barrido **reportó
+la cláusula inconstructible de CR2 en vez de fingir el rojo-verde**, que es
+exactamente la conducta que la cláusula "señalar instrucciones que contradigan"
+compra. Dos criterios no falsables del orquestador en un día (CR3 de CH-22, CR2
+del barrido): la clase que CH-2 cierra en el draft sigue viva en mi redacción y
+es el argumento acumulado para mantener CH-2 el siguiente de la fila tras esta
+tanda.
