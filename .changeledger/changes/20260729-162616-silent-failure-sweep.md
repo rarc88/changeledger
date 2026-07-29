@@ -2,7 +2,7 @@
 id: "20260729-162616"
 title: "Lo que no se puede decidir aborta y se nombra: barrido de fallos silenciosos"
 type: bug
-status: draft
+status: approved
 created: 2026-07-29T16:26:16Z
 depends_on: []
 related_to: ["20260726-194220", "20260726-141124"]
@@ -186,3 +186,4 @@ normalizar, prefijo colapsado) donde el contrato exige abortar nombrando.
 ## Log
 
 - **2026-07-29T16:32:00Z** `[note]` Documentado sobre reproducción delegada contra HEAD en fixtures, no sobre el acta. Corrige dos hechos del acta: la iteración sin filtrar es diseño documentado para el congelado-como-dato (el defecto es el sujeto emisor), y el bypass de casing no es alcanzable por `git add` normal en APFS (el vector real es índice inyectado o rebase con tree mal-caseado). Eleva uno: `changes_dir: "."` desactiva el guard para todo fichero, no solo la raíz. Hallazgo lateral (loadRepo revienta con cualquier .md de raíz bajo `changes_dir: "."`) registrado para CH-7, fuera de alcance.
+- **2026-07-29T16:33:18Z** `[status]` draft → approved
