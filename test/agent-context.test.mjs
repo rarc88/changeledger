@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
+import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
@@ -157,6 +158,23 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
     /only the files assigned in the delegation prompt/i,
   );
 });
+
+// 20260728-212043 CR6: `agent` is the one entry that bounds both capsule
+// classes. `144327 CR8` above only measures `buildAgentContext`'s capsules; the
+// four `changeledger agent-prompt <role>` capsules were never measured against
+// any ceiling, so a regression there could grow silently. Portable — no repo
+// fixture needed, `buildAgentPrompt` reads only the packaged templates.
+//
+// One `test()` per role, not a loop with a single assertion: a loop's first
+// `assert.ok` throws and aborts the remaining iterations, so with the ceiling
+// still at 350 only `investigation` would report while implementation, review
+// and post-review stayed silently unexecuted. Four independent tests is what
+// proves all four measured capsules actually exceed 350 tokens.
+for (const role of ['investigation', 'implementation', 'review', 'post-review']) {
+  test(`20260728-212043 CR6: ${role} prompt capsule fits the shared agent budget`, () => {
+    assertWithinBudget(`${role} prompt capsule`, buildAgentPrompt(role), agentBudget);
+  });
+}
 
 test('201703 CR1: post-review context is allowed only for in-validation and is framed, read-only', () => {
   const root = repo();

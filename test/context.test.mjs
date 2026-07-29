@@ -2000,7 +2000,7 @@ test('130727 CR3: an unbounded change-id context publishes its exact line count'
   const root = repo();
   const id = '20260726-130727';
   // Long embedded document: the output must exceed every fixed budget in
-  // `budgets.yml`, which is exactly why a fixed `head -200` cannot serve it.
+  // `budgets.yml`, which is exactly why a fixed `head -400` cannot serve it.
   writeFillerChange(root, id, 400);
   const composed = buildContext(id, root);
   const n = publishedLines(composed);
@@ -2150,17 +2150,17 @@ function declaredCeilings() {
 // exists to prevent. This object is the one sede: a new group widens it here,
 // not in a second copy.
 const PINNED_CEILINGS = {
-  'base.core': { tokens: 4000, lines: 195 },
-  'base.spec': { tokens: 3450, lines: 310 },
-  'base.implement': { tokens: 2000, lines: 205 },
-  'base.review': { tokens: 900, lines: 85 },
-  'base.release': { tokens: 500, lines: 60 },
-  agent: { tokens: 350, lines: 60 },
-  'overlays.blocked': { tokens: 500, lines: 84 },
-  'overlays.in-validation': { tokens: 450, lines: 54 },
-  'overlays.done': { tokens: 1000, lines: 108 },
-  'overlays.discarded': { tokens: 200, lines: 48 },
-  'blocks.core-commits': { tokens: 650, lines: 28 },
+  'base.core': { tokens: 4000, lines: 400 },
+  'base.spec': { tokens: 3450, lines: 345 },
+  'base.implement': { tokens: 2500, lines: 250 },
+  'base.review': { tokens: 2500, lines: 250 },
+  'base.release': { tokens: 2500, lines: 250 },
+  agent: { tokens: 1250, lines: 125 },
+  'overlays.blocked': { tokens: 1250, lines: 125 },
+  'overlays.in-validation': { tokens: 1250, lines: 125 },
+  'overlays.done': { tokens: 1250, lines: 125 },
+  'overlays.discarded': { tokens: 1250, lines: 125 },
+  'blocks.core-commits': { tokens: 1250, lines: 125 },
 };
 
 test('195445 CR1: every declared ceiling is pinned by value', () => {
@@ -2191,14 +2191,70 @@ test('195445 CR2: an entry the pin does not cover fails', () => {
   );
 });
 
+// 20260728-212043 CR1: `lines` stops being a hand-typed editorial limit and
+// becomes a transport bound derived from `tokens`, the only dimension that
+// declares cost. Every one of the eleven entries is swept from the same
+// `declaredCeilings()` this file already uses to pin values, so a new group
+// widens both checks together and neither can drift from the other.
+test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling divided by ten', () => {
+  const declared = declaredCeilings();
+  for (const [path, budget] of Object.entries(declared)) {
+    const expectedLines = Math.floor(budget.tokens / 10);
+    assert.equal(
+      budget.lines,
+      expectedLines,
+      `${path} lines ceiling is not derived from tokens: tokens=${budget.tokens} lines=${budget.lines} expected=${expectedLines}`,
+    );
+  }
+  assert.equal(contextBudgets.base.core.lines, 400, 'base.core.lines must derive to 400');
+});
+
+// 20260728-212043 CR7: the token ceilings themselves are three decided values —
+// core, contexts, everything else — not eleven independent numbers. `base.spec`
+// is the one declared exception: it is above the 2500 contexts share because it
+// measures 3110 tokens today, so lowering it now would break the tree. The
+// scaffold marker lives in the entry itself (`194233 CR1` above pins its shape),
+// so a future reader cannot mistake 3450 for a settled decision the way this
+// change's own draft once did.
+test('20260728-212043 CR7: token ceilings are the three decided values, and spec is marked scaffold', () => {
+  assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
+  for (const context of ['implement', 'review', 'release']) {
+    assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
+  }
+  assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
+  for (const [status, budget] of Object.entries(contextBudgets.overlays)) {
+    assert.equal(budget.tokens, 1250, `${status} overlay token ceiling moved`);
+  }
+  assert.equal(
+    contextBudgets.blocks['core-commits'].tokens,
+    1250,
+    'core-commits block token ceiling moved',
+  );
+  assert.equal(contextBudgets.base.spec.tokens, 3450, 'spec token ceiling moved');
+  assert.match(
+    contextBudgets.base.spec.scaffold,
+    /temporary/i,
+    'spec must declare its scaffold status in the file itself',
+  );
+  assert.match(
+    contextBudgets.base.spec.scaffold,
+    /refactor/i,
+    'spec scaffold marker must name its exit condition',
+  );
+});
+
 // 20260728-170429 replaced the byte dimension with tokens: this criterion now
 // reads against the two dimensions the budget file declares today.
 test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
   for (const [label, budget] of budgetEntries()) {
+    // 20260728-212043: `base.spec` alone also carries a `scaffold` marker
+    // string, declaring in the file itself that its token ceiling is temporary
+    // — see `212043 CR7` below. Every other entry stays exactly tokens+lines.
+    const expectedKeys = label === 'spec' ? ['lines', 'scaffold', 'tokens'] : ['lines', 'tokens'];
     assert.deepEqual(
       Object.keys(budget).sort(),
-      ['lines', 'tokens'],
-      `${label} does not declare exactly tokens and lines`,
+      expectedKeys,
+      `${label} does not declare exactly ${expectedKeys.join(' and ')}`,
     );
     assert.equal(Number.isInteger(budget.lines), true, `${label} lines is not an integer`);
     assert.equal(Number.isInteger(budget.tokens), true, `${label} tokens is not an integer`);
@@ -2781,36 +2837,56 @@ test('124837 CR6: the contract requires inspecting the staged set after a hook f
   }
 });
 
-// The reserve is the gap between `base.core.lines` and the bootstrap's `head -200`
-// literal in `src/contract.mjs`: the declared ceiling is the operative one, and the
-// cut sits above it so future growth has room before any consuming repo's capture
-// silently truncates. 20260728-170429 moved that operative ceiling out of this
-// assertion and into `budgets.yml`, so lowering it there fails naming the entry.
-// The cut itself is parsed out of the published `REFERENCE` block rather than
-// copied as a second literal, so the two can never drift without one of them
-// changing under this assertion's feet.
+// 20260728-212043: `base.core.lines` and the bootstrap's `head -400` literal in
+// `src/contract.mjs` are now the same number by design, not a ceiling with a
+// reserve above it — a reserve implied the `head` informed of size, which
+// `170429` already rejected; the `END` sentinel is the only validity check.
+// With equality neither can drift without the other moving too. The cut itself
+// is parsed out of the published `REFERENCE` block rather than copied as a
+// second literal, so the two can never diverge without this assertion's feet
+// moving under it.
 function bootstrapHeadCut() {
   const [, cut] = REFERENCE.match(/head -(\d+)/);
   return Number(cut);
 }
 
-test('124837 CR7: the core pack keeps reserve under the bootstrap cut', () => {
+test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap cut', () => {
   const core = buildContext(undefined, repo());
   assertWithinBudget('core', core, contextBudgets.base.core);
   // The `## Commits` block has its own named entry, so one section cannot quietly
-  // eat the reserve the whole pack shares.
+  // eat the budget the whole pack shares.
   assertWithinBudget(
     'core-commits block',
     commitsBlockLines().join('\n'),
     contextBudgets.blocks['core-commits'],
   );
-  // The reserve itself: base.core.lines can never rise to or past the bootstrap's
-  // head cut, or a consuming repo's capture would silently truncate before the
-  // budgeted content ends.
+  // The two numbers are the same by design: base.core.lines can never diverge
+  // from the bootstrap's head cut in either direction, or either a consuming
+  // repo's capture truncates early (cut too low) or the declared ceiling stops
+  // meaning what it claims (cut too high).
   const headCut = bootstrapHeadCut();
+  assert.equal(
+    contextBudgets.base.core.lines,
+    headCut,
+    `base.core.lines (${contextBudgets.base.core.lines}) must equal the bootstrap's head -${headCut} cut`,
+  );
+});
+
+// 20260728-212043 CR5: the core pack is the one outlier in density — almost all
+// tables, ~13.4 tokens per emitted line against ~10.3 for the rest — so with
+// both ceilings now derived from the same floor of 10, the token ceiling has to
+// be the one that runs out first. A density that fell back to the ~10 floor
+// would mean the tokens ceiling stopped being the operative gate, which is the
+// signal to raise the `head` cut deliberately rather than let lines silently
+// take over as the limit.
+test('20260728-212043 CR5: core density exceeds the derivation floor, so tokens gates before lines', () => {
+  const core = buildContext(undefined, repo());
+  const observedLines = emittedLines(core);
+  const observedTokens = tokenCount(core);
+  const density = observedTokens / observedLines;
   assert.ok(
-    contextBudgets.base.core.lines <= headCut,
-    `base.core.lines (${contextBudgets.base.core.lines}) leaves no reserve under the bootstrap's head -${headCut} cut`,
+    density > 10,
+    `core density dropped to ${density.toFixed(2)} tokens per line — raise the head cut deliberately`,
   );
 });
 
@@ -2916,10 +2992,13 @@ function suiteSource(name) {
 
 test('170429 CR1: the budget is expressed in tokens and lines, never in bytes', () => {
   for (const [label, budget] of budgetEntries()) {
+    // 20260728-212043: `base.spec` also carries a `scaffold` marker string;
+    // see `194233 CR1` and `212043 CR7` for why that entry alone is wider.
+    const expectedKeys = label === 'spec' ? ['lines', 'scaffold', 'tokens'] : ['lines', 'tokens'];
     assert.deepEqual(
       Object.keys(budget).sort(),
-      ['lines', 'tokens'],
-      `${label} does not declare exactly tokens and lines`,
+      expectedKeys,
+      `${label} does not declare exactly ${expectedKeys.join(' and ')}`,
     );
   }
   // The file as text, not only the parsed shape: no stray byte dimension survives.

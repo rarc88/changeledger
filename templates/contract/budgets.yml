@@ -1,19 +1,23 @@
 {
   "base": {
-    "core": { "tokens": 4000, "lines": 195 },
-    "spec": { "tokens": 3450, "lines": 310 },
-    "implement": { "tokens": 2000, "lines": 205 },
-    "review": { "tokens": 900, "lines": 85 },
-    "release": { "tokens": 500, "lines": 60 }
+    "core": { "tokens": 4000, "lines": 400 },
+    "spec": {
+      "tokens": 3450,
+      "lines": 345,
+      "scaffold": "temporary — measures 3110 tokens today, above the decided 2500 for contexts; exit condition: the authoring pack's pending refactor. Do not read this as a decided ceiling."
+    },
+    "implement": { "tokens": 2500, "lines": 250 },
+    "review": { "tokens": 2500, "lines": 250 },
+    "release": { "tokens": 2500, "lines": 250 }
   },
-  "agent": { "tokens": 350, "lines": 60 },
+  "agent": { "tokens": 1250, "lines": 125 },
   "overlays": {
-    "blocked": { "tokens": 500, "lines": 84 },
-    "in-validation": { "tokens": 450, "lines": 54 },
-    "done": { "tokens": 1000, "lines": 108 },
-    "discarded": { "tokens": 200, "lines": 48 }
+    "blocked": { "tokens": 1250, "lines": 125 },
+    "in-validation": { "tokens": 1250, "lines": 125 },
+    "done": { "tokens": 1250, "lines": 125 },
+    "discarded": { "tokens": 1250, "lines": 125 }
   },
   "blocks": {
-    "core-commits": { "tokens": 650, "lines": 28 }
+    "core-commits": { "tokens": 1250, "lines": 125 }
   }
 }

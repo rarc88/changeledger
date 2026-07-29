@@ -2,7 +2,7 @@
 id: "20260728-212043"
 title: Los techos de líneas se derivan del techo de tokens
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-28T21:20:43Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-195445", "20260728-164620"]
@@ -276,13 +276,20 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Fijar los techos de `tokens` decididos en `templates/contract/budgets.yml` (core 4000, contextos 2500, resto 1250) y marcar `base.spec` como andamio temporal con su condición de salida; verify: `node --test test/context.test.mjs` (CR7)
-- [ ] Derivar los once techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
-- [ ] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test; verify: `node --test test/agent-context.test.mjs` (CR6)
-- [ ] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`; verify: `node --test test/contract.test.mjs` (CR2)
-- [ ] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda; verify: `node --test test/contract.test.mjs` (CR3)
-- [ ] Afirmar en `test/context.test.mjs` que la densidad observada del `core` supera 10 tokens por línea, con `templates/contract/budgets.yml` como sujeto del techo; verify: `node --test test/context.test.mjs` (CR5)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Fijar los techos de `tokens` decididos en `templates/contract/budgets.yml` (core 4000, contextos 2500, resto 1250) y marcar `base.spec` como andamio temporal con su condición de salida; verify: `node --test test/context.test.mjs` (CR7)
+  - **Resolved:** `2026-07-29T00:38:29Z`
+- [x] Derivar los once techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
+  - **Resolved:** `2026-07-29T00:38:29Z`
+- [x] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test; verify: `node --test test/agent-context.test.mjs` (CR6)
+  - **Resolved:** `2026-07-29T00:38:29Z`
+- [x] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`; verify: `node --test test/contract.test.mjs` (CR2)
+  - **Resolved:** `2026-07-29T00:38:29Z`
+- [x] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda; verify: `node --test test/contract.test.mjs` (CR3)
+  - **Resolved:** `2026-07-29T00:38:30Z`
+- [x] Afirmar en `test/context.test.mjs` que la densidad observada del `core` supera 10 tokens por línea, con `templates/contract/budgets.yml` como sujeto del techo; verify: `node --test test/context.test.mjs` (CR5)
+  - **Resolved:** `2026-07-29T00:38:30Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T00:38:30Z`
 
 ## Log
 
@@ -292,3 +299,7 @@ Alternativas descartadas:
 - **2026-07-28T21:40:50Z** `[note]` Alcance ampliado por instruccion de Roberto (2026-07-28): entra CR6 y las once entradas. Correccion de un error mio de razonamiento: dije que derivar los overlays podia apretar porque compare el derivado contra el TECHO actual en vez de contra el USO real. Medido con repo de fixture, un change por status: blocked 45l/439t, in-validation 37l/392t, done 76l/900t, discarded 15l/131t. Los cuatro caben en su derivado, asi que entran. Se anota que done esta a 900/1000 tokens, el margen mas estrecho del fichero. Y correccion de otro error mio: reporte el techo de agent como decision pendiente cuando la decision de 1000 tokens ya estaba registrada en el acta desde CH-0; 170429 shipeo 350, que nadie decidio. Palabras de Roberto: no lo dejemos justos sino siempre estaremos en esto una y otra vez.
 - **2026-07-28T21:41:59Z** `[status]` draft → approved (human via conversation)
 - **2026-07-29T00:06:20Z** `[note]` Enmienda por decision de Roberto (2026-07-28): los techos de tokens son tres, no once -- core 4000, contextos 2500, resto de cosas 1250. Entra CR7. Reconocido el error: la decision de 2000-2500 para el resto de contextos estaba documentada en el acta (lineas 106 y 1131) y propuse 4500 para spec, contradiciendola. 1250 sustituye el 1000 de agent por ser regla posterior y mas general. Verificado que base.spec es el UNICO que no cabe en 2500 (mide 3110), asi que se queda en 3450 marcado como andamio con su condicion de salida nombrada -- la refactorizacion del pack de autoria-- en vez de bajarlo y romper el arbol. Ese caracter temporal no estaba documentado en ningun sitio (grep temporal en el acta: cero hits), y ese hueco es la causa de que lo leyera como techo decidido.
+- **2026-07-29T00:24:54Z** `[status]` approved → in-progress
+- **2026-07-29T00:38:39Z** `[note]` Implementado en una sola delegacion. COMMIT COMBINADO, y la separacion era imposible no incomoda: tres tareas escriben templates/contract/budgets.yml y tres escriben test/context.test.mjs, y cualquier estado intermedio -- techos de tokens cambiados sin derivar las lineas, o lineas derivadas sin actualizar PINNED_CEILINGS -- deja la suite roja. Un commit por tarea habria producido seis commits rojos. Se registra aqui como exige el core.
+- **2026-07-29T00:38:48Z** `[note]` Resultado medido, que es el objetivo del change: core pasa de 193/195 lineas a 193/400, con 2577/4000 tokens y densidad 13.4. El margen real de prosa normativa pasa de 2 lineas a 106. Los tokens son ya el gate operativo: a esa densidad el core agota 4000 tokens hacia las ~298 lineas, muy por debajo de 400. pnpm verify EXIT=0, suite 932/932. TDD de CR6 con fallo literal previo: las cuatro capsulas de agent-prompt reprobaron contra el techo de 350 con 433, 478, 398 y 414 tokens antes de subirlo a 1250, lo que prueba que la aplicacion es real y que el techo estaba mal.
+- **2026-07-29T00:39:01Z** `[note]` Dos cosas del orquestador, declaradas para escrutinio del revisor. 1) Apliqué yo el formatter: biome exigia comillas dobles en un nombre de test que contiene un apostrofo (repo's), asi que pnpm verify salia 1 con la suite en verde. Es consecuencia de MI prompt, que prohibio al delegado correr pnpm verify; el cambio es solo comillas. 2) El marcador scaffold de base.spec obligo a ensanchar la forma esperada en 194233 CR1 y 170429 CR1, que exigian exactamente ['lines','tokens'] en TODA entrada. Verificado que el ensanchamiento es estrecho: spec queda en exactamente ['lines','scaffold','tokens'] y las otras diez siguen en exactamente ['lines','tokens'], asi que un bytes fugitivo seguiria fallando y la garantia de 170429 CR1 no se debilita. La causa es mi redaccion de CR7, que pidio que el fichero declarase la marca junto al valor, y budgets.yml es JSON puro y no admite comentarios.

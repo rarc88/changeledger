@@ -37,7 +37,7 @@ test('212659 CR1/CR2: init installs an optional bootstrap without hiding real fa
   assert.equal(fs.existsSync(path.join(dir, '.changeledger', 'AGENTS.md')), false);
   assert.equal(fs.existsSync(path.join(dir, '.gitignore')), false);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /run exactly this[\s\S]*`changeledger context 2>&1 \| head -200`/);
+  assert.match(agents, /run exactly this[\s\S]*`changeledger context 2>&1 \| head -400`/);
   assert.match(agents, /Command not installed[\s\S]*continue the task normally/i);
   assert.match(agents, /Command present but failing[\s\S]*report the captured error[\s\S]*human/i);
   assert.match(agents, /human, and wait\s+>?\s*for their decision/i);
@@ -110,7 +110,7 @@ test('124834 CR1: the bootstrap publishes the exact bounded capture command', ()
   init(dir);
   const prose = flatten(bootstrapProse(dir));
   assert.ok(
-    prose.includes('`changeledger context 2>&1 | head -200`'),
+    prose.includes('`changeledger context 2>&1 | head -400`'),
     'the block must publish the bounded command literally',
   );
   assert.ok(
@@ -261,7 +261,16 @@ test('124834 CR7: semantic equivalence survives the bullet list', () => {
 });
 
 test('124834 CR8: drift in the bounded command is still outdated', () => {
-  rejects((text) => text.replace('head -200', 'head -500'), 'a changed capture bound is drift');
+  rejects((text) => text.replace('head -400', 'head -500'), 'a changed capture bound is drift');
+});
+
+// 20260728-212043 CR3: `124834 CR8` above only ever mutated the bound upward.
+// That direction alone would tolerate a guard that only rejects raising the
+// literal — the exact defect a `head -400` → `head -300` mutation would slip
+// through undetected. This is the direction this change's own edit takes, so
+// it is the one this test must prove the guard was never blind to.
+test('20260728-212043 CR3: drift lowering the bounded command is outdated too', () => {
+  rejects((text) => text.replace('head -400', 'head -300'), 'a lowered capture bound is drift too');
 });
 
 // Enumerate the bullets with the same parser the projection uses, so the test's
@@ -645,4 +654,21 @@ test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokeniz
   // must not resurface anywhere, even outside the paragraph above.
   assert.doesNotMatch(normalized, /`bytes` ceiling/);
   assert.doesNotMatch(normalized, /publishes its occupancy of both/);
+});
+
+// 20260728-212043 CR2: the `head -400` literal lives in two production places —
+// this repo's own `AGENTS.md` and the `REFERENCE` block `src/contract.mjs`
+// publishes to every consuming repo — and they must never read a different
+// number. Byte equality of the whole block is what proves they agree, not just
+// a shared substring: a `.trim()` because `AGENTS.md` wraps `REFERENCE` with a
+// leading marker line and a trailing blank line that are not part of the block.
+test("20260728-212043 CR2: this repo's own AGENTS.md bootstrap matches the published REFERENCE, and both say head -400", () => {
+  const repoRoot = new URL('../', import.meta.url);
+  const agents = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8');
+  assert.match(REFERENCE, /head -400/);
+  assert.match(agents, /head -400/);
+  assert.ok(
+    agents.includes(REFERENCE.trim()),
+    "AGENTS.md's installed bootstrap block must be byte-identical to the published REFERENCE",
+  );
 });

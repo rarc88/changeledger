@@ -49,11 +49,11 @@ export const REFERENCE = `> [!IMPORTANT]
 > **ChangeLedger governs this repo.** Before planning, investigating, answering
 > or editing anything, run exactly this — it is mandatory, not optional:
 >
-> \`changeledger context 2>&1 | head -200\`
+> \`changeledger context 2>&1 | head -400\`
 >
 > - The capture is valid **only if its last line contains
 >   \`CHANGELEDGER CONTEXT END\`**. Nothing before that line is actionable.
-> - The core context is bounded and fits within these 200 lines. The \`BEGIN\`
+> - The core context is bounded and fits within these 400 lines. The \`BEGIN\`
 >   line reports the exact \`lines:\` count of the full output, counting the
 >   \`BEGIN\` and \`END\` lines themselves; if \`END\` is missing, re-run with
 >   \`head -<lines>\` and read that capture instead.
