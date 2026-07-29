@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-29T16:04:31Z
+updated: 2026-07-29T18:39:06Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015"]
 ---
 
 ## Discovery del contrato
@@ -43,6 +43,16 @@ La composición especializada es explícita:
   guía general de delegación);
 - `blocked`: resolución del bloqueo + handoff;
 - `release`, `validation`, `close` y `discarded`: su pack u overlay propio.
+
+La doctrina transversal de delegación (cuándo delegar, dimensionado del
+delegado, un dueño por superficie, la definición de `selection of work`) tiene
+una sola sede: el core. La regla de sede única rige en las dos direcciones —el
+core no duplica al overlay y el overlay amplía o especifica lo puntual de su
+etapa sin repetir ni contradecir al core—. `delegation.md` conserva solo lo que
+no tiene otra sede: el contrato de campos del prompt, los disparadores por
+etapa, la guía de no sobre-fragmentar, y las obligaciones de evidencia del
+implementador/corrector; las del revisor viven en `review.md`, servidas al pack
+que las consume.
 
 El status elige el pack, pero **el tipo puede retirar un fragmento** que su
 configuración vuelve inaplicable. `readiness` es hoy el único condicionado así:

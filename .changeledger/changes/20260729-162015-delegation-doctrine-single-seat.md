@@ -2,9 +2,11 @@
 id: "20260729-162015"
 title: "La doctrina de delegación tiene una sede: el core"
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-29T16:20:15Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260728-164620"]
 owner: raruiz-hiberuscom
 ---
@@ -209,3 +211,6 @@ change registra el progreso en la nota del andamio sin tocar el número. CH-5a
 - **2026-07-29T18:18:50Z** `[note]` Corrección de F1-F4 entregada (110k tokens, 51 tool calls) y verificada por el orquestador: los cuatro literales presentes (grep=1 cada uno), cero '3110' residual, spec 300/345 e implement 190/250 — dentro de CR6 (<301/<191). Neto +1 línea: la fusión de los dos bullets de residuos (que el propio F1 pedía) pagó F1+F3. review.md no se tocó: la cláusula consumidora ya existía, solo faltaba la productora. 951/951, lint limpio. Los tres mutantes de la corrección con fallo literal contra los literales NUEVOS de los guards. Sin commitear a la espera del revisor de confirmación con mandato mínimo.
 - **2026-07-29T18:18:50Z** `[status]` in-progress → in-review
 - **2026-07-29T18:27:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T18:38:29Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-29T18:39:06Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-29T18:39:07Z** `[archive]` archived
