@@ -1548,7 +1548,7 @@ llamar "una selección" al change entero y volver a `exactly one`, salvo el disc
 `core.md`. El dimensionado por completitud y acoplamiento es contenido de **CH-5b** según
 §8, así que la definición llega con él. Roberto aceptó el change con este hueco conocido.
 
-### Orden vigente tras el recorte (2026-07-29)
+### Orden tras el recorte (2026-07-29, mañana) — SUPERSEDIDO por §13
 
 **Decisión de Roberto: nada se descarta.** Lo que iba a descartarse va al final de la fila
 y se reconsidera cuando lo de arriba esté cerrado. CH-21 (la unidad de commit) ya está
@@ -1577,3 +1577,97 @@ resuelve la secuencia, no la fusión. Fundirlos rompería el techo de complejida
 dos fragmentos, una spec, código en `check` y `approve`, más las cuatro correcciones de
 pin en una sola pasada) y ninguno se podría revertir por separado, que es el test de
 granularidad del propio core.
+
+## 13. Decisiones del 2026-07-29 (tarde) — reorganización, retiro de pins y regla del core
+
+Sesión posterior al §12. Tres decisiones de Roberto, todas cerradas; esta sección
+supersede el orden del §12.
+
+### 13.1 Retiro de los pins de hash — CH-22, documentado
+
+Pregunta de Roberto: *"¿Está bien que estemos generando tests de los .md? veo que
+eso hace que cambiar 1 línea nos cueste 1 hora y 1M de tokens, es demasiado
+ceremonioso"* y *"seguramente no se están retirando los tests que ya no son
+necesarios porque algunos archivos tienen ya más de 3000 líneas y aparte son
+excesivos en comentarios"*.
+
+Medido antes de responder, no asumido:
+
+- `test/context.test.mjs`: 3883 líneas, **29% comentarios** (1140 líneas). Las
+  demás suites grandes están al 1–6% (`check.test.mjs` 2623 líneas, 1%): el
+  bloat de comentarios está **localizado en la maquinaria de pins**, no
+  repartido.
+- El mapa de `234939 CR10/CR11` pinnea 12 fragmentos y cada entrada arrastra el
+  historial completo de clasificaciones de los changes archivados — historia que
+  el ledger ya registra, duplicada en un test (clase 19/48 dentro del propio
+  mecanismo de guardas).
+- Hay meta-tests que leen el código fuente de la propia suite para asertar sobre
+  sus comentarios (`194234 CR5`, `164620 CR5`, `164620 H3`).
+- El coste de 1M de tokens NO lo causaron los tests de `.md` (fue el par de retry
+  por afirmaciones sin verificar, §12), pero la ceremonia por edición de línea sí
+  es real: repinnear + clasificar + escrutinio del comentario en review.
+
+**Veredicto por mecanismo** (decisión de Roberto: "Sí, está bien"):
+
+| mecanismo | veredicto |
+|---|---|
+| presupuestos (`budgets.yml`) | se quedan — baratos, detuvieron trabajo real |
+| matriz semántica de outputs propietarios | se queda |
+| guards de obligación por grep | se quedan y absorben lo que los pins protegían de verdad |
+| pins SHA-256 + clasificación manual | **se retiran** — clasificación inverificable (4 falsas), hash que no dice qué se perdió, redundante con el review del change |
+
+Documentado como **`20260729-143656`** (CH-22, tipo `refactor`), primero de la
+tanda. Consecuencias: la tarea de CH-2 sobre las cuatro clasificaciones falsas
+queda sin objeto; CH-19 se encoge; la sección de snapshots de
+`.changeledger/specs/contract-discovery.md` se reescribe dentro del change.
+
+### 13.2 Regla del core como sede única — va al change de doctrina
+
+Decisión de Roberto, en sus palabras: *"El core tiene todo el flujo general
+descrito, además es quien tiene las políticas de commit y delegación, se debe
+evitar repetir esto en otros lados, solo se puede ampliar y especificar algo
+puntual siempre y cuando no le contradigan."*
+
+El core ya dice la mitad (*"core never duplicates it"* — el core no duplica al
+overlay); **la dirección inversa no está escrita** y la clase 19/48 apareció 6+
+veces por eso. La frase entra en el change de doctrina, y el resto de ese change
+es aplicarla.
+
+### 13.3 Fusión por superficie — autorizada
+
+- **Change de doctrina = CH-0b + CH-5b + CH-5a.** Los tres reescriben la misma
+  prosa de delegación/review; separados era editar los mismos fragmentos tres
+  veces con tres reviews. Fallback si al documentarlo excede el techo de
+  complejidad: 0b+5b juntos, 5a aparte. CH-5b define además `resolved selection
+  of work`, el hueco que dejó CH-21.
+- Los dos barridos de §11 se mantienen tal cual.
+- Riesgo de CH-2 detectado y aceptado como restricción de redacción: exigir
+  "sitio de aserción" por criterio NO puede traducirse, para prosa, en un test
+  artesanal por criterio — sería multiplicar los tests de `.md` que 13.1 retira.
+  Para prosa, el sitio de aserción es el guard de obligación.
+
+### 13.4 Paralelismo — dos worktrees, no más
+
+Dos ficheros cuello de botella comparten casi todos los changes:
+`test/context.test.mjs` y `src/check.mjs`. Carriles con superficies disjuntas:
+
+- **WT-A (contrato)**: CH-22 → doctrina (0b+5b+5a) → CH-2 → CH-1 → CH-19.
+- **WT-B (código CLI)**: CH-11 → barrido de fallos silenciosos.
+- Al final, en solitario: barrido de verdad persistente y aserciones.
+
+Reglas verificadas: worktree fuera del repo, `pnpm install` en cada uno, los
+changes de carriles distintos no se referencian por `depends_on` (un documento
+que vive solo en otra rama rompe `check` en las hermanas), integración apilando
+una rama sobre la otra.
+
+### Orden vigente (2026-07-29, tarde)
+
+```
+WT-A: CH-22 (pins) → doctrina (CH-0b+CH-5b+CH-5a) → CH-2 → CH-1 → CH-19
+WT-B: CH-11 → barrido de fallos silenciosos (CH-6+CH-12+CH-13)
+después, solo: barrido de verdad persistente (CH-8+CH-9)
+cola final sin cambios: CH-16 reducido → CH-7 → CH-3 → CH-10
+```
+
+CH-22 va primero porque abarata todos los que vienen detrás: cada change de
+prosa deja de pagar el repinneo y la clasificación en cada edición de fragmento.
