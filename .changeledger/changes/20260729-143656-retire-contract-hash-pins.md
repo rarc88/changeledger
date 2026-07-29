@@ -2,10 +2,10 @@
 id: "20260729-143656"
 title: Retirar los pins de hash del contrato en favor de guards de obligación
 type: refactor
-status: in-review
+status: in-validation
 created: 2026-07-29T14:36:56Z
 depends_on: []
-related_to: ["20260728-164620"]
+related_to: ["20260728-164620", "20260728-194157"]
 owner: raruiz-hiberuscom
 ---
 
@@ -103,26 +103,36 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
   ausente, y ese test lee `core.md` directamente, no el código fuente de la
   suite
 
-### CR3 — Ningún test lee el código fuente de la propia suite
+### CR3 — Ningún test lee su propio fuente para asertar sobre comentarios
 
 - **Given** `test/context.test.mjs` en HEAD tras la implementación
-- **When** se ejecuta `grep -c "readFileSync(new URL('./context.test.mjs'" test/context.test.mjs`
-  buscando self-reads (`readFileSync` de la propia suite)
-- **Then** cero ocurrencias; los tests `164620 CR5` y `164620 H3` quedan
-  retirados — su objeto (comentarios del mapa de pins) deja de existir, y el
-  registro histórico que protegían vive en el ledger (`20260728-164620`,
-  archivado)
+- **When** se buscan self-reads de la propia suite por sus dos mecanismos: el
+  literal `readFileSync(new URL('./context.test.mjs'` y el indirecto
+  `CAPTURE_SUITES`/`suiteSource`
+- **Then** los tests `164620 CR5` y `164620 H3` quedan retirados y ningún test
+  restante lee el fuente de la suite **para asertar sobre comentarios** — el
+  objeto de los pins; el registro histórico que protegían vive en el ledger
+  (`20260728-164620`, archivado)
+- **And** los dos self-reads preexistentes de `170429 CR1` y `170429 CR3`
+  (presupuestos vía `suiteSource`, que asertan sobre código, no sobre
+  comentarios) quedan fuera del alcance de este change y se conservan
 
-### CR4 — La protección restante sigue matando sus mutantes
+### CR4 — La protección restante y la restaurada matan sus mutantes
 
-- **Given** los dos niveles que se conservan
-- **When** se inyecta en `templates/contract/agent-contexts/investigation.md` la
-  frase retirada que vigila `124837 CR1`, y por separado se excede el techo
-  `base.core` de `templates/contract/budgets.yml` (un mutante a la vez,
-  restaurados editando, `git diff --stat` vacío tras cada uno)
-- **Then** la suite falla en ambos casos nombrando el guard o el techo — la
-  matriz semántica, los guards de frase retirada y los presupuestos no
-  dependían del mapa de pins
+- **Given** los niveles que se conservan más los dos guards restaurados en la
+  corrección: el barrido recursivo de la frase retirada `reconstruct mixed
+  diffs` sobre `templates/contract/**` y el guard de inventario de fragmentos
+- **When** un mutante a la vez, restaurado editando y con `git diff --stat`
+  vacío tras cada uno: la frase que vigila `124837 CR1` inyectada en
+  `templates/contract/core.md`; la frase `reconstruct mixed diffs` inyectada en
+  `templates/contract/implement.md`; un fragmento nuevo
+  `templates/contract/zz-stray.md`; y el techo `base.core` de
+  `templates/contract/budgets.yml` excedido
+- **Then** la suite falla en los cuatro casos nombrando el guard o el techo
+- **And** la frase de `124837 CR1` inyectada en
+  `templates/contract/agent-contexts/investigation.md` queda registrada como
+  verde: es el residual documentado de CH-19 (`20260728-194157`), fuera del
+  alcance de este change, sin estrechar ni arreglar aquí
 
 ### CR5 — La verdad persistente describe el modelo vigente
 
@@ -141,10 +151,12 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
   - **Resolved:** `2026-07-29T14:58:57Z`
 - [x] Convertir las obligaciones de `templates/contract/core.md` que `194234 CR5` afirma vía comentarios en aserciones directas sobre el fragmento, y retirar los self-reads `164620 CR5` y `164620 H3`; verify: `node --test test/context.test.mjs` y `grep -c "readFileSync(new URL('./context.test.mjs'" test/context.test.mjs` devuelve 0 (CR2, CR3)
   - **Resolved:** `2026-07-29T14:58:57Z`
-- [x] Verificar por mutación la protección restante de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada y techo `base.core` excedido, un mutante a la vez con fallo literal reportado; verify: `pnpm test` (CR4)
+- [x] Verificar por mutación la protección preexistente de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada en `core.md` (fallo literal M3b) y techo `base.core` excedido (fallo literal M4), un mutante a la vez; el mismo mutante sobre `agent-contexts/` quedó verde por el residual de CH-19, registrado en el Log; verify: `pnpm test` (CR4)
   - **Resolved:** `2026-07-29T14:58:57Z`
 - [x] Correr el gate completo tras el retiro; verify: `pnpm verify` (support)
   - **Resolved:** `2026-07-29T14:58:58Z`
+- [x] Restaurar en `test/context.test.mjs`, sin mapa de hashes ni self-reads, el barrido recursivo de la frase `reconstruct mixed diffs` sobre `templates/contract/**` (insensible al reflow: normaliza espacios antes de casar) y el guard de inventario de fragmentos top-level; verify: `node --test test/context.test.mjs` con los mutantes de `implement.md` y `zz-stray.md` en rojo antes del fix y fallo literal capturado (CR4)
+  - **Resolved:** `2026-07-29T15:54:52Z`
 
 ## Log
 
@@ -157,3 +169,10 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 - **2026-07-29T14:59:16Z** `[note]` Defecto de redacción en CR3 hallado por el delegado: el comando literal del criterio (grep -c "context.test.mjs'") devuelve 2 por dos substrings preexistentes ajenos (la lectura cruzada de agent-context.test.mjs y la entrada del array CAPTURE_SUITES), así que el Then=0 es insatisfacible tal como está escrito. La medida del objeto real del criterio (readFileSync de la propia suite) da 0. Enmienda pendiente de decisión humana; el review no se delega hasta resolverla.
 - **2026-07-29T15:06:06Z** `[note]` CR3 y su tarea del Plan enmendados con autorización de Roberto (conversación, 2026-07-29): el comando de medida pasa a grep -c "readFileSync(new URL('./context.test.mjs'" que mide el objeto real del criterio. Es corrección de medidor, no de comportamiento: el comando original devolvía 2 por substrings ajenos preexistentes y no podía pasar nunca. Por la letra de la regla de enmiendas convierte fallo en pass, por eso la decidió el humano y no el orquestador.
 - **2026-07-29T15:06:17Z** `[status]` in-progress → in-review
+- **2026-07-29T15:07:24Z** `[note]` Mandato del review, registrado antes de delegar: superficie que gobierna — el diff de los commits marcados [#20260729-143656] en 5b2e0503..798a80fc (test/context.test.mjs, .changeledger/specs/contract-discovery.md, documento del change), los cinco criterios con re-derivación adversarial de mutantes, y barrido de pérdida de obligaciones sobre lo eliminado. No es auditoría repo completa. Revisor top-tier: el riesgo del change es exactamente perder un guard que importaba entre 795 líneas eliminadas.
+- **2026-07-29T15:30:26Z** `[review]` in-review → in-progress (retry): Cuatro hallazgos confirmados por ejecución: (1) ALTO guard de frase retirada huérfano — 'reconstruct mixed diffs' inyectada en implement.md deja la suite verde, el barrido recursivo murió con 164620 CR5 y solo sobrevive el chequeo del core compuesto; (2) MEDIO el inventario de fragmentos quedó sin guard — un fragmento nuevo en templates/contract/ pasa en verde; (3) MEDIO el Then de CR3 es falso tal como está: sobrevive un self-read real preexistente vía CAPTURE_SUITES/suiteSource (170429 CR1/CR3) que el comando enmendado no ve; (4) MEDIO el Then de CR4 exige fallo en agent-contexts/ donde el guard estructuralmente no muerde (hueco CH-19) y la tarea 4 se marcó afirmando fallo literal en ambos mutantes.
+- **2026-07-29T15:30:40Z** `[note]` Corrección al Log (append-only, el error queda arriba): mi nota de la enmienda de CR3 afirmaba que los dos hits del comando original eran 'substrings ajenos preexistentes'. Falso para uno: la entrada CAPTURE_SUITES es el driver de un self-read vivo vía suiteSource (template literal que el grep enmendado no casa), demostrado por el revisor con el mutante M6 (170429 CR3 falla leyendo su propio fuente). Mi enmienda no fue corrección pura de medidor: estrechó la medida por debajo del objeto del criterio. Es mi clase de fallo documentada — afirmar la naturaleza de los hits sin trazarlos uno a uno.
+- **2026-07-29T15:47:04Z** `[note]` CR3 y CR4 reescritos con autorización de Roberto ('procede', conversación 2026-07-29, sobre el texto exacto propuesto). CR3: el universal falso se estrecha a 'ningún test lee su propio fuente para asertar sobre comentarios', nombrando los dos self-reads preexistentes de 170429 CR1/CR3 como fuera de alcance — dirección débil, decidida por el humano. CR4: el mutante de frase pasa a core.md donde el guard muerde, se añaden los dos guards restaurados por la corrección (barrido recursivo de 'reconstruct mixed diffs' e inventario) — dirección fuerte — y el verde de agent-contexts/ queda registrado como residual de CH-19. Tarea 4 reescrita para afirmar solo lo que su evidencia real estableció (M3b y M4); tarea 6 nueva para la corrección.
+- **2026-07-29T15:54:52Z** `[note]` Corrección entregada por delegado (87k tokens, 45 tool calls) y verificada por el orquestador: test nuevo 143656 CR4 presente, cero literales hex64, cero self-reads, 944/944, lint limpio. Reprodujo ambos defectos en verde antes del fix (97/97 con cada mutante) y los tres mutantes post-fix fallaron nombrando el fichero exacto — incluido agent-contexts/investigation.md para la frase restaurada, que es recursiva por diseño del guard original; el residual de CH-19 (frase de 124837 CR1, guard no recursivo) queda intacto y así lo distingue CR4. Inventarios de agent-contexts/ y agent-prompts/ pinneados también tras confirmar por grep que ningún test existente los fijaba. Corrección SIN commitear a la espera del revisor de confirmación.
+- **2026-07-29T15:54:52Z** `[status]` in-progress → in-review
+- **2026-07-29T16:00:50Z** `[review]` in-review → in-validation (delegated subagent, clean context)

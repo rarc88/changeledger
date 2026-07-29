@@ -3098,3 +3098,64 @@ test('111349 CR7: no fragment demands one implementation commit per change', () 
     'the ordered gate no longer commits every outstanding selection',
   );
 });
+
+// 20260729-143656 correction: the retired hash-pin map covered two things no
+// remaining guard did — the retired phrase surviving anywhere in the recursive
+// tree, and the fragment inventory itself. `124837 CR1`/`164620 CR1` only ever
+// swept `composedCore()`, so `implement.md` (not composed into core) was never
+// checked; and no test pinned the file list, so a new fragment passed silently.
+test('143656 CR4: retired phrases stay retired recursively and the fragment inventory is pinned', () => {
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => name.split(path.sep).join('/'));
+  const retired = 'reconstruct mixed diffs';
+  const holders = fragments.filter((name) =>
+    contractFragment(name).replace(/\s+/g, ' ').includes(retired),
+  );
+  assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
+
+  // The exact top-level inventory, read from today's tree: a new fragment must
+  // widen this list, not slip past it.
+  const topLevel = fs
+    .readdirSync(contractDir)
+    .filter((name) => name.endsWith('.md'))
+    .sort();
+  assert.deepEqual(topLevel, [
+    'blocked.md',
+    'close.md',
+    'core.md',
+    'delegation.md',
+    'discarded.md',
+    'handoff.md',
+    'implement.md',
+    'readiness.md',
+    'release.md',
+    'review.md',
+    'spec.md',
+    'validation.md',
+  ]);
+
+  // Same guard for the two composed capsule subdirectories.
+  const agentContexts = fs
+    .readdirSync(new URL('agent-contexts/', contractDir))
+    .filter((name) => name.endsWith('.md'))
+    .sort();
+  assert.deepEqual(agentContexts, [
+    'implementation.md',
+    'investigation.md',
+    'post-review.md',
+    'review.md',
+  ]);
+  const agentPrompts = fs
+    .readdirSync(new URL('agent-prompts/', contractDir))
+    .filter((name) => name.endsWith('.md'))
+    .sort();
+  assert.deepEqual(agentPrompts, [
+    'implementation.md',
+    'investigation.md',
+    'post-review.md',
+    'review.md',
+  ]);
+});
