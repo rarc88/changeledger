@@ -829,8 +829,9 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**. Orden restante:
 
 ```
-CH-17 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
-     → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
+CH-17 → CH-20 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b
+     → CH-9 → CH-10 → CH-2 → CH-3 → CH-16 → CH-8
+     → en paralelo tras CH-20: CH-11 | CH-12 | CH-13 | CH-6 | CH-7
 ```
 
 **Reordenado el 2026-07-28 por decisión de Roberto**, con el dato que lo motiva:
@@ -849,13 +850,8 @@ mide al implementarlo, no se supone.
 Decisiones de Roberto del 2026-07-28 sobre el propio flujo:
 
 - **Más tipos de change**: se estudia después, no ahora.
-- **Relajar "one change at a time"** para changes cuyas superficies no se solapan.
-  Palabras de Roberto el 2026-07-28: *"creo que si relajaremos mas de un change a la vez
-  siempre y cuando no toquen la misma superficie"*. **Sigue pendiente de autorizar como
-  change**, no olvidado: preguntado de nuevo el 2026-07-28. Es el desbloqueo de
-  paralelismo del que dependen CH-6, CH-7, CH-11, CH-12 y CH-13, que son defectos
-  limpios con superficies disjuntas y hoy van en serie. Toca `core.md` (*"One change at
-  a time, on a non-main branch"*), así que es change propio y necesita el "sí".
+- ~~Relajar "one change at a time"~~ → **CH-20, documentado** como `20260729-001217`
+  el 2026-07-29 por autorización explícita de Roberto. Ver abajo.
 
 Razón: CH-4, CH-5a y CH-5b son baratos y atacan el coste directamente — CH-4 deja
 de fabricar veredictos falsos, CH-5a deja de mandar auditorías completas por
@@ -956,6 +952,45 @@ a `chore` deja cero diagnósticos.
 legal de documentarse con criterios.** Eso es el hallazgo 41 en su forma más pura, y
 CH-19 espera a **CH-1** (gramática del Plan por tags), que separa el campo de target
 del de verificación y mata la clase.
+
+### CH-20 — Dos changes a la vez cuando sus superficies no se solapan
+
+`20260729-001217` — **`draft`**, redactado el 2026-07-29 por autorización explícita de
+Roberto: *"creo que si relajaremos mas de un change a la vez siempre y cuando no toquen
+la misma superficie"*. Nace de su queja medida sobre la lentitud: CH-6, CH-7, CH-11,
+CH-12 y CH-13 son defectos limpios con superficies disjuntas y hoy van en fila india.
+
+**El argumento decisivo es interno al fragmento, y es la misma forma que usó CH-15.**
+`core.md` gobierna la concurrencia **dos veces con dos unidades distintas**, a 18 líneas
+de distancia: la línea 38 por superficie —*"One owner per write surface; concurrent
+subagents must not share files"*— y la línea 56 por conteo —*"One change at a time"*—.
+La regla de superficie es la correcta y ya está escrita; la de conteo es una
+aproximación conservadora que nunca se revisó.
+
+Verificado antes de redactar:
+
+- **Nada la impone.** Ni `src/lifecycle.mjs` ni `src/check.mjs` cuentan changes en
+  curso; `assertTransition` valida la arista, no la multiplicidad. Prosa sin
+  verificador, así que relajarla no pierde garantía mecánica.
+- **El CLI ya está construido para varios en curso.** `src/commands/commit.mjs` falla
+  con `Ambiguous: N changes are in-progress (…); pass --id explicitly` — no dice "esto
+  es inválido", dice "desambigua". El código anticipó el estado que la prosa prohíbe.
+- **Dos sedes**, `core.md:56` e `implement.md:24`, y la segunda ya contenía una
+  relajación parcial para `in-validation`. Sede elegida: el core.
+
+**Sin mecanismo de solapamiento a propósito.** Un verificador que cruzara targets se
+apoyaría hoy en el parser posicional de `src/task.mjs`, que pierde targets en silencio;
+un falso negativo aquí son dos escritores sobre el mismo fichero. La disjunción la
+declara el orquestador y queda registrada; el verificador es follow-up tras CH-1.
+
+**`depends_on: 20260728-212043`** — dependencia real, no preferencia de orden: añade
+prosa a un core que está a 193/195 líneas.
+
+**Interacción a resolver antes de aprobar CH-20 y CH-15 juntos**: con changes
+concurrentes en la misma rama sus commits se interleavan, así que el `baseline..HEAD`
+que CH-15 quiere dar al revisor deja de contener sólo el change revisado. La salida ya
+está construida —`gitRefs()` atribuye commits por marcador `[#id]`— y definirla es de
+CH-15, no de CH-20.
 
 ### Hallazgos nuevos del 2026-07-28 (noche), midiendo para CH-17
 
