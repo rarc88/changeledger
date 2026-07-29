@@ -1749,3 +1749,16 @@ compra. Dos criterios no falsables del orquestador en un día (CR3 de CH-22, CR2
 del barrido): la clase que CH-2 cierra en el draft sigue viva en mi redacción y
 es el argumento acumulado para mantener CH-2 el siguiente de la fila tras esta
 tanda.
+
+### Cierre de la segunda tanda — 2026-07-29 (noche): los dos en `in-validation`
+
+| change | ciclo completo |
+|---|---|
+| Doctrina `20260729-162015` | review top-tier PASS → `validation fail --human` de Roberto (arreglar F1-F4 ahora) → corrección delegada dentro de CR6 (spec 300/345, implement 190/250, neto +1 línea pagado por la fusión de residuos) → confirmación fresca PASS sin defectos → commiteada (`18f50643`). En `in-validation` |
+| Barrido `20260729-162616` | review top-tier FAIL-RETRY con **un hallazgo medium-high real**: el lowercase del whitelist de CR8 cambiaba un bypass por otro (el gemelo mal-caseado de un doc declarado se commiteaba en case-sensitive; ejecutado por el revisor) → fix mínimo del orquestador con TDD (rojo capturado, whitelist exacto, prefijo case-folded fail-closed) → confirmación fresca PASS con mutación re-derivada → commiteada (`6cf1263b`). En `in-validation`. Findings 2-4 informativos como follow-ups en su Log: `tdd=` en cápsulas agent-context sin definición servida (clase de CR5, superficie nueva), narrowing (b) de CR7 consumer-visible sin población que lo ejercite en este repo, CR4 anulado bajo `tdd: false` |
+
+Del método, para el registro: el hallazgo de CR8 es exactamente lo que compra el
+review adversarial — un criterio mío pedía "normaliza de forma segura" sin fijar la
+asimetría, el implementador eligió la simetría plausible, y solo la re-derivación
+con el vector real lo cazó. Ningún gate local podía: la suite estaba verde en las
+dos versiones porque el test shipeado solo cubría la dirección undeclared.
