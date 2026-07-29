@@ -314,7 +314,9 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
     /\*\*Baseline\*\*: exactly one, the approved change\s+document, before any code/,
   );
   assert.match(contract, /Implement one\s+change at a\s+time/);
-  assert.match(contract, /\*\*Task\*\*: one per completed Plan task/);
+  // 20260728-164620 replaced the per-task class with the per-change one; the
+  // installed contract must carry the new unit, not the retired counting rule.
+  assert.match(contract, /\*\*Implementation\*\*: exactly one/);
   assert.match(
     contract,
     /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
@@ -329,10 +331,10 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
     contract,
     /several changes share the same files, or\s+several Plan tasks are inseparable/,
   );
-  assert.match(contract, /four commit classes and no others/);
+  assert.match(contract, /five commit classes and no others/);
   assert.match(contract, /is never a commit of its own; it travels inside the next real class/);
-  assert.match(contract, /never defer them and reconstruct mixed diffs at the end/);
-  assert.match(contract, /\*\*Handoff\*\*: zero or one, only when work stops/);
+  assert.match(contract, /\*\*Correction\*\*: zero or more/);
+  assert.match(contract, /\*\*Handoff\*\*: mandatory whenever work stops/);
   assert.match(contract, /one final closure commit[\s\S]*graduation/i);
 });
 

@@ -21,6 +21,14 @@ finished result into it; `main` stays reserved for releases. Inspect the worktre
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
+Between `changeledger status <id> in-progress` and the implementation commit the
+change document stays modified and uncommitted — its `status` field plus one
+`[status]` Log line — and that single path is the only expected delta. Core's
+commit classes carry that transition inside the implementation commit rather than
+a commit of its own, so a clean worktree is not a valid precondition anywhere in
+that window: any other modified path is what "unrelated changes" means here, and a
+delegation baseline states this expected set instead of demanding a clean tree.
+
 Implement one change at a time, even while another already-delivered change waits
 in `in-validation`.
 
@@ -49,10 +57,13 @@ requires independent review by running this ordered gate — do not reconstruct 
    refuses a candidate whose readiness is invalid and leaves the document untouched.
 4. Reapply the formatter to the change document and run `changeledger check`; if the
    candidate changes again before the reviewer sees it, repeat every affected verification.
-5. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
-6. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
-7. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
-8. After that mutation, apply the formatter again and repeat affected checks,
+5. Create the one implementation commit with `changeledger commit`: the change's
+   complete work plus the ledger state, transitions included. It precedes the review
+   delegation, so the reviewer inspects `baseline..HEAD` instead of a working tree.
+6. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
+7. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
+8. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
+9. After that mutation, apply the formatter again and repeat affected checks,
    including `changeledger check`, before commit or human validation.
 
 Types without `review_required` pass the same local gate before

@@ -93,18 +93,22 @@ review contexts own that classification.
 
 ## Commits
 
-A change branch carries four commit classes and no others. **Draft**: one per drafted change document,
+A change branch carries five commit classes and no others. **Draft**: one per drafted change document,
 committed on its own — never several drafts in one commit. **Baseline**: exactly one, the approved change
-document, before any code. **Task**: one per completed Plan task, with that task's code, its test, its
-ticked box and its Log entries. **Handoff**: zero or one, only when work stops (review, blocked, session
-end) and document-only state would otherwise stay uncommitted; record why it was needed.
+document, before any code. **Implementation**: exactly one, the change's complete work — code, tests, ticked
+boxes and Log entries — created once the local gate passes and before the review is delegated, so
+`baseline..HEAD` is a fixed range the reviewer inspects and the deliverable cannot change between the
+report and history. **Correction**: zero or more, each left uncommitted until a fresh reviewer confirms it.
+**Handoff**: mandatory whenever work stops in `blocked` or a session ends with uncommitted state; record
+why it was needed.
 
 Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
 A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
 is never a commit of its own; it travels inside the next real class. A change document is: a later
 implementation branch builds on it, `changeledger check --commits` references it by id, and it can be
-discarded alone. So `n` completed tasks yield `n + 1` commits, `n + 2` with a handoff, never one per
-transition; never defer them and reconstruct mixed diffs at the end.
+discarded alone. A single Plan task is not: it is reverted, referenced and implemented with the rest of the
+change, so the change is the implementation unit. So a change yields two commits, one more per confirmed
+correction and one per handoff, never one per transition and never one per Plan task.
 
 Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
 its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,

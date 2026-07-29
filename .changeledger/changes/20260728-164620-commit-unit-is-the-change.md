@@ -2,7 +2,7 @@
 id: "20260728-164620"
 title: La unidad de commit es el change, no la tarea del Plan
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-28T16:46:20Z
 depends_on: []
 related_to: ["20260726-124837", "20260727-194234", "20260728-151336", "20260722-124656", "20260728-170429", "20260728-195445"]
@@ -198,9 +198,12 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 
 ## Plan
 
-- [ ] Reescribir el bloque `## Commits` de `templates/contract/core.md` con las cinco clases, retirando la fórmula por tarea y la cláusula de reconstrucción, y alinear el gate ordenado de `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
-- [ ] Declarar en `templates/contract/implement.md` el conjunto sucio esperado entre `changeledger status <id> in-progress` y el commit de implementación, sin duplicarlo en el bloque `## Commits` del core; verify: `node --test test/context.test.mjs` (CR7)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Reescribir el bloque `## Commits` de `templates/contract/core.md` con las cinco clases, retirando la fórmula por tarea y la cláusula de reconstrucción, y alinear el gate ordenado de `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+  - **Resolved:** `2026-07-29T01:23:09Z`
+- [x] Declarar en `templates/contract/implement.md` el conjunto sucio esperado entre `changeledger status <id> in-progress` y el commit de implementación, sin duplicarlo en el bloque `## Commits` del core; verify: `node --test test/context.test.mjs` (CR7)
+  - **Resolved:** `2026-07-29T01:23:10Z`
+- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T01:23:10Z`
 
 ## Log
 
@@ -208,3 +211,7 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 - **2026-07-28T21:18:01Z** `[note]` Enmienda por instruccion de Roberto (2026-07-28): entra CR7, la ventana sucia. Razon mas fuerte que la observada: este change ENSANCHA la ventana en vez de estrecharla -- hoy el delta de 'status in-progress' lo absorbe el siguiente commit de tarea, y con un solo commit de implementacion queda sin commitear durante toda la implementacion. El contrato no nombra en ninguna parte el conjunto sucio esperado, asi que quien redacta un baseline deduce 'limpio' y eso es falso; costo una delegacion entera implementando 20260728-195445. Sede decidida: implement.md, que posee el gate de etapa, no el bloque Commits del core que esta a 28/28 lineas. La mitad de prompts de delegacion NO entra aqui: es del contrato de evidencia de la delegacion.
 - **2026-07-29T01:01:01Z** `[status]` draft → approved
 - **2026-07-29T01:02:13Z** `[note]` Refresco previo a implementar, tras el cierre de 20260728-212043. Tres cifras del documento habian caducado: la tabla de presupuesto decia core 193/195 y bloque 28/28, cuando ahora son 193/400 y 28/125 con 549/1250 tokens. Consecuencia de diseno, no cosmetica: LA RESTRICCION DESAPARECIO. El bloque tiene 97 lineas y 701 tokens de margen donde tenia cero, asi que se retira la exigencia de salir neto negativo en lineas -- era consecuencia del techo puesto a mano, no una propiedad deseable-- y la sede de CR7 se elige por pertenencia y no por donde caben las lineas. CR6 corregido: clavaba '28 lineas' como literal y con el techo en 125 la frase quedaba autocontradictoria y el criterio infalsificable; ahora lee las dos dimensiones del fichero. Y un fallo mio al editar: deje un parrafo duplicado sobre PINNED_CEILINGS y lo retire.
+- **2026-07-29T01:02:47Z** `[status]` approved → in-progress
+- **2026-07-29T01:23:22Z** `[note]` Implementado en una sola delegacion. COMMIT COMBINADO: las dos tareas reales editan templates/contract/implement.md y las obligaciones retiradas estaban afirmadas en mas sitios de los que yo nombre -- el delegado encontro ademas 124837 CR2, la lista de homes de 124837 CR8, 194234 CR5 y el gate ordenado clavado con numeracion 1..8 en 134702/122950. Separar por tarea habria exigido partir por hunks el mismo fichero, la reconstruccion que el propio bloque prohibe, y todo estado intermedio deja la suite roja. Ironia registrada: el change que hace del change la unidad de commit tropezo con el defecto que arregla.
+- **2026-07-29T01:23:32Z** `[note]` Tension real reportada por el delegado en vez de resuelta en silencio, y la acepto: CR7 exige que implement.md nombre que una transicion no es commit propio, mientras 194234 CR4 ya asierta que el literal 'is never a commit of its own' tiene sede UNICA en core.md y que el pack implement no lo compone. Lo resolvio apuntando a core -- 'Core's commit classes carry that transition inside the implementation commit rather than a commit of its own' -- asi que satisface CR7 sin crear segunda sede, y 194234 CR4 sigue verde. Si el revisor juzga que CR7 pedia la enunciacion completa, hay que reabrir 194234 CR4, no la frase del delegado. Tamanos tras el cambio, todos con holgura gracias a 20260728-212043: bloque Commits 32/125 lineas y 614/1250 tokens, core 197/400 y 2642/4000, implement 184/250 y 1950/2500. No se comprimio prosa para caber.
+- **2026-07-29T01:23:44Z** `[note]` PENDIENTE OBLIGATORIO PARA LA GRADUACION, verificado por mi leyendo el fichero: .changeledger/specs/git-traceability.md sigue declarando en su linea 94 '**Task**, uno por tarea del Plan completada con su codigo, test, casilla y Log' y en la 100 'n tareas completadas producen n + 1 commits, o n + 2 con'. Es verdad persistente contradiciendo el contrato desde este commit, y es la clase 19/48 por quinta vez en esta iniciativa. Ruta vetada al delegado a proposito, asi que la arregla la graduacion. Dos residuos mas que el delegado senalo sin tocar, ninguno cubierto por criterio: la ultima linea de implement.md ('they do not relax intermediate commits for already verified units') queda con la premisa hueca porque ya no hay commits intermedios por unidad dentro de un change; y la seccion Correction isolation de implement.md podria ser ahora una tercera sede de lo que CR3 protege en review.md.

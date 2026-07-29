@@ -488,14 +488,18 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['core', /Subjects follow `type\(scope\): description \[#<id>\]`/],
     ['implement', /Never implement approved changes on `main`, `master`, or `dev`/],
     ['core', /\*\*Baseline\*\*: exactly one, the approved change document, before any code/],
-    ['core', /\*\*Task\*\*: one per completed Plan task/],
+    // 20260728-164620: the per-task class became the per-change one, and the
+    // handoff stopped being an optional zero-or-one.
+    ['core', /\*\*Implementation\*\*: exactly one, the change's complete work/],
     ['core', /is never a commit of its own; it travels inside the next real class/],
-    ['core', /\*\*Handoff\*\*: zero or one, only when work stops/],
+    ['core', /\*\*Handoff\*\*: mandatory whenever work stops/],
     ['implement', /Follow the Specification exactly/],
     ['implement', /Tick tasks as they become true, not in a batch at the end/],
     ['implement', /Leave no TODO\/FIXME, dead code or unrelated residue/],
     ['implement', /move to `in-review` if the type requires independent review/],
-    ['core', /never defer them and reconstruct mixed diffs at the end/],
+    // 20260728-164620 retired the reconstruction clause with the per-task unit it
+    // depended on; the Correction class it declares instead is pinned here.
+    ['core', /\*\*Correction\*\*: zero or more/],
     ['implement', /changeledger status <id> <status>/],
     ['implement', /changeledger task <id> done\|block <n> \[reason\]/],
     ['implement', /changeledger log <id> "<message>"/],
@@ -899,7 +903,50 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   and "ChangeLedger: none" and every hit is this one line in `core.md`.
     //   Nothing is retired — the merge and `chore(release)` exemptions are
     //   preserved verbatim, only extended with the new third case.
-    'core.md': '9577f956217a9a014a5885c040687b4e1e4e688884fd3b3c53ebff98f83aef67',
+    // 20260728-164620: the commit unit becomes the change, not the Plan task. The
+    // block's own granularity test decided it — a Plan task is never reverted,
+    // referenced by id nor implemented apart — and no lint ever enforced the
+    // per-task rule, so retiring it loses no mechanical guarantee.
+    // REPLACED — "A change branch carries four commit classes and no others" with its
+    //   **Task** row ("one per completed Plan task, with that task's code, its test,
+    //   its ticked box and its Log entries") by five classes whose **Implementation**
+    //   row is "exactly one, the change's complete work — code, tests, ticked boxes
+    //   and Log entries — created once the local gate passes and before the review is
+    //   delegated". Nothing that travelled with the work is dropped: code, tests,
+    //   boxes and Log still ride the commit; only the unit widens from task to change,
+    //   and the ordering plus `baseline..HEAD` is what the widening buys;
+    // REPLACED — "So `n` completed tasks yield `n + 1` commits, `n + 2` with a
+    //   handoff, never one per transition" by "So a change yields two commits, one
+    //   more per confirmed correction and one per handoff, never one per transition
+    //   and never one per Plan task". "never one per transition" is preserved
+    //   verbatim; what goes is the count's dependence on the number of tasks;
+    // REPLACED — "**Handoff**: zero or one, only when work stops (review, blocked,
+    //   session end) and document-only state would otherwise stay uncommitted" by
+    //   "**Handoff**: mandatory whenever work stops in `blocked` or a session ends
+    //   with uncommitted state". "record why it was needed" is preserved verbatim;
+    //   what changes is that stopping now obliges the commit instead of allowing it;
+    // RETIRED — "never defer them and reconstruct mixed diffs at the end". Not
+    //   because it stopped mattering: a different commit unit replaces it. Under the
+    //   per-task unit, deferring meant reconstructing several units' diffs at the end;
+    //   with the change as the unit there is one diff, and deferring it to the end of
+    //   the implementation IS the rule, so the clause became false rather than
+    //   obsolete. It has no home by design — grepped `reconstruct mixed diffs` across
+    //   `templates/contract/` recursively, capsules included, and no fragment holds
+    //   it. `164620 CR5` is the standing guard, and the `124837 CR8` home list drops
+    //   its pair with the reason written in place;
+    // ADDED — the **Correction** class, "zero or more, each left uncommitted until a
+    //   fresh reviewer confirms it": the practice already produced that commit and no
+    //   fragment declared the class. `review.md` keeps what each verdict does with the
+    //   correction, so core declares the class and nothing more. ADDED — "A single
+    //   Plan task is not: it is reverted, referenced and implemented with the rest of
+    //   the change", the discriminant applied to the unit this change retires;
+    // PRESERVED — the Draft and Baseline rows verbatim, the granularity test, the
+    //   lifecycle-transition prohibition and the change-document rationale, plus every
+    //   other block of the fragment: message mechanics, combined commits and the
+    //   `pre-commit` staged-index rule are untouched. The dirty-window declaration
+    //   this change also introduces went to `implement.md`, not here: it is a fact of
+    //   the implementation stage, not of the class taxonomy (`164620 CR7`).
+    'core.md': '12135d75ca3e090121e8924694df344168a5f35780eab83daa1e2073c37bbf66',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -949,8 +996,10 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   exactly one, the approved change document, before any code";
     // RETIRED to core.md, and the judgment deliberately dropped — "Commit completed
     //   units with their tasks and Log when later work could obscure attribution"
-    //   is the countable "**Task**: one per completed Plan task, with that task's
-    //   code, its test, its ticked box and its Log entries". The trailing clause
+    //   is the countable "**Implementation**: exactly one, the change's complete work
+    //   — code, tests, ticked boxes and Log entries" (124837 landed it as "**Task**:
+    //   one per completed Plan task"; 20260728-164620 widened the unit from the task
+    //   to the change without dropping anything it carries). The trailing clause
     //   was the whole defect: it asked the agent to guess whether attribution
     //   could matter later, and the safe guess is always yes, so it invited the
     //   excess it meant to prevent. CR1 forbids that clause anywhere in the
@@ -958,17 +1007,24 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // RETIRED to core.md — "Do not create a dedicated commit for a lifecycle-only
     //   transition. Coalesce it with the nearest meaningful commit" is "is never a
     //   commit of its own; it travels inside the next real class", now with the
-    //   discriminant and the `n + 1` / `n + 2` formula that make it measurable.
+    //   discriminant and a count that makes it measurable (124837's `n + 1` / `n + 2`
+    //   formula; 20260728-164620 replaced it with the per-change count, because the
+    //   formula depended on the per-task unit that change retires).
     //   The `in-progress → in-review` example is dropped as an instance of the
     //   rule, not an obligation of its own;
-    // RETIRED to core.md — "Do not wait until the end to reconstruct mixed diffs"
-    //   is "never defer them and reconstruct mixed diffs at the end";
+    // RETIRED to core.md by 124837 as "never defer them and reconstruct mixed diffs
+    //   at the end", then RETIRED outright by 20260728-164620 — "Do not wait until
+    //   the end to reconstruct mixed diffs" now has no home in any fragment, because
+    //   a different commit unit replaces it: with the change as the unit, deferring to
+    //   the end of the implementation is the rule. The `core.md` pin above carries the
+    //   full classification and `164620 CR5` guards it;
     // RETIRED to core.md — "If a handoff precedes the next meaningful commit, one
     //   consolidated checkpoint persists pending state; record why and never create
-    //   one per transition" is "**Handoff**: zero or one, only when work stops
-    //   (review, blocked, session end) and document-only state would otherwise stay
-    //   uncommitted; record why it was needed", with "never one per transition"
-    //   carried by the formula. The "record why" clause reached no home on the first
+    //   one per transition" is "**Handoff**: mandatory whenever work stops in
+    //   `blocked` or a session ends with uncommitted state; record why it was needed"
+    //   (124837 landed it as "zero or one, only when work stops"; 20260728-164620 made
+    //   stopping oblige the commit), with "never one per transition" carried by the
+    //   count. The "record why" clause reached no home on the first
     //   pass and a clean-context reviewer caught it; core carries it now;
     // RETIRED to core.md — the whole message-mechanics block: the canonical subject
     //   shape and its `feat(scope): description [#20260629-234939]` example, "One
@@ -1024,7 +1080,29 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   before the reviewer sees it. Neither had a prior home: the old step 7
     //   (now 8) governs the VERDICT mutation, not this transition, and it is
     //   preserved verbatim. Nothing is retired from this fragment.
-    'implement.md': 'e17bcd09af8ded36f3443f7380ca073a07df96fc1230efa448869aa49f56e632',
+    // 20260728-164620: purely additive, two additions, nothing retired or reworded.
+    // ADDED — a new step 5 of the ordered gate, "Create the one implementation commit
+    //   with `changeledger commit`", placed before the review delegation so the
+    //   reviewer inspects `baseline..HEAD` instead of a working tree; the tail
+    //   renumbers 5..8 → 6..9 and every step survives verbatim. The class it creates
+    //   is declared in core's `## Commits`, so this fragment states only WHEN the
+    //   commit happens in the stage order, which is what the ordered gate owns;
+    // ADDED — the expected dirty set of the implementation window: between
+    //   `changeledger status <id> in-progress` and the implementation commit the change
+    //   document alone stays modified, so a clean worktree is not a valid precondition
+    //   there. This obligation had no prior home anywhere — grepped
+    //   `templates/contract/` recursively for "clean worktree", "worktree",
+    //   "uncommitted" and "dirty": every pre-existing hit is either the unrelated-work
+    //   inspection, correction isolation or the Handoff class, and none states which
+    //   paths are expected to be dirty mid-implementation. That gap is exactly why a
+    //   delegation baseline
+    //   deduced "clean" and cost a whole delegation on 20260728-195445. It binds here
+    //   because this fragment owns the implementation stage; the core block must NOT
+    //   repeat it (`164620 CR7` asserts both halves). The clause does not restate
+    //   core's transition prohibition — it points at it, so 194234's single seat for
+    //   "is never a commit of its own" is untouched, and this pack still does not
+    //   compose that sentence.
+    'implement.md': 'be9298cd066ad2fe50857a76460c9025ef58e82b12271f73a4ba69d521f93bb6',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -1059,7 +1137,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     // 20260727-194234: RETIRED to core.md — "A review verdict alone needs no
     //   commit" is core's "A lifecycle transition ... is never a commit of its
     //   own"; "Handoff may use the implementation contract's checkpoint" is
-    //   core's "**Handoff**: zero or one, only when work stops", which is also
+    //   core's Handoff class — "mandatory whenever work stops in `blocked` or a
+    //   session ends with uncommitted state" since 20260728-164620, "zero or one, only
+    //   when work stops" when 194234 retired the copy — which is also
     //   where the checkpoint now lives, so the pointer had lost its target.
     //   PRESERVED: what a pass does with an uncommitted correction, that retry
     //   keeps the diff isolated, and the whole `fail --retry` block — review-phase
@@ -1614,7 +1694,9 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
     // 20260722-124656 reordered steps 2 and 3: the local gate decides whether a
     // reviewable candidate exists, so it runs before the lifecycle claims review
     // started, and step 4 revalidates only what the transition altered.
-    /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*`changeledger context review` once.*6\..*read-only reviewer.*7\..*`changeledger review <id> pass\|fail`.*8\..*formatter again.*affected checks.*`changeledger check`/,
+    // 20260728-164620 inserted step 5, the single implementation commit, so the
+    // reviewer is delegated against a fixed range; every later step shifts by one.
+    /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*implementation commit.*6\..*`changeledger context review` once.*7\..*read-only reviewer.*8\..*`changeledger review <id> pass\|fail`.*9\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
   assert.match(implement, /do not reload it to record the verdict unless context was lost/);
@@ -2107,7 +2189,9 @@ test('194234 CR5: each retirement names its new home and the home holds it', () 
   // The named home really holds the obligation — grep of the obligation itself,
   // not of similar words.
   assert.match(core, /is never a commit of its own/);
-  assert.match(core, /\*\*Handoff\*\*: zero or one/);
+  // 20260728-164620 reworded the class: the handoff is mandatory when work stops,
+  // so the home is the same sentence under its new multiplicity.
+  assert.match(core, /\*\*Handoff\*\*: mandatory whenever work stops/);
 });
 
 // Every entry of the budget file, labelled. A new top-level group must widen this
@@ -2548,9 +2632,10 @@ test('124835 CR6/CR7: invariants, exit gates, the ceiling and commits carry the 
     'After work has started, a failed verification is diagnosed, never auto-split: the blocked and review contexts own that classification',
     // 20260726-124837 replaced this block's four-line summary with the full seat
     // of commit behaviour; the 124837 CR2/CR4-CR6 tests own its text, and what
-    // stays here is the per-task and per-baseline obligation this criterion
-    // decided, in the wording that now carries it.
-    '**Task**: one per completed Plan task',
+    // stays here is the per-unit and per-baseline obligation this criterion
+    // decided, in the wording that now carries it. 20260728-164620 moved the unit
+    // from the Plan task to the change, so the first literal is its class.
+    "**Implementation**: exactly one, the change's complete work",
     '**Baseline**: exactly one, the approved change document, before any code',
     'is never a commit of its own; it travels inside the next real class',
     'Subjects follow `type(scope): description [#<id>]`',
@@ -2761,19 +2846,20 @@ test('124837 CR1: the attribution judgment is gone from the whole contract', () 
   }
 });
 
-test('124837 CR2: core defines the four commit classes and the counting formula', () => {
+// 20260728-164620 took over the class list and the counting formula: five classes
+// instead of four, and a per-change count instead of `n` per completed task. The
+// `164620 CR1` test owns the new list; what survives here is everything 124837
+// contributed that the new unit does not touch — the granularity test, the
+// transition rule and the change-document rationale.
+test('124837 CR2 / 164620 CR1: core owns the commit classes and the granularity test', () => {
   const core = composedCore();
   for (const literal of [
-    'A change branch carries four commit classes and no others',
     '**Draft**: one per drafted change document, committed on its own — never several drafts in one commit',
     '**Baseline**: exactly one, the approved change document, before any code',
-    "**Task**: one per completed Plan task, with that task's code, its test, its ticked box and its Log entries",
-    '**Handoff**: zero or one, only when work stops (review, blocked, session end) and document-only state would otherwise stay uncommitted',
     'Granularity follows one test: whether the unit will be reverted, referenced or implemented independently',
     'A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and is never a commit of its own; it travels inside the next real class',
     'A change document is: a later implementation branch builds on it, `changeledger check --commits` references it by id, and it can be discarded alone',
-    'So `n` completed tasks yield `n + 1` commits, `n + 2` with a handoff, never one per transition',
-    'never defer them and reconstruct mixed diffs at the end',
+    'never one per transition',
   ]) {
     assert.ok(core.includes(literal), `core is missing ${literal}`);
   }
@@ -2899,22 +2985,27 @@ test('124837 CR8: no obligation leaves implement.md without a named home', () =>
       'create a baseline commit of the approved change document before code',
       '**Baseline**: exactly one, the approved change document, before any code',
     ],
+    // 20260728-164620 moved this obligation's home from the per-task class to the
+    // per-change one: the work still travels with its tests, boxes and Log, but as
+    // one unit for the whole change.
     [
       'Commit completed units with their tasks and Log',
-      "**Task**: one per completed Plan task, with that task's code, its test, its ticked box and its Log entries",
+      "**Implementation**: exactly one, the change's complete work — code, tests, ticked boxes and Log entries",
     ],
     [
       'Do not create a dedicated commit for a lifecycle-only transition',
       'is never a commit of its own; it travels inside the next real class',
     ],
     ['Coalesce it with the nearest meaningful commit', 'it travels inside the next real class'],
-    [
-      'Do not wait until the end to reconstruct mixed diffs',
-      'never defer them and reconstruct mixed diffs at the end',
-    ],
+    // 'Do not wait until the end to reconstruct mixed diffs' is deliberately NOT in
+    // this list any more. 20260728-164620 retired it instead of rehoming it: with
+    // the change as the commit unit, deferring to the end of the implementation is
+    // the rule, so the obligation has no home by design. `164620 CR5` is its guard
+    // — it requires the retirement to be classified at the `core.md` pin and greps
+    // every fragment to prove the clause really left.
     [
       'one consolidated checkpoint persists pending state',
-      '**Handoff**: zero or one, only when work stops',
+      '**Handoff**: mandatory whenever work stops',
     ],
     [
       'Commit messages use the canonical shape',
@@ -3140,4 +3231,159 @@ test('195445 CR4: the canonical counter counts a final line with no trailing new
   const root = repo();
   const core = buildContext(undefined, root);
   assert.equal(publishedLines(core), contextEmittedLines(core));
+});
+
+// 20260728-164620 — the commit unit becomes the change, not the Plan task. The
+// per-task rule failed the granularity test core itself states (a Plan task is
+// never reverted, referenced by id nor implemented apart), nothing verified it,
+// and delegating a whole Plan made it unsatisfiable. Five classes replace four,
+// and the one implementation commit lands before the review is delegated so
+// `baseline..HEAD` is an artifact the orchestrator cannot edit afterwards.
+test('164620 CR1: core declares five commit classes and no per-task unit', () => {
+  const core = composedCore();
+  for (const literal of [
+    'A change branch carries five commit classes and no others',
+    '**Draft**: one per drafted change document',
+    '**Baseline**: exactly one, the approved change document, before any code',
+    "**Implementation**: exactly one, the change's complete work",
+    '**Correction**: zero or more',
+    '**Handoff**: mandatory whenever work stops',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing the class ${literal}`);
+  }
+  // The retired unit and its formula, by literal: neither the class nor the count.
+  for (const retired of [
+    '**Task**:',
+    'one per completed Plan task',
+    'n + 1',
+    'n + 2',
+    'never defer them and reconstruct mixed diffs at the end',
+  ]) {
+    assert.ok(!core.includes(retired), `core still carries the retired ${retired}`);
+  }
+});
+
+test('164620 CR2: the implementation commit precedes the review delegation', () => {
+  const root = repo();
+  const core = composedCore();
+  // The class itself states when it is created and what the ordering buys.
+  assert.ok(
+    core.includes('before the review is delegated'),
+    'core does not order the implementation commit before the review delegation',
+  );
+  assert.ok(core.includes('`baseline..HEAD`'), 'core does not name the reviewable range');
+
+  // And the ordered gate really places the commit step before the delegation step.
+  const implement = buildContext('implement', root).replace(/\s+/g, ' ');
+  const commit = implement.indexOf('implementation commit with `changeledger commit`');
+  const delegate = implement.indexOf('Delegate to a fresh, read-only reviewer');
+  assert.notEqual(commit, -1, 'the ordered gate has no implementation commit step');
+  assert.notEqual(delegate, -1, 'the ordered gate no longer delegates the review');
+  assert.ok(
+    commit < delegate,
+    'the implementation commit must precede the review delegation in the ordered gate',
+  );
+  assert.ok(
+    implement.includes('`baseline..HEAD`'),
+    'the implement pack does not name the range the reviewer inspects',
+  );
+});
+
+test('164620 CR3: Correction is a declared class and review.md keeps the verdict behaviour', () => {
+  const core = composedCore();
+  assert.ok(
+    core.includes(
+      '**Correction**: zero or more, each left uncommitted until a fresh reviewer confirms it',
+    ),
+    'core does not declare the Correction class',
+  );
+  // review.md stays the seat of what a verdict does with the correction, and does
+  // not gain a second copy of the class declaration.
+  const review = contractFragment('review.md').replace(/\s+/g, ' ');
+  assert.match(
+    review,
+    /After `fail --retry`, the correction remains uncommitted until another fresh/,
+  );
+  assert.match(review, /After pass, commit correction \+ ledger before asking/);
+  assert.ok(!review.includes('**Correction**'), 'review.md duplicates the class declaration');
+});
+
+test('164620 CR4: the handoff is mandatory when work stops, not an optional zero-or-one', () => {
+  const core = composedCore();
+  assert.ok(
+    core.includes(
+      '**Handoff**: mandatory whenever work stops in `blocked` or a session ends with uncommitted state',
+    ),
+    'core does not make the handoff mandatory',
+  );
+  assert.ok(
+    !core.includes('**Handoff**: zero or one'),
+    'core still declares the handoff as an optional zero-or-one',
+  );
+  assert.ok(core.includes('record why it was needed'), 'the handoff lost its record-why duty');
+});
+
+test('164620 CR5: the retired reconstruction clause is classified, not silently deleted', () => {
+  const clause = 'never defer them and reconstruct mixed diffs at the end';
+  const suite = fs.readFileSync(new URL('./context.test.mjs', import.meta.url), 'utf8');
+  const pin = suite.indexOf("'core.md':");
+  assert.notEqual(pin, -1, 'core.md has no snapshot pin');
+  const comment = suite.slice(0, pin);
+  const entry = comment.lastIndexOf('20260728-164620');
+  assert.notEqual(entry, -1, 'the core.md pin has no 20260728-164620 classification entry');
+  const classification = comment.slice(entry);
+  assert.ok(
+    classification.includes(clause),
+    'the classification does not quote the retired clause itself',
+  );
+  assert.match(classification, /RETIRED/, 'the clause is not classified as retired');
+  // Naming the replacement is the whole point: "retired" alone would read as
+  // "stopped mattering", and what happened is that a different unit took over.
+  assert.match(
+    classification,
+    /a different commit unit replaces it/,
+    'the retirement does not name the different commit unit that replaces the clause',
+  );
+  // Grep of the obligation itself, not of similar words: no fragment holds it.
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const holders = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .filter((name) =>
+      contractFragment(name).replace(/\s+/g, ' ').includes('reconstruct mixed diffs'),
+    );
+  assert.deepEqual(holders, [], 'a fragment still carries the retired reconstruction clause');
+});
+
+test('164620 CR6: the rewritten block and the core pack clear their declared ceilings', () => {
+  // Both dimensions are read from the budget file; this criterion writes neither.
+  const entry = contextBudgets.blocks['core-commits'];
+  assert.deepEqual(Object.keys(entry).sort(), ['lines', 'tokens']);
+  const sweep = captureBudget(() => {
+    assertWithinBudget('core-commits block', commitsBlockLines().join('\n'), entry);
+    assertWithinBudget('core', buildContext(undefined, repo()), contextBudgets.base.core);
+  });
+  assert.ok(!sweep.thrown, `a declared ceiling is not met: ${sweep.thrown?.message}`);
+  assert.deepEqual(sweep.warnings, [], 'a budget path warned instead of passing or failing');
+});
+
+test('164620 CR7: implement names the expected dirty set of the implementation window', () => {
+  const implement = buildContext('implement', repo()).replace(/\s+/g, ' ');
+  for (const literal of [
+    'Between `changeledger status <id> in-progress` and the implementation commit',
+    'the change document stays modified and uncommitted',
+    'the only expected delta',
+    'carry that transition inside the implementation commit',
+    'a clean worktree is not a valid precondition',
+  ]) {
+    assert.ok(implement.includes(literal), `the implement pack is missing ${literal}`);
+  }
+  // The stage fact belongs to the stage overlay; core's taxonomy must not repeat it.
+  const block = commitsBlockLines().join('\n').replace(/\s+/g, ' ');
+  for (const duplicated of ['changeledger status <id> in-progress', 'expected delta']) {
+    assert.ok(
+      !block.includes(duplicated),
+      `the core commits block duplicates the dirty-window declaration: ${duplicated}`,
+    );
+  }
 });
