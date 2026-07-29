@@ -1695,3 +1695,41 @@ vuelven recursivos.
 Reincidencia del orquestador, forma nueva registrada en memoria: descartar hits de
 grep como "ajenos" sin trazar cada símbolo hasta su consumidor (CR3; costó la mitad
 de los hallazgos del retry de CH-22).
+
+### Drafts de la segunda tanda (2026-07-29, tarde) — documentados sobre investigación fresca
+
+Método aplicado, y es contramedida directa de la reincidencia: **ningún hecho del
+acta entró a un draft sin re-verificarse contra HEAD** por investigación delegada
+con salida literal. Las investigaciones falsificaron o matizaron cuatro hechos de
+este acta, corregidos aquí:
+
+1. `resolved selection of work` aparece **5 veces** en el contrato (4 en `core.md`,
+   1 en `implement.md`), no 11 como decía §12. Cero en `delegation.md`.
+2. Existe un **guard anti-duplicación** (`234939 CR1-CR10`) que hoy asserta el
+   reparto vigente (doctrina de dimensionado EN `delegation.md` y NO en core con
+   ciertas frases). Es bloqueador duro del change de doctrina y su draft lo nombra:
+   se reescribe en la misma pasada.
+3. La iteración sin filtrar de los cuatro invariantes (CH-12) es **diseño
+   documentado** para conservar lo congelado como *dato* repo-wide; el defecto real
+   es el congelado como *sujeto emisor* de errores inarreglables. El CR se redactó
+   sobre esa distinción.
+4. El bypass de casing del guard de commit (CH-13) **no es alcanzable por `git add`
+   normal en APFS** — git pliega el casing; el vector real es un índice inyectado
+   (`update-index --cacheinfo`) o un rebase/cherry-pick que arrastre un tree entry
+   mal-caseado. Reproducido por esa vía. Y el bypass de `changes_dir: "."` es **más
+   grave** de lo que decía CH-13: desactiva el guard para *todo* fichero staged, no
+   solo documentos de raíz. Reproducido.
+
+Hallazgo lateral nuevo, sede CH-7: con `changes_dir: "."`, `loadRepoWithConfig`
+parsea todo `*.md` de raíz sin try/catch y revienta con `Change is missing its
+frontmatter block` ante cualquier markdown normal (`AGENTS.md` incluido). Ruidoso,
+no silencioso; clase de CH-7 (hallazgo 11).
+
+| draft | id | contenido |
+|---|---|---|
+| Doctrina (CH-0b+CH-5b) | `20260729-162015` | desduplicar `delegation.md`, regla de sede única en sus dos direcciones, definición única de `resolved selection` en core, contrato de evidencia por rol (implementador en `delegation.md`, revisor en `review.md`). CH-5a queda como change propio por el fallback autorizado (superficie disjunta: cápsula de prompt). El techo andamio de `base.spec` no baja aquí — condición conjunta con CH-2 (§10) |
+| Barrido de fallos silenciosos (CH-6+CH-12+CH-13) | `20260729-162616` | tipo `bug`, 9 CR: tipo indecidible aborta, `review()` con `assertTransition`, plantilla de tipo vacío, criterio desconocido diagnosticado en todo tipo, `tdd=` no se publica sin su fragmento, congelado nunca sujeto emisor, predicado único de congelado, whitelist sin casing, prefijo colapsado aborta |
+
+Ambos en `draft`, pendientes de aprobación. Destinos: doctrina en el checkout
+principal (WT-A); barrido en worktree WT-B con rama nueva desde el tip **después**
+de commitear su baseline (lección del ciclo anterior escrita arriba).
