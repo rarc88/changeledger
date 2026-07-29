@@ -1796,3 +1796,25 @@ Roberto al aprobar:
 Corrección de registro: la decisión "strictness en `check <id>` y `approve`, NO
 repo-wide" citada por las notas de la fase A **no estaba en este acta** — queda
 aquí; la arquitectura de `assertChangeTextValid` ya la cumple por construcción.
+
+### CH-2 cerrado el ciclo — `20260729-185200` en `in-validation` (2026-07-29, noche)
+
+El change fundacional de la iniciativa, completo: gate de approve en la sede única
+`status()` con proyección de severidad `asStatus` (solo cobertura, fail-fast sin
+sujeto), cobertura escalada a error desde `approved`, seis obligaciones de
+redacción en el contrato con guard por obligación. Ciclo: review top-tier PASS
+técnico con re-derivación completa (deformación de las seis obligaciones: fiel;
+seam trazada; seis adaptaciones de fixture verificadas contra sus versiones
+viejas, una byte-idéntica) → `fail --retry` por lote de 5 hallazgos de texto
+(el mejor: la prosa nueva de readiness violaba la obligación (b) del propio
+change) → corrección del orquestador con el guard de (b) fallándole su propio
+edit hasta actualizar el regex → confirmación fresca PASS → commiteado
+(`95227892` + `64aa2e3f`). Gate 984/984.
+
+Datos que el ciclo dejó: el fixture de CR1 produce 4 diagnósticos (no 5, cifra
+del orquestador corregida por el delegado sin rellenar); la nota de andamio venía
+rancia desde antes del change (3190 reales vs 3140 anotados) y la dimensión justa
+del pack spec son tokens, no líneas (3416/3450 tras el cierre, 34 de margen — la
+salida del andamio sigue esperando a CH-1). El gate ya protege este repo: CH-19
+(`194157`) es hoy inaprobable por accidente con sus 4 defectos, que es su estado
+correcto hasta CH-1.
