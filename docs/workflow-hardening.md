@@ -1777,3 +1777,22 @@ CH-5a (reducido: F1-F4 de la doctrina ya cerrados en su corrección; queda el ca
 de alcance del mandato en la cápsula) → barrido de verdad persistente (CH-8+CH-9)
 → cola final**. Follow-ups nuevos registrados en el Log del barrido: tdd= en
 cápsulas agent-context, narrowing (b) de CH-7 consumer-visible, CR4 bajo tdd:false.
+
+### CH-2 documentado — `20260729-185200` (2026-07-29, noche)
+
+Draft commiteado sobre investigación fresca contra el HEAD fusionado. Dos
+decisiones de diseño que se apartan de la letra de §4 y quedan a confirmación de
+Roberto al aprobar:
+
+1. **Sin gramática nueva**: "cada CR nombra su sitio de aserción" se implementa
+   como la cadena existente criterio→tarea→verificación vuelta **obligatoria**
+   (cobertura escala a error desde `approved` y `approve` valida pre-flip con
+   severidad destino). Una declaración por CR sería segunda sede; verificar
+   existencia en disco rompería el diseño sin-IO de `check` y el orden TDD.
+2. **La cobertura del Request queda como obligación de redacción** con
+   escrutinio en review, no mecánica: no hay verificador honesto de cobertura
+   semántica y fingirlo sería un guard vacuo (hallazgo 43).
+
+Corrección de registro: la decisión "strictness en `check <id>` y `approve`, NO
+repo-wide" citada por las notas de la fase A **no estaba en este acta** — queda
+aquí; la arquitectura de `assertChangeTextValid` ya la cumple por construcción.
