@@ -2,7 +2,7 @@
 id: "20260729-001217"
 title: Dos changes a la vez cuando sus superficies no se solapan
 type: feature
-status: draft
+status: discarded
 created: 2026-07-29T00:12:17Z
 depends_on: ["20260728-212043"]
 related_to: ["20260728-164620", "20260726-124837"]
@@ -207,3 +207,4 @@ Alternativas descartadas:
 
 - **2026-07-29T00:12:17Z** `[note]` Draft creado por autorización explícita de Roberto. El argumento decisivo es interno: core.md ya gobierna la concurrencia por superficie de escritura en su línea 38 y por conteo de changes en la 56, dos unidades para la misma preocupación en el mismo fichero. Verificado que nada impone la regla —ni lifecycle.mjs ni check.mjs cuentan changes en curso— y que src/commands/commit.mjs ya trata varios en curso como estado legítimo que sólo hay que desambiguar. Sin mecanismo de solapamiento a propósito: se apoyaría en el parser posicional de src/task.mjs, que pierde targets en silencio, y un falso negativo aquí son dos escritores sobre el mismo fichero.
 - **2026-07-29T00:12:18Z** `[note]` depends_on 20260728-212043 es dependencia real de presupuesto: este change añade prosa a un core que está a 193/195 líneas, y CH-17 lo lleva a 400. Y hay interacción con 20260728-164620 que hay que resolver antes de aprobar los dos: con changes concurrentes en la misma rama sus commits se interleavan, así que baseline..HEAD deja de contener sólo el change revisado. La salida ya está construida: gitRefs() atribuye commits por marcador [#id].
+- **2026-07-29T00:20:40Z** `[status]` draft → discarded: Decisión de Roberto (2026-07-29): es más limpio un change a la vez por worktree, y resolver varios a la vez son varios worktrees. Ese modelo cumple literalmente la regla actual del core, así que no hace falta relajarla ni tocar el contrato: este change queda innecesario, no equivocado. Los hallazgos verificados que contenía sobreviven en docs/workflow-hardening.md.
