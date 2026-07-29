@@ -130,7 +130,7 @@ A criterion is a falsifiable claim, so its wording is part of the contract:
 
 - Every `Then` states a fact measured at writing time, never a plausible
   assumption: verify before you write it.
-- A criterion that quantifies universally (`every`, `all`, `no`) either covers
+- A criterion that quantifies universally (e.g. `every`, `all`, `no`) either covers
   its whole domain or narrows to what it verifies.
 - Derive sets from `config.yml` instead of enumerating members by hand, so a new
   member cannot leave the criterion silently partial.

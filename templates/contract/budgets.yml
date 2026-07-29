@@ -4,7 +4,7 @@
     "spec": {
       "tokens": 3450,
       "lines": 345,
-      "scaffold": "temporary — measures 3396 tokens in 315 lines today, above the decided 2500 for contexts; exit condition: the authoring pack's pending refactor. Do not read this as a decided ceiling."
+      "scaffold": "temporary — measures 3416 tokens in 317 lines today, above the decided 2500 for contexts; exit condition: the authoring pack's pending refactor. Do not read this as a decided ceiling."
     },
     "implement": { "tokens": 2500, "lines": 250 },
     "review": { "tokens": 2500, "lines": 250 },

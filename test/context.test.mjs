@@ -1670,7 +1670,7 @@ const DRAFTING_OBLIGATIONS = [
   [
     'a universally quantified criterion covers its domain or narrows',
     'spec.md',
-    /A criterion that quantifies universally \(`every`, `all`, `no`\) either covers its whole domain or narrows to what it verifies\./,
+    /A criterion that quantifies universally \(e\.g\. `every`, `all`, `no`\) either covers its whole domain or narrows to what it verifies\./,
   ],
   [
     'sets come from the config, never a hand-written list',
@@ -1690,7 +1690,7 @@ const DRAFTING_OBLIGATIONS = [
   [
     'every ask in the Request maps to a criterion or is named as excluded',
     'readiness.md',
-    /Every ask in `## Request` maps to at least one criterion or is explicitly named as excluded\./,
+    /Every ask in `## Request` maps to at least one criterion or is explicitly named as excluded\. No check judges semantic coverage; review scrutinises it\./,
   ],
 ];
 

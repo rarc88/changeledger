@@ -23,7 +23,8 @@ With `tdd: true`, a change is ready only when:
    prove.
 4. **External interfaces are declared.** For every external interface the change
    depends on, state whether its output is stable for automated consumption; a
-   criterion may not assume stability nobody established.
+   criterion may not assume stability nobody established. No check verifies the
+   declaration; review does.
 5. **The Request is fully mapped.** Every ask in `## Request` maps to at least
    one criterion or is explicitly named as excluded. No check judges semantic
    coverage; review scrutinises it.
@@ -44,7 +45,8 @@ task instead of listing every possible manual phrase in config.
 
 `changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
 tasks without traceability and CR-bearing tasks without configured target and
-verification. Every diagnostic is a warning in `draft` and an error from
-`approved` onward, and `changeledger approve` judges the draft at that stricter
-severity: an unready draft is refused, exit non-zero, document untouched. Truly
+verification. Every diagnostic is a warning in `draft` and an error in
+`approved` and `in-progress`, and `changeledger approve` judges the draft at
+that stricter severity: an unready draft is refused, exit non-zero, document
+untouched. Truly
 operational `(support)` tasks are exempt; observable implementation is not.

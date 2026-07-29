@@ -1689,7 +1689,7 @@ test('210508 CR7: a dependency on a discarded change is not flagged as missing',
   assert.ok(!msgs(errors).some((m) => /dangling|missing|depend/i.test(m)), msgs(errors).join('; '));
 });
 
-test('225208 CR3: approved keeps the severity split — defects error, coverage gaps warn', () => {
+test('225208 CR3 → 185200 CR3/CR4: from approved, defects and coverage gaps both error', () => {
   const text = `---
 id: "20260613-120000"
 title: x
