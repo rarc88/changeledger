@@ -136,15 +136,25 @@ donde el agente lee realmente el fragmento.
 
 ## Plan
 
-- [x] Retirar de `templates/contract/review.md` las dos frases que repiten la unidad de commit, conservando el bloque de corrección y retry, y actualizar el pin de snapshot de `review.md` en `test/context.test.mjs` con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR1)
+- [x] Retirar de `templates/contract/review.md` las dos frases que repiten la unidad de commit, conservando el bloque de corrección y retry, y actualizar el pin de snapshot de `review.md` en `test/context.test.mjs` con su comentario de clasificación
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-28T00:52:18Z`
-- [x] Retirar de `templates/contract/validation.md` la frase de la transición sin commit dedicado, conservando la remisión al cierre y el aislamiento tras rechazo, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR2)
+- [x] Retirar de `templates/contract/validation.md` la frase de la transición sin commit dedicado, conservando la remisión al cierre y el aislamiento tras rechazo, y actualizar su pin de snapshot con su comentario de clasificación
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-28T00:52:18Z`
-- [x] Retirar de `templates/contract/close.md` la prohibición repetida, conservando la composición del commit de cierre y la evidencia sin lifecycle pendiente, y actualizar su pin de snapshot con su comentario de clasificación; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Retirar de `templates/contract/close.md` la prohibición repetida, conservando la composición del commit de cierre y la evidencia sin lifecycle pendiente, y actualizar su pin de snapshot con su comentario de clasificación
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-28T00:52:18Z`
-- [x] Verificar en `templates/contract/` que la obligación queda solo en `core.md` y que las tres entradas de pin nombran esa sede, añadiendo la aserción correspondiente en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
+- [x] Verificar en `templates/contract/` que la obligación queda solo en `core.md` y que las tres entradas de pin nombran esa sede, añadiendo la aserción correspondiente en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-28T00:52:18Z`
-- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo del proyecto
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-28T00:52:19Z`
 
 ## Log

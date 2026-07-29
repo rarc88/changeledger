@@ -226,13 +226,21 @@ Los criterios se comprueban sobre la salida compuesta de
 
 ## Plan
 
-- [x] Consolidar en el bloque `## Commits` de `templates/contract/core.md` las cuatro clases de commit, el discriminante, la fórmula de conteo, la mecánica del subject y el body multi-change, las excepciones, el compositor y el linter, la mezcla inevitable en sus dos formas y la inspección del índice staged, actualizar el pin de snapshot de `core.md` con su comentario de clasificación y añadir la comprobación de reserva del core (195 líneas emitidas o menos, bloque de 28 líneas o menos), parando y preguntando al humano si el contenido no cabe en vez de retirar normativa; verify: `node --test test/context.test.mjs` (CR2, CR4, CR5, CR6, CR7)
+- [x] Consolidar en el bloque `## Commits` de `templates/contract/core.md` las cuatro clases de commit, el discriminante, la fórmula de conteo, la mecánica del subject y el body multi-change, las excepciones, el compositor y el linter, la mezcla inevitable en sus dos formas y la inspección del índice staged, actualizar el pin de snapshot de `core.md` con su comentario de clasificación y añadir la comprobación de reserva del core (195 líneas emitidas o menos, bloque de 28 líneas o menos), parando y preguntando al humano si el contenido no cabe en vez de retirar normativa
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-07-27T21:11:09Z`
-- [x] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`; verify: `node --test test/context.test.mjs` (CR1, CR3, CR8)
+- [x] Retirar de `templates/contract/implement.md` la línea 24 y el párrafo 28-34 más el bloque de mecánica de commits 36-55, conservando intactas las reglas de rama y worktree, actualizar su pin de snapshot con su comentario de clasificación y verificar por grep que toda obligación presente antes en `core.md` e `implement.md` sigue localizable en `templates/contract/`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR3, CR8
   - **Resolved:** `2026-07-27T21:11:09Z`
-- [x] Actualizar en `test/cli.test.mjs` las siete aserciones del contrato instalado que fijan por substring la prosa de commits retirada de `templates/contract/implement.md`, apuntándolas a la sede nueva en `core.md`; verify: `node --test test/cli.test.mjs` (CR1, CR3)
+- [x] Actualizar en `test/cli.test.mjs` las siete aserciones del contrato instalado que fijan por substring la prosa de commits retirada de `templates/contract/implement.md`, apuntándolas a la sede nueva en `core.md`
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-07-27T21:11:38Z`
-- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo del proyecto
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T21:11:39Z`
 
 ## Log

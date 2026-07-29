@@ -201,11 +201,17 @@ obligación introducida aquí; su sede son los skeletons de delegación.
 
 ## Plan
 
-- [x] Reescribir el bloque `## Commits` de `templates/contract/core.md` con las cinco clases, retirando la fórmula por tarea y la cláusula de reconstrucción, y alinear el gate ordenado de `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Reescribir el bloque `## Commits` de `templates/contract/core.md` con las cinco clases, retirando la fórmula por tarea y la cláusula de reconstrucción, y alinear el gate ordenado de `templates/contract/implement.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-29T01:23:09Z`
-- [x] Declarar en `templates/contract/implement.md` el conjunto sucio esperado entre `changeledger status <id> in-progress` y el commit de implementación, sin duplicarlo en el bloque `## Commits` del core; verify: `node --test test/context.test.mjs` (CR7)
+- [x] Declarar en `templates/contract/implement.md` el conjunto sucio esperado entre `changeledger status <id> in-progress` y el commit de implementación, sin duplicarlo en el bloque `## Commits` del core
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-29T01:23:10Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T01:23:10Z`
 
 ## Log

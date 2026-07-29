@@ -98,13 +98,18 @@ bloque de criterios.
 
 ## Plan
 
-- [x] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134` (CR1, CR2, CR4)
+- [x] Actualizar `templates/AGENTS.md` §4 con una mini-gramática y ejemplos correctos/incorrectos de tareas parseables; verificar con `node bin/sl.mjs check 20260626-115134`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-26T12:03:20Z`
-- [x] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134` (CR3)
+- [x] Reforzar `templates/AGENTS.md` §3/§8/§11 para explicar que stages, `CRn` y pasos Given/When/Then son estructura en inglés aunque el contenido sea local; verificar con `node bin/sl.mjs check 20260626-115134`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-26T12:03:23Z`
-- [x] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test (CR5)
+- [x] Añadir o ajustar tests en test/check.test.mjs para el diagnóstico de src/check.mjs sobre una tarea pending con la verificación mal ubicada en el sufijo reservado; verificar con pnpm test
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-26T12:04:03Z`
-- [x] Actualizar src/change.mjs y src/check.mjs para conservar el sufijo reservado y emitir un diagnóstico específico cuando `verify:` queda allí; verificar con pnpm test y node bin/sl.mjs check (CR5)
+- [x] Actualizar src/change.mjs y src/check.mjs para conservar el sufijo reservado y emitir un diagnóstico específico cuando `
+  - **Verify:** ` queda allí; verificar con pnpm test y node bin/sl.mjs check
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-26T12:04:06Z`
 
 ## Log

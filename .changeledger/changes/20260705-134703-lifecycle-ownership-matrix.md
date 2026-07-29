@@ -119,17 +119,29 @@ agentes consumen el contexto, no el README.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la matriz (columnas y las 12 filas, incluidos los mecanismos de review y viewer) en la composición del core; luego reescribir la sección Lifecycle de `templates/contract/core.md`: matriz en lugar del párrafo de ownership, diagrama solo topología, nota con las reglas no-ownership
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-05T14:42:14Z`
-- [x] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Medir la composición resultante de `templates/contract/core.md` y compactarla o ajustar el presupuesto de líneas en `test/context.test.mjs` con registro en el Log, manteniendo 8000 bytes
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-05T14:42:14Z`
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-05T14:42:14Z`
-- [x] Preparar las regresiones en `test/context.test.mjs` y `test/cli.test.mjs` para exigir una sola representación sin fijar la forma retirada; verify: `node --test test/context.test.mjs test/cli.test.mjs` (support)
+- [x] Preparar las regresiones en `test/context.test.mjs` y `test/cli.test.mjs` para exigir una sola representación sin fijar la forma retirada
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Support:**
   - **Resolved:** `2026-07-05T16:57:44Z`
-- [x] Eliminar el diagrama paralelo de `templates/contract/core.md`, agrupar filas equivalentes sin perder comandos y fijar el techo del core en 130 líneas / 8000 bytes con margen; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Eliminar el diagrama paralelo de `templates/contract/core.md`, agrupar filas equivalentes sin perder comandos y fijar el techo del core en 130 líneas / 8000 bytes con margen
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-05T16:57:44Z`
-- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo tras la corrección
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-05T16:59:53Z`
 
 ## Log

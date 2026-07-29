@@ -235,17 +235,28 @@ este repo ya se fugó cinco veces.
 
 ## Plan
 
-- [x] Reescribir la clase Implementation y el párrafo de granularidad en `templates/contract/core.md`, retargeteando en la misma pasada los pins de snapshot y sus comentarios de clasificación; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Reescribir la clase Implementation y el párrafo de granularidad en `templates/contract/core.md`, retargeteando en la misma pasada los pins de snapshot y sus comentarios de clasificación
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-29T11:56:15Z`
-- [x] Ajustar el párrafo de commit combinado y fijar la obligación de secuencia del rango del review en `templates/contract/core.md`, con la aserción que la protege; verify: `node --test test/context.test.mjs` (CR3, CR4)
+- [x] Ajustar el párrafo de commit combinado y fijar la obligación de secuencia del rango del review en `templates/contract/core.md`, con la aserción que la protege
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-29T11:56:15Z`
-- [x] Quitar el cuantificador por tarea de la fila de propiedad del bloque de contexto en `templates/contract/core.md`; verify: `node --test test/cli.test.mjs` (CR5)
+- [x] Quitar el cuantificador por tarea de la fila de propiedad del bloque de contexto en `templates/contract/core.md`
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-29T11:56:16Z`
-- [x] Reescribir las cinco afirmaciones falsas y añadir la tercera formulación retirada en `.changeledger/specs/git-traceability.md`, con la guarda nueva que las fija a cero sobre texto normalizado; verify: `node --test test/context.test.mjs` (CR6)
+- [x] Reescribir las cinco afirmaciones falsas y añadir la tercera formulación retirada en `.changeledger/specs/git-traceability.md`, con la guarda nueva que las fija a cero sobre texto normalizado
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-29T11:56:16Z`
-- [x] Retirar la exigencia del commit único de los cuatro sitios de `templates/contract/implement.md` y ensanchar la guarda a todos los fragmentos; verify: `node --test test/context.test.mjs` (CR7)
+- [x] Retirar la exigencia del commit único de los cuatro sitios de `templates/contract/implement.md` y ensanchar la guarda a todos los fragmentos
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-29T11:56:16Z`
-- [x] Correr el gate completo y `changeledger check --commits` antes de pedir review (support)
+- [x] Correr el gate completo y `changeledger check --commits` antes de pedir review
+  - **Support:**
   - **Resolved:** `2026-07-29T11:56:16Z`
 
 ## Log

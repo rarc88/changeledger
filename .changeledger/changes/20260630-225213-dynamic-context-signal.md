@@ -138,19 +138,33 @@ evaluación de redundancia.
 
 ## Plan
 
-- [x] Diseñar en `src/commands/context.mjs` una cabecera de política efectiva y resumen de dependencias reutilizando config/modelo de repo; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Diseñar en `src/commands/context.mjs` una cabecera de política efectiva y resumen de dependencias reutilizando config/modelo de repo
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Derivar en `src/commands/context.mjs` la línea de política transversal del core y ajustar `templates/contract/core.md` para dejar de remitir al config crudo; verify: `node --test test/context.test.mjs` (CR8)
+- [x] Derivar en `src/commands/context.mjs` la línea de política transversal del core y ajustar `templates/contract/core.md` para dejar de remitir al config crudo
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Reorganizar `templates/contract/**` para adelgazar review e implement sin perder reglas propietarias; verify: `node --test test/context.test.mjs` (CR4, CR5, CR7)
+- [x] Reorganizar `templates/contract/**` para adelgazar review e implement sin perder reglas propietarias
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4, CR5, CR7
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Clarificar `templates/contract/core.md`: título literal para el fast path, escalada imperativa a modos y frases cortas, preservando semántica; verify: `node --test test/context.test.mjs` (CR7)
+- [x] Clarificar `templates/contract/core.md`: título literal para el fast path, escalada imperativa a modos y frases cortas, preservando semántica
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Definir en `src/commands/context.mjs` y `test/context.test.mjs` presupuestos por modo/overlay separados del change adjunto; verify: `node --test test/context.test.mjs` (CR6, CR7)
+- [x] Definir en `src/commands/context.mjs` y `test/context.test.mjs` presupuestos por modo/overlay separados del change adjunto
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6, CR7
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Actualizar `templates/contract/**` y `test/context.test.mjs` con clasificación explícita de cada regla preservada, movida o retirada; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Actualizar `templates/contract/**` y `test/context.test.mjs` con clasificación explícita de cada regla preservada, movida o retirada
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-07-01T22:43:51Z`
-- [x] Graduar la arquitectura de `src/commands/context.mjs` y ejecutar el gate completo; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Graduar la arquitectura de `src/commands/context.mjs` y ejecutar el gate completo
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-07-01T23:22:20Z`
 
 ## Log

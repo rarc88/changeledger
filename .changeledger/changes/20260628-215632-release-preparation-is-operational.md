@@ -83,9 +83,13 @@ GitHub ni un stack concreto.
 
 ## Plan
 
-- [x] Añadir primero pruebas fallidas de la política operativa y su secuencia en `test/context.test.mjs`; implementar la regla mínima en `templates/contract/release.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir primero pruebas fallidas de la política operativa y su secuencia en `test/context.test.mjs`; implementar la regla mínima en `templates/contract/release.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-28T21:58:56Z`
-- [x] Ejecutar el gate completo y comprobar el contexto público real; verify: `pnpm verify` y `node bin/changeledger.mjs context release` (support)
+- [x] Ejecutar el gate completo y comprobar el contexto público real
+  - **Verify:** `pnpm verify` y `node bin/changeledger.mjs context release`
+  - **Support:**
   - **Resolved:** `2026-06-28T21:59:13Z`
 
 ## Log

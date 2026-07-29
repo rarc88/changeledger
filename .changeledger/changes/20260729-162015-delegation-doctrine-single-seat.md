@@ -184,15 +184,25 @@ change registra el progreso en la nota del andamio sin tocar el número. CH-5a
 
 ## Plan
 
-- [x] Desduplicar `templates/contract/delegation.md` (fuera `## Size the model to the work` y las frases de cuándo-delegar y superficies que el core posee) y reescribir el guard `234939 CR1-CR10` en `test/context.test.mjs` al reparto nuevo; verify: `node --test test/context.test.mjs` con el mutante de reaparición en rojo (CR1, CR2)
+- [x] Desduplicar `templates/contract/delegation.md` (fuera `## Size the model to the work` y las frases de cuándo-delegar y superficies que el core posee) y reescribir el guard `234939 CR1-CR10` en `test/context.test.mjs` al reparto nuevo
+  - **Verify:** `node --test test/context.test.mjs` con el mutante de reaparición en rojo
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-29T16:50:35Z`
-- [x] Añadir en `templates/contract/core.md` la dirección inversa de la regla de sede única y la definición de `resolved selection`, con sus aserciones en `test/context.test.mjs`; verify: `pnpm test` con ambos mutantes de retirada en rojo (CR3, CR4)
+- [x] Añadir en `templates/contract/core.md` la dirección inversa de la regla de sede única y la definición de `resolved selection`, con sus aserciones en `test/context.test.mjs`
+  - **Verify:** `pnpm test` con ambos mutantes de retirada en rojo
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-29T16:50:35Z`
-- [x] Escribir el contrato de evidencia por rol en `templates/contract/delegation.md` y `templates/contract/review.md` con un guard por rol en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR5)
+- [x] Escribir el contrato de evidencia por rol en `templates/contract/delegation.md` y `templates/contract/review.md` con un guard por rol en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-29T16:50:35Z`
-- [x] Medir los packs tras la edición, actualizar la nota de andamio de `base.spec` en `templates/contract/budgets.yml` sin tocar el techo, y comparar contra las medidas de hoy; verify: `node bin/changeledger.mjs context spec 2>&1 | head -1` y `node bin/changeledger.mjs context implement 2>&1 | head -1` con menos líneas que 301/191 (CR6)
+- [x] Medir los packs tras la edición, actualizar la nota de andamio de `base.spec` en `templates/contract/budgets.yml` sin tocar el techo, y comparar contra las medidas de hoy
+  - **Verify:** `node bin/changeledger.mjs context spec 2>&1 | head -1` y `node bin/changeledger.mjs context implement 2>&1 | head -1` con menos líneas que 301/191
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-29T16:50:36Z`
-- [x] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Correr el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T16:50:36Z`
 
 ## Log

@@ -58,11 +58,16 @@ fallo del commit debe explicar por qué falló.
 
 ## Plan
 
-- [x] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error; verify: `node --test test/commit.test.mjs` (CR1)
+- [x] Añadir en `test/commit.test.mjs` el caso de fallo de git de `src/commands/commit.mjs` con stderr propagado al error
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T21:16:05Z`
-- [x] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas; verify: `node --test test/commit.test.mjs test/git.test.mjs` (CR1, CR2, CR3)
+- [x] Hacer que el camino de commit en `src/commands/commit.mjs` y `src/git.mjs` capture stderr y lo incluya en el error lanzado, sin tocar el perfil de las consultas
+  - **Verify:** `node --test test/commit.test.mjs test/git.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-11T21:16:05Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T21:16:05Z`
 
 ## Log

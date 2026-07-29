@@ -46,11 +46,14 @@ no debería obligar a refrescar el spec.
 - **Then** el warning de orphan spec se mantiene
 
 ## Plan
-- [x] Ajustar la heurística de stale en `src/check.mjs` para ignorar actividad no persistente posterior a la graduación, cubierta por `test/check.test.mjs` (CR1, CR2)
+- [x] Ajustar la heurística de stale en `src/check.mjs` para ignorar actividad no persistente posterior a la graduación, cubierta por `test/check.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-17T10:22:33Z`
-- [x] Añadir regresiones en `test/check.test.mjs` para archivar luego de graduar, enlace roto y spec huérfano en `src/check.mjs` (CR1, CR3, CR4)
+- [x] Añadir regresiones en `test/check.test.mjs` para archivar luego de graduar, enlace roto y spec huérfano en `src/check.mjs`
+  - **Criteria:** CR1, CR3, CR4
   - **Resolved:** `2026-06-17T10:22:37Z`
-- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:22:42Z`
 
 ## Log

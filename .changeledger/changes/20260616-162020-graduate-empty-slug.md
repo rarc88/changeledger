@@ -47,15 +47,20 @@ en ingles y crea un artefacto ambiguo.
 
 ## Plan
 
-- [x] Añadir tests en `test/graduate.test.mjs` para `src/commands/graduate.mjs` con slug vacio y ausencia de escrituras al fallar (CR1)
+- [x] Añadir tests en `test/graduate.test.mjs` para `src/commands/graduate.mjs` con slug vacio y ausencia de escrituras al fallar
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-16T16:30:06Z`
-- [x] Añadir test en `test/graduate.test.mjs` o `test/cli-bin.test.mjs` para `src/commands/graduate.mjs` con slug valido y comportamiento existente (CR2)
+- [x] Añadir test en `test/graduate.test.mjs` o `test/cli-bin.test.mjs` para `src/commands/graduate.mjs` con slug valido y comportamiento existente
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-16T16:30:11Z`
-- [x] Extraer la normalizacion a un helper compartido en `src/` y cubrirlo con `test/graduate.test.mjs` para que `src/commands/new.mjs` y `src/commands/graduate.mjs` deriven el mismo slug (CR1, CR3)
+- [x] Extraer la normalizacion a un helper compartido en `src/` y cubrirlo con `test/graduate.test.mjs` para que `src/commands/new.mjs` y `src/commands/graduate.mjs` deriven el mismo slug
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-16T16:30:11Z`
-- [x] Actualizar `src/commands/graduate.mjs` y cubrirlo con `test/graduate.test.mjs` para rechazar slugs vacios con el mismo mensaje de `sl new` (CR1, CR2)
+- [x] Actualizar `src/commands/graduate.mjs` y cubrirlo con `test/graduate.test.mjs` para rechazar slugs vacios con el mismo mensaje de `sl new`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-16T16:30:15Z`
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/commands/graduate.mjs` con `test/graduate.test.mjs` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/commands/graduate.mjs` con `test/graduate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:30:21Z`
 
 ## Log

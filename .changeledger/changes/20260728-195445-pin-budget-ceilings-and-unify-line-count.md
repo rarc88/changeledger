@@ -160,11 +160,16 @@ Comprobado contra el árbol, no heredado del acta:
 
 ## Plan
 
-- [x] Exportar el contador canónico de líneas emitidas desde `src/commands/context.mjs` con la semántica del último segmento y re-exportarlo desde `test/budget-support.mjs` sin tocar los imports existentes; verify: `node --test test/context.test.mjs` (CR3, CR4)
+- [x] Exportar el contador canónico de líneas emitidas desde `src/commands/context.mjs` con la semántica del último segmento y re-exportarlo desde `test/budget-support.mjs` sin tocar los imports existentes
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-28T20:27:26Z`
-- [x] Pinnear por valor las 11 entradas de `templates/contract/budgets.yml` en una sede única, que falle al mover, añadir o quitar un número nombrando la entrada y la dimensión; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Pinnear por valor las 11 entradas de `templates/contract/budgets.yml` en una sede única, que falle al mover, añadir o quitar un número nombrando la entrada y la dimensión
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-28T20:40:20Z`
-- [x] Correr el gate completo `pnpm verify` tras la implementación (support)
+- [x] Correr el gate completo `pnpm verify` tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-28T20:42:44Z`
 
 ## Log

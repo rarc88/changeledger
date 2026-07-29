@@ -257,17 +257,23 @@ Mover fuera del grafo (reabrir, des-aprobar) no es del CLI: archivo a mano. El
 comando `sl review` es azúcar sobre `setStatus` + `appendLog` con precondición y
 markers fijos en inglés.
 
-- [x] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding) (CR1)
+- [x] Sembrar `in-review` en `statuses` y `review_required: true` en feature/bug/refactor de `templates/config.yml`; test en `test/cli-bin.test.mjs` (init seeding)
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T16:05:39Z`
-- [x] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs` (CR2)
+- [x] Validar `review_required` booleano en `src/check.mjs`, junto a la regla de `reviewed`; test en `test/check.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-15T16:05:39Z`
-- [x] Extender `assertTransition()` en `src/lifecycle.mjs` (módulo de main, reconciliado en el merge; grafo completo + in-review + regla review_required); test en `test/lifecycle.test.mjs` (CR3, CR4, CR5, CR12)
+- [x] Extender `assertTransition()` en `src/lifecycle.mjs` (módulo de main, reconciliado en el merge; grafo completo + in-review + regla review_required); test en `test/lifecycle.test.mjs`
+  - **Criteria:** CR3, CR4, CR5, CR12
   - **Resolved:** `2026-06-15T16:05:40Z`
-- [x] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs` (CR3, CR4, CR5, CR12)
+- [x] Llamar `assertTransition()` desde `status()` en `src/commands/agent.mjs` antes de escribir, derivando `reviewRequired` de `config.types[type]`; test en `test/agent.test.mjs`
+  - **Criteria:** CR3, CR4, CR5, CR12
   - **Resolved:** `2026-06-15T16:05:40Z`
-- [x] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs` (CR6, CR7, CR8, CR9, CR10)
+- [x] Añadir `review(id, verdict, { mode, reason })` en `src/commands/agent.mjs` (precondición in-review, markers inglés en Log, rutas pass/retry/block); test en `test/agent.test.mjs`
+  - **Criteria:** CR6, CR7, CR8, CR9, CR10
   - **Resolved:** `2026-06-15T16:05:40Z`
-- [x] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs` (CR11)
+- [x] Incluir `in-review` en el conjunto WIP de `src/metrics.mjs`; test en `test/metrics.test.mjs`
+  - **Criteria:** CR11
   - **Resolved:** `2026-06-15T16:05:40Z`
 - [x] Cablear `sl review <id> pass|fail --retry|--block "<reason>"` en `bin/sl.mjs` + entrada en `HELP`; test en `test/cli-bin.test.mjs`
   - **Resolved:** `2026-06-15T16:05:40Z`

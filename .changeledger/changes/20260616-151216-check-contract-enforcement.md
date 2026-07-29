@@ -58,13 +58,17 @@ vagos.
 
 ## Plan
 
-- [x] Añadir tests de criterios incompletos en `test/check.test.mjs` y validación en `src/check.mjs` (CR1)
+- [x] Añadir tests de criterios incompletos en `test/check.test.mjs` y validación en `src/check.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-16T15:25:00Z`
-- [x] Añadir tests de tareas sin archivo objetivo/test en `test/check.test.mjs` y validación en `src/check.mjs` (CR2)
+- [x] Añadir tests de tareas sin archivo objetivo/test en `test/check.test.mjs` y validación en `src/check.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-16T15:25:00Z`
-- [x] Añadir cobertura de severidad `draft` vs `approved` en `test/check.test.mjs` y ajustar `checkCoverage()` en `src/check.mjs` (CR3)
+- [x] Añadir cobertura de severidad `draft` vs `approved` en `test/check.test.mjs` y ajustar `checkCoverage()` en `src/check.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-16T15:25:00Z`
-- [x] Mantener la exclusión `tdd:false` con test en `test/check.test.mjs` y lógica en `src/check.mjs` (CR4)
+- [x] Mantener la exclusión `tdd:false` con test en `test/check.test.mjs` y lógica en `src/check.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-16T15:25:00Z`
 - [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
   - **Resolved:** `2026-06-16T15:25:00Z`

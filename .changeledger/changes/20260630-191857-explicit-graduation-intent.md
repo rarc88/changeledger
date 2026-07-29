@@ -100,17 +100,28 @@ operación.
 
 ## Plan
 
-- [x] Definir en `bin/changeledger.mjs` mediante `test/cli-bin.test.mjs` el modo explícito, la exclusión de flags y la ausencia de escrituras ante errores; verify: `node --test test/cli-bin.test.mjs` (CR1, CR4, CR5)
+- [x] Definir en `bin/changeledger.mjs` mediante `test/cli-bin.test.mjs` el modo explícito, la exclusión de flags y la ausencia de escrituras ante errores
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR4, CR5
   - **Resolved:** `2026-06-30T19:43:42Z`
-- [x] Separar scaffold y finalización en `src/commands/graduate.mjs` y cablear `--new` en `bin/changeledger.mjs`, dejando la creación pendiente hasta `--into`; verify: `node --test test/graduate.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Separar scaffold y finalización en `src/commands/graduate.mjs` y cablear `--new` en `bin/changeledger.mjs`, dejando la creación pendiente hasta `--into`
+  - **Verify:** `node --test test/graduate.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-30T19:43:42Z`
-- [x] Actualizar la guía de cierre y el handoff de fase en `templates/contract/core.md` y `templates/contract/close.md`, con hashes y expectativas correspondientes en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6)
+- [x] Actualizar la guía de cierre y el handoff de fase en `templates/contract/core.md` y `templates/contract/close.md`, con hashes y expectativas correspondientes en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-30T19:43:42Z`
-- [x] Alinear `README.md` con la ayuda canónica de `templates/contract/close.md` y sus expectativas de contexto; verify: `node --test test/context.test.mjs` y `rg -n "graduate" README.md templates bin test` (CR1, CR2, CR3, CR4, CR6)
+- [x] Alinear `README.md` con la ayuda canónica de `templates/contract/close.md` y sus expectativas de contexto
+  - **Verify:** `node --test test/context.test.mjs` y `rg -n "graduate" README.md templates bin test`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR6
   - **Resolved:** `2026-06-30T19:43:42Z`
-- [x] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes (support)
+- [x] Ejecutar `pnpm verify` y confirmar que el cambio completo y la verdad persistente permanecen consistentes
+  - **Support:**
   - **Resolved:** `2026-06-30T19:45:43Z`
-- [x] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación; verify: `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app` (CR7)
+- [x] Crear en `ionic-app` un change de reparación para `.changeledger/specs/auth-session-persistence.md`, `.changeledger/specs/competitor-detection.md`, `.changeledger/specs/device-snapshot.md` y `.changeledger/specs/firebase-app-check.md` como verdad durable, preservando sus vínculos de graduación
+  - **Verify:** `node bin/changeledger.mjs check` o el binario instalado equivalente en `ionic-app`
+  - **Criteria:** CR7
   - **Resolved:** `2026-06-30T19:46:55Z`
 
 ## Log

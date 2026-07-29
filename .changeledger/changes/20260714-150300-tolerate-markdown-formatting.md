@@ -80,15 +80,25 @@ introdujeron los delimitadores y la comprobación estricta que ahora se refina.
 
 ## Plan
 
-- [x] Añadir fixtures y tests fallidos de reflujo en `test/contract.test.mjs`, luego implementar en `src/contract.mjs` la equivalencia estrecha del blockquote para `checkContract`; verify: `node --test test/contract.test.mjs` (CR1)
+- [x] Añadir fixtures y tests fallidos de reflujo en `test/contract.test.mjs`, luego implementar en `src/contract.mjs` la equivalencia estrecha del blockquote para `checkContract`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-14T15:09:16Z`
-- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar `src/contract.mjs` para que `ensureReference` preserve bloques equivalentes en `AGENTS.md`/`CLAUDE.md` sin impedir el registro; verify: `node --test test/register.test.mjs` (CR2)
+- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar `src/contract.mjs` para que `ensureReference` preserve bloques equivalentes en `AGENTS.md`/`CLAUDE.md` sin impedir el registro
+  - **Verify:** `node --test test/register.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-14T15:09:16Z`
-- [x] Añadir regresiones de contenido, párrafo, estructura y versión en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier equivalencia más amplia que el reflujo permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR3, CR4)
+- [x] Añadir regresiones de contenido, párrafo, estructura y versión en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier equivalencia más amplia que el reflujo permitido
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-14T15:09:16Z`
-- [x] Ejecutar `changeledger register` para refrescar el registro del propio repo sólo si el bloque canónico cambia y comprobar idempotencia; verify: `git diff --check && node bin/changeledger.mjs check` (support)
+- [x] Ejecutar `changeledger register` para refrescar el registro del propio repo sólo si el bloque canónico cambia y comprobar idempotencia
+  - **Verify:** `git diff --check && node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-07-14T15:09:41Z`
-- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+- [x] Ejecutar la puerta completa del repositorio
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-14T15:12:21Z`
 
 ## Log

@@ -111,9 +111,15 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Extraer el helper de enumeración recursiva en `test/context.test.mjs` y hacer que las cuatro guardas exhaustivas-negativas lo usen, dejando intactas la búsqueda por nombre y el inventario del nivel superior; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
-- [ ] Comprobar el nulo en `bootstrapHeadCut` de `test/context.test.mjs` y fallar nombrando la ausencia del corte; verify: `node --test test/context.test.mjs` (CR4)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [ ] Extraer el helper de enumeración recursiva en `test/context.test.mjs` y hacer que las cuatro guardas exhaustivas-negativas lo usen, dejando intactas la búsqueda por nombre y el inventario del nivel superior
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+- [ ] Comprobar el nulo en `bootstrapHeadCut` de `test/context.test.mjs` y fallar nombrando la ausencia del corte
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
+- [ ] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 

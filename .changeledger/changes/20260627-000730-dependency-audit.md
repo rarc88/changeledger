@@ -56,11 +56,17 @@ son necesarias para cerrar estos advisories.
 
 ## Plan
 
-- [x] Actualizar únicamente `dompurify` y las resoluciones de `undici` consumidas por `src/viewer/**` en `package.json`/`pnpm-lock.yaml`; verify: `pnpm why dompurify`, `pnpm why undici` y `node --test test/viewer-sanitize.test.mjs` (CR2)
+- [x] Actualizar únicamente `dompurify` y las resoluciones de `undici` consumidas por `src/viewer/**` en `package.json`/`pnpm-lock.yaml`
+  - **Verify:** `pnpm why dompurify`, `pnpm why undici` y `node --test test/viewer-sanitize.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-27T10:02:03Z`
-- [x] Verificar sanitización y viewer en `src/viewer/**`; verify: `node --test test/viewer-sanitize.test.mjs test/view.test.mjs` (CR3)
+- [x] Verificar sanitización y viewer en `src/viewer/**`
+  - **Verify:** `node --test test/viewer-sanitize.test.mjs test/view.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-27T10:02:03Z`
-- [x] Validar las dependencias que soportan `src/**`; verify: `pnpm audit --audit-level moderate` y `pnpm test` mediante `pnpm verify` (CR1, CR3)
+- [x] Validar las dependencias que soportan `src/**`
+  - **Verify:** `pnpm audit --audit-level moderate` y `pnpm test` mediante `pnpm verify`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-27T10:02:04Z`
 
 ## Log

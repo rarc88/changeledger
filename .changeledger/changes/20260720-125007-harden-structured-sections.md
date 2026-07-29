@@ -167,15 +167,25 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Definir primero casos rojos para bloques de tarea en `test/change.test.mjs`, `test/writer.test.mjs` y `test/agent.test.mjs`, implementar el parser/serializador compartido en `src/change.mjs` y `src/writer.mjs`, y hacer que `setTask` preserve el texto; verify: `node --test test/change.test.mjs test/writer.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Definir primero casos rojos para bloques de tarea en `test/change.test.mjs`, `test/writer.test.mjs` y `test/agent.test.mjs`, implementar el parser/serializador compartido en `src/change.mjs` y `src/writer.mjs`, y hacer que `setTask` preserve el texto
+  - **Verify:** `node --test test/change.test.mjs test/writer.test.mjs test/agent.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-20T13:39:02Z`
-- [x] Definir primero casos rojos para eventos tipados y sustituir mensajes inferidos por objetos de evento en `src/lifecycle.mjs`, `src/writer.mjs`, comandos y consumidores; verify: `node --test test/lifecycle.test.mjs test/metrics.test.mjs test/check.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR5, CR6, CR7)
+- [x] Definir primero casos rojos para eventos tipados y sustituir mensajes inferidos por objetos de evento en `src/lifecycle.mjs`, `src/writer.mjs`, comandos y consumidores
+  - **Verify:** `node --test test/lifecycle.test.mjs test/metrics.test.mjs test/check.test.mjs test/agent.test.mjs test/graduate.test.mjs`
+  - **Criteria:** CR5, CR6, CR7
   - **Resolved:** `2026-07-20T13:57:21Z`
-- [x] Añadir primero fixtures de migración segura en `test/fix.test.mjs` y `test/cli-bin.test.mjs`, y extender `src/fix.mjs`, `src/commands/fix.mjs` y `bin/changeledger.mjs` con `changeledger fix --structured-sections`, preview, escritura atómica por archivo y reporte manual; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR8)
+- [x] Añadir primero fixtures de migración segura en `test/fix.test.mjs` y `test/cli-bin.test.mjs`, y extender `src/fix.mjs`, `src/commands/fix.mjs` y `bin/changeledger.mjs` con `changeledger fix --structured-sections`, preview, escritura atómica por archivo y reporte manual
+  - **Verify:** `node --test test/fix.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-20T13:57:26Z`
-- [x] Migrar `.changeledger/`, plantillas y fixtures del repositorio, actualizar `templates/contract/` y adaptar el viewer a los bloques nuevos; verify: `changeledger check && node --test test/change.test.mjs test/view.test.mjs test/viewer-metadata.test.mjs` (CR9)
+- [x] Migrar `.changeledger/`, plantillas y fixtures del repositorio, actualizar `templates/contract/` y adaptar el viewer a los bloques nuevos
+  - **Verify:** `changeledger check && node --test test/change.test.mjs test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR9
   - **Resolved:** `2026-07-20T13:58:30Z`
-- [x] Ejecutar la puerta completa y confirmar que no queda gramática antigua mediante búsqueda estructural; verify: `pnpm verify` (support)
+- [x] Ejecutar la puerta completa y confirmar que no queda gramática antigua mediante búsqueda estructural
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-20T13:59:45Z`
 
 ## Log

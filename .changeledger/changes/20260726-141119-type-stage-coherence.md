@@ -264,15 +264,24 @@ orden de ejecución.
 
 ## Plan
 
-- [x] Añadir a `checkConfig` en `src/check.mjs` la regla que exige `specification` y `plan` cuando `review_required` es `true`, nombrando las stages ausentes en orden canónico; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir a `checkConfig` en `src/check.mjs` la regla que exige `specification` y `plan` cuando `review_required` es `true`, nombrando las stages ausentes en orden canónico
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-26T21:33:38Z`
-- [x] Activar `specification` para `refactor` en `.changeledger/config.yml`, `templates/config.yml` y la fila de la matriz en `templates/contract/spec.md`, y escribir en el mismo paso la `## Specification` ausente de los dos documentos `refactor` aprobados del ledger, declarando los `CRn` que sus Planes ya citan; verify: `node --test test/contract.test.mjs` (CR5, CR7)
+- [x] Activar `specification` para `refactor` en `.changeledger/config.yml`, `templates/config.yml` y la fila de la matriz en `templates/contract/spec.md`, y escribir en el mismo paso la `## Specification` ausente de los dos documentos `refactor` aprobados del ledger, declarando los `CRn` que sus Planes ya citan
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR5, CR7
   - **Resolved:** `2026-07-26T21:27:39Z`
-- [x] Añadir la migración de esquema 3 → 4 en `src/config-migration.mjs` que inserta las stages ausentes en los tipos con `review_required: true` y elevar `SUPPORTED_SCHEMA_VERSION`; verify: `node --test test/config-migration.test.mjs` (CR6)
+- [x] Añadir la migración de esquema 3 → 4 en `src/config-migration.mjs` que inserta las stages ausentes en los tipos con `review_required: true` y elevar `SUPPORTED_SCHEMA_VERSION`
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-26T21:40:01Z`
-- [x] Cubrir en `src/check.mjs` los diagnósticos que el retorno temprano mantenía inalcanzables para un `refactor` en `approved`; verify: `node --test test/check.test.mjs` (CR8)
+- [x] Cubrir en `src/check.mjs` los diagnósticos que el retorno temprano mantenía inalcanzables para un `refactor` en `approved`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-26T21:40:01Z`
-- [x] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real (support)
+- [x] Ejecutar el gate completo `pnpm verify` y comprobar que `changeledger check` no reporta errores nuevos en el ledger real
+  - **Support:**
   - **Resolved:** `2026-07-26T21:43:04Z`
 
 ## Log

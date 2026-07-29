@@ -41,13 +41,17 @@ debilita esa regla y deja nombres menos legibles en `.sl/changes/`.
 
 ## Plan
 
-- [x] Añadir tests en `test/change.test.mjs` o `test/cli.test.mjs` para slug vacío y slug válido normalizado (CR1, CR2)
+- [x] Añadir tests en `test/change.test.mjs` o `test/cli.test.mjs` para slug vacío y slug válido normalizado
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T21:54:33Z`
-- [x] Extraer o exponer la normalización en `src/commands/new.mjs` solo si mejora la testabilidad sin crear abstracción innecesaria (CR1, CR2)
+- [x] Extraer o exponer la normalización en `src/commands/new.mjs` solo si mejora la testabilidad sin crear abstracción innecesaria
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T21:54:33Z`
-- [x] Validar el resultado de `slugify(slug)` antes de escribir el archivo en `src/commands/new.mjs` (CR1)
+- [x] Validar el resultado de `slugify(slug)` antes de escribir el archivo en `src/commands/new.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T22:02:51Z`
-- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check` (CR1, CR2)
+- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T21:59:43Z`
 
 ## Log

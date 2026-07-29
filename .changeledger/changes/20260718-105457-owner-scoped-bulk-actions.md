@@ -125,13 +125,20 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir primero tests de selección y extender `archiveGraduated()` en `src/commands/agent.mjs` con filtros compartidos con `list`; verify: `node --test test/agent.test.mjs` (CR1, CR2, CR4, CR5)
+- [x] Escribir primero tests de selección y extender `archiveGraduated()` en `src/commands/agent.mjs` con filtros compartidos con `list`
+  - **Verify:** `node --test test/agent.test.mjs`
+  - **Criteria:** CR1, CR2, CR4, CR5
   - **Resolved:** `2026-07-18T12:23:51Z`
-- [x] Escribir primero tests del CLI y añadir opciones, guardas, salida y ejemplos en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR7)
+- [x] Escribir primero tests del CLI y añadir opciones, guardas, salida y ejemplos en `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR7
   - **Resolved:** `2026-07-18T12:23:51Z`
-- [x] Actualizar `templates/contract/core.md`, `templates/contract/close.md` y `README.md` con el flujo multiowner; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` (CR4, CR6, CR7)
+- [x] Actualizar `templates/contract/core.md`, `templates/contract/close.md` y `README.md` con el flujo multiowner
+  - **Verify:** `node --test test/context.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR4, CR6, CR7
   - **Resolved:** `2026-07-18T12:23:51Z`
-- [x] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Ejecutar el gate completo `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-18T12:24:30Z`
 
 ## Log

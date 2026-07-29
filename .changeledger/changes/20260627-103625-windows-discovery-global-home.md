@@ -57,11 +57,17 @@ ya hace `viewer/domain.mjs` al determinar si un proyecto registrado está vivo.
 
 ## Plan
 
-- [x] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`); verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2)
+- [x] Exigir `config.yml` como marcador del discovery en `src/**` (`src/config.mjs`)
+  - **Verify:** `test/repo.test.mjs` mediante `node --test`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-27T10:40:39Z`
-- [x] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado; verify: `test/repo.test.mjs` mediante `node --test` (CR1, CR2, CR3)
+- [x] Añadir en `test/repo.test.mjs` una jerarquía sintética que verifique el discovery de `src/**` con `.changeledger` global y repo válido anidado
+  - **Verify:** `test/repo.test.mjs` mediante `node --test`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-27T10:40:39Z`
-- [x] Ejecutar el gate completo para `src/**`; verify: `pnpm test` mediante `pnpm verify` (CR3)
+- [x] Ejecutar el gate completo para `src/**`
+  - **Verify:** `pnpm test` mediante `pnpm verify`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-27T10:40:39Z`
 
 ## Log

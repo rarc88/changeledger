@@ -217,13 +217,21 @@ parecidas.
 
 ## Plan
 
-- [x] Colapsar cada entrada de `templates/contract/budgets.yml` a `lines`/`bytes` planos con el valor del `hard` vigente y sin `strict_target`, extraer `assertWithinBudget` a un módulo de soporte compartido bajo `test/` que mida líneas emitidas y bytes contra el umbral único sin `emitWarning`, importarlo desde `test/context.test.mjs` y `test/agent-context.test.mjs`, y reescribir los fixtures de política de presupuesto (`sizedOutput`, `captureBudget` y las aserciones de target/hard/strict); verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR3, CR4, CR7)
+- [x] Colapsar cada entrada de `templates/contract/budgets.yml` a `lines`/`bytes` planos con el valor del `hard` vigente y sin `strict_target`, extraer `assertWithinBudget` a un módulo de soporte compartido bajo `test/` que mida líneas emitidas y bytes contra el umbral único sin `emitWarning`, importarlo desde `test/context.test.mjs` y `test/agent-context.test.mjs`, y reescribir los fixtures de política de presupuesto (`sizedOutput`, `captureBudget` y las aserciones de target/hard/strict)
+  - **Verify:** `node --test test/context.test.mjs test/agent-context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR7
   - **Resolved:** `2026-07-27T20:05:35Z`
-- [x] Publicar la ocupación `lines:<n>/<límite>` y `bytes:<n>/<límite>` en el último segmento de la línea BEGIN de `src/commands/context.mjs`, resolviendo el punto fijo de los bytes por iteración acotada y fallando ruidosamente si no converge; verify: `node --test test/context.test.mjs test/framing.test.mjs` (CR5, CR6)
+- [x] Publicar la ocupación `lines:<n>/<límite>` y `bytes:<n>/<límite>` en el último segmento de la línea BEGIN de `src/commands/context.mjs`, resolviendo el punto fijo de los bytes por iteración acotada y fallando ruidosamente si no converge
+  - **Verify:** `node --test test/context.test.mjs test/framing.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-07-27T20:11:53Z`
-- [x] Escribir en el comentario de `assertWithinBudget` y en la nota de proyecto de `AGENTS.md` que un límite es techo y no objetivo, y que retirar normativa para caber exige dueño nombrado y verificado por grep de la obligación; verify: `node --test test/cli.test.mjs` (support)
+- [x] Escribir en el comentario de `assertWithinBudget` y en la nota de proyecto de `AGENTS.md` que un límite es techo y no objetivo, y que retirar normativa para caber exige dueño nombrado y verificado por grep de la obligación
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Support:**
   - **Resolved:** `2026-07-27T20:12:45Z`
-- [x] Ejecutar el gate completo del proyecto; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo del proyecto
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T20:14:04Z`
 
 ## Log

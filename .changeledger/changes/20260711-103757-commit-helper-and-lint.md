@@ -99,15 +99,24 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Crear `src/commands/commit.mjs` con resolución de change activo y composición del subject; verify: `node --test test/commit.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Crear `src/commands/commit.mjs` con resolución de change activo y composición del subject
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-11T11:15:08Z`
-- [x] Registrar el subcomando en `bin/changeledger.mjs` con help y opciones; verify: `pnpm test` (CR1)
+- [x] Registrar el subcomando en `bin/changeledger.mjs` con help y opciones
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T11:15:08Z`
-- [x] Añadir `--commits` a `src/commands/check.mjs` con parseo del rango sobre `src/git.mjs`; verify: `node --test test/check.test.mjs` (CR5, CR6)
+- [x] Añadir `--commits` a `src/commands/check.mjs` con parseo del rango sobre `src/git.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-07-11T11:15:09Z`
-- [x] Actualizar `templates/contract/implement.md` con el formato canónico y las exenciones; verify: `pnpm test` (CR7)
+- [x] Actualizar `templates/contract/implement.md` con el formato canónico y las exenciones
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-11T11:15:09Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T11:15:09Z`
 
 ## Log

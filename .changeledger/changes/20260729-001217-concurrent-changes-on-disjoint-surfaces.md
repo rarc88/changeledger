@@ -197,11 +197,21 @@ Alternativas descartadas:
 
 ## Plan
 
-- [ ] Sustituir en `templates/contract/core.md` la regla de conteo por la regla de superficie disjunta, con las tres condiciones que no se relajan; verify: `node --test test/context.test.mjs` (CR1, CR3)
-- [ ] Retirar de `templates/contract/implement.md` la frase de un change a la vez y clasificar la retirada nombrando el core como sede sustituta; verify: `node --test test/context.test.mjs` (CR2)
-- [ ] Declarar en `templates/contract/core.md` que `--id` es obligatorio bajo concurrencia y afirmar el fallo de `src/commands/commit.mjs` con dos changes en curso; verify: `node --test test/git.test.mjs` (CR4)
-- [ ] Declarar en `templates/contract/core.md` que la pertenencia de un commit a un change la fija su marcador `[#id]`; verify: `node --test test/context.test.mjs` (CR5)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [ ] Sustituir en `templates/contract/core.md` la regla de conteo por la regla de superficie disjunta, con las tres condiciones que no se relajan
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR3
+- [ ] Retirar de `templates/contract/implement.md` la frase de un change a la vez y clasificar la retirada nombrando el core como sede sustituta
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
+- [ ] Declarar en `templates/contract/core.md` que `--id` es obligatorio bajo concurrencia y afirmar el fallo de `src/commands/commit.mjs` con dos changes en curso
+  - **Verify:** `node --test test/git.test.mjs`
+  - **Criteria:** CR4
+- [ ] Declarar en `templates/contract/core.md` que la pertenencia de un commit a un change la fija su marcador `[#id]`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR5
+- [ ] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 

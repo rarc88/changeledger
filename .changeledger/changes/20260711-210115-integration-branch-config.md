@@ -82,17 +82,28 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir `integration_branch` a la resolución de config en `src/config.mjs` (o módulo equivalente) con test en `test/config.test.mjs`; verify: `node --test test/config.test.mjs` (CR1)
+- [x] Añadir `integration_branch` a la resolución de config en `src/config.mjs` (o módulo equivalente) con test en `test/config.test.mjs`
+  - **Verify:** `node --test test/config.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T22:12:02Z`
-- [x] Usarla como base por defecto en `changeledger check --commits` (`src/commands/check.mjs`) con test; verify: `node --test test/check.test.mjs` (CR1)
+- [x] Usarla como base por defecto en `changeledger check --commits` (`src/commands/check.mjs`) con test
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T22:12:02Z`
-- [x] Exponerla en la Effective policy de `src/commands/context.mjs` con test; verify: `node --test test/context.test.mjs` (CR2)
+- [x] Exponerla en la Effective policy de `src/commands/context.mjs` con test
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T22:12:02Z`
-- [x] Añadir la instrucción de base/integración a `templates/contract/implement.md` y reclasificar snapshots/matriz en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Añadir la instrucción de base/integración a `templates/contract/implement.md` y reclasificar snapshots/matriz en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T22:12:02Z`
-- [x] Verificar preservación de la clave en el editor de config del visor (`src/viewer/server/router.mjs`/`src/viewer/public/templates.js`); verify: `node --test test/view.test.mjs` (CR4)
+- [x] Verificar preservación de la clave en el editor de config del visor (`src/viewer/server/router.mjs`/`src/viewer/public/templates.js`)
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T22:12:03Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T22:12:03Z`
 
 ## Log

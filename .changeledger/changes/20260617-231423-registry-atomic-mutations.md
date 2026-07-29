@@ -56,15 +56,20 @@ mantener los errores actuales para JSON corrupto.
 
 ## Plan
 
-- [x] Agregar cobertura concurrente en `test/registry.test.mjs` para dos `register()` simultaneos contra `src/registry.mjs`, verificando con `pnpm test` (CR1)
+- [x] Agregar cobertura concurrente en `test/registry.test.mjs` para dos `register()` simultaneos contra `src/registry.mjs`, verificando con `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-18T10:08:48Z`
-- [x] Agregar cobertura en `test/registry.test.mjs` para `remove()` + `register()` concurrentes contra `src/registry.mjs`, verificando con `pnpm test` (CR2)
+- [x] Agregar cobertura en `test/registry.test.mjs` para `remove()` + `register()` concurrentes contra `src/registry.mjs`, verificando con `pnpm test`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-18T10:08:48Z`
-- [x] Envolver la transaccion read-modify-write de `src/registry.mjs` con un lock por `registry.json`, verificando con `pnpm test` (CR1, CR2)
+- [x] Envolver la transaccion read-modify-write de `src/registry.mjs` con un lock por `registry.json`, verificando con `pnpm test`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-18T10:08:48Z`
-- [x] Mantener el comportamiento de registry corrupto en `src/registry.mjs`, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3)
+- [x] Mantener el comportamiento de registry corrupto en `src/registry.mjs`, verificando con `pnpm test` y `node bin/sl.mjs check`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-18T10:08:48Z`
-- [x] Ejecutar `pnpm verify` como cierre (support)
+- [x] Ejecutar `pnpm verify` como cierre
+  - **Support:**
   - **Resolved:** `2026-06-18T10:08:48Z`
 
 ## Log

@@ -63,15 +63,20 @@ basta y no añade fricción de mantenimiento.
 
 ## Plan
 
-- [x] `setOwner(text, owner)` en writer.mjs: set/update/remove línea owner (CR1, CR2)
+- [x] `setOwner(text, owner)` en writer.mjs: set/update/remove línea owner
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-14T11:40:51Z`
-- [x] `newChange` acepta `owner` y `render()` lo inyecta (CR1)
+- [x] `newChange` acepta `owner` y `render()` lo inyecta
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T11:40:51Z`
-- [x] `owner(id, name)` en agent.mjs + comando `sl new --owner` y `sl owner` en bin (CR1, CR2)
+- [x] `owner(id, name)` en agent.mjs + comando `sl new --owner` y `sl owner` en bin
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-14T11:40:51Z`
-- [x] `serialize()` expone `owner`; app.js: filtro, display en card/detalle, haystack (CR3)
+- [x] `serialize()` expone `owner`; app.js: filtro, display en card/detalle, haystack
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-14T11:40:52Z`
-- [x] Tests: writer setOwner, new --owner, owner command (CR1, CR2)
+- [x] Tests: writer setOwner, new --owner, owner command
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-14T11:40:52Z`
 
 ## Log

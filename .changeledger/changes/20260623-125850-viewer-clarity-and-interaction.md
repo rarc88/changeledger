@@ -164,23 +164,32 @@ actual.
 
 ## Plan
 
-- [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1)
+- [x] Escribir tests de comportamiento para el selector compacto, su resumen, Clear y visibilidad en `test/app-state.test.mjs` y/o un nuevo test DOM del viewer; implementar el estado y templates en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` e `src/viewer/public/index.html`; verificar con `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-23T13:53:58Z`
-- [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs` (CR2)
+- [x] Escribir el test de columna condicional y hacer que `src/viewer/public/state.js` y `src/viewer/public/app.js` incluyan `discarded` solo al activarlo; verificar con `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-23T13:53:59Z`
-- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs` (CR3, CR4)
+- [x] Escribir tests DOM del estado pending/success/error de validación y rediseñar el flujo en `src/viewer/public/app.js`, `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs test/view.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-23T14:20:03Z`
-- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR5)
+- [x] Escribir tests DOM de apertura y cierre accesible y añadir el lightbox Mermaid en `src/viewer/public/app.js`, `src/viewer/public/security.js`, `src/viewer/public/index.html` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-23T14:20:03Z`
-- [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs` (CR6)
+- [x] Escribir tests de separación del historial inicial y crear el renderer de spec en `src/viewer/public/view-parts.js` y `src/viewer/public/app.js` sin relajar la sanitización; verificar con `node --test test/viewer-sanitize.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-23T13:53:59Z`
-- [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs` (CR7, CR8)
+- [x] Escribir tests de clases/estructura de celdas y badge seguro, actualizar `src/viewer/public/view-parts.js` y `src/viewer/public/styles.css`, y verificar con `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR7, CR8
   - **Resolved:** `2026-06-23T13:53:59Z`
-- [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local (support)
+- [x] Ejecutar `pnpm verify` y comprobar manualmente Board, Table, detail, spec y Mermaid a 1920 px y 680 px en el viewer local
+  - **Support:**
   - **Resolved:** `2026-06-23T13:54:00Z`
-- [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px (CR9)
+- [x] Añadir tests y ajustar cierre exterior, iconos, alineación de Table y ancho estable del Board en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` y comprobación visual a 1920 px
+  - **Criteria:** CR9
   - **Resolved:** `2026-06-23T14:08:33Z`
-- [x] Añadir regresión para Clear con Visibility activa en `test/app-state.test.mjs` y corregir `src/viewer/public/app-state.js` y `src/viewer/public/app.js`; verificar con `node --test test/app-state.test.mjs` y el viewer local (CR10)
+- [x] Añadir regresión para Clear con Visibility activa en `test/app-state.test.mjs` y corregir `src/viewer/public/app-state.js` y `src/viewer/public/app.js`; verificar con `node --test test/app-state.test.mjs` y el viewer local
+  - **Criteria:** CR10
   - **Resolved:** `2026-06-23T14:31:32Z`
 
 ## Log

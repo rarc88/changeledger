@@ -103,19 +103,33 @@ Se descarta crear una segunda vista superior para contratos porque separaría do
 
 ## Plan
 
-- [x] Escribir primero pruebas de allowlist, traversal, symlinks, tamaño y proyecto, y después implementar la lectura contenida en `src/viewer/domain.mjs`, `src/viewer/server/router.mjs` y `test/view.test.mjs`; verify: `node --test test/view.test.mjs test/repo.test.mjs` (CR3, CR4)
+- [x] Escribir primero pruebas de allowlist, traversal, symlinks, tamaño y proyecto, y después implementar la lectura contenida en `src/viewer/domain.mjs`, `src/viewer/server/router.mjs` y `test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs test/repo.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-28T16:11:25Z`
-- [x] Escribir primero pruebas puras de query params, precedencia y history, y después crear el módulo de routing bajo `src/viewer/public/` y su test dedicado; verify: `node --test test/app-state.test.mjs test/viewer-routing.test.mjs` (CR6, CR7)
+- [x] Escribir primero pruebas puras de query params, precedencia y history, y después crear el módulo de routing bajo `src/viewer/public/` y su test dedicado
+  - **Verify:** `node --test test/app-state.test.mjs test/viewer-routing.test.mjs`
+  - **Criteria:** CR6, CR7
   - **Resolved:** `2026-07-28T16:16:16Z`
-- [x] Escribir primero la migración del snapshot v1 y después actualizar `src/viewer/public/app-state.js`, `src/viewer/public/index.html`, `test/app-state.test.mjs` y `test/viewer-metadata.test.mjs`; verify: `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs` (CR1, CR7)
+- [x] Escribir primero la migración del snapshot v1 y después actualizar `src/viewer/public/app-state.js`, `src/viewer/public/index.html`, `test/app-state.test.mjs` y `test/viewer-metadata.test.mjs`
+  - **Verify:** `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR7
   - **Resolved:** `2026-07-28T16:20:31Z`
-- [x] Escribir primero regresiones del grid y detalle actuales y después integrar Specs dentro de Ledger en `src/viewer/public/app.js`, `src/viewer/public/view-renderers.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR1, CR2)
+- [x] Escribir primero regresiones del grid y detalle actuales y después integrar Specs dentro de Ledger en `src/viewer/public/app.js`, `src/viewer/public/view-renderers.js` y `src/viewer/public/view-parts.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-28T16:27:18Z`
-- [x] Escribir primero pruebas de árbol, Markdown, YAML, enlaces y estados vacíos, y después implementar el navegador documental en `src/viewer/public/api.js`, `src/viewer/public/app.js`, módulos de render asociados y `src/viewer/public/styles.css`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` (CR3, CR5, CR8)
+- [x] Escribir primero pruebas de árbol, Markdown, YAML, enlaces y estados vacíos, y después implementar el navegador documental en `src/viewer/public/api.js`, `src/viewer/public/app.js`, módulos de render asociados y `src/viewer/public/styles.css`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs`
+  - **Criteria:** CR3, CR5, CR8
   - **Resolved:** `2026-07-28T16:38:51Z`
-- [x] Escribir primero pruebas de integración de proyecto, categoría, documento y `popstate`, y después conectar el routing al ciclo de render en `src/viewer/public/app.js` y `test/viewer-routing.test.mjs`; verify: `node --test test/viewer-routing.test.mjs test/viewer-metadata.test.mjs` y validación manual de reload, URL compartida, Back/Forward y layout móvil/escritorio (CR2, CR6, CR7, CR8)
+- [x] Escribir primero pruebas de integración de proyecto, categoría, documento y `popstate`, y después conectar el routing al ciclo de render en `src/viewer/public/app.js` y `test/viewer-routing.test.mjs`
+  - **Verify:** `node --test test/viewer-routing.test.mjs test/viewer-metadata.test.mjs` y validación manual de reload, URL compartida, Back/Forward y layout móvil/escritorio
+  - **Criteria:** CR2, CR6, CR7, CR8
   - **Resolved:** `2026-07-28T16:59:32Z`
-- [x] Actualizar `.changeledger/specs/viewer.md` y `.changeledger/specs/architecture.md` y ejecutar la calidad completa; verify: `pnpm verify` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
+- [x] Actualizar `.changeledger/specs/viewer.md` y `.changeledger/specs/architecture.md` y ejecutar la calidad completa
+  - **Verify:** `pnpm verify`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8
   - **Resolved:** `2026-07-28T17:03:46Z`
 
 ## Log

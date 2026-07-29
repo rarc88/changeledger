@@ -216,11 +216,17 @@ change) y cruce del límite de dígitos de `N` (999 → 1000).
 
 ## Plan
 
-- [x] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/commands/context.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id); verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] En `src/commands/context.mjs`, calcular el número total de líneas de `sections.join('\n\n') + '\n'` (incluida la propia línea `BEGIN`) e inyectarlo como `lines:<N>` en `beginDelimiter` (`src/commands/context.mjs`) dentro de `composeResult`, para los tres casos (core, modo, change-id)
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-27T10:38:46Z`
-- [x] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Añadir fixtures en `test/context.test.mjs` que ejerciten el conteo de `lines:<N>` de `src/commands/context.mjs` con changes `draft` cuyo cuerpo produce salidas de exactamente 999 y 1000 líneas totales, para cubrir el cruce del límite de dígitos
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-27T10:38:46Z`
-- [x] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+- [x] Ejecutar la suite completa tras la implementación
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T10:39:45Z`
 
 ## Log

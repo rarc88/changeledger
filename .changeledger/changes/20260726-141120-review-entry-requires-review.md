@@ -167,13 +167,20 @@ comparte los consumidores de los puntos 5 y 6, sin imponer orden de ejecución.
 
 ## Plan
 
-- [x] Añadir a `assertTransition` en `src/lifecycle.mjs` el rechazo de `in-progress → in-review` cuando `reviewRequired` no es `true`; verify: `node --test test/lifecycle.test.mjs` (CR1, CR3, CR4)
+- [x] Añadir a `assertTransition` en `src/lifecycle.mjs` el rechazo de `in-progress → in-review` cuando `reviewRequired` no es `true`
+  - **Verify:** `node --test test/lifecycle.test.mjs`
+  - **Criteria:** CR1, CR3, CR4
   - **Resolved:** `2026-07-26T22:19:36Z`
-- [x] Cubrir en `src/commands/agent.mjs` que el rechazo deja el fichero byte a byte intacto y el `## Log` sin evento nuevo; verify: `node --test test/agent.test.mjs` (CR2)
+- [x] Cubrir en `src/commands/agent.mjs` que el rechazo deja el fichero byte a byte intacto y el `## Log` sin evento nuevo
+  - **Verify:** `node --test test/agent.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-26T22:23:02Z`
-- [x] Cubrir en `src/commands/agent-context.mjs` y `src/commands/context.mjs` que el modo revisión es inalcanzable para un tipo sin `review_required`; verify: `node --test test/agent-context.test.mjs` (CR5, CR6)
+- [x] Cubrir en `src/commands/agent-context.mjs` y `src/commands/context.mjs` que el modo revisión es inalcanzable para un tipo sin `review_required`
+  - **Verify:** `node --test test/agent-context.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-07-26T22:25:17Z`
-- [x] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Ejecutar el gate completo `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-26T22:26:13Z`
 
 ## Log

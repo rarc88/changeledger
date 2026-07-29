@@ -64,7 +64,8 @@ contenido no confiable, incluso cuando el repo sea local.
   - **Resolved:** `2026-06-15T11:50:55Z`
 - [x] Añadir pruebas de navegador/DOM para payloads XSS, URLs peligrosas y Markdown permitido
   - **Resolved:** `2026-06-15T11:50:55Z`
-- [x] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid (CR3, CR4)
+- [x] Ejecutar `pnpm verify` y smoke test visual de Markdown y Mermaid
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-15T11:50:55Z`
 
 ## Log

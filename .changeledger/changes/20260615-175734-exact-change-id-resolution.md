@@ -61,13 +61,17 @@ debe resolverse por igualdad exacta con el `frontmatter.id`.
 
 ## Plan
 
-- [x] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial (CR1, CR2, CR3)
+- [x] Añadir tests end-to-end con IDs que comparten prefijo y comprobar ausencia de escrituras ante ID parcial
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:42:28Z`
-- [x] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta (CR1, CR3, CR4)
+- [x] Introducir un resolvedor compartido que lea y compare `frontmatter.id` por igualdad exacta
+  - **Criteria:** CR1, CR3, CR4
   - **Resolved:** `2026-06-15T18:42:28Z`
-- [x] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes (CR1, CR2, CR4)
+- [x] Migrar comandos de agente, graduación y queries al resolvedor único con errores consistentes
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-15T18:42:28Z`
-- [x] Ejecutar `pnpm verify` y smoke CLI desde el tarball (CR1, CR2)
+- [x] Ejecutar `pnpm verify` y smoke CLI desde el tarball
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T18:42:28Z`
 
 ## Log

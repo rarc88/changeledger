@@ -106,15 +106,25 @@ compatibilidad, así que `audit` deja de resolver como rol sin excepción.
 
 ## Plan
 
-- [x] Actualizar `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs` contra la resolución de rol actual de `src/commands/agent-context.mjs` y `src/commands/agent-prompt.mjs`: reemplazar todo uso del rol `'audit'` por `'post-review'`, actualizar los mensajes literales esperados a `role post-review requires change status in-validation; got <status>` y `valid roles: investigation, implementation, review, post-review`, y añadir el caso que exige que `audit` siga rechazándose con ese mismo mensaje de roles válidos; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs` (se espera en rojo) (CR1, CR2)
+- [x] Actualizar `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs` contra la resolución de rol actual de `src/commands/agent-context.mjs` y `src/commands/agent-prompt.mjs`: reemplazar todo uso del rol `'audit'` por `'post-review'`, actualizar los mensajes literales esperados a `role post-review requires change status in-validation; got <status>` y `valid roles: investigation, implementation, review, post-review`, y añadir el caso que exige que `audit` siga rechazándose con ese mismo mensaje de roles válidos
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs` (se espera en rojo)
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-26T23:40:26Z`
-- [x] Renombrar el rol en `src/commands/agent-context.mjs` (array `ROLES` en la línea 10, clave `ALLOWED_STATUSES` en la línea 14) y en `src/commands/agent-prompt.mjs` (array `ROLES` en la línea 8) de `audit` a `post-review`; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs` (CR1, CR2)
+- [x] Renombrar el rol en `src/commands/agent-context.mjs` (array `ROLES` en la línea 10, clave `ALLOWED_STATUSES` en la línea 14) y en `src/commands/agent-prompt.mjs` (array `ROLES` en la línea 8) de `audit` a `post-review`
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-26T23:40:27Z`
-- [x] Renombrar `templates/contract/agent-prompts/audit.md` → `post-review.md` y `templates/contract/agent-contexts/audit.md` → `post-review.md`, actualizando el contenido interno (`role: audit`, "READ-ONLY AUDIT delegate", "Read-Only Audit Delegate") a `post-review`; verify: `node --test test/agent-prompt.test.mjs test/agent-context.test.mjs` (CR3)
+- [x] Renombrar `templates/contract/agent-prompts/audit.md` → `post-review.md` y `templates/contract/agent-contexts/audit.md` → `post-review.md`, actualizando el contenido interno (`role: audit`, "READ-ONLY AUDIT delegate", "Read-Only Audit Delegate") a `post-review`
+  - **Verify:** `node --test test/agent-prompt.test.mjs test/agent-context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-26T23:40:27Z`
-- [x] Actualizar las referencias al rol en `bin/changeledger.mjs` (descripciones de argumento y ejemplos de los comandos `agent-prompt` y `agent-context`, actualmente en las líneas 272, 280, 287, 295, 298, 308 y 316), el párrafo de delegación de `templates/contract/core.md` (líneas ~64-69) y el párrafo de roles de `README.md` (línea ~158), de `audit` a `post-review`, conservando la frase "never issues a verdict"; verify: `grep -n "investigation | implementation | review | post-review" bin/changeledger.mjs && ! grep -rn "review | audit" bin/changeledger.mjs templates/contract/core.md README.md` (CR3)
+- [x] Actualizar las referencias al rol en `bin/changeledger.mjs` (descripciones de argumento y ejemplos de los comandos `agent-prompt` y `agent-context`, actualmente en las líneas 272, 280, 287, 295, 298, 308 y 316), el párrafo de delegación de `templates/contract/core.md` (líneas ~64-69) y el párrafo de roles de `README.md` (línea ~158), de `audit` a `post-review`, conservando la frase "never issues a verdict"
+  - **Verify:** `grep -n "investigation | implementation | review | post-review" bin/changeledger.mjs && ! grep -rn "review | audit" bin/changeledger.mjs templates/contract/core.md README.md`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-26T23:40:27Z`
-- [x] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
+- [x] Ejecutar la suite completa y el gate de calidad
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-26T23:40:27Z`
 
 ## Log

@@ -63,11 +63,14 @@ dentro de uno. `sl view .` muestra solo el actual.
 
 - [x] Server: `/api/projects` + `/api/repo?project=id` desde el registro
   - **Resolved:** `2026-06-13T22:19:38Z`
-- [x] UI: selector de proyecto + carga por proyecto (CR1, CR3)
+- [x] UI: selector de proyecto + carga por proyecto
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-13T22:19:39Z`
-- [x] Autoenfoque del cwd; `sl view .` solo actual (CR2, CR4)
+- [x] Autoenfoque del cwd; `sl view .` solo actual
+  - **Criteria:** CR2, CR4
   - **Resolved:** `2026-06-13T22:19:39Z`
-- [x] Manejo de paths muertos (CR5)
+- [x] Manejo de paths muertos
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-13T22:19:39Z`
 - [x] Tests del server multiproyecto
   - **Resolved:** `2026-06-13T22:19:39Z`

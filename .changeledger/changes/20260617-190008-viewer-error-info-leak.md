@@ -75,13 +75,17 @@ El formato de id de Spec Ledger es `YYYYMMDD-HHMMSS` — solo dígitos y un gui�
 
 ## Plan
 
-- [x] Cambiar `catch` final en `src/viewer/server/router.mjs` para retornar `{ error: 'Internal server error' }` y emitir `e.message` a `process.stderr`, verificar con `test/view.test.mjs` (CR1)
+- [x] Cambiar `catch` final en `src/viewer/server/router.mjs` para retornar `{ error: 'Internal server error' }` y emitir `e.message` a `process.stderr`, verificar con `test/view.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-17T20:21:56Z`
-- [x] Agregar validación de `params.get('id')` con regex `/^[0-9]{8}-[0-9]{6}$/` en `src/viewer/server/router.mjs` handler `/api/git`, verificar con `test/view.test.mjs` (CR2)
+- [x] Agregar validación de `params.get('id')` con regex `/^[0-9]{8}-[0-9]{6}$/` en `src/viewer/server/router.mjs` handler `/api/git`, verificar con `test/view.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-17T20:21:56Z`
-- [x] Agregar tests en `test/view.test.mjs`: id inválido → 400; error simulado → 500 genérico en `src/viewer/server/router.mjs` (CR3)
+- [x] Agregar tests en `test/view.test.mjs`: id inválido → 400; error simulado → 500 genérico en `src/viewer/server/router.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T20:21:56Z`
-- [x] Correr `pnpm test -- test/view.test.mjs` sobre `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3)
+- [x] Correr `pnpm test -- test/view.test.mjs` sobre `src/viewer/server/router.mjs` sin regresiones
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-17T20:21:56Z`
 
 ## Log

@@ -77,17 +77,27 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Definir los delimitadores versionados junto al texto de referencia en `src/contract.mjs`; verify: `pnpm test` (CR1)
+- [x] Definir los delimitadores versionados junto al texto de referencia en `src/contract.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T11:06:31Z`
-- [x] Implementar inserción, reemplazo delimitado y migración legacy en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR1, CR2, CR3)
+- [x] Implementar inserción, reemplazo delimitado y migración legacy en `src/commands/register.mjs`
+  - **Verify:** `node --test test/register.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-11T11:06:31Z`
-- [x] Añadir la comparación de versión y el aviso de desactualización en `src/commands/register.mjs`; verify: `node --test test/register.test.mjs` (CR4)
+- [x] Añadir la comparación de versión y el aviso de desactualización en `src/commands/register.mjs`
+  - **Verify:** `node --test test/register.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T11:06:31Z`
-- [x] Alinear `src/commands/init.mjs` con el formato delimitado; verify: `pnpm test` (CR1)
+- [x] Alinear `src/commands/init.mjs` con el formato delimitado
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T11:06:31Z`
-- [x] Regenerar el bloque de `AGENTS.md` de este repo con `changeledger register` (support)
+- [x] Regenerar el bloque de `AGENTS.md` de este repo con `changeledger register`
+  - **Support:**
   - **Resolved:** `2026-07-11T11:06:32Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T11:06:32Z`
 
 ## Log

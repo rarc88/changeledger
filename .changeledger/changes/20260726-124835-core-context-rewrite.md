@@ -415,23 +415,41 @@ haber detectado se trata como defecto de esa etapa.
 
 ## Plan
 
-- [x] Reubicar dentro de `templates/contract/core.md` la frase del rol `post-review` desde la sección retirada `## Files and delegation` al bloque `## Protect the orchestrator's context`, dejar la frase del viewer en el bloque `## When no change is needed`, y reescribir en `test/context.test.mjs` las aserciones de propiedad de CR11 como preservación en core, sin editar `delegation.md` ni `spec.md`; verify: `node --test test/context.test.mjs` (CR11)
+- [x] Reubicar dentro de `templates/contract/core.md` la frase del rol `post-review` desde la sección retirada `## Files and delegation` al bloque `## Protect the orchestrator's context`, dejar la frase del viewer en el bloque `## When no change is needed`, y reescribir en `test/context.test.mjs` las aserciones de propiedad de CR11 como preservación en core, sin editar `delegation.md` ni `spec.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR11
   - **Resolved:** `2026-07-27T14:44:21Z`
-- [x] Reescribir los bloques 1-3 de `templates/contract/core.md` (identidad, `## Classify intent before acting`, `## Protect the orchestrator's context` con el dimensionado portable del delegado) y ajustar las aserciones de core afectadas; verify: `node --test test/context.test.mjs` (CR2, CR3, CR4, CR5)
+- [x] Reescribir los bloques 1-3 de `templates/contract/core.md` (identidad, `## Classify intent before acting`, `## Protect the orchestrator's context` con el dimensionado portable del delegado) y ajustar las aserciones de core afectadas
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-27T14:56:10Z`
-- [x] Reescribir los bloques 4-8 de `templates/contract/core.md` (`## Invariants`, `## When no change is needed`, `## Stage exit gates`, `## Complexity ceiling`, `## Commits`) y retirar de core la sección de captura, la prosa de delegación y el detalle de las reglas 4, 6, 7 y 8, actualizando los literales de core que afirman `test/context.test.mjs` y `test/cli.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR6, CR7, CR10)
+- [x] Reescribir los bloques 4-8 de `templates/contract/core.md` (`## Invariants`, `## When no change is needed`, `## Stage exit gates`, `## Complexity ceiling`, `## Commits`) y retirar de core la sección de captura, la prosa de delegación y el detalle de las reglas 4, 6, 7 y 8, actualizando los literales de core que afirman `test/context.test.mjs` y `test/cli.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR6, CR7, CR10
   - **Resolved:** `2026-07-27T14:56:10Z`
-- [x] Cerrar `templates/contract/core.md` conservando intactos los bloques 9-11 (`## Lifecycle`, `## Context modes`, `## Operational discovery`), fijar el orden final de headings, el digest y la clasificación de reglas, y medir la composición contra el presupuesto estricto; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR8, CR9, CR12)
+- [x] Cerrar `templates/contract/core.md` conservando intactos los bloques 9-11 (`## Lifecycle`, `## Context modes`, `## Operational discovery`), fijar el orden final de headings, el digest y la clasificación de reglas, y medir la composición contra el presupuesto estricto
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR8, CR9, CR12
   - **Resolved:** `2026-07-27T14:56:10Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T14:58:09Z`
-- [x] Restituir en `templates/contract/core.md` las tres reglas que la reescritura retiró sin criterio: la condición previa a documentar y la prohibición de inventar requisitos en `## Invariants`, la lectura acotada de `in-validation` en `## Lifecycle` y la captura completa de todo contexto en `## Context modes`; repuntar `220014 CR1/CR4` y `234939 CR11-CR20`, recuperar los dos pins borrados en `test/cli.test.mjs`, y actualizar el digest de `core.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR6, CR10, CR12)
+- [x] Restituir en `templates/contract/core.md` las tres reglas que la reescritura retiró sin criterio: la condición previa a documentar y la prohibición de inventar requisitos en `## Invariants`, la lectura acotada de `in-validation` en `## Lifecycle` y la captura completa de todo contexto en `## Context modes`; repuntar `220014 CR1/CR4` y `234939 CR11-CR20`, recuperar los dos pins borrados en `test/cli.test.mjs`, y actualizar el digest de `core.md`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR6, CR10, CR12
   - **Resolved:** `2026-07-27T15:34:29Z`
-- [x] Reescribir el test `124835 CR2/CR3` para afirmar la fila `| intent | action |` completa y eliminar el `row.length` muerto, probándolo con el mutante que intercambia dos acciones de la tabla de intención en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR3, CR12)
+- [x] Reescribir el test `124835 CR2/CR3` para afirmar la fila `| intent | action |` completa y eliminar el `row.length` muerto, probándolo con el mutante que intercambia dos acciones de la tabla de intención en `templates/contract/core.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3, CR12
   - **Resolved:** `2026-07-27T15:36:20Z`
-- [x] Volver verdadero el comentario de clasificación del pin de `templates/contract/core.md`: texto real del overlay para cada regla movida, reclasificación de la regla de compartir el codebase y del par de ficheros como fuente de verdad, y recuento coincidente; verify: `node --test test/context.test.mjs` (CR12)
+- [x] Volver verdadero el comentario de clasificación del pin de `templates/contract/core.md`: texto real del overlay para cada regla movida, reclasificación de la regla de compartir el codebase y del par de ficheros como fuente de verdad, y recuento coincidente
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR12
   - **Resolved:** `2026-07-27T15:41:28Z`
-- [x] Ejecutar de nuevo el gate completo con el change en `in-progress`; verify: `pnpm verify` (support)
+- [x] Ejecutar de nuevo el gate completo con el change en `in-progress`
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T15:43:35Z`
 
 ## Log

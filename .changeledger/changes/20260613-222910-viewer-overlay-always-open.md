@@ -31,7 +31,8 @@ se puede cerrar (sin contenido no hay botón de cierre).
 
 ## Plan
 
-- [x] `.hidden { display: none !important }` en styles.css (CR1)
+- [x] `.hidden { display: none !important }` en styles.css
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T22:30:00Z`
 
 ## Log

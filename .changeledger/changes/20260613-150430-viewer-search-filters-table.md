@@ -58,13 +58,17 @@ Mejorar el consumo humano del visor:
 
 ## Plan
 
-- [x] Fix búsqueda: indexar cuerpo de etapas + tareas (CR1)
+- [x] Fix búsqueda: indexar cuerpo de etapas + tareas
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T15:26:00Z`
-- [x] Filtro de estado multi, combinable (CR3)
+- [x] Filtro de estado multi, combinable
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-13T15:28:00Z`
-- [x] Vista tabla ordenable (CR2)
+- [x] Vista tabla ordenable
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-13T15:30:00Z`
-- [x] CSS responsive / breakpoints móvil (CR4)
+- [x] CSS responsive / breakpoints móvil
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-13T15:32:00Z`
 
 ## Log

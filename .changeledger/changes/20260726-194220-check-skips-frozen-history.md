@@ -366,15 +366,25 @@ Ambos son contexto, no prerrequisitos.
 
 ## Plan
 
-- [x] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Definir en `src/check.mjs` el predicado de documento congelado en un único sitio exportado, aplicarlo para separar los sujetos del bucle por documento (`src/check.mjs:37-103`) del conjunto de datos que consumen los invariantes de repo, y devolver desde `checkRepo` los recuentos de validados y no validados
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-07-26T20:03:49Z`
-- [x] Consumir esos recuentos en `src/commands/check.mjs` para que el resumen repo-wide nombre los documentos no validados y `check <id>` sobre un congelado lo declare en vez de llamarlo válido; verify: `node --test test/check.test.mjs test/cli.test.mjs` (CR8, CR9, CR10)
+- [x] Consumir esos recuentos en `src/commands/check.mjs` para que el resumen repo-wide nombre los documentos no validados y `check <id>` sobre un congelado lo declare en vez de llamarlo válido
+  - **Verify:** `node --test test/check.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR8, CR9, CR10
   - **Resolved:** `2026-07-26T20:07:40Z`
-- [x] Ejecutar el gate completo y comprobar que el ledger real reporta 17 validados y 203 no validados sin errores; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo y comprobar que el ledger real reporta 17 validados y 203 no validados sin errores
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-26T20:10:33Z`
-- [x] Extender el resumen de `src/commands/check.mjs` para que la rama con errores o avisos publique el recuento de no validados con el mismo vocabulario que la rama limpia, sin tocar la forma de la rama limpia ya fijada por CR8 y CR9; verify: `node --test test/cli.test.mjs` (CR11)
+- [x] Extender el resumen de `src/commands/check.mjs` para que la rama con errores o avisos publique el recuento de no validados con el mismo vocabulario que la rama limpia, sin tocar la forma de la rama limpia ya fijada por CR8 y CR9
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR11
   - **Resolved:** `2026-07-26T20:44:50Z`
-- [x] Fijar las cuatro conductas de `src/check.mjs` que hoy son correctas pero sobreviven a mutación —`archived` no booleano en el predicado, y las alimentaciones de `knownIds`/backlinks, del grafo de ciclos y de `checkReleases`— corrigiendo ahí mismo cualquiera que no lo esté, y demostrando el valor de cada test con el mutante concreto que mata en vez de con un fallo previo al arreglo; verify: `node --test test/check.test.mjs` (CR12, CR13, CR14, CR15)
+- [x] Fijar las cuatro conductas de `src/check.mjs` que hoy son correctas pero sobreviven a mutación —`archived` no booleano en el predicado, y las alimentaciones de `knownIds`/backlinks, del grafo de ciclos y de `checkReleases`— corrigiendo ahí mismo cualquiera que no lo esté, y demostrando el valor de cada test con el mutante concreto que mata en vez de con un fallo previo al arreglo
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR12, CR13, CR14, CR15
   - **Resolved:** `2026-07-26T20:48:18Z`
 
 ## Log

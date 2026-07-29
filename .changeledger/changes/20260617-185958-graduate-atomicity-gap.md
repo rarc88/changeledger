@@ -86,17 +86,23 @@ haber iniciado el write.
 
 ## Plan
 
-- [x] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs` (CR1)
+- [x] Mover las validaciones de existencia de specFile fuera de `mutateFileAtomic` en `src/commands/graduate.mjs`, verificar con `test/graduate.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-17T20:33:03Z`
-- [x] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs` (CR2, CR3)
+- [x] Verificar en `src/commands/graduate.mjs` que si `writeFileAtomic(specFile)` lanza el callback propaga y `mutateFileAtomic` no escribe el change, verificar con `test/graduate.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-06-17T20:33:03Z`
-- [x] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs` (CR3)
+- [x] Agregar test de failure injection en `test/graduate.test.mjs`: spec write falla, verifica changeFile no modificado en `src/commands/graduate.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T20:33:03Z`
-- [x] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs` (CR4)
+- [x] Agregar test en `test/graduate.test.mjs`: spec existe (huérfana), reintento con `--into` funciona en `src/commands/graduate.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-17T20:33:03Z`
-- [x] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs` (CR5)
+- [x] Agregar test de caso feliz en `test/graduate.test.mjs` para `--into` y new spec en `src/commands/graduate.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-17T20:33:03Z`
-- [x] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones (CR5)
+- [x] Correr `pnpm test -- test/graduate.test.mjs` sobre `src/commands/graduate.mjs` sin regresiones
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-17T20:33:03Z`
 
 ## Log

@@ -85,9 +85,13 @@ preguntas operativas observadas al iniciar y cerrar trabajo.
 
 ## Plan
 
-- [x] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir pruebas del bloque, determinismo y no-mutación en `test/context.test.mjs`; implementar la guía mínima en `templates/contract/core.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-28T21:42:55Z`
-- [x] Ejecutar el gate completo y comprobar el output real del binario; verify: `pnpm verify` y `node bin/changeledger.mjs context` (support)
+- [x] Ejecutar el gate completo y comprobar el output real del binario
+  - **Verify:** `pnpm verify` y `node bin/changeledger.mjs context`
+  - **Support:**
   - **Resolved:** `2026-06-28T21:43:15Z`
 
 ## Log

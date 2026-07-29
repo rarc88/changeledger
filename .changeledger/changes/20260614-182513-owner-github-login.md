@@ -71,11 +71,14 @@ Descartado:
 
 ## Plan
 
-- [x] `githubLogin(run)` en `src/git.mjs` (`gh api user --jq .login`, tolerante); test en `test/git.test.mjs` (CR1, CR4)
+- [x] `githubLogin(run)` en `src/git.mjs` (`gh api user --jq .login`, tolerante); test en `test/git.test.mjs`
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-06-14T18:39:36Z`
-- [x] `ownerHandle(cwd, run, ghRun)` en `src/git.mjs` (`githubLogin || gitUser`); test en `test/git.test.mjs` (CR1, CR2, CR4)
+- [x] `ownerHandle(cwd, run, ghRun)` en `src/git.mjs` (`githubLogin || gitUser`); test en `test/git.test.mjs`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-14T18:39:36Z`
-- [x] `status()` usa `ownerHandle` (inyectable) en `src/commands/agent.mjs`; tests en `test/agent.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] `status()` usa `ownerHandle` (inyectable) en `src/commands/agent.mjs`; tests en `test/agent.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-14T18:39:36Z`
 - [x] Backfill `owner: Roberto Ruiz` → `owner: raruiz-hiberuscom` en `.sl/changes/` (migración, sin CR)
   - **Resolved:** `2026-06-14T18:39:36Z`

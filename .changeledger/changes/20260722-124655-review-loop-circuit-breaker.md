@@ -117,12 +117,24 @@ similares bajo presión por continuar.
 
 ## Plan
 
-- [ ] Añadir tests de episodios, conteo y límite en `test/lifecycle.test.mjs` y `test/review-command.test.mjs`; implementar el cortacircuito en `src/lifecycle.mjs` y `src/commands/review.mjs`; verify: `node --test test/lifecycle.test.mjs test/review-command.test.mjs` (CR1, CR2, CR4)
-- [ ] Persistir y renderizar historial de episodio/reset en `src/change-parser.mjs`, `src/commands/show.mjs` y `src/viewer/`; verify: `node --test test/parser.test.mjs test/view.test.mjs` (CR3, CR4)
-- [ ] Extender `templates/contract/review.md`, `implement.md` y overlays de bloqueo con síntesis integral y reset autorizado; verify: `node --test test/context.test.mjs` (CR1, CR4, CR5)
-- [ ] Añadir validación de evidencia de reset a `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR5)
-- [ ] Exponer intentos por episodio, bloqueos y resets en `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR6)
-- [ ] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [ ] Añadir tests de episodios, conteo y límite en `test/lifecycle.test.mjs` y `test/review-command.test.mjs`; implementar el cortacircuito en `src/lifecycle.mjs` y `src/commands/review.mjs`
+  - **Verify:** `node --test test/lifecycle.test.mjs test/review-command.test.mjs`
+  - **Criteria:** CR1, CR2, CR4
+- [ ] Persistir y renderizar historial de episodio/reset en `src/change-parser.mjs`, `src/commands/show.mjs` y `src/viewer/`
+  - **Verify:** `node --test test/parser.test.mjs test/view.test.mjs`
+  - **Criteria:** CR3, CR4
+- [ ] Extender `templates/contract/review.md`, `implement.md` y overlays de bloqueo con síntesis integral y reset autorizado
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR4, CR5
+- [ ] Añadir validación de evidencia de reset a `src/check.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR5
+- [ ] Exponer intentos por episodio, bloqueos y resets en `src/metrics.mjs`
+  - **Verify:** `node --test test/metrics.test.mjs`
+  - **Criteria:** CR6
+- [ ] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 

@@ -94,15 +94,25 @@ segmento `rev:<hash>` de la línea BEGIN:
 
 ## Plan
 
-- [x] Quitar la opción `--have <rev>`, su texto de ayuda (párrafo "Each BEGIN line carries..." y el ejemplo `--have 0123456789ab`) y el paso de `options.have` a `context()` en `bin/changeledger.mjs`; en `test/cli-bin.test.mjs` sustituir el test `160444` (que ejercitaba `--have`) por una prueba de que `--have` es una opción desconocida; verify: `node --test test/cli-bin.test.mjs` (CR1)
+- [x] Quitar la opción `--have <rev>`, su texto de ayuda (párrafo "Each BEGIN line carries..." y el ejemplo `--have 0123456789ab`) y el paso de `options.have` a `context()` en `bin/changeledger.mjs`; en `test/cli-bin.test.mjs` sustituir el test `160444` (que ejercitaba `--have`) por una prueba de que `--have` es una opción desconocida
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-27T01:09:58Z`
-- [x] En `src/commands/context.mjs`: quitar la rama `options.have` de `buildContext`, el helper `unchangedBody()`, el parámetro `rev` y el sufijo ` — unchanged` de `beginDelimiter`, y el cálculo de `rev` en `composeResult`; en `src/framing.mjs` quitar el export `contentRev`; en `test/context.test.mjs` quitar los tests `103759 CR1-CR4` (rev estable, rev cambia con la política, `--have` coincide, `--have` no coincide) y añadir una prueba de que la línea BEGIN no lleva `rev:`; en `test/framing.test.mjs` quitar los tests `CR1`/`CR2` de `contentRev`; verify: `node --test test/context.test.mjs test/framing.test.mjs` (CR2, CR3)
+- [x] En `src/commands/context.mjs`: quitar la rama `options.have` de `buildContext`, el helper `unchangedBody()`, el parámetro `rev` y el sufijo ` — unchanged` de `beginDelimiter`, y el cálculo de `rev` en `composeResult`; en `src/framing.mjs` quitar el export `contentRev`; en `test/context.test.mjs` quitar los tests `103759 CR1-CR4` (rev estable, rev cambia con la política, `--have` coincide, `--have` no coincide) y añadir una prueba de que la línea BEGIN no lleva `rev:`; en `test/framing.test.mjs` quitar los tests `CR1`/`CR2` de `contentRev`
+  - **Verify:** `node --test test/context.test.mjs test/framing.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-27T01:09:58Z`
-- [x] Borrar el párrafo "Every BEGIN line carries `rev:<hash>`..." (líneas 19-22 actuales) de `templates/contract/core.md`; verify: `node --test test/context.test.mjs` y `grep -c -- '--have' templates/contract/core.md` devuelve `0` (CR4)
+- [x] Borrar el párrafo "Every BEGIN line carries `rev:<hash>`..." (líneas 19-22 actuales) de `templates/contract/core.md`
+  - **Verify:** `node --test test/context.test.mjs` y `grep -c -- '--have' templates/contract/core.md` devuelve `0`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-27T01:09:58Z`
-- [x] Borrar el párrafo final sobre `--have` del bloque `REFERENCE` exportado en `src/contract.mjs`; actualizar en `test/register.test.mjs` y `test/contract.test.mjs` los fixtures/aserciones que citan `> [mode] --have <rev>\`` o el párrafo "After a compaction, verify a retained capture"; verify: `node --test test/register.test.mjs test/contract.test.mjs` (CR5)
+- [x] Borrar el párrafo final sobre `--have` del bloque `REFERENCE` exportado en `src/contract.mjs`; actualizar en `test/register.test.mjs` y `test/contract.test.mjs` los fixtures/aserciones que citan `> [mode] --have <rev>\`` o el párrafo "After a compaction, verify a retained capture"
+  - **Verify:** `node --test test/register.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-27T01:09:58Z`
-- [x] Ejecutar la puerta de calidad completa tras el resto de tareas; verify: `pnpm verify` (support)
+- [x] Ejecutar la puerta de calidad completa tras el resto de tareas
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T01:09:58Z`
 
 ## Log

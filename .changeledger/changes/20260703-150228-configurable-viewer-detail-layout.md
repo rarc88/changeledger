@@ -88,15 +88,25 @@ accesibilidad y no está respaldado todavía por evidencia de uso.
 
 ## Plan
 
-- [x] Extend `src/viewer/public/app-state.js`; verify: `node --test test/app-state.test.mjs` (CR3, CR5)
+- [x] Extend `src/viewer/public/app-state.js`
+  - **Verify:** `node --test test/app-state.test.mjs`
+  - **Criteria:** CR3, CR5
   - **Resolved:** `2026-07-03T22:23:13Z`
-- [x] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR4, CR6)
+- [x] Add detail presentation controls and shared change/spec wiring in `src/viewer/public/app.js` and `src/viewer/public/view-parts.js`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR4, CR6
   - **Resolved:** `2026-07-03T22:23:13Z`
-- [x] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`; verify: `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px (CR1, CR2, CR4, CR5, CR6)
+- [x] Implement side, floating, width and responsive styles in `src/viewer/public/styles.css`
+  - **Verify:** `pnpm test` and manual viewer checks at 2048 px, 1280 px and 680 px
+  - **Criteria:** CR1, CR2, CR4, CR5, CR6
   - **Resolved:** `2026-07-03T22:23:13Z`
-- [x] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-150228` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Record durable viewer layout behavior in `.changeledger/specs/viewer.md`
+  - **Verify:** `node bin/changeledger.mjs check 20260703-150228`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-03T22:23:13Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T22:23:43Z`
 
 ## Log

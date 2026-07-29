@@ -176,19 +176,33 @@ el 2026-07-27, valorando por encima que ningún draft nazca huérfano.
 
 ## Plan
 
-- [x] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza; verify: `node --test test/cli.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir parámetro inyectable `ownerHandle` (por defecto el `ownerHandle` real de `src/git.mjs`) a `newChange()` en `src/commands/new.mjs`, usarlo para resolver `owner` cuando no se pase `--owner`, y cubrir con tests que un `--owner` explícito prevalece y que una identidad vacía no emite línea `owner:` ni lanza
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [x] Actualizar en `bin/changeledger.mjs` la descripción de la opción `--owner` de `new` para que anuncie la identidad git local como default en vez de `defaults to unassigned`; verify: `node --test test/cli.test.mjs` (CR4)
+- [x] Actualizar en `bin/changeledger.mjs` la descripción de la opción `--owner` de `new` para que anuncie la identidad git local como default en vez de `defaults to unassigned`
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [x] En `src/check.mjs`, confirmar (sin cambio de lógica si ya cumple) que un change sin `owner` no genera warning ni error, y añadir el caso en `test/check.test.mjs`; verify: `node --test test/check.test.mjs` (CR5)
+- [x] En `src/check.mjs`, confirmar (sin cambio de lógica si ya cumple) que un change sin `owner` no genera warning ni error, y añadir el caso en `test/check.test.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [x] Actualizar la sección `Log y owner` de `.changeledger/specs/lifecycle.md` para describir el ciclo completo — owner en la creación, precedencia de `--owner`, autoasignación como red en `in-progress` sin pisar un owner manual; verify: `node bin/changeledger.mjs check` (CR6)
+- [x] Actualizar la sección `Log y owner` de `.changeledger/specs/lifecycle.md` para describir el ciclo completo — owner en la creación, precedencia de `--owner`, autoasignación como red en `in-progress` sin pisar un owner manual
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (support)
+- [x] Hacer deterministas los dos helpers de test que asumían creación sin dueño: `repoWithChange()` en `test/agent.test.mjs` inyecta una identidad vacía para conservar la precondición del guard, y `doneRepo()` en `test/cli-bin.test.mjs` crea con `--owner` explícito porque un CLI lanzado como proceso no admite inyección
+  - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
+  - **Support:**
   - **Resolved:** `2026-07-27T21:57:12Z`
-- [x] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un guard en `test/git.test.mjs` que recorra el árbol de test y falle nombrando fichero y línea cuando un sitio de creación pierda su inyección, sin añadir superficie a `src/`; verify: `node --test test/git.test.mjs` (CR7)
+- [x] Devolver la suite a hermética inyectando una identidad determinista en todo sitio de `test/**` que cree un change sin afirmar sobre `owner` —llamadas directas a `newChange()` y spawns del CLI real, en `test/view.test.mjs`, `test/graduate.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`— y hacer el criterio falsable con un guard en `test/git.test.mjs` que recorra el árbol de test y falle nombrando fichero y línea cuando un sitio de creación pierda su inyección, sin añadir superficie a `src/`
+  - **Verify:** `node --test test/git.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-28T00:40:49Z`
-- [x] Ejecutar la suite completa y el gate del propio proyecto; verify: `pnpm verify` (support)
+- [x] Ejecutar la suite completa y el gate del propio proyecto
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T21:57:22Z`
 
 ## Log

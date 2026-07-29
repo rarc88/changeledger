@@ -312,21 +312,37 @@ pertenecían a dos estrategias superadas.
 
 ## Plan
 
-- [x] Sustituir la clasificación de rutas de `src/commands/commit.mjs` por la lista blanca exacta (ruta esperada por id declarado desde `loadRepo`, más la exención de nombre `.gitkeep`) y cubrirla en `test/commit.test.mjs`; verify: `node --test test/commit.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Sustituir la clasificación de rutas de `src/commands/commit.mjs` por la lista blanca exacta (ruta esperada por id declarado desde `loadRepo`, más la exención de nombre `.gitkeep`) y cubrirla en `test/commit.test.mjs`
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Cubrir en `test/commit.test.mjs` los tres falsos veredictos del review 3 que la lista blanca resuelve sin lógica de ancestros ni heurística de forma escapada en `src/commands/commit.mjs`: ancestro con nombre de documento, `"quoted.mjs"` legítimo y frontera exacta del directorio; verify: `node --test test/commit.test.mjs` (CR6, CR7, CR14)
+- [x] Cubrir en `test/commit.test.mjs` los tres falsos veredictos del review 3 que la lista blanca resuelve sin lógica de ancestros ni heurística de forma escapada en `src/commands/commit.mjs`: ancestro con nombre de documento, `"quoted.mjs"` legítimo y frontera exacta del directorio
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR6, CR7, CR14
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Calcular en `src/commands/commit.mjs` las rutas esperadas en coordenadas de git (`gitRelative` sobre `gitTopLevel`, `realpathNearest` aplicado a la cola de `changes_dir`) y cubrirlo en `test/commit.test.mjs` con ledger bajo `pkg/` y con `.changeledger` simbólico; verify: `node --test test/commit.test.mjs` (CR8, CR9)
+- [x] Calcular en `src/commands/commit.mjs` las rutas esperadas en coordenadas de git (`gitRelative` sobre `gitTopLevel`, `realpathNearest` aplicado a la cola de `changes_dir`) y cubrirlo en `test/commit.test.mjs` con ledger bajo `pkg/` y con `.changeledger` simbólico
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR8, CR9
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Inscribir en `src/commands/commit.mjs` ambas formas Unicode de cada cadena esperada y del prefijo (`unicodeForms`) y cubrir en `test/commit.test.mjs` el documento declarado con nombre descompuesto y un `changes_dir` no-ASCII; verify: `node --test test/commit.test.mjs` (CR10)
+- [x] Inscribir en `src/commands/commit.mjs` ambas formas Unicode de cada cadena esperada y del prefijo (`unicodeForms`) y cubrir en `test/commit.test.mjs` el documento declarado con nombre descompuesto y un `changes_dir` no-ASCII
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR10
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Corrección acotada (excepción autorizada, review 4): inscribir también la cadena cruda de disco en `unicodeForms()` (`src/commands/commit.mjs`) y cubrir en `test/commit.test.mjs`, con `core.precomposeunicode=false` y nombre de composición mixta, ambas direcciones — bypass del prefijo del `changes_dir` y falso abort del documento declarado; verify: `node --test test/commit.test.mjs` (CR10)
+- [x] Corrección acotada (excepción autorizada, review 4): inscribir también la cadena cruda de disco en `unicodeForms()` (`src/commands/commit.mjs`) y cubrir en `test/commit.test.mjs`, con `core.precomposeunicode=false` y nombre de composición mixta, ambas direcciones — bypass del prefijo del `changes_dir` y falso abort del documento declarado
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR10
   - **Resolved:** `2026-07-26T17:47:00Z`
-- [x] Conservar en `src/git.mjs` la invocación fijada de lectura del índice y asertar en `test/commit.test.mjs` sus argumentos, su `cwd`, el split por NUL y la inercia de `core.quotePath`/`diff.relative`/renames; verify: `node --test test/commit.test.mjs` (CR11, CR12, CR13)
+- [x] Conservar en `src/git.mjs` la invocación fijada de lectura del índice y asertar en `test/commit.test.mjs` sus argumentos, su `cwd`, el split por NUL y la inercia de `core.quotePath`/`diff.relative`/renames
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR11, CR12, CR13
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Distinguir en `src/git.mjs` el fallo por suelo `git >= 2.28` de cualquier otro fallo de lectura del índice, ambos cerrados, y cubrir las dos atribuciones en `test/commit.test.mjs`; verify: `node --test test/commit.test.mjs` (CR15)
+- [x] Distinguir en `src/git.mjs` el fallo por suelo `git >= 2.28` de cualquier otro fallo de lectura del índice, ambos cerrados, y cubrir las dos atribuciones en `test/commit.test.mjs`
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR15
   - **Resolved:** `2026-07-26T16:59:39Z`
-- [x] Ejecutar el gate completo tras el reset del episodio 3; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo tras el reset del episodio 3
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-26T16:59:40Z`
 
 ## Log

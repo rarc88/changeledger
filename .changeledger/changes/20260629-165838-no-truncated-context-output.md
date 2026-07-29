@@ -60,15 +60,25 @@ La corrección debe ser acotada:
 
 ## Plan
 
-- [x] Target src/contract.mjs; verify: pnpm test test/contract.test.mjs (CR1)
+- [x] Target src/contract.mjs
+  - **Verify:** pnpm test test/contract.test.mjs
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-29T17:09:47Z`
-- [x] Target templates/contract/core.md; verify: pnpm test test/context.test.mjs test/cli.test.mjs (CR2)
+- [x] Target templates/contract/core.md
+  - **Verify:** pnpm test test/context.test.mjs test/cli.test.mjs
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-29T17:09:50Z`
-- [x] Target .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR2)
+- [x] Target .changeledger/specs/contract-discovery.md
+  - **Verify:** node bin/changeledger.mjs check 20260629-165838
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-29T17:09:56Z`
-- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs (CR1, CR2, CR3)
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md
+  - **Verify:** pnpm test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-29T17:10:01Z`
-- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md; verify: node bin/changeledger.mjs check 20260629-165838 (CR1, CR2, CR3)
+- [x] Target src/contract.mjs templates/contract/core.md .changeledger/specs/contract-discovery.md
+  - **Verify:** node bin/changeledger.mjs check 20260629-165838
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-29T17:10:24Z`
 
 ## Log

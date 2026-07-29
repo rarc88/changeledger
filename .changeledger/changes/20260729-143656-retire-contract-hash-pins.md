@@ -147,17 +147,29 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 
 ## Plan
 
-- [x] Reescribir la sección de regresión contractual de `.changeledger/specs/contract-discovery.md` al modelo vigente sin snapshots ni reclasificación; verify: `grep -c 'snapshots SHA-256' .changeledger/specs/contract-discovery.md` devuelve 0 (CR5)
+- [x] Reescribir la sección de regresión contractual de `.changeledger/specs/contract-discovery.md` al modelo vigente sin snapshots ni reclasificación
+  - **Verify:** `grep -c 'snapshots SHA-256' .changeledger/specs/contract-discovery.md` devuelve 0
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-29T14:58:57Z`
-- [x] Retirar de `test/context.test.mjs` el mapa de pins con su historial y el test `234939 CR10/CR11`, cuya decisión queda documentada en `.changeledger/specs/contract-discovery.md`; verify: `node --test test/context.test.mjs` y `grep -E "'[a-f0-9]{64}'" test/context.test.mjs` sin ocurrencias (CR1)
+- [x] Retirar de `test/context.test.mjs` el mapa de pins con su historial y el test `234939 CR10/CR11`, cuya decisión queda documentada en `.changeledger/specs/contract-discovery.md`
+  - **Verify:** `node --test test/context.test.mjs` y `grep -E "'[a-f0-9]{64}'" test/context.test.mjs` sin ocurrencias
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-29T14:58:57Z`
-- [x] Convertir las obligaciones de `templates/contract/core.md` que `194234 CR5` afirma vía comentarios en aserciones directas sobre el fragmento, y retirar los self-reads `164620 CR5` y `164620 H3`; verify: `node --test test/context.test.mjs` y `grep -c "readFileSync(new URL('./context.test.mjs'" test/context.test.mjs` devuelve 0 (CR2, CR3)
+- [x] Convertir las obligaciones de `templates/contract/core.md` que `194234 CR5` afirma vía comentarios en aserciones directas sobre el fragmento, y retirar los self-reads `164620 CR5` y `164620 H3`
+  - **Verify:** `node --test test/context.test.mjs` y `grep -c "readFileSync
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-29T14:58:57Z`
-- [x] Verificar por mutación la protección preexistente de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada en `core.md` (fallo literal M3b) y techo `base.core` excedido (fallo literal M4), un mutante a la vez; el mismo mutante sobre `agent-contexts/` quedó verde por el residual de CH-19, registrado en el Log; verify: `pnpm test` (CR4)
+- [x] Verificar por mutación la protección preexistente de `templates/contract/` y `templates/contract/budgets.yml`: frase vigilada por `124837 CR1` inyectada en `core.md` (fallo literal M3b) y techo `base.core` excedido (fallo literal M4), un mutante a la vez; el mismo mutante sobre `agent-contexts/` quedó verde por el residual de CH-19, registrado en el Log
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-29T14:58:57Z`
-- [x] Correr el gate completo tras el retiro; verify: `pnpm verify` (support)
+- [x] Correr el gate completo tras el retiro
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T14:58:58Z`
-- [x] Restaurar en `test/context.test.mjs`, sin mapa de hashes ni self-reads, el barrido recursivo de la frase `reconstruct mixed diffs` sobre `templates/contract/**` (insensible al reflow: normaliza espacios antes de casar) y el guard de inventario de fragmentos top-level; verify: `node --test test/context.test.mjs` con los mutantes de `implement.md` y `zz-stray.md` en rojo antes del fix y fallo literal capturado (CR4)
+- [x] Restaurar en `test/context.test.mjs`, sin mapa de hashes ni self-reads, el barrido recursivo de la frase `reconstruct mixed diffs` sobre `templates/contract/**` (insensible al reflow: normaliza espacios antes de casar) y el guard de inventario de fragmentos top-level
+  - **Verify:** `node --test test/context.test.mjs` con los mutantes de `implement.md` y `zz-stray.md` en rojo antes del fix y fallo literal capturado
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-29T15:54:52Z`
 
 ## Log

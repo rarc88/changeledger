@@ -71,11 +71,17 @@ la tarea, en vez de obligar a listar cada frase manual posible en la config.
 - **And** prefiere patrones estructurales como `verify:` antes que vocabulario específico de dispositivo o UI
 
 ## Plan
-- [x] Actualizar `src/check.mjs` para que los warnings/errores de readiness incluyan los patrones efectivos y si vienen de defaults; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2)
+- [x] Actualizar `src/check.mjs` para que los warnings/errores de readiness incluyan los patrones efectivos y si vienen de defaults
+  - **Verify:** `pnpm test -- test/check.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-18T13:00:34Z`
-- [x] Cubrir el caso default y el caso configurado para `src/check.mjs` en `test/check.test.mjs`; verify: `pnpm test -- test/check.test.mjs` (CR1, CR2)
+- [x] Cubrir el caso default y el caso configurado para `src/check.mjs` en `test/check.test.mjs`
+  - **Verify:** `pnpm test -- test/check.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-18T13:00:34Z`
-- [x] Ajustar `templates/AGENTS.md` para orientar a repos con estructura no estándar hacia `readiness` en config; verify: `pnpm test -- test/cli.test.mjs` (CR3)
+- [x] Ajustar `templates/AGENTS.md` para orientar a repos con estructura no estándar hacia `readiness` en config
+  - **Verify:** `pnpm test -- test/cli.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-18T13:00:34Z`
 
 ## Log

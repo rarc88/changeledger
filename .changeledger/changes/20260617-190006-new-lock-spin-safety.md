@@ -90,17 +90,23 @@ es el timeout primario del lock, lo que es engañoso.
 
 ## Plan
 
-- [x] Agregar cota de iteraciones y renombrar `STALE_LOCK_MS` → `LOCK_MTIME_STALE_MS` en `src/commands/new.mjs`, verificar con `test/change.test.mjs` (CR1, CR6)
+- [x] Agregar cota de iteraciones y renombrar `STALE_LOCK_MS` → `LOCK_MTIME_STALE_MS` en `src/commands/new.mjs`, verificar con `test/change.test.mjs`
+  - **Criteria:** CR1, CR6
   - **Resolved:** `2026-06-17T20:30:41Z`
-- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` con JSON inválido, verifica mtime fallback (CR2)
+- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` con JSON inválido, verifica mtime fallback
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-17T20:30:41Z`
-- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` cuando `statSync` lanza ENOENT (CR3)
+- [x] Agregar test en `test/change.test.mjs` para `isStaleLock` en `src/commands/new.mjs` cuando `statSync` lanza ENOENT
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T20:30:41Z`
-- [x] Agregar test en `test/change.test.mjs` para `processIsAlive` en `src/commands/new.mjs` con EPERM retorna `true` (CR4)
+- [x] Agregar test en `test/change.test.mjs` para `processIsAlive` en `src/commands/new.mjs` con EPERM retorna `true`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-17T20:30:41Z`
-- [x] Agregar comentario inline en `src/commands/new.mjs` y `src/atomic-write.mjs` explicando POR QUÉ cada uno usa su estrategia de staleness, verificar con `test/change.test.mjs` (CR6)
+- [x] Agregar comentario inline en `src/commands/new.mjs` y `src/atomic-write.mjs` explicando POR QUÉ cada uno usa su estrategia de staleness, verificar con `test/change.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-17T20:30:41Z`
-- [x] Correr `pnpm test -- test/change.test.mjs` sobre `src/commands/new.mjs` sin regresiones (CR5)
+- [x] Correr `pnpm test -- test/change.test.mjs` sobre `src/commands/new.mjs` sin regresiones
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-17T20:30:41Z`
 
 ## Log

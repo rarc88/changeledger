@@ -42,11 +42,14 @@ real de loopback.
 - **Then** la suite no falla por `listen EPERM 127.0.0.1`
 
 ## Plan
-- [x] Extraer o reutilizar helpers de `src/viewer/server/router.mjs` para probar requests/responses en memoria desde `test/view.test.mjs` (CR1, CR3)
+- [x] Extraer o reutilizar helpers de `src/viewer/server/router.mjs` para probar requests/responses en memoria desde `test/view.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-17T15:19:05Z`
-- [x] Reducir el test con socket real de `src/viewer/server/*.mjs` en `test/view.test.mjs` a una cobertura mínima y tolerante al entorno (CR2, CR3)
+- [x] Reducir el test con socket real de `src/viewer/server/*.mjs` en `test/view.test.mjs` a una cobertura mínima y tolerante al entorno
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-06-17T15:19:05Z`
-- [x] Ejecutar `pnpm test -- test/view.test.mjs` contra `src/viewer/server/router.mjs` y `pnpm verify` sin escalación para confirmar que no depende de loopback real (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test -- test/view.test.mjs` contra `src/viewer/server/router.mjs` y `pnpm verify` sin escalación para confirmar que no depende de loopback real
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-17T15:19:06Z`
 
 ## Log

@@ -103,11 +103,17 @@ se reduce ligeramente al abreviar la regla 8, lo que además da holgura a
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada en el overlay de cierre (contexto por id de un change `done`) y la ausencia del resumen `--new`/`--into` en el core; luego reescribir las viñetas de graduación de `templates/contract/close.md` como receta numerada con el matiz de `reviewed: true` integrado y abreviar la regla 8 de `templates/contract/core.md` al disparador
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-05T14:13:02Z`
-- [x] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Comprobar que las composiciones de `templates/contract/core.md` y `templates/contract/close.md` respetan los presupuestos vigentes sin modificarlos
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-05T14:13:02Z`
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-05T14:13:02Z`
 
 ## Log

@@ -195,17 +195,29 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y guardar que ningún fragmento de `templates/**` declare la unidad; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR1, CR2, CR4)
+- [x] Convertir `templates/contract/budgets.yml` a `tokens`/`lines` con los techos medidos, añadir el tokenizador como `devDependency` de versión exacta en `package.json` y guardar que ningún fragmento de `templates/**` declare la unidad
+  - **Verify:** `node --test test/context.test.mjs test/agent-context.test.mjs`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-07-28T18:48:46Z`
-- [x] Fijar en `.changeledger/config.yml` que los `readiness.target_patterns` de este repositorio cubren toda ruta de producción versionada, con un pin que falle al retirar `AGENTS.md` o `hooks/**`; verify: `node --test test/check.test.mjs` (CR7)
+- [x] Fijar en `.changeledger/config.yml` que los `readiness.target_patterns` de este repositorio cubren toda ruta de producción versionada, con un pin que falle al retirar `AGENTS.md` o `hooks/**`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-28T19:02:34Z`
-- [x] Reescribir el párrafo de presupuestos de `AGENTS.md` para declarar la unidad del tokenizador, retirar la descripción de `bytes` y de la doble publicación, y añadir que el margen no es permiso de gasto; verify: `node --test test/contract.test.mjs` (CR2, CR6)
+- [x] Reescribir el párrafo de presupuestos de `AGENTS.md` para declarar la unidad del tokenizador, retirar la descripción de `bytes` y de la doble publicación, y añadir que el margen no es permiso de gasto
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR2, CR6
   - **Resolved:** `2026-07-28T19:02:35Z`
-- [x] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Mover a `templates/contract/budgets.yml` el techo operativo de líneas del core y el del bloque `## Commits`, retirando sus literales de `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-28T18:48:47Z`
-- [x] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR5)
+- [x] Retirar el segmento de bytes de la línea BEGIN en `src/commands/context.mjs` y de sus aserciones
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-28T18:49:09Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-28T19:02:35Z`
 
 ## Log

@@ -23,9 +23,11 @@ Eliminar dos fricciones menores de la referencia rápida en §9 de
 
 ## Plan
 
-- [x] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs` (support)
+- [x] Aclarar las entradas `sl status` y `sl graduate --into` en `templates/AGENTS.md`; verificar con `node --test test/cli.test.mjs`
+  - **Support:**
   - **Resolved:** `2026-06-20T22:22:37Z`
-- [x] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones (support)
+- [x] Ejecutar `pnpm verify` y confirmar que la referencia editada no introduce regresiones
+  - **Support:**
   - **Resolved:** `2026-06-20T22:22:56Z`
 
 ## Log

@@ -119,17 +119,23 @@ stateDiagram-v2
 
 ## Plan
 
-- [x] `setReviewed(text, reviewed)` en `src/writer.mjs` (inserta/quita `reviewed: true` tras `depends_on`); tests en `test/writer.test.mjs` (CR1, CR2, CR3)
+- [x] `setReviewed(text, reviewed)` en `src/writer.mjs` (inserta/quita `reviewed: true` tras `depends_on`); tests en `test/writer.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-14T17:13:54Z`
-- [x] `graduate()` marca `reviewed: true` tras la marca de Log en `src/commands/graduate.mjs`; test en `test/graduate.test.mjs` (CR1)
+- [x] `graduate()` marca `reviewed: true` tras la marca de Log en `src/commands/graduate.mjs`; test en `test/graduate.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T17:13:54Z`
-- [x] `skipGraduation(id, reason, cwd)` en `src/commands/graduate.mjs` (valida `done`, `setReviewed`+`appendLog`, sin spec); test en `test/graduate.test.mjs` (CR2, CR3, CR6)
+- [x] `skipGraduation(id, reason, cwd)` en `src/commands/graduate.mjs` (valida `done`, `setReviewed`+`appendLog`, sin spec); test en `test/graduate.test.mjs`
+  - **Criteria:** CR2, CR3, CR6
   - **Resolved:** `2026-06-14T17:13:54Z`
-- [x] `pendingGraduation(cwd)` en `src/commands/graduate.mjs` (done con `reviewed !== true`); test en `test/graduate.test.mjs` (CR4)
+- [x] `pendingGraduation(cwd)` en `src/commands/graduate.mjs` (done con `reviewed !== true`); test en `test/graduate.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-14T17:13:54Z`
-- [x] Validar `reviewed` booleano en `src/check.mjs`; test en `test/check.test.mjs` (CR5)
+- [x] Validar `reviewed` booleano en `src/check.mjs`; test en `test/check.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-14T17:13:54Z`
-- [x] Wire en `bin/sl.mjs`: `sl graduate --pending` y `sl graduate <id> --skip [reason]`, conservando `<id> <spec>` (CR1, CR2, CR3, CR4)
+- [x] Wire en `bin/sl.mjs`: `sl graduate --pending` y `sl graduate <id> --skip [reason]`, conservando `<id> <spec>`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-14T17:13:54Z`
 - [x] Documentar `reviewed` + comandos en `templates/AGENTS.md` §9/§10 (docs, sin CR)
   - **Resolved:** `2026-06-14T17:13:54Z`

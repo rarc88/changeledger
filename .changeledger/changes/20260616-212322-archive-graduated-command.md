@@ -64,13 +64,17 @@ paso explícito.
 - **Then** no necesito inspeccionar raw markdown ni escribir scripts de filtrado
 
 ## Plan
-- [x] Añadir opciones `--graduated` y `--dry-run` al comando `archive` en `bin/sl.mjs` y aplicación en `src/commands/agent.mjs`, cubiertas por `test/agent.test.mjs` o test CLI (CR1, CR2, CR3, CR4, CR5)
+- [x] Añadir opciones `--graduated` y `--dry-run` al comando `archive` en `bin/sl.mjs` y aplicación en `src/commands/agent.mjs`, cubiertas por `test/agent.test.mjs` o test CLI
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T10:25:48Z`
-- [x] Reutilizar parser de repo en `src/repo.mjs` desde `src/commands/agent.mjs` para seleccionar changes `done`, `reviewed: true`, graduados o skipped, y no archivados, cubierto por `test/agent.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Reutilizar parser de repo en `src/repo.mjs` desde `src/commands/agent.mjs` para seleccionar changes `done`, `reviewed: true`, graduados o skipped, y no archivados, cubierto por `test/agent.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:28:11Z`
-- [x] Añadir en `test/agent.test.mjs` tests CLI o de aplicación para salida, dry-run y no duplicar archivados de `src/commands/agent.mjs` (CR1, CR2, CR4)
+- [x] Añadir en `test/agent.test.mjs` tests CLI o de aplicación para salida, dry-run y no duplicar archivados de `src/commands/agent.mjs`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-17T10:28:11Z`
-- [x] Ejecutar `pnpm test -- test/agent.test.mjs` contra `src/commands/agent.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4, CR5)
+- [x] Ejecutar `pnpm test -- test/agent.test.mjs` contra `src/commands/agent.mjs` y `node bin/sl.mjs check`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T10:26:44Z`
 
 ## Log

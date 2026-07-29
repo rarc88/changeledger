@@ -184,15 +184,25 @@ normalizar, prefijo colapsado) donde el contrato exige abortar nombrando.
 
 ## Plan
 
-- [x] Abortar nombrando en `changePolicyBlock`/`fragmentsForType` de `src/commands/context.mjs` para tipo desconocido, ausente o `stages` malformadas, y omitir `tdd=` en `transversalPolicy` cuando la captura no sirve `readiness.md`; verify: `node --test test/context.test.mjs test/cli-bin.test.mjs` con los tres fixtures de CR1 en rojo antes del fix (CR1, CR5)
+- [x] Abortar nombrando en `changePolicyBlock`/`fragmentsForType` de `src/commands/context.mjs` para tipo desconocido, ausente o `stages` malformadas, y omitir `tdd=` en `transversalPolicy` cuando la captura no sirve `readiness.md`
+  - **Verify:** `node --test test/context.test.mjs test/cli-bin.test.mjs` con los tres fixtures de CR1 en rojo antes del fix
+  - **Criteria:** CR1, CR5
   - **Resolved:** `2026-07-29T18:06:42Z`
-- [x] Añadir `assertTransition` a `review()` en `src/commands/agent.mjs` y arreglar la plantilla de tipo vacío en `src/lifecycle.mjs`; verify: `node --test test/agent.test.mjs test/lifecycle.test.mjs` con las salidas legales intactas, el `current` ilegal rechazado nombrándolo y el mensaje literal fijado (CR2, CR3)
+- [x] Añadir `assertTransition` a `review()` en `src/commands/agent.mjs` y arreglar la plantilla de tipo vacío en `src/lifecycle.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/lifecycle.test.mjs` con las salidas legales intactas, el `current` ilegal rechazado nombrándolo y el mensaje literal fijado
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-29T18:06:42Z`
-- [x] En `src/check.mjs`: diagnóstico de criterio desconocido para tipos sin `specification`, sujeto congelado excluido de los cuatro invariantes conservándolo como dato, y predicado único de congelado consumido por identidad; verify: `node --test test/check.test.mjs` con los fixtures de CR4 y CR6 en rojo antes del fix (CR4, CR6, CR7)
+- [x] En `src/check.mjs`: diagnóstico de criterio desconocido para tipos sin `specification`, sujeto congelado excluido de los cuatro invariantes conservándolo como dato, y predicado único de congelado consumido por identidad
+  - **Verify:** `node --test test/check.test.mjs` con los fixtures de CR4 y CR6 en rojo antes del fix
+  - **Criteria:** CR4, CR6, CR7
   - **Resolved:** `2026-07-29T18:06:43Z`
-- [x] En `src/commands/commit.mjs`: whitelist insensible al casing con el vector de `update-index` reproducido en test, y abort nombrado cuando `changes_dir` colapsa a la raíz; verify: `node --test test/commit.test.mjs` con ambos bypasses en rojo antes del fix (CR8, CR9)
+- [x] En `src/commands/commit.mjs`: whitelist insensible al casing con el vector de `update-index` reproducido en test, y abort nombrado cuando `changes_dir` colapsa a la raíz
+  - **Verify:** `node --test test/commit.test.mjs` con ambos bypasses en rojo antes del fix
+  - **Criteria:** CR8, CR9
   - **Resolved:** `2026-07-29T18:06:43Z`
-- [x] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Correr el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T18:06:43Z`
 
 ## Log

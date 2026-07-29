@@ -51,13 +51,17 @@ DOMPurify no está presente.
 
 ## Plan
 
-- [x] Añadir tests en `test/viewer-sanitize.test.mjs` para el caso sin `DOMPurify` y para el camino sano con sanitizador (CR1, CR2)
+- [x] Añadir tests en `test/viewer-sanitize.test.mjs` para el caso sin `DOMPurify` y para el camino sano con sanitizador
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T22:02:51Z`
-- [x] Cambiar `safeHtml()` en `src/viewer/public/app.js` para fallar cerrado o renderizar texto escapado cuando falta DOMPurify (CR1, CR3)
+- [x] Cambiar `safeHtml()` en `src/viewer/public/app.js` para fallar cerrado o renderizar texto escapado cuando falta DOMPurify
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-15T21:55:07Z`
-- [x] Revisar `src/viewer/public/index.html` y `src/commands/view.mjs` para que las dependencias críticas del visor no parezcan opcionales (CR3)
+- [x] Revisar `src/viewer/public/index.html` y `src/commands/view.mjs` para que las dependencias críticas del visor no parezcan opcionales
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-15T21:55:07Z`
-- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test -- test/viewer-sanitize.test.mjs` y `pnpm check`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T21:59:43Z`
 
 ## Log

@@ -95,17 +95,29 @@ change nuevo.
 
 ## Plan
 
-- [x] Model conditional `done → in-progress` and its Log event in `src/lifecycle.mjs` and `src/commands/agent.mjs`; verify: `node --test test/lifecycle.test.mjs test/agent.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Model conditional `done → in-progress` and its Log event in `src/lifecycle.mjs` and `src/commands/agent.mjs`
+  - **Verify:** `node --test test/lifecycle.test.mjs test/agent.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-03T21:59:28Z`
-- [x] Enforce graduation, archive and release boundaries in `src/commands/agent.mjs` using loaded repo truth; verify: `node --test test/agent.test.mjs test/release.test.mjs` (CR1, CR3)
+- [x] Enforce graduation, archive and release boundaries in `src/commands/agent.mjs` using loaded repo truth
+  - **Verify:** `node --test test/agent.test.mjs test/release.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-07-03T21:59:28Z`
-- [x] Add the human-only reopen API and detail controls in `src/viewer/domain.mjs` and `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [x] Add the human-only reopen API and detail controls in `src/viewer/domain.mjs` and `src/viewer/public/app.js`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-03T21:59:28Z`
-- [x] Update lifecycle sequence validation and metrics in `src/check.mjs` and `src/metrics.mjs`; verify: `node --test test/check.test.mjs test/metrics.test.mjs` (CR5, CR6)
+- [x] Update lifecycle sequence validation and metrics in `src/check.mjs` and `src/metrics.mjs`
+  - **Verify:** `node --test test/check.test.mjs test/metrics.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-07-03T21:59:28Z`
-- [x] Update `templates/contract/core.md`, lifecycle overlays and `.changeledger/specs/lifecycle.md`; verify: `node --test test/context.test.mjs test/cli.test.mjs` and `changeledger check 20260703-150232` (CR3, CR4, CR5, CR7)
+- [x] Update `templates/contract/core.md`, lifecycle overlays and `.changeledger/specs/lifecycle.md`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs` and `changeledger check 20260703-150232`
+  - **Criteria:** CR3, CR4, CR5, CR7
   - **Resolved:** `2026-07-03T21:59:28Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T21:59:59Z`
 
 ## Log

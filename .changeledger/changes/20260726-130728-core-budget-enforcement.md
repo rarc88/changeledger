@@ -168,13 +168,21 @@ dejar un aviso que nadie lee. Escenario de no regresión: un overlay o el modo
 
 ## Plan
 
-- [x] Elevar la entrada `core` de `templates/contract/budgets.yml` a target 175/11000 y hard 200/12000 sin tocar el resto de entradas ni el texto del contrato; verify: `node --test test/context.test.mjs` (CR1, CR4)
+- [x] Elevar la entrada `core` de `templates/contract/budgets.yml` a target 175/11000 y hard 200/12000 sin tocar el resto de entradas ni el texto del contrato
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-07-27T13:25:21Z`
-- [x] Añadir `strict_target: true` a `base.core` en `templates/contract/budgets.yml` y hacer que `assertWithinBudget` de `test/context.test.mjs` afirme el target cuando la entrada lo declara, con el caso rojo-verde de la rama estricta y su límite duro; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Añadir `strict_target: true` a `base.core` en `templates/contract/budgets.yml` y hacer que `assertWithinBudget` de `test/context.test.mjs` afirme el target cuando la entrada lo declara, con el caso rojo-verde de la rama estricta y su límite duro
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-27T13:25:21Z`
-- [x] Cubrir la rama no estricta de `assertWithinBudget` (aviso en target, fallo en hard) frente a las entradas sin bandera de `templates/contract/budgets.yml`; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Cubrir la rama no estricta de `assertWithinBudget` (aviso en target, fallo en hard) frente a las entradas sin bandera de `templates/contract/budgets.yml`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-27T13:25:21Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T13:25:21Z`
 
 ## Log

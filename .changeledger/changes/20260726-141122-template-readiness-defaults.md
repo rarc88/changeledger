@@ -153,19 +153,31 @@ de alcance de este change.
 
 ## Plan
 
-- [x] Descomentar y fijar `readiness:` en `templates/config.yml` (`target_patterns: ["src/**"]`, `verification_patterns: ["test/**"]`) con el comentario de que se exigen desde `approved` en adelante y deben adaptarse al stack del repo; verify: `node --test test/cli.test.mjs` (CR1)
+- [x] Descomentar y fijar `readiness:` en `templates/config.yml` (`target_patterns: ["src/**"]`, `verification_patterns: ["test/**"]`) con el comentario de que se exigen desde `approved` en adelante y deben adaptarse al stack del repo
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-27T00:08:11Z`
-- [x] Añadir en `test/cli.test.mjs` un escenario end-to-end sobre `src/commands/init.mjs` y `src/commands/agent.mjs` que haga `init()` en un dir temporal, ajuste `.changeledger/config.yml` con `readiness: { target_patterns: ["lib/**"], verification_patterns: ["verify:"] }`, cree un change `bug` con la tarea Plan no-JS del Request y ejecute `approve()` + `src/check.mjs`, afirmando ausencia del texto `must name target and verification` y cero errores; verify: `node --test test/cli.test.mjs` (CR2)
+- [x] Añadir en `test/cli.test.mjs` un escenario end-to-end sobre `src/commands/init.mjs` y `src/commands/agent.mjs` que haga `init()` en un dir temporal, ajuste `.changeledger/config.yml` con `readiness: { target_patterns: ["lib/**"], verification_patterns: ["verify:"] }`, cree un change `bug` con la tarea Plan no-JS del Request y ejecute `approve()` + `src/check.mjs`, afirmando ausencia del texto `must name target and verification` y cero errores; verify: `node --test test/cli.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-27T00:09:54Z`
-- [x] Añadir un test en `test/check.test.mjs` sobre `src/check.mjs` que fije `config.readiness` propio y confirme que el hint de `readinessHint` reporta esos valores literalmente; verify: `node --test test/check.test.mjs` (CR3)
+- [x] Añadir un test en `test/check.test.mjs` sobre `src/check.mjs` que fije `config.readiness` propio y confirme que el hint de `readinessHint` reporta esos valores literalmente
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-27T00:11:02Z`
-- [x] Extender `migrateToV4` en `src/config-migration.mjs` para que añada `readiness` con los valores de CR1 cuando la clave está ausente, ajustando los tests de esa migración cuyo resumen de cambios pase a incluir la línea nueva; verify: `node --test test/config-migration.test.mjs` (CR4)
+- [x] Extender `migrateToV4` en `src/config-migration.mjs` para que añada `readiness` con los valores de CR1 cuando la clave está ausente, ajustando los tests de esa migración cuyo resumen de cambios pase a incluir la línea nueva
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-27T00:13:26Z`
-- [x] Añadir a `test/config-migration.test.mjs`, sobre `src/config-migration.mjs`, el caso de un `readiness:` ya declarado por el usuario que permanece intacto tras migrar; verify: `node --test test/config-migration.test.mjs` (CR5)
+- [x] Añadir a `test/config-migration.test.mjs`, sobre `src/config-migration.mjs`, el caso de un `readiness:` ya declarado por el usuario que permanece intacto tras migrar
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-27T00:13:56Z`
-- [x] Sustituir en `templates/contract/readiness.md:33-36` la oración pasiva `Repos tune recognition with...` por la obligación explícita del agente de verificar, al empezar a trabajar en un repo, que `readiness.target_patterns`/`readiness.verification_patterns` coincidan con su stack y configurarlos si no, conservando intacta la recomendación de `verification_patterns: ["verify:"]` para checks manuales; actualizar el hash de snapshot revisado de `readiness.md` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR6)
+- [x] Sustituir en `templates/contract/readiness.md:33-36` la oración pasiva `Repos tune recognition with...` por la obligación explícita del agente de verificar, al empezar a trabajar en un repo, que `readiness.target_patterns`/`readiness.verification_patterns` coincidan con su stack y configurarlos si no, conservando intacta la recomendación de `verification_patterns: ["verify:"]` para checks manuales; actualizar el hash de snapshot revisado de `readiness.md` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-27T00:41:03Z`
-- [x] Ejecutar el gate completo tras el cambio; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo tras el cambio
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T00:41:03Z`
 
 ## Log

@@ -139,13 +139,21 @@ del core.
 
 ## Plan
 
-- [x] Aceptar la declaración `ChangeLedger: none — <razón>` en `commitMarkerViolation` y `lintCommitRange` de `src/git.mjs`, con razón obligatoria y sin coexistencia con marcadores; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+- [x] Aceptar la declaración `ChangeLedger: none — <razón>` en `commitMarkerViolation` y `lintCommitRange` de `src/git.mjs`, con razón obligatoria y sin coexistencia con marcadores
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-28T15:30:36Z`
-- [x] Añadir `--no-change <razón>` a `src/commands/commit.mjs` y su cableado en `bin/changeledger.mjs`, mutuamente exclusivo con `--id`; verify: `node --test test/cli.test.mjs test/cli-bin.test.mjs` (CR4)
+- [x] Añadir `--no-change <razón>` a `src/commands/commit.mjs` y su cableado en `bin/changeledger.mjs`, mutuamente exclusivo con `--id`
+  - **Verify:** `node --test test/cli.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-28T15:49:36Z`
-- [x] Extender la frase de exenciones en `templates/contract/core.md` sin añadir línea al bloque `## Commits`; verify: `node --test test/context.test.mjs` (CR5)
+- [x] Extender la frase de exenciones en `templates/contract/core.md` sin añadir línea al bloque `## Commits`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-28T15:59:03Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-28T15:59:38Z`
 
 ## Log

@@ -42,11 +42,14 @@ la transición.
 
 ## Plan
 
-- [x] `appendLog`: crear `## Log` al final si no existe (CR1)
+- [x] `appendLog`: crear `## Log` al final si no existe
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T12:33:37Z`
-- [x] `check.mjs`: eximir `log` de la regla "stage not active for type" (CR2)
+- [x] `check.mjs`: eximir `log` de la regla "stage not active for type"
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-14T12:33:37Z`
-- [x] Tests: appendLog sin Log previo; check chore+log ok (CR1, CR2)
+- [x] Tests: appendLog sin Log previo; check chore+log ok
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-14T12:33:37Z`
 
 ## Log

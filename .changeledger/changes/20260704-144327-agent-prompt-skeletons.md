@@ -230,23 +230,41 @@ completo: reduce autoridad por prosa, pero no reduce contexto ni ambigüedad.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1, CR2)
+- [x] Añadir pruebas fallidas en `test/agent-prompt.test.mjs` para salida delimitada exacta dentro y fuera de un repo y error de rol desconocido; luego implementar `src/commands/agent-prompt.mjs`, compartir el framing/versionado necesario y registrar `agent-prompt` en `bin/changeledger.mjs`
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-05T14:24:08Z`
-- [x] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol; verify: `node --test test/agent-prompt.test.mjs` (CR3, CR4)
+- [x] Escribir `templates/contract/agent-prompts/investigation.md`, `implementation.md` y `review.md` con todos los campos de delegación, límites por efectos, retorno y carga de contexto por rol
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-05T14:24:08Z`
-- [x] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`; verify: `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos) (CR5)
+- [x] Ampliar la regla mínima existente en `templates/contract/core.md` con el puntero a `changeledger agent-prompt <role>`, sin duplicarlo en `delegation.md`
+  - **Verify:** `node --test test/context.test.mjs` (confirma descubrimiento pre-draft y que `225213 CR6` sigue pasando sin tocar los presupuestos)
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-05T14:24:08Z`
-- [x] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete; verify: `node --test test/agent-prompt.test.mjs` (CR6)
+- [x] Añadir en `test/agent-prompt.test.mjs` cobertura del artefacto publicable que compruebe la inclusión y resolución de `templates/contract/agent-prompts/` desde el paquete
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-05T14:24:08Z`
-- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo al terminar
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-05T14:24:08Z`
-- [x] Añadir regresiones en `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs` y `test/contract.test.mjs`, luego implementar `src/commands/agent-context.mjs`, registrar el comando en `bin/changeledger.mjs` y refrescar bootstrap/README; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs` (CR4, CR7, CR9)
+- [x] Añadir regresiones en `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs` y `test/contract.test.mjs`, luego implementar `src/commands/agent-context.mjs`, registrar el comando en `bin/changeledger.mjs` y refrescar bootstrap/README
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/contract.test.mjs`
+  - **Criteria:** CR4, CR7, CR9
   - **Resolved:** `2026-07-05T22:22:18Z`
-- [x] Crear `templates/contract/agent-contexts/{investigation,implementation,review}.md`, mover allí el checklist delegado de `templates/contract/review.md` y ajustar los esqueletos para la entrada única; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (CR4, CR8)
+- [x] Crear `templates/contract/agent-contexts/{investigation,implementation,review}.md`, mover allí el checklist delegado de `templates/contract/review.md` y ajustar los esqueletos para la entrada única
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs`
+  - **Criteria:** CR4, CR8
   - **Resolved:** `2026-07-05T22:22:18Z`
-- [x] Probar los presupuestos base y el artefacto publicable desde `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs`, manteniendo el core dentro de su presupuesto; verify: `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs` (support)
+- [x] Probar los presupuestos base y el artefacto publicable desde `test/agent-context.test.mjs` y `test/agent-prompt.test.mjs`, manteniendo el core dentro de su presupuesto
+  - **Verify:** `node --test test/agent-context.test.mjs test/agent-prompt.test.mjs test/context.test.mjs`
+  - **Support:**
   - **Resolved:** `2026-07-05T22:22:18Z`
-- [x] Ejecutar el quality gate completo tras la corrección; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo tras la corrección
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-10T10:22:14Z`
 
 ## Log

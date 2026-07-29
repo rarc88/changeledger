@@ -104,11 +104,17 @@ apagarse en entornos que exigen hermeticidad.
 
 ## Plan
 
-- [x] Hacer perezosa la resolución en `status()` de `src/commands/agent.mjs`: `ownerHandle` se invoca solo cuando el documento no tiene `owner`, dentro de la ventana que ya lee el frontmatter; verify: `node --test test/agent.test.mjs` con el test rojo-verde de CR1 (CR1, CR2)
+- [x] Hacer perezosa la resolución en `status()` de `src/commands/agent.mjs`: `ownerHandle` se invoca solo cuando el documento no tiene `owner`, dentro de la ventana que ya lee el frontmatter
+  - **Verify:** `node --test test/agent.test.mjs` con el test rojo-verde de CR1
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-29T15:11:39Z`
-- [x] Añadir el kill-switch en `defaultGhRun` de `src/git.mjs` (retorno `''` inmediato bajo `CHANGELEDGER_NO_GH`), exportarlo, y fijar la variable en los scripts `test` y `verify` de `package.json`; verify: `node --test test/git.test.mjs` (CR3, CR4, CR5)
+- [x] Añadir el kill-switch en `defaultGhRun` de `src/git.mjs` (retorno `''` inmediato bajo `CHANGELEDGER_NO_GH`), exportarlo, y fijar la variable en los scripts `test` y `verify` de `package.json`
+  - **Verify:** `node --test test/git.test.mjs`
+  - **Criteria:** CR3, CR4, CR5
   - **Resolved:** `2026-07-29T15:11:39Z`
-- [x] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Correr el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T15:11:39Z`
 
 ## Log

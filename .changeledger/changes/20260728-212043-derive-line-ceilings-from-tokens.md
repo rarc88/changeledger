@@ -277,19 +277,33 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Fijar los techos de `tokens` decididos en `templates/contract/budgets.yml` (core 4000, contextos 2500, resto 1250) y marcar `base.spec` como andamio temporal con su condición de salida; verify: `node --test test/context.test.mjs` (CR7)
+- [x] Fijar los techos de `tokens` decididos en `templates/contract/budgets.yml` (core 4000, contextos 2500, resto 1250) y marcar `base.spec` como andamio temporal con su condición de salida
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-29T00:38:29Z`
-- [x] Derivar los once techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
+- [x] Derivar los once techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-07-29T00:38:29Z`
-- [x] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test; verify: `node --test test/agent-context.test.mjs` (CR6)
+- [x] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test
+  - **Verify:** `node --test test/agent-context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-29T00:38:29Z`
-- [x] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`; verify: `node --test test/contract.test.mjs` (CR2)
+- [x] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-29T00:38:29Z`
-- [x] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda; verify: `node --test test/contract.test.mjs` (CR3)
+- [x] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-29T00:38:30Z`
-- [x] Afirmar en `test/context.test.mjs` que la densidad observada del `core` supera 10 tokens por línea, con `templates/contract/budgets.yml` como sujeto del techo; verify: `node --test test/context.test.mjs` (CR5)
+- [x] Afirmar en `test/context.test.mjs` que la densidad observada del `core` supera 10 tokens por línea, con `templates/contract/budgets.yml` como sujeto del techo
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-29T00:38:30Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-29T00:38:30Z`
 
 ## Log

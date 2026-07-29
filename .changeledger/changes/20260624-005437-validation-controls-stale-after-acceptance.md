@@ -66,13 +66,17 @@ formulario anterior.
 
 ## Plan
 
-- [x] Reproducir el bloqueo y localizar la transición de estado responsable en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; documentar la causa y verificar con `node --test` (support)
+- [x] Reproducir el bloqueo y localizar la transición de estado responsable en `src/viewer/public/app-state.js`, `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; documentar la causa y verificar con `node --test`
+  - **Support:**
   - **Resolved:** `2026-06-24T01:00:27Z`
-- [x] Añadir una regresión de dos validaciones consecutivas para `src/viewer/public/**` en `test/app-state.test.mjs` o `test/viewer-metadata.test.mjs`; verificar que falle antes de la corrección con `node --test` (CR1, CR2, CR3)
+- [x] Añadir una regresión de dos validaciones consecutivas para `src/viewer/public/**` en `test/app-state.test.mjs` o `test/viewer-metadata.test.mjs`; verificar que falle antes de la corrección con `node --test`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-24T01:00:27Z`
-- [x] Aislar y limpiar el estado de validación en `src/viewer/public/**` al completar, fallar o cambiar de change; comprobar la regresión con `node --test` (CR1, CR2, CR3)
+- [x] Aislar y limpiar el estado de validación en `src/viewer/public/**` al completar, fallar o cambiar de change; comprobar la regresión con `node --test`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-24T01:00:27Z`
-- [x] Ejecutar `pnpm verify` y validar manualmente dos changes consecutivos en `sl view` sin refrescar (support)
+- [x] Ejecutar `pnpm verify` y validar manualmente dos changes consecutivos en `sl view` sin refrescar
+  - **Support:**
   - **Resolved:** `2026-06-24T01:02:30Z`
 
 ## Log

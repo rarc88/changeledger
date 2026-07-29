@@ -56,15 +56,20 @@ sin esos efectos.
 
 ## Plan
 
-- [x] `setArchived(text, bool)` en writer.mjs (CR1)
+- [x] `setArchived(text, bool)` en writer.mjs
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T11:48:06Z`
-- [x] `archive(id, on)` en agent.mjs + comandos `sl archive`/`sl unarchive` (CR1)
+- [x] `archive(id, on)` en agent.mjs + comandos `sl archive`/`sl unarchive`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T11:48:07Z`
-- [x] `serialize()` expone `archived`; app.js: toggle + ocultar/atenuar (CR2)
+- [x] `serialize()` expone `archived`; app.js: toggle + ocultar/atenuar
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-14T11:48:07Z`
-- [x] `check.mjs`: `archived` debe ser booleano (CR3)
+- [x] `check.mjs`: `archived` debe ser booleano
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-14T11:48:07Z`
-- [x] Tests: setArchived, archive/unarchive, check del flag (CR1, CR3)
+- [x] Tests: setArchived, archive/unarchive, check del flag
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-14T11:48:07Z`
 
 ## Log

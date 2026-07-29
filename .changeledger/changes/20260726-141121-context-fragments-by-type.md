@@ -116,15 +116,25 @@ composición de `changeledger context`. No se duplica su alcance.
 
 ## Plan
 
-- [x] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`; verify: `node --test test/context.test.mjs` (CR2)
+- [x] Añadir en `test/context.test.mjs` los tests (fallando) del CR2 contra la composición actual de `src/commands/context.mjs`: un `draft` de cada tipo `audit`, `chore` y `quick` compuesto vía `buildContext` no debe contener `# Definition of Ready`, debe seguir conteniendo `# Authoring a Change` y `# Economical Delegation`, y su línea `Active stages(<type>)=` no debe contener `specification`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-26T23:10:50Z`
-- [x] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando sin cambios la composición de todo tipo que sí la active; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] En `src/commands/context.mjs`, dentro de `composeInput`, excluir el fragmento `readiness` del conjunto compuesto cuando `config.types[type].stages` no incluya `'specification'`, dejando sin cambios la composición de todo tipo que sí la active
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-26T23:10:50Z`
-- [x] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature`, otro de tipo `bug` y otro de tipo `refactor` siguen componiendo los tres encabezados de fragmento sin cambios; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Añadir en `test/context.test.mjs` los tests de regresión sobre `src/commands/context.mjs` del CR3: un `draft` de tipo `feature`, otro de tipo `bug` y otro de tipo `refactor` siguen componiendo los tres encabezados de fragmento sin cambios
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-26T23:10:50Z`
-- [x] Añadir en `test/context.test.mjs` el test de regresión del CR4: la composición desnuda `changeledger context spec` (sin id de cambio) sigue dentro de los límites de `templates/contract/budgets.yml` `base.spec`; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Añadir en `test/context.test.mjs` el test de regresión del CR4: la composición desnuda `changeledger context spec` (sin id de cambio) sigue dentro de los límites de `templates/contract/budgets.yml` `base.spec`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-26T23:10:51Z`
-- [x] Ejecutar la suite completa y el gate de calidad; verify: `pnpm verify` (support)
+- [x] Ejecutar la suite completa y el gate de calidad
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-26T23:10:51Z`
 
 ## Log

@@ -296,15 +296,25 @@ retiro de versión (`BOOTSTRAP_VERSION` 3 → 4) sin registro de hash.
 
 ## Plan
 
-- [x] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; retargetear en `test/contract.test.mjs` todas las aserciones que aún exigen la prosa retirada — son 7 los tests que la llevan (`212659 CR1/CR2`, `212659 CR1`, `212659 CR7`, `212659 CR3`, `124113 CR5`, `150300 CR3/CR4`, `153633 CR4/CR5`), y 3 más quedan no-op al restaurarse la equivalencia (`150300 CR1`, `153633 CR1/CR3`, `153633 CR3`), 10 en total; cada regex retargeteada debe casar con el texto v4 y rechazar la prosa v3 literal, para que ninguna quede vacua; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Actualizar `REFERENCE` y subir `BOOTSTRAP_VERSION` de 3 a 4 en `src/contract.mjs` con el texto decidido; retargetear en `test/contract.test.mjs` todas las aserciones que aún exigen la prosa retirada — son 7 los tests que la llevan (`212659 CR1/CR2`, `212659 CR1`, `212659 CR7`, `212659 CR3`, `124113 CR5`, `150300 CR3/CR4`, `153633 CR4/CR5`), y 3 más quedan no-op al restaurarse la equivalencia (`150300 CR1`, `153633 CR1/CR3`, `153633 CR3`), 10 en total; cada regex retargeteada debe casar con el texto v4 y rechazar la prosa v3 literal, para que ninguna quede vacua
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-27T12:31:17Z`
-- [x] En `test/contract.test.mjs`, añadir una fixture con `bootstrapBlock(3)` literal y verificar que `checkContract` (`src/contract.mjs`) la marca obsoleta y que `changeledger register` la reemplaza por `bootstrapBlock(4)` sin tocar `LEGACY_CONTRACT_HASHES`; verify: `node --test test/contract.test.mjs` (CR5)
+- [x] En `test/contract.test.mjs`, añadir una fixture con `bootstrapBlock(3)` literal y verificar que `checkContract` (`src/contract.mjs`) la marca obsoleta y que `changeledger register` la reemplaza por `bootstrapBlock(4)` sin tocar `LEGACY_CONTRACT_HASHES`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-27T12:31:17Z`
-- [x] En `src/contract.mjs`, modelar el token de lista en la proyección de equivalencia: añadir `list` y `list_item` a `REFERENCE_TOKEN_TYPES` y hacer que `projectToken` recurse en `token.items`, para que un bloque con bullets pueda compararse como equivalente sin volver invisible el contenido de la lista; verify: `node --test test/contract.test.mjs` (CR7, CR8)
+- [x] En `src/contract.mjs`, modelar el token de lista en la proyección de equivalencia: añadir `list` y `list_item` a `REFERENCE_TOKEN_TYPES` y hacer que `projectToken` recurse en `token.items`, para que un bloque con bullets pueda compararse como equivalente sin volver invisible el contenido de la lista
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR7, CR8
   - **Resolved:** `2026-07-27T12:31:17Z`
-- [x] Ejecutar `changeledger register` (`bin/changeledger.mjs`) sobre este propio repo para regenerar `AGENTS.md` con el bloque v4; verify: `node bin/changeledger.mjs check` (CR6)
+- [x] Ejecutar `changeledger register` (`bin/changeledger.mjs`) sobre este propio repo para regenerar `AGENTS.md` con el bloque v4
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-27T12:31:17Z`
-- [x] Ejecutar la suite completa tras la implementación; verify: `pnpm verify` (support)
+- [x] Ejecutar la suite completa tras la implementación
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-27T12:31:17Z`
 
 ## Log

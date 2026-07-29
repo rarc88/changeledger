@@ -142,13 +142,17 @@ agentes, porque depende del harness y del coste disponible en cada entorno.
 
 ## Plan
 
-- [x] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038` (CR1, CR2, CR3)
+- [x] Actualizar `templates/AGENTS.md` §6.11 con heurísticas de cuándo delegar, cuándo no, y cómo agrupar tareas; verificar con `node bin/sl.mjs check 20260626-160038`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-26T17:23:07Z`
-- [x] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038` (CR4)
+- [x] Documentar en `templates/AGENTS.md` §6.11 la selección de modelo por dificultad/coste sin fijar proveedores concretos; verificar con `node bin/sl.mjs check 20260626-160038`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-26T17:23:12Z`
-- [x] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038` (CR5)
+- [x] Añadir en `templates/AGENTS.md` §6.11 requisitos mínimos para prompts de subagentes: ownership, razón, salida esperada y criterio de integración; verificar con `node bin/sl.mjs check 20260626-160038`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-26T17:23:17Z`
-- [x] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos (support)
+- [x] Ejecutar `pnpm verify` para confirmar que la política contractual y el ledger siguen válidos
+  - **Support:**
   - **Resolved:** `2026-06-26T17:23:35Z`
 
 ## Log

@@ -51,9 +51,13 @@ no ofrece hoy la convención estándar `--version`/`-V`; responde `unknown optio
 
 ## Plan
 
-- [x] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Escribir casos fallidos en `test/cli-bin.test.mjs` e implementar lectura de versión + Commander en `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-28T11:47:56Z`
-- [x] Empaquetar e invocar `--version` desde una instalación aislada; verify: `pnpm test` pasa y el resultado coincide con el `package.json` del tarball (support)
+- [x] Empaquetar e invocar `--version` desde una instalación aislada
+  - **Verify:** `pnpm test` pasa y el resultado coincide con el `package.json` del tarball
+  - **Support:**
   - **Resolved:** `2026-06-28T11:47:57Z`
 
 ## Log

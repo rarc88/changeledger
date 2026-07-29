@@ -86,11 +86,17 @@ sustantivo, pero agrupa todo el estado pendiente en uno solo.
 
 ## Plan
 
-- [x] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Define evidence-based commit boundaries in `templates/contract/implement.md`, `templates/contract/review.md`, `templates/contract/validation.md` and `templates/contract/close.md`, including reviewed assertions in `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-03T15:24:18Z`
-- [x] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-150230` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Record durable Git boundary policy in `.changeledger/specs/lifecycle.md`
+  - **Verify:** `node bin/changeledger.mjs check 20260703-150230`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-03T15:24:18Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T16:48:24Z`
 
 ## Log

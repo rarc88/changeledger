@@ -75,15 +75,25 @@ relacionados no deben convertirse accidentalmente en gates.
 
 ## Plan
 
-- [x] Promote unfinished tasks in `done` to an error and expose reusable selected-change validation in `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR1, CR6)
+- [x] Promote unfinished tasks in `done` to an error and expose reusable selected-change validation in `src/check.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1, CR6
   - **Resolved:** `2026-07-03T17:07:56Z`
-- [x] Guard human acceptance in `src/commands/agent.mjs` and `src/viewer/domain.mjs`; verify: `node --test test/agent.test.mjs test/view.test.mjs` (CR2, CR3, CR6)
+- [x] Guard human acceptance in `src/commands/agent.mjs` and `src/viewer/domain.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/view.test.mjs`
+  - **Criteria:** CR2, CR3, CR6
   - **Resolved:** `2026-07-03T17:07:56Z`
-- [x] Add no-write preflight to all paths in `src/commands/graduate.mjs`; verify: `node --test test/graduate.test.mjs` (CR4, CR5, CR6)
+- [x] Add no-write preflight to all paths in `src/commands/graduate.mjs`
+  - **Verify:** `node --test test/graduate.test.mjs`
+  - **Criteria:** CR4, CR5, CR6
   - **Resolved:** `2026-07-03T17:07:57Z`
-- [x] Record closure integrity in `.changeledger/specs/lifecycle.md` and `.changeledger/specs/validation.md`; verify: `node bin/changeledger.mjs check 20260703-150231` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Record closure integrity in `.changeledger/specs/lifecycle.md` and `.changeledger/specs/validation.md`
+  - **Verify:** `node bin/changeledger.mjs check 20260703-150231`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-03T17:07:57Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T17:08:28Z`
 
 ## Log

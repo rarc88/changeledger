@@ -113,11 +113,17 @@ prohibiéndola en tipos sin review. La salida sigue abierta.
 
 ## Plan
 
-- [x] Reordenar el gate normativo en `templates/contract/implement.md` y alinear `templates/contract/review.md`, nombrando la vía sin veredicto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR4, CR5)
+- [x] Reordenar el gate normativo en `templates/contract/implement.md` y alinear `templates/contract/review.md`, nombrando la vía sin veredicto
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR4, CR5
   - **Resolved:** `2026-07-28T14:09:06Z`
-- [x] Validar readiness del candidato en la transición a `in-review` en `src/commands/agent.mjs`; verify: `node --test test/lifecycle.test.mjs test/cli.test.mjs` (CR3)
+- [x] Validar readiness del candidato en la transición a `in-review` en `src/commands/agent.mjs`
+  - **Verify:** `node --test test/lifecycle.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-28T14:17:58Z`
-- [x] Ejecutar el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-28T14:18:24Z`
 
 ## Log

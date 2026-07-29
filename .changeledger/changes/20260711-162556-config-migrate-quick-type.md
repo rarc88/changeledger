@@ -62,13 +62,20 @@ nueva solo la reciben los repos creados con `init`. Reportado por el humano el
 
 ## Plan
 
-- [x] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`; verify: `node --test test/config-migration.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir en `test/config-migration.test.mjs` los casos 1 → 2: adición de quick, preservación, idempotencia y schema futuro para `src/config-migration.mjs`
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-11T21:25:29Z`
-- [x] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`; verify: `node --test test/config-migration.test.mjs` (CR1, CR3)
+- [x] Implementar la migración 1 → 2 y subir `SUPPORTED_SCHEMA_VERSION` en `src/config-migration.mjs` y `templates/config.yml`
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-07-11T21:25:29Z`
-- [x] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR4)
+- [x] Cubrir la detección/preview compartida CLI+viewer en `src/viewer/domain.mjs` con test en `test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T21:25:29Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T21:25:29Z`
 
 ## Log
