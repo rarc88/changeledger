@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-29T11:13:49Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260728-164620"]
 owner: raruiz-hiberuscom
@@ -273,3 +274,4 @@ este repo ya se fugó cinco veces.
 - **2026-07-29T13:24:31Z** `[note]` Tres residuos no bloqueantes que el revisor de confirmacion dejo por escrito y que NO toco: post-PASS editar el entregable es el patron que costo dos de los cuatro retry de la fase A, asi que van a follow-up y no a esta pasada. (1) context.test.mjs:1852-1853 describe el paso 5 como 'the single implementation commit', descriptor rancio aunque su verbo es pasado y su conclusion sigue cierta. (2) cli.test.mjs:318 'the new unit' es la misma forma de deixis que corregi en :3013, superada en el sitio por la frase siguiente. (3) cli.test.mjs:337 dice 'travels' donde :3650 dice 'travelled'; atribuido y retirado en ambos casos. Candidatos al barrido de aserciones de CH-9.
 - **2026-07-29T13:34:38Z** `[validation]` in-validation → done (human accepted)
 - **2026-07-29T13:36:24Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-29T13:39:38Z** `[archive]` archived
