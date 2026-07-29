@@ -818,10 +818,14 @@ const covResult = (text, cfg = tddConfig) => {
   });
 };
 
+// These two pin the diagnostic, not its severity: since 20260729-185200 CR3/CR4
+// the coverage gaps are warnings only while the change is a draft, so the fixture
+// says `draft` explicitly instead of inheriting `cov()`'s `approved`.
 test('CR2: a criterion with no covering task warns', () => {
   const w = covWarn({
     criteria: ['CR1', 'CR2'],
     tasks: [{ state: 'todo', text: 'do', criteria: ['CR1'] }],
+    frontmatter: { status: 'draft' },
   });
   assert.ok(w.some((m) => /CR2 is not covered by any Plan task/.test(m)));
 });
@@ -833,32 +837,127 @@ test('CR3: a task with no criterion warns', () => {
       { state: 'todo', text: 'orphan support task', criteria: [] },
       { state: 'todo', text: 'real', criteria: ['CR1'] },
     ],
+    frontmatter: { status: 'draft' },
   });
   assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
 });
 
-test('195016 CR1: task with (support) does not warn about missing criterion', () => {
-  const w = covWarn({
+// 20260729-185200 CR3/CR4 — the two coverage diagnostics stop being warn-always:
+// they are warnings while the draft is still being written and errors from
+// `approved` onward, so the criterion → task → verification net is a condition of
+// approval and not advice.
+const READY_TASK = 'Update `src/x.mjs`; verify: `node --test test/x.test.mjs` (CR1)';
+const coverageMessages = (status, over) => {
+  const { errors, warnings } = checkRepo({
+    config: tddConfig,
+    changes: [cov({ ...over, frontmatter: { status } })],
+  });
+  return { errors: msgs(errors), warnings: msgs(warnings) };
+};
+
+test('185200 support: a severity projection without a subject is a caller error', () => {
+  assert.throws(
+    () => checkRepo({ config: tddConfig, changes: [cov({})] }, { asStatus: 'approved' }),
+    /asStatus projects onto one subject and requires an id/,
+  );
+});
+
+test('185200 CR3: an uncovered criterion warns in draft and errors from approved', () => {
+  const gap = {
+    criteria: ['CR1', 'CR2'],
+    tasks: [{ state: 'todo', text: READY_TASK, criteria: ['CR1'] }],
+  };
+  const uncovered = /CR2 is not covered by any Plan task/;
+
+  const draft = coverageMessages('draft', gap);
+  assert.ok(
+    draft.warnings.some((m) => uncovered.test(m)),
+    'draft must still warn',
+  );
+  assert.deepEqual(
+    draft.errors.filter((m) => uncovered.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => uncovered.test(m)),
+      `an uncovered criterion must be an error in ${status}`,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => uncovered.test(m)),
+      [],
+    );
+  }
+});
+
+test('185200 CR4: a non-support task with no criterion warns in draft and errors from approved', () => {
+  const gap = {
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: READY_TASK, criteria: ['CR1'] },
+      { state: 'todo', text: 'plain implementation work', criteria: [] },
+    ],
+  };
+  const orphan = /Plan task "plain implementation work" references no criterion/;
+
+  const draft = coverageMessages('draft', gap);
+  assert.ok(
+    draft.warnings.some((m) => orphan.test(m)),
+    'draft must still warn',
+  );
+  assert.deepEqual(
+    draft.errors.filter((m) => orphan.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => orphan.test(m)),
+      `a non-support task without a criterion must be an error in ${status}`,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => orphan.test(m)),
+      [],
+    );
+  }
+});
+
+// Both channels, not just warnings: since 20260729-185200 CR4 the severity of
+// this diagnostic depends on status, so asserting one channel would let the
+// `(support)` exemption break silently in the other.
+test('195016 CR1: task with (support) is reported in neither channel', () => {
+  const { errors, warnings } = coverageMessages('approved', {
     criteria: ['CR1'],
     tasks: [
       { state: 'todo', text: 'run pnpm test (support)', criteria: [] },
-      { state: 'todo', text: 'real impl (CR1)', criteria: ['CR1'] },
+      {
+        state: 'todo',
+        text: 'Update `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        criteria: ['CR1'],
+      },
     ],
   });
-  assert.ok(!w.some((m) => /pnpm test/.test(m)), '(support) task must not warn');
+  assert.ok(![...errors, ...warnings].some((m) => /pnpm test/.test(m)), '(support) is exempt');
 });
 
-test('195016 CR2: task without (support) still warns when no criterion', () => {
-  const w = covWarn({
+test('195016 CR2: task without (support) is still reported when no criterion', () => {
+  const { errors } = coverageMessages('approved', {
     criteria: ['CR1'],
     tasks: [
       { state: 'todo', text: 'plain task with no cr', criteria: [] },
-      { state: 'todo', text: 'real (CR1)', criteria: ['CR1'] },
+      {
+        state: 'todo',
+        text: 'Update `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        criteria: ['CR1'],
+      },
     ],
   });
   assert.ok(
-    w.some((m) => /plain task with no cr/.test(m)),
-    'non-support task must warn',
+    errors.some((m) => /plain task with no cr/.test(m)),
+    'non-support task must be reported',
   );
 });
 
@@ -908,7 +1007,13 @@ X
 ## Log
 `);
   assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR999"/.test(m)));
-  assert.ok(msgs(warnings).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+  // The consequence of the unknown reference: CR1 is left uncovered, an error too
+  // from `approved` since 20260729-185200 CR3.
+  assert.ok(msgs(errors).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+  assert.deepEqual(
+    msgs(warnings).filter((m) => /covered by any Plan task/.test(m)),
+    [],
+  );
 });
 
 test('162014 CR2: a task referencing a declared criterion is valid', () => {
@@ -1490,19 +1595,32 @@ test('CR5: a type without specification is not coverage-checked', () => {
   );
 });
 
-test('coverage warns in draft and applies to approved/in-progress; done is skipped', () => {
+test('coverage warns in draft and errors in approved/in-progress; done is skipped', () => {
   const gap = { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] };
-  const draft = covWarn({ ...gap, frontmatter: { status: 'draft' } });
-  assert.ok(draft.some((m) => /covered|criterion/.test(m)));
-
-  const done = covWarn({ ...gap, frontmatter: { status: 'done' } });
+  const draft = coverageMessages('draft', gap);
+  assert.ok(draft.warnings.some((m) => /covered|criterion/.test(m)));
   assert.deepEqual(
-    done.filter((m) => /covered|criterion/.test(m)),
+    draft.errors.filter((m) => /covered|criterion/.test(m)),
     [],
   );
 
-  const w = covWarn({ ...gap, frontmatter: { status: 'in-progress' } });
-  assert.ok(w.some((m) => /covered|criterion/.test(m)));
+  const done = coverageMessages('done', gap);
+  assert.deepEqual(
+    [...done.warnings, ...done.errors].filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => /covered|criterion/.test(m)),
+      status,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => /covered|criterion/.test(m)),
+      [],
+    );
+  }
 });
 
 test('CR2: a Log section is allowed on a type that does not scaffold it (chore)', () => {
@@ -1617,10 +1735,13 @@ r
   assert.ok(e.some((m) => /CR2 is not test-grade: missing Given\/When\/Then/.test(m)));
   assert.ok(e.some((m) => /references unknown criterion "CR404"/.test(m)));
   assert.ok(e.some((m) => /Plan task for CR2 must name target and verification/.test(m)));
-  assert.ok(w.some((m) => /CR3 is not covered by any Plan task/.test(m)));
-  assert.ok(w.some((m) => /references no criterion/.test(m)));
+  // 20260729-185200 CR3/CR4 superseded the warn half of the original split: from
+  // `approved` the two coverage gaps are errors as well. What this criterion still
+  // owns is that every diagnostic class reaches the report, none silently dropped.
+  assert.ok(e.some((m) => /CR3 is not covered by any Plan task/.test(m)));
+  assert.ok(e.some((m) => /references no criterion/.test(m)));
   assert.deepEqual(
-    e.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
+    w.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
     [],
   );
 });

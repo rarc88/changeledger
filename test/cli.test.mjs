@@ -994,15 +994,20 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
     root,
     { ownerHandle: () => 'nobody' },
   );
+  // Ready while it walks to in-progress: since 20260729-185200 `approve` refuses a
+  // defective candidate, and what this criterion observes is the in-review refusal.
   fs.writeFileSync(
     file,
     fs
       .readFileSync(file, 'utf8')
       .replace(
         '## Specification\n',
-        '## Specification\n\n### CR1 — Something\n- **Given** a thing\n',
+        '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
       )
-      .replace('## Plan\n', '## Plan\n\n- [ ] do the thing (CR1)\n'),
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)\n',
+      ),
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   const bin = path.resolve('bin/changeledger.mjs');
@@ -1014,6 +1019,20 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
 
   assert.equal((await run('approve', id)).code, 0);
   assert.equal((await run('status', id, 'in-progress')).code, 0);
+  // Now introduce the two readiness defects the in-review gate must name.
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+        '### CR1 — Something\n- **Given** a thing\n',
+      )
+      .replace(
+        '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        '- [ ] do the thing (CR1)',
+      ),
+  );
   const before = fs.readFileSync(file, 'utf8');
 
   const failure = await run('status', id, 'in-review');

@@ -59,6 +59,15 @@ export function status(
     // defects are errors only while the change is pre-review, so checking the
     // post-flip text would silently exempt the very candidate under judgment.
     if (newStatus === 'in-review') assertChangeTextValid(config, path.basename(file), text);
+    // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
+    // shape as the in-review gate — validate the pre-flip text — but the severity
+    // has to be projected: a draft's readiness and coverage diagnostics are
+    // warnings precisely because it is a draft, so judging the text as it stands
+    // would exempt every defect the approval is supposed to catch. `approved` is
+    // reachable only from `draft`, so this is the single seat for the gate.
+    if (newStatus === 'approved') {
+      assertChangeTextValid(config, path.basename(file), text, { asStatus: 'approved' });
+    }
     text = setStatus(text, newStatus);
     const detail =
       actor === 'human' &&

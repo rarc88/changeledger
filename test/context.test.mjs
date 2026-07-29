@@ -1653,6 +1653,59 @@ test('143656 CR2: core keeps the commit-unit and handoff obligations', () => {
   assert.match(core, /\*\*Handoff\*\*: mandatory whenever work stops/);
 });
 
+// 20260729-185200 CR5 — the six drafting obligations, one guard per obligation and
+// never per criterion. Each is grepped as the obligation itself, in the fragment
+// that owns it and in the composed `spec` capture that carries it, so removing one
+// sentence kills exactly one guard. Whitespace is flattened first: the obligations
+// are wrapped prose, and a guard must survive rewrapping while still requiring the
+// whole sentence.
+const flattened = (text) => text.replace(/\s+/g, ' ');
+
+const DRAFTING_OBLIGATIONS = [
+  [
+    'a Then states a measured fact, not an assumption',
+    'spec.md',
+    /Every `Then` states a fact measured at writing time, never a plausible assumption: verify before you write it\./,
+  ],
+  [
+    'a universally quantified criterion covers its domain or narrows',
+    'spec.md',
+    /A criterion that quantifies universally \(`every`, `all`, `no`\) either covers its whole domain or narrows to what it verifies\./,
+  ],
+  [
+    'sets come from the config, never a hand-written list',
+    'spec.md',
+    /Derive sets from `config\.yml` instead of enumerating members by hand/,
+  ],
+  [
+    'edited code is cited by symbol and test name, never by line number',
+    'spec.md',
+    /cite symbols, paths and test names, never line numbers/,
+  ],
+  [
+    'each external interface declares whether its output is stable',
+    'readiness.md',
+    /state whether its output is stable for automated consumption/,
+  ],
+  [
+    'every ask in the Request maps to a criterion or is named as excluded',
+    'readiness.md',
+    /Every ask in `## Request` maps to at least one criterion or is explicitly named as excluded\./,
+  ],
+];
+
+for (const [label, owner, obligation] of DRAFTING_OBLIGATIONS) {
+  test(`185200 CR5: the spec pack obliges that ${label}`, () => {
+    const fragment = fs.readFileSync(new URL(owner, contractFragments), 'utf8');
+    assert.match(flattened(fragment), obligation, `${owner} no longer states the obligation`);
+    assert.match(
+      flattened(buildContext('spec', repo())),
+      obligation,
+      'the composed spec capture no longer carries the obligation',
+    );
+  });
+}
+
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
 function budgetEntries() {

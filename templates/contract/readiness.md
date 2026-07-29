@@ -21,6 +21,12 @@ With `tdd: true`, a change is ready only when:
 3. **TDD is explicit.** Write the failing test from the criterion, make it pass,
    then refactor. The implementer chooses how to test, not what behavior to
    prove.
+4. **External interfaces are declared.** For every external interface the change
+   depends on, state whether its output is stable for automated consumption; a
+   criterion may not assume stability nobody established.
+5. **The Request is fully mapped.** Every ask in `## Request` maps to at least
+   one criterion or is explicitly named as excluded. No check judges semantic
+   coverage; review scrutinises it.
 
 Verification may be a colocated test, conventional test directory, concrete
 command or manual `verify:` clause. Examples:
@@ -38,9 +44,7 @@ task instead of listing every possible manual phrase in config.
 
 `changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
 tasks without traceability and CR-bearing tasks without configured target and
-verification. Every diagnostic is a warning in `draft`. In `approved` or
-`in-progress`, readiness defects (missing Given/When/Then, unknown criterion
-references, CR-bearing tasks without target and verification) are errors, while
-coverage gaps (uncovered criteria, non-support tasks without a CR) stay
-warnings. Truly operational `(support)` tasks are exempt; observable
-implementation is not.
+verification. Every diagnostic is a warning in `draft` and an error from
+`approved` onward, and `changeledger approve` judges the draft at that stricter
+severity: an unready draft is refused, exit non-zero, document untouched. Truly
+operational `(support)` tasks are exempt; observable implementation is not.

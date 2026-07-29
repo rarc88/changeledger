@@ -939,7 +939,7 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   );
   fs.writeFileSync(
     file,
-    fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending\n'),
+    fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending (support)\n'),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);

@@ -126,6 +126,17 @@ Given/When/Then/And keywords stay English; scenario content follows the repo
 language. Localized headings, translated keywords, inline criteria and
 `#### CR1` are not machine-readable.
 
+A criterion is a falsifiable claim, so its wording is part of the contract:
+
+- Every `Then` states a fact measured at writing time, never a plausible
+  assumption: verify before you write it.
+- A criterion that quantifies universally (`every`, `all`, `no`) either covers
+  its whole domain or narrows to what it verifies.
+- Derive sets from `config.yml` instead of enumerating members by hand, so a new
+  member cannot leave the criterion silently partial.
+- For code the change will edit, cite symbols, paths and test names, never line
+  numbers: the change's own work invalidates them.
+
 ## Plan task grammar
 
 Markers encode state and the final parenthesized block encodes traceability:

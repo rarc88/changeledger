@@ -52,6 +52,15 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
     if (!scoped.length) err(null, `no change with id "${opts.id}"`);
   }
 
+  // Severity projection: the status the subject is judged AS, whatever its
+  // frontmatter still says. `approve` needs it to judge a draft at the severity
+  // of the status it is about to reach (20260729-185200 CR1). It only makes
+  // sense for one named subject — a repo-wide sweep judges every document by its
+  // own status — so an unscoped projection is a caller error, not a no-op.
+  if (opts.asStatus !== undefined && !opts.id) {
+    throw new Error('checkRepo: asStatus projects onto one subject and requires an id');
+  }
+
   // Subjects of the per-document loop. The data feed below stays `changes`.
   const targets = scoped.filter((c) => frozenReason(c) === null);
   const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
@@ -122,7 +131,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
       warn(c, 'status is "blocked" but no task is marked [!]');
     }
 
-    checkCoverage(c, fm, active, config, warn, err);
+    checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
@@ -245,7 +254,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
 // Reuses the scoped validator for a selected change, optionally replacing its
 // in-memory text with a candidate that has not been written yet. Callers gate
 // mutations on errors only; warnings remain informational by contract.
-export function checkSelectedChange(repo, id, candidateText) {
+export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) {
   let changes = repo.changes;
   if (candidateText !== undefined) {
     const index = changes.findIndex((c) => String(c.frontmatter?.id) === String(id));
@@ -255,11 +264,11 @@ export function checkSelectedChange(repo, id, candidateText) {
       changes = changes.with(index, candidate);
     }
   }
-  return checkRepo({ ...repo, changes }, { id });
+  return checkRepo({ ...repo, changes }, { id, asStatus });
 }
 
-export function assertSelectedChangeValid(repo, id, candidateText) {
-  const { errors } = checkSelectedChange(repo, id, candidateText);
+export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
+  const { errors } = checkSelectedChange(repo, id, candidateText, opts);
   if (!errors.length) return;
   throw new Error(
     `change ${id} failed scoped validation:\n${errors.map((error) => `- ${error.message}`).join('\n')}`,
@@ -268,12 +277,16 @@ export function assertSelectedChangeValid(repo, id, candidateText) {
 
 // Validates one already-resolved file without loading or parsing siblings. This
 // is the write-gate path for operations whose scope is exactly one change.
-export function assertChangeTextValid(config, name, text) {
+// `asStatus` judges the text at a projected status instead of its own, so a
+// transition can falsify its candidate before writing it (20260729-185200 CR1).
+export function assertChangeTextValid(config, name, text, opts = {}) {
   const parsed = parseChange(text);
   const id = parsed.frontmatter.id;
   assertSelectedChangeValid(
     { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
     id,
+    undefined,
+    opts,
   );
 }
 
@@ -526,16 +539,21 @@ function checkLifecycleSequence(c, fm, err) {
 
 // Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
 // activates `## Specification` is checked in draft, approved and in-progress.
-// Draft reports everything as warnings. In approved/in-progress, readiness
-// defects (criterion missing Given/When/Then, reference to an unknown
-// criterion, CR-bearing task without target+verification) are errors, while
-// coverage gaps (uncovered criterion, non-support task without a CR) stay
-// warnings. Only the Given/When/Then structure is machine-checkable; semantic
-// test-grade quality remains the documenting agent's judgment.
-function checkCoverage(c, fm, active, config, warn, err = () => {}) {
+// Draft reports everything as warnings, because a draft is still being written.
+// From `approved` onward every diagnostic here is an error — readiness defects
+// (criterion missing Given/When/Then, reference to an unknown criterion,
+// CR-bearing task without target+verification) and coverage gaps (uncovered
+// criterion, non-support task without a CR) alike: the criterion → task →
+// verification net is what approval commits to, so a hole in it cannot be advice
+// (20260729-185200 CR3/CR4). `asStatus` judges the subject at a status other
+// than the one in its frontmatter, which is how `approve` falsifies a draft
+// before flipping it. Only the Given/When/Then structure is machine-checkable;
+// semantic test-grade quality remains the documenting agent's judgment.
+function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
   if (config?.tdd === false) return;
-  if (!['draft', 'approved', 'in-progress'].includes(fm.status)) return;
-  const report = fm.status === 'draft' ? warn : err;
+  const judged = asStatus ?? fm.status;
+  if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
+  const report = judged === 'draft' ? warn : err;
 
   // A type that never activates `specification` can declare no `### CRn`
   // block, so `c.criteria` is always empty here — every Plan task reference is
@@ -584,12 +602,12 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   }
 
   for (const cr of declared)
-    if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
+    if (!referenced.has(cr)) report(c, `${cr} is not covered by any Plan task`);
 
   for (const t of tasks)
     if (!t.criteria?.length && !isSupportTask(t.text)) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
-      warn(c, `Plan task "${label}" references no criterion`);
+      report(c, `Plan task "${label}" references no criterion`);
     }
 }
 

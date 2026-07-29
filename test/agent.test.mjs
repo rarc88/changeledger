@@ -45,8 +45,13 @@ function repoWithChange() {
     root,
     { ownerHandle: () => '' },
   );
-  // give it a task to operate on
-  const text = fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] do it\n');
+  // Give it a task to operate on. `(support)` because that is what this task
+  // honestly is — scaffolding for the lifecycle tests below, which declare no
+  // criteria — and since 20260729-185200 an unmarked task with no CR blocks
+  // approval, which these tests cross on their way to later statuses.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it (support)\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
@@ -75,6 +80,145 @@ test('125139 CR1/CR7: conversational approval is attributed without changing vie
   ).body;
   assert.match(viewerLog, /`\[status\]` draft → approved/);
   assert.doesNotMatch(viewerLog, /via conversation/);
+});
+
+// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the defective and
+// the ready candidate side by side: both are hand-written drafts, because the
+// scaffold `new` produces is empty and therefore already ready.
+function emptyRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  return root;
+}
+
+function writeDraft(root, id, body) {
+  const file = path.join(root, '.changeledger', 'changes', `${id}-gate.md`);
+  fs.writeFileSync(file, body);
+  return file;
+}
+
+// The readiness defect classes the Investigation reproduced: a criterion with no
+// Given/When/Then, a task citing a criterion that does not exist, and CR-bearing
+// tasks that name neither target nor verification.
+function defectiveDraft(id) {
+  return `---
+id: "${id}"
+title: Defective
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+### CR2 — Not test-grade
+- **Given** a
+
+## Plan
+
+- [ ] vague work (CR1)
+- [ ] more vague work (CR2)
+- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR99)
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+function readyDraft(id) {
+  return `---
+id: "${id}"
+title: Ready
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR1)
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+test('185200 CR1: approve rejects a draft whose defects would be errors once approved', () => {
+  const root = emptyRepo();
+  const id = '20260613-120000';
+  const file = writeDraft(root, id, defectiveDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => approve(id, root),
+    (error) => {
+      assert.match(error.message, /failed scoped validation/);
+      assert.match(error.message, /CR2 is not test-grade: missing Given\/When\/Then/);
+      assert.match(error.message, /Plan task references unknown criterion "CR99"/);
+      assert.match(error.message, /Plan task for CR1 must name target and verification/);
+      assert.match(error.message, /Plan task for CR2 must name target and verification/);
+      return true;
+    },
+  );
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+test('185200 CR2: a ready draft approves exactly as before', () => {
+  const root = emptyRepo();
+  const id = '20260613-120001';
+  const file = writeDraft(root, id, readyDraft(id));
+
+  approve(id, root);
+
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'approved');
+  assert.match(
+    after.stages.find((stage) => stage.key === 'log').body,
+    /`\[status\]` draft → approved \(human via conversation\)/,
+  );
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -516,16 +660,39 @@ function repoWithUnreadyChange() {
     root,
     { ownerHandle: () => '' },
   );
-  // Two readiness defects at once: CR1 has no When/Then, and the Plan task that
-  // claims it names neither a target (`src/**`) nor a verification (`test/**`).
-  const text = fs
+  // Walk to in-progress while the document is still ready: since 20260729-185200
+  // the draft → approved gate refuses a defective candidate, and the subject here
+  // is the in-review gate, not approval.
+  const ready = fs
     .readFileSync(file, 'utf8')
-    .replace('## Specification\n', '## Specification\n\n### CR1 — Something\n- **Given** a thing\n')
-    .replace('## Plan\n', '## Plan\n\n- [ ] do the thing (CR1)\n');
-  fs.writeFileSync(file, text);
-  const id = parseChange(text).frontmatter.id;
+    .replace(
+      '## Specification\n',
+      '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)\n',
+    );
+  fs.writeFileSync(file, ready);
+  const id = parseChange(ready).frontmatter.id;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
+  // Two readiness defects at once, introduced where this fixture needs them: CR1
+  // has no When/Then, and the Plan task that claims it names neither a target
+  // (`src/**`) nor a verification (`test/**`).
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+        '### CR1 — Something\n- **Given** a thing\n',
+      )
+      .replace(
+        '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        '- [ ] do the thing (CR1)',
+      ),
+  );
   return { root, file, id };
 }
 
@@ -963,9 +1130,13 @@ test('175734 CR3: a filename whose frontmatter id differs is not an exact match'
   );
   // The filename still begins with idA, but no change has that exact frontmatter id.
   assert.throws(() => status(idA, 'approved', root), new RegExp(`No change with id "${idA}"`));
-  // The real (corrupted) id resolves regardless of the filename.
-  status('20260613-999999', 'approved', root);
-  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.status, 'approved');
+  // The real (corrupted) id resolves regardless of the filename. The witness is
+  // `owner`, not `approve`: the corruption this fixture needs is itself a check
+  // error ("filename does not match id"), and since 20260729-185200 the
+  // draft → approved gate refuses any document with errors. Resolution, not
+  // readiness, is what this criterion owns.
+  owner('20260613-999999', 'ana', root);
+  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.owner, 'ana');
 });
 
 // 20260615-210508 — discard requires a reason and writes a terminal status.
