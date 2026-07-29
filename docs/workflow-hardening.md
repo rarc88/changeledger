@@ -826,9 +826,8 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 
 ## 7. Orden propuesto
 
-Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**. Orden restante:
-
-Hechos y archivados también: **CH-18**, **CH-17**, **CH-15**. Descartado: **CH-20**.
+Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**, **CH-17**, **CH-15**.
+Descartado: **CH-20**. Orden restante:
 
 ```
 CH-2 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
@@ -912,10 +911,10 @@ primera pasada de esta criba y solo apareció al revisar el mapa.
 Los 18 de la fase A **archivados** el 2026-07-28 (`chore(ledger): archive the
 graduated initiative`, con los 18 marcadores en el body). Luego el trío cerrado
 —CH-4, CH-14, CH-0— también archivado (`98db5f79 chore(ledger): archive the closed
-trio`). Estado leído por CLI el 2026-07-28: `--status draft` da los **tres** drafts
-de la tabla y nada más; `check` da `0 error(s), 4 warning(s) — 3 change(s), 224 not
-validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
-`change/workflow-core-drafts`.
+trio`). Estado leído por CLI el **2026-07-29**: `list` da **dos** changes abiertos,
+los drafts CH-3 (`20260722-124655`) y CH-19 (`20260728-194157`); `check` da
+`0 error(s), 4 warning(s) — 2 change(s), 230 not validated`, y los 4 warnings son
+todos de CH-19 (el hallazgo 41). Rama única `change/workflow-core-drafts`.
 
 | change | id | estado | nota |
 |---|---|---|---|
@@ -927,7 +926,10 @@ validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 | CH-17 | `20260728-212043` | **archivado** (2026-07-29) | **priorizado por Roberto** para desbloquear el presupuesto; graduado a `contract-discovery`. Las 11 entradas derivadas, `base.core` 195 → **400**, `head` a 400 por igualdad, `agent` 350 → **1250** aplicado también a `agent-prompt`, `base.spec` marcado andamio. 7 CR, review PASS sin retry. **Resultado: margen real de prosa del core de 2 líneas a ~106** |
 | CH-20 | `20260729-001217` | **`discarded`** (2026-07-29) | relajar un change a la vez; descartado el mismo día por decisión de Roberto en favor de un change por worktree, que la regla actual ya permite sin tocar contrato |
 | CH-18 | `20260728-195445` | **archivado** (2026-07-28) | tipo `bug`; 4 CR, 3 tareas, review **PASS** con mandato acotado, **cero rondas de retry**. 6 commits: baseline, 2 de tarea, handoff, veredicto, cierre. Graduado a `contract-discovery`. `pnpm verify` EXIT=0, 923/923 |
+| CH-21 | `20260729-111349` | **`done`, graduado** (2026-07-29) | la unidad de commit es la **selección resuelta**; corrige lo que CH-15 shipeó deformado. Tipo `bug`, 7 CR (CR7 añadido en vuelo con autorización), 6 tareas. Graduado a `git-traceability`. **Los 7 CR pasaron en la primera review; 3 rondas de `fail --retry`, las tres por mi prosa y mi Log, ninguna por el entregable.** Coste **~794k**, el mayor de la iniciativa — ver §12 |
 | CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
+| CH-3 | `20260722-124655` | `draft` | **no aprobar**: su contador contradice la clasificación por clase de defecto, y excede el techo de complejidad. Reescribir y partir |
+| resto | — | sin documentar | siguen el orden de §7 |
 
 ### CH-19 — Las guardas del contrato barren todo subfragmento
 
@@ -1103,6 +1105,81 @@ paga 316k más tarde.
    pin que documentaba la corrección de H1 decía *"the change document **alone** stays
    modified"* — el mismo enunciado falso que estaba arreglando.
 
+### CH-15 shipeó más estrecho que la decisión — corrección de Roberto (2026-07-29)
+
+El core vigente dice *"**Implementation**: exactly one, the change's complete work"* y
+*"never one per transition and **never one per Plan task**"*. Roberto corrigió el
+2026-07-29 que **eso no era la decisión**:
+
+> no es un commit unico por implementacion, hablamos de que no se debe delegar tarea por
+> tarea a un subagente, sino que se debe medir la completidad y si estan relacionadas o
+> no para delegarlas en grupo, todas o individuales, cuando se resuelve una seleccion se
+> hace commit de lo resuelto, no esperas a que todas esten resueltas.
+
+Los dos modelos difieren en el número de commits de implementación: el shipeado exige
+**uno**, la decisión da **uno por grupo de delegación resuelto**. Lo que se decidía era
+la **unidad de delegación** —medida por completitud y acoplamiento, que es exactamente
+lo que §CH-5b ya había concluido— y el commit **sigue** a esa unidad, no la sustituye.
+
+**No rompe lo que CH-15 protegía.** El revisor sigue recibiendo un `baseline..HEAD` fijo:
+el rango se cierra al commitear el último grupo, antes de delegar el review. El
+"exactly one" fue un apriete de redacción mío, no una consecuencia del argumento — el
+test de granularidad del propio core (*"whether the unit will be reverted, referenced or
+implemented independently"*) lo satisface un grupo de delegación resuelto igual que un
+change entero, y mejor: un grupo se revierte solo.
+
+Consecuencias:
+
+- **CH-15 está archivado**, así que esto es un **change nuevo**, no una reapertura.
+- Afecta `templates/contract/core.md` (bloque `## Commits`) y la spec
+  `.changeledger/specs/git-traceability.md`, donde la regla se graduó. Es la clase 19/48
+  otra vez: la misma verdad en dos sedes, las dos con el enunciado estrecho.
+- La prosa correcta no dice un número: dice que la unidad de commit **es la selección de
+  trabajo resuelta**, que se commitea al resolverse y no se acumula, y que el rango del
+  review se cierra antes de delegarlo.
+- Es el primer caso de la iniciativa en que **una decisión humana llegó al contrato
+  deformada por mi redacción y pasó review, graduación y aceptación** sin que nadie lo
+  cazara. Ninguna herramienta puede: el revisor verifica el documento contra el código,
+  no contra la intención.
+
+### Hallazgos recuperados de memoria (2026-07-29)
+
+Cinco cosas verdaderas que vivían sólo en mis notas de sesión y no en este acta.
+Recuperadas al barrer las 27 memorias contra el acta a pedido de Roberto.
+
+1. **Un commit multi-id u operativo no admite ninguna otra línea de body.**
+   `MULTI_BODY_RE` y `NONE_REASON_RE` (`src/git.mjs`) anclan `^…$` sobre el **body
+   entero trimeado**, así que cualquier línea extra cae en `malformed ChangeLedger body`.
+   Consecuencia: un commit que declara dos changes, o un commit operativo, **no puede
+   llevar párrafo de "por qué" ni trailer** (`Co-Authored-By`, `Signed-off-by`). Un
+   commit de un solo id sí, porque la rama del marcador en subject sale antes. Choca con
+   la convención de commits que pide body cuando el porqué no es obvio. Sede natural:
+   **CH-16**, que ya posee esa gramática.
+2. **`check --commits` valida la forma del marcador, no su correspondencia con el
+   contenido.** Caso registrado el 2026-07-26: un commit con marcador `[#131603]` acabó
+   conteniendo los documentos de **seis** changes y el lint lo dio por válido. El guard
+   de `141124` shipeó después y debería cazarlo. **No verificado.** Es una comprobación
+   de una tarde, no un change, y su resultado decide si CH-13 lo absorbe.
+3. **Trampas de worktree que este acta no recogía.** La sección de CH-20 registra tres
+   costes (`pnpm install`, `biome.json` anidado, `GIT_DIR` saneado en `src/git.mjs`).
+   Quedan fuera, todas observadas: los worktrees de agente nacen de `main`, no de la rama
+   del orquestador; un delegado puede correr git en el checkout principal; los helpers
+   `git()` de las suites heredan `GIT_INDEX_FILE`/`GIT_DIR` bajo el pre-commit, así que
+   una suite nueva **falla sólo bajo el hook** y sale verde en `pnpm verify` (patrón
+   canónico en `test/commit.test.mjs`); y un revisor de contexto limpio exige el change
+   en `in-review` **en el árbol que él ve**. Dejan de ser anécdota ahora que el
+   paralelismo *es* por worktree.
+4. **Cumplimiento del marcador en los repos consumidores.** Medido el 2026-07-11 sobre
+   tres repos: **80%** spec-ledger (169 changes), **~53%** backend-laravel (97), **~20%**
+   ionic-app (59), con tres convenciones compitiendo; y 59 retries de review sobre 32
+   changes en spec-ledger. Este acta mide sólo este repo. Es la evidencia externa más
+   fuerte que existe para las reglas de commit y para el coste del ciclo.
+5. **Un documento de change commiteado sólo en su rama rompe `check` en las hermanas.**
+   `check` valida que todo id referenciado exista en el working tree, así que un draft
+   untracked que lo cite en `depends_on` falla el pre-commit en otra rama. CH-12 arregla
+   el lado del change **cerrado**, no éste. Relevante justo ahora: varios worktrees son
+   varias ramas.
+
 ### Hallazgos nuevos del 2026-07-28 (noche), midiendo para CH-17
 
 1. **`agent-prompt` no está acotado por nada.** La entrada `agent` de `budgets.yml`
@@ -1267,9 +1344,6 @@ entregable *después* de un PASS, que es el patrón que costó dos de los cuatro
 change con `validation fail --human`, corregir **sin commitear**, y pasar una ronda
 de confirmación con **mandato mínimo**. Coste medido en la fase A: ~62k frente a
 ~106k de una auditoría completa, encontrando lo que tenía que encontrar.
-| CH-3 | `20260722-124655` | `draft` | **no aprobar**: su contador contradice la clasificación por clase de defecto, y excede el techo de complejidad. Reescribir y partir |
-| resto | — | sin documentar | siguen el orden de §7 |
-
 Este documento se actualiza en cada paso: cuando un change cambia de estado,
 cuando una verificación falsifica un supuesto, y cuando aparece un hallazgo
 nuevo. Si el documento y el ledger discrepan, el ledger manda y el documento se
@@ -1302,16 +1376,22 @@ corrige.
 - H47 → sube de deuda a change (CH-11).
 - H7 descartado. H36 lo gestiona el humano. H23 se quita el bloque comentado.
 
-Nada pendiente de decisión de las de aquí. CH-18 documentado como
-`20260728-195445`. Siguiente paso: **aprobación de Roberto** para CH-18, y después
-documentar **CH-17**.
+Nada pendiente de decisión de las de aquí. CH-18, CH-17 y CH-15 quedaron
+documentados, aceptados, graduados y archivados; el siguiente paso es el orden de §7.
+
+- ~~**La unidad de commit de la implementación**: el contrato vigente contradice la
+  decisión de Roberto.~~ **CERRADO** el 2026-07-29 por **CH-21** (`20260729-111349`),
+  aceptado y graduado a `git-traceability`. El core dice ahora *"**Implementation**: one
+  per resolved selection of work … so the number of implementation commits per change is
+  not fixed"*, y la garantía del rango del review sobrevive como obligación de secuencia:
+  *"Every selection is committed before the review is delegated"*. Ver §12 para su coste.
 
 Decisiones abiertas, ninguna bloqueante para documentar:
 
-- **CH-18 espera aceptación** en `in-validation`. Al graduar, la spec candidata es
-  `contract-discovery.md`, que el hallazgo nuevo 1 ya señala documentando bytes y el
-  formato viejo de la línea `BEGIN`. Leerla buscando afirmaciones que CH-18 vuelve
-  falsas: pasó tres de tres veces.
+- **El recorte de la lista**: 16 changes pendientes y la lista no ha bajado mientras se
+  cerraban seis, porque cada pasada sobre el contrato genera hallazgos sobre el
+  contrato. Preocupación explícita de Roberto el 2026-07-29: *"tenemos un monton de
+  cambios y contando, sin arreglar nada"*. Ver §11.
 - **CH-16** sigue pendiente de autorizar, y su hueco 1 exige decidir si las razones
   `ChangeLedger: none — …` pueden citar ids en absoluto.
 - El residuo de `bootstrapHeadCut()` lo reclaman CH-17 y CH-19: **una sola sede**.
@@ -1324,3 +1404,176 @@ Decisiones abiertas, ninguna bloqueante para documentar:
   aprobada y verificada— pero es candidata al barrido de aserciones de CH-9, y la
   lección es de redacción: antes de escribir una cláusula de criterio, comprobar si
   otro test del árbol ya la afirma.
+
+## 11. La lista no baja — diagnóstico y propuesta de recorte
+
+Preocupación de Roberto el 2026-07-29: *"tenemos un monton de cambios y contando, sin
+arreglar nada"*. El conteo le da la razón.
+
+La criba del 2026-07-28 declaró **16 changes** (CH-0…CH-13). Desde entonces se
+resolvieron **ocho** (CH-4, CH-14, CH-0, CH-18, CH-17, CH-15 cerrados; CH-20 descartado;
+más CH-4 de la tanda anterior) y hay **16 pendientes**. La lista no ha bajado.
+
+**La causa es estructural y no es la velocidad: la iniciativa se alimenta a sí misma.**
+Los siete changes que nacieron después de la criba nacieron **todos** de otro change de
+la propia iniciativa, ninguno del producto:
+
+| nació | de |
+|---|---|
+| CH-14 | intentar commitear este acta |
+| CH-15 | un defecto encontrado implementando CH-4 |
+| CH-16 | residuos que CH-14 dejó fuera de alcance |
+| CH-17 | partir CH-0 por techo de complejidad |
+| CH-18 | residuos de CH-0 (B5, B7) |
+| CH-19 | medir para CH-17 |
+| CH-20 | una pregunta de orden (descartado el mismo día) |
+| CH-21 | CH-15 shipeando más estrecho que la decisión |
+
+La superficie de trabajo **es el contrato**, así que cada pasada sobre el contrato produce
+hallazgos sobre el contrato. Es un bucle divergente, no trabajo convergente. Seguir
+cribando hallazgos no lo cierra: lo alimenta.
+
+### Propuesta de recorte — pendiente de decisión de Roberto
+
+Criterio propuesto: **entra sólo lo que tiene coste medido detrás o corrige una
+contradicción con una decisión humana.** Todo lo demás colapsa o se descarta.
+
+**Se quedan (5 + 1):**
+
+| change | evidencia medida |
+|---|---|
+| CH-2 | el par de retry cuesta 316k; su causa fue un criterio aprobado sin verificar |
+| CH-1 | el hallazgo 41 golpeó **tres veces en una sesión**; bloquea CH-19 y CH-10 |
+| CH-5a | mandato acotado 62k frente a 106k, encontrando lo mismo |
+| CH-5b | la regla de agrupación es el mayor palanca medida: 347k en tres delegaciones frente a 161k en una; y mata la clase de falso positivo que gastó una ronda entera |
+| CH-11 | defecto en producción: subproceso `gh` en cada transición a `in-progress` |
+| **nuevo** | unidad de commit: el contrato contradice la decisión de Roberto |
+
+**Colapsan en un solo change de barrido cada uno (2):**
+
+- **Barrido de fallos silenciosos**: CH-6 (cinco sitios que degradan en silencio) + CH-12
+  (cuatro invariantes sin filtrar y dos predicados de congelado) + CH-13 (los dos bypasses
+  del guard). Todos son "cero ocurrencias hoy, bomba armada", misma clase de arreglo.
+- **Barrido de verdad persistente y aserciones**: las tres invocaciones rotas de CH-8 +
+  la regla huérfana + la aserción vacua de CH-9 + la redundancia de CR4 de CH-18. Sin el
+  mecanismo de extracción de CH-8, que es superficie nueva.
+
+**Al final de la fila (2)** — decisión de Roberto del 2026-07-29: *"Yo no descartaria aun,
+solo lo enviaria al final de la fila"*. No se descartan; pierden prioridad y se
+reconsideran cuando lo de arriba esté cerrado:
+
+- **CH-10 (Prettier)**: el hallazgo 42 de este mismo acta concluye que *"el contrato es
+  salida de máquina y no se formatea para la vista humana"*. Formatear salida de máquina
+  para la vista no tiene coste medido detrás, y arrastra CH-9 y CH-1 como prerequisitos.
+- **CH-3 (cinco salidas post-fallo)**: su propio precedente lo desmiente — `194220` usó
+  la salida "extensión con re-aprobación" **sin que el contrato la nombrara**. Es el
+  change más caro de diseñar de la lista y el único cuya necesidad no está medida. Su
+  draft `20260722-124655` sigue en `draft` y sin aprobar mientras espera.
+
+**Se aplaza sin fecha (1):**
+
+- **CH-7**: robustez de cara al repo consumidor, y **no hay consumidor de v4**.
+
+**CH-0b deja de ser aplazable**: es prerequisito de CH-2, no habilitador opcional. `spec`
+vive de andamio con **44 líneas y ~340 tokens** de margen (medido el 2026-07-29) y CH-2 es
+la mayor adición de prosa a ese fichero. §10 nombra a los dos como la condición conjunta
+de salida del andamio.
+
+**Quedan reducidos (2):**
+
+- **CH-16** a su hueco 1 (¿pueden las razones citar ids?) más el hallazgo 1 de los
+  recuperados de memoria, que comparte fichero. Fuera el U+200B: adversarial-only.
+- **CH-19** a la sede única de la enumeración. Es explotable y probado, así que entra;
+  pero su entregable es una guarda sobre el contrato, no producto.
+
+De 16 pendientes a **7 activos** (los 6 medidos más CH-0b como prerequisito) **+ 2
+barridos + 2 reducidos**, con 2 al final de la fila y 1 aplazado. Nada se descarta. Y el
+criterio de admisión deja de aceptar hallazgos nuevos que no traigan coste medido, que es
+lo que cierra el bucle.
+
+**Uno de los seis ya está cerrado**: CH-21, la unidad de commit, `20260729-111349`, hecho
+y graduado el 2026-07-29. Quedan cinco activos más CH-0b.
+
+## 12. El coste de CH-21, y el hallazgo que no cierra ningún gate del contrato
+
+| | |
+|---|---|
+| tokens de delegado | **~794k** — el mayor de la iniciativa, por encima de los 614k de CH-15 |
+| rondas | 1 review + **3 `fail --retry`** |
+| criterios que fallaron | **cero**: los siete pasaron en la primera review, con mutación confirmada |
+| entregable tocado por los retries | **ninguno** |
+
+Los tres retries fueron de la misma clase, y los tres son del orquestador:
+
+1. **Una nota de Log que afirmaba un mecanismo falso.** Dije que separar las dos
+   selecciones resueltas habría exigido un commit intermedio con la suite roja. El
+   revisor construyó el árbol contrafactual y lo corrió: **99 pass, 0 fail**. Era falso.
+2. **Afirmé haber barrido la clase habiendo barrido las instancias señaladas.** Sobrevivían
+   tres, una de ellas la copia **autoritativa** según `164620 CR5`, y otra citaba como
+   vigente un texto que el propio change había eliminado.
+3. **Volví a afirmar "el patrón completo de la clase"** apoyado en un `grep` por líneas.
+   Un instance escapó porque la frase se partía entre dos líneas de comentario. Un grep
+   por líneas no puede ser el patrón completo de una clase cuya redacción se envuelve.
+
+**El hallazgo, y es nuevo: ningún gate del contrato mira lo que el orquestador escribe en
+el Log después de trabajar.** CH-2 —el gate de salida del draft— no habría evitado ninguno
+de los tres: los criterios estaban bien redactados y bien medidos. Lo que falló fue la
+afirmación posterior, que sólo la caza un revisor fresco leyendo el Log contra el árbol, y
+cada vez que la cazó costó un par de rondas.
+
+Consecuencias para el orden y para el método:
+
+- **No cambia la prioridad de CH-2**, que sigue atacando la clase medida de 316k. Pero
+  deja de ser el techo del ahorro: la mitad del coste de CH-21 vive en una clase que
+  ningún change de la lista cubre.
+- El único mecanismo que funcionó fue **pedirle al revisor de confirmación que juzgue las
+  ediciones del orquestador con el mismo estándar que las del implementador**, y pasarle
+  los puntos de escrutinio literales. Los tres retries salieron de ahí. Es disciplina de
+  prompt (§CH-5b), no de contrato, y confirma esa decisión.
+- Regla operativa que sale de esto, para cualquier sesión: **una nota de Log que afirma un
+  mecanismo, un conteo o un barrido se mide antes de escribirla, y se escribe con su
+  método y su límite**, no con su conclusión. "Barrí la clase" no es afirmable; "un sweep
+  insensible a saltos de línea sobre `test/` con ocho patrones da cero supervivientes en
+  presente" sí.
+
+**Residuos de CH-21, registrados en su Log y no tocados** porque editar el entregable tras
+un PASS es el patrón que costó dos de los cuatro retry de la fase A: un descriptor rancio
+del paso 5 en `test/context.test.mjs`, y dos formas de deixis (`the new unit`) en
+`test/cli.test.mjs`. Candidatos al barrido de aserciones.
+
+**Decisión abierta que dejó CH-21, y es de producto:** `resolved selection of work` se usa
+**11 veces** en el contrato publicado y **no está definido en ninguna parte**;
+`delegation.md` usa vocabulario distinto (`delegation unit`, `boundary`). Nada impide
+llamar "una selección" al change entero y volver a `exactly one`, salvo el discriminante de
+`core.md`. El dimensionado por completitud y acoplamiento es contenido de **CH-5b** según
+§8, así que la definición llega con él. Roberto aceptó el change con este hueco conocido.
+
+### Orden vigente tras el recorte (2026-07-29)
+
+**Decisión de Roberto: nada se descarta.** Lo que iba a descartarse va al final de la fila
+y se reconsidera cuando lo de arriba esté cerrado. CH-21 (la unidad de commit) ya está
+cerrado y graduado, así que la cabeza de la fila es CH-0b.
+
+```
+CH-0b → CH-2 → CH-1 → CH-19 → CH-5a → CH-5b → CH-11
+    → barrido de fallos silenciosos (CH-6+CH-12+CH-13)
+    → barrido de verdad persistente y aserciones (CH-8+CH-9)
+    → CH-16 reducido → CH-7 → CH-3 → CH-10
+```
+
+**La unidad de commit va primera y no por tamaño**: la regla gobierna **cómo se commitea
+todo lo que venga detrás**. Si CH-2 se implementa antes, su propio trabajo queda forzado a
+un solo commit de implementación por el texto que hay que corregir. Además es el único
+pendiente que corrige algo ya shipeado mal.
+
+**Por qué no se funde con CH-2**, aunque Roberto lo planteó (2026-07-29): sus superficies
+son ajenas salvo una. La unidad de commit toca el bloque `## Commits` de `core.md` y
+`.changeledger/specs/git-traceability.md`; CH-2 toca `templates/contract/spec.md`,
+`src/commands/agent.mjs` (`approve`) y `src/check.mjs`. **No compite por el presupuesto de
+`spec`**, que es el cuello de botella de CH-2. El solape real y único es
+`test/context.test.mjs`: los dos tocan el mapa de pins de snapshot —la unidad de commit
+porque edita `core.md`, CH-2 porque corrige las cuatro clasificaciones falsas—, y eso lo
+resuelve la secuencia, no la fusión. Fundirlos rompería el techo de complejidad (prosa en
+dos fragmentos, una spec, código en `check` y `approve`, más las cuatro correcciones de
+pin en una sola pasada) y ninguno se podría revertir por separado, que es el test de
+granularidad del propio core.
