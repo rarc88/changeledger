@@ -305,7 +305,10 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
     ],
     ['spec', /do not revert others' edits and report overlapping changes/],
     ['spec', /Do not create one subagent per file, line or tiny mechanical edit/],
-    ['spec', /Use the strongest available models for ambiguous scope/],
+    // 20260729-162015: the sizing doctrine left `delegation.md` for its single
+    // seat in core, so the authoring packs no longer carry it. What they must
+    // still carry from the fragment is its execution-agnostic premise.
+    ['spec', /ChangeLedger is agnostic to how work is executed/],
     ['spec', /Keep each fact in one stage and link to it from the others/],
     [
       'spec',
@@ -352,23 +355,43 @@ test('234939 CR1-CR10: restored invariants stay in their owning contexts', () =>
         fs.readFileSync(new URL(file, contractDir), 'utf8').replace(/\s+/g, ' '),
       ]),
   );
-  // 20260726-124835: both rules left core.md, so they are asserted against the
-  // equivalent wording delegation.md already owned, plus a retirement guard so
-  // core cannot quietly grow a second copy of either one.
-  assert.match(
-    fragments['delegation.md'],
+  // 20260729-162015 reversed the split this block used to assert. The transversal
+  // delegation doctrine now has ONE seat, core.md; `delegation.md` is the seat of
+  // the prompt contract and the per-stage triggers. So the three doctrines that
+  // used to live in both — sizing the delegate, when to delegate, and one owner
+  // per shared surface — are pinned as absent from the fragment and present in
+  // core, in both directions, and the fragment's unique content is pinned as kept.
+  for (const kept of [
+    /Delegation prompt contract/,
+    /ChangeLedger is agnostic to how work is executed/,
     /Do not create one subagent per file, line or tiny mechanical edit/,
-  );
-  assert.match(
-    fragments['delegation.md'],
+    /prefer one scoped delegate, a batch edit or a script verified by the main agent/,
+  ]) {
+    assert.match(fragments['delegation.md'], kept, `delegation.md lost ${kept}`);
+  }
+  for (const moved of [
+    /## Size the model to the work/,
     /Use the strongest available models for ambiguous scope/,
-  );
+    /parallel agents over the same files or conceptual surface/,
+    /Delegate when it reduces main context pressure/,
+  ]) {
+    assert.doesNotMatch(
+      fragments['delegation.md'],
+      moved,
+      `delegation.md still duplicates ${moved}`,
+    );
+  }
+  for (const seat of [
+    /Size the delegate to the work, not to the caller's convenience/,
+    /One owner per write surface; concurrent subagents must not share files/,
+    /\| implementation work with its own verify command \| subagent \|/,
+  ]) {
+    assert.match(fragments['core.md'], seat, `core.md lost the seat of ${seat}`);
+  }
+  // 20260726-124835: core must not grow back the wordings it retired when these
+  // rules were relocated, even now that the doctrine is core's again.
   assert.doesNotMatch(fragments['core.md'], /Do not over-shard or overlap write surfaces/);
   assert.doesNotMatch(fragments['core.md'], /Size the model to the task's difficulty and risk/);
-  assert.match(
-    fragments['delegation.md'],
-    /parallel agents over the same files or conceptual surface/,
-  );
 
   for (const [status, id] of [
     ['blocked', blockedId],
@@ -509,14 +532,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
       /question, module, package, test area, migration slice or independent verification/,
     ],
     ['implement', /one subagent per file, line or tiny mechanical edit/],
-    [
-      'implement',
-      /strongest available models for ambiguous scope, architecture, security-sensitive reasoning and difficult reviews/,
-    ],
-    [
-      'implement',
-      /sufficient cheaper models for inventories, localized exploration, mechanical edits and narrow checks/,
-    ],
+    // 20260729-162015 retired the two sizing literals this list asserted through
+    // `delegation.md`: sizing the delegate is core's single seat, pinned by
+    // `124835 CR4/CR5` and by the new-split guard in `234939 CR1-CR10`.
     ['implement', /why the work is delegated/],
     ['implement', /owned files, area or investigation question/],
     ['implement', /expected output/],
@@ -2191,10 +2209,11 @@ test('124835 CR11: retired rules keep their owner and the retained sentences sta
   const fragment = (file) => norm(fs.readFileSync(new URL(file, contractDir), 'utf8'));
   const delegation = fragment('delegation.md');
 
+  // 20260729-162015: two of the four rules this block pinned to `delegation.md`
+  // went back to their single seat in core, so only the fragment's own content is
+  // asserted here. The retirement of the other two is pinned by `234939 CR1-CR10`.
   for (const pattern of [
     /one subagent per file, line or tiny mechanical edit/,
-    /parallel agents over the same files or conceptual surface/,
-    /strongest available models for ambiguous scope/,
     /for roles that write, the expected baseline \(branch or commit\) the delegate must verify/,
   ]) {
     assert.match(delegation, pattern, `delegation.md is missing ${pattern}`);
@@ -3158,4 +3177,77 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'post-review.md',
     'review.md',
   ]);
+});
+
+// 20260729-162015 — the delegation doctrine has a single seat, and core is it.
+// The single-seat rule itself only existed in one direction (core never
+// duplicates the overlay), which is why the same doctrine kept reappearing in
+// `delegation.md`; and the unit those doctrines are about — the selection of
+// work — was used five times and defined nowhere.
+test('162015 CR3/CR4: core carries both directions of the single-seat rule and defines the unit', () => {
+  const core = composedCore();
+  // CR3: the inverse direction. Without it, an overlay may restate core and no
+  // rule says otherwise.
+  assert.ok(
+    core.includes(
+      'an overlay extends or specifies what is particular to its stage without repeating or contradicting core',
+    ),
+    'core lost the inverse direction of the single-seat rule',
+  );
+  // CR4: the sole definition, asserted clause by clause so deleting any single
+  // clause fails — the measure, the grouping it licenses, the resolved condition
+  // and the commit on resolution are each load-bearing.
+  for (const clause of [
+    'A **selection of work** is the unit that is delegated, measured by completeness and coupling rather than delegated task by task',
+    'related tasks travel together to the same delegate, and independent ones go alone or all at once',
+    'It becomes a **resolved selection** when its own local verification passes, and it is committed as it resolves, without waiting for the rest',
+  ]) {
+    assert.ok(core.includes(clause), `core is missing the unit definition clause: ${clause}`);
+  }
+  // One definition, not two: `delegation.md` points at core's unit rather than
+  // opening with a second description of it.
+  const delegation = contractFragment('delegation.md').replace(/\s+/g, ' ');
+  assert.match(delegation, /The delegation unit is core's selection of work/);
+  assert.doesNotMatch(delegation, /A good delegation unit is/);
+});
+
+// The evidence contract is a mechanism, not a discipline: each clause is written
+// into the pack that composes the prompt for that role, so no orchestrator has to
+// remember it. Implementer/corrector clauses ride `delegation.md` (spec +
+// implement); reviewer clauses ride `review.md`.
+test('162015 CR5: the evidence contract reaches each role through its own pack', () => {
+  const root = repo();
+  const norm = (text) => text.replace(/\s+/g, ' ');
+  const spec = norm(buildContext('spec', root));
+  const implement = norm(buildContext('implement', root));
+  const review = norm(buildContext('review', root));
+
+  for (const clause of [
+    /Scope discipline is pass\/fail, and silently fixing a known residual breaks it/,
+    /Name the residuals you leave untouched instead of repairing them in passing/,
+    /Reproduce the original defect and quote its literal output before changing anything/,
+    /Show the new test failing before the fix and passing after it/,
+    /Mutate one thing at a time, restore it by editing, and prove the file is clean before the next mutant/,
+    /Treat figures, line numbers and pointers you were handed as data to verify, not as facts/,
+    /Report any orchestrator instruction that contradicts this contract instead of silently obeying it/,
+    /Stop and report when the work turns out to need a different type or a wider scope/,
+  ]) {
+    assert.match(spec, clause, `the spec pack is missing the implementer clause ${clause}`);
+    assert.match(
+      implement,
+      clause,
+      `the implement pack is missing the implementer clause ${clause}`,
+    );
+    assert.doesNotMatch(review, clause, `the review pack should not carry ${clause}`);
+  }
+
+  for (const clause of [
+    /Mark every claim as confirmed by running it or as reasoned from the code/,
+    /Trace every helper a suspect path calls before reporting a validation as missing/,
+    /Take the implementer's list of decisions the document did not specify as scrutiny points/,
+    /Hold the orchestrator's own edits to the deliverable to the same standard as the implementer's/,
+  ]) {
+    assert.match(review, clause, `the review pack is missing the reviewer clause ${clause}`);
+    assert.doesNotMatch(implement, clause, `the implement pack should not carry ${clause}`);
+  }
 });

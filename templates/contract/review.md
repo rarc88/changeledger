@@ -6,8 +6,15 @@ optimization.
 
 Get the bounded prompt with `changeledger agent-prompt review`; the delegate
 then loads `changeledger agent-context review <id>`. That self-contained capsule
-owns the inspection checklist, read-only boundary and evidence contract. Do not
-copy its checklist into this orchestrator context.
+owns the inspection checklist, read-only boundary and return format. Do not copy
+its checklist into this orchestrator context.
+
+The review prompt adds the evidence standard the capsule does not carry:
+
+- Mark every claim as confirmed by running it or as reasoned from the code.
+- Trace every helper a suspect path calls before reporting a validation as missing.
+- Take the implementer's list of decisions the document did not specify as scrutiny points, not as settled.
+- Hold the orchestrator's own edits to the deliverable to the same standard as the implementer's.
 
 The orchestrator records exactly one verdict; the read-only reviewer reports its
 finding but never runs the verdict command:

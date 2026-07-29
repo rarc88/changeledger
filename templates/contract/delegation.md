@@ -1,16 +1,12 @@
 # Economical Delegation
 
-ChangeLedger is agnostic to how work is executed. Delegate when it reduces main
-context pressure, lowers cost with a sufficient model, parallelizes genuinely
-independent work or supplies independent verification. Do not delegate when the
-coordination costs more than the expected improvement in quality, speed or
-context control.
+ChangeLedger is agnostic to how work is executed.
 
 ## Delegate a real boundary
 
-A good delegation unit is a question, module, package, test area, migration
-slice or independent verification. The boundary must state what the delegate
-owns, what it returns and how the result integrates.
+The delegation unit is core's selection of work: a question, module, package,
+test area, migration slice or independent verification. The boundary must state
+what the delegate owns, what it returns and how the result integrates.
 
 - Request and Investigation may split independent codebase questions across
   explorers.
@@ -28,19 +24,10 @@ owns, what it returns and how the result integrates.
 
 Do not create one subagent per file, line or tiny mechanical edit. For the same
 small change across many files, prefer one scoped delegate, a batch edit or a
-script verified by the main agent. Do not run parallel agents over the same
-files or conceptual surface unless overlap and integration are explicit.
+script verified by the main agent.
 
 If you cannot state why the task is independent, what output you expect and how
 you will integrate it, keep the work in the main thread or regroup it.
-
-## Size the model to the work
-
-Use the strongest available models for ambiguous scope, architecture,
-security-sensitive reasoning and difficult reviews. Use sufficient cheaper
-models for inventories, localized exploration, mechanical edits and narrow
-checks. Escalate when uncertainty or risk rises; de-escalate when the work is
-well specified and mostly execution.
 
 ## Delegation prompt contract
 
@@ -56,3 +43,14 @@ Every prompt states:
 Tell coding delegates they share the codebase: stay inside assigned ownership,
 do not revert others' edits and report overlapping changes instead of silently
 resolving them.
+
+Every prompt to an implementer or corrector also states these obligations:
+
+- Scope discipline is pass/fail, and silently fixing a known residual breaks it as surely as editing an unowned file.
+- Name the residuals you leave untouched instead of repairing them in passing.
+- Reproduce the original defect and quote its literal output before changing anything.
+- Show the new test failing before the fix and passing after it.
+- Mutate one thing at a time, restore it by editing, and prove the file is clean before the next mutant.
+- Treat figures, line numbers and pointers you were handed as data to verify, not as facts.
+- Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
+- Stop and report when the work turns out to need a different type or a wider scope.

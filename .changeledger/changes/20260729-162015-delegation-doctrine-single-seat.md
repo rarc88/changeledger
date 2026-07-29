@@ -2,7 +2,7 @@
 id: "20260729-162015"
 title: "La doctrina de delegación tiene una sede: el core"
 type: refactor
-status: approved
+status: in-review
 created: 2026-07-29T16:20:15Z
 depends_on: []
 related_to: ["20260728-164620"]
@@ -182,13 +182,23 @@ change registra el progreso en la nota del andamio sin tocar el número. CH-5a
 
 ## Plan
 
-- [ ] Desduplicar `templates/contract/delegation.md` (fuera `## Size the model to the work` y las frases de cuándo-delegar y superficies que el core posee) y reescribir el guard `234939 CR1-CR10` en `test/context.test.mjs` al reparto nuevo; verify: `node --test test/context.test.mjs` con el mutante de reaparición en rojo (CR1, CR2)
-- [ ] Añadir en `templates/contract/core.md` la dirección inversa de la regla de sede única y la definición de `resolved selection`, con sus aserciones en `test/context.test.mjs`; verify: `pnpm test` con ambos mutantes de retirada en rojo (CR3, CR4)
-- [ ] Escribir el contrato de evidencia por rol en `templates/contract/delegation.md` y `templates/contract/review.md` con un guard por rol en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR5)
-- [ ] Medir los packs tras la edición, actualizar la nota de andamio de `base.spec` en `templates/contract/budgets.yml` sin tocar el techo, y comparar contra las medidas de hoy; verify: `node bin/changeledger.mjs context spec 2>&1 | head -1` y `node bin/changeledger.mjs context implement 2>&1 | head -1` con menos líneas que 301/191 (CR6)
-- [ ] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Desduplicar `templates/contract/delegation.md` (fuera `## Size the model to the work` y las frases de cuándo-delegar y superficies que el core posee) y reescribir el guard `234939 CR1-CR10` en `test/context.test.mjs` al reparto nuevo; verify: `node --test test/context.test.mjs` con el mutante de reaparición en rojo (CR1, CR2)
+  - **Resolved:** `2026-07-29T16:50:35Z`
+- [x] Añadir en `templates/contract/core.md` la dirección inversa de la regla de sede única y la definición de `resolved selection`, con sus aserciones en `test/context.test.mjs`; verify: `pnpm test` con ambos mutantes de retirada en rojo (CR3, CR4)
+  - **Resolved:** `2026-07-29T16:50:35Z`
+- [x] Escribir el contrato de evidencia por rol en `templates/contract/delegation.md` y `templates/contract/review.md` con un guard por rol en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR5)
+  - **Resolved:** `2026-07-29T16:50:35Z`
+- [x] Medir los packs tras la edición, actualizar la nota de andamio de `base.spec` en `templates/contract/budgets.yml` sin tocar el techo, y comparar contra las medidas de hoy; verify: `node bin/changeledger.mjs context spec 2>&1 | head -1` y `node bin/changeledger.mjs context implement 2>&1 | head -1` con menos líneas que 301/191 (CR6)
+  - **Resolved:** `2026-07-29T16:50:36Z`
+- [x] Correr el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T16:50:36Z`
 
 ## Log
 
 - **2026-07-29T16:24:00Z** `[note]` Documentado sobre investigación delegada contra HEAD del 2026-07-29, no sobre el acta: corrige dos hechos del acta (las ocurrencias de `resolved selection` son 5, no 11; existe el guard anti-duplicación `234939 CR1-CR10` que hoy asserta el reparto contrario y es bloqueador nombrado). CH-5a queda fuera por el fallback autorizado por Roberto: superficie disjunta (cápsula de prompt del review).
 - **2026-07-29T16:33:17Z** `[status]` draft → approved
+- **2026-07-29T16:35:12Z** `[status]` approved → in-progress
+- **2026-07-29T16:35:12Z** `[note]` Implementación delegada en una sola pasada (las 4 tareas de prosa+guards son una selección: los tres fragmentos y sus guards comparten test/context.test.mjs; el gate cierra). Baseline 1daa9cdb, checkout principal. Modelo top-tier: prosa normativa transversal con riesgo de deformación de decisión — la frase literal de Roberto viaja en el prompt y el delegado verifica cláusula a cláusula que no añade cuantificadores.
+- **2026-07-29T16:50:36Z** `[note]` Implementación entregada por delegado top-tier (114k tokens, 79 tool calls) y verificada por el orquestador: dedup ausente (grep=0), contenido único presente, definición única de selection en core (1 sede, 6 usos del término), regla inversa presente (envuelta entre líneas 5-7 — mi grep por línea la perdió y la confirmé leyendo el fichero), spec 301→299 líneas, implement 191→189, core 210/400. Gate del orquestador: pnpm verify EXIT=0, 951/951, lint limpio, check 0 errores. Auditoría de deformación cláusula a cláusula en el informe: cero cuantificadores añadidos (exactly one/never/always/only ausentes de la definición).
+- **2026-07-29T16:50:36Z** `[note]` El Request nombró un bloqueador incompleto: además de 234939 CR1-CR10 había otros dos guards asertando el reparto viejo (234939 CR11-CR20 sobre el pack implement y 124835 CR11 sobre delegation.md). El delegado los reescribió dentro de su ownership y lo reportó como decisión no especificada. Dos ediciones suyas más para escrutinio del review: la frase de review.md 'owns the inspection checklist, read-only boundary and evidence contract' pasó a 'and return format' para no contradecir el estándar de evidencia nuevo (cero pins sobre la frase vieja, verificado por él); y la nota del andamio de budgets.yml registra ambas dimensiones (3140 tokens ↑ / 299 líneas ↓) para no desinformar. Restricción anotada para CH-2: el margen de los packs de autoría quedó en 2 líneas.
+- **2026-07-29T16:50:46Z** `[status]` in-progress → in-review

@@ -2,7 +2,9 @@
 
 Work is documented before code: changes under `.changeledger/changes/` are authorized work;
 specs under `.changeledger/specs/` are persistent truth. The human decides and the agent
-executes. Every stage overlay is the authority for its stage; core never duplicates it.
+executes. Every stage overlay is the authority for its stage; core never duplicates it; and an
+overlay extends or specifies what is particular to its stage without repeating or contradicting
+core.
 
 ## Classify intent before acting
 
@@ -40,6 +42,11 @@ surface; concurrent subagents must not share files. Get the prompt skeleton from
 the stage context owns what the prompt must contain. A subagent returns findings or a diff
 receipt, not narrative. `post-review` is a read-only inspection of a change already in
 `in-validation`; it never issues a verdict or moves the change.
+
+A **selection of work** is the unit that is delegated, measured by completeness and coupling
+rather than delegated task by task: related tasks travel together to the same delegate, and
+independent ones go alone or all at once. It becomes a **resolved selection** when its own local
+verification passes, and it is committed as it resolves, without waiting for the rest.
 
 Size the delegate to the work, not to the caller's convenience: cheapest tier and low effort
 for mechanical lookups and bounded mechanical edits; mid tier for bounded reasoning over a
