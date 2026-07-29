@@ -29,7 +29,7 @@ only when trivially small.
 | Work | Owner |
 |---|---|
 | reading or searching beyond ~3 files to answer one question | subagent |
-| any implementation task with its own verify command | subagent |
+| implementation work with its own verify command | subagent |
 | independent review of finished work | subagent with a fresh clean context |
 | reading a change document, a spec or CLI output | orchestrator |
 | talking to the human, deciding scope, integrating results | orchestrator, never delegated |
@@ -95,20 +95,25 @@ review contexts own that classification.
 
 A change branch carries five commit classes and no others. **Draft**: one per drafted change document,
 committed on its own — never several drafts in one commit. **Baseline**: exactly one, the approved change
-document, before any code. **Implementation**: exactly one, the change's complete work — code, tests, ticked
-boxes and Log entries — created once the local gate passes and before the review is delegated, so
-`baseline..HEAD` is a fixed range the reviewer inspects and the deliverable cannot change between the
-report and history. **Correction**: zero or more, each left uncommitted until a fresh reviewer confirms it.
+document, before any code. **Implementation**: one per resolved selection of work — its code, tests, ticked
+boxes and Log entries — created once the local gate passes and committed as soon as that selection is
+resolved, without waiting for the rest, so the number of implementation commits per change is not fixed.
+**Correction**: zero or more, each left uncommitted until a fresh reviewer confirms it.
 **Handoff**: mandatory whenever work stops in `blocked` or a session ends with uncommitted state; record
 why it was needed.
+
+Every selection is committed before the review is delegated, so `baseline..HEAD` is closed the instant the
+review is delegated: the reviewer inspects a fixed range and the deliverable cannot change between the
+report and history.
 
 Granularity follows one test: whether the unit will be reverted, referenced or implemented independently.
 A lifecycle transition is not — the Log already records it, so its commit would only duplicate that — and
 is never a commit of its own; it travels inside the next real class. A change document is: a later
 implementation branch builds on it, `changeledger check --commits` references it by id, and it can be
-discarded alone. A single Plan task is not: it is reverted, referenced and implemented with the rest of the
-change, so the change is the implementation unit. So a change yields two commits, one more per confirmed
-correction and one per handoff, never one per transition and never one per Plan task.
+discarded alone. A resolved selection of work is too: it reverts on its own, and better than the whole
+change would. A single Plan task on its own is not: alone it is reverted, referenced and implemented with
+the rest of its selection. So a change yields one commit per resolved selection, one more per confirmed
+correction and one per handoff, never one per transition.
 
 Subjects follow `type(scope): description [#<id>]` with the real id and conventional type. One change keeps
 its marker at the end of the subject; two or more keep the subject clean and use one canonical body line,
@@ -120,9 +125,10 @@ subject is not conventional. Run `changeledger check --commits [<base>]` before 
 
 A combined commit is legitimate only when separation is impossible: several changes share the same files.
 Record in the Log what was combined and why, naming every change that shares the surface. Plan tasks are
-never a reason — they all travel in the one implementation commit. A failed `pre-commit` hook
-leaves the index staged, so inspect the staged set (`git diff --cached --name-only`) before retrying: fixing
-the cause is not enough if the index kept the previous attempt's files.
+never a reason — separating them is always possible, since each resolved selection is committed on its own.
+A failed `pre-commit` hook leaves the index staged, so inspect the staged set
+(`git diff --cached --name-only`) before retrying: fixing the cause is not enough if the index kept the
+previous attempt's files.
 
 ## Lifecycle
 

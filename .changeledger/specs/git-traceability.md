@@ -88,37 +88,46 @@ revisan el worktree antes de empezar; commitean la documentación aprobada antes
 de tocar código; e implementan un change a la vez. Los cambios no relacionados no
 se incluyen silenciosamente.
 
-**La unidad de commit es el change, y las clases son contables.** Una rama de
+**La unidad de commit es la selección de trabajo resuelta.** Una rama de
 change lleva **cinco** clases y ninguna más: **Draft**, uno por documento
 redactado y commiteado en solitario; **Baseline**, exactamente uno con el
-documento aprobado antes de cualquier código; **Implementation**, exactamente
-uno con el trabajo completo del change —código, tests, casillas y Log— creado
-cuando el gate local pasa y **antes** de delegar el review, de modo que
-`baseline..HEAD` es un rango fijo que el revisor inspecciona y el entregable no
-puede cambiar entre su informe y la historia; **Correction**, cero o más, cada
-una sin commitear hasta que un revisor fresco la confirma; y **Handoff**,
-obligatoria siempre que el trabajo se detiene en `blocked` o una sesión termina
-con estado sin commitear, registrando por qué fue necesario.
+documento aprobado antes de cualquier código; **Implementation**, uno por
+selección de trabajo resuelta —su código, sus tests, sus casillas y su Log—
+creado cuando el gate local pasa, y que se commitea al resolverse, sin esperar a
+las demás, así que el número de commits de implementación por change no se fija;
+**Correction**, cero o más, cada una sin commitear hasta que un revisor fresco la
+confirma; y **Handoff**, obligatoria siempre que el trabajo se detiene en
+`blocked` o una sesión termina con estado sin commitear, registrando por qué fue
+necesario.
+
+Toda selección queda commiteada **antes** de delegar el review, de modo que
+`baseline..HEAD` está cerrado en el instante de delegar: el revisor inspecciona
+un rango fijo y el entregable no puede cambiar entre su informe y la historia. La
+garantía es de secuencia, no de conteo, así que sobrevive intacta con N commits.
 
 La granularidad se decide con una prueba: si la unidad se revertirá,
 referenciará o implementará de forma independiente. Una transición de lifecycle
 no lo es —el Log ya la registra— y **nunca es un commit propio**: viaja dentro
-de la siguiente clase real. Un documento de change sí lo es. **Una tarea del
-Plan no**: se revierte, se referencia y se implementa con el resto del change,
-así que el change es la unidad de implementación. Así, un change produce **dos**
-commits, uno más por corrección confirmada y uno por handoff.
+de la siguiente clase real. Un documento de change sí lo es. Una **selección de
+trabajo resuelta** también: se revierte sola, y mejor que el change entero. Una
+tarea del Plan aislada **no**: por sí sola se revierte, se referencia y se
+implementa con el resto de su selección. Así, un change produce un commit por
+selección resuelta, uno más por corrección confirmada y uno por handoff.
 
-Dos formulaciones anteriores quedaron retiradas por invitar cada una a su propio
+Tres formulaciones anteriores quedaron retiradas por invitar cada una a su propio
 exceso: pedir commitear "cuando la atribución pudiera volverse ambigua" era un
-juicio cuya respuesta segura es siempre sí; y contar `n + 1` commits por `n`
+juicio cuya respuesta segura es siempre sí; contar `n + 1` commits por `n`
 tareas completadas multiplicaba el coste de delegación por el número de tareas,
 porque el delegado no toca git y separar la unidad exigía reescribir el documento
-dos veces.
+dos veces; y fijar el número de commits de implementación por change —"exactamente
+uno con el trabajo completo"— deformaba una decisión sobre delegación en una regla
+de conteo, y prohibía el corte que la propia prueba de granularidad admite.
 
 Un commit combinado es legítimo solo cuando separar es imposible: varios changes
 comparten los mismos archivos. Las tareas del Plan **nunca** son razón, porque
-todas viajan en el único commit de implementación. Se registra en el Log qué se
-combinó y por qué, nombrando cada change que comparte la superficie.
+separarlas siempre es posible: cada selección resuelta se commitea sola. Se
+registra en el Log qué se combinó y por qué, nombrando cada change que comparte
+la superficie.
 
 **Sede única.** Todo este comportamiento —las clases, el discriminante, la
 fórmula, la forma del subject, el body multi-change, las excepciones, el

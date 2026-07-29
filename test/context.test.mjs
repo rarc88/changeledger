@@ -490,7 +490,9 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['core', /\*\*Baseline\*\*: exactly one, the approved change document, before any code/],
     // 20260728-164620: the per-task class became the per-change one, and the
     // handoff stopped being an optional zero-or-one.
-    ['core', /\*\*Implementation\*\*: exactly one, the change's complete work/],
+    // 20260729-111349 REPLACED: the per-change count became the per-selection unit,
+    // so the class is pinned by the unit it now names, not by a quantifier.
+    ['core', /\*\*Implementation\*\*: one per resolved selection of work/],
     ['core', /is never a commit of its own; it travels inside the next real class/],
     ['core', /\*\*Handoff\*\*: mandatory whenever work stops/],
     ['implement', /Follow the Specification exactly/],
@@ -956,7 +958,66 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   message mechanics and the `pre-commit` staged-index rule. The dirty-window declaration
     //   this change also introduces went to `implement.md`, not here: it is a fact of
     //   the implementation stage, not of the class taxonomy (`164620 CR7`).
-    'core.md': 'ce86191398c3e1936e8e3ec0d321673f1059a5b84783b9b8353c4b5966170f17',
+    // 20260729-111349: the commit unit is the resolved selection of work, not the whole
+    // change. `164620 CR1` translated a decision about DELEGATION into a rule about
+    // commits and added a quantifier nobody decided; the block's own granularity test
+    // never justified jumping from "a Plan task alone is too small" to "the change is
+    // the unit", because the resolved selection sits between them and passes the test.
+    // REPLACED — "**Implementation**: exactly one, the change's complete work — code,
+    //   tests, ticked boxes and Log entries — created once the local gate passes and
+    //   before the review is delegated, so `baseline..HEAD` is a fixed range …" by
+    //   "**Implementation**: one per resolved selection of work — its code, tests,
+    //   ticked boxes and Log entries — created once the local gate passes and committed
+    //   as soon as that selection is resolved, without waiting for the rest, so the
+    //   number of implementation commits per change is not fixed". Nothing the class
+    //   carried is dropped: code, tests, boxes and Log still ride the commit and the
+    //   local gate still precedes it; only the quantifier goes;
+    // PRESERVED (moved, not retired) — the ordering and everything it buys. "before the
+    //   review is delegated", "`baseline..HEAD`", the fixed range the reviewer inspects
+    //   and "the deliverable cannot change between the report and history" now live in
+    //   their own sentence, "Every selection is committed before the review is
+    //   delegated, so `baseline..HEAD` is closed the instant the review is delegated
+    //   …". The guarantee had to leave the class because it is an obligation of
+    //   SEQUENCE over every selection, which a count no longer expresses; `111349 CR4`
+    //   is its standing guard;
+    // REPLACED — "A single Plan task is not: it is reverted, referenced and implemented
+    //   with the rest of the change, so the change is the implementation unit" by "A
+    //   resolved selection of work is too: it reverts on its own, and better than the
+    //   whole change would. A single Plan task on its own is not: alone it is reverted,
+    //   referenced and implemented with the rest of its selection". The discriminant is
+    //   preserved verbatim and still rejects the isolated task; what is retired is the
+    //   unjustified jump from that rejection to the whole change;
+    // REPLACED — "So a change yields two commits, one more per confirmed correction and
+    //   one per handoff, never one per transition and never one per Plan task" by "So a
+    //   change yields one commit per resolved selection, one more per confirmed
+    //   correction and one per handoff, never one per transition". "never one per
+    //   transition" is preserved verbatim; what goes is the fixed count of two and the
+    //   per-task prohibition that the new unit makes meaningless — the selection IS a
+    //   cut smaller than the change;
+    // REPLACED — "Plan tasks are never a reason — they all travel in the one
+    //   implementation commit" by "Plan tasks are never a reason — separating them is
+    //   always possible, since each resolved selection is committed on its own". The
+    //   conclusion is preserved: Plan tasks never license a combined commit. Only the
+    //   premise changes, because there is no single implementation commit to rest on.
+    //   The shared-files form and the duty to record and name every change sharing the
+    //   surface are preserved verbatim, so the `124837 CR8` home still holds;
+    // REPLACED — the ownership row "| any implementation task with its own verify
+    //   command | subagent |" by "| implementation work with its own verify command |
+    //   subagent |". The delegation obligation is preserved; the "any … task"
+    //   quantifier is retired because it pushed one delegation per Plan task, the half
+    //   of the human's decision the contract never recorded. How the group is sized
+    //   (completeness and coupling) is deliberately NOT written here: it is CH-5b's
+    //   content, and duplicating it would create a second seat for one rule;
+    // PRESERVED — the Draft, Baseline, Correction and Handoff classes verbatim, the five
+    //   classes and no others, the granularity test's own sentence, the
+    //   lifecycle-transition prohibition, the change-document rationale, the whole
+    //   message-mechanics paragraph and the `pre-commit` staged-index rule. Nothing is
+    //   RETIRED by this change: every obligation the rewritten sentences carried is
+    //   still in this fragment, verified by grepping each obligation itself —
+    //   "before the review is delegated", "baseline..HEAD", "the deliverable cannot
+    //   change", "never one per transition", "naming every change that shares the
+    //   surface" and "with its own verify command" all still hit only `core.md`.
+    'core.md': '04b83dbfed4157653e5a7f9414848e92dedb3ec27ff1c187c7c5e35e1be9c010',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1126,7 +1187,51 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   core's transition prohibition — it points at it, so 194234's single seat for
     //   "is never a commit of its own" is untouched, and this pack still does not
     //   compose that sentence.
-    'implement.md': '11734234d2cf41a7c65be7a9d06e304527dbb5f8f835afbfb2789e12d1067d88',
+    // 20260729-111349 CR7: this fragment was the seat that survived the first pass, going
+    // on to demand a single implementation commit while core had already made the unit the
+    // resolved selection. It survived because every guard watched `core.md`; `111349 CR7`
+    // now sweeps every fragment in the directory. Four sites, all REPLACED, none retired:
+    // REPLACED — step 5 of the ordered gate, "Create the one implementation commit with
+    //   `changeledger commit`: the change's complete work plus the ledger state,
+    //   transitions included. It precedes the review delegation, so the reviewer inspects
+    //   `baseline..HEAD` instead of a working tree" by "Create every outstanding
+    //   implementation commit with `changeledger commit`: each resolved selection carries
+    //   its own work, and the last also carries the ledger state, transitions included.
+    //   Every selection precedes the review delegation, so the reviewer inspects a closed
+    //   `baseline..HEAD` instead of a working tree". Every obligation the step carried is
+    //   preserved — the ledger state and transitions still ride an implementation commit,
+    //   the commit still precedes the delegation, and the reviewer still inspects
+    //   `baseline..HEAD` — and only the count changes. The step keeps its position, so
+    //   `164620 CR2` (commit step before delegation step) and the two-transition window of
+    //   `164620 CR7 correction` (in-review step before commit step) are untouched;
+    // REPLACED — "Between `changeledger status <id> in-progress` and the implementation
+    //   commit the change document stays modified" and "which that commit is the first to
+    //   carry" by the plural forms, "and the implementation commits" and "which those
+    //   commits are the first to carry". The window is the same window; what changes is
+    //   that it now closes over N commits instead of one;
+    // REPLACED — "Core's commit classes carry those transitions inside the implementation
+    //   commit rather than a commit of its own" by "… inside the implementation commits
+    //   rather than a commit of their own". This still POINTS at core's transition
+    //   prohibition instead of restating it, so 194234's single seat for "is never a
+    //   commit of its own" stays single and this pack still does not compose that
+    //   sentence;
+    // REPLACED — "never license leaving the implementation commit unmade before review" by
+    //   "… the implementation commits unmade before review". The obligation is stronger,
+    //   not weaker: no selection may be left uncommitted, where the singular could be read
+    //   as satisfied by one commit;
+    // ADDED — "The window is not one event: each resolved selection is committed as it
+    //   resolves, so the expected delta shrinks selection by selection and what stays
+    //   uncommitted is what no selection has resolved yet". Needed because the plural
+    //   alone leaves a reader to guess WHEN each commit lands, and core's class states the
+    //   rule while this fragment owns the stage's window;
+    // PRESERVED verbatim — the whole expected-delta set, which has no other home: the
+    //   `status` field and every `[status]` line the window accumulated, the two named
+    //   transitions, the change's own code and tests, "Together they are the only expected
+    //   delta", the "unrelated changes" definition, "a clean worktree is not a valid
+    //   precondition anywhere in that window" and the delegation-baseline duty. Nothing in
+    //   this fragment is RETIRED by this change, and the HOLDERS enumeration above is
+    //   unaffected: no fragment gained or lost a "worktree", "uncommitted" or "dirty" hit.
+    'implement.md': '3dfe16ef355909c9bd04165dc4270fa231b68f06a0f7678f717510ab4b3ee6e7',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -2571,7 +2676,12 @@ test('124835 CR4/CR5: work is split by owner and the delegate is sized portably'
     'inline only when trivially small',
     '| Work | Owner |',
     '| reading or searching beyond ~3 files to answer one question | subagent |',
-    '| any implementation task with its own verify command | subagent |',
+    // 20260729-111349 REPLACED: the row named "any implementation task", whose
+    // quantifier pushed one delegation per Plan task. The obligation is preserved —
+    // implementation work with its own verify command is still the subagent's — and
+    // only the per-task quantifier is retired. Sizing the group is CH-5b's content,
+    // deliberately absent here rather than duplicated.
+    '| implementation work with its own verify command | subagent |',
     '| independent review of finished work | subagent with a fresh clean context |',
     '| reading a change document, a spec or CLI output | orchestrator |',
     '| talking to the human, deciding scope, integrating results | orchestrator, never delegated |',
@@ -2659,7 +2769,11 @@ test('124835 CR6/CR7: invariants, exit gates, the ceiling and commits carry the 
     // stays here is the per-unit and per-baseline obligation this criterion
     // decided, in the wording that now carries it. 20260728-164620 moved the unit
     // from the Plan task to the change, so the first literal is its class.
-    "**Implementation**: exactly one, the change's complete work",
+    // 20260729-111349 REPLACED the unit again — the resolved selection of work, with
+    // no fixed number per change. The per-unit obligation this criterion decided is
+    // preserved: the work still travels with its tests, boxes and Log, now per
+    // selection instead of per change.
+    '**Implementation**: one per resolved selection of work',
     '**Baseline**: exactly one, the approved change document, before any code',
     'is never a commit of its own; it travels inside the next real class',
     'Subjects follow `type(scope): description [#<id>]`',
@@ -3013,10 +3127,13 @@ test('124837 CR8: no obligation leaves implement.md without a named home', () =>
     ],
     // 20260728-164620 moved this obligation's home from the per-task class to the
     // per-change one: the work still travels with its tests, boxes and Log, but as
-    // one unit for the whole change.
+    // one unit for the whole change. 20260729-111349 moved it once more, to the
+    // resolved selection: PRESERVED, since "completed units travel with their tasks
+    // and Log" is exactly what the per-selection class states, and the unit it names
+    // is now the one the granularity test actually admits.
     [
       'Commit completed units with their tasks and Log',
-      "**Implementation**: exactly one, the change's complete work — code, tests, ticked boxes and Log entries",
+      '**Implementation**: one per resolved selection of work — its code, tests, ticked boxes and Log entries',
     ],
     [
       'Do not create a dedicated commit for a lifecycle-only transition',
@@ -3263,15 +3380,20 @@ test('195445 CR4: the canonical counter counts a final line with no trailing new
 // per-task rule failed the granularity test core itself states (a Plan task is
 // never reverted, referenced by id nor implemented apart), nothing verified it,
 // and delegating a whole Plan made it unsatisfiable. Five classes replace four,
-// and the one implementation commit lands before the review is delegated so
+// and the implementation work lands before the review is delegated so
 // `baseline..HEAD` is an artifact the orchestrator cannot edit afterwards.
+// 20260729-111349: five classes are PRESERVED, and so is the ordering that closes
+// the range. What is REPLACED is the Implementation class's quantifier — the unit is
+// the resolved selection of work, with no fixed number per change — so the literal
+// below is the class's new wording; `111349 CR1` owns the proof that the retired
+// count left every fragment.
 test('164620 CR1: core declares five commit classes and no per-task unit', () => {
   const core = composedCore();
   for (const literal of [
     'A change branch carries five commit classes and no others',
     '**Draft**: one per drafted change document',
     '**Baseline**: exactly one, the approved change document, before any code',
-    "**Implementation**: exactly one, the change's complete work",
+    '**Implementation**: one per resolved selection of work',
     '**Correction**: zero or more',
     '**Handoff**: mandatory whenever work stops',
   ]) {
@@ -3518,10 +3640,200 @@ test('164620 H4/H5: the emptied combined-commit form and the stale unit sentence
     !implement.includes('they do not relax intermediate commits for already verified units'),
     'implement still promises not to relax intermediate commits, which the new unit removed',
   );
+  // 20260729-111349 CR7 REPLACED the singular by the plural: with N selections the
+  // exceptions must not license leaving ANY of them uncommitted before review. The
+  // obligation is preserved word for word apart from the number.
   assert.ok(
     implement.includes(
-      'they cover corrections only, and never license leaving the implementation commit unmade before review',
+      'they cover corrections only, and never license leaving the implementation commits unmade before review',
     ),
     'implement does not say what the correction exceptions actually cover',
+  );
+});
+
+// 20260729-111349 — the commit unit is the RESOLVED SELECTION of work, not the whole
+// change. `164620 CR1` translated a decision about DELEGATION into a rule about
+// commits and added a quantifier nobody decided, "exactly one". The block's own
+// granularity test never justified the jump it made: it applied the discriminant to a
+// single Plan task, concluded correctly that a task alone fails it, and then landed on
+// the whole change. Between the two sits the resolved selection, which passes the test
+// — it reverts alone, and better than the change would. What is retired is the number,
+// never the guarantee: the reviewable range stays closed because every selection is
+// committed before the review is delegated (`111349 CR4`).
+const RETIRED_COMMIT_COUNT_LITERALS = [
+  '**Implementation**: exactly one',
+  'never one per Plan task',
+  'the change is the implementation unit',
+  'a change yields two commits',
+  'they all travel in the one implementation commit',
+  'any implementation task',
+];
+
+test('111349 CR1/CR2/CR3/CR5: no fragment fixes the number of implementation commits', () => {
+  // Recursive: the `agent-contexts/` and `agent-prompts/` fragments ship to consuming
+  // repos exactly like the top-level ones, so a top-level-only sweep proves less.
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => name.split(path.sep).join('/'));
+  assert.ok(fragments.length > 1, 'the fragment sweep found nothing to check');
+  for (const retired of RETIRED_COMMIT_COUNT_LITERALS) {
+    const holders = fragments.filter((name) =>
+      contractFragment(name).replace(/\s+/g, ' ').includes(retired),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
+  }
+  const core = composedCore();
+  for (const literal of [
+    '**Implementation**: one per resolved selection of work',
+    'committed as soon as that selection is resolved, without waiting for the rest',
+    'the number of implementation commits per change is not fixed',
+    // The granularity test is applied to the unit that passes it instead of jumping
+    // from the task straight to the change.
+    'A resolved selection of work is too: it reverts on its own',
+    'A single Plan task on its own is not',
+    // CR3: the combined commit no longer rests on there being one implementation commit.
+    'Plan tasks are never a reason — separating them is always possible',
+    // CR5: the ownership row names the work, and stops quantifying one delegation per task.
+    '| implementation work with its own verify command | subagent |',
+  ]) {
+    assert.ok(core.includes(literal), `core is missing ${literal}`);
+  }
+  // CR3's surviving cause of legitimacy, verbatim: shared files across changes, with
+  // the Log naming each one. Retiring the count must not widen the exception.
+  for (const literal of [
+    'A combined commit is legitimate only when separation is impossible: several changes share the same files',
+    'Record in the Log what was combined and why, naming every change that shares the surface',
+  ]) {
+    assert.ok(core.includes(literal), `core lost the combined-commit rule ${literal}`);
+  }
+});
+
+test('111349 CR4: every selection is committed before the review is delegated', () => {
+  const core = composedCore();
+  // The sequence obligation, not a count: with N implementation commits the range is
+  // still closed at the instant of delegation, so the orchestrator cannot edit the
+  // deliverable between the reviewer's report and history.
+  assert.ok(
+    core.includes('Every selection is committed before the review is delegated'),
+    'core no longer obliges every selection to be committed before the review is delegated',
+  );
+  assert.ok(
+    core.includes(
+      '`baseline..HEAD` is closed the instant the review is delegated: the reviewer inspects a fixed range and the deliverable cannot change between the report and history',
+    ),
+    'core no longer states what the ordering buys: a closed range and an unchangeable deliverable',
+  );
+});
+
+// The graduated spec is the repo's persistent truth for this rule, and it carried the
+// narrow formulation in Spanish. No test asserted any `.changeledger/specs/**` content
+// before this change, which is why the class escaped five times: the guard was prose.
+// Matching happens on whitespace-normalized text, because pinning contract prose by raw
+// substring breaks unrelated tests whenever a paragraph reflows.
+function graduatedGitSpec() {
+  return fs
+    .readFileSync(new URL('../.changeledger/specs/git-traceability.md', import.meta.url), 'utf8')
+    .replace(/\s+/g, ' ');
+}
+
+test('111349 CR6: the graduated spec carries the resolved selection, not the fixed count', () => {
+  const spec = graduatedGitSpec();
+  for (const falsehood of [
+    '**La unidad de commit es el change, y las clases son contables.**',
+    '**Implementation**, exactamente uno con el trabajo completo del change',
+    'así que el change es la unidad de implementación',
+    'un change produce **dos** commits',
+    'todas viajan en el único commit de implementación',
+  ]) {
+    assert.ok(!spec.includes(falsehood), `the graduated spec still states "${falsehood}"`);
+  }
+  for (const literal of [
+    '**La unidad de commit es la selección de trabajo resuelta.**',
+    '**Implementation**, uno por selección de trabajo resuelta',
+    'se commitea al resolverse, sin esperar a las demás',
+    'Toda selección queda commiteada **antes** de delegar el review',
+    'Una **selección de trabajo resuelta** también',
+  ]) {
+    assert.ok(spec.includes(literal), `the graduated spec is missing "${literal}"`);
+  }
+  // Three retired formulations, not two: the fixed per-change count is named as the
+  // third, so it cannot come back as a rediscovery.
+  assert.ok(
+    spec.includes('Tres formulaciones anteriores quedaron retiradas'),
+    'the graduated spec does not count three retired formulations',
+  );
+  assert.ok(
+    !spec.includes('Dos formulaciones anteriores quedaron retiradas'),
+    'the graduated spec still counts only two retired formulations',
+  );
+  assert.ok(
+    spec.includes('fijar el número de commits de implementación por change'),
+    'the graduated spec does not name the fixed per-change count as the third retired formulation',
+  );
+});
+
+// 20260729-111349 CR7 — `implement.md` was the fragment that survived the first pass of
+// this change and went on contradicting core in four places, step 5 of its ordered gate
+// worst of all: "Create the one implementation commit with `changeledger commit`". The
+// reason it survived is the reason the whole class survives in this repo: every guard
+// watched `core.md` alone. This one reads the directory and sweeps every fragment,
+// `agent-contexts/` and `agent-prompts/` capsules included, so reintroducing the single
+// commit anywhere fails.
+test('111349 CR7: no fragment demands one implementation commit per change', () => {
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => name.split(path.sep).join('/'));
+  // The sweep's own reach is asserted, not assumed: a guard that silently stopped
+  // covering the seat the defect lived in would pass while proving nothing.
+  assert.ok(fragments.length > 1, 'the fragment sweep found nothing to check');
+  for (const seat of ['core.md', 'implement.md', 'agent-contexts/implementation.md']) {
+    assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
+  }
+  // The broader literal subsumes the exact one CR7 measures; both are listed so the
+  // failure message names what came back.
+  for (const singular of ['the one implementation commit', 'one implementation commit']) {
+    const holders = fragments.filter((name) =>
+      contractFragment(name).replace(/\s+/g, ' ').includes(singular),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still demands "${singular}"`);
+  }
+  // The three measured `the implementation commit` sites now read in the plural, so each
+  // describes the class instead of a unique per-change commit.
+  const implement = buildContext('implement', repo()).replace(/\s+/g, ' ');
+  for (const plural of [
+    'Between `changeledger status <id> in-progress` and the implementation commits',
+    'carry those transitions inside the implementation commits',
+    'never license leaving the implementation commits unmade before review',
+  ]) {
+    assert.ok(implement.includes(plural), `the implement pack is missing ${plural}`);
+  }
+  // The window is N commits, not one event.
+  assert.ok(
+    implement.includes('each resolved selection is committed as it resolves'),
+    'the implement pack still treats the implementation window as a single commit event',
+  );
+  // And admitting N must not cost the expected-delta set: it has no other home, so
+  // simplifying the sentence would retire an obligation with nowhere to land.
+  for (const preserved of [
+    'the change document stays modified and uncommitted',
+    "and so do the change's own code and tests",
+    'Together they are the only expected delta',
+    'every `[status]` line the window accumulated',
+    'the entry into `in-progress` and the exit into `in-review`',
+    '"unrelated changes" above means a path belonging to neither the change document nor the change\'s authorized scope',
+    'a clean worktree is not a valid precondition',
+    'a delegation baseline states this expected set instead of demanding a clean tree',
+  ]) {
+    assert.ok(implement.includes(preserved), `the window prose lost ${preserved}`);
+  }
+  // The ordered gate still has a commit step before the delegation — `164620 CR2` owns
+  // the ordering — but it now closes out every outstanding selection.
+  assert.ok(
+    implement.includes('Create every outstanding implementation commit with `changeledger commit`'),
+    'the ordered gate no longer commits every outstanding selection',
   );
 });

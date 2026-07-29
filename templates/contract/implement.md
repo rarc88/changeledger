@@ -21,16 +21,18 @@ finished result into it; `main` stays reserved for releases. Inspect the worktre
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
-Between `changeledger status <id> in-progress` and the implementation commit the
+Between `changeledger status <id> in-progress` and the implementation commits, the
 change document stays modified and uncommitted — its `status` field and every
 `[status]` line the window accumulated, at least the entry into `in-progress` and
-the exit into `in-review` — and so do the change's own code and tests, which that
-commit is the first to carry. Together they are the only expected delta, and
+the exit into `in-review` — and so do the change's own code and tests, which those
+commits are the first to carry. Together they are the only expected delta, and
 "unrelated changes" above means a path belonging to neither the change document nor
-the change's authorized scope. Core's commit classes carry those transitions inside
-the implementation commit rather than a commit of its own, so a clean worktree is
-not a valid precondition anywhere in that window, and a delegation baseline states
-this expected set instead of demanding a clean tree.
+the change's authorized scope. The window is not one event: each resolved selection is
+committed as it resolves, so the expected delta shrinks selection by selection and what
+stays uncommitted is what no selection has resolved yet. Core's commit classes
+carry those transitions inside the implementation commits rather than a commit of
+their own, so a clean worktree is not a valid precondition anywhere in that window,
+and a delegation baseline states this expected set instead of demanding a clean tree.
 
 Implement one change at a time, even while another already-delivered change waits
 in `in-validation`.
@@ -60,9 +62,10 @@ requires independent review by running this ordered gate — do not reconstruct 
    refuses a candidate whose readiness is invalid and leaves the document untouched.
 4. Reapply the formatter to the change document and run `changeledger check`; if the
    candidate changes again before the reviewer sees it, repeat every affected verification.
-5. Create the one implementation commit with `changeledger commit`: the change's
-   complete work plus the ledger state, transitions included. It precedes the review
-   delegation, so the reviewer inspects `baseline..HEAD` instead of a working tree.
+5. Create every outstanding implementation commit with `changeledger commit`: each
+   resolved selection carries its own work, and the last also carries the ledger state,
+   transitions included. Every selection precedes the review delegation, so the reviewer
+   inspects a closed `baseline..HEAD` instead of a working tree.
 6. Load `changeledger context review` once; do not reload it to record the verdict unless context was lost (compaction, a new session).
 7. Delegate to a fresh, read-only reviewer with clean context; it reports but never records the verdict itself.
 8. Record the delegate's verdict yourself with `changeledger review <id> pass|fail` — never `log`+`status`.
@@ -93,5 +96,5 @@ the same diff if it does not. After human acceptance, graduate or record a skip
 and include correction plus ledger in the final closure commit.
 
 These exceptions prevent false fix attempts from becoming permanent history;
-they cover corrections only, and never license leaving the implementation commit
+they cover corrections only, and never license leaving the implementation commits
 unmade before review.

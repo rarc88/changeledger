@@ -215,13 +215,36 @@ este repo ya se fugó cinco veces.
   ningún test afirma contenido de `.changeledger/specs/**`, así que la guarda es nueva y
   su ausencia es la razón por la que la clase se fugó cinco veces
 
+### CR7 — Ningún fragmento del contrato exige el commit único
+
+- **Given** `templates/contract/implement.md`, que hoy exige en el paso 5 de su lista
+  ordenada `Create the one implementation commit with \`changeledger commit\`` y describe
+  la ventana entre `in-progress` y ese commit como un evento único
+- **When** se leen sus cuatro sitios y se compara con la clase Implementation del core
+- **Then** la cadena `the one implementation commit` tiene **cero** ocurrencias en
+  `templates/contract/`, frente a la única de hoy en `implement.md`, y las **tres**
+  ocurrencias medidas de `the implementation commit` describen la clase o la selección
+  resuelta, nunca un commit único por change
+- **And** la prosa de la ventana admite **N** selecciones commiteadas conservando el
+  conjunto esperado de delta que ya nombra, para no retirar una obligación sin sede
+- **And** la guarda que fija esto **barre todos los ficheros de `templates/contract/`**, no
+  sólo `core.md`, de modo que reintroducir el commit único en cualquier fragmento falle:
+  una guarda que sólo mira una sede es la clase que dejó este defecto vivo
+
 ## Plan
 
-- [ ] Reescribir la clase Implementation y el párrafo de granularidad en `templates/contract/core.md`, retargeteando en la misma pasada los pins de snapshot y sus comentarios de clasificación; verify: `node --test test/context.test.mjs` (CR1, CR2)
-- [ ] Ajustar el párrafo de commit combinado y fijar la obligación de secuencia del rango del review en `templates/contract/core.md`, con la aserción que la protege; verify: `node --test test/context.test.mjs` (CR3, CR4)
-- [ ] Quitar el cuantificador por tarea de la fila de propiedad del bloque de contexto en `templates/contract/core.md`; verify: `node --test test/cli.test.mjs` (CR5)
-- [ ] Reescribir las cinco afirmaciones falsas y añadir la tercera formulación retirada en `.changeledger/specs/git-traceability.md`, con la guarda nueva que las fija a cero sobre texto normalizado; verify: `node --test test/context.test.mjs` (CR6)
-- [ ] Correr el gate completo y `changeledger check --commits` antes de pedir review (support)
+- [x] Reescribir la clase Implementation y el párrafo de granularidad en `templates/contract/core.md`, retargeteando en la misma pasada los pins de snapshot y sus comentarios de clasificación; verify: `node --test test/context.test.mjs` (CR1, CR2)
+  - **Resolved:** `2026-07-29T11:56:15Z`
+- [x] Ajustar el párrafo de commit combinado y fijar la obligación de secuencia del rango del review en `templates/contract/core.md`, con la aserción que la protege; verify: `node --test test/context.test.mjs` (CR3, CR4)
+  - **Resolved:** `2026-07-29T11:56:15Z`
+- [x] Quitar el cuantificador por tarea de la fila de propiedad del bloque de contexto en `templates/contract/core.md`; verify: `node --test test/cli.test.mjs` (CR5)
+  - **Resolved:** `2026-07-29T11:56:16Z`
+- [x] Reescribir las cinco afirmaciones falsas y añadir la tercera formulación retirada en `.changeledger/specs/git-traceability.md`, con la guarda nueva que las fija a cero sobre texto normalizado; verify: `node --test test/context.test.mjs` (CR6)
+  - **Resolved:** `2026-07-29T11:56:16Z`
+- [x] Retirar la exigencia del commit único de los cuatro sitios de `templates/contract/implement.md` y ensanchar la guarda a todos los fragmentos; verify: `node --test test/context.test.mjs` (CR7)
+  - **Resolved:** `2026-07-29T11:56:16Z`
+- [x] Correr el gate completo y `changeledger check --commits` antes de pedir review (support)
+  - **Resolved:** `2026-07-29T11:56:16Z`
 
 ## Log
 
@@ -229,3 +252,7 @@ este repo ya se fugó cinco veces.
 - **2026-07-29T11:21:58Z** `[note]` Alcance ampliado por instrucción de Roberto (2026-07-29): la spec .changeledger/specs/git-traceability.md se corrige DENTRO del change, con CR6 y guarda de test normalizada, en vez de quedar como obligación de graduación en prosa — que es el mecanismo que falló las cinco veces que la clase se fugó. Verificado que hoy ningún test afirma contenido de .changeledger/specs/**, así que la guarda es superficie nueva y su ausencia explica las cinco fugas.
 - **2026-07-29T11:25:29Z** `[status]` draft → approved (human via conversation)
 - **2026-07-29T11:25:39Z** `[status]` approved → in-progress
+- **2026-07-29T11:26:33Z** `[note]` Corte de delegación medido antes de delegar: las seis CR se reparten en dos superficies de contenido (templates/contract/core.md y .changeledger/specs/git-traceability.md) pero AMBAS escriben en test/context.test.mjs — el pin de snapshot del core y la guarda nueva de la spec viven en el mismo fichero. Superficies acopladas, así que una sola delegación, no dos. Mandato: Plan completo. Precedente medido: 161k en una pasada frente a 347k en tres para un change menor.
+- **2026-07-29T11:45:45Z** `[note]` CR7 añadido en vuelo con autorización explícita de Roberto (2026-07-29). Defecto MIO: el Request scopeó la corrección a core.md, así que los seis CR aprobados dejaban templates/contract/implement.md contradiciendo al core en cuatro sitios — el paso 5 de su lista ordenada exige 'the one implementation commit'. Es la clase 19/48 creada por el propio change. La enmienda es ESTRICTAMENTE MAS FUERTE: sólo añade un criterio y ensancha la guarda de core.md a todos los fragmentos, así que no puede convertir un fallo en un pass. Se declara al revisor como edición del orquestador sometida al mismo estándar.
+- **2026-07-29T11:56:41Z** `[note]` Commit combinado, con su porque: las dos selecciones resueltas —CR1-CR6 y CR7— comparten test/context.est.mjs (el pin de core.md, el de implement.md, la guarda de la spec y la guarda de CR7 viven en el mismo fichero), asi que separarlas exigiria un commit intermedio con la suite roja. La causa es MIA y es de proceso, no de superficie: debi commitear la primera seleccion ANTES de mandar CR7 al delegado, que es precisamente la regla que este change instaura. Al no hacerlo las entrelace. Registrado en vez de fabricar dos commits.
+- **2026-07-29T11:56:41Z** `[note]` [note] PUNTO DE ESCRUTINIO PARA EL REVISOR, no tocado a proposito: el delegado pidio que se juzgara su decision 1. En test/context.test.mjs el pin 164620 CR7 conserva los literales EN SINGULAR ('Between changeledger status <id> in-progress and the implementation commit', 'carry those transitions inside the implementation commit') y pasan por substring de la forma plural nueva, mientras su comentario de clasificacion ya declara el reemplazo plural. Comentario y asercion discrepan: es la clase del hallazgo 40. No lo edito yo — editar el entregable entre el informe y la historia causo dos de los cuatro fail --retry de la fase A. Lo juzga el revisor en contexto limpio.

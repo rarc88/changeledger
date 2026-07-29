@@ -316,7 +316,13 @@ test('214902 CR5/CR6: installed contract preserves traceability without false-fi
   assert.match(contract, /Implement one\s+change at a\s+time/);
   // 20260728-164620 replaced the per-task class with the per-change one; the
   // installed contract must carry the new unit, not the retired counting rule.
-  assert.match(contract, /\*\*Implementation\*\*: exactly one/);
+  // 20260729-111349 REPLACED it again: the unit is the resolved selection of work and
+  // the number per change is not fixed, so the installed contract is pinned by the
+  // unit rather than by a count. The ordering guarantee is preserved, not retired —
+  // asserted below on its own.
+  assert.match(contract, /\*\*Implementation\*\*: one per resolved selection of work/);
+  assert.match(contract, /Every selection is committed before the review is\s+delegated/);
+  assert.doesNotMatch(contract, /\*\*Implementation\*\*: exactly one/);
   assert.match(
     contract,
     /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
