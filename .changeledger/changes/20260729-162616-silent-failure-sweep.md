@@ -2,9 +2,11 @@
 id: "20260729-162616"
 title: "Lo que no se puede decidir aborta y se nombra: barrido de fallos silenciosos"
 type: bug
-status: in-validation
+status: done
 created: 2026-07-29T16:26:16Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260726-194220", "20260726-141124"]
 owner: raruiz-hiberuscom
 ---
@@ -208,3 +210,7 @@ normalizar, prefijo colapsado) donde el contrato exige abortar nombrando.
 - **2026-07-29T18:28:44Z** `[note]` Corrección de Finding 1 hecha por el orquestador (edición declarada para escrutinio del revisor de confirmación, fix mínimo especificado por el propio review): el lowercase queda solo en la comparación de prefijo (fail-closed) y expected.has(file) vuelve exacto; comentario reescrito nombrando la asimetría. TDD: test nuevo '162616 CR8: a mis-cased twin of a declared document is rejected, never whitelisted' en rojo antes del fix (el gemelo se commiteaba) y verde después; el test CR8 original sigue verde (el vector undeclared sigue rechazado). Gate completo verde. Sin commitear a la espera de la ronda de confirmación.
 - **2026-07-29T18:28:44Z** `[status]` in-progress → in-review
 - **2026-07-29T18:34:24Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T18:40:01Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-29T18:40:37Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-29T18:40:38Z** `[graduation]` spec: `validation.md`
+- **2026-07-29T18:40:38Z** `[archive]` archived
