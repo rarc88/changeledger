@@ -829,10 +829,13 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**. Orden restante:
 
 ```
-CH-17 → CH-20 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b
-     → CH-9 → CH-10 → CH-2 → CH-3 → CH-16 → CH-8
-     → en paralelo tras CH-20: CH-11 | CH-12 | CH-13 | CH-6 | CH-7
+CH-17 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
+     → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
 ```
+
+**CH-20 descartado**, así que no hay vía paralela en el contrato: el paralelismo, cuando
+se quiera, son **varios worktrees con un change cada uno** — modelo que la regla actual
+ya permite y que no necesita cambio alguno. Coste por worktree: `pnpm install`.
 
 **Reordenado el 2026-07-28 por decisión de Roberto**, con el dato que lo motiva:
 `core` está a **193/195 líneas** contra **2577/4000 tokens**. La dimensión que
@@ -850,8 +853,9 @@ mide al implementarlo, no se supone.
 Decisiones de Roberto del 2026-07-28 sobre el propio flujo:
 
 - **Más tipos de change**: se estudia después, no ahora.
-- ~~Relajar "one change at a time"~~ → **CH-20, documentado** como `20260729-001217`
-  el 2026-07-29 por autorización explícita de Roberto. Ver abajo.
+- ~~Relajar "one change at a time"~~ → **CERRADO sin cambio de contrato** el 2026-07-29:
+  CH-20 (`20260729-001217`) se redactó y se **descartó** el mismo día. El paralelismo es
+  por worktree, un change en cada uno, que la regla actual ya permite. Ver CH-20 abajo.
 
 Razón: CH-4, CH-5a y CH-5b son baratos y atacan el coste directamente — CH-4 deja
 de fabricar veredictos falsos, CH-5a deja de mandar auditorías completas por
@@ -953,12 +957,44 @@ legal de documentarse con criterios.** Eso es el hallazgo 41 en su forma más pu
 CH-19 espera a **CH-1** (gramática del Plan por tags), que separa el campo de target
 del de verificación y mata la clase.
 
-### CH-20 — Dos changes a la vez cuando sus superficies no se solapan
+### CH-20 — DESCARTADO: el paralelismo es por worktree, no por relajar la regla
 
-`20260729-001217` — **`draft`**, redactado el 2026-07-29 por autorización explícita de
-Roberto: *"creo que si relajaremos mas de un change a la vez siempre y cuando no toquen
-la misma superficie"*. Nace de su queja medida sobre la lentitud: CH-6, CH-7, CH-11,
-CH-12 y CH-13 son defectos limpios con superficies disjuntas y hoy van en fila india.
+`20260729-001217` — **`discarded`** el 2026-07-29, el mismo día que se redactó.
+
+**Decisión de Roberto**: *"es mas limpio un change a la vez por worktree, si se quieren
+solucionar varias a la vez serian varios worktrees"*. Y es la salida más limpia por una
+razón fuerte: **ese modelo cumple literalmente la regla que ya existe** —*"One change at
+a time, on a non-main branch"*—, así que el paralelismo se consigue **sin tocar el
+contrato**. CH-20 queda innecesario, no equivocado.
+
+Corrección a lo que este acta decía: la exclusión de §5 era de worktrees **de agente**
+(el `isolation: worktree` del orquestador), no de worktrees creados a mano. No había
+decisión previa que contradijera a Roberto.
+
+**Coste real del modelo, verificado el 2026-07-29 y no heredado de notas:** un worktree
+nuevo **no tiene `node_modules`**, así que el CLI ni arranca —
+`Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'commander' imported from
+<worktree>/bin/changeledger.mjs`. Requiere `pnpm install` por worktree antes de poder
+usar `changeledger` o el gate. Eso explica el viejo reporte de *"`changeledger commit`
+sale con exit 1 sin diagnóstico dentro de worktrees"*, que estaba anotado sin
+diagnosticar. Dos cuidados más, conocidos: los worktrees van **fuera** del repo, o su
+`biome.json` anidado rompe el lint global con *"nested root configuration"*; y la
+higiene de `GIT_DIR`/`GIT_WORK_TREE` en hooks anidados, saneada en `src/git.mjs`.
+
+Los hallazgos verificados que CH-20 contenía **sobreviven aquí** porque siguen siendo
+verdad sobre el contrato, aunque no se actúe sobre ellos:
+
+- `core.md` gobierna la concurrencia **dos veces con dos unidades**, a 18 líneas: la 38
+  por superficie de escritura, la 56 por conteo de changes.
+- La regla de conteo **no la impone nada**: ni `src/lifecycle.mjs` ni `src/check.mjs`
+  cuentan changes en curso.
+- `src/commands/commit.mjs` ya trata varios en curso como estado legítimo a desambiguar:
+  `Ambiguous: N changes are in-progress (…); pass --id explicitly`.
+- La regla vive en **dos sedes**, `core.md:56` e `implement.md:24`, y la segunda ya
+  contiene una relajación parcial para `in-validation`. Sigue siendo clase 19/48.
+
+Consecuencia de orden: **la vía paralela se cierra**. CH-6, CH-7, CH-11, CH-12 y CH-13
+vuelven a la secuencia, y quien quiera solaparlos abre worktrees.
 
 **El argumento decisivo es interno al fragmento, y es la misma forma que usó CH-15.**
 `core.md` gobierna la concurrencia **dos veces con dos unidades distintas**, a 18 líneas
