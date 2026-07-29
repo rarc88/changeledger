@@ -2,7 +2,7 @@
 id: "20260729-111349"
 title: La unidad de commit es la selección resuelta, no el change entero
 type: bug
-status: draft
+status: in-progress
 created: 2026-07-29T11:13:49Z
 depends_on: []
 related_to: ["20260728-164620"]
@@ -227,3 +227,5 @@ este repo ya se fugó cinco veces.
 
 - **2026-07-29T11:20:00Z** `[note]` Redactado con la frase literal de Roberto citada en el Request, por la lección de que una decisión traducida de dominio (delegación → commits) es donde se perdió la primera vez. Medido antes de escribir criterios: 5 ocurrencias de `**Implementation**: exactly one`, 2 de `never one per Plan task`, bloque a 32/125 líneas y 620/1250 tokens, core a 197/400 y 2648/4000. Descartado por vacuo un CR de presupuesto: con 93 líneas de holgura no podría fallar (clase del hallazgo 28). El dimensionado del grupo de delegación queda fuera de alcance a propósito, es de CH-5b.
 - **2026-07-29T11:21:58Z** `[note]` Alcance ampliado por instrucción de Roberto (2026-07-29): la spec .changeledger/specs/git-traceability.md se corrige DENTRO del change, con CR6 y guarda de test normalizada, en vez de quedar como obligación de graduación en prosa — que es el mecanismo que falló las cinco veces que la clase se fugó. Verificado que hoy ningún test afirma contenido de .changeledger/specs/**, así que la guarda es superficie nueva y su ausencia explica las cinco fugas.
+- **2026-07-29T11:25:29Z** `[status]` draft → approved (human via conversation)
+- **2026-07-29T11:25:39Z** `[status]` approved → in-progress
