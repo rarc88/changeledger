@@ -2,9 +2,11 @@
 id: "20260729-144812"
 title: "La resolución del owner no lanza red: perezosa y con kill-switch en la suite"
 type: bug
-status: in-review
+status: done
 created: 2026-07-29T14:48:12Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260726-124836", "20260614-182513"]
 owner: raruiz-hiberuscom
 ---
@@ -118,3 +120,8 @@ apagarse en entornos que exigen hermeticidad.
 - **2026-07-29T15:11:53Z** `[note]` Implementación entregada por delegado (123k tokens, 52 tool calls) y verificada por el orquestador contra el árbol de WT-B: lazy confirmado (ownerHandle dentro del guard !fm.owner), kill-switch en defaultGhRun exportado, scripts test/verify con CHANGELEDGER_NO_GH=1. Gate corrido por el orquestador: pnpm verify EXIT=0, 951/951, lint limpio, check 0 errores. Rojo-verde literal por criterio en el informe del delegado.
 - **2026-07-29T15:11:53Z** `[note]` Edición del orquestador, declarada para escrutinio del revisor: el delegado dejó el comentario del kill-switch duplicado (dos copias contiguas del bloque de 4 líneas sobre defaultGhRun); retiré una copia con un replace que asertaba exactamente 2 copias antes y 1 después. Barrido de la clase sobre el diff completo: ningún otro bloque añadido contiguo duplicado; las líneas repetidas restantes son boilerplate entre tests distintos.
 - **2026-07-29T15:11:53Z** `[status]` in-progress → in-review
+- **2026-07-29T15:12:34Z** `[note]` Mandato del review, registrado antes de delegar: superficie que gobierna — el diff del commit bdee3c87 (5c394478..HEAD marcado con este id), los cinco criterios con re-derivación de mutantes, y escrutinio de las decisiones no especificadas del implementador más la edición del orquestador (dedup del comentario). No es auditoría repo completa. Revisor mid-tier: diff pequeño, mecanismo pre-decidido, tests deterministas.
+- **2026-07-29T15:23:05Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T16:05:23Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-29T16:05:55Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-29T16:05:55Z** `[archive]` archived
