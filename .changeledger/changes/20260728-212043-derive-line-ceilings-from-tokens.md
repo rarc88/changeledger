@@ -2,7 +2,7 @@
 id: "20260728-212043"
 title: Los techos de líneas se derivan del techo de tokens
 type: feature
-status: draft
+status: approved
 created: 2026-07-28T21:20:43Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-195445", "20260728-164620"]
@@ -38,14 +38,17 @@ dimensión que declara coste.
 
 Medido con el tokenizador pinneado sobre la salida real del CLI:
 
-| pack | líneas hoy | tokens hoy | densidad | techo `lines` derivado | techo `lines` actual |
-|---|---|---|---|---|---|
-| `core` | 193 | 2577/4000 | **13.4** | **400** | **195** |
-| `spec` | 301 | 3110/3450 | 10.3 | 345 | 310 |
-| `implement` | 173 | 1776/2000 | 10.3 | 200 | 205 |
-| `review` | 73 | 779/900 | 10.7 | 90 | 85 |
-| `release` | 38 | 410/500 | 10.8 | 50 | 60 |
-| bloque `core-commits` | 28 | 549/650 | 19.6 | 65 | 28 |
+| pack | líneas hoy | tokens hoy | densidad | techo `lines` actual |
+|---|---|---|---|---|
+| `core` | 193 | 2577/4000 | **13.4** | **195** |
+| `spec` | 301 | 3110/3450 | 10.3 | 310 |
+| `implement` | 173 | 1776/2000 | 10.3 | 205 |
+| `review` | 73 | 779/900 | 10.7 | 85 |
+| `release` | 38 | 410/500 | 10.8 | 60 |
+| bloque `core-commits` | 28 | 549/650 | 19.6 | 28 |
+
+Los techos derivados salen de los techos de tokens **decididos**, no de los de hoy; la
+tabla completa está en *Proposal*.
 
 El `core` es denso porque es casi todo tablas: 13.4 tokens por línea contra el ~10.3
 de los demás. El suelo de 10 que `170429` fijó para derivar es correcto para el resto
@@ -60,11 +63,13 @@ los **4000 tokens hacia las ~298 líneas**, muy por debajo de 400. Es decir, **t
 pasa a ser el gate operativo y líneas queda como transporte holgado**, que es el
 diseño que `170429` enunció y no llegó a instalar.
 
-### Derivar aprieta dos packs, y ninguno se rompe
+### Ningún techo baja
 
-`implement` pasa de 205 a 200 y `release` de 60 a 50. Los dos siguen cabiendo con
-holgura (173 y 38 líneas hoy). Se registra porque un techo que baja es un cambio real:
-si mañana `release` llegara a 51 líneas, este change es la razón de que falle.
+Con los techos de tokens decididos —contextos a 2500 y el resto a 1250— todos los
+techos de líneas derivados quedan **por encima** de los actuales: `implement` 205 → 250,
+`review` 85 → 250, `release` 60 → 250, los overlays a 125 desde 84/54/108/48, y el
+bloque `## Commits` de 28 a 125. No hay ninguna entrada que se estreche, así que no hay
+riesgo de que este change haga fallar contenido que hoy pasa.
 
 ### El coste asimétrico está guardado a propósito
 
@@ -119,20 +124,32 @@ contra el techo actual —que fue el error de una versión previa de este docume
 | `done` | 76 | **900/1000** | 100 | sí |
 | `discarded` | 15 | 131/200 | 20 | sí |
 
-Los cuatro entran, así que se derivan aquí. Se anota que **`done` está a 900 de 1000
-tokens**: cabe, pero es el margen más estrecho del fichero y el primero que va a
-morder. No se toca su techo de tokens en este change porque los techos de tokens son
-decisiones de coste del humano, no derivaciones.
+Los cuatro entran. `done` estaba a **900 de 1000 tokens**, el margen más estrecho del
+fichero, y con el techo decidido de 1250 pasa a 72%.
+
+### El techo de `spec` es andamio, no decisión, y eso no estaba escrito
+
+La decisión registrada desde `20260728-170429` es **`core` 4000 y el resto de contextos
+2000–2500**. `base.spec` está en **3450**, por encima de ese rango, porque se subió
+**temporalmente** para que el gate no fallara mientras el pack de autoría espera su
+refactorización — la misma que `CH-0b` del acta describe como *"la causa no es prosa
+verbosa, es estructural"*.
+
+Ese carácter temporal **no estaba documentado en ninguna parte**: `grep temporal` sobre
+el acta no devuelve nada, y la tabla de medidas presenta 3450 como un techo igual que
+los demás. El resultado previsible es el que ocurrió: se leyó como decidido y se
+propuso subirlo aún más, contradiciendo la decisión de 2500. Este change escribe la
+marca de andamio junto al valor para que la próxima lectura no repita el error.
 
 ### La entrada `agent` estaba en 350 contra una decisión de 1000, y no cubría los prompts
 
 Dos defectos, uno dentro del otro.
 
-**El valor está mal.** La decisión registrada es **1000 tokens** para las cápsulas
-—`agent-prompt` y `agent-context` juntas—. `20260728-170429` shipeó `agent: 350`, que
-nadie decidió. Reafirmado por Roberto el 2026-07-28: *"que agent-prompt y agent-context
-tengan 1000 tokens de limite, no lo dejemos justos sino siempre estaremos en esto una y
-otra vez"*.
+**El valor está mal.** `20260728-170429` shipeó `agent: 350`, que nadie decidió; la
+tabla de decisiones del acta registraba 1000 para las cápsulas. Roberto lo reafirmó el
+2026-07-28 —*"que agent-prompt y agent-context tengan 1000 tokens de limite, no lo
+dejemos justos sino siempre estaremos en esto una y otra vez"*— y acto seguido lo
+generalizó a **1250** para todo lo que no es un contexto. Vale 1250.
 
 **Y no se aplica donde hace falta.** La entrada la aplica `144327 CR8` en
 `test/agent-context.test.mjs` sobre `buildAgentContext`, es decir **sólo** sobre las
@@ -142,10 +159,10 @@ Un techo que no puede fallar para la mitad de lo que declara cubrir.
 
 Los dos se arreglan aquí porque son la misma entrada del mismo fichero y el segundo
 sin el primero rompería el árbol: aplicar 350 sobre los prompts los reprobaría a los
-cuatro. Con 1000 el más grande (478) queda al 48% y ninguna prosa se retira para caber,
+cuatro. Con 1250 el más grande (478) queda al 38% y ninguna prosa se retira para caber,
 que es la condición que `AGENTS.md` exige.
 
-Consecuencia sobre el derivado: `agent` pasa de 35 líneas a **100**, muy por encima de
+Consecuencia sobre el derivado: `agent` pasa de 35 líneas a **125**, muy por encima de
 las 46 de la cápsula más larga. Afloja en las dos dimensiones.
 
 ### Relaciones
@@ -167,19 +184,35 @@ deriva y el pin de valores. Y una corrección de valor: `agent` sube a los **100
 tokens** que estaban decididos, y su techo pasa a aplicarse también sobre
 `agent-prompt`.
 
-| entrada | tokens | `lines` hoy | `lines` derivado |
+Techos de tokens según la decisión de Roberto del 2026-07-28: **`core` 4000, todos los
+demás contextos 2500, el resto de cosas 1250.** Tres números, no once.
+
+| entrada | tokens hoy → decidido | `lines` hoy | `lines` derivado |
 |---|---|---|---|
 | `base.core` | 4000 | 195 | **400** |
-| `base.spec` | 3450 | 310 | **345** |
-| `base.implement` | 2000 | 205 | **200** |
-| `base.review` | 900 | 85 | **90** |
-| `base.release` | 500 | 60 | **50** |
-| `agent` | **350 → 1000** | 60 | **100** |
-| `overlays.blocked` | 500 | 84 | **50** |
-| `overlays.in-validation` | 450 | 54 | **45** |
-| `overlays.done` | 1000 | 108 | **100** |
-| `overlays.discarded` | 200 | 48 | **20** |
-| `blocks.core-commits` | 650 | 28 | **65** |
+| `base.spec` | 3450 → **3450, temporal** | 310 | **345** |
+| `base.implement` | 2000 → **2500** | 205 | **250** |
+| `base.review` | 900 → **2500** | 85 | **250** |
+| `base.release` | 500 → **2500** | 60 | **250** |
+| `agent` | 350 → **1250** | 60 | **125** |
+| `overlays.blocked` | 500 → **1250** | 84 | **125** |
+| `overlays.in-validation` | 450 → **1250** | 54 | **125** |
+| `overlays.done` | 1000 → **1250** | 108 | **125** |
+| `overlays.discarded` | 200 → **1250** | 48 | **125** |
+| `blocks.core-commits` | 650 → **1250** | 28 | **125** |
+
+`1250` para `agent` **sustituye** el `1000` que Roberto dijo un mensaje antes: la regla
+posterior es más general y más holgada, y su criterio explícito es no dejarlo justo. La
+cápsula más grande (`implementation`, 478 tokens) queda al 38%.
+
+**`base.spec` es la única excepción, y no es una excepción nueva.** Mide **3110 tokens**
+hoy, así que ponerlo en 2500 rompe el árbol de inmediato. El 3450 actual es un valor
+**temporal**, subido sólo para que el gate no fallara, y su condición de salida es la
+refactorización del pack de autoría que sigue pendiente. Este change **no** lo baja: lo
+deja en 3450 y lo marca como andamio con dueño nombrado, para que no vuelva a leerse
+como un techo decidido. Bajarlo a 2500 pertenece al change que refactoriza `spec`.
+Verificado que es el único que no cabe: `implement` 1776, `review` 779, `release` 410,
+`agent` 478 y los cuatro overlays (439, 392, 900, 131) entran todos.
 
 Alternativas descartadas:
 
@@ -227,16 +260,24 @@ Alternativas descartadas:
 - **Then** es mayor que `10`, así que el techo de tokens se agota antes que el de líneas
 - **And** un test lo afirma comparando la densidad observada contra `10` y falla si el `core` se volviera menos denso, que es la señal de que el `head` hay que subirlo a propósito
 
-### CR6 — La entrada `agent` vale 1000 tokens y acota las dos clases de cápsula
+### CR6 — La entrada `agent` vale 1250 tokens y acota las dos clases de cápsula
 - **Given** `templates/contract/budgets.yml` y las cápsulas que emiten `changeledger agent-prompt <rol>` y `changeledger agent-context <rol> [id]`
 - **When** se mide cada una de las cuatro cápsulas de prompt (`investigation`, `implementation`, `review`, `post-review`) contra la entrada `agent`
-- **Then** `agent.tokens` vale `1000`, `agent.lines` vale `100`, y las cuatro cápsulas de prompt caben en las dos dimensiones
+- **Then** `agent.tokens` vale `1250`, `agent.lines` vale `125`, y las cuatro cápsulas de prompt caben en las dos dimensiones
 - **And** con `agent.tokens` bajado a `400` la cápsula `implementation` falla nombrando su rol y `tokens`, porque mide `478`
 - **And** las cápsulas de `agent-context` siguen acotadas por la misma entrada, sin un segundo techo que pueda discrepar
 
+### CR7 — Los techos de tokens son los tres decididos, y `spec` queda marcado como andamio
+- **Given** `templates/contract/budgets.yml`
+- **When** se leen los techos de `tokens`
+- **Then** `base.core` vale `4000`, `base.implement`, `base.review` y `base.release` valen `2500`, y `agent`, los cuatro `overlays` y `blocks.core-commits` valen `1250`
+- **And** `base.spec` sigue en `3450` y el fichero declara junto a ese valor que es temporal y que su condición de salida es la refactorización del pack de autoría, así que no puede volver a leerse como un techo decidido
+- **And** un test afirma esos tres valores y la marca de `spec`, y falla si alguno cambia sin declararlo
+
 ## Plan
 
-- [ ] Derivar los once techos de `lines` en `templates/contract/budgets.yml`, subir `agent.tokens` a `1000`, y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
+- [ ] Fijar los techos de `tokens` decididos en `templates/contract/budgets.yml` (core 4000, contextos 2500, resto 1250) y marcar `base.spec` como andamio temporal con su condición de salida; verify: `node --test test/context.test.mjs` (CR7)
+- [ ] Derivar los once techos de `lines` en `templates/contract/budgets.yml` y actualizar `PINNED_CEILINGS` en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR4)
 - [ ] Extender el techo de la entrada `agent` de `templates/contract/budgets.yml` a las cápsulas que emite `src/commands/agent-prompt.mjs`, hoy sin acotar por ningún test; verify: `node --test test/agent-context.test.mjs` (CR6)
 - [ ] Mover el literal del `head` a `400` en `src/contract.mjs` y en `AGENTS.md`, y estrechar a igualdad la aserción de reserva de `124837 CR7`; verify: `node --test test/contract.test.mjs` (CR2)
 - [ ] Fijar el literal del `head` publicado por `src/contract.mjs` contra la deriva en las dos direcciones, actualizando su guarda; verify: `node --test test/contract.test.mjs` (CR3)
@@ -249,3 +290,5 @@ Alternativas descartadas:
 - **2026-07-28T21:20:44Z** `[note]` Alcance reducido a lo medido: cinco entradas base más blocks.core-commits. Los overlays y la entrada agent quedan fuera porque sus techos derivados caen por debajo de sus techos actuales y medirlos exige montar un repo de fixture con un change por status; derivarlos sin medir sería afirmar sin verificar. Verificado además que ningún fragmento del contrato publica hoy un head, así que la mecanización via register/ensureReference también queda fuera.
 - **2026-07-28T21:20:45Z** `[note]` Hallazgo nuevo encontrado midiendo, ajeno a este change: la entrada agent la aplica 144327 CR8 sobre buildAgentContext, es decir sobre las cápsulas de contexto, y las cuatro cápsulas de agent-prompt miden 433/478/398/414 tokens contra un techo de 350 sin que nada falle, porque ningún test las mide. Techo que no puede fallar para la mitad de lo que cubría en la tabla del acta. Necesita decisión, no arreglo mecánico.
 - **2026-07-28T21:40:50Z** `[note]` Alcance ampliado por instruccion de Roberto (2026-07-28): entra CR6 y las once entradas. Correccion de un error mio de razonamiento: dije que derivar los overlays podia apretar porque compare el derivado contra el TECHO actual en vez de contra el USO real. Medido con repo de fixture, un change por status: blocked 45l/439t, in-validation 37l/392t, done 76l/900t, discarded 15l/131t. Los cuatro caben en su derivado, asi que entran. Se anota que done esta a 900/1000 tokens, el margen mas estrecho del fichero. Y correccion de otro error mio: reporte el techo de agent como decision pendiente cuando la decision de 1000 tokens ya estaba registrada en el acta desde CH-0; 170429 shipeo 350, que nadie decidio. Palabras de Roberto: no lo dejemos justos sino siempre estaremos en esto una y otra vez.
+- **2026-07-28T21:41:59Z** `[status]` draft → approved (human via conversation)
+- **2026-07-29T00:06:20Z** `[note]` Enmienda por decision de Roberto (2026-07-28): los techos de tokens son tres, no once -- core 4000, contextos 2500, resto de cosas 1250. Entra CR7. Reconocido el error: la decision de 2000-2500 para el resto de contextos estaba documentada en el acta (lineas 106 y 1131) y propuse 4500 para spec, contradiciendola. 1250 sustituye el 1000 de agent por ser regla posterior y mas general. Verificado que base.spec es el UNICO que no cabe en 2500 (mide 3110), asi que se queda en 3450 marcado como andamio con su condicion de salida nombrada -- la refactorizacion del pack de autoria-- en vez de bajarlo y romper el arbol. Ese caracter temporal no estaba documentado en ningun sitio (grep temporal en el acta: cero hits), y ese hueco es la causa de que lo leyera como techo decidido.
