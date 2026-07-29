@@ -84,7 +84,7 @@ exactamente eso. **Esa garantía sobrevive intacta** con N commits: el rango se 
 cuando la última selección está commiteada, y la obligación es que eso ocurra **antes** de
 delegar el review. Lo que se retira es el número, no la garantía.
 
-### Segunda sede del mismo empuje
+### El mismo empuje en la tabla de propiedad
 
 `templates/contract/core.md`, bloque *"Protect the orchestrator's context"*, fila
 `| any implementation task with its own verify command | subagent |`. El cuantificador
@@ -102,13 +102,39 @@ líneas de holgura una aserción de presupuesto no podría fallar, y sería la c
 hallazgo 28. La aserción viva `assertWithinBudget('core-commits block', …)` ya cubre la
 puerta.
 
-### Obligación de graduación
+### La segunda sede es verdad persistente, y entra en alcance
 
 `.changeledger/specs/git-traceability.md` lleva la formulación estrecha **en castellano**,
-en su párrafo *"La unidad de commit es el change, y las clases son contables"* y en el de
-granularidad que cierra con *"un change produce **dos** commits"*. Al graduar hay que
-reescribir los dos; dejarlos sería la clase 19/48, que ya se fugó cinco veces en esta
-iniciativa. Su párrafo de formulaciones retiradas también necesita una tercera entrada.
+graduada desde CH-15. Cinco afirmaciones medidas el 2026-07-29:
+
+| afirmación en la spec | por qué es falsa tras el cambio |
+|---|---|
+| `**La unidad de commit es el change, y las clases son contables.**` | la unidad es la selección resuelta |
+| `**Implementation**, exactamente uno con el trabajo completo del change` | el número no se fija |
+| `**Una tarea del Plan no**: … así que el change es la unidad de implementación` | el salto que CR2 retira |
+| `un change produce **dos** commits` | conteo fijo retirado |
+| `todas viajan en el único commit de implementación` | no hay commit único |
+
+Y su párrafo `Dos formulaciones anteriores quedaron retiradas` necesita una **tercera**
+entrada: el conteo fijo por change, retirado por deformar la decisión sobre delegación.
+
+**Se arregla dentro de este change, no como obligación de graduación.** Decisión de
+Roberto del 2026-07-29: *"tienes que arreglar .changeledger/specs/git-traceability.md y no
+dejarlo escapar de nuevo"*. Y tiene el argumento del propio historial detrás: la fuga de
+verdad persistente se cazó **cinco de cinco veces leyendo la spec a mano al graduar**, y
+una obligación escrita en prosa es el mecanismo que falló las cinco. Aquí la spec no
+contiene una verdad *pendiente* de promover —contiene una verdad **ya falsa**—, así que
+corregirla es entregable, no graduación.
+
+No excede el techo de complejidad: es la misma regla en dos sedes, y la spec es
+sustractiva salvo la entrada de formulación retirada.
+
+**Hoy ningún test afirma contenido de `.changeledger/specs/**`** — verificado: los únicos
+hits de `specs` en la suite son `config-migration.test.mjs` (el path de config),
+`context.test.mjs` (la frase del core sobre qué es cada directorio) y `view.test.mjs` (el
+serializador del viewer). Por eso CR6 estrena la guarda, y la estrena **normalizando
+espacios**: fijar prosa por substring crudo es el hallazgo 24, que rompe tests ajenos al
+reflowar.
 
 ## Specification
 
@@ -118,6 +144,11 @@ resuelta, sin esperar al resto, y el número de commits de implementación por c
 fija. La prueba de granularidad se aplica a esa unidad en vez de saltar de la tarea al
 change. La garantía del rango del review se conserva como obligación de secuencia —toda
 selección commiteada antes de delegar el review— y no como conteo.
+
+La corrección alcanza **las dos sedes de la regla**: el contrato publicado
+(`templates/contract/core.md`) y la verdad persistente del repo
+(`.changeledger/specs/git-traceability.md`). Arreglar sólo una es la clase 19/48, que en
+este repo ya se fugó cinco veces.
 
 ### CR1 — La clase Implementation ya no se cuenta
 
@@ -170,13 +201,29 @@ selección commiteada antes de delegar el review— y no como conteo.
   cuantificar por tarea, y la cadena `any implementation task` tiene cero ocurrencias en
   `templates/contract/`
 
+### CR6 — La verdad persistente no sobrevive contradiciendo al contrato
+
+- **Given** `.changeledger/specs/git-traceability.md` tras el cambio
+- **When** se normalizan sus espacios en blanco a uno y se buscan las cinco afirmaciones
+  de la tabla de Investigation
+- **Then** las cinco tienen **cero** ocurrencias, frente a una cada una hoy, y la spec
+  describe la unidad de commit como la selección de trabajo resuelta
+- **And** su párrafo de formulaciones retiradas enumera **tres**, no dos, nombrando el
+  conteo fijo por change como la tercera
+- **And** un test afirma esas cero ocurrencias sobre el texto **normalizado**, de modo que
+  reintroducir cualquiera de las cinco —o reflowar el párrafo— haga fallar la suite; hoy
+  ningún test afirma contenido de `.changeledger/specs/**`, así que la guarda es nueva y
+  su ausencia es la razón por la que la clase se fugó cinco veces
+
 ## Plan
 
 - [ ] Reescribir la clase Implementation y el párrafo de granularidad en `templates/contract/core.md`, retargeteando en la misma pasada los pins de snapshot y sus comentarios de clasificación; verify: `node --test test/context.test.mjs` (CR1, CR2)
 - [ ] Ajustar el párrafo de commit combinado y fijar la obligación de secuencia del rango del review en `templates/contract/core.md`, con la aserción que la protege; verify: `node --test test/context.test.mjs` (CR3, CR4)
 - [ ] Quitar el cuantificador por tarea de la fila de propiedad del bloque de contexto en `templates/contract/core.md`; verify: `node --test test/cli.test.mjs` (CR5)
+- [ ] Reescribir las cinco afirmaciones falsas y añadir la tercera formulación retirada en `.changeledger/specs/git-traceability.md`, con la guarda nueva que las fija a cero sobre texto normalizado; verify: `node --test test/context.test.mjs` (CR6)
 - [ ] Correr el gate completo y `changeledger check --commits` antes de pedir review (support)
 
 ## Log
 
 - **2026-07-29T11:20:00Z** `[note]` Redactado con la frase literal de Roberto citada en el Request, por la lección de que una decisión traducida de dominio (delegación → commits) es donde se perdió la primera vez. Medido antes de escribir criterios: 5 ocurrencias de `**Implementation**: exactly one`, 2 de `never one per Plan task`, bloque a 32/125 líneas y 620/1250 tokens, core a 197/400 y 2648/4000. Descartado por vacuo un CR de presupuesto: con 93 líneas de holgura no podría fallar (clase del hallazgo 28). El dimensionado del grupo de delegación queda fuera de alcance a propósito, es de CH-5b.
+- **2026-07-29T11:21:58Z** `[note]` Alcance ampliado por instrucción de Roberto (2026-07-29): la spec .changeledger/specs/git-traceability.md se corrige DENTRO del change, con CR6 y guarda de test normalizada, en vez de quedar como obligación de graduación en prosa — que es el mecanismo que falló las cinco veces que la clase se fugó. Verificado que hoy ningún test afirma contenido de .changeledger/specs/**, así que la guarda es superficie nueva y su ausencia explica las cinco fugas.
