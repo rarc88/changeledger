@@ -152,6 +152,42 @@ test('status to in-progress tolerates a missing owner handle', () => {
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
+test('144812 CR1: an assigned owner skips resolution entirely', () => {
+  const { root, file, id } = repoWithChange();
+  owner(id, 'ana', root);
+  status(id, 'approved', root);
+  let calls = 0;
+  status(id, 'in-progress', root, {
+    ownerHandle: () => {
+      calls += 1;
+      return 'raruiz';
+    },
+  });
+  assert.equal(calls, 0);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'ana');
+  assert.doesNotMatch(c.stages.find((s) => s.key === 'log').body, /\(auto\)/);
+});
+
+test('144812 CR2: an absent owner is resolved exactly once', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  let calls = 0;
+  status(id, 'in-progress', root, {
+    ownerHandle: () => {
+      calls += 1;
+      return 'resolved-user';
+    },
+  });
+  assert.equal(calls, 1);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'resolved-user');
+  assert.match(
+    c.stages.find((s) => s.key === 'log').body,
+    /`\[owner\]` set: resolved-user \(auto\)/,
+  );
+});
+
 test('archive sets the archived flag', () => {
   const { root, file, id } = repoWithChange();
   archive(id, root);

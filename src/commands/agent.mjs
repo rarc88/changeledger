@@ -42,7 +42,6 @@ export function status(
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
-  const autoOwner = newStatus === 'in-progress' ? ownerHandle(path.dirname(file)) : '';
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
@@ -77,15 +76,20 @@ export function status(
     });
 
     // Work begins here: assign the owner from the local git identity unless one was
-    // set explicitly (see change 20260614-124047).
-    if (newStatus === 'in-progress' && !fm.owner && autoOwner) {
-      text = setOwner(text, autoOwner);
-      text = appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'owner',
-        owner: autoOwner,
-        automatic: true,
-      });
+    // set explicitly (see change 20260614-124047). Resolution runs only when it is
+    // actually needed — an assigned owner must never trigger the resolver's network
+    // call just to discard the result (20260729-144812).
+    if (newStatus === 'in-progress' && !fm.owner) {
+      const autoOwner = ownerHandle(path.dirname(file));
+      if (autoOwner) {
+        text = setOwner(text, autoOwner);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'owner',
+          owner: autoOwner,
+          automatic: true,
+        });
+      }
     }
     return text;
   });

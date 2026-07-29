@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import { defaultGhRun, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const ID = '20260613-222918';
@@ -202,6 +202,41 @@ test('CR4: githubLogin is empty when gh fails', () => {
     }),
     '',
   );
+});
+
+// 20260729-144812 CR3/CR4: the kill-switch lives only in the default `gh`
+// runner, so injected runners bypass it and the suite stays hermetic by
+// construction rather than by per-test discipline.
+
+test("144812 CR3: defaultGhRun returns '' under the kill-switch, without a subprocess", () => {
+  const before = process.env.CHANGELEDGER_NO_GH;
+  process.env.CHANGELEDGER_NO_GH = '1';
+  try {
+    assert.equal(defaultGhRun(['api', 'user', '--jq', '.login']), '');
+  } finally {
+    if (before === undefined) delete process.env.CHANGELEDGER_NO_GH;
+    else process.env.CHANGELEDGER_NO_GH = before;
+  }
+});
+
+test('144812 CR4: an injected runner bypasses the kill-switch', () => {
+  const before = process.env.CHANGELEDGER_NO_GH;
+  process.env.CHANGELEDGER_NO_GH = '1';
+  try {
+    assert.equal(
+      githubLogin(() => 'spied-login\n'),
+      'spied-login',
+    );
+  } finally {
+    if (before === undefined) delete process.env.CHANGELEDGER_NO_GH;
+    else process.env.CHANGELEDGER_NO_GH = before;
+  }
+});
+
+test('144812 CR5: the test and verify scripts set CHANGELEDGER_NO_GH so the suite is hermetic by construction', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+  assert.match(pkg.scripts.test, /CHANGELEDGER_NO_GH=1/);
+  assert.match(pkg.scripts.verify, /CHANGELEDGER_NO_GH=1/);
 });
 
 test('CR1: ownerHandle prefers the GitHub login', () => {
