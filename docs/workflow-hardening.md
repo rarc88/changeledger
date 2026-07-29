@@ -1762,3 +1762,18 @@ review adversarial — un criterio mío pedía "normaliza de forma segura" sin f
 asimetría, el implementador eligió la simetría plausible, y solo la re-derivación
 con el vector real lo cazó. Ningún gate local podía: la suite estaba verde en las
 dos versiones porque el test shipeado solo cubría la dirección undeclared.
+
+### Segunda tanda cerrada — 2026-07-29 (noche)
+
+| change | cierre |
+|---|---|
+| Doctrina `20260729-162015` | done, graduado a `contract-discovery` (párrafo nuevo: sede única bidireccional, reparto de delegation.md/review.md), archivado |
+| Barrido `20260729-162616` | done, graduado a `git-traceability` (casing asimétrico del guard, abort del changes_dir colapsado — el residual de mayúsculas queda CERRADO) y a `validation` (el límite de los cuatro invariantes queda CERRADO: congelado nunca sujeto, siempre dato, predicado único), archivado. Rama fusionada (`change/silent-failure-sweep`), gate 973/973 |
+
+Con esto quedan cerrados de la lista original: CH-0b, CH-5b (fusionados en la
+doctrina), CH-6, CH-12, CH-13 (fusionados en el barrido), CH-11 y CH-22. La fila
+restante: **CH-2 (arrancando ahora por decisión de Roberto) → CH-1 → CH-19 →
+CH-5a (reducido: F1-F4 de la doctrina ya cerrados en su corrección; queda el campo
+de alcance del mandato en la cápsula) → barrido de verdad persistente (CH-8+CH-9)
+→ cola final**. Follow-ups nuevos registrados en el Log del barrido: tdd= en
+cápsulas agent-context, narrowing (b) de CH-7 consumer-visible, CR4 bajo tdd:false.
