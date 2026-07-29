@@ -2,9 +2,10 @@
 id: "20260729-203257"
 title: "Gramática del Plan por tags: Target, Verify y Criteria"
 type: feature
-status: in-validation
+status: done
 created: 2026-07-29T20:32:57Z
 depends_on: []
+reviewed: true
 related_to: ["20260728-194157", "20260720-125007", "20260729-185200"]
 owner: raruiz-hiberuscom
 release_impact: minor
@@ -306,3 +307,5 @@ forma serializada de las tareas (campos arriba) sí es contrato para el viewer.
 - **2026-07-29T22:46:51Z** `[note]` Cuarta ronda: la frase 1 del comentario y todo lo demás CONFIRMADO; FAIL por el alcance del guard — 'every raw control byte' con un predicado que no rechazaba DEL 0x7f (contraejemplo ejecutado del revisor). Salida estrictamente más fuerte adoptada: el predicado se ensancha a 0x7f — probe con DEL en rojo literal 'test/__probe_ctl.txt offset 5 byte 0x7f', restaurado, 53/53 verde. C1 (0x80-0x9F) queda fuera a propósito y sin afirmarse: a nivel de byte solaparía las continuaciones UTF-8 de la prosa en español. Cuarta instancia de la clase en el ciclo, las cuatro en prosa u alcance escritos por mí.
 - **2026-07-29T22:46:51Z** `[status]` in-progress → in-review
 - **2026-07-29T22:51:19Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T23:49:08Z** `[validation]` in-validation → done (human accepted)
+- **2026-07-29T23:52:23Z** `[graduation]` spec: `readiness.md`
