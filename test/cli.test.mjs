@@ -252,16 +252,30 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
 
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
   const contract = contractText();
+  // 20260729-203257 CR7 retarget: the duty used to be satisfied by naming the
+  // target anywhere in the description "before the final `(CRn)` block". The
+  // pinned literal now carries the child each half of the duty lands in, so
+  // reverting the item to the positional wording fails here.
+  const normalized = contract.replace(/\s+/g, ' ');
   assert.match(contract, /readiness\.target_patterns/);
   assert.match(contract, /readiness\.verification_patterns/);
-  assert.match(contract, /target file\(s\)\/area\(s\)/);
+  assert.match(
+    normalized,
+    /cites at least one CR in its `Criteria` child, names target file\(s\)\/area\(s\) in `Target` and concrete verification in `Verify`\./,
+  );
 });
 
 test('122611 CR3: installed contract recommends structural verify clauses', () => {
   const contract = contractText();
+  const normalized = contract.replace(/\s+/g, ' ');
   assert.match(contract, /verification_patterns: \["verify:"\]/);
-  assert.match(contract, /manual Android device check/);
-  assert.match(contract, /instead of listing every possible manual phrase/);
+  // The manual example is pinned in the child form the patterns now match, so an
+  // example that puts the clause back in the description fails.
+  assert.match(contract, /- \*\*Verify:\*\* verify: manual Android device check/);
+  assert.match(
+    normalized,
+    /start the `Verify` value with `verify:` and put the evidence there instead of listing every possible manual phrase in config\./,
+  );
 });
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {

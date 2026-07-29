@@ -55,7 +55,10 @@ Chosen approach.
 
 ## Plan
 
-- [ ] Update \`src/example.mjs\`; verify: \`node --test test/example.test.mjs\` (CR1)
+- [ ] Update the example module
+  - **Target:** \`src/example.mjs\`
+  - **Verify:** \`node --test test/example.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 

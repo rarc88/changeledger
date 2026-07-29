@@ -139,27 +139,28 @@ A criterion is a falsifiable claim, so its wording is part of the contract:
 
 ## Plan task grammar
 
-Markers encode state and the final parenthesized block encodes traceability:
+Markers encode state; structured children carry every trace, never a position:
 
 ```markdown
-- [ ] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
-- [x] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+- [ ] Rewrite the parser, wrapping onto
+  an indented continuation line
+  - **Target:** `src/foo.ts`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2
+- [x] Update `src/bar.ts`
+  - **Target:** `src/bar.ts`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-13T14:20:00Z`
-- [!] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+- [!] Run the complete test suite after implementation
+  - **Support:**
   - **Blocked:** blocked reason — arbitrary punctuation is safe
-- [ ] Run the complete test suite after implementation (support)
 ```
 
-For a CR-bearing task, target and verification precede the final `(CRn)` block; only that block supplies traceability. Any mentions of `CR1` earlier in the sentence are prose, and one task may cover `(CR1, CR2)`.
-Resolution metadata is structural: `[x]` requires one immediate `Resolved` child with a backticked ISO UTC timestamp, `[!]` one immediate `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
+`Target`, `Verify`, `Criteria` and `Support` are legal in any state, at most once each, and contiguous with their task. `Criteria` is the sole traceability — a list of `CRn` ids — so parentheses in the description are always prose. An indented non-child line continues the description; a non-indented line that is neither task nor blank is reported, never dropped.
+Resolution metadata is structural: `[x]` requires one `Resolved` child with a backticked ISO UTC timestamp, `[!]` one `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
 
-Verification must precede the final criteria block; this is invalid:
-
-```markdown
-- [ ] Update `src/app/foo.ts` (CR1) — verify: `pnpm test`
-```
-
-`(support)` marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks, must be the final parenthesized marker and cannot replace a criterion for observable behaviour.
+`Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
 
 ## Log event grammar
 

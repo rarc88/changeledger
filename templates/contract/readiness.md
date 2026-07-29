@@ -15,8 +15,8 @@ With `tdd: true`, a change is ready only when:
    literal error messages. Give every edge case its own criterion. Nothing that
    must hold may live only in prose.
 2. **Plan is the implementation contract.** Every implementation task cites at
-   least one CR, names target file(s)/area(s) and contains concrete verification
-   in its description before the final `(CRn)` block. Size it to one red-green
+   least one CR in its `Criteria` child, names target file(s)/area(s) in
+   `Target` and concrete verification in `Verify`. Size it to one red-green
    cycle.
 3. **TDD is explicit.** Write the failing test from the criterion, make it pass,
    then refactor. The implementer chooses how to test, not what behavior to
@@ -29,24 +29,26 @@ With `tdd: true`, a change is ready only when:
    one criterion or is explicitly named as excluded. No check judges semantic
    coverage; review scrutinises it.
 
-Verification may be a colocated test, conventional test directory, concrete
-command or manual `verify:` clause. Examples:
+A `Verify` value may be a colocated test, conventional test directory, concrete
+command or manual `verify:` clause. Example values:
 
 ```markdown
-- [ ] Update `src/parser.mjs`; verify: `node --test test/parser.test.mjs` (CR1)
-- [ ] Update Android rendering; verify: manual Android device check (CR2)
+  - **Verify:** `node --test test/parser.test.mjs`
+  - **Verify:** verify: manual Android device check
 ```
 
 When starting work in a repo, the agent verifies that `readiness.target_patterns`
 and `readiness.verification_patterns` match that repo's stack, and configures
-them when they do not. For device/manual checks, prefer the stable structural
-convention `verification_patterns: ["verify:"]`; put the actual evidence in the
-task instead of listing every possible manual phrase in config.
+them when they do not. `target_patterns` judges only the `Target` value and
+`verification_patterns` only the `Verify` value. For device/manual
+checks, prefer the stable structural convention
+`verification_patterns: ["verify:"]`; start the `Verify` value with `verify:` and
+put the evidence there instead of listing every possible manual phrase in config.
 
 `changeledger check` reports missing Given/When/Then, uncovered or unknown CRs,
 tasks without traceability and CR-bearing tasks without configured target and
 verification. Every diagnostic is a warning in `draft` and an error in
 `approved` and `in-progress`, and `changeledger approve` judges the draft at
 that stricter severity: an unready draft is refused, exit non-zero, document
-untouched. Truly
-operational `(support)` tasks are exempt; observable implementation is not.
+untouched. Truly operational `Support` tasks are exempt; observable
+implementation is not.

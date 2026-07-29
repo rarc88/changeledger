@@ -121,7 +121,10 @@ Chosen behavior.
 
 ## Plan
 
-- [ ] Update \`src/example.mjs\`; verify: \`node --test test/example.test.mjs\` (CR1)
+- [ ] Update the example module
+  - **Target:** \`src/example.mjs\`
+  - **Verify:** \`node --test test/example.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -160,7 +163,10 @@ Body.
 
 ## Plan
 
-- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR1)
+- [ ] Update the x module
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -206,7 +212,10 @@ function writeFillerChange(root, id, filler) {
     '',
     '## Plan',
     '',
-    '- [ ] Update `src/example.mjs`; verify: `node --test test/example.test.mjs` (CR1)',
+    '- [ ] Update the example module',
+    '  - **Target:** `src/example.mjs`',
+    '  - **Verify:** `node --test test/example.test.mjs`',
+    '  - **Criteria:** CR1',
     '',
     '## Log',
     '',
@@ -479,16 +488,26 @@ test('234939 CR11-CR20: dynamic packs retain the operational contract', () => {
     ['spec', /Every behavioral requirement is a separate structured scenario/],
     ['spec', /Given.*concrete precondition.*When.*concrete action.*Then.*exact result/],
     ['spec', /Localized headings, translated keywords, inline criteria/],
-    ['spec', /mentions of `CR1` earlier in the sentence are prose/],
-    ['spec', /Update `src\/app\/foo\.ts` \(CR1\) — verify: `pnpm test`/],
-    ['spec', /\[ \] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\)/],
+    // 20260729-203257 CR7 retarget: traceability moved off the physical line, so
+    // what is prose is no longer "earlier in the sentence" but everything outside
+    // the `Criteria` child.
+    ['spec', /parentheses in the description are always prose/],
+    // 20260729-203257 CR7 retarget: the four example pins followed the example.
+    // The counter-example of misplaced verification had no successor — without
+    // positions there is no wrong place — so its slot now pins what the block
+    // teaches instead: a description joined across a continuation line.
+    ['spec', /\[ \] Rewrite the parser, wrapping onto an indented continuation line/],
     [
       'spec',
-      /\[x\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Resolved:\*\* `2026-06-13T14:20:00Z`/s,
+      /\[ \] Rewrite the parser.*- \*\*Target:\*\* `src\/foo\.ts` - \*\*Verify:\*\* `pnpm test` - \*\*Criteria:\*\* CR1, CR2/,
     ],
     [
       'spec',
-      /\[!\] Update `src\/app\/foo\.ts`; verify: `pnpm test` \(CR1\).*Blocked:\*\* blocked reason/s,
+      /\[x\] Update `src\/bar\.ts` - \*\*Target:\*\* `src\/bar\.ts` - \*\*Verify:\*\* `pnpm test` - \*\*Criteria:\*\* CR3 - \*\*Resolved:\*\* `2026-06-13T14:20:00Z`/,
+    ],
+    [
+      'spec',
+      /\[!\] Run the complete test suite after implementation - \*\*Support:\*\* - \*\*Blocked:\*\* blocked reason/,
     ],
     ['spec', /Resolution metadata is structural/],
     ['spec', /operational work such as test suites, reading, blast-radius analysis or scaffolding/],
@@ -1501,6 +1520,60 @@ test('141122 CR6: readiness obliges the agent to match the two keys to the stack
     normalized,
     /For device\/manual checks, prefer the stable structural convention `verification_patterns: \["verify:"\]`/,
   );
+  assertWithinBudget('spec', output, contextBudgets.base.spec);
+});
+
+// 20260729-203257 CR7 — the pack taught a grammar the parser no longer
+// implements: traceability read off the last parenthesized group of the physical
+// line, plus an ordering rule that can only exist where position carries meaning.
+// Both phrases are swept out of every served fragment rather than the two
+// rewritten here, and the four children are pinned present in the pack a human
+// actually reads, so documenting them nowhere fails even if the fragments parse.
+const RETIRED_POSITIONAL_PHRASES = [
+  'final parenthesized block',
+  'Verification must precede the final criteria block',
+];
+
+test('203257 CR7: the spec pack teaches the four task children and no positional rule', () => {
+  const root = repo();
+  const output = buildContext('spec', root);
+  const normalized = output.replace(/\s+/g, ' ');
+  for (const child of ['**Target:**', '**Verify:**', '**Criteria:**', '**Support:**']) {
+    assert.ok(normalized.includes(child), `the spec pack documents no ${child} child`);
+  }
+  // The example, not only the rule: a reader copies the block.
+  assert.match(normalized, /- \*\*Target:\*\* `src\/foo\.ts` - \*\*Verify:\*\* `pnpm test`/);
+  assert.match(normalized, /- \*\*Criteria:\*\* CR1, CR2/);
+  assert.match(
+    normalized,
+    /Markers encode state; structured children carry every trace, never a position:/,
+  );
+  assert.match(
+    normalized,
+    /`Criteria` is the sole traceability — a list of `CRn` ids — so parentheses in the description are always prose\./,
+  );
+  assert.match(
+    normalized,
+    /`target_patterns` judges only the `Target` value and `verification_patterns` only the `Verify` value\./,
+  );
+  // Recursive: the `agent-contexts/` and `agent-prompts/` capsules ship to
+  // consuming repos exactly like the top-level fragments, so a top-level-only
+  // sweep would leave the retired phrases a seat to survive in.
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const fragments = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => name.split(path.sep).join('/'));
+  // The sweep's own reach is asserted, not assumed.
+  for (const seat of ['spec.md', 'readiness.md', 'agent-contexts/implementation.md']) {
+    assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
+  }
+  for (const retired of RETIRED_POSITIONAL_PHRASES) {
+    const holders = fragments.filter((name) =>
+      contractFragment(name).replace(/\s+/g, ' ').includes(retired),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
+  }
   assertWithinBudget('spec', output, contextBudgets.base.spec);
 });
 

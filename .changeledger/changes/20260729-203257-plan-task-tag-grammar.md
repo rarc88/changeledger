@@ -2,7 +2,7 @@
 id: "20260729-203257"
 title: "Gramática del Plan por tags: Target, Verify y Criteria"
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-29T20:32:57Z
 depends_on: []
 related_to: ["20260728-194157", "20260720-125007", "20260729-185200"]
@@ -268,13 +268,15 @@ forma serializada de las tareas (campos arriba) sí es contrato para el viewer.
   - **Verify:** `node bin/changeledger.mjs check`
   - **Criteria:** CR8
   - **Resolved:** `2026-07-29T21:38:41Z`
-- [ ] Reescribir la gramática del Plan en `templates/contract/spec.md` y el punto 2 de `templates/contract/readiness.md`, actualizando sus guards de obligación
+- [x] Reescribir la gramática del Plan en `templates/contract/spec.md` y el punto 2 de `templates/contract/readiness.md`, actualizando sus guards de obligación
   - **Target:** `templates/contract/spec.md`, `templates/contract/readiness.md`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
   - **Criteria:** CR7
-- [ ] Ejecutar el gate completo tras ambas selecciones
+  - **Resolved:** `2026-07-29T22:03:03Z`
+- [x] Ejecutar el gate completo tras ambas selecciones
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-07-29T22:03:03Z`
 
 ## Log
 - **2026-07-29T21:00:52Z** `[status]` draft → approved
@@ -282,3 +284,8 @@ forma serializada de las tareas (campos arriba) sí es contrato para el viewer.
 - **2026-07-29T21:38:58Z** `[note]` Selección 1 resuelta (parser+readiness+migrador+corpus). Equivalencia medida por script (extracción vieja sobre texto crudo vs parser nuevo): 239 documentos, multiconjunto id→criterios idéntico, 721 tareas con criterios; segunda pasada del migrador byte-idéntica; fix --plan-tags emitió 583 notas manual — 581 tareas sin cláusula verify: (sin ambigüedad real) y 2 con verify: repetido. Cifras del draft corregidas por el corpus vivo: 238→239 docs, 716→721 con criterios, 1071→1077 líneas de tarea (el delta es este propio change).
 - **2026-07-29T21:38:58Z** `[note]` Precisión sobre la cláusula And de CR1: 'no hay diagnóstico' es exacto para la variante de la Investigation (criterio en la segunda línea física: criteria [] e issues [], reproducido literal), pero para el Given literal con hijo Criteria el HEAD anterior emitía 'invalid task metadata structure' por clave desconocida. El Then de CR1 no cambia y su test pasa; queda como punto de escrutinio del review, no se enmienda el criterio aprobado.
 - **2026-07-29T21:38:59Z** `[note]` Dos ensanchamientos de comportamiento para escrutinio del review: (1) la prosa en ## Plan de un change abierto pasa a error (CR2), coste de migración para repos consumidores no nombrado en el documento; (2) setTask ahora lanza ante cualquier issue del Plan, incluida una línea unrecognized en otro punto del documento — antes se saltaba en silencio; en la práctica los congelados no se mutan.
+- **2026-07-29T21:43:19Z** `[note]` Commit de la migración en forma multi-id: chore(changes) con los 196 documentos migrados declarados en el body más el autorizante, siguiendo el precedente del archivado masivo. Combinado porque la migración es una operación mecánica única sobre los 196 documentos como dato; la enumeración completa de los changes cuya superficie comparte vive en el body del propio commit. El guard de índice de commit rechazó primero la forma sin declarar — funcionó según diseño ante su primer caso de migración de corpus.
+- **2026-07-29T22:03:03Z** `[note]` Selección 2 resuelta (prosa del contrato). Pack spec en 3445/3450 tokens y 320/345 líneas medido por la línea BEGIN — 5 tokens de margen, el andamio sigue esperando su refactorización declarada. Guards retargeteados con rojo-verde literal por mutante único; el barrido de frases retiradas es recursivo sobre templates/contract/ y se probó plantando la frase en un fragmento no compuesto. Residuos nombrados sin tocar: comentario del andamio en budgets.yml rancio (dice 3416/317, mide 3445/320 — misma clase que el 'ten ceilings'); fix --plan-tags ausente de Authoring helpers por coste de tokens; regla de exención de Support en dos sedes preexistente.
+- **2026-07-29T22:03:03Z** `[note]` Decisión no especificada adoptada en la selección 2: la convención verify: sobrevive como prefijo del valor del hijo Verify ('start the Verify value with verify:'), manteniendo verification_patterns ["verify:"] con significado bajo el matching por campo.
+- **2026-07-29T22:03:16Z** `[note]` Mandato de review, registrado antes de delegar: auditoría completa del rango a2597a38..HEAD por revisor top-tier de contexto limpio. Puntos de escrutinio explícitos: (1) las listas de decisiones no especificadas de los dos implementadores (13 + 6), transmitidas literales; (2) la precisión sobre la cláusula And de CR1 anotada en este Log; (3) los dos ensanchamientos de comportamiento (prosa en Plan abierto pasa a error; setTask lanza ante cualquier issue del documento); (4) la forma multi-id del commit de migración; (5) el margen de 5 tokens del pack spec; (6) las notas de este Log del orquestador, juzgadas con el mismo estándar que el entregable — el orquestador no editó código ni prosa del contrato en este ciclo.
+- **2026-07-29T22:03:16Z** `[status]` in-progress → in-review
