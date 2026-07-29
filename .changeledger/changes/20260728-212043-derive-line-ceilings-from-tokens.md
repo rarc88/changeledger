@@ -2,7 +2,7 @@
 id: "20260728-212043"
 title: Los techos de líneas se derivan del techo de tokens
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-28T21:20:43Z
 depends_on: []
 related_to: ["20260728-170429", "20260728-195445", "20260728-164620"]
@@ -180,9 +180,8 @@ Un principio: **el techo de `lines` es `tokens ÷ 10`, y el `head` del `core` es
 mismo número.** Ninguno se teclea a mano.
 
 Alcance: **las once entradas**, todas medidas, más el literal del `head`, su guarda de
-deriva y el pin de valores. Y una corrección de valor: `agent` sube a los **1000
-tokens** que estaban decididos, y su techo pasa a aplicarse también sobre
-`agent-prompt`.
+deriva y el pin de valores. Y una corrección de valor: `agent` sube a **1250 tokens**,
+y su techo pasa a aplicarse también sobre `agent-prompt`.
 
 Techos de tokens según la decisión de Roberto del 2026-07-28: **`core` 4000, todos los
 demás contextos 2500, el resto de cosas 1250.** Tres números, no once.
@@ -305,3 +304,7 @@ Alternativas descartadas:
 - **2026-07-29T00:39:01Z** `[note]` Dos cosas del orquestador, declaradas para escrutinio del revisor. 1) Apliqué yo el formatter: biome exigia comillas dobles en un nombre de test que contiene un apostrofo (repo's), asi que pnpm verify salia 1 con la suite en verde. Es consecuencia de MI prompt, que prohibio al delegado correr pnpm verify; el cambio es solo comillas. 2) El marcador scaffold de base.spec obligo a ensanchar la forma esperada en 194233 CR1 y 170429 CR1, que exigian exactamente ['lines','tokens'] en TODA entrada. Verificado que el ensanchamiento es estrecho: spec queda en exactamente ['lines','scaffold','tokens'] y las otras diez siguen en exactamente ['lines','tokens'], asi que un bytes fugitivo seguiria fallando y la garantia de 170429 CR1 no se debilita. La causa es mi redaccion de CR7, que pidio que el fichero declarase la marca junto al valor, y budgets.yml es JSON puro y no admite comentarios.
 - **2026-07-29T00:39:56Z** `[status]` in-progress → in-review
 - **2026-07-29T00:40:10Z** `[note]` Commit de handoff: el trabajo se detiene para delegar el review y el unico delta pendiente es document-only (el status a in-review). Se commitea para que el revisor reciba un arbol coherente y ninguna edicion quede sin rastro.
+- **2026-07-29T00:53:39Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-29T00:53:55Z** `[note]` Review PASS con mandato acotado, modelo top y ataque de vacuidad sobre los siete CR: cada uno tiene un mutante aislado que lo hace fallar con el mensaje que su CR promete. Las tres preguntas subtiles resueltas a favor con evidencia: (1) la igualdad head==base.core.lines no prohibe ningun estado legitimo -- un fichero de exactamente 400 lineas conserva su ultima linea bajo head -400 -- y captura estrictamente mas que el <=, porque head -401 con lines 400 era un estado que el <= aceptaba; (2) CR3 es el UNICO detector de su clase, probado cegando la comparacion solo al descenso: de 36 tests falla exactamente 1, el nuevo; (3) el ensanchamiento de forma no pierde garantia, probado con tres mutantes -- bytes en spec falla, bytes en overlays.done falla, scaffold colado en overlays.done falla -- y la condicion label==='spec' es estrecha por construccion porque budgetEntries() etiqueta overlays y bloques con sufijo.
+- **2026-07-29T00:54:09Z** `[note]` Actuado sobre los hallazgos del revisor. D2 CORREGIDO: el Alcance decia que agent sube a 1000 tokens mientras la tabla, CR6 y el codigo dicen 1250 -- contradiccion interna de mi propia redaccion al enmendar. Reescrito a 1250. Mi grep no la encontro porque el valor estaba partido entre dos lineas fisicas ('**1000\\ntokens**'), el mismo modo de fallo que ya tuve buscando 'One owner per write surface'. D1 PENDIENTE PARA LA GRADUACION, no es defecto de este change: .changeledger/specs/contract-discovery.md sigue publicando 'changeledger context 2>&1 | head -200' y afirmando que 'El limite fijo de 200 es suficiente porque el core esta acotado por budgets.yml'. Las dos afirmaciones son FALSAS tras este change. Verificado por mi leyendo el fichero. Es la clase 19/48 otra vez y hay que arreglarlo al graduar. D3 a D5 quedan fuera de superficie: acta desactualizada, una discrepancia aparente del redondeo a 50 que el revisor comprobo y descarto, y un nit de comentario en presente.
+- **2026-07-29T00:54:18Z** `[note]` Error mio en el prompt del review, que el revisor cazo y reporto en vez de obedecer: le di el rango be649477..HEAD, que EXCLUYE el commit de implementacion porque be649477 ES ese commit. Reviso be649477^..HEAD, el correcto, y lo declaro antes de empezar. Un revisor que hubiera obedecido habria revisado 3 lineas de handoff y devuelto un pass vacio.
