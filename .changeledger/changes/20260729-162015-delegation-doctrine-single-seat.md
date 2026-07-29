@@ -2,7 +2,7 @@
 id: "20260729-162015"
 title: "La doctrina de delegación tiene una sede: el core"
 type: refactor
-status: draft
+status: approved
 created: 2026-07-29T16:20:15Z
 depends_on: []
 related_to: ["20260728-164620"]
@@ -191,3 +191,4 @@ change registra el progreso en la nota del andamio sin tocar el número. CH-5a
 ## Log
 
 - **2026-07-29T16:24:00Z** `[note]` Documentado sobre investigación delegada contra HEAD del 2026-07-29, no sobre el acta: corrige dos hechos del acta (las ocurrencias de `resolved selection` son 5, no 11; existe el guard anti-duplicación `234939 CR1-CR10` que hoy asserta el reparto contrario y es bloqueador nombrado). CH-5a queda fuera por el fallback autorizado por Roberto: superficie disjunta (cápsula de prompt del review).
+- **2026-07-29T16:33:17Z** `[status]` draft → approved
