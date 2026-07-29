@@ -197,7 +197,10 @@ The parser drops trailing commas.
 
 ## Plan
 
-- [ ] Update \`lib/parser.rb\`; verify: \`bundle exec rspec spec/parser_spec.rb\` (CR1)
+- [ ] Update \`lib/parser.rb\`
+  - **Target:** \`lib/parser.rb\`
+  - **Verify:** \`bundle exec rspec spec/parser_spec.rb\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -213,7 +216,7 @@ test('141122 CR2: a fresh non-JS repo approves once readiness matches its stack'
   // The agent tunes the published keys to its own stack, as `readiness.md` requires.
   const tuned = seeded
     .replace('  target_patterns: ["src/**"]', '  target_patterns: ["lib/**"]')
-    .replace('  verification_patterns: ["test/**"]', '  verification_patterns: ["verify:"]');
+    .replace('  verification_patterns: ["test/**"]', '  verification_patterns: ["spec/**"]');
   assert.notEqual(tuned, seeded, 'the seeded config must expose readiness as a real key');
   fs.writeFileSync(configFile, tuned);
 
@@ -890,14 +893,16 @@ function frontmatterBlock(over) {
 // `## Plan` for `chore`, so nothing here can error or warn.
 function validChore(id, over = {}) {
   const fm = frontmatterBlock({ id: `"${id}"`, type: 'chore', status: 'approved', ...over });
-  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n\nX\n`;
+  // The Plan is left empty on purpose: since 20260729-203257 CR2 a prose line
+  // inside `## Plan` is an `unrecognized Plan line` error, so filler cannot go here.
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n`;
 }
 
 // A `bug` body without `## Specification`, a stage the shipped config activates
 // for that type: the defect today's rules report on frozen history.
 function bugMissingSpecification(id, over = {}) {
   const fm = frontmatterBlock({ id: `"${id}"`, type: 'bug', status: 'done', ...over });
-  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Investigation\n\nX\n\n## Plan\n\nX\n\n## Log\n`;
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Investigation\n\nX\n\n## Plan\n\n## Log\n`;
 }
 
 function captureOutput() {
@@ -1006,7 +1011,7 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
       )
       .replace(
         '## Plan\n',
-        '## Plan\n\n- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)\n',
+        '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
       ),
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
@@ -1029,8 +1034,8 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
         '### CR1 — Something\n- **Given** a thing\n',
       )
       .replace(
-        '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
-        '- [ ] do the thing (CR1)',
+        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
+        '- [ ] do the thing\n  - **Criteria:** CR1',
       ),
   );
   const before = fs.readFileSync(file, 'utf8');

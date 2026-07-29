@@ -23,7 +23,8 @@ depends_on: []
 
 ## Plan
 
-- [ ] First (CR1)
+- [ ] First
+  - **Criteria:** CR1
 - [ ] Second
 - [!] Third
   - **Blocked:** was blocked
@@ -81,19 +82,56 @@ test('setTask done marks the task and appends the timestamp, keeping criteria', 
   assert.equal(t.state, 'done');
   assert.deepEqual(t.criteria, ['CR1']);
   assert.equal(t.resolvedAt, '2026-06-13T13:00:00Z');
-  assert.match(out, /- \[x\] First \(CR1\)\n {2}- \*\*Resolved:\*\* `2026-06-13T13:00:00Z`/);
+  assert.match(
+    out,
+    /- \[x\] First\n {2}- \*\*Criteria:\*\* CR1\n {2}- \*\*Resolved:\*\* `2026-06-13T13:00:00Z`/,
+  );
 });
 
 test('125007 CR1: setTask preserves punctuation in the task description', () => {
   const text = DOC.replace(
-    '- [ ] First (CR1)',
-    '- [ ] Lote 1 — ReferralCode + Chatbot | `src/a:b.mjs` — mismo patrón (CR1)',
+    '- [ ] First',
+    '- [ ] Lote 1 — ReferralCode + Chatbot | `src/a:b.mjs` — mismo patrón',
   );
   const out = setTask(text, 1, 'done', { iso: '2026-07-19T10:22:32Z' });
   assert.match(
     out,
-    /- \[x\] Lote 1 — ReferralCode \+ Chatbot \| `src\/a:b\.mjs` — mismo patrón \(CR1\)\n {2}- \*\*Resolved:\*\* `2026-07-19T10:22:32Z`/,
+    /- \[x\] Lote 1 — ReferralCode \+ Chatbot \| `src\/a:b\.mjs` — mismo patrón\n {2}- \*\*Criteria:\*\* CR1\n {2}- \*\*Resolved:\*\* `2026-07-19T10:22:32Z`/,
   );
+});
+
+// 20260729-203257: the state child is the resolution, so it lands after the
+// descriptive children instead of splitting the task from its own fields.
+test('203257 CR1: setTask keeps the descriptive children and appends the state child last', () => {
+  const text = DOC.replace(
+    '- [ ] Second',
+    '- [ ] Second\n  - **Target:** `src/writer.mjs`\n  - **Verify:** `node --test test/writer.test.mjs`\n  - **Criteria:** CR2',
+  );
+  const blocked = setTask(text, 2, 'blocked', { reason: 'waiting upstream' });
+  assert.match(
+    blocked,
+    /- \[!\] Second\n {2}- \*\*Target:\*\* `src\/writer\.mjs`\n {2}- \*\*Verify:\*\* `node --test test\/writer\.test\.mjs`\n {2}- \*\*Criteria:\*\* CR2\n {2}- \*\*Blocked:\*\* waiting upstream/,
+  );
+  const done = setTask(blocked, 2, 'done', { iso: '2026-06-13T15:00:00Z' });
+  const task = parseChange(done).tasks[1];
+  assert.equal(task.state, 'done');
+  assert.equal(task.target, '`src/writer.mjs`');
+  assert.equal(task.verify, '`node --test test/writer.test.mjs`');
+  assert.deepEqual(task.criteria, ['CR2']);
+  assert.equal(task.reason, undefined);
+  assert.equal(task.resolvedAt, '2026-06-13T15:00:00Z');
+});
+
+// A description wrapped onto an indented continuation is one logical task: the
+// state child must land after the continuation, not inside the description.
+test('203257 CR1: setTask appends the state child after a wrapped description', () => {
+  const text = DOC.replace('- [ ] Second', '- [ ] Second que envuelve\n  a la línea siguiente');
+  const out = setTask(text, 2, 'done', { iso: '2026-06-13T16:00:00Z' });
+  assert.match(
+    out,
+    /- \[x\] Second que envuelve\n {2}a la línea siguiente\n {2}- \*\*Resolved:\*\* `2026-06-13T16:00:00Z`/,
+  );
+  assert.equal(parseChange(out).tasks[1].text, 'Second que envuelve a la línea siguiente');
 });
 
 test('125007 CR2: completing an already resolved task is byte-for-byte idempotent', () => {

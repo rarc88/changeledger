@@ -425,7 +425,7 @@ test('CR5: an auto-fixable defect hints at changeledger fix', () => {
     '',
     '## Plan',
     '',
-    '- [ ] Update src/foo.mjs (CR1) — verify: pnpm test',
+    '- [x] Update src/foo.mjs (CR1) - 2026-01-01T12:00:00Z',
     '',
   ].join('\n');
   const c = change({ text, frontmatter: { id: '20260613-120099' } });
@@ -932,10 +932,12 @@ test('195016 CR1: task with (support) is reported in neither channel', () => {
   const { errors, warnings } = coverageMessages('approved', {
     criteria: ['CR1'],
     tasks: [
-      { state: 'todo', text: 'run pnpm test (support)', criteria: [] },
+      { state: 'todo', text: 'run pnpm test', criteria: [], support: '' },
       {
         state: 'todo',
-        text: 'Update `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        text: 'Update `src/x.mjs`',
+        target: '`src/x.mjs`',
+        verify: '`test/x.test.mjs`',
         criteria: ['CR1'],
       },
     ],
@@ -1002,7 +1004,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR999)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR999
 
 ## Log
 `);
@@ -1039,7 +1044,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1072,7 +1080,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1, CR2, CR404)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1, CR2, CR404
 
 ## Log
 `);
@@ -1112,7 +1123,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1142,7 +1156,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1174,7 +1189,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1208,7 +1224,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts and app/profile.spec.ts (CR1)
+- [ ] Update app/profile.ts and app/profile.spec.ts
+  - **Target:** app/profile.ts
+  - **Verify:** app/profile.spec.ts
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1250,7 +1269,10 @@ X
 
 ## Plan
 
-- [ ] Update packages/auth/index.ts and run pnpm test --filter auth (CR1)
+- [ ] Update packages/auth/index.ts and run pnpm test --filter auth
+  - **Target:** packages/auth/index.ts
+  - **Verify:** pnpm test --filter auth
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1292,7 +1314,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior somewhere else (CR1)
+- [ ] Implement the behavior somewhere else
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1336,7 +1359,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior somewhere else (CR1)
+- [ ] Implement the behavior somewhere else
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1379,7 +1403,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts; verify: manual device check (CR1)
+- [ ] Update app/profile.ts
+  - **Target:** app/profile.ts
+  - **Verify:** verify: manual device check
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1397,7 +1424,11 @@ X
   );
 });
 
-test('115134 CR5 / 125007 CR1: verification precedes final criteria despite punctuation', () => {
+// 20260729-203257 CR4 retires the positional rule 115134 CR5 pinned ("verification
+// must precede the final criteria block"): with `Target` and `Verify` as children
+// there is no reserved suffix and no wrong place for verification to sit. The
+// punctuation half of 125007 CR1 is pinned by `test/change.test.mjs` instead.
+test('203257 CR4: punctuation in the description cannot break the field readiness', () => {
   const { errors } = covResult(
     `---
 id: "20260613-120000"
@@ -1421,7 +1452,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts — verify: manual device check (CR1)
+- [ ] Update the profile screen — keeping (parens) and a colon: value
+  - **Target:** app/profile.ts
+  - **Verify:** manual device check
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1429,7 +1463,7 @@ X
       ...tddConfig,
       readiness: {
         target_patterns: ['app/**'],
-        verification_patterns: ['verify:'],
+        verification_patterns: ['manual device check'],
       },
     },
   );
@@ -1457,7 +1491,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1493,7 +1528,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1503,6 +1539,209 @@ X
     [...msgs(errors), ...msgs(warnings)].filter((m) =>
       /test-grade|target and verification/.test(m),
     ),
+    [],
+  );
+});
+
+// 20260729-203257 CR4: each readiness list judges its own field. Before the tag
+// grammar both lists matched the same `t.text`, so a task naming only
+// `test/check.test.mjs` satisfied `target_patterns` and `verification_patterns`
+// at once and the requirement was vacuous whenever the two lists overlapped.
+const crossConfig = {
+  ...tddConfig,
+  readiness: { target_patterns: ['src/**', 'test/**'], verification_patterns: ['test/**'] },
+};
+
+test('203257 CR4: a Verify that also matches target_patterns does not satisfy Target', () => {
+  // The description still carries the old prose form, so at HEAD the single
+  // string satisfied both lists at once and nothing fired at any status.
+  const task = {
+    state: 'todo',
+    text: 'Add the guard; verify: test/check.test.mjs',
+    verify: 'test/check.test.mjs',
+  };
+  const drafted = checkRepo({
+    config: crossConfig,
+    changes: [
+      cov({
+        frontmatter: { status: 'draft' },
+        criteria: ['CR1'],
+        tasks: [{ ...task, criteria: ['CR1'] }],
+      }),
+    ],
+  });
+  assert.ok(
+    msgs(drafted.warnings).some((m) =>
+      /Plan task for CR1 must name target and verification/.test(m),
+    ),
+    'draft warns',
+  );
+  assert.deepEqual(
+    msgs(drafted.errors).filter((m) => /target and verification/.test(m)),
+    [],
+    'draft does not error',
+  );
+
+  const projected = checkRepo(
+    {
+      config: crossConfig,
+      changes: [
+        cov({
+          frontmatter: { status: 'draft' },
+          criteria: ['CR1'],
+          tasks: [{ ...task, criteria: ['CR1'] }],
+        }),
+      ],
+    },
+    { id: '20260613-120000', asStatus: 'approved' },
+  );
+  assert.ok(
+    msgs(projected.errors).some((m) =>
+      /Plan task for CR1 must name target and verification/.test(m),
+    ),
+    'the approved projection errors',
+  );
+});
+
+test('203257 CR4: Target and Verify together satisfy readiness, each one alone does not', () => {
+  const both = covWarn(
+    {
+      criteria: ['CR1'],
+      tasks: [
+        {
+          state: 'todo',
+          text: 'Add the guard',
+          criteria: ['CR1'],
+          target: 'src/check.mjs',
+          verify: 'pnpm test',
+        },
+      ],
+    },
+    {
+      ...tddConfig,
+      readiness: { target_patterns: ['src/**'], verification_patterns: ['pnpm test'] },
+    },
+  );
+  assert.deepEqual(
+    both.filter((m) => /target and verification/.test(m)),
+    [],
+  );
+
+  const targetOnly = msgs(
+    checkRepo({
+      config: crossConfig,
+      changes: [
+        cov({
+          criteria: ['CR1'],
+          tasks: [
+            { state: 'todo', text: 'Add the guard', criteria: ['CR1'], target: 'src/check.mjs' },
+          ],
+        }),
+      ],
+    }).errors,
+  );
+  assert.ok(
+    targetOnly.some((m) => /Plan task for CR1 must name target and verification/.test(m)),
+    'Target without Verify still fires',
+  );
+});
+
+// The readiness patterns never look at the description again: a target named
+// only in prose is exactly the evasion the tag grammar closes.
+test('203257 CR4: a target named only in the description does not satisfy readiness', () => {
+  const errors = msgs(
+    checkRepo({
+      config: crossConfig,
+      changes: [
+        cov({
+          criteria: ['CR1'],
+          tasks: [
+            {
+              state: 'todo',
+              text: 'Patch src/check.mjs and run test/check.test.mjs',
+              criteria: ['CR1'],
+            },
+          ],
+        }),
+      ],
+    }).errors,
+  );
+  assert.ok(errors.some((m) => /Plan task for CR1 must name target and verification/.test(m)));
+});
+
+// 20260729-203257 CR2: an undecidable Plan line reaches the operator through the
+// existing `taskIssues` channel — an error at any open status.
+test('203257 CR2: an unrecognized Plan line is an error on an open change', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
+Prosa suelta que no es tarea
+
+## Log
+`);
+  assert.ok(
+    msgs(errors).includes('unrecognized Plan line: "Prosa suelta que no es tarea"'),
+    `expected the named issue, got ${JSON.stringify(msgs(errors))}`,
+  );
+});
+
+test('203257 CR2: a frozen change with the same line emits no diagnostic', () => {
+  const text = `---
+id: "20260613-120000"
+title: X
+type: feature
+status: done
+archived: true
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [x] Implement the behavior
+  - **Criteria:** CR1
+  - **Resolved:** \`2026-06-13T13:00:00Z\`
+Prosa suelta que no es tarea
+
+## Log
+`;
+  const { errors, warnings } = covResult(text);
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /unrecognized Plan line/.test(m)),
     [],
   );
 });
@@ -1535,12 +1774,16 @@ test("20260728-170429 CR7: this repo's readiness keeps AGENTS.md and hooks/pre-c
 
   const agentsTask = {
     state: 'todo',
-    text: 'Update AGENTS.md; verify: node --test test/check.test.mjs (CR1)',
+    text: 'Update AGENTS.md',
+    target: 'AGENTS.md',
+    verify: 'node --test test/check.test.mjs',
     criteria: ['CR1'],
   };
   const hooksTask = {
     state: 'todo',
-    text: 'Update hooks/pre-commit; verify: node --test test/check.test.mjs (CR2)',
+    text: 'Update hooks/pre-commit',
+    target: 'hooks/pre-commit',
+    verify: 'node --test test/check.test.mjs',
     criteria: ['CR2'],
   };
 
@@ -1720,9 +1963,16 @@ r
 
 ## Plan
 
-- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
-- [ ] vague work without recognizable evidence (CR2)
-- [ ] Update \`src/b.mjs\`; verify: \`node --test test/b.test.mjs\` (CR404)
+- [ ] Update \`src/a.mjs\`
+  - **Target:** \`src/a.mjs\`
+  - **Verify:** \`node --test test/a.test.mjs\`
+  - **Criteria:** CR1
+- [ ] vague work without recognizable evidence
+  - **Criteria:** CR2
+- [ ] Update \`src/b.mjs\`
+  - **Target:** \`src/b.mjs\`
+  - **Verify:** \`node --test test/b.test.mjs\`
+  - **Criteria:** CR404
 - [ ] loose task without criterion
 
 ## Log
@@ -1770,7 +2020,10 @@ r
 
 ## Plan
 
-- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
+- [ ] Update \`src/a.mjs\`
+  - **Target:** \`src/a.mjs\`
+  - **Verify:** \`node --test test/a.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -2614,7 +2867,10 @@ Eliminación limpia, sin capa de compatibilidad.
   const tail = `
 ## Plan
 
-- [ ] Quitar la opción de \`src/cli.mjs\`; verify: \`node --test test/cli.test.mjs\` (CR1)
+- [ ] Quitar la opción de \`src/cli.mjs\`
+  - **Target:** \`src/cli.mjs\`
+  - **Verify:** \`node --test test/cli.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 `;
@@ -2730,7 +2986,8 @@ Eliminación limpia, sin capa de compatibilidad.
 
 ## Plan
 
-- [ ] Ajustar el comportamiento (CR9)
+- [ ] Ajustar el comportamiento
+  - **Criteria:** CR9
 
 ## Log
 `;

@@ -585,18 +585,10 @@ function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
     for (const cr of t.criteria) {
       if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
     }
-    if (!namesTargetAndVerification(t.text, config)) {
+    if (!namesTargetAndVerification(t, config)) {
       const hint = readinessHint(config);
-      const misplaced = misplacedVerificationSuffix(t, config);
       for (const cr of t.criteria) {
-        if (misplaced) {
-          report(
-            c,
-            `Plan task for ${cr} puts verification in the reserved suffix; move "${misplaced}" before the final (CRn) block because "— ..." is reserved for done timestamps and blocked reasons`,
-          );
-        } else {
-          report(c, `Plan task for ${cr} must name target and verification (${hint})`);
-        }
+        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
       }
     }
   }
@@ -605,33 +597,29 @@ function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
     if (!referenced.has(cr)) report(c, `${cr} is not covered by any Plan task`);
 
   for (const t of tasks)
-    if (!t.criteria?.length && !isSupportTask(t.text)) {
+    if (!t.criteria?.length && !isSupportTask(t)) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
       report(c, `Plan task "${label}" references no criterion`);
     }
 }
 
-// A task ending with `(support)` is intentionally operational (running tests,
-// reading docs, scaffolding) and is exempt from the "references no criterion"
-// warning. Readiness checks (target + verification patterns) already skip
-// tasks with no criteria, so no additional exclusion is needed there.
-function isSupportTask(text) {
-  return /\(support\)\s*$/.test(text);
+// A task declaring the `Support` child is intentionally operational (running
+// tests, reading docs, scaffolding) and is exempt from the "references no
+// criterion" warning. Readiness checks already skip tasks with no criteria, so
+// no additional exclusion is needed there.
+function isSupportTask(task) {
+  return task.support !== undefined;
 }
 
-function namesTargetAndVerification(text, config) {
+// Each list judges its own field (20260729-203257 CR4). While both were matched
+// against the whole task description, two overlapping lists satisfied each other
+// on the same string and the requirement was vacuous — a task naming only a test
+// file passed as target and as verification at once.
+function namesTargetAndVerification(task, config) {
   const readiness = readinessConfig(config);
   return (
-    matchesAnyReadinessPattern(text, readiness.target_patterns) &&
-    matchesAnyReadinessPattern(text, readiness.verification_patterns)
-  );
-}
-
-function misplacedVerificationSuffix(task, config) {
-  if (task.state !== 'todo' || !task.suffix) return null;
-  const readiness = readinessConfig(config);
-  return readiness.verification_patterns.find((pattern) =>
-    readinessPatternMatches(task.suffix, pattern),
+    matchesAnyReadinessPattern(task.target ?? '', readiness.target_patterns) &&
+    matchesAnyReadinessPattern(task.verify ?? '', readiness.verification_patterns)
   );
 }
 

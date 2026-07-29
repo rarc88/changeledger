@@ -5,6 +5,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fix } from '../src/commands/fix.mjs';
 import { init } from '../src/commands/init.mjs';
+import * as fixModule from '../src/fix.mjs';
+import * as taskModule from '../src/task.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -41,11 +43,17 @@ Fixture.
 
 ## Specification
 
-### CR1 — Reorder verify
+### CR1 — Repair mechanical defects
 
-- **Given** a Plan with a misplaced verify suffix
+- **Given** a Plan with a mechanical format defect
 - **When** \`changeledger fix\` runs
-- **Then** the suffix is reordered before the CR block
+- **Then** the defect is repaired without touching anything else
+
+### CR2 — Migrate the Plan task grammar
+
+- **Given** a Plan written in the old positional grammar
+- **When** \`changeledger fix --plan-tags\` runs
+- **Then** the trace moves to structured children
 
 ## Plan
 
@@ -124,28 +132,18 @@ Durable body.
   return { root, specFile };
 }
 
-test('CR1: reorders a misplaced verify suffix before the CR block', () => {
-  const { root, file, id } = repo('- [ ] Update src/foo.mjs (CR1) — verify: pnpm test');
-  const out = output();
-  const code = fix([id], root, out);
-  assert.equal(code, 0);
-  const text = fs.readFileSync(file, 'utf8');
-  assert.ok(text.includes('- [ ] Update src/foo.mjs; verify: pnpm test (CR1)'));
-  assert.ok(!text.includes('(CR1) — verify:'));
-});
-
 test('CR2: --dry-run prints a diff and writes nothing', () => {
-  const { root, file, id } = repo('- [ ] Update src/foo.mjs (CR1) — verify: pnpm test');
+  const { root, file, id } = repo('- [x] Update src/baz.mjs (CR1) - 2026-01-01T12:00:00Z');
   const before = fs.readFileSync(file, 'utf8');
   const out = output();
   const code = fix([id, '--dry-run'], root, out);
   assert.equal(code, 0);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  assert.ok(out.lines.some((l) => l.includes('verify: pnpm test (CR1)')));
+  assert.ok(out.lines.some((l) => l.includes('(CR1) — 2026-01-01T12:00:00Z')));
 });
 
 test('CR3: a second run is idempotent and reports nothing to fix', () => {
-  const { root, file, id } = repo('- [ ] Update src/foo.mjs (CR1) — verify: pnpm test');
+  const { root, file, id } = repo('- [x] Update src/baz.mjs (CR1) - 2026-01-01T12:00:00Z');
   const firstCode = fix([id], root, output());
   assert.equal(firstCode, 0);
   const fixedText = fs.readFileSync(file, 'utf8');
@@ -180,7 +178,7 @@ test('CR1 regression: a valid em-dash suffix after a hyphenated description stay
 });
 
 test('CR4: a task referencing an unknown criterion is left untouched and flagged', () => {
-  const line = '- [ ] Update src/bar.mjs (CR9) — verify: pnpm test';
+  const line = '- [x] Update src/bar.mjs (CR9) - 2026-01-01T12:00:00Z';
   const { root, file, id } = repo(line);
   const out = output();
   const code = fix([id], root, out);
@@ -221,6 +219,78 @@ test('125007 CR8: ambiguous blocked metadata leaves the whole file untouched', (
   assert.equal(fs.readFileSync(file, 'utf8'), before);
   assert.ok(out.lines.some((entry) => entry.includes('requires manual fix')));
   assert.ok(out.lines.some((entry) => entry.includes('ambiguous legacy task metadata')));
+});
+
+// 20260729-203257 CR5 — the forms measured in the real corpus, in one fixture.
+const LEGACY_PLAN = [
+  '- [ ] Actualizar `src/a.mjs`; verify: `pnpm test` (CR1, CR2)',
+  '- [ ] Ejecutar el gate completo (support)',
+  '- [ ] Tarea plana',
+  '- [ ] Revisar el (formato, ciclo) del documento',
+].join('\n');
+
+test('203257 CR5: --plan-tags moves the final marker and the verify clause to children', () => {
+  const { root, file } = repo(LEGACY_PLAN);
+  assert.equal(fix(['--plan-tags'], root, output()), 0);
+  const migrated = fs.readFileSync(file, 'utf8');
+
+  assert.match(
+    migrated,
+    /- \[ \] Actualizar `src\/a\.mjs`\n {2}- \*\*Verify:\*\* `pnpm test`\n {2}- \*\*Criteria:\*\* CR1, CR2\n/,
+  );
+  assert.match(migrated, /- \[ \] Ejecutar el gate completo\n {2}- \*\*Support:\*\*\n/);
+  assert.ok(migrated.includes('- [ ] Tarea plana\n'), 'a flat task stays byte-identical');
+  assert.ok(
+    migrated.includes('- [ ] Revisar el (formato, ciclo) del documento\n'),
+    'a non-final prose parenthesis stays byte-identical',
+  );
+  assert.ok(!migrated.includes('(CR1, CR2)'), 'the final marker leaves the description');
+  assert.ok(!migrated.includes('; verify:'), 'the verify clause leaves the description');
+});
+
+test('203257 CR5: a second --plan-tags run is byte-identical', () => {
+  const { root, file } = repo(LEGACY_PLAN);
+  assert.equal(fix(['--plan-tags'], root, output()), 0);
+  const once = fs.readFileSync(file, 'utf8');
+  assert.equal(fix(['--plan-tags'], root, output()), 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), once);
+});
+
+test('203257 CR5: --plan-tags --dry-run prints the diff and writes nothing', () => {
+  const { root, file } = repo(LEGACY_PLAN);
+  const before = fs.readFileSync(file, 'utf8');
+  const out = output();
+  assert.equal(fix(['--plan-tags', '--dry-run'], root, out), 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.ok(out.lines.some((line) => line.includes('+   - **Criteria:** CR1, CR2')));
+  assert.ok(out.lines.some((line) => line.includes('+   - **Verify:** `pnpm test`')));
+});
+
+test('203257 CR5: a repeated verify clause migrates only its criteria and is reported manual', () => {
+  const { root, file } = repo(
+    '- [ ] Actualizar `src/a.mjs`; verify: `pnpm test`; verify: `pnpm lint` (CR1)',
+  );
+  const out = output();
+  assert.equal(fix(['--plan-tags'], root, out), 0);
+  const migrated = fs.readFileSync(file, 'utf8');
+  assert.match(
+    migrated,
+    /- \[ \] Actualizar `src\/a\.mjs`; verify: `pnpm test`; verify: `pnpm lint`\n {2}- \*\*Criteria:\*\* CR1\n/,
+  );
+  assert.ok(!migrated.includes('**Verify:**'), 'an ambiguous verify clause is not migrated');
+  assert.ok(out.lines.some((line) => line.includes('requires manual fix')));
+  assert.ok(out.lines.some((line) => /2 verify: clauses/.test(line)));
+});
+
+// 20260729-203257 CR6: `src/task.mjs` is the single seat for task-line
+// recognition. This is an identity assertion, not a comparison of regex sources
+// or of results: `src/fix.mjs` re-exports the very bindings it calls, so a
+// reintroduced local literal there has to unhook the import and break this.
+test('203257 CR6: src/fix.mjs takes task-line recognition from src/task.mjs by identity', () => {
+  assert.equal(fixModule.matchTaskLine, taskModule.matchTaskLine);
+  assert.equal(fixModule.matchLenientTaskLine, taskModule.matchLenientTaskLine);
+  assert.equal(typeof taskModule.matchTaskLine, 'function');
+  assert.equal(fixModule.REORDERED_VERIFY, undefined, 'the positional reorder fixer is retired');
 });
 
 test('111457 CR5: --graduation-links migrates legacy and Log provenance in order', () => {

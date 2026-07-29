@@ -173,6 +173,7 @@ program
   .option('--dry-run', 'print the proposed diff without writing')
   .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
   .option('--structured-sections', 'migrate task metadata and typed Log events')
+  .option('--plan-tags', 'migrate Plan task criteria, support and verify into structured children')
   .action((id, options) => {
     try {
       const args = [
@@ -180,6 +181,7 @@ program
         ...(options.dryRun ? ['--dry-run'] : []),
         ...(options.graduationLinks ? ['--graduation-links'] : []),
         ...(options.structuredSections ? ['--structured-sections'] : []),
+        ...(options.planTags ? ['--plan-tags'] : []),
       ];
       process.exit(fix(args));
     } catch (e) {

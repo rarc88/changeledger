@@ -51,7 +51,7 @@ function repoWithChange() {
   // approval, which these tests cross on their way to later statuses.
   const text = fs
     .readFileSync(file, 'utf8')
-    .replace('## Plan\n', '## Plan\n\n- [ ] do it (support)\n');
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
@@ -135,9 +135,14 @@ P
 
 ## Plan
 
-- [ ] vague work (CR1)
-- [ ] more vague work (CR2)
-- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR99)
+- [ ] vague work
+  - **Criteria:** CR1
+- [ ] more vague work
+  - **Criteria:** CR2
+- [ ] Update \`src/x.mjs\`
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR99
 
 ## Log
 
@@ -176,7 +181,10 @@ P
 
 ## Plan
 
-- [ ] Update \`src/x.mjs\`; verify: \`node --test test/x.test.mjs\` (CR1)
+- [ ] Update \`src/x.mjs\`
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -671,7 +679,7 @@ function repoWithUnreadyChange() {
     )
     .replace(
       '## Plan\n',
-      '## Plan\n\n- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)\n',
+      '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
     );
   fs.writeFileSync(file, ready);
   const id = parseChange(ready).frontmatter.id;
@@ -689,8 +697,8 @@ function repoWithUnreadyChange() {
         '### CR1 — Something\n- **Given** a thing\n',
       )
       .replace(
-        '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
-        '- [ ] do the thing (CR1)',
+        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
+        '- [ ] do the thing\n  - **Criteria:** CR1',
       ),
   );
   return { root, file, id };
@@ -729,8 +737,8 @@ test('124656 CR3: a ready candidate still reaches in-review', () => {
       '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
     )
     .replace(
-      '- [ ] do the thing (CR1)',
-      '- [ ] do it in `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+      '- [ ] do the thing\n  - **Criteria:** CR1',
+      '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
     );
   fs.writeFileSync(file, repaired);
   status(id, 'in-review', root);

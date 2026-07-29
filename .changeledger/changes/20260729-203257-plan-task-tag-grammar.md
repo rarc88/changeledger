@@ -2,7 +2,7 @@
 id: "20260729-203257"
 title: "Gramática del Plan por tags: Target, Verify y Criteria"
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-29T20:32:57Z
 depends_on: []
 related_to: ["20260728-194157", "20260720-125007", "20260729-185200"]
@@ -248,12 +248,37 @@ forma serializada de las tareas (campos arriba) sí es contrato para el viewer.
 
 ## Plan
 
-- [ ] Reescribir `parseTaskBlocks` en `src/task.mjs` a la gramática por hijos con continuación unida e issue nombrado, ajustando la validez y `setTask` en `src/writer.mjs`; verify: `node --test test/change.test.mjs test/writer.test.mjs` (CR1, CR2, CR3)
-- [ ] Aplicar readiness por campo en `src/check.mjs` y retirar `misplacedVerificationSuffix` con su mensaje inemitible; verify: `node --test test/check.test.mjs` (CR2, CR4)
-- [ ] Añadir el migrador `--plan-tags` a `src/fix.mjs` y `src/commands/fix.mjs` con sede única del reconocimiento en `src/task.mjs`, retirando el fixer de reordenación posicional; verify: `node --test test/fix.test.mjs` (CR5, CR6)
-- [ ] Ejecutar el migrador de `src/fix.mjs` sobre el corpus con equivalencia antes/después por script, completando a mano los campos de este documento; verify: `node bin/changeledger.mjs check` (CR8)
-- [ ] Reescribir la gramática del Plan en `templates/contract/spec.md` y el punto 2 de `templates/contract/readiness.md`, actualizando sus guards de obligación; verify: `node --test test/context.test.mjs test/cli.test.mjs` (CR7)
-- [ ] Ejecutar el gate completo tras ambas selecciones; verify: `pnpm verify` (support)
+- [x] Reescribir `parseTaskBlocks` en `src/task.mjs` a la gramática por hijos con continuación unida e issue nombrado, ajustando la validez y `setTask` en `src/writer.mjs`
+  - **Target:** `src/task.mjs`, `src/writer.mjs`
+  - **Verify:** `node --test test/change.test.mjs test/writer.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-07-29T21:38:40Z`
+- [x] Aplicar readiness por campo en `src/check.mjs` y retirar `misplacedVerificationSuffix` con su mensaje inemitible
+  - **Target:** `src/check.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR2, CR4
+  - **Resolved:** `2026-07-29T21:38:40Z`
+- [x] Añadir el migrador `--plan-tags` a `src/fix.mjs` y `src/commands/fix.mjs` con sede única del reconocimiento en `src/task.mjs`, retirando el fixer de reordenación posicional
+  - **Target:** `src/fix.mjs`, `src/commands/fix.mjs`, `bin/changeledger.mjs`
+  - **Verify:** `node --test test/fix.test.mjs`
+  - **Criteria:** CR5, CR6
+  - **Resolved:** `2026-07-29T21:38:40Z`
+- [x] Ejecutar el migrador de `src/fix.mjs` sobre el corpus con equivalencia antes/después por script, completando a mano los campos de este documento
+  - **Target:** `src/fix.mjs` sobre `.changeledger/changes/`
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Criteria:** CR8
+  - **Resolved:** `2026-07-29T21:38:41Z`
+- [ ] Reescribir la gramática del Plan en `templates/contract/spec.md` y el punto 2 de `templates/contract/readiness.md`, actualizando sus guards de obligación
+  - **Target:** `templates/contract/spec.md`, `templates/contract/readiness.md`
+  - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR7
+- [ ] Ejecutar el gate completo tras ambas selecciones
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 - **2026-07-29T21:00:52Z** `[status]` draft → approved
+- **2026-07-29T21:02:23Z** `[status]` approved → in-progress
+- **2026-07-29T21:38:58Z** `[note]` Selección 1 resuelta (parser+readiness+migrador+corpus). Equivalencia medida por script (extracción vieja sobre texto crudo vs parser nuevo): 239 documentos, multiconjunto id→criterios idéntico, 721 tareas con criterios; segunda pasada del migrador byte-idéntica; fix --plan-tags emitió 583 notas manual — 581 tareas sin cláusula verify: (sin ambigüedad real) y 2 con verify: repetido. Cifras del draft corregidas por el corpus vivo: 238→239 docs, 716→721 con criterios, 1071→1077 líneas de tarea (el delta es este propio change).
+- **2026-07-29T21:38:58Z** `[note]` Precisión sobre la cláusula And de CR1: 'no hay diagnóstico' es exacto para la variante de la Investigation (criterio en la segunda línea física: criteria [] e issues [], reproducido literal), pero para el Given literal con hijo Criteria el HEAD anterior emitía 'invalid task metadata structure' por clave desconocida. El Then de CR1 no cambia y su test pasa; queda como punto de escrutinio del review, no se enmienda el criterio aprobado.
+- **2026-07-29T21:38:59Z** `[note]` Dos ensanchamientos de comportamiento para escrutinio del review: (1) la prosa en ## Plan de un change abierto pasa a error (CR2), coste de migración para repos consumidores no nombrado en el documento; (2) setTask ahora lanza ante cualquier issue del Plan, incluida una línea unrecognized en otro punto del documento — antes se saltaba en silencio; en la práctica los congelados no se mutan.

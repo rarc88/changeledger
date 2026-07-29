@@ -5,18 +5,24 @@
 //
 // Repairs (in order, per `## Plan` task line):
 //   1. Checkbox marker variants `[ x ]` / `[X]` -> `[x]`.
-//   2. A `(CRn) — verify: X` block reordered to `; verify: X (CRn)`.
-//   3. A resolution suffix using a single hyphen instead of an em dash.
-//   4. A near-ISO resolution timestamp normalized to strict ISO 8601 UTC.
+//   2. A resolution suffix using a single hyphen instead of an em dash.
+//   3. A near-ISO resolution timestamp normalized to strict ISO 8601 UTC.
 //
 // A task whose CR reference is not declared in `## Specification` is left
 // completely untouched and reported under `manual` — the defect requires
 // judgment (unknown criterion), not a mechanical rewrite.
+//
+// This module is also the converter from the old positional Plan grammar to the
+// tag grammar (`--plan-tags`, 20260729-203257) and therefore the last legal home
+// of positional parsing. Recognition of the task line itself is not its own: it
+// comes from `src/task.mjs`, the single seat (CR6), and is re-exported below so
+// the identity of that seat is assertable.
 import { parseChange } from './change.mjs';
 import { parseLogEvent, serializeLogEvent } from './lifecycle.mjs';
+import { matchLenientTaskLine, matchTaskLine } from './task.mjs';
 
-const TASK_LINE = /^(\s*-\s)\[([^\]]*)\](\s+)(.*)$/;
-const REORDERED_VERIFY = /^(.*?)\s*\(([^)]*\bCR\d+[^)]*)\)\s*—\s*verify:\s*(.+)$/;
+export { matchLenientTaskLine, matchTaskLine };
+
 const NEAR_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?(Z)?$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LEGACY_LOG =
@@ -76,19 +82,19 @@ export function migrateStructuredSections(text) {
     }
 
     if (section === 'plan') {
-      const task = line.match(/^- \[([ x!])\]\s+(.*)$/);
+      const task = matchTaskLine(line);
       const alreadyStructured = /^ {2}- \*\*(?:Resolved|Blocked):\*\*/.test(lines[index + 1] ?? '');
-      if (task && !alreadyStructured && task[1] !== ' ') {
-        const separator = task[2].lastIndexOf(' — ');
-        const separators = task[2].match(/ — /g)?.length ?? 0;
-        const suffix = separator === -1 ? '' : task[2].slice(separator + 3);
-        const description = separator === -1 ? task[2] : task[2].slice(0, separator);
-        if (task[1] === 'x' && ISO_UTC.test(suffix)) {
+      if (task && !alreadyStructured && task.mark !== ' ') {
+        const separator = task.content.lastIndexOf(' — ');
+        const separators = task.content.match(/ — /g)?.length ?? 0;
+        const suffix = separator === -1 ? '' : task.content.slice(separator + 3);
+        const description = separator === -1 ? task.content : task.content.slice(0, separator);
+        if (task.mark === 'x' && ISO_UTC.test(suffix)) {
           output.push(`- [x] ${description}`, `  - **Resolved:** \`${suffix}\``);
           applied.push(`line ${index + 1}: migrated resolved task metadata`);
           continue;
         }
-        if (task[1] === '!' && separator !== -1 && separators === 1 && suffix.trim()) {
+        if (task.mark === '!' && separator !== -1 && separators === 1 && suffix.trim()) {
           output.push(`- [!] ${description}`, `  - **Blocked:** ${suffix}`);
           applied.push(`line ${index + 1}: migrated blocked task metadata`);
           continue;
@@ -116,6 +122,96 @@ export function migrateStructuredSections(text) {
 
   const migrated = output.join('\n');
   return { text: migrated, applied, manual, changed: migrated !== text };
+}
+
+// Converter from the old positional Plan grammar to the tag grammar
+// (20260729-203257 CR5). Deterministic and idempotent: it only ever moves a
+// trailing marker or a single `verify:` clause out of the description and into a
+// child, so a document already in the tag grammar comes out byte-identical.
+//
+// The positional literals below are the LEGAL residue of the old grammar — this
+// function's whole subject matter — and exist nowhere else in `src/`.
+const FINAL_CR_GROUP = /\(([^)]*\bCR\d+[^)]*)\)\s*$/;
+const FINAL_SUPPORT = /\s*\(support\)\s*$/;
+const VERIFY_CLAUSE = 'verify:';
+
+export function migratePlanTags(text) {
+  const lines = String(text).split('\n');
+  const output = [];
+  const applied = [];
+  const manual = [];
+  let inPlan = false;
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (/^##\s+/.test(line)) {
+      inPlan = /^##\s+Plan\s*$/.test(line);
+      output.push(line);
+      continue;
+    }
+    const task = inPlan ? matchTaskLine(line) : null;
+    if (!task) {
+      output.push(line);
+      continue;
+    }
+
+    const converted = convertLegacyTask(task.content, index + 1);
+    manual.push(...converted.manual);
+    if (!converted.children.length) {
+      output.push(line);
+      continue;
+    }
+    output.push(`- [${task.mark}] ${converted.description}`, ...converted.children);
+    applied.push(`line ${index + 1}: migrated Plan task tags`);
+  }
+
+  const migrated = output.join('\n');
+  return { text: migrated, applied, manual, changed: migrated !== text };
+}
+
+function convertLegacyTask(content, lineNo) {
+  const manual = [];
+  const children = [];
+  let description = content.trim();
+
+  const group = description.match(FINAL_CR_GROUP);
+  const criteria = group ? (group[1].match(/CR\d+/g) ?? []) : [];
+  if (group) description = description.slice(0, group.index).trim();
+
+  const support = FINAL_SUPPORT.test(description);
+  if (support) description = description.replace(FINAL_SUPPORT, '').trim();
+
+  // Exactly one clause is unambiguous. Zero leaves nothing to move; several leave
+  // no deterministic tail. Both cases keep the description intact and say so.
+  const occurrences = description.split(VERIFY_CLAUSE).length - 1;
+  let verify = '';
+  if (occurrences === 1) {
+    const at = description.indexOf(VERIFY_CLAUSE);
+    verify = description.slice(at + VERIFY_CLAUSE.length).trim();
+    if (verify)
+      description = description
+        .slice(0, at)
+        .replace(/[;,]?\s*$/, '')
+        .trim();
+  }
+  if (!verify) {
+    manual.push(
+      occurrences <= 1
+        ? `line ${lineNo}: no verify: clause to migrate — add **Verify:** by hand`
+        : `line ${lineNo}: ${occurrences} verify: clauses — add **Verify:** by hand`,
+    );
+  }
+
+  // A description reduced to nothing would stop being a task line: refuse.
+  if (!description) {
+    manual.push(`line ${lineNo}: migrating would leave the task without a description`);
+    return { description: content.trim(), children: [], manual };
+  }
+
+  if (verify) children.push(`  - **Verify:** ${verify}`);
+  if (criteria.length) children.push(`  - **Criteria:** ${criteria.join(', ')}`);
+  if (support) children.push('  - **Support:**');
+  return { description, children, manual };
 }
 
 function parseLegacyLogEvent(at, message) {
@@ -172,9 +268,9 @@ function parseLegacyLogEvent(at, message) {
 }
 
 function fixTaskLine(rawLine, declaredCR, lineNo) {
-  const m = rawLine.match(TASK_LINE);
+  const m = matchLenientTaskLine(rawLine);
   if (!m) return { line: rawLine, applied: [], manual: [] };
-  const [, prefix, markerRaw, gap, restRaw] = m;
+  const { prefix, marker: markerRaw, gap, content: restRaw } = m;
 
   // A task referencing an undeclared criterion needs judgment, not a rewrite —
   // leave the entire line untouched.
@@ -197,13 +293,6 @@ function fixTaskLine(rawLine, declaredCR, lineNo) {
     applied.push(`line ${lineNo}: checkbox marker normalized to [x]`);
   }
   const state = marker === 'x' ? 'done' : marker === '!' ? 'blocked' : 'todo';
-
-  const reorder = rest.match(REORDERED_VERIFY);
-  if (reorder) {
-    const [, target, crBlock, verify] = reorder;
-    rest = `${target.trim()}; verify: ${verify.trim()} (${crBlock.trim()})`;
-    applied.push(`line ${lineNo}: reordered verify suffix before (${crBlock.trim()})`);
-  }
 
   // The resolution suffix is the LAST separator: a description may legitimately
   // contain an em dash, so only a hyphen sitting after every em dash is a defect.
