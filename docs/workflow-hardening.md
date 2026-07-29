@@ -1671,3 +1671,27 @@ cola final sin cambios: CH-16 reducido → CH-7 → CH-3 → CH-10
 
 CH-22 va primero porque abarata todos los que vienen detrás: cada change de
 prosa deja de pagar el repinneo y la clasificación en cada edición de fragmento.
+
+### Registro de ejecución del 2026-07-29 (tarde) — los dos primeros del orden nuevo, cerrados
+
+| change | id | resultado |
+|---|---|---|
+| CH-22 (pins) | `20260729-143656` | **archivado**, graduado a `contract-discovery`. 1 ronda de `fail --retry` con 4 hallazgos reales del revisor top-tier; 2 eran redacción del orquestador (CR3, CR4). Neto: −795 líneas de maquinaria, +61 de guards que muerden más fuerte que antes (inventario de los 3 directorios + barrido recursivo insensible al reflow). Editar prosa del contrato ya no exige repinnear ni clasificar |
+| CH-11 (owner hermético) | `20260729-144812` | **archivado**, graduado a `lifecycle`. 0 retries. Resolución perezosa + kill-switch `CHANGELEDGER_NO_GH` en el runner por defecto, fijado por `test`/`verify`: hermeticidad por construcción. Implementado en worktree WT-B y fusionado (`f44c1bb4`) |
+
+Validación del modelo de dos carriles: los dos ciclos corrieron en paralelo sin
+interferencia, con la fusión al final. Hallazgos operativos: (1) la aprobación
+humana en el viewer queda sin commitear en el checkout donde se hizo — el baseline
+debe commitearse antes de abrir el worktree, o la rama nace viendo `draft`; (2) el
+paso `in-progress → in-review` antes de delegar la confirmación de una corrección
+funcionó como salida al hallazgo H1 del ciclo de CH-15.
+
+Evidencia nueva para CH-19, de los mutantes de CH-22: el hueco no recursivo de
+`124837 CR1` reproducido en vivo dos veces; el barrido restaurado por CH-22 cubre
+recursivamente su propia frase, pero las demás siguen con guard top-level. CH-19
+queda reducido a consolidar la enumeración y decidir si los barridos restantes se
+vuelven recursivos.
+
+Reincidencia del orquestador, forma nueva registrada en memoria: descartar hits de
+grep como "ajenos" sin trazar cada símbolo hasta su consumidor (CR3; costó la mitad
+de los hallazgos del retry de CH-22).
