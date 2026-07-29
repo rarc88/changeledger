@@ -1873,6 +1873,46 @@ approve, la proyección `asStatus` y la cobertura escalada), archivado.
 - El contrato de evidencia es norma servida en los packs (`delegation.md`,
   `review.md`), ya no cláusula de prompt.
 
+## 15. CH-1 cerrado — 2026-07-29 (noche)
+
+**`20260729-203257` done, graduado a `readiness` (spec actualizada al matching
+por campo en la misma pasada), archivado.** Gramática por hijos
+Target/Verify/Criteria/Support, parser inmune al reflow con issue nombrado,
+readiness por campo, migrador `fix --plan-tags`, corpus completo migrado (196
+docs, commit multi-id con 197 marcadores — el guard de índice lo exigió y es la
+forma legal precedentada). Equivalencia verificada por tres partes
+independientes; el revisor regeneró los 238 docs desde el baseline:
+byte-reproducibles. CH-19 y CH-10 quedan desbloqueados; `test/**` ya puede
+entrar a `target_patterns` sin vaciar el requisito.
+
+**Ciclo: 1 review completa + 4 fail-retry + 4 confirmaciones; ~840k de
+delegados visibles.** Los 8 CR pasaron a la primera. El retry 1 cazó dos
+defectos reales del entregable: un byte NUL crudo en `src/task.mjs` que volvía
+el parser binario para git y escapó a lint, suite y check (hay guard nuevo de
+bytes de control, C0+DEL), y el Then de CR6 sobre-afirmado. **Los retries 2–4
+fueron la misma clase encadenada, toda del orquestador: absolutos en prosa de
+comentarios de test** ("cannot be written without \[" → contraejemplo `[[]`;
+"a raw control byte makes git classify it as binary" → solo NUL; "every raw
+control byte" → faltaba DEL 0x7f). Cada uno tumbado con contraejemplo
+ejecutado. La ronda 4 salió por la vía correcta: ensanchar el predicado
+(estrictamente más fuerte) en vez de debilitar la frase. Forma nueva de la
+clase del orquestador, registrada en memoria; propuesta pendiente de Roberto:
+extender la obligación de cuantificadores de CH-2 a toda prosa entregable
+(comentarios de test, notas de Log) como obligación del contrato de evidencia —
+sede natural CH-5a reducido.
+
+**Follow-ups nuevos con sede aquí:** `fix --plan-tags` ausente de los Authoring
+helpers del contrato (no cabía en 5 tokens de margen; un consumidor que
+actualice ve errores sin ruta de migración documentada — juicio de producto);
+salida del andamio de `base.spec` sigue pendiente (3445/3450 tras CH-1: exige
+la refactorización del pack de autoría, no bastaba esta reescritura);
+ventana estrecha sin diagnóstico (hijo `Criteria` mal indentado en tarea
+`Support` con CRs cubiertos por otra); comentario del andamio en `budgets.yml`
+rancio (3416/317 → 3445/320, clase "ten ceilings") → barrido de verdad
+persistente; el rango histórico de `src/task.mjs` queda binario para siempre
+(el blob de b7aa3032 lleva el NUL); residuo CR6: una clase ofuscada `[[]` evade
+identidad y barrido — lo posee el review, nombrado en el propio test.
+
 ### Método que sostuvo el día (para replicar, no re-derivar)
 
 Investigación fresca contra HEAD antes de todo draft (falsificó hechos del acta
