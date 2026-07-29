@@ -828,10 +828,17 @@ bytes**); bloque `## Commits` de `core.md` **28/28 líneas, cero margen**.
 
 Hechos y archivados: **CH-4**, **CH-14**, **CH-0**, **CH-18**. Orden restante:
 
+Hechos y archivados también: **CH-18**, **CH-17**, **CH-15**. Descartado: **CH-20**.
+
 ```
-CH-17 → CH-15 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
-     → CH-9 → CH-10 → CH-2 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
+CH-2 → CH-0b → CH-1 → CH-19 → CH-5a → CH-5b → CH-11 → CH-12
+    → CH-9 → CH-10 → CH-3 → CH-13 → CH-16 → CH-8 → CH-6 → CH-7
 ```
+
+**CH-2 sube al frente el 2026-07-29, pendiente de que Roberto lo confirme**, con la
+medición del coste del flujo detrás: el retry de CH-15 costó 316k y su causa fue un
+criterio aprobado que afirmaba algo falso. Quedan 15 changes de prosa normativa; cada
+criterio no falsable que se apruebe paga ese precio más tarde.
 
 **CH-20 descartado**, así que no hay vía paralela en el contrato: el paralelismo, cuando
 se quiera, son **varios worktrees con un change cada uno** — modelo que la regla actual
@@ -914,10 +921,11 @@ validated`, y los 4 warnings son todos de CH-19 (el hallazgo 41). Rama única
 |---|---|---|---|
 | CH-4 | `20260722-124656` | **archivado** (2026-07-28) | graduado a `lifecycle`, aceptado por Roberto. Ya no es reabrible: trabajo posterior necesita change nuevo |
 | CH-14 | `20260728-151336` | **archivado** (2026-07-28) | graduado a `git-traceability`. 5 CR, 3 tareas, **un commit por tarea**; review PASS con ~50 intentos de escape; `\S` fijado con ronda de confirmación |
-| CH-15 | `20260728-164620` | **`draft`, sin aprobar** | unidad de commit = change. **Enmendado el 2026-07-28** por instrucción de Roberto: entra **CR7**, la ventana sucia, porque este change la **ensancha** (con un solo commit de implementación el delta del lifecycle queda sin commitear toda la implementación). Sede decidida: `implement.md`, no el bloque `## Commits`. Corregidos los bytes que arrastraba de antes de CH-0. **`depends_on: []` — no está bloqueado en el ledger**; el bloqueo por CH-0b vivía sólo en la prosa de aquí |
+| CH-15 | `20260728-164620` | **archivado** (2026-07-29) | unidad de commit = change; graduado a `git-traceability`. 7 CR, review PASS tras **1 ronda de `fail --retry`** por cinco defectos de prosa, tres de ellos causados por mi redacción de CR7. **CR7 enmendado** en la corrección. El ciclo costó **~614k**, el 51% en el retry — ver la medición del coste del flujo abajo |
 | CH-0 | `20260728-170429` | **archivado** (2026-07-28) | 7 CR; review `fail --retry` con 2 defectos, corregidos y confirmados; graduado a `contract-discovery` |
 | CH-19 | `20260728-194157` | **`draft`, bloqueado** | guardas recursivas; **no aprobable** hasta CH-1, ver arriba |
-| CH-17 | `20260728-212043` | **`draft`, sin aprobar** (2026-07-28) | **priorizado por Roberto** para desbloquear el presupuesto. Techos de `lines` derivados de `tokens ÷ 10`; `base.core` 195 → **400**. 5 CR, 4 tareas + 1 `(support)`. Alcance **acotado a lo medido**: 5 entradas `base` + `blocks.core-commits`. Overlays y `agent` fuera, ver abajo |
+| CH-17 | `20260728-212043` | **archivado** (2026-07-29) | **priorizado por Roberto** para desbloquear el presupuesto; graduado a `contract-discovery`. Las 11 entradas derivadas, `base.core` 195 → **400**, `head` a 400 por igualdad, `agent` 350 → **1250** aplicado también a `agent-prompt`, `base.spec` marcado andamio. 7 CR, review PASS sin retry. **Resultado: margen real de prosa del core de 2 líneas a ~106** |
+| CH-20 | `20260729-001217` | **`discarded`** (2026-07-29) | relajar un change a la vez; descartado el mismo día por decisión de Roberto en favor de un change por worktree, que la regla actual ya permite sin tocar contrato |
 | CH-18 | `20260728-195445` | **archivado** (2026-07-28) | tipo `bug`; 4 CR, 3 tareas, review **PASS** con mandato acotado, **cero rondas de retry**. 6 commits: baseline, 2 de tarea, handoff, veredicto, cierre. Graduado a `contract-discovery`. `pnpm verify` EXIT=0, 923/923 |
 | CH-16 | — | pendiente de autorizar | dos huecos que CH-14 dejó fuera de alcance, ver arriba |
 
@@ -1027,6 +1035,73 @@ concurrentes en la misma rama sus commits se interleavan, así que el `baseline.
 que CH-15 quiere dar al revisor deja de contener sólo el change revisado. La salida ya
 está construida —`gitRefs()` atribuye commits por marcador `[#id]`— y definirla es de
 CH-15, no de CH-20.
+
+### El coste del flujo, medido — y la conclusión que cambia el orden
+
+Observación de Roberto el 2026-07-29, sobre CH-15: *"1 hora tomo modificar prosas en 2
+.md esto claramente revela que el proceso esta funcionando mal"*. Es correcta. Medido
+sobre las tres implementaciones del 2026-07-28/29:
+
+| change | entregable | tokens de delegado | rondas de retry |
+|---|---|---|---|
+| CH-18 | ~74 líneas de test + 8 de `src` | ~243k | **0** |
+| CH-17 | 11 techos, 2 literales publicados, 6 ficheros | ~307k | **0** |
+| CH-15 | prosa en 2 `.md` + 2 suites | **~614k** | **1** |
+
+Desglose de CH-15: implementación 170k, review 128k, **corrección 208k, confirmación
+108k**. El ciclo de retry son **316k, el 51% del total**, y ~20 de los ~52 minutos de
+reloj de delegado.
+
+**La causa del retry no fue el implementador: fueron mis criterios.** Tres de los cinco
+defectos nacen de la redacción de CR7, que afirmaba que el documento del change *"es el
+único delta esperado"* — falso, porque durante la ventana el árbol lleva también el
+código y los tests. El revisor fue **el primero en falsear ese criterio**.
+
+Eso es **literalmente el eslabón 1 del diagnóstico de §2**: *"Si nadie falsea el
+documento antes de implementar, el primero que prueba el change de verdad es el
+revisor."* CH-15 es la instancia más cara registrada de esa clase, y **CH-2 es el change
+que la cierra** — hoy en el puesto 11 del orden.
+
+Contraste que lo confirma: CH-18 y CH-17 salieron con **cero retries**, y en los dos los
+criterios se escribieron sobre cifras **medidas antes de aprobar** (densidades, techos,
+conteos de fixture). CH-15 fue el único cuyo criterio afirmaba un hecho sobre el estado
+del árbol que nadie había comprobado.
+
+**Multiplicador que hay que entender para priorizar bien:** un retry cuesta **dos**
+cargas obligatorias de delegado —la corrección y una confirmación con revisor fresco—,
+no una. Así que prevenir un retry vale el doble que abaratar cualquier ronda suelta.
+Optimizar el mandato del review (CH-5a) reduce una ronda; el gate de salida del draft
+(CH-2) elimina el par.
+
+**Recomendación de orden, para decisión de Roberto: CH-2 al frente.** El resto de la
+iniciativa son 15 changes de prosa normativa, y cada criterio no falsable que se apruebe
+paga 316k más tarde.
+
+### Hallazgos nuevos del 2026-07-29, del ciclo de CH-15
+
+1. **Tras `review fail --retry` el revisor de confirmación no puede cargar su cápsula.**
+   El change vuelve a `in-progress`, y `changeledger agent-context review <id>` falla con
+   `Error: role review requires change status in-review; got in-progress`. Reproducido.
+   El contrato **manda** que un revisor fresco confirme la corrección, pero **ningún
+   fragmento nombra el paso de volver a `in-review` antes de delegarla**, y
+   `changeledger review <id> pass` también lo exige. El revisor de esta ronda lo reportó
+   y cayó al bootstrap general. Error de proceso del orquestador habilitado por un paso
+   que el contrato no nombra. **Candidato a change propio.**
+2. **El contrato no tiene regla que gobierne enmendar un criterio aprobado.** Hoy se
+   apoya en una regla registrada en este acta, no en `templates/contract/`. El criterio
+   que el revisor propuso, y que adopto, es mejor que el que yo invoqué: una enmienda
+   post-aprobación es segura cuando es **estrictamente más fuerte** —ensancha el
+   conjunto exigido o añade cláusulas—, porque así no puede convertir un fallo en un
+   pass. Ése es el test que separa corregir de blanquear. Hueco de exigibilidad.
+3. **Una guarda contra comentarios falsos puede ser ella misma vacua, y lo fue.** El
+   implementador escribió una aserción que comparaba por substring sobre todo un bloque
+   de comentario, de modo que **la propia frase que explicaba la omisión satisfacía la
+   aserción**. Lo descubrió corriendo el mutante, no razonando, y la reforzó delimitando
+   la lista con marcadores. Es la clase del hallazgo 43 dentro del mecanismo que vigila
+   la clase del hallazgo 38.
+4. **Sexta instancia del mismo error de prosa, una capa más abajo.** El comentario del
+   pin que documentaba la corrección de H1 decía *"the change document **alone** stays
+   modified"* — el mismo enunciado falso que estaba arreglando.
 
 ### Hallazgos nuevos del 2026-07-28 (noche), midiendo para CH-17
 
