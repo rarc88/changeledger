@@ -940,13 +940,23 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   correction, so core declares the class and nothing more. ADDED — "A single
     //   Plan task is not: it is reverted, referenced and implemented with the rest of
     //   the change", the discriminant applied to the unit this change retires;
+    // RETIRED (correction round) — "or several Plan tasks are inseparable", the second
+    //   form of the combined commit that 124837 added on the human's 2026-07-26
+    //   decision. It is emptied, not merely unused: with the change as the unit every
+    //   Plan task travels in the one implementation commit, so inseparable tasks can
+    //   never be the reason separation is impossible. The clause is replaced by the
+    //   explicit "Plan tasks are never a reason — they all travel in the one
+    //   implementation commit", so the retired case is named rather than left to be
+    //   rediscovered, and `164620 H4/H5` guards it. The shared-files form and the duty
+    //   to record and name what was combined are preserved verbatim, so the obligation
+    //   `124837 CR8` homes here ("If shared files make a combined commit unavoidable")
+    //   still has its home;
     // PRESERVED — the Draft and Baseline rows verbatim, the granularity test, the
-    //   lifecycle-transition prohibition and the change-document rationale, plus every
-    //   other block of the fragment: message mechanics, combined commits and the
-    //   `pre-commit` staged-index rule are untouched. The dirty-window declaration
+    //   lifecycle-transition prohibition and the change-document rationale, plus the
+    //   message mechanics and the `pre-commit` staged-index rule. The dirty-window declaration
     //   this change also introduces went to `implement.md`, not here: it is a fact of
     //   the implementation stage, not of the class taxonomy (`164620 CR7`).
-    'core.md': '12135d75ca3e090121e8924694df344168a5f35780eab83daa1e2073c37bbf66',
+    'core.md': 'ce86191398c3e1936e8e3ec0d321673f1059a5b84783b9b8353c4b5966170f17',
     // 20260704-114323: the "configured review is special" rule is preserved
     // (fresh clean-context subagent) and extended, not replaced: it now states
     // the delegate stays read-only and the orchestrator alone records the verdict.
@@ -1042,7 +1052,9 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   what was combined and why, keeps the duty to name every change sharing the
     //   surface (restored after review — it reached no home on the first pass) and
     //   adds the second form the human decided on 2026-07-26, inseparable Plan
-    //   tasks. The Log-or-handoff choice of venue narrows to the Log;
+    //   tasks (20260728-164620 retired that second form: see the `core.md` pin above.
+    //   The obligation this line homes is the shared-files form, which is untouched).
+    //   The Log-or-handoff choice of venue narrows to the Log;
     // PRESERVED — the branch and worktree rules verbatim (never `main`/`master`/
     //   `dev`, branches created from and integrated into `git.integration_branch`
     //   with `main` reserved for releases, inspect the worktree first and ask
@@ -1089,20 +1101,32 @@ test('234939 CR10/CR11: reviewed fragment snapshots prevent silent contract loss
     //   commit happens in the stage order, which is what the ordered gate owns;
     // ADDED — the expected dirty set of the implementation window: between
     //   `changeledger status <id> in-progress` and the implementation commit the change
-    //   document alone stays modified, so a clean worktree is not a valid precondition
-    //   there. This obligation had no prior home anywhere — grepped
+    //   document stays modified AND so do the change's own code and tests, because that
+    //   commit is the first to carry them, so a clean worktree is not a valid
+    //   precondition there. (The correction round fixed this: the first pass wrote "the
+    //   change document alone", which chained with the unrelated-work rule four lines
+    //   above into an order to ask the human about the change's own in-flight code.)
+    //   This obligation had no prior home anywhere — grepped
     //   `templates/contract/` recursively for "clean worktree", "worktree",
-    //   "uncommitted" and "dirty": every pre-existing hit is either the unrelated-work
-    //   inspection, correction isolation or the Handoff class, and none states which
-    //   paths are expected to be dirty mid-implementation. That gap is exactly why a
-    //   delegation baseline
+    //   "uncommitted" and "dirty". HOLDERS: `implement.md` (the unrelated-work
+    //   inspection and correction isolation), `review.md` (correction isolation),
+    //   `core.md` (the Correction and Handoff classes, plus the `approved` bullet's
+    //   "Git/worktree checks"), `agent-contexts/implementation.md` (a delegate sharing
+    //   the worktree must not overwrite others' work). END HOLDERS. None of them states
+    //   which paths are expected to be dirty mid-implementation: the closest prior art
+    //   is the delegate capsule, and it answers the opposite question — what a delegate
+    //   may not touch, not what it should expect to find. `164620 H3` asserts the
+    //   HOLDERS list names every fragment that hits, because the first version of this
+    //   claim enumerated three categories and silently omitted two holders while its
+    //   conclusion stayed true, which is how a pin comment rots. That gap is exactly
+    //   why a delegation baseline
     //   deduced "clean" and cost a whole delegation on 20260728-195445. It binds here
     //   because this fragment owns the implementation stage; the core block must NOT
     //   repeat it (`164620 CR7` asserts both halves). The clause does not restate
     //   core's transition prohibition — it points at it, so 194234's single seat for
     //   "is never a commit of its own" is untouched, and this pack still does not
     //   compose that sentence.
-    'implement.md': 'be9298cd066ad2fe50857a76460c9025ef58e82b12271f73a4ba69d521f93bb6',
+    'implement.md': '11734234d2cf41a7c65be7a9d06e304527dbb5f8f835afbfb2789e12d1067d88',
     // 20260630-225208: the severity sentence was replaced, not retired — draft warns on
     // everything; approved/in-progress errors on readiness defects, coverage gaps stay warnings.
     // 20260726-141122: the subjectless `Repos tune recognition with
@@ -2903,10 +2927,12 @@ test('124837 CR4: the message mechanics survive whole in core', () => {
   }
 });
 
-test('124837 CR5: the unavoidable combined commit is covered in both forms', () => {
+// 20260728-164620 emptied the second of the two forms 124837 landed, so only the
+// shared-files form survives; `164620 H4/H5` owns the retirement and its guard.
+test('124837 CR5 / 164620 H4: the unavoidable combined commit keeps its surviving form', () => {
   const core = composedCore();
   for (const literal of [
-    'A combined commit is legitimate only when separation is impossible: several changes share the same files, or several Plan tasks are inseparable',
+    'A combined commit is legitimate only when separation is impossible: several changes share the same files',
     'Record in the Log what was combined and why',
   ]) {
     assert.ok(core.includes(literal), `core is missing ${literal}`);
@@ -3373,7 +3399,9 @@ test('164620 CR7: implement names the expected dirty set of the implementation w
     'Between `changeledger status <id> in-progress` and the implementation commit',
     'the change document stays modified and uncommitted',
     'the only expected delta',
-    'carry that transition inside the implementation commit',
+    // Plural since the correction round: the window spans the entry into
+    // `in-progress` and the exit into `in-review`, both before the commit.
+    'carry those transitions inside the implementation commit',
     'a clean worktree is not a valid precondition',
   ]) {
     assert.ok(implement.includes(literal), `the implement pack is missing ${literal}`);
@@ -3386,4 +3414,114 @@ test('164620 CR7: implement names the expected dirty set of the implementation w
       `the core commits block duplicates the dirty-window declaration: ${duplicated}`,
     );
   }
+});
+
+// 20260728-164620 correction round. The first pass wrote a dirty-window paragraph
+// whose expected set was the change document alone. Chained with the unrelated-work
+// rule four lines above it, that ordered an agent to stop and ask the human about
+// the change's own in-flight code — and by this change's own design (one commit at
+// the end) that code is modified for almost the whole window: the tree carried five
+// modified paths, not one, right before this change's implementation commit. The
+// prose is fixed and pinned in both directions, because a merely reworded paragraph
+// leaves nothing stopping the next reader from restating the false claim.
+test("164620 CR7 correction: the expected set covers the change's own work and every transition", () => {
+  const implement = buildContext('implement', repo()).replace(/\s+/g, ' ');
+  for (const literal of [
+    "and so do the change's own code and tests",
+    'Together they are the only expected delta',
+    'every `[status]` line the window accumulated',
+    'the entry into `in-progress` and the exit into `in-review`',
+    '"unrelated changes" above means a path belonging to neither the change document nor the change\'s authorized scope',
+  ]) {
+    assert.ok(implement.includes(literal), `the implement pack is missing ${literal}`);
+  }
+  // The three false formulations, by literal: none may come back.
+  for (const falsehood of [
+    'that single path is the only expected delta',
+    'any other modified path is what "unrelated changes" means here',
+    'plus one `[status]` Log line',
+  ]) {
+    assert.ok(!implement.includes(falsehood), `the implement pack reintroduced ${falsehood}`);
+  }
+  // The count of `[status]` lines is a consequence of the installed gate order, not
+  // an independent claim: the in-review transition is step 3 and the commit step 5,
+  // so the window spans both transitions. Moving either one must revisit the prose.
+  const transition = implement.indexOf('`changeledger status <id> in-review`');
+  const commit = implement.indexOf('implementation commit with `changeledger commit`');
+  assert.notEqual(commit, -1, 'the ordered gate has no implementation commit step');
+  assert.ok(
+    transition < commit,
+    'the in-review transition no longer precedes the commit step, so the window no longer spans two transitions',
+  );
+});
+
+// The enumeration inside the `implement.md` pin comment claims to name every
+// fragment that mentions a worktree, uncommitted state or dirtiness. Its first
+// version omitted two holders while its conclusion stayed true, and this repo has
+// already carried four false pin-map comments, so the enumeration is asserted
+// rather than trusted.
+test('164620 H3: the dirty-set grep claim names every fragment holding one of those words', () => {
+  const suite = fs.readFileSync(new URL('./context.test.mjs', import.meta.url), 'utf8');
+  const pin = suite.indexOf("'implement.md':");
+  assert.notEqual(pin, -1, 'implement.md has no snapshot pin');
+  const entry = suite.slice(0, pin).lastIndexOf('20260728-164620');
+  assert.notEqual(entry, -1, 'the implement.md pin has no 20260728-164620 entry');
+  // The enumeration is delimited, so the assertion reads the list itself and not the
+  // surrounding prose. Without the delimiters the first version of this guard passed
+  // a mutant that deleted `core.md` from the list, because the sentence explaining the
+  // omission mentioned `core.md` too — a match anywhere in the block was enough.
+  const block = suite.slice(entry, pin);
+  const open = block.indexOf('HOLDERS:');
+  const close = block.indexOf('END HOLDERS.');
+  assert.notEqual(open, -1, 'the pin comment has no HOLDERS list');
+  assert.ok(close > open, 'the HOLDERS list is not delimited by END HOLDERS.');
+  const comment = block.slice(open, close);
+  const contractDir = new URL('../templates/contract/', import.meta.url);
+  const holders = fs
+    .readdirSync(contractDir, { recursive: true })
+    .filter((name) => name.endsWith('.md'))
+    .filter((name) => /worktree|uncommitted|dirty/.test(contractFragment(name)))
+    .map((name) => name.split(path.sep).join('/'));
+  assert.ok(holders.length > 1, 'the grep found nothing to enumerate');
+  for (const holder of holders) {
+    assert.ok(
+      comment.includes(holder),
+      `the grep claim does not name ${holder}, which holds one of those words`,
+    );
+  }
+});
+
+// 20260728-164620 emptied the second form of the combined commit: with the change as
+// the unit, every Plan task travels in one commit by design, so "several Plan tasks
+// are inseparable" can never be the reason separation is impossible. The clause is
+// retired rather than left pinned, which is what the first pass did.
+test('164620 H4/H5: the emptied combined-commit form and the stale unit sentence are gone', () => {
+  const core = composedCore();
+  assert.ok(
+    core.includes(
+      'A combined commit is legitimate only when separation is impossible: several changes share the same files',
+    ),
+    'core lost the surviving combined-commit form',
+  );
+  assert.ok(
+    !core.includes('several Plan tasks are inseparable'),
+    'core still offers inseparable Plan tasks as a reason to combine commits',
+  );
+  assert.ok(
+    core.includes(
+      'Record in the Log what was combined and why, naming every change that shares the surface',
+    ),
+    'core lost the duty to record and name what was combined',
+  );
+  const implement = buildContext('implement', repo()).replace(/\s+/g, ' ');
+  assert.ok(
+    !implement.includes('they do not relax intermediate commits for already verified units'),
+    'implement still promises not to relax intermediate commits, which the new unit removed',
+  );
+  assert.ok(
+    implement.includes(
+      'they cover corrections only, and never license leaving the implementation commit unmade before review',
+    ),
+    'implement does not say what the correction exceptions actually cover',
+  );
 });

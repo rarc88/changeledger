@@ -22,12 +22,15 @@ unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
 Between `changeledger status <id> in-progress` and the implementation commit the
-change document stays modified and uncommitted — its `status` field plus one
-`[status]` Log line — and that single path is the only expected delta. Core's
-commit classes carry that transition inside the implementation commit rather than
-a commit of its own, so a clean worktree is not a valid precondition anywhere in
-that window: any other modified path is what "unrelated changes" means here, and a
-delegation baseline states this expected set instead of demanding a clean tree.
+change document stays modified and uncommitted — its `status` field and every
+`[status]` line the window accumulated, at least the entry into `in-progress` and
+the exit into `in-review` — and so do the change's own code and tests, which that
+commit is the first to carry. Together they are the only expected delta, and
+"unrelated changes" above means a path belonging to neither the change document nor
+the change's authorized scope. Core's commit classes carry those transitions inside
+the implementation commit rather than a commit of its own, so a clean worktree is
+not a valid precondition anywhere in that window, and a delegation baseline states
+this expected set instead of demanding a clean tree.
 
 Implement one change at a time, even while another already-delivered change waits
 in `in-validation`.
@@ -90,4 +93,5 @@ the same diff if it does not. After human acceptance, graduate or record a skip
 and include correction plus ledger in the final closure commit.
 
 These exceptions prevent false fix attempts from becoming permanent history;
-they do not relax intermediate commits for already verified units.
+they cover corrections only, and never license leaving the implementation commit
+unmade before review.

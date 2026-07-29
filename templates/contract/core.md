@@ -118,9 +118,9 @@ archive) carry markers like any other; only merge commits, `chore(release)` prep
 `in-progress` change when `--id` is omitted and failing without committing if that is ambiguous or the
 subject is not conventional. Run `changeledger check --commits [<base>]` before requesting review.
 
-A combined commit is legitimate only when separation is impossible: several changes share the same files, or
-several Plan tasks are inseparable. Record in the Log what was combined and why, naming every change that
-shares the surface. A failed `pre-commit` hook
+A combined commit is legitimate only when separation is impossible: several changes share the same files.
+Record in the Log what was combined and why, naming every change that shares the surface. Plan tasks are
+never a reason — they all travel in the one implementation commit. A failed `pre-commit` hook
 leaves the index staged, so inspect the staged set (`git diff --cached --name-only`) before retrying: fixing
 the cause is not enough if the index kept the previous attempt's files.
 
