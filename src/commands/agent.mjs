@@ -108,14 +108,24 @@ export function approve(id, cwd = process.cwd()) {
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
 export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
+  const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
-    const { status: current } = parseChange(text).frontmatter;
+    const fm = parseChange(text).frontmatter;
+    const current = fm.status;
     if (current !== 'in-review') {
       throw new Error(`review requires status in-review (current: ${current})`);
     }
+    // Validate before any mutation, same contract as status()/validation()/
+    // discard()/reopen(): assertTransition is the single lifecycle authority,
+    // even though every in-review edge is legal today (the graph's three
+    // in-review destinations mirror review()'s three outcomes by design).
+    const opts = {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    };
 
     if (verdict === 'pass') {
+      assertTransition(current, 'in-validation', opts);
       text = setStatus(text, 'in-validation');
       text = appendLogEvent(text, {
         at: nowUtc(),
@@ -131,6 +141,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         );
       }
       if (mode === 'retry') {
+        assertTransition(current, 'in-progress', opts);
         text = setStatus(text, 'in-progress');
         text = appendLogEvent(text, {
           at: nowUtc(),
@@ -141,6 +152,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
           reason,
         });
       } else if (mode === 'block') {
+        assertTransition(current, 'blocked', opts);
         text = setStatus(text, 'blocked');
         text = appendLogEvent(text, {
           at: nowUtc(),

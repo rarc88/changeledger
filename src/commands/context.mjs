@@ -98,21 +98,43 @@ function effectiveTdd(config) {
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved. The integration branch appears only
 // when declared — absence means the repo keeps branch auto-detection.
-export function transversalPolicy(config) {
-  const base = `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
+// Called with `includeTdd: false` for a change-id capture whose type never
+// serves `readiness.md` (the only fragment that defines the `tdd` obligation)
+// — publishing the line unconditionally would hand such a type an obligation
+// with no definition anywhere in the same capture (CR5).
+export function transversalPolicy(config, { includeTdd = true } = {}) {
+  const tdd = includeTdd ? ` — tdd=${effectiveTdd(config)}` : '';
+  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
   const branch = integrationBranch(config);
   return branch ? `${base} — integration_branch=${branch}` : base;
+}
+
+// A change's `type` selects which stages the capture composes and which
+// obligations (tdd, review) apply. An undecidable type — not declared in
+// `config.types`, absent from the change's own frontmatter, or declaring
+// `stages` as something other than a list — is exactly the class of defect
+// this repo aborts on rather than silently degrading: `context` must never
+// publish an empty `Active stages(...)=` line or omit `readiness` without
+// saying why (CR1). Single seat consumed by both callers below.
+function assertKnownType(config, type) {
+  if (type === undefined) throw new Error('missing frontmatter "type"');
+  const typeConfig = config?.types?.[type];
+  if (!typeConfig) throw new Error(`unknown type "${type}"`);
+  if (!Array.isArray(typeConfig.stages)) {
+    throw new Error(`config type "${type}": stages must be a list`);
+  }
+  return typeConfig;
 }
 
 // Type-specific policy for change-id contexts: adds review requirement and the
 // active stages the type actually uses, so the agent does not infer them.
 function changePolicyBlock(config, type) {
-  const typeConfig = config?.types?.[type] ?? {};
+  const typeConfig = assertKnownType(config, type);
   const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
-  const stages = Array.isArray(typeConfig.stages) ? typeConfig.stages.join(', ') : '';
+  const servesReadiness = typeConfig.stages.includes('specification');
   const lines = [
-    `${transversalPolicy(config)} — review_required(${type})=${reviewRequired}`,
-    `Active stages(${type})=${stages}`,
+    `${transversalPolicy(config, { includeTdd: servesReadiness })} — review_required(${type})=${reviewRequired}`,
+    `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');
 }
@@ -124,8 +146,8 @@ function changePolicyBlock(config, type) {
 // fragment would contradict the `Active stages(<type>)=` line of the same
 // capture. Derived from the configured stages, never from a list of type names.
 function fragmentsForType(fragments, config, type) {
-  const stages = config?.types?.[type]?.stages;
-  if (Array.isArray(stages) && stages.includes('specification')) return fragments;
+  const { stages } = assertKnownType(config, type);
+  if (stages.includes('specification')) return fragments;
   return fragments.filter((name) => name !== 'readiness');
 }
 

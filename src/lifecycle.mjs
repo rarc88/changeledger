@@ -56,7 +56,8 @@ export function assertTransition(from, to, { type, reviewRequired = false } = {}
     throw new Error(`invalid lifecycle transition: ${from} → ${to}`);
   }
   if (reviewRequired && from === 'in-progress' && to === 'in-validation') {
-    throw new Error(`${type} changes must be reviewed before validation — move to in-review first`);
+    const subject = type ? `${type} changes` : 'changes';
+    throw new Error(`${subject} must be reviewed before validation — move to in-review first`);
   }
   if (!reviewRequired && from === 'in-progress' && to === 'in-review') {
     if (!type) {

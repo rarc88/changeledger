@@ -1,8 +1,8 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-07-26T21:24:30Z
+updated: 2026-07-29T18:40:38Z
 tags: [ validation ]
-graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800", "20260726-194220"]
+graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800", "20260726-194220", "20260729-162616"]
 ---
 
 ## Validación (`changeledger check`)
@@ -42,11 +42,12 @@ oculte lo que la corrida se saltó: `✓ N change(s) valid — M not validated
 (archived or discarded)` y `E error(s), W warning(s) — N change(s), M not
 validated (archived or discarded)`, con el sufijo ausente cuando no hay ninguno.
 `check <id>` sobre un congelado responde `not validated (archived)` o
-`not validated (discarded)` en vez de llamarlo válido. Límite conocido: cuatro
-invariantes de repo —`depends_on` y `related_to` colgados, `related_to` a sí
-mismo y graduación a una spec inexistente— siguen atribuyendo el error al
-documento congelado como sujeto, así que aún pueden enrojecer el gate de forma
-inarreglable.
+`not validated (discarded)` en vez de llamarlo válido. Un documento congelado
+nunca es sujeto emisor de los invariantes de repo —`depends_on` y `related_to`
+colgados, `related_to` a sí mismo y graduación a una spec inexistente— pero
+sigue siendo dato: un abierto que lo referencia resuelve, y un abierto con
+referencia colgada sigue en error. El predicado de congelado tiene una sola
+sede (`frozenReason`), consumida por identidad de función.
 
 La validación también fija invariantes del formato Markdown que el parser expone:
 headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,

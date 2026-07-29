@@ -11,7 +11,6 @@ import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
-const CLOSED_STATUSES = new Set(['done', 'discarded']);
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
 // Stages a `review_required` type must activate, in canonical order. Exported so
 // the schema migration repairs exactly the coupling `checkConfig` enforces.
@@ -148,8 +147,14 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   for (const c of changes) {
     const id = c.frontmatter?.id;
     const deps = c.frontmatter?.depends_on ?? [];
+    // Frozen history (`frozenReason`) never emits these invariants as their
+    // subject — a discarded or archived-done change can never be edited to fix
+    // a dangling reference — but keeps feeding the dependency graph as data:
+    // an open change resolving a frozen id must still resolve (CR6).
+    const frozen = frozenReason(c) !== null;
     for (const d of deps) {
-      if (!isExternal(d) && !ids.has(d)) err(c, `depends_on references missing change "${d}"`);
+      if (!frozen && !isExternal(d) && !ids.has(d))
+        err(c, `depends_on references missing change "${d}"`);
     }
     if (id)
       graph.set(
@@ -159,6 +164,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
     const relations = Array.isArray(c.frontmatter?.related_to) ? c.frontmatter.related_to : [];
     for (const raw of relations) {
+      if (frozen) continue;
       const related = String(raw);
       if (String(id) === related) {
         err(c, `related_to cannot reference its own change "${related}"`);
@@ -210,7 +216,7 @@ function textOutsideFences(text) {
 
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
-  if (CLOSED_STATUSES.has(fm.status) || fm.archived === true) return;
+  if (frozenReason(change) !== null) return;
 
   const ownId = String(fm.id ?? '');
   const linkedIds = new Set(
@@ -374,7 +380,9 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
       const ts = event.at;
       const specName = event.spec;
       if (!specNames.has(specName)) {
-        err(c, `graduated to a missing spec "${specName}"`);
+        // Frozen history is never the emitting subject (CR6): the reference is
+        // unfixable on a discarded or archived-done change either way.
+        if (frozenReason(c) === null) err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
       const changeId = String(c.frontmatter?.id);
@@ -526,9 +534,21 @@ function checkLifecycleSequence(c, fm, err) {
 // test-grade quality remains the documenting agent's judgment.
 function checkCoverage(c, fm, active, config, warn, err = () => {}) {
   if (config?.tdd === false) return;
-  if (!active?.includes('specification')) return;
   if (!['draft', 'approved', 'in-progress'].includes(fm.status)) return;
   const report = fm.status === 'draft' ? warn : err;
+
+  // A type that never activates `specification` can declare no `### CRn`
+  // block, so `c.criteria` is always empty here — every Plan task reference is
+  // by definition unknown. `checkCoverage` used to return before this point,
+  // letting a `(CR99)` on a chore/quick/audit task pass clean (CR4).
+  if (!active?.includes('specification')) {
+    for (const t of c.tasks ?? []) {
+      for (const cr of t.criteria ?? []) {
+        report(c, `Plan task references unknown criterion "${cr}"`);
+      }
+    }
+    return;
+  }
 
   const declared = c.criteria ?? [];
   const declaredSet = new Set(declared);

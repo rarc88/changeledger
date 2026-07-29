@@ -638,3 +638,71 @@ test('CR15 (20260726-141124): any other index-read failure is reported as itself
     'no git commit invocation may be issued',
   );
 });
+
+// --- 20260729-162616 CR8/CR9: the commit guard's whitelist and its own
+// changes_dir boundary must never be bypassable or muted ---
+
+test('162616 CR8: a mis-cased changes_dir path injected via the index is judged like the canonical path', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  // The real vector (see stageViaIndex above): a normal `git add` cannot
+  // fabricate this on APFS since git folds casing. An index entry with a
+  // different case for the changes directory component is reachable only
+  // through a direct index write (update-index) or a rebase/cherry-pick that
+  // carries a mis-cased tree entry.
+  stageViaIndex(root, '.Changeledger/changes/injected-different-case.md', 'x');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (e) =>
+      e.message ===
+      'Staged path(s) under the changes directory not declared for this commit: .Changeledger/changes/injected-different-case.md (declared: 20260711-000001)',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('162616 CR8: a mis-cased twin of a declared document is rejected, never whitelisted', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  // Lowercasing may widen only the guard's judged scope (fail-closed). The
+  // whitelist stays exact: on a case-sensitive filesystem this twin is a
+  // distinct file with arbitrary content, and only the lowercase document is
+  // declared — folding the expected set would silently accept it.
+  stageViaIndex(root, '.changeledger/changes/20260711-000001-X.md', 'arbitrary payload');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (e) =>
+      e.message ===
+      'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/20260711-000001-X.md (declared: 20260711-000001)',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('162616 CR9: changes_dir resolving to the repo root aborts naming the collapse instead of muting the guard', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-collapsed-'));
+  git(root, ['init', '-q']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: .\n');
+  stageFile(root, 'leftover.tmp', 'not declared anywhere');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    /changes_dir ".*" resolves to the repo root; the commit guard cannot judge staged paths/,
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('162616 CR9: a normal subdirectory changes_dir config is unaffected', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  stageFile(root, 'a.txt', 'x');
+
+  const subject = commit({ message: 'feat(x): y' }, root, undefined, noop);
+
+  assert.equal(subject, 'feat(x): y [#20260711-000001]');
+  assert.equal(commitCount(root), 1);
+});

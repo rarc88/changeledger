@@ -128,14 +128,38 @@ export function commit(
     gitTopReal,
     realpathNearest(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir')),
   );
+  // A `changes_dir` that resolves to the repo root collapses the prefix this
+  // guard matches against to the empty string: no staged path (git never
+  // reports a leading `/`) would ever start with it, so every staged file
+  // would silently sail through unjudged instead of being scrutinized. Abort
+  // and name the collapse rather than commit with the guard muted (CR9).
+  if (changesDirRel === '') {
+    throw new Error(
+      `changes_dir "${repo.config.changes_dir}" resolves to the repo root; the commit guard cannot judge staged paths — configure changes_dir to a subdirectory`,
+    );
+  }
   const expected = new Set(unicodeForms(`${changesDirRel}/${GITKEEP}`));
   for (const change of repo.changes) {
     if (!resolvedIds.includes(String(change.frontmatter.id))) continue;
     for (const form of unicodeForms(`${changesDirRel}/${change.name}`)) expected.add(form);
   }
   const prefixes = unicodeForms(`${changesDirRel}/`);
+  // Case-insensitive always: a normal `git add` cannot fabricate a mis-cased
+  // changes-directory path on a case-folding filesystem (git folds it), so the
+  // only real vector is an index write that bypasses the worktree entirely
+  // (`update-index --cacheinfo`, or a rebase/cherry-pick carrying a mis-cased
+  // tree entry) — same on every platform. Normalizing unconditionally judges
+  // that path exactly like its canonically-cased twin, on case-sensitive
+  // filesystems too, instead of trusting a host-detection that the index
+  // write already sidesteps (CR8).
+  const caseKey = (value) => value.toLowerCase();
+  // Lowercasing widens only the judged scope (fail-closed): a mis-cased path
+  // under the changes directory is still judged. The whitelist stays exact —
+  // folding `expected` too would accept a mis-cased twin of a declared
+  // document on case-sensitive filesystems, trading one bypass for another.
+  const prefixKeys = prefixes.map(caseKey);
   const undeclared = staged.filter(
-    (file) => prefixes.some((prefix) => file.startsWith(prefix)) && !expected.has(file),
+    (file) => prefixKeys.some((prefix) => caseKey(file).startsWith(prefix)) && !expected.has(file),
   );
   if (undeclared.length) {
     throw new Error(
