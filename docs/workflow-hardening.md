@@ -1818,3 +1818,68 @@ del pack spec son tokens, no líneas (3416/3450 tras el cierre, 34 de margen —
 salida del andamio sigue esperando a CH-1). El gate ya protege este repo: CH-19
 (`194157`) es hoy inaprobable por accidente con sus 4 defectos, que es su estado
 correcto hasta CH-1.
+
+## 14. Cierre de sesión 2026-07-29 — estado completo para la sesión siguiente
+
+**CH-2 cerrado**: aceptado, graduado a `readiness` (la spec documenta el gate de
+approve, la proyección `asStatus` y la cobertura escalada), archivado.
+
+### Cerrados hoy, en orden
+
+| change | id | graduado a |
+|---|---|---|
+| CH-22 pins | `20260729-143656` | `contract-discovery` |
+| CH-11 owner hermético | `20260729-144812` | `lifecycle` |
+| Doctrina (CH-0b+CH-5b) | `20260729-162015` | `contract-discovery` |
+| Barrido silencioso (CH-6+12+13) | `20260729-162616` | `git-traceability` + `validation` |
+| CH-2 gate del draft | `20260729-185200` | `readiness` |
+
+### Fila restante, en orden (decidida, no re-derivar)
+
+1. **CH-1** — gramática del Plan por tags (`**Target:**`/`**Verify:**`/`**Criteria:**`),
+   parser inmune al reflow, líneas de continuación unidas, error nombrado. Absorbe
+   5, 41, 13, 4, 30 parcial, 51. Su documentación arranca con investigación fresca
+   contra HEAD (src/task.mjs y el trozo de check que CH-2 acaba de tocar).
+   Desbloquea CH-19 y la salida del andamio de `base.spec`.
+2. **CH-19** — sede única de la enumeración de guards (draft `20260728-194157`,
+   hoy inaprobable por el gate con sus 4 defectos — estado correcto hasta CH-1).
+3. **CH-5a reducido** — campo de alcance/mandato en la cápsula del review
+   (`agent-prompts/review.md`); los F1-F4 de la doctrina ya quedaron cerrados.
+4. **Barrido de verdad persistente** (CH-8 + CH-9 + residuos: comentarios rancios
+   listados en Logs de 143656 y 111349).
+5. Cola final sin cambios: CH-16 reducido → CH-7 → CH-3 → CH-10.
+
+### Follow-ups con sede (Logs de sus changes)
+
+- `tdd=` en cápsulas `agent-context` sin definición servida (Log de 162616,
+  finding 2 del review) — misma clase que CR5 de ese change, superficie nueva.
+- Narrowing (b) de CR7 consumer-visible: repos con `done`-sin-archivar o
+  `archived` bajo status abierto ganan warnings de menciones (Log de 162616).
+- CR4 anulado bajo `tdd: false` (Log de 162616).
+- El residual de CH-19 (barrido no recursivo de 124837 CR1) — reducido: la frase
+  `reconstruct mixed diffs` ya barre recursivo desde CH-22.
+
+### Estado operativo
+
+- Rama `change/workflow-core-drafts`, árbol limpio, `check --commits` verde,
+  gate 984/984. Drafts abiertos: `124655` (CH-3, cola) y `194157` (CH-19).
+- **Worktree WT-B vivo**: `../spec-ledger-wtb`, rama `change/silent-failure-sweep`
+  (ya fusionada). Para reutilizarlo: rama nueva desde el tip DESPUÉS de commitear
+  el baseline del change que vaya a correr allí; `pnpm install` ya hecho.
+- **El gate de approve está vivo en este repo**: todo draft nuevo debe pasar
+  readiness + cobertura al aprobarse. Los drafts propios se redactan listos o el
+  approve de Roberto fallará — comprobar `changeledger check <id>` antes de
+  presentar un draft.
+- El contrato de evidencia es norma servida en los packs (`delegation.md`,
+  `review.md`), ya no cláusula de prompt.
+
+### Método que sostuvo el día (para replicar, no re-derivar)
+
+Investigación fresca contra HEAD antes de todo draft (falsificó hechos del acta
+las 3 veces); dos carriles por worktree con superficies disjuntas y
+`test/context.test.mjs`/`src/check.mjs` como cuellos nombrados; mandato de review
+registrado antes de delegar; corrección sin commitear + confirmación fresca con
+mandato mínimo; ediciones del orquestador declaradas y sometidas al mismo
+estándar (dos veces el guard/revisor cazó al orquestador). Coste del día: ~2,9M
+de tokens de delegados en 5 changes cerrados con 3 retries, los 3 cazados por el
+proceso antes de llegar al humano.
