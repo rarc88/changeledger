@@ -153,12 +153,14 @@ export function commit(
   // filesystems too, instead of trusting a host-detection that the index
   // write already sidesteps (CR8).
   const caseKey = (value) => value.toLowerCase();
-  const expectedKeys = new Set([...expected].map(caseKey));
+  // Lowercasing widens only the judged scope (fail-closed): a mis-cased path
+  // under the changes directory is still judged. The whitelist stays exact —
+  // folding `expected` too would accept a mis-cased twin of a declared
+  // document on case-sensitive filesystems, trading one bypass for another.
   const prefixKeys = prefixes.map(caseKey);
-  const undeclared = staged.filter((file) => {
-    const key = caseKey(file);
-    return prefixKeys.some((prefix) => key.startsWith(prefix)) && !expectedKeys.has(key);
-  });
+  const undeclared = staged.filter(
+    (file) => prefixKeys.some((prefix) => caseKey(file).startsWith(prefix)) && !expected.has(file),
+  );
   if (undeclared.length) {
     throw new Error(
       `Staged path(s) under the changes directory not declared for this commit: ${undeclared.join(', ')} (declared: ${resolvedIds.join(', ')})`,

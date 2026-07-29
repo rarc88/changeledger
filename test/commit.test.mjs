@@ -661,6 +661,24 @@ test('162616 CR8: a mis-cased changes_dir path injected via the index is judged 
   assert.equal(commitCount(root), 0);
 });
 
+test('162616 CR8: a mis-cased twin of a declared document is rejected, never whitelisted', () => {
+  const root = gitRepo();
+  writeChange(root, '20260711-000001', 'in-progress');
+  // Lowercasing may widen only the guard's judged scope (fail-closed). The
+  // whitelist stays exact: on a case-sensitive filesystem this twin is a
+  // distinct file with arbitrary content, and only the lowercase document is
+  // declared — folding the expected set would silently accept it.
+  stageViaIndex(root, '.changeledger/changes/20260711-000001-X.md', 'arbitrary payload');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (e) =>
+      e.message ===
+      'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/20260711-000001-X.md (declared: 20260711-000001)',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
 test('162616 CR9: changes_dir resolving to the repo root aborts naming the collapse instead of muting the guard', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-collapsed-'));
   git(root, ['init', '-q']);
