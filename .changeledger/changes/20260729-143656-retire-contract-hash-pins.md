@@ -2,7 +2,7 @@
 id: "20260729-143656"
 title: Retirar los pins de hash del contrato en favor de guards de obligación
 type: refactor
-status: draft
+status: in-progress
 created: 2026-07-29T14:36:56Z
 depends_on: []
 related_to: ["20260728-164620"]
@@ -144,3 +144,5 @@ Consecuencias sobre la lista de la iniciativa (se registran en el acta):
 ## Log
 
 - **2026-07-29T14:42:00Z** `[note]` Change autorizado por Roberto en conversación como primero de la tanda reorganizada, antes del change de doctrina (CH-0b+CH-5a+CH-5b). Datos del Request medidos en la misma sesión antes de redactar: conteos por `grep`/`wc` sobre el árbol en HEAD.
+- **2026-07-29T14:43:32Z** `[status]` draft → approved
+- **2026-07-29T14:44:47Z** `[status]` approved → in-progress
