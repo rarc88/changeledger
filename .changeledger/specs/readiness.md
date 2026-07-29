@@ -1,8 +1,8 @@
 ---
 title: Definition of Ready
-updated: 2026-07-27T00:57:51Z
+updated: 2026-07-29T20:02:30Z
 tags: [ readiness, tdd ]
-graduated_from: ["20260614-162547", "20260616-151216", "20260617-020229", "20260626-115134", "20260630-225208", "20260726-141122"]
+graduated_from: ["20260614-162547", "20260616-151216", "20260617-020229", "20260626-115134", "20260630-225208", "20260726-141122", "20260729-185200"]
 ---
 
 ## Definition of Ready (tdd)
@@ -23,9 +23,18 @@ Severidad por estado:
 - `approved`/`in-progress`: son **errores** los defectos de readiness — un CR sin
   estructura Given/When/Then, una tarea que referencia un CR inexistente y una
   tarea CR-bearing sin target+verificación reconocibles según
-  `readiness.target_patterns`/`readiness.verification_patterns`. Los gaps de
-  cobertura — un CR sin tarea que lo cubra y una tarea no-`(support)` sin CR —
-  siguen siendo **warnings**.
+  `readiness.target_patterns`/`readiness.verification_patterns` — **y también
+  los gaps de cobertura**: un CR sin tarea que lo cubra y una tarea
+  no-`(support)` sin CR (escalados por `20260729-185200`; en `draft` siguen
+  siendo warnings).
+
+`changeledger approve` es el gate de salida del draft: valida el texto pre-flip
+con la severidad de `approved` (proyección `asStatus`, confinada a la severidad
+de cobertura y jamás al lifecycle), rechaza con exit distinto de 0 nombrando los
+defectos y deja el documento byte-idéntico. La transición `draft → approved`
+tiene una sola sede (`status()`), así que CLI, `approve()` y el drag del viewer
+heredan el gate por construcción. Rechaza por cualquier error de `check`
+acotado al documento, no solo readiness.
 
 Solo la estructura Given/When/Then de un CR es verificable mecánicamente; la
 calidad semántica (inputs concretos, outputs exactos) queda como juicio del
