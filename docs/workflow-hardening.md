@@ -849,9 +849,13 @@ mide al implementarlo, no se supone.
 Decisiones de Roberto del 2026-07-28 sobre el propio flujo:
 
 - **Más tipos de change**: se estudia después, no ahora.
-- **Relajar "one change at a time"** para changes cuyas superficies no se solapan:
-  inclinación expresada, **sin autorizar todavía**. Sería change propio y toca una
-  regla de seguridad de trazabilidad.
+- **Relajar "one change at a time"** para changes cuyas superficies no se solapan.
+  Palabras de Roberto el 2026-07-28: *"creo que si relajaremos mas de un change a la vez
+  siempre y cuando no toquen la misma superficie"*. **Sigue pendiente de autorizar como
+  change**, no olvidado: preguntado de nuevo el 2026-07-28. Es el desbloqueo de
+  paralelismo del que dependen CH-6, CH-7, CH-11, CH-12 y CH-13, que son defectos
+  limpios con superficies disjuntas y hoy van en serie. Toca `core.md` (*"One change at
+  a time, on a non-main branch"*), así que es change propio y necesita el "sí".
 
 Razón: CH-4, CH-5a y CH-5b son baratos y atacan el coste directamente — CH-4 deja
 de fabricar veredictos falsos, CH-5a deja de mandar auditorías completas por
@@ -1127,8 +1131,22 @@ corrige.
 
 ## 10. Decisiones cerradas de Roberto (2026-07-28)
 
+> **Esta sección es autoridad, no historial.** Antes de presentar algo como decisión
+> abierta o de proponer un número, se lee aquí primero. Las tres veces que se ignoró el
+> 2026-07-28 —`"ten ceilings"`, el techo de `agent`, y proponer 4500 para `spec`— la
+> decisión ya estaba escrita más arriba en este mismo documento.
+
 - Tokenizador aceptado: `head` en **líneas**, techo en **tokens**, `devDependency`.
-- `core` 4000 tokens; el resto de contextos 2000–2500.
+- **Techos de tokens, tres números** (2026-07-28, cierra el rango anterior de
+  2000–2500): `core` **4000**; **todos los demás contextos 2500**; **el resto de cosas
+  —cápsulas `agent`, overlays, bloques— 1250**. Criterio explícito de Roberto: *"no lo
+  dejemos justos sino siempre estaremos en esto una y otra vez"*.
+- **`base.spec` en 3450 es ANDAMIO, no decisión.** Se subió temporalmente sólo para que
+  el gate no fallara. Mide 3110 tokens, así que no cabe en 2500 hoy. **Su condición de
+  salida es la refactorización del pack de autoría** (CH-0b, más el diseñador del draft
+  de CH-2); baja a 2500 en ese change, no antes. Este hecho **no estaba documentado**
+  hasta el 2026-07-28, y esa omisión es la causa directa de que se propusiera subirlo a
+  4500 contradiciendo la decisión de arriba. CH-17 escribe la marca junto al valor.
 - `changeledger context <id>` **sin `head`**: tamaño variable.
 - Redondeo del `head` a **múltiplos de 50** (corrige el 35 inicial).
 - Regla nueva en `AGENTS.md`: presupuesto de sobra **no** autoriza a consumirlo.
