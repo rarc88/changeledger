@@ -283,14 +283,21 @@ test('203257 CR5: a repeated verify clause migrates only its criteria and is rep
 });
 
 // 20260729-203257 CR6: `src/task.mjs` is the single seat for task-line
-// recognition. This is an identity assertion, not a comparison of regex sources
-// or of results: `src/fix.mjs` re-exports the very bindings it calls, so a
-// reintroduced local literal there has to unhook the import and break this.
+// recognition. Identity alone only catches unhooking the import — a local
+// literal alongside the retained re-export would stay green — so the source
+// sweep below closes the natural reintroduction: a copy of the seat's literal
+// carries the `\[` escape the sweep forbids. An obfuscated character class
+// such as `[[]` still evades both assertions; review owns that residue.
 test('203257 CR6: src/fix.mjs takes task-line recognition from src/task.mjs by identity', () => {
   assert.equal(fixModule.matchTaskLine, taskModule.matchTaskLine);
   assert.equal(fixModule.matchLenientTaskLine, taskModule.matchLenientTaskLine);
   assert.equal(typeof taskModule.matchTaskLine, 'function');
   assert.equal(fixModule.REORDERED_VERIFY, undefined, 'the positional reorder fixer is retired');
+  const source = fs.readFileSync(new URL('../src/fix.mjs', import.meta.url), 'utf8');
+  assert.ok(
+    !source.includes('\\['),
+    'src/fix.mjs declares its own bracket-matching literal instead of importing from src/task.mjs',
+  );
 });
 
 test('111457 CR5: --graduation-links migrates legacy and Log provenance in order', () => {

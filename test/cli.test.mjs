@@ -1182,3 +1182,35 @@ test('151336 CR4: a --no-change reason containing a newline is refused and creat
   );
   assert.equal(commitFixtureCommitCount(root), 0);
 });
+
+// 20260729-203257 correction — a raw NUL byte made git classify src/task.mjs
+// as binary: no textual diff for review, and line-level grep stopped printing
+// its matching lines, while lint, this suite and `changeledger check` all
+// stayed green. The sweep forbids every raw control byte except tab/LF/CR, not
+// only NUL: none of them belongs in this repo's source, whatever git's binary
+// heuristic makes of each.
+test('203257 correction: no raw control bytes in source files', () => {
+  const repoRoot = path.join(templatesDir, '..');
+  const offenders = [];
+  const sweep = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        sweep(full);
+        continue;
+      }
+      const buf = fs.readFileSync(full);
+      for (let i = 0; i < buf.length; i++) {
+        const b = buf[i];
+        if ((b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0d) || b === 0x7f) {
+          offenders.push(`${path.relative(repoRoot, full)} offset ${i} byte 0x${b.toString(16)}`);
+          break;
+        }
+      }
+    }
+  };
+  for (const dir of ['src', 'bin', 'test', 'templates', 'hooks']) sweep(path.join(repoRoot, dir));
+  assert.deepEqual(offenders, [], `raw control bytes found: ${offenders.join(', ')}`);
+});
