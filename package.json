@@ -32,11 +32,11 @@
   "scripts": {
     "lint": "biome check",
     "format": "biome check --write",
-    "test": "node --test",
+    "test": "CHANGELEDGER_NO_GH=1 node --test",
     "test:coverage": "node --test --experimental-test-coverage",
     "audit:deps": "pnpm audit --audit-level moderate",
     "check": "node bin/changeledger.mjs check",
-    "verify": "pnpm lint && pnpm test && pnpm check",
+    "verify": "export CHANGELEDGER_NO_GH=1 && pnpm lint && pnpm test && pnpm check",
     "prepublishOnly": "pnpm verify"
   },
   "engines": {

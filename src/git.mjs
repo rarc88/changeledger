@@ -147,7 +147,12 @@ export function gitUser(cwd, run = defaultRun) {
   }
 }
 
-function defaultGhRun(args) {
+// Kill-switch: with CHANGELEDGER_NO_GH set, returns '' before any subprocess
+// runs, so a hermetic suite can never reach api.github.com through this
+// default runner regardless of what a given test injects. Injected runners
+// (e.g. `githubLogin(spy)`) are unaffected — the switch lives only here.
+export function defaultGhRun(args) {
+  if (process.env.CHANGELEDGER_NO_GH) return '';
   return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 

@@ -2,7 +2,7 @@
 id: "20260729-144812"
 title: "La resolución del owner no lanza red: perezosa y con kill-switch en la suite"
 type: bug
-status: approved
+status: in-review
 created: 2026-07-29T14:48:12Z
 depends_on: []
 related_to: ["20260726-124836", "20260614-182513"]
@@ -102,11 +102,19 @@ apagarse en entornos que exigen hermeticidad.
 
 ## Plan
 
-- [ ] Hacer perezosa la resolución en `status()` de `src/commands/agent.mjs`: `ownerHandle` se invoca solo cuando el documento no tiene `owner`, dentro de la ventana que ya lee el frontmatter; verify: `node --test test/agent.test.mjs` con el test rojo-verde de CR1 (CR1, CR2)
-- [ ] Añadir el kill-switch en `defaultGhRun` de `src/git.mjs` (retorno `''` inmediato bajo `CHANGELEDGER_NO_GH`), exportarlo, y fijar la variable en los scripts `test` y `verify` de `package.json`; verify: `node --test test/git.test.mjs` (CR3, CR4, CR5)
-- [ ] Correr el gate completo; verify: `pnpm verify` (support)
+- [x] Hacer perezosa la resolución en `status()` de `src/commands/agent.mjs`: `ownerHandle` se invoca solo cuando el documento no tiene `owner`, dentro de la ventana que ya lee el frontmatter; verify: `node --test test/agent.test.mjs` con el test rojo-verde de CR1 (CR1, CR2)
+  - **Resolved:** `2026-07-29T15:11:39Z`
+- [x] Añadir el kill-switch en `defaultGhRun` de `src/git.mjs` (retorno `''` inmediato bajo `CHANGELEDGER_NO_GH`), exportarlo, y fijar la variable en los scripts `test` y `verify` de `package.json`; verify: `node --test test/git.test.mjs` (CR3, CR4, CR5)
+  - **Resolved:** `2026-07-29T15:11:39Z`
+- [x] Correr el gate completo; verify: `pnpm verify` (support)
+  - **Resolved:** `2026-07-29T15:11:39Z`
 
 ## Log
 
 - **2026-07-29T14:52:00Z** `[note]` Documentado en paralelo a la implementación de 20260729-143656 por instrucción de Roberto. Hechos de la Investigation verificados por grep/lectura en HEAD antes de redactar; la cifra 35→107/18,7s→24,4s es del review de 124836, citada con su fuente. Destino: carril WT-B del plan de worktrees (acta §13.4).
 - **2026-07-29T14:52:11Z** `[status]` draft → approved
+- **2026-07-29T15:01:05Z** `[status]` approved → in-progress
+- **2026-07-29T15:01:05Z** `[note]` Implementación delegada en una sola pasada (las 3 tareas son una selección: los dos edits de src acoplados por la cadena ownerHandle y sus tests, más el gate). Baseline 5c394478 en worktree spec-ledger-wtb, rama change/hermetic-owner-resolution. Modelo mid-tier: trabajo acotado, mecanismo ya decidido en el documento.
+- **2026-07-29T15:11:53Z** `[note]` Implementación entregada por delegado (123k tokens, 52 tool calls) y verificada por el orquestador contra el árbol de WT-B: lazy confirmado (ownerHandle dentro del guard !fm.owner), kill-switch en defaultGhRun exportado, scripts test/verify con CHANGELEDGER_NO_GH=1. Gate corrido por el orquestador: pnpm verify EXIT=0, 951/951, lint limpio, check 0 errores. Rojo-verde literal por criterio en el informe del delegado.
+- **2026-07-29T15:11:53Z** `[note]` Edición del orquestador, declarada para escrutinio del revisor: el delegado dejó el comentario del kill-switch duplicado (dos copias contiguas del bloque de 4 líneas sobre defaultGhRun); retiré una copia con un replace que asertaba exactamente 2 copias antes y 1 después. Barrido de la clase sobre el diff completo: ningún otro bloque añadido contiguo duplicado; las líneas repetidas restantes son boilerplate entre tests distintos.
+- **2026-07-29T15:11:53Z** `[status]` in-progress → in-review
