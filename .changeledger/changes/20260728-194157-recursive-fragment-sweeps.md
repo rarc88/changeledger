@@ -2,9 +2,10 @@
 id: "20260728-194157"
 title: Las guardas del contrato barren todo subfragmento
 type: feature
-status: in-validation
+status: done
 created: 2026-07-28T19:41:57Z
 depends_on: []
+reviewed: true
 related_to: ["20260728-170429", "20260726-124837", "20260727-194234", "20260729-203257", "20260730-002730", "20260729-143656"]
 owner: raruiz-hiberuscom
 ---
@@ -179,3 +180,5 @@ legal desde el matching por campo.
 - **2026-07-30T12:42:30Z** `[status]` in-progress → in-review
 - **2026-07-30T12:54:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T12:54:40Z** `[note]` Hallazgos no bloqueantes del review, triados: F3 corregido antes de la validación (el comentario del helper afirmaba la independencia en absoluto — acotado a nombres, con el fallo ruidoso de divergencia nombrado; suites verdes tras el retoque); F1 (124837 CR8 conserva la forma de texto unido: no nombra portador y retiene la exposición al cruce artificial) y F2 (los inventarios de 143656 son ciegos a un tercer subdirectorio nuevo, aunque los barridos sí lo alcanzan) quedan nombrados para el barrido de verdad persistente; F4 (nada automatiza contra una décima copia ciega) es el trade decidido en el propio Proposal — grep, review y el mutante registrado son la contención.
+- **2026-07-30T12:56:56Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T12:56:56Z** `[graduation]` skipped: la verdad durable es el perímetro de guards que ya vive en AGENTS.md (sede única de 20260730-002730) y la sede de enumeración es código auto-vigilado por sus propios tests; una spec duplicaría ambas
