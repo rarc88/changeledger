@@ -2,9 +2,10 @@
 id: "20260730-002908"
 title: El pack de autoría cabe en su techo decidido
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-30T00:29:08Z
 depends_on: ["20260730-002730"]
+reviewed: true
 related_to: ["20260729-162015", "20260728-212043"]
 owner: raruiz-hiberuscom
 ---
@@ -150,3 +151,6 @@ leyendo `changeledger context spec`; el head de modos (350) no cambia.
 - **2026-07-30T11:48:21Z** `[status]` in-progress → in-review
 - **2026-07-30T12:05:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T12:05:15Z** `[note]` Cierre del conjunto de CR2 que el review señaló: razones de los seis cortes originales, restatadas — Authoring helpers (descubrible por CLI, su regla vive en files-source-of-truth), tabla heading/propósito (glosa de prosa, sin obligación), matriz de activación (render de config.yml, que sigue pinneado en ambos configs por los dos asserts vivos de 141119), árbol ASCII y sintaxis de new (descubribles por CLI; el layout lo sirve core), ejemplo de derivación de id y racional de ordenación (informativos), bloque de evidencia (mudanza con sede implement grepada). Hallazgos no bloqueantes registrados: la racional 'via cápsulas agent-prompt' del Proposal era imprecisa — la sede que funciona es el pack implement que el orquestador lee al delegar; CLAUDE.md-opcional desapareció con el árbol sin quedar nombrado en ningún fragmento (sin obligación adjunta; candidato menor al barrido de verdad persistente); nit de dos puntos apilados en implement.md; el acta describe la salida del andamio como pendiente y debe actualizarse al archivar este change.
+- **2026-07-30T12:09:19Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T12:09:19Z** `[note]` Flecos del review cerrados antes de la aceptación, autorizados por Roberto ('hagámoslo de una vez'): el nit de dos puntos apilados en implement.md corregido (suites 196/196, techos intactos 239/250 y 198/250), y la spec contract-discovery actualizada en la graduación — afirmaba 'un test exige esa marca' cuando el barrido ahora exige su ausencia; la doctrina del andamio queda como procedimiento para excepciones futuras y la salida del último andamio queda fechada.
+- **2026-07-30T12:09:19Z** `[graduation]` spec: `contract-discovery.md`

@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-29T18:39:06Z
+updated: 2026-07-30T12:09:19Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015", "20260730-002908"]
 ---
 
 ## Discovery del contrato
@@ -134,9 +134,13 @@ subir el corte a propósito en vez de descubrir un truncamiento en un repo consu
 Los techos de tokens son **pocos y decididos**, no uno por pack: el core paga más que
 cualquier otro contexto, los demás contextos comparten un mismo valor, y todo lo que
 no es un contexto —cápsulas de delegación, overlays de lifecycle, bloques con techo
-propio— comparte otro. Un valor que excede su clase **se marca en el propio fichero**
-como andamio temporal, con su condición de salida nombrada, y un test exige esa marca:
-así un techo provisional no puede volver a leerse como una decisión tomada.
+propio— comparte otro. Desde `20260730-002908` **ningún techo está en andamio** — el
+último (spec, 3450 provisional) salió con el refactor del pack de autoría a 2403
+medidos bajo su 2500 decidido — y el barrido de forma exige que ninguna entrada
+declare la marca `scaffold`. La doctrina para una excepción futura sigue en pie: un
+valor que excede su clase se marca en el propio fichero como andamio temporal con su
+condición de salida nombrada, y quien lo haga retargetea deliberadamente ese barrido,
+que existe para que un techo provisional no vuelva a leerse como decisión tomada.
 
 El techo de las cápsulas de delegación cubre **las dos** clases, los esqueletos de
 prompt y las cápsulas de contexto. Cubrir sólo una dejaba un techo que no podía fallar

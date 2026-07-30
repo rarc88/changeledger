@@ -54,7 +54,7 @@ Useful mutation commands:
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
 
 Those commands write what a draft never carries, so their grammar belongs where
-they run. `task` resolves markers: resolution metadata is structural: `[x]` requires one `Resolved` child with a backticked ISO UTC timestamp, `[!]` one `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
+they run. `task` resolves markers, and resolution metadata is structural: `[x]` requires one `Resolved` child with a backticked ISO UTC timestamp, `[!]` one `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
 
 Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
 
