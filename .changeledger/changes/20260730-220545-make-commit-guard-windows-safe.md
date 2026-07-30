@@ -77,3 +77,4 @@ la salida NUL-delimitada de la invocación ya fijada.
 - **2026-07-30T22:55:44Z** `[note]` Mandato de revisión de confirmación: inspección limitada al bypass reportado por repositorios Git anidados, la corrección que ancla git-dir/work-tree al top-level exterior, las regresiones reales de ledger anidado y symlink interno, y cualquier regresión introducida por este diff sin commit.
 - **2026-07-30T22:56:08Z** `[status]` in-progress → in-review
 - **2026-07-30T23:03:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T23:07:24Z** `[note]` Corrección confirmada en la matriz remota del run 30589365469 sobre f31e9d6f: tarball y verify 7/7 verdes en Ubuntu, macOS y Windows con Node 24/26; los dos jobs Windows ejecutaron la suite con las regresiones de repo Git anidado y symlink interno.
