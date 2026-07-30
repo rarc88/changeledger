@@ -81,13 +81,21 @@ escritura que el comando dedicado hace de forma atómica.
 
 ## Plan
 
-- [x] Actualizar `templates/contract/implement.md`: junto a "When implementation and every task are complete, move to `in-review`..." indicar que el orquestador carga `changeledger context review` una vez en ese punto (no recargarlo solo para registrar el veredicto si sigue disponible en la conversación activa), y añadir `changeledger review <id> pass|fail` a "Useful mutation commands" como comando que ejecuta el orquestador; verify: `node bin/changeledger.mjs check 20260704-114323` (CR1)
+- [x] Actualizar `templates/contract/implement.md`: junto a "When implementation and every task are complete, move to `in-review`..." indicar que el orquestador carga `changeledger context review` una vez en ese punto (no recargarlo solo para registrar el veredicto si sigue disponible en la conversación activa), y añadir `changeledger review <id> pass|fail` a "Useful mutation commands" como comando que ejecuta el orquestador
+  - **Verify:** `node bin/changeledger.mjs check 20260704-114323`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-04T13:20:10Z`
-- [x] Actualizar `templates/contract/delegation.md` ("Configured review is special" o "Delegation prompt contract") para exigir que el subagente de review quede restringido a herramientas de solo lectura y solo reporte texto, nunca mute el ledger; verify: `node bin/changeledger.mjs check 20260704-114323` (CR2)
+- [x] Actualizar `templates/contract/delegation.md` ("Configured review is special" o "Delegation prompt contract") para exigir que el subagente de review quede restringido a herramientas de solo lectura y solo reporte texto, nunca mute el ledger
+  - **Verify:** `node bin/changeledger.mjs check 20260704-114323`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-04T13:20:10Z`
-- [x] Añadir a `templates/contract/implement.md` la aclaración de que `in-validation → done|in-progress` no tiene comando CLI, es exclusiva del humano vía viewer; verify: `node bin/changeledger.mjs check 20260704-114323` (CR3)
+- [x] Añadir a `templates/contract/implement.md` la aclaración de que `in-validation → done|in-progress` no tiene comando CLI, es exclusiva del humano vía viewer
+  - **Verify:** `node bin/changeledger.mjs check 20260704-114323`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-04T13:20:11Z`
-- [x] Revisar `templates/contract/review.md` para confirmar que sigue coherente (dirigido a quien inspecciona) y sin contenido duplicado tras los cambios anteriores; verify: lectura manual de los tres fragmentos (support)
+- [x] Revisar `templates/contract/review.md` para confirmar que sigue coherente (dirigido a quien inspecciona) y sin contenido duplicado tras los cambios anteriores
+  - **Verify:** lectura manual de los tres fragmentos
+  - **Support:**
   - **Resolved:** `2026-07-04T13:20:11Z`
 
 ## Log

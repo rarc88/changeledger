@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,13 +8,16 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
+import { approve } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
+import { commit } from '../src/commands/commit.mjs';
 import { init } from '../src/commands/init.mjs';
 import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
-import { contractTemplatesDir } from '../src/paths.mjs';
+import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
+import { contractFragmentNames } from './contract-support.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,14 +37,111 @@ function tmp() {
   return root;
 }
 
+// The whole installed contract, at every depth. The sweeps below assert that a
+// retired rule appears NOWHERE in it, and the `agent-contexts/` and
+// `agent-prompts/` fragments are installed and shipped exactly like the top-level
+// ones, so concatenating only the top level gave those sweeps eight seats they
+// never read. The enumeration is the shared one, so no ninth guard is born blind.
+// Each fragment's own whitespace is collapsed to a single space before the join,
+// matching the equivalent sweeps in context.test.mjs: a `.*` pattern otherwise
+// depends on a fragment's own line-wrap cut (`.` never matches `\n`), so a
+// harmless reflow of prose that does not touch the obligation itself breaks the
+// assert in silence. The join separator itself stays a real `\n`, added after
+// normalizing each fragment rather than collapsed away with the rest of the
+// whitespace: `.` still cannot cross it, so a pattern cannot match by pasting
+// one fragment's tail against the next fragment's head.
 function contractText() {
-  return fs
-    .readdirSync(contractTemplatesDir)
-    .filter((name) => name.endsWith('.md'))
-    .sort()
-    .map((name) => fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8'))
+  return contractFragmentNames()
+    .map((name) =>
+      fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8').replace(/\s+/g, ' '),
+    )
     .join('\n');
 }
+
+// The fragments that carry a retired rule, by name. An exhaustive-negative sweep
+// has to name the seat the rule came back in, and `doesNotMatch` over the
+// concatenation cannot: it reprints a truncated dump of the whole contract, which
+// locates nothing. Per fragment is also the exact claim — no fragment carries it —
+// where a match across the join of two fragments would be an artefact. Each
+// fragment's own text is whitespace-normalized before testing, for the same
+// reflow-independence reason as `contractText()`.
+function fragmentsCarrying(pattern) {
+  return contractFragmentNames().filter((name) =>
+    pattern.test(
+      fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8').replace(/\s+/g, ' '),
+    ),
+  );
+}
+
+// --- 20260728-151336 CR4 fixtures: commit()'s --no-change declaration ---
+//
+// This suite may itself run inside this repo's own pre-commit hook, which
+// exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
+// inherited, every git call below would silently operate on the outer repo
+// instead of the scratch fixture — strip them so tests are hook-safe.
+const COMMIT_GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete COMMIT_GIT_ENV[key];
+}
+function gitFor(root, args) {
+  return execFileSync('git', args, { cwd: root, env: COMMIT_GIT_ENV, encoding: 'utf8' });
+}
+
+// A scratch repo that is both a real git repo and a minimal ChangeLedger repo
+// (commit.mjs resolves the active change via loadRepo).
+function commitFixtureRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-commit-'));
+  gitFor(root, ['init', '-q']);
+  gitFor(root, ['config', 'user.email', 'test@example.com']);
+  gitFor(root, ['config', 'user.name', 'Test']);
+  gitFor(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'changes_dir: .changeledger/changes\n',
+  );
+  return root;
+}
+
+function commitFixtureWriteChange(root, id, status) {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-x.md`),
+    `---\nid: "${id}"\ntitle: X\ntype: feature\nstatus: ${status}\ncreated: 2026-07-11T00:00:00Z\ndepends_on: []\n---\n\n## Request\n`,
+  );
+}
+
+function commitFixtureStageFile(root, name, content) {
+  const target = path.join(root, name);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  gitFor(root, ['add', name]);
+}
+
+function commitFixtureCommitCount(root) {
+  try {
+    return Number(gitFor(root, ['rev-list', '--count', 'HEAD']).trim());
+  } catch {
+    return 0;
+  }
+}
+
+function commitFixtureLastSubject(root) {
+  return gitFor(root, ['log', '-1', '--pretty=%s']).trim();
+}
+
+function commitFixtureLastBody(root) {
+  return gitFor(root, ['log', '-1', '--pretty=%b']).trim();
+}
+
+const commitNoop = () => {};
 
 test('init creates .changeledger/ with config and no per-machine contract artifact', () => {
   const root = tmp();
@@ -78,6 +178,93 @@ test('init seeds tdd:true in the config (implementation-readiness CR1)', () => {
   assert.match(cfg, /^tdd: true$/m);
 });
 
+test('141122 CR1: the template publishes readiness uncommented with an adapt-it comment', () => {
+  const template = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  assert.ok(
+    template.includes(
+      'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
+    ),
+    `readiness must ship uncommented with the effective defaults, got:\n${template}`,
+  );
+  const comment = template
+    .slice(0, template.indexOf('readiness:'))
+    .split(/\n\s*\n/)
+    .pop();
+  assert.match(comment, /`approved`/);
+  assert.match(comment, /Adapt them to this repo's own layout/);
+  assert.match(comment, /lib\/\*\*/);
+});
+
+// A well-formed Ruby-flavoured bug: the Plan task names a `lib/` target and a
+// `verify:` clause, neither of which matches the JavaScript-shaped defaults.
+function rubyBug(id) {
+  return `---
+id: "${id}"
+title: Parser drops trailing commas
+type: bug
+status: draft
+created: 2026-07-26T14:11:22Z
+depends_on: []
+related_to: []
+---
+
+## Request
+
+The parser drops trailing commas.
+
+## Investigation
+
+\`lib/parser.rb\` truncates the token stream.
+
+## Specification
+
+### CR1 — Trailing commas survive parsing
+- **Given** the source \`[1, 2,]\`
+- **When** the parser runs
+- **Then** it yields \`[1, 2]\` without raising
+
+## Plan
+
+- [ ] Update \`lib/parser.rb\`
+  - **Target:** \`lib/parser.rb\`
+  - **Verify:** \`bundle exec rspec spec/parser_spec.rb\`
+  - **Criteria:** CR1
+
+## Log
+
+- **2026-07-26T14:11:22Z** \`[note]\` Draft.
+`;
+}
+
+test('141122 CR2: a fresh non-JS repo approves once readiness matches its stack', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const seeded = fs.readFileSync(configFile, 'utf8');
+  // The agent tunes the published keys to its own stack, as `readiness.md` requires.
+  const tuned = seeded
+    .replace('  target_patterns: ["src/**"]', '  target_patterns: ["lib/**"]')
+    .replace('  verification_patterns: ["test/**"]', '  verification_patterns: ["spec/**"]');
+  assert.notEqual(tuned, seeded, 'the seeded config must expose readiness as a real key');
+  fs.writeFileSync(configFile, tuned);
+
+  const file = newChange(
+    { type: 'bug', slug: 'parser', title: 'Parser', now: '2026-07-26T14:11:22Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  fs.writeFileSync(file, rubyBug(id));
+
+  assert.doesNotThrow(() => approve(id, root));
+
+  const logged = [];
+  const code = check([id, '--json'], root, { ...silentOutput(), log: (m) => logged.push(m) });
+  const report = JSON.parse(logged.join('\n'));
+  assert.deepEqual(report.errors, [], 'an approved non-JS change must report no errors');
+  assert.equal(code, 0);
+});
+
 test('235628 CR3/CR8: init seeds portable release impacts and contract boundary', () => {
   const root = tmp();
   init(root);
@@ -87,97 +274,83 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   assert.match(cfg, /^ {4}feature: minor$/m);
   assert.match(cfg, /^ {4}bug: patch$/m);
   assert.match(contract, /changeledger release plan \[--json\]/);
-  assert.match(contract, /Never infer that every ChangeLedger repository uses npm or GitHub/);
-  assert.doesNotMatch(contract, /Spec\s+Ledger/i);
+  // 20260730-002730 retired the portability sentence pin; the naming sweep stays.
+  assert.deepEqual(
+    fragmentsCarrying(/Spec\s+Ledger/i),
+    [],
+    'a contract fragment carries the retired product name',
+  );
 });
 
+// 20260730-002730 retired the sentence pin of `020229 CR4`. The two configuration
+// keys the criterion is actually about are identifiers, not prose, so they stay.
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
   const contract = contractText();
   assert.match(contract, /readiness\.target_patterns/);
   assert.match(contract, /readiness\.verification_patterns/);
-  assert.match(contract, /target file\(s\)\/area\(s\)/);
 });
 
+// 20260730-002730 retired the sentence pin of `122611 CR3`. The configured value and
+// the copyable example child stay: both are structure a reader copies, not prose.
 test('122611 CR3: installed contract recommends structural verify clauses', () => {
   const contract = contractText();
   assert.match(contract, /verification_patterns: \["verify:"\]/);
-  assert.match(contract, /manual Android device check/);
-  assert.match(contract, /instead of listing every possible manual phrase/);
+  assert.match(contract, /- \*\*Verify:\*\* verify: manual Android device check/);
 });
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
   const contract = contractText();
-  assert.match(
-    contract,
-    /`changeledger status <id> <status>`[\s\S]*does not accept\s+`approved`, `done`, `discarded` or reopening/,
-  );
+  // 20260730-002730 retired the sentence pin over the refusal. The behaviour it
+  // described is independently covered by `125139` in `cli-bin.test.mjs`, which runs
+  // `status <id> approved` and asserts exit 1 — a behavioural test, not a wording.
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
-  assert.match(contract, /For an existing spec, edit its body first, then run/);
 });
 
-test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
-  const contract = contractText();
-  assert.match(contract, /Running `changeledger context` is discovery, not compliance/);
-  assert.match(contract, /Capture the first invocation completely in one pass/);
-  assert.match(contract, /Never request a preview, summary\s+or voluntary line, byte or token cap/);
-  assert.match(contract, /new\s+human message alone does not trigger a reload/i);
-  assert.match(contract, /follow the\s+current mode/);
-  assert.match(contract, /exceptional recovery/i);
-  assert.match(contract, /enough clarity\s+to document faithfully \*\*and\*\* the human/);
-  assert.match(contract, /direct request such\s+as “create the change” is authorization/);
-  assert.match(contract, /human authorizes scope, approves drafts and accepts the final result/);
-  assert.match(contract, /If no approved or in-progress change applies/);
-  assert.match(contract, /ask the human whether a purely operational,\s+reversible edit/);
-  assert.match(contract, /If unsure, document it in ChangeLedger/);
-  assert.match(
-    contract,
-    /materially expands observable scope, obtain explicit human\s+authorization/,
-  );
-  assert.match(contract, /Triage friction at handoff; retrospect after completion/);
-  assert.match(contract, /necessary to fulfill the purpose of an active change/);
-  assert.match(contract, /operational step such as verify, commit, graduate/);
-  assert.match(contract, /propose its type, title, and reason to\s+the human/);
-  assert.match(contract, /Create the draft only after explicit authorization/);
-  assert.match(contract, /too vague for backlog/);
-  assert.match(contract, /When a change reaches `done`, also share a brief retrospective/);
-});
+// 20260730-002730 retired `214902 CR1-CR4/CR7/CR8`: all 20 of its asserts pinned a
+// sentence of `core.md`, `implement.md` or `handoff.md` through the installed contract.
+// The creation gate, the authorization rule and the intent routing are curated entries
+// 1 and 2, guarded against the composed core rather than against this concatenation.
+// `test/contract.test.mjs` still pins the published bootstrap block, which is a
+// consumer-facing interface and out of this change's scope.
 
-test('214902 CR5/CR6: installed contract preserves traceability without false-fix commits', () => {
-  const contract = contractText();
-  assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
-  assert.match(contract, /Inspect the\s+worktree/);
-  assert.match(contract, /unrelated changes exist/);
-  assert.match(contract, /baseline commit of the approved change\s+document before code/);
-  assert.match(contract, /Implement one\s+change at a\s+time/);
-  assert.match(contract, /Commit completed units/);
-  assert.match(
-    contract,
-    /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
-  );
-  assert.match(
-    contract,
-    /After `pass`, commit the confirmed correction[\s\S]*before human validation/,
-  );
-  assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
-  assert.match(contract, /do not start another task or change\s+while a correction waits/i);
-  assert.match(contract, /If shared files make a combined commit\s+unavoidable/);
-  assert.match(contract, /approved.*in-progress.*baseline commit/i);
-  assert.match(contract, /Do not create a dedicated commit for a\s+lifecycle-only transition/);
-  assert.match(contract, /coalesce it with the nearest meaningful commit/i);
-  assert.match(contract, /handoff[\s\S]*one consolidated\s+checkpoint/i);
-  assert.match(contract, /one final closure commit[\s\S]*graduation/i);
+// 20260730-002730: the twelve presence pins are retired — the commit unit, the baseline
+// and the correction isolation are curated entries 6 and 9. The two retired-phrase
+// sweeps stay: the installed contract must not regrow the fixed per-change count or the
+// inseparable-Plan-tasks excuse, and that is the class the decision preserves.
+test('214902 CR5/CR6: the installed contract regrows no retired commit rule', () => {
+  for (const retired of [
+    /\*\*Implementation\*\*: exactly one/,
+    /several Plan tasks are inseparable/,
+  ]) {
+    assert.deepEqual(
+      fragmentsCarrying(retired),
+      [],
+      `a contract fragment regrew the retired ${retired}`,
+    );
+  }
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
   const contract = contractText();
-  assert.match(contract, /in-progress → in-review.*`changeledger status`/);
+  // Anchored to the row's own cells, not just its label: an unanchored `.*`
+  // reaches past this row's own mechanism into the next row's `changeledger
+  // status` cell post-normalization, so the pin can pass while this row's own
+  // mechanism is wrong.
+  assert.match(contract, /in-progress → in-review \| agent \| `changeledger status`/);
   assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
   assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
-  assert.match(contract, /in-validation → done.*human.*viewer/);
+  // Widened reach after normalization (intra-fragment newlines no longer block
+  // `.*`) let this pin drift onto the next row's unrelated "human"/"viewer": tied
+  // to the accept command so only this row's own content can satisfy it.
+  assert.match(
+    contract,
+    /in-validation → done.*human.*viewer.*`changeledger validation <id> pass`/,
+  );
   assert.match(contract, /human accepted the complete result/);
-  assert.match(contract, /agent never accepts on the human's behalf/i);
+  // 20260730-002730 retired the two sentence pins that stood here. The transition rows
+  // above are table cells, and the lifecycle value's own terminality is asserted by the
+  // enum literal rather than by the sentence explaining it.
   assert.match(contract, /`discarded` never reopens/);
-  assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });
 
 test('131649 CR2/CR9: list previews archive --graduated without writing files', async () => {
@@ -342,6 +515,7 @@ test('new uses the English slug for the file and keeps the title as content', ()
   const file = newChange(
     { type: 'bug', slug: 'token-expiry', title: 'Token expira mal', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   assert.equal(path.basename(file), '20260613-150000-token-expiry.md');
 
@@ -373,6 +547,7 @@ test('103756 CR1: new scaffolds a quick change with only request and log', () =>
       now: '2026-06-13T15:00:00Z',
     },
     root,
+    { ownerHandle: () => '' },
   );
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.type, 'quick');
@@ -400,8 +575,66 @@ test('new normalizes the slug to kebab ascii', () => {
   const file = newChange(
     { type: 'chore', slug: 'Fix CI Pipeline', title: 'x', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   assert.equal(path.basename(file), '20260613-150000-fix-ci-pipeline.md');
+});
+
+test('20260726-124836 CR1: new resolves owner from the injected git identity when --owner is omitted', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' },
+    root,
+    { ownerHandle: () => 'ana' },
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'ana');
+});
+
+// Confirm-only (Plan task 1, CR2): an explicit --owner already prevailed before
+// this change — newChange() passed `owner` straight through to render(), which
+// only gates on truthiness. No production change was needed for this criterion.
+test('20260726-124836 CR2: an explicit --owner still wins over the injected identity', () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'chore', slug: 'x', title: 'X', owner: 'leo', now: '2026-06-13T15:00:00Z' },
+    root,
+    { ownerHandle: () => 'ana' },
+  );
+  const source = fs.readFileSync(file, 'utf8');
+  assert.equal(parseChange(source).frontmatter.owner, 'leo');
+  assert.doesNotMatch(source, /owner: ana/);
+});
+
+test('20260726-124836 CR3: an unresolvable identity emits no owner line and does not throw', () => {
+  const root = tmp();
+  init(root);
+  let calls = 0;
+  let file;
+  assert.doesNotThrow(() => {
+    file = newChange({ type: 'chore', slug: 'x', title: 'X', now: '2026-06-13T15:00:00Z' }, root, {
+      ownerHandle: () => {
+        calls += 1;
+        return '';
+      },
+    });
+  });
+  assert.equal(
+    calls,
+    1,
+    'the injected identity resolver must be consulted when --owner is omitted',
+  );
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal('owner' in c.frontmatter, false);
+});
+
+test('20260726-124836 CR4: --owner help text announces the local git identity default', async () => {
+  const bin = path.resolve('bin/changeledger.mjs');
+  const { stdout } = await execFileAsync(process.execPath, [bin, 'new', '--help']);
+  assert.doesNotMatch(stdout, /defaults to unassigned/);
+  assert.match(stdout, /defaults to the local git identity/);
 });
 
 test('new rejects a slug that normalizes to empty', () => {
@@ -409,7 +642,9 @@ test('new rejects a slug that normalizes to empty', () => {
   init(root);
   assert.throws(
     () =>
-      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root),
+      newChange({ type: 'bug', slug: '!!!', title: 'Título', now: '2026-06-13T15:00:00Z' }, root, {
+        ownerHandle: () => '',
+      }),
     /slug must contain at least one ASCII letter or number/,
   );
   assert.deepEqual(
@@ -422,9 +657,10 @@ test('new bumps the id to stay unique within the same second', () => {
   const root = tmp();
   init(root);
   const now = '2026-06-13T15:00:00Z';
-  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root);
+  const noOwner = { ownerHandle: () => '' };
+  const a = newChange({ type: 'chore', slug: 'one', title: 'one', now }, root, noOwner);
   const before = fs.readFileSync(a, 'utf8');
-  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root);
+  const b = newChange({ type: 'chore', slug: 'two', title: 'two', now }, root, noOwner);
   assert.equal(path.basename(a), '20260613-150000-one.md');
   assert.equal(path.basename(b), '20260613-150001-two.md');
   assert.equal(fs.readFileSync(a, 'utf8'), before, 'existing change file is not overwritten');
@@ -446,6 +682,7 @@ test('new recovers from an orphan id lock', () => {
   const file = newChange(
     { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
 
   assert.equal(path.basename(file), '20260613-150000-one.md');
@@ -476,6 +713,7 @@ test('new tolerates a lock removed while checking whether it is stale', () => {
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     assert.equal(path.basename(file), '20260613-150000-one.md');
   } finally {
@@ -503,6 +741,7 @@ test('190006 CR1: acquireIdLock returns null after max stale-lock retries', () =
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     // After hitting the cap, acquireIdLock returned null → outer loop bumped the second
     assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped after spin cap');
@@ -534,6 +773,7 @@ test('190006 CR4: processIsAlive returns true on EPERM — lock treated as live'
     const file = newChange(
       { type: 'chore', slug: 'one', title: 'one', now: '2026-06-13T15:00:00Z' },
       root,
+      { ownerHandle: () => '' },
     );
     // isStaleLock returned false (EPERM → alive) → acquireIdLock returned null → second bumped
     assert.equal(path.basename(file), '20260613-150001-one.md', 'id bumped because lock was live');
@@ -560,6 +800,7 @@ test('new reserves ids atomically across concurrent processes', async () => {
     const file = newChange(
       { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-06-13T15:00:00Z' },
       process.argv[2],
+      { ownerHandle: () => '' },
     );
     console.log(file);
   `;
@@ -614,3 +855,337 @@ test('new rejects an unknown type', () => {
 function silentOutput() {
   return { log() {}, error() {}, warn() {} };
 }
+
+// --- frozen history (20260726-194220): the summary names what it did not validate ---
+
+function frozenLedger(docs) {
+  const root = tmp();
+  init(root);
+  for (const [name, text] of Object.entries(docs)) {
+    fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
+  }
+  return root;
+}
+
+function frontmatterBlock(over) {
+  return Object.entries({
+    title: 'X',
+    created: '2026-01-01T00:00:00Z',
+    depends_on: '[]',
+    ...over,
+  })
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+}
+
+// A well-formed document: the shipped config activates only `## Request` and
+// `## Plan` for `chore`, so nothing here can error or warn.
+function validChore(id, over = {}) {
+  const fm = frontmatterBlock({ id: `"${id}"`, type: 'chore', status: 'approved', ...over });
+  // The Plan is left empty on purpose: since 20260729-203257 CR2 a prose line
+  // inside `## Plan` is an `unrecognized Plan line` error, so filler cannot go here.
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n`;
+}
+
+// A `bug` body without `## Specification`, a stage the shipped config activates
+// for that type: the defect today's rules report on frozen history.
+function bugMissingSpecification(id, over = {}) {
+  const fm = frontmatterBlock({ id: `"${id}"`, type: 'bug', status: 'done', ...over });
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Investigation\n\nX\n\n## Plan\n\n## Log\n`;
+}
+
+function captureOutput() {
+  const lines = [];
+  const push = (m) => lines.push(m);
+  return { lines, log: push, warn: push, error: push };
+}
+
+// The summary's error branch opens with a blank separator, so its emitted string
+// carries a leading newline the printed last line does not.
+function lastLine(out) {
+  return out.lines.at(-1).split('\n').at(-1);
+}
+
+test('194220 CR8: the repo-wide summary names the documents it did not validate', () => {
+  const root = frozenLedger({
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    '20260102-000000-two.md': validChore('20260102-000000'),
+    '20260103-000000-frozen.md': validChore('20260103-000000', {
+      status: 'done',
+      archived: 'true',
+    }),
+  });
+  const out = captureOutput();
+  const code = check([], root, out);
+  assert.equal(out.lines.at(-1), '✓ 2 change(s) valid — 1 not validated (archived or discarded)');
+  assert.equal(code, 0);
+});
+
+test('194220 CR9: with no frozen documents the summary is unchanged', () => {
+  const root = frozenLedger({
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    '20260102-000000-two.md': validChore('20260102-000000'),
+  });
+  const out = captureOutput();
+  const code = check([], root, out);
+  assert.equal(out.lines.at(-1), '✓ 2 change(s) valid');
+  assert.equal(code, 0);
+});
+
+test('194220 CR10: check <id> on a frozen document says it was not validated', () => {
+  const root = frozenLedger({
+    '20260101-000000-archived.md': bugMissingSpecification('20260101-000000', {
+      archived: 'true',
+    }),
+    '20260102-000000-discarded.md': bugMissingSpecification('20260102-000000', {
+      status: 'discarded',
+    }),
+  });
+
+  const archived = captureOutput();
+  assert.equal(check(['20260101-000000'], root, archived), 0);
+  assert.deepEqual(archived.lines, ['✓ change 20260101-000000 not validated (archived)']);
+
+  const discarded = captureOutput();
+  assert.equal(check(['20260102-000000'], root, discarded), 0);
+  assert.deepEqual(discarded.lines, ['✓ change 20260102-000000 not validated (discarded)']);
+});
+
+test('194220 CR11: the summary names what it did not validate when it also reports errors', () => {
+  // `mismatch.md` carries a well-formed document whose filename does not start
+  // with its id: exactly one error, no warnings, and still a validated subject.
+  const live = {
+    '20260101-000000-one.md': validChore('20260101-000000'),
+    'mismatch.md': validChore('20260102-000000'),
+  };
+
+  const withFrozen = captureOutput();
+  const frozenRoot = frozenLedger({
+    ...live,
+    '20260103-000000-frozen.md': validChore('20260103-000000', {
+      status: 'done',
+      archived: 'true',
+    }),
+  });
+  assert.equal(check([], frozenRoot, withFrozen), 1);
+  assert.equal(
+    lastLine(withFrozen),
+    '1 error(s), 0 warning(s) — 2 change(s), 1 not validated (archived or discarded)',
+  );
+
+  const withoutFrozen = captureOutput();
+  assert.equal(check([], frozenLedger(live), withoutFrozen), 1);
+  assert.equal(lastLine(withoutFrozen), '1 error(s), 0 warning(s) — 2 change(s)');
+});
+
+// 20260722-124656 CR3 — the readiness refusal must be observable where the
+// orchestrator actually stands: a non-zero exit and every defect on stderr.
+test('124656 CR3: `status <id> in-review` exits non-zero and names every readiness defect', async () => {
+  const root = tmp();
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => 'nobody' },
+  );
+  // Ready while it walks to in-progress: since 20260729-185200 `approve` refuses a
+  // defective candidate, and what this criterion observes is the in-review refusal.
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  const bin = path.resolve('bin/changeledger.mjs');
+  const run = (...args) =>
+    execFileAsync(process.execPath, [bin, ...args], { cwd: root }).then(
+      (ok) => ({ code: 0, ...ok }),
+      (error) => error,
+    );
+
+  assert.equal((await run('approve', id)).code, 0);
+  assert.equal((await run('status', id, 'in-progress')).code, 0);
+  // Now introduce the two readiness defects the in-review gate must name.
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+        '### CR1 — Something\n- **Given** a thing\n',
+      )
+      .replace(
+        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
+        '- [ ] do the thing\n  - **Criteria:** CR1',
+      ),
+  );
+  const before = fs.readFileSync(file, 'utf8');
+
+  const failure = await run('status', id, 'in-review');
+  assert.equal(failure.code, 1);
+  assert.match(failure.stderr, /CR1 is not test-grade: missing Given\/When\/Then/);
+  assert.match(failure.stderr, /Plan task for CR1 must name target and verification/);
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'the refusal must not touch the document');
+  assert.equal(parseChange(before).frontmatter.status, 'in-progress');
+});
+
+// 20260728-151336 CR4 — the CLI composes the `ChangeLedger: none — <reason>`
+// operational-commit declaration and refuses to combine it with --id.
+test('151336 CR4: --no-change and --id are mutually exclusive and create no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () =>
+      commit(
+        { message: 'docs(x): y', ids: ['20260711-000001'], noChange: 'reason' },
+        root,
+        undefined,
+        commitNoop,
+      ),
+    (e) => /--no-change/.test(e.message) && /--id/.test(e.message),
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
+});
+
+test('151336 CR4: an empty --no-change reason is refused and creates no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () => commit({ message: 'docs(x): y', noChange: '   ' }, root, undefined, commitNoop),
+    (e) => e.message === '--no-change requires a non-empty reason',
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
+});
+
+test('151336 CR4: --no-change composes a marker-less subject and an exact none body, valid under check --commits', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'seed.txt', 'seed\n');
+  gitFor(root, ['commit', '-m', 'chore(seed): base']);
+  gitFor(root, ['branch', 'base']);
+  commitFixtureStageFile(root, 'docs/workflow-hardening.md', 'notes\n');
+
+  const subject = commit(
+    {
+      message: 'docs(workflow): record the sieve',
+      noChange: 'acta de análisis, ningún change la cubre',
+    },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(workflow): record the sieve');
+  assert.equal(commitFixtureLastSubject(root), 'docs(workflow): record the sieve');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  );
+
+  const messages = [];
+  const output = { log: (m) => messages.push(m), error: (m) => messages.push(m) };
+  assert.equal(check(['--commits', 'base'], root, output), 0);
+});
+
+test('151336 CR4: --no-change ignores an in-progress change instead of attaching its marker', () => {
+  const root = commitFixtureRepo();
+  commitFixtureWriteChange(root, '20260711-000001', 'in-progress');
+  commitFixtureStageFile(root, 'docs/note.md', 'x');
+
+  const subject = commit(
+    { message: 'docs(x): y', noChange: 'operational edit, no change covers it' },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(x): y');
+  assert.equal(commitFixtureLastSubject(root), 'docs(x): y');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — operational edit, no change covers it',
+  );
+});
+
+// A scenario where in-progress auto-resolution would itself throw (ambiguous:
+// two candidates) — the sharpest proof that --no-change skips resolution
+// altogether rather than merely discarding a resolved id afterwards. If
+// resolution ran, this would throw "Ambiguous: 2 changes are in-progress
+// ..." instead of succeeding.
+test('151336 CR4: --no-change succeeds even when in-progress resolution would itself be ambiguous', () => {
+  const root = commitFixtureRepo();
+  commitFixtureWriteChange(root, '20260711-000001', 'in-progress');
+  commitFixtureWriteChange(root, '20260711-000002', 'in-progress');
+  commitFixtureStageFile(root, 'docs/note.md', 'x');
+
+  const subject = commit(
+    { message: 'docs(x): y', noChange: 'operational edit, no change covers it' },
+    root,
+    undefined,
+    commitNoop,
+  );
+
+  assert.equal(subject, 'docs(x): y');
+  assert.equal(
+    commitFixtureLastBody(root),
+    'ChangeLedger: none — operational edit, no change covers it',
+  );
+});
+
+test('151336 CR4: a --no-change reason containing a newline is refused and creates no commit', () => {
+  const root = commitFixtureRepo();
+  commitFixtureStageFile(root, 'a.txt', 'x');
+
+  assert.throws(
+    () =>
+      commit(
+        { message: 'docs(x): y', noChange: 'first line\nsecond line' },
+        root,
+        undefined,
+        commitNoop,
+      ),
+    (e) => e.message === '--no-change reason must not contain a newline',
+  );
+  assert.equal(commitFixtureCommitCount(root), 0);
+});
+
+// 20260729-203257 correction — a raw NUL byte made git classify src/task.mjs
+// as binary: no textual diff for review, and line-level grep stopped printing
+// its matching lines, while lint, this suite and `changeledger check` all
+// stayed green. The sweep forbids every raw control byte except tab/LF/CR, not
+// only NUL: none of them belongs in this repo's source, whatever git's binary
+// heuristic makes of each.
+test('203257 correction: no raw control bytes in source files', () => {
+  const repoRoot = path.join(templatesDir, '..');
+  const offenders = [];
+  const sweep = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        sweep(full);
+        continue;
+      }
+      const buf = fs.readFileSync(full);
+      for (let i = 0; i < buf.length; i++) {
+        const b = buf[i];
+        if ((b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0d) || b === 0x7f) {
+          offenders.push(`${path.relative(repoRoot, full)} offset ${i} byte 0x${b.toString(16)}`);
+          break;
+        }
+      }
+    }
+  };
+  for (const dir of ['src', 'bin', 'test', 'templates', 'hooks']) sweep(path.join(repoRoot, dir));
+  assert.deepEqual(offenders, [], `raw control bytes found: ${offenders.join(', ')}`);
+});

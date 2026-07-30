@@ -17,11 +17,13 @@ Viewer actions remain available. An explicit conversational decision uses
 "<reason>"`. Never infer a decision from praise, “continue”, silence or agent advice.
 
 Acceptance reaches `done`. Rejection requires a reason and returns the same change
-to `in-progress`; run `changeledger context <id>` before modifying implementation,
+to `in-progress`. Classify the rejection before iterating, the way a reviewer's
+`fail` verdict is classified: the blocked context owns those classes and the exits
+each one allows. Run `changeledger context <id>` before modifying implementation,
 update Specification/Plan as needed and repeat configured review and gates. The agent
 never accepts on the human's behalf. Before durable closure, `done` may reopen with
 reason only for original scope; broader behavior needs a new change. `discarded` never reopens.
 
-The validation transition alone does not require a dedicated commit. After
-acceptance, graduate or skip, then make the close overlay's final commit containing
-pending lifecycle Log and graduation truth. After rejection, isolate unconfirmed corrections.
+After acceptance, graduate or skip, then make the close overlay's final commit
+containing pending lifecycle Log and graduation truth. After rejection, isolate
+unconfirmed corrections.

@@ -80,11 +80,17 @@ el core local-first y no es necesario para resolver la espera artificial.
 
 ## Plan
 
-- [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Add failing scenarios in `test/context.test.mjs`, then clarify change-scoped validation and sequential queue selection in `templates/contract/core.md`, `templates/contract/implement.md` and `templates/contract/validation.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-03T22:53:04Z`
-- [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`; verify: `node bin/changeledger.mjs check 20260703-220014` (CR1, CR2, CR3, CR4, CR5)
+- [x] Record the durable queue and dependency policy in `.changeledger/specs/lifecycle.md`
+  - **Verify:** `node bin/changeledger.mjs check 20260703-220014`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-03T22:53:05Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T22:53:50Z`
 
 ## Log

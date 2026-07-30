@@ -150,25 +150,35 @@ global.
 
 ## Plan
 
-- [x] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR9)
+- [x] Añadir tests de registro y dominio en `test/registry.test.mjs` y `test/view.test.mjs`; implementar actualización de ruta, lectura de config y mutaciones validadas/atómicas en `src/registry.mjs` y `src/viewer/domain.mjs`; verificar con `node --test test/registry.test.mjs test/view.test.mjs`
+  - **Criteria:** CR3, CR4, CR5, CR6, CR7, CR9
   - **Resolved:** `2026-06-27T11:24:53Z`
-- [x] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs` (CR2, CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Añadir tests HTTP de autorización, límites, errores y modo local en `test/view.test.mjs`; exponer lectura y endpoints de proyectos/config en `src/viewer/server/router.mjs`; verificar con `node --test test/view.test.mjs`
+  - **Criteria:** CR2, CR4, CR5, CR6, CR7, CR8, CR9
   - **Resolved:** `2026-06-27T11:24:54Z`
-- [x] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Añadir tests DOM del listado, estados, editor, confirmación y feedback en `test/viewer-metadata.test.mjs`; construir la vista Projects y sus flujos en `src/viewer/public/index.html`, `src/viewer/public/app.js`, `src/viewer/public/api.js` y `src/viewer/public/styles.css`; verificar con `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9
   - **Resolved:** `2026-06-27T11:24:54Z`
-- [x] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local` (support)
+- [x] Ejecutar `pnpm verify` y comprobar manualmente la vista Projects, un guardado válido/inválido, una ruta missing reparada y el desregistro en viewer global y `--local`
+  - **Support:**
   - **Resolved:** `2026-06-27T11:24:54Z`
-- [x] Añadir carga completa con config candidato y regresiones de rutas alternativas inválidas en `src/repo.mjs`, `src/viewer/domain.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/repo.test.mjs` (CR4)
+- [x] Añadir carga completa con config candidato y regresiones de rutas alternativas inválidas en `src/repo.mjs`, `src/viewer/domain.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/repo.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-27T11:41:02Z`
-- [x] Hacer `config.yml` canónico para el nombre mostrado, eliminar la mutación cruzada con el registro y sanitizar errores inesperados en `src/viewer/domain.mjs`, `src/registry.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/registry.test.mjs` (CR3, CR4, CR6, CR9)
+- [x] Hacer `config.yml` canónico para el nombre mostrado, eliminar la mutación cruzada con el registro y sanitizar errores inesperados en `src/viewer/domain.mjs`, `src/registry.mjs` y `test/view.test.mjs`; verificar con `node --test test/view.test.mjs test/registry.test.mjs`
+  - **Criteria:** CR3, CR4, CR6, CR9
   - **Resolved:** `2026-06-27T11:45:56Z`
-- [x] Cubrir pending, éxito, error, recarga y acciones cableadas de proyecto en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs` (CR3, CR4, CR6, CR7, CR9)
+- [x] Cubrir pending, éxito, error, recarga y acciones cableadas de proyecto en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR3, CR4, CR6, CR7, CR9
   - **Resolved:** `2026-06-27T11:45:56Z`
-- [x] Endurecer formas inválidas de config y captura de excepciones HTTP en `src/check.mjs`, `src/viewer/server/router.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4)
+- [x] Endurecer formas inválidas de config y captura de excepciones HTTP en `src/check.mjs`, `src/viewer/server/router.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-27T11:51:25Z`
-- [x] Validar formas anidadas de tipos y hacer el guardado fail-closed en `src/check.mjs`, `src/viewer/domain.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR4)
+- [x] Validar formas anidadas de tipos y hacer el guardado fail-closed en `src/check.mjs`, `src/viewer/domain.mjs`, `test/check.test.mjs` y `test/view.test.mjs`; verificar con `node --test test/check.test.mjs test/view.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-27T11:55:25Z`
-- [x] Validar formas inválidas de readiness y alinear la autoridad del nombre en `src/check.mjs`, `test/check.test.mjs`, `test/view.test.mjs` y este change; verificar con `node --test test/check.test.mjs test/view.test.mjs` (CR3, CR4)
+- [x] Validar formas inválidas de readiness y alinear la autoridad del nombre en `src/check.mjs`, `test/check.test.mjs`, `test/view.test.mjs` y este change; verificar con `node --test test/check.test.mjs test/view.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-27T12:01:16Z`
 
 ## Log

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
-import { beginSentinel, contentRev, endSentinel, VERSION } from '../framing.mjs';
+import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
 
@@ -31,16 +31,53 @@ function fragment(name) {
   return fs.readFileSync(path.join(contractTemplatesDir, `${name}.md`), 'utf8').trim();
 }
 
-function beginDelimiter(mode, changeId, rev, extra = '') {
-  const change = changeId ? ` — change: #${changeId}` : '';
-  const revPart = rev ? ` — rev:${rev}` : '';
-  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION}${revPart}${extra}`);
+// Budget thresholds live in the contract, so the published ceiling is the same
+// number the quality gate enforces and cannot drift from it.
+let budgetCache;
+
+function packBudget(mode) {
+  budgetCache ??= JSON.parse(
+    fs.readFileSync(path.join(contractTemplatesDir, 'budgets.yml'), 'utf8'),
+  );
+  return budgetCache.base[mode];
 }
 
-// Short confirmation body returned by `--have` when the caller's retained
-// revision still matches: no contract text, just the framed confirmation.
-function unchangedBody(rev) {
-  return `Context unchanged since rev:${rev}. Skip reload; continue with the retained capture.`;
+// A capture publishes how many lines it occupies of its ceiling, and nothing
+// else: lines are what the bootstrap's `head` consumes. The token ceiling is
+// applied by this repository's tests, so no consuming repo has to install a
+// tokenizer to read a capture. A change-id capture is unbounded by design — it
+// embeds a document of any size — so it has no entry in `budgets.yml` and
+// publishes its exact count without inventing a ceiling.
+function beginDelimiter(mode, changeId, lines, budget) {
+  const change = changeId ? ` — change: #${changeId}` : '';
+  const size = budget ? `lines:${lines}/${budget.lines}` : `lines:${lines}`;
+  return beginSentinel('CONTEXT', `mode: ${mode}${change} — v${VERSION} — ${size}`);
+}
+
+// The published figure is part of the text whose size it reports, so it is
+// measured on a first framing and published by a second. Two passes are exact and
+// no iteration is needed: widening the figure by a digit cannot add a line, since
+// it stays on the same BEGIN line. Framing the body twice with the same delimiter
+// shape is what makes the second count equal to the first.
+export function frameSections(mode, changeId, body, budget) {
+  const frame = (lines) =>
+    render([beginDelimiter(mode, changeId, lines, budget), ...body, END_DELIMITER]);
+  return frame(emittedLines(frame(0)));
+}
+
+function render(sections) {
+  return `${sections.join('\n\n')}\n`;
+}
+
+// Emitted lines: what `wc -l` reports for the CLI stdout and what `head -<N>`
+// must be given. The rendered text ends with exactly one trailing newline, so
+// its last split segment is empty and does not count; a text without that
+// newline still ends in a real line. This is the single canonical home of
+// this count — `test/budget-support.mjs` imports and re-exports it rather
+// than keeping its own copy.
+export function emittedLines(text) {
+  const segments = text.split('\n');
+  return segments[segments.length - 1] === '' ? segments.length - 1 : segments.length;
 }
 
 // Resolved defaults so an agent never reads `.changeledger/config.yml` raw to
@@ -61,23 +98,57 @@ function effectiveTdd(config) {
 // The transversal policy line every composition anchors on: effective language
 // and tdd with defaults already resolved. The integration branch appears only
 // when declared — absence means the repo keeps branch auto-detection.
-export function transversalPolicy(config) {
-  const base = `Effective policy: language=${effectiveLanguage(config)} — tdd=${effectiveTdd(config)}`;
+// Called with `includeTdd: false` for a change-id capture whose type never
+// serves `readiness.md` (the only fragment that defines the `tdd` obligation)
+// — publishing the line unconditionally would hand such a type an obligation
+// with no definition anywhere in the same capture (CR5).
+export function transversalPolicy(config, { includeTdd = true } = {}) {
+  const tdd = includeTdd ? ` — tdd=${effectiveTdd(config)}` : '';
+  const base = `Effective policy: language=${effectiveLanguage(config)}${tdd}`;
   const branch = integrationBranch(config);
   return branch ? `${base} — integration_branch=${branch}` : base;
+}
+
+// A change's `type` selects which stages the capture composes and which
+// obligations (tdd, review) apply. An undecidable type — not declared in
+// `config.types`, absent from the change's own frontmatter, or declaring
+// `stages` as something other than a list — is exactly the class of defect
+// this repo aborts on rather than silently degrading: `context` must never
+// publish an empty `Active stages(...)=` line or omit `readiness` without
+// saying why (CR1). Single seat consumed by both callers below.
+function assertKnownType(config, type) {
+  if (type === undefined) throw new Error('missing frontmatter "type"');
+  const typeConfig = config?.types?.[type];
+  if (!typeConfig) throw new Error(`unknown type "${type}"`);
+  if (!Array.isArray(typeConfig.stages)) {
+    throw new Error(`config type "${type}": stages must be a list`);
+  }
+  return typeConfig;
 }
 
 // Type-specific policy for change-id contexts: adds review requirement and the
 // active stages the type actually uses, so the agent does not infer them.
 function changePolicyBlock(config, type) {
-  const typeConfig = config?.types?.[type] ?? {};
+  const typeConfig = assertKnownType(config, type);
   const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
-  const stages = Array.isArray(typeConfig.stages) ? typeConfig.stages.join(', ') : '';
+  const servesReadiness = typeConfig.stages.includes('specification');
   const lines = [
-    `${transversalPolicy(config)} — review_required(${type})=${reviewRequired}`,
-    `Active stages(${type})=${stages}`,
+    `${transversalPolicy(config, { includeTdd: servesReadiness })} — review_required(${type})=${reviewRequired}`,
+    `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');
+}
+
+// `readiness` (`# Definition of Ready`) presupposes the change carries a
+// `specification` stage: it requires every behavioral requirement to be a `CRn`
+// and every Plan task to cite one. A type that never activates that stage
+// cannot satisfy it — `check` rejects the stage outright — so composing the
+// fragment would contradict the `Active stages(<type>)=` line of the same
+// capture. Derived from the configured stages, never from a list of type names.
+function fragmentsForType(fragments, config, type) {
+  const { stages } = assertKnownType(config, type);
+  if (stages.includes('specification')) return fragments;
+  return fragments.filter((name) => name !== 'readiness');
 }
 
 // One line per local dependency (id, title, status); external `project:id`
@@ -130,10 +201,8 @@ function relatedBlock(id, relatedTo, cwd) {
   return `## Related changes\n\n${lines.join('\n')}`;
 }
 
-// Composes the body (everything between the BEGIN and END lines), derives its
-// `rev` from that body alone — never from the framing lines that quote it —
-// then returns both the rev and the full rendered text so callers can decide
-// whether a `--have` match makes the full body unnecessary.
+// Composes the body (everything between the BEGIN and END lines) and returns
+// the full rendered text, framed by its BEGIN and END delimiters.
 function composeResult(mode, fragments, options = {}) {
   const {
     changeText,
@@ -150,9 +219,11 @@ function composeResult(mode, fragments, options = {}) {
   if (dependencies) body.push(dependencies);
   if (relations) body.push(relations);
   if (changeText) body.push('---\n\n# Selected change\n', changeText.trim());
-  const rev = contentRev(body.join('\n\n'));
-  const sections = [beginDelimiter(mode, changeId, rev), ...body, END_DELIMITER];
-  return { mode, changeId, rev, text: `${sections.join('\n\n')}\n` };
+  // The BEGIN line publishes the exact line count so any consumer can build a
+  // deterministic `head -<N>` and see the occupancy of its ceiling.
+  // A change-id capture embeds a document of any size, so no ceiling applies to
+  // it even though it reuses a mode's fragments: it publishes its count alone.
+  return frameSections(mode, changeId, body, changeId ? undefined : packBudget(mode));
 }
 
 function requireRepo(cwd) {
@@ -191,7 +262,7 @@ function composeInput(input, cwd, config) {
   } = parseChange(text).frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return composeResult(selected.mode, selected.fragments, {
+  return composeResult(selected.mode, fragmentsForType(selected.fragments, config, type), {
     changeText: text,
     changeId: id,
     policy: changePolicyBlock(config, type),
@@ -200,24 +271,12 @@ function composeInput(input, cwd, config) {
   });
 }
 
-// `options.have` names a previously captured `rev`. A match returns a short
-// framed `unchanged` confirmation instead of the full contract body; any
-// mismatch (stale or invented) falls back to the complete normal output.
-export function buildContext(input, cwd = process.cwd(), options = {}) {
+export function buildContext(input, cwd = process.cwd()) {
   const changeledgerDir = requireRepo(cwd);
   const config = loadConfig(changeledgerDir);
-  const result = composeInput(input, cwd, config);
-  if (options.have && options.have === result.rev) {
-    const sections = [
-      beginDelimiter(result.mode, result.changeId, result.rev, ' — unchanged'),
-      unchangedBody(result.rev),
-      END_DELIMITER,
-    ];
-    return `${sections.join('\n\n')}\n`;
-  }
-  return result.text;
+  return composeInput(input, cwd, config);
 }
 
-export function context(input, options = {}, cwd = process.cwd(), output = console.log) {
-  output(buildContext(input, cwd, options).trimEnd());
+export function context(input, cwd = process.cwd(), output = console.log) {
+  output(buildContext(input, cwd).trimEnd());
 }

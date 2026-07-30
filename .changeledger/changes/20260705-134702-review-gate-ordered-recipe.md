@@ -99,11 +99,17 @@ esqueleto de review referencia el checklist, no la secuencia del gate.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada de cinco pasos en la composición de `implement` y el sujeto orquestador en `review`; luego reescribir el párrafo de `templates/contract/implement.md:57-63` como receta numerada y ajustar `templates/contract/review.md`, sin tocar `core.md` ni `delegation.md`; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Añadir pruebas fallidas en `test/context.test.mjs` que exijan la receta numerada de cinco pasos en la composición de `implement` y el sujeto orquestador en `review`; luego reescribir el párrafo de `templates/contract/implement.md:57-63` como receta numerada y ajustar `templates/contract/review.md`, sin tocar `core.md` ni `delegation.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-05T14:06:25Z`
-- [x] Comprobar que las composiciones de `templates/contract/implement.md` y `templates/contract/review.md` respetan los presupuestos vigentes sin modificarlos; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Comprobar que las composiciones de `templates/contract/implement.md` y `templates/contract/review.md` respetan los presupuestos vigentes sin modificarlos
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-05T14:06:25Z`
-- [x] Ejecutar el quality gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-05T14:06:25Z`
 
 ## Log

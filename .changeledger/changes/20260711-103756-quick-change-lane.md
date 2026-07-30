@@ -94,17 +94,28 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir `quick` a tipos válidos y matriz por defecto en `src/config.mjs`; verify: `pnpm test` (CR4)
+- [x] Añadir `quick` a tipos válidos y matriz por defecto en `src/config.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T11:05:46Z`
-- [x] Aceptar el scaffold `quick` en `src/commands/new.mjs`; verify: `pnpm test` (CR1)
+- [x] Aceptar el scaffold `quick` en `src/commands/new.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T11:05:47Z`
-- [x] Excluir `quick` del review gate en la lógica de transiciones de `src/lifecycle.mjs`; verify: `pnpm test` (CR2)
+- [x] Excluir `quick` del review gate en la lógica de transiciones de `src/lifecycle.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T11:05:47Z`
-- [x] Verificar que `src/check.mjs` no exige stages desactivados para `quick` y cubrirlo con test; verify: `pnpm test` (CR3)
+- [x] Verificar que `src/check.mjs` no exige stages desactivados para `quick` y cubrirlo con test
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T11:05:47Z`
-- [x] Documentar el carril y su elegibilidad en `templates/contract/spec.md` y la mención mínima en `templates/contract/core.md`; verify: `pnpm test` (CR5)
+- [x] Documentar el carril y su elegibilidad en `templates/contract/spec.md` y la mención mínima en `templates/contract/core.md`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-11T11:05:47Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T11:05:47Z`
 
 ## Log

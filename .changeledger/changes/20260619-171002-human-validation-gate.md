@@ -183,21 +183,29 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Extender `src/lifecycle.mjs`, `src/commands/agent.mjs` y el CLI para `in-validation`, aceptación y rechazo con motivo; verificar en `test/lifecycle.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Extender `src/lifecycle.mjs`, `src/commands/agent.mjs` y el CLI para `in-validation`, aceptación y rechazo con motivo; verificar en `test/lifecycle.test.mjs`, `test/agent.test.mjs` y `test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-19T17:37:37Z`
-- [x] Actualizar `src/viewer/domain.mjs`, `src/viewer/public/app.js` y las rutas del viewer para presentar aceptación/rechazo humano de `in-validation`; verificar en `test/view.test.mjs` y `test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [x] Actualizar `src/viewer/domain.mjs`, `src/viewer/public/app.js` y las rutas del viewer para presentar aceptación/rechazo humano de `in-validation`; verificar en `test/view.test.mjs` y `test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-19T17:37:37Z`
-- [x] Incorporar `in-validation` en `src/metrics.mjs`, `src/check.mjs` y `.sl/config.yml`; verificar en `test/metrics.test.mjs`, `test/check.test.mjs` y `test/cli.test.mjs` (CR1, CR4, CR5)
+- [x] Incorporar `in-validation` en `src/metrics.mjs`, `src/check.mjs` y `.sl/config.yml`; verificar en `test/metrics.test.mjs`, `test/check.test.mjs` y `test/cli.test.mjs`
+  - **Criteria:** CR1, CR4, CR5
   - **Resolved:** `2026-06-19T17:37:37Z`
-- [x] Actualizar `templates/AGENTS.md` con el gate humano, el triage y autorización de backlog y la política Git contextual; verificar con `test/cli.test.mjs` (CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Actualizar `templates/AGENTS.md` con el gate humano, el triage y autorización de backlog y la política Git contextual; verificar con `test/cli.test.mjs`
+  - **Criteria:** CR4, CR5, CR6, CR7, CR8, CR9
   - **Resolved:** `2026-06-19T17:37:51Z`
-- [x] Actualizar el ciclo y las reglas de trazabilidad en `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Actualizar el ciclo y las reglas de trazabilidad en `.sl/specs/architecture.md`; verificar con `node bin/sl.mjs check 20260619-171002`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9
   - **Resolved:** `2026-06-19T17:38:52Z`
-- [x] Ejecutar `pnpm verify` y validar manualmente en el viewer aprobación, rechazo con motivo y segundo intento de un change de prueba (support)
+- [x] Ejecutar `pnpm verify` y validar manualmente en el viewer aprobación, rechazo con motivo y segundo intento de un change de prueba
+  - **Support:**
   - **Resolved:** `2026-06-19T17:44:32Z`
-- [x] Reemplazar el `prompt()` de rechazo por motivo visible en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar manualmente en el viewer y con `test/view.test.mjs` (CR3)
+- [x] Reemplazar el `prompt()` de rechazo por motivo visible en `src/viewer/public/app.js` y `src/viewer/public/styles.css`; verificar manualmente en el viewer y con `test/view.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-19T17:44:19Z`
-- [x] Ajustar topbar y board en `src/viewer/public/styles.css` para que siete estados no partan `Done` ni expongan un scrollbar nativo claro; verificar manualmente a 1920 px y con `pnpm test -- test/view.test.mjs` (CR1)
+- [x] Ajustar topbar y board en `src/viewer/public/styles.css` para que siete estados no partan `Done` ni expongan un scrollbar nativo claro; verificar manualmente a 1920 px y con `pnpm test -- test/view.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-19T17:53:30Z`
 
 ## Log

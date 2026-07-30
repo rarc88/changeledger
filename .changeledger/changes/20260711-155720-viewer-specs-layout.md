@@ -85,15 +85,24 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `specsListHtml` de `src/viewer/public/view-renderers.js`: extracto plano, orden por updated y escape del contenido; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3)
+- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `specsListHtml` de `src/viewer/public/view-renderers.js`: extracto plano, orden por updated y escape del contenido
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-11T16:35:35Z`
-- [x] Implementar extracto y orden en `specsListHtml` de `src/viewer/public/view-renderers.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR2, CR3)
+- [x] Implementar extracto y orden en `specsListHtml` de `src/viewer/public/view-renderers.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-11T16:35:35Z`
-- [x] Reemplazar el layout de `.specs-view`/`.spec-card` por grid responsive en `src/viewer/public/styles.css`; verify: manual browser check a 1280 px y 680 px (CR1)
+- [x] Reemplazar el layout de `.specs-view`/`.spec-card` por grid responsive en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check a 1280 px y 680 px
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:35:36Z`
-- [x] Verificar búsqueda y apertura de detalle en `renderSpecs` de `src/viewer/public/app.js`; verify: manual browser check (CR4)
+- [x] Verificar búsqueda y apertura de detalle en `renderSpecs` de `src/viewer/public/app.js`
+  - **Verify:** manual browser check
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T16:35:36Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T16:35:36Z`
 
 ## Log

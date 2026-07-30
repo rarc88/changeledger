@@ -74,15 +74,25 @@ las dos transiciones positivas permanezcan human-only.
 
 ## Plan
 
-- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/cli-bin.test.mjs` para `src/commands/agent.mjs`/`bin/changeledger.mjs`: `validation ... fail`, errores sin escritura y Log de actor; verify: `node --test test/agent.test.mjs test/cli-bin.test.mjs` (CR1, CR3)
+- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/cli-bin.test.mjs` para `src/commands/agent.mjs`/`bin/changeledger.mjs`: `validation ... fail`, errores sin escritura y Log de actor
+  - **Verify:** `node --test test/agent.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-07-10T14:19:34Z`
-- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/viewer-domain.test.mjs` para `src/commands/agent.mjs`: `reopen`, fronteras durables y Logs diferenciados; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs` (CR2, CR3)
+- [x] Escribir pruebas rojas en `test/agent.test.mjs` y `test/viewer-domain.test.mjs` para `src/commands/agent.mjs`: `reopen`, fronteras durables y Logs diferenciados
+  - **Verify:** `node --test test/agent.test.mjs test/viewer-domain.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-10T14:19:34Z`
-- [x] Exponer comandos en `bin/changeledger.mjs` y parametrizar actor en `src/commands/agent.mjs`/`src/viewer/domain.mjs` sin duplicar guards; verify: `node --test test/agent.test.mjs test/viewer-domain.test.mjs test/cli-bin.test.mjs` (CR1, CR2, CR3)
+- [x] Exponer comandos en `bin/changeledger.mjs` y parametrizar actor en `src/commands/agent.mjs`/`src/viewer/domain.mjs` sin duplicar guards
+  - **Verify:** `node --test test/agent.test.mjs test/viewer-domain.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-10T14:19:34Z`
-- [x] Actualizar `templates/contract/core.md`, `templates/contract/validation.md` y specs `.changeledger/specs/lifecycle.md`/`viewer.md`; verify: `node --test test/context.test.mjs && changeledger check 20260710-105205` (CR4)
+- [x] Actualizar `templates/contract/core.md`, `templates/contract/validation.md` y specs `.changeledger/specs/lifecycle.md`/`viewer.md`
+  - **Verify:** `node --test test/context.test.mjs && changeledger check 20260710-105205`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-10T14:19:34Z`
-- [x] Ejecutar revisión independiente y el gate completo; verify: `pnpm verify` (support)
+- [x] Ejecutar revisión independiente y el gate completo
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-10T14:29:48Z`
 
 ## Log

@@ -49,13 +49,17 @@ el patrón read-modify-write sobre el mismo archivo no está serializado.
   
 
 ## Plan
-- [x] Añadir coordinación por archivo en `src/writer.mjs` o una capa cercana a `src/atomic-write.mjs`, cubierta por `test/agent.test.mjs` o `test/atomic-write.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir coordinación por archivo en `src/writer.mjs` o una capa cercana a `src/atomic-write.mjs`, cubierta por `test/agent.test.mjs` o `test/atomic-write.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:32:57Z`
-- [x] Migrar las mutaciones de `src/commands/agent.mjs` y `src/commands/graduate.mjs`, cubiertas por `test/agent.test.mjs`, para usar la sección crítica compartida (CR1, CR2, CR4)
+- [x] Migrar las mutaciones de `src/commands/agent.mjs` y `src/commands/graduate.mjs`, cubiertas por `test/agent.test.mjs`, para usar la sección crítica compartida
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-17T10:32:57Z`
-- [x] Añadir en `test/agent.test.mjs` una carrera con múltiples `task done` sobre el mismo change y otra sobre changes distintos de `src/commands/agent.mjs` (CR1, CR2)
+- [x] Añadir en `test/agent.test.mjs` una carrera con múltiples `task done` sobre el mismo change y otra sobre changes distintos de `src/commands/agent.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-17T10:32:57Z`
-- [x] Ejecutar `pnpm test -- test/agent.test.mjs test/atomic-write.test.mjs` contra `src/commands/agent.mjs` y `src/atomic-write.mjs` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm test -- test/agent.test.mjs test/atomic-write.test.mjs` contra `src/commands/agent.mjs` y `src/atomic-write.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:32:57Z`
 
 ## Log

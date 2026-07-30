@@ -52,13 +52,17 @@ requiere arreglo manual.
 
 ## Plan
 
-- [x] Añadir un test de concurrencia en `test/change.test.mjs` o `test/cli.test.mjs` que reproduzca dos creaciones simultáneas con el mismo `now` (CR1)
+- [x] Añadir un test de concurrencia en `test/change.test.mjs` o `test/cli.test.mjs` que reproduzca dos creaciones simultáneas con el mismo `now`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T21:54:33Z`
-- [x] Cambiar `src/commands/new.mjs` para reservar el archivo de forma atómica, por ejemplo con modo de escritura exclusivo (`wx`) y retry al siguiente segundo (CR1, CR2, CR3)
+- [x] Cambiar `src/commands/new.mjs` para reservar el archivo de forma atómica, por ejemplo con modo de escritura exclusivo (`wx`) y retry al siguiente segundo
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T21:54:37Z`
-- [x] Asegurar que el retry actualiza juntos `created`, `id` y filename (CR3)
+- [x] Asegurar que el retry actualiza juntos `created`, `id` y filename
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-15T21:54:37Z`
-- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test -- test/change.test.mjs test/cli.test.mjs` y `pnpm check`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T21:59:43Z`
 
 ## Log

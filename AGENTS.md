@@ -3,22 +3,25 @@
 This is the ChangeLedger repo itself. It dogfoods its own format: changes live
 under `.changeledger/changes/`, persistent truth under `.changeledger/specs/`.
 
-<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->
+<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->
 > [!IMPORTANT]
-> Attempt to run **ChangeLedger** with `changeledger context` immediately after
-> reading this file — before planning, investigating, or acting. If it succeeds,
-> retain complete stdout through the `CHANGELEDGER CONTEXT END` line and follow that
-> complete context: no pipes, filters, summaries, previews or voluntary output limits.
-> If the tool exposes an output budget, reserve enough for the whole response. A
-> missing END means the output was truncated: stop and re-run with a larger capture.
+> **ChangeLedger governs this repo.** Before planning, investigating, answering
+> or editing anything, run exactly this — it is mandatory, not optional:
 >
-> If the command is unavailable, continue normally without ChangeLedger. If it
-> starts but fails, report the error to the human and wait for them to decide how
-> to continue; do not treat a failing command as absent.
+> `changeledger context 2>&1 | head -400`
 >
-> After a compaction, verify a retained capture with `changeledger context
-> [mode] --have <rev>` (the BEGIN line's `rev:`). If the context or its revision was lost,
-> load it completely again; a mismatch still returns the complete output.
+> - The capture is valid **only if its last line contains
+>   `CHANGELEDGER CONTEXT END`**. Nothing before that line is actionable.
+> - The core context is bounded and fits within these 400 lines. The `BEGIN`
+>   line reports the exact `lines:` count of the full output, counting the
+>   `BEGIN` and `END` lines themselves; if `END` is missing, re-run with
+>   `head -<lines>` and read that capture instead.
+> - Command not installed (`command not found`) → ChangeLedger is absent:
+>   continue the task normally and never emulate it.
+> - Command present but failing (any other error or non-zero exit) → stop,
+>   report the captured error to the human, and wait for their decision.
+> - Run this again as the first action of the first response after any context
+>   compaction.
 <!-- CHANGELEDGER BOOTSTRAP END -->
 
 The canonical ChangeLedger contract is split into task-focused fragments under
@@ -43,3 +46,20 @@ bootstrap above, not a linked or copied contract.
   so staged formatting stays compatible with partial commits.
 - Edit the convention in `templates/contract/`; keep each rule in one fragment
   so task contexts compose without duplicated truth.
+- Tests over `templates/contract/` prose are bounded to four kinds: budgets,
+  structural composition (which pack composes which fragment, owned headings,
+  table rows, sentinels), sweeps that keep a retired phrase retired, and a small
+  curated set of concept guards written with wording-tolerant patterns. A new pin
+  on a literal sentence of a fragment is rejected in review: it charges every
+  later rewrite of that sentence a retarget, a mutant and review scrutiny, which
+  is what made editing normative prose expensive. Guard the obligation, never its
+  phrasing.
+- Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and
+  a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by
+  what a particular model consumes, and lines bound what the bootstrap `head`
+  must carry. A ceiling is never a goal: never remove normative prose to fit
+  one, and headroom under a ceiling is never permission to spend it — every
+  entry into a context is deliberate and optimized. A rule may leave a fragment
+  only when its new home is named and a grep of the obligation itself — not of
+  similar words — finds it there. If correct content does not fit, stop and ask
+  the human.

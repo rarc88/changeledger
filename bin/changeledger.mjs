@@ -101,7 +101,7 @@ program
   .argument('<type>', 'a type key configured in .changeledger/config.yml (types:)')
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
-  .option('--owner <name>', 'set the initial owner (defaults to unassigned)')
+  .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
   .addHelpText(
     'after',
     [
@@ -173,6 +173,7 @@ program
   .option('--dry-run', 'print the proposed diff without writing')
   .option('--graduation-links', 'migrate spec graduation provenance from Logs and legacy markers')
   .option('--structured-sections', 'migrate task metadata and typed Log events')
+  .option('--plan-tags', 'migrate Plan task criteria, support and verify into structured children')
   .action((id, options) => {
     try {
       const args = [
@@ -180,6 +181,7 @@ program
         ...(options.dryRun ? ['--dry-run'] : []),
         ...(options.graduationLinks ? ['--graduation-links'] : []),
         ...(options.structuredSections ? ['--structured-sections'] : []),
+        ...(options.planTags ? ['--plan-tags'] : []),
       ];
       process.exit(fix(args));
     } catch (e) {
@@ -198,6 +200,11 @@ program
     collect,
     [],
   )
+  .option(
+    '--no-change <reason>',
+    'declare an operational commit outside any change (mutually exclusive with --id): ' +
+      'composes a marker-less subject and a ChangeLedger: none — <reason> body',
+  )
   .addHelpText(
     'after',
     [
@@ -206,15 +213,33 @@ program
       'zero or multiple in-progress changes require --id explicitly. Repeat --id',
       'for a multi-id commit: the clean subject gets a ChangeLedger: [#A] [#B] body.',
       '',
+      '--no-change <reason> declares a purely operational, reversible edit that no',
+      'change covers: the subject carries no marker and the body becomes exactly',
+      '"ChangeLedger: none — <reason>". It never falls back to the in-progress',
+      'change, and cannot be combined with --id.',
+      '',
       'Examples:',
       '  changeledger commit -m "feat(cli): add helper"',
       '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001',
       '  changeledger commit -m "feat(cli): add helper" --id 20260711-000001 --id 20260711-000002',
+      '  changeledger commit -m "docs(workflow): record the sieve" --no-change "no change covers it"',
     ].join('\n'),
   )
   .action(
     action((options) => {
-      const subject = commit({ message: options.message, ids: options.id });
+      // Commander's `--no-` prefix is normally reserved for negating a boolean
+      // flag (e.g. `--no-color`) and stores the value under the name with
+      // "no-" stripped — here that means `options.change`, not
+      // `options.noChange`, even though this option takes a required
+      // argument rather than being a boolean. Absent, it defaults to the
+      // negate placeholder `true`; only a string means the flag was given.
+      const noChange = typeof options.change === 'string' ? options.change : undefined;
+      const subject = commit(
+        { message: options.message, ids: options.id, noChange },
+        process.cwd(),
+        undefined,
+        console.log,
+      );
       console.log(`Committed: ${subject}`);
     }),
   );
@@ -225,10 +250,6 @@ program
   .argument(
     '[mode-or-change-id]',
     'spec|implement|review|release, or a change id (pack inferred from its status)',
-  )
-  .option(
-    '--have <rev>',
-    'skip the full reload when this matches the current rev (short `unchanged` confirmation instead)',
   )
   .addHelpText(
     'after',
@@ -250,10 +271,6 @@ program
       'are inferred the same way from the change id; they are not modes you pass',
       'explicitly.',
       '',
-      'Each BEGIN line carries `rev:<hash>`. After a compaction, pass the rev your',
-      'retained capture carried as `--have <rev>`: a match prints a short confirmation',
-      'instead of reloading the full body; a mismatch prints the complete output.',
-      '',
       'Examples:',
       '  changeledger context',
       '  changeledger context spec',
@@ -261,15 +278,14 @@ program
       '  changeledger context review',
       '  changeledger context release',
       '  changeledger context 20260630-225212',
-      '  changeledger context --have 0123456789ab',
     ].join('\n'),
   )
-  .action(action((input, options) => context(input, { have: options.have })));
+  .action(action((input) => context(input)));
 
 program
   .command('agent-prompt')
   .description('print a portable delegation prompt skeleton for a role')
-  .argument('<role>', 'investigation | implementation | review | audit')
+  .argument('<role>', 'investigation | implementation | review | post-review')
   .addHelpText(
     'after',
     [
@@ -277,14 +293,15 @@ program
       'Prints a fill-in-the-blanks delegation prompt for the given role. Works',
       'outside a ChangeLedger repo — the skeletons ship inside the package.',
       '',
-      '`audit` is a read-only inspection of a change already in `in-validation`,',
-      'after review already passed; it never issues a verdict or moves the change.',
+      '`post-review` is a read-only inspection of a change already in',
+      '`in-validation`, after review already passed; it never issues a verdict or',
+      'moves the change.',
       '',
       'Examples:',
       '  changeledger agent-prompt investigation',
       '  changeledger agent-prompt implementation',
       '  changeledger agent-prompt review',
-      '  changeledger agent-prompt audit',
+      '  changeledger agent-prompt post-review',
     ].join('\n'),
   )
   .action(action((role) => agentPrompt(role)));
@@ -292,10 +309,10 @@ program
 program
   .command('agent-context')
   .description('print a self-contained minimal context for a delegated role')
-  .argument('<role>', 'investigation | implementation | review | audit')
+  .argument('<role>', 'investigation | implementation | review | post-review')
   .argument(
     '[change-id]',
-    'optional for investigation; required for implementation, review and audit',
+    'optional for investigation; required for implementation, review and post-review',
   )
   .addHelpText(
     'after',
@@ -305,15 +322,16 @@ program
       'identifies you as that role. This replaces the normal core bootstrap for',
       'the delegated leaf; normal agents still run `changeledger context` first.',
       '',
-      '`audit` requires a change in `in-validation`; it is read-only inspection',
-      'after review already passed, and never issues a verdict or moves the change.',
+      '`post-review` requires a change in `in-validation`; it is read-only',
+      'inspection after review already passed, and never issues a verdict or',
+      'moves the change.',
       '',
       'Examples:',
       '  changeledger agent-context investigation',
       '  changeledger agent-context investigation <id>',
       '  changeledger agent-context implementation <id>',
       '  changeledger agent-context review <id>',
-      '  changeledger agent-context audit <id>',
+      '  changeledger agent-context post-review <id>',
     ].join('\n'),
   )
   .action(action((role, changeId) => agentContext(role, changeId)));

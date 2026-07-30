@@ -264,47 +264,89 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Restaurar en `templates/**` (`templates/contract/core.md`) la frontera archivos/CLI y la disciplina transversal de delegación; verify: `node --test test/context.test.mjs` (`test/**`) (CR3, CR8, CR9)
+- [x] Restaurar en `templates/**` (`templates/contract/core.md`) la frontera archivos/CLI y la disciplina transversal de delegación
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR3, CR8, CR9
   - **Resolved:** `2026-06-29T23:57:14Z`
-- [x] Restaurar en `templates/**` (`templates/contract/spec.md`) fuente única entre stages, semántica de bug/audit/Proposal y criterio Mermaid; verify: `node --test test/context.test.mjs` (`test/**`) (CR1, CR2, CR9)
+- [x] Restaurar en `templates/**` (`templates/contract/spec.md`) fuente única entre stages, semántica de bug/audit/Proposal y criterio Mermaid
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR1, CR2, CR9
   - **Resolved:** `2026-06-29T23:57:14Z`
-- [x] Completar en `templates/**` (`templates/contract/implement.md`) el manejo del worktree ajeno y cierre de correcciones rechazadas; verify: `node --test test/context.test.mjs` (`test/**`) (CR4, CR5, CR9)
+- [x] Completar en `templates/**` (`templates/contract/implement.md`) el manejo del worktree ajeno y cierre de correcciones rechazadas
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR4, CR5, CR9
   - **Resolved:** `2026-06-29T23:57:14Z`
-- [x] Completar en `templates/**` (`templates/contract/review.md`, `blocked.md` y `validation.md`) el límite de herramientas y la recarga tras volver a `in-progress`; verify: `node --test test/context.test.mjs` (`test/**`) (CR6, CR7, CR9)
+- [x] Completar en `templates/**` (`templates/contract/review.md`, `blocked.md` y `validation.md`) el límite de herramientas y la recarga tras volver a `in-progress`
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR6, CR7, CR9
   - **Resolved:** `2026-06-29T23:57:14Z`
-- [x] Blindar los outputs de `templates/**` con la matriz de invariantes y casos por modo/lifecycle en `test/**` (`test/context.test.mjs`), conservando determinismo y presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10)
+- [x] Blindar los outputs de `templates/**` con la matriz de invariantes y casos por modo/lifecycle en `test/**` (`test/context.test.mjs`), conservando determinismo y presupuesto
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10
   - **Resolved:** `2026-06-29T23:57:14Z`
-- [x] Ejecutar el gate completo del repositorio; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo del repositorio
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-06-29T23:57:50Z`
-- [x] Clasificar el baseline y convertir la auditoría exhaustiva en expectativas de `test/context.test.mjs` sobre `templates/**`; verify: `node --test test/context.test.mjs` (`test/**`) (CR10, CR11, CR20)
+- [x] Clasificar el baseline y convertir la auditoría exhaustiva en expectativas de `test/context.test.mjs` sobre `templates/**`
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR10, CR11, CR20
   - **Resolved:** `2026-06-30T10:16:36Z`
-- [x] Restaurar autoría, metadata, ids, lenguaje, helpers y gramática completa de tareas en `templates/**` (`spec.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR1, CR2, CR12, CR13)
+- [x] Restaurar autoría, metadata, ids, lenguaje, helpers y gramática completa de tareas en `templates/**` (`spec.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR1, CR2, CR12, CR13
   - **Resolved:** `2026-06-30T10:16:36Z`
-- [x] Restaurar intención TDD y formas concretas de evidencia en `templates/**` (`readiness.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR14)
+- [x] Restaurar intención TDD y formas concretas de evidencia en `templates/**` (`readiness.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR14
   - **Resolved:** `2026-06-30T10:16:36Z`
-- [x] Restaurar Git, commits intermedios y aislamiento completo en `templates/**` (`implement.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR4, CR5, CR15)
+- [x] Restaurar Git, commits intermedios y aislamiento completo en `templates/**` (`implement.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR4, CR5, CR15
   - **Resolved:** `2026-06-30T10:16:36Z`
-- [x] Crear `templates/**` (`delegation.md`) y componerlo desde `src/**` (`src/commands/context.mjs`) en spec, implement y review; verify: `node --test test/context.test.mjs` (`test/**`) (CR3, CR16, CR20)
+- [x] Crear `templates/**` (`delegation.md`) y componerlo desde `src/**` (`src/commands/context.mjs`) en spec, implement y review
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR3, CR16, CR20
   - **Resolved:** `2026-06-30T10:16:37Z`
-- [x] Restaurar detalle específico de review y cierre en `templates/**` (`review.md`, `close.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR6, CR17, CR18)
+- [x] Restaurar detalle específico de review y cierre en `templates/**` (`review.md`, `close.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR6, CR17, CR18
   - **Resolved:** `2026-06-30T10:16:37Z`
-- [x] Completar actores/discard en `templates/**` (`core.md`, overlays) sin exceder presupuesto; verify: `node --test test/context.test.mjs` (`test/**`) (CR7, CR9, CR19, CR20)
+- [x] Completar actores/discard en `templates/**` (`core.md`, overlays) sin exceder presupuesto
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR7, CR9, CR19, CR20
   - **Resolved:** `2026-06-30T10:16:37Z`
-- [x] Ejecutar el gate completo y comprobar que no reaparece el modelo de symlink; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo y comprobar que no reaparece el modelo de symlink
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-06-30T10:16:37Z`
-- [x] Compartir triage de handoff y completar los tres orígenes de bloqueo en `templates/**` (`handoff.md`, `blocked.md`) y `src/**` (`context.mjs`); verify: `node --test test/context.test.mjs` (`test/**`) (CR10, CR11, CR19, CR20)
+- [x] Compartir triage de handoff y completar los tres orígenes de bloqueo en `templates/**` (`handoff.md`, `blocked.md`) y `src/**` (`context.mjs`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR10, CR11, CR19, CR20
   - **Resolved:** `2026-06-30T10:24:39Z`
-- [x] Restaurar separación de concerns y crecimiento de alcance en autoría dentro de `templates/**` (`spec.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR10, CR11, CR12, CR20)
+- [x] Restaurar separación de concerns y crecimiento de alcance en autoría dentro de `templates/**` (`spec.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR10, CR11, CR12, CR20
   - **Resolved:** `2026-06-30T10:24:39Z`
-- [x] Precisar el handoff JSON de release y la semántica literal de graduación en `templates/**` (`release.md`, `close.md`); verify: `node --test test/context.test.mjs` (`test/**`) (CR10, CR11, CR18, CR20)
+- [x] Precisar el handoff JSON de release y la semántica literal de graduación en `templates/**` (`release.md`, `close.md`)
+  - **Verify:** `node --test test/context.test.mjs` (`test/**`)
+  - **Criteria:** CR10, CR11, CR18, CR20
   - **Resolved:** `2026-06-30T10:24:39Z`
-- [x] Blindar los outputs de `templates/**` ampliando la matriz operacional de `test/**` (`context.test.mjs`) y ejecutar el gate completo; verify: `pnpm verify` (CR10, CR11, CR20)
+- [x] Blindar los outputs de `templates/**` ampliando la matriz operacional de `test/**` (`context.test.mjs`) y ejecutar el gate completo
+  - **Verify:** `pnpm verify`
+  - **Criteria:** CR10, CR11, CR20
   - **Resolved:** `2026-06-30T10:24:39Z`
-- [x] Materializar en `test/**` (`context.test.mjs`) la matriz exhaustiva de subbloques y exclusividad de todos los packs de `templates/**`; verify: `node --test test/context.test.mjs` (CR10, CR11, CR20)
+- [x] Materializar en `test/**` (`context.test.mjs`) la matriz exhaustiva de subbloques y exclusividad de todos los packs de `templates/**`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR10, CR11, CR20
   - **Resolved:** `2026-06-30T10:31:22Z`
-- [x] Cerrar en `test/**` (`context.test.mjs`) toda eliminación silenciosa mediante snapshots normalizados y nombrados de cada fragmento de `templates/**`; verify: mutation test + `node --test test/context.test.mjs` (CR10, CR11, CR20)
+- [x] Cerrar en `test/**` (`context.test.mjs`) toda eliminación silenciosa mediante snapshots normalizados y nombrados de cada fragmento de `templates/**`
+  - **Verify:** mutation test + `node --test test/context.test.mjs`
+  - **Criteria:** CR10, CR11, CR20
   - **Resolved:** `2026-06-30T10:35:39Z`
-- [x] Componer el triage compartido de `templates/**` (`handoff.md`) también en review desde `src/**` (`context.mjs`) y fijar su ownership en `test/**`; verify: `node --test test/context.test.mjs` (CR10, CR11, CR17, CR20)
+- [x] Componer el triage compartido de `templates/**` (`handoff.md`) también en review desde `src/**` (`context.mjs`) y fijar su ownership en `test/**`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR10, CR11, CR17, CR20
   - **Resolved:** `2026-06-30T10:44:06Z`
 
 ## Log

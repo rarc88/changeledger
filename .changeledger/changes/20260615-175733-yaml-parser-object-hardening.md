@@ -60,13 +60,17 @@ de datos explícitas y deterministas.
 
 ## Plan
 
-- [x] Añadir tests de regresión en `test/yaml.test.mjs` para prototype pollution, claves reservadas y duplicados por nivel (CR1, CR2, CR3)
+- [x] Añadir tests de regresión en `test/yaml.test.mjs` para prototype pollution, claves reservadas y duplicados por nivel
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:37:44Z`
-- [x] Construir mapas del parser con una representación sin prototipo o rechazar explícitamente claves peligrosas (CR1)
+- [x] Construir mapas del parser con una representación sin prototipo o rechazar explícitamente claves peligrosas
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T18:37:44Z`
-- [x] Detectar claves duplicadas durante `build` y emitir errores accionables sin romper mapas anidados válidos (CR2, CR3)
+- [x] Detectar claves duplicadas durante `build` y emitir errores accionables sin romper mapas anidados válidos
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-06-15T18:37:44Z`
-- [x] Ejecutar `pnpm verify` y smoke de carga de config/change/spec existentes (CR4)
+- [x] Ejecutar `pnpm verify` y smoke de carga de config/change/spec existentes
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-15T18:37:44Z`
 
 ## Log

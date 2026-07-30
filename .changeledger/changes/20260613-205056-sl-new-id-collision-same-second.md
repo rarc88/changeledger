@@ -41,9 +41,11 @@ Detectado por dogfooding: tres `sl new` seguidos produjeron el mismo id
 
 ## Plan
 
-- [x] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre (CR1)
+- [x] `sl new`: tras derivar el id, si ya existe en `changes_dir`, incrementar 1s hasta uno libre
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T20:57:00Z`
-- [x] Derivar `created` del id final ajustado (CR2)
+- [x] Derivar `created` del id final ajustado
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-13T20:57:00Z`
 - [x] Test: dos `sl new` con el mismo `now` producen ids consecutivos distintos
   - **Resolved:** `2026-06-13T20:58:00Z`

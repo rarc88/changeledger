@@ -130,17 +130,22 @@ Descartado:
 
 ## Plan
 
-- [x] `init`: exigir root AGENTS.md, abortar si falta; symlink `.sl/AGENTS.md` → `agentsTemplate`; append idempotente de la referencia; asegurar `.sl/AGENTS.md` en `.gitignore` (CR1, CR2, CR3, CR4)
+- [x] `init`: exigir root AGENTS.md, abortar si falta; symlink `.sl/AGENTS.md` → `agentsTemplate`; append idempotente de la referencia; asegurar `.sl/AGENTS.md` en `.gitignore`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-14T15:32:59Z`
-- [x] `register`: recrear symlink `.sl/AGENTS.md` resolviendo la ruta instalada (CR5)
+- [x] `register`: recrear symlink `.sl/AGENTS.md` resolviendo la ruta instalada
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-14T15:33:00Z`
-- [x] `check` repo-level (IO): validar existencia de root AGENTS.md, presencia de la referencia y symlink resuelto, con mensajes accionables (CR6)
+- [x] `check` repo-level (IO): validar existencia de root AGENTS.md, presencia de la referencia y symlink resuelto, con mensajes accionables
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-14T15:33:00Z`
-- [x] Quitar el `copyFileSync(agentsTemplate, root)` actual de `init` (CR1)
+- [x] Quitar el `copyFileSync(agentsTemplate, root)` actual de `init`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T15:33:00Z`
 - [x] Actualizar AGENTS.md y README: el contrato se enlaza vía `.sl/AGENTS.md`, no se copia; documentar el modelo de discovery
   - **Resolved:** `2026-06-14T15:33:00Z`
-- [x] Tests: init enlaza/aborta/idempotente/gitignore, register regenera, check valida los 3 fallos y el caso OK (CR1–CR6)
+- [x] Tests: init enlaza/aborta/idempotente/gitignore, register regenera, check valida los 3 fallos y el caso OK
+  - **Criteria:** CR1, CR6
   - **Resolved:** `2026-06-14T15:33:00Z`
 - [x] Separar contrato canónico a `templates/AGENTS.md`; `paths.agentsTemplate` apunta ahí; root AGENTS.md pasa a contrato propio (sin recursión); quitar `AGENTS.md` de `package.json` files (CR1) — `templates/AGENTS.md`, `src/paths.mjs`, `AGENTS.md`, `package.json`
   - **Resolved:** `2026-06-14T15:45:00Z`

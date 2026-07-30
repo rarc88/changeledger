@@ -50,9 +50,13 @@ directamente.
 
 ## Plan
 
-- [x] Add an `{ openBrowser }` option (default `true`) to `view()` in `src/commands/view.mjs`, only calling `openBrowser(url)` when truthy, and pass `{ openBrowser: false }` from the real-server assertion in `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3)
+- [x] Add an `{ openBrowser }` option (default `true`) to `view()` in `src/commands/view.mjs`, only calling `openBrowser(url)` when truthy, and pass `{ openBrowser: false }` from the real-server assertion in `test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-03T23:30:31Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T23:30:31Z`
 
 ## Log

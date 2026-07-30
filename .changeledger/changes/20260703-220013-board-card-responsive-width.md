@@ -58,13 +58,20 @@ card. El breakpoint móvil ya apila columnas a ancho completo y debe conservarse
 
 ## Plan
 
-- [x] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Add failing assertions in `test/viewer-metadata.test.mjs`, then update board sizing and card wrapping in `src/viewer/public/styles.css`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-03T22:46:11Z`
-- [x] Record the board layout guarantees in `.changeledger/specs/viewer.md`; verify: `node bin/changeledger.mjs check 20260703-220013` (CR1, CR2, CR3, CR4)
+- [x] Record the board layout guarantees in `.changeledger/specs/viewer.md`
+  - **Verify:** `node bin/changeledger.mjs check 20260703-220013`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-03T22:46:11Z`
-- [x] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path (support)
+- [x] Validate the viewer manually at 2048 px, 1280 px and 680 px with an 80-character path
+  - **Support:**
   - **Resolved:** `2026-07-03T22:46:12Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T22:46:12Z`
 
 ## Log

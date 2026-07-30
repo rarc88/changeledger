@@ -1,3 +1,4 @@
+import { buildLedgerDocumentTree } from './ledger-browser.js';
 import { cssIdent } from './security.js';
 import { html, markdownHtml, nothing } from './templates.js';
 
@@ -26,6 +27,37 @@ export function sortIndicator(direction) {
   return html`<svg class="sort-indicator" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
     <path d=${path}></path>
   </svg>`;
+}
+
+export function sortGlyph(descending) {
+  const head = descending ? 'M2.5 6 5 9l2.5-3' : 'M2.5 4 5 1l2.5 3';
+  return html`<svg
+    class="sort-glyph"
+    viewBox="0 0 10 10"
+    width="10"
+    height="10"
+    aria-hidden="true"
+  >
+    <path d="M5 1v8"></path>
+    <path d=${head}></path>
+  </svg>`;
+}
+
+export function boardColumnHeader(status, count, descending) {
+  const current = descending ? 'newest to oldest' : 'oldest to newest';
+  const next = descending ? 'oldest to newest' : 'newest to oldest';
+  const label = `${status}: sorted by code ${current}. Sort ${next}`;
+  return html`<div class="column-head">
+    <button
+      type="button"
+      class=${`column-sort-btn ${descending ? 'active' : ''}`.trim()}
+      data-sort-status=${status}
+      title=${`Sort ${next}`}
+      aria-label=${label}
+      aria-pressed=${String(descending)}
+    ><span>${status}</span>${sortGlyph(descending)}</button>
+    <span class="count">${count}</span>
+  </div>`;
 }
 
 export function closeButton(label = 'Close detail', extraClass = '') {
@@ -86,6 +118,25 @@ export function detailToolbar(mode = 'side', size = 'wide', stages = []) {
     ${navigation}
     ${closeButton('Close detail', 'detail-toolbar-close')}
   </div>`;
+}
+
+export function approvalPanel(change) {
+  if (change?.status !== 'draft') return nothing;
+  return html`<section class="validation-actions approval-actions" aria-labelledby="approval-title">
+    <div class="validation-copy">
+      <span class="validation-kicker">Human checkpoint</span>
+      <h2 id="approval-title">Ready for approval</h2>
+      <p>Review the proposal, then approve it to make this change ready for implementation.</p>
+    </div>
+    <div class="approval-controls">
+      <button
+        type="button"
+        class="button button-primary detail-approve"
+        data-approve
+        aria-label=${`Approve change ${change.id}`}
+      >Approve</button>
+    </div>
+  </section>`;
 }
 
 export function validationPanel() {
@@ -158,6 +209,67 @@ export function specBody(body, graduatedFrom = [], changes = []) {
   return html`<div class="stage-content spec-content">
     ${referenceDetails('Graduation history', entries, changes, '↳')}
     ${markdownHtml(body)}
+  </div>`;
+}
+
+function ledgerTreeNodes(nodes, selectedPath) {
+  return nodes.map(
+    (node) => html`<li>
+      ${
+        node.file
+          ? html`<button
+            type="button"
+            class=${`ledger-file${selectedPath === node.path ? ' active' : ''}`}
+            data-ledger-document=${node.path}
+            aria-current=${selectedPath === node.path ? 'page' : nothing}
+          >${node.name}</button>`
+          : html`<span class="ledger-folder">${node.name}</span>
+            <ul>${ledgerTreeNodes(node.children, selectedPath)}</ul>`
+      }
+    </li>`,
+  );
+}
+
+export function ledgerDocumentBrowserHtml(browserState) {
+  const documents = browserState?.documents ?? [];
+  const treeStatus = browserState?.treeStatus ?? 'idle';
+  const documentStatus = browserState?.documentStatus ?? 'idle';
+  const selectedPath = browserState?.selectedPath ?? null;
+  const document = browserState?.document ?? null;
+  const tree =
+    treeStatus === 'loading'
+      ? html`<p class="empty" role="status">Loading documents</p>`
+      : treeStatus === 'error'
+        ? html`<p class="ledger-error" role="alert">${browserState.treeError}</p>`
+        : treeStatus === 'ready' && !documents.length
+          ? html`<p class="empty">No documents available</p>`
+          : html`<ul class="ledger-tree-list">${ledgerTreeNodes(
+              buildLedgerDocumentTree(documents),
+              selectedPath,
+            )}</ul>`;
+
+  let article = html`<p class="empty ledger-select-document">Select a document</p>`;
+  if (documentStatus === 'loading') {
+    article = html`<p class="empty" role="status">Loading document</p>`;
+  } else if (documentStatus === 'error') {
+    article = html`<p class="ledger-error" role="alert">${browserState.documentError}</p>`;
+  } else if (documentStatus === 'ready' && document) {
+    article = html`<article class="ledger-article">
+      <button type="button" class="ledger-back" data-ledger-back>Back to documents</button>
+      <h1>${document.path}</h1>
+      ${
+        document.format === 'markdown'
+          ? html`<div class="stage-content ledger-markdown">${markdownHtml(document.content)}</div>`
+          : html`<pre class="ledger-source"><code>${document.content}</code></pre>`
+      }
+    </article>`;
+  }
+
+  return html`<div class="ledger-document-browser">
+    <nav class="ledger-tree-panel" data-ledger-tree tabindex="-1" aria-label="Documents">
+      ${tree}
+    </nav>
+    <section class="ledger-article-panel" aria-live="polite">${article}</section>
   </div>`;
 }
 

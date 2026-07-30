@@ -23,7 +23,8 @@ By default, `DOMPurify.sanitize()` strips scripts but retains CSS. If an attacke
 - **Then** the style node must not appear in the rendering.
 
 ## Plan
-- [x] Pass `{ FORBID_TAGS: ['style'] }` to `DOMPurify.sanitize` in `src/viewer/public/security.js` and add testing payload stripping to `test/viewer-sanitize.test.mjs`. (CR1)
+- [x] Pass `{ FORBID_TAGS: ['style'] }` to `DOMPurify.sanitize` in `src/viewer/public/security.js` and add testing payload stripping to `test/viewer-sanitize.test.mjs`.
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-16T20:48:29Z`
 
 ## Log

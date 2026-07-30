@@ -161,21 +161,34 @@ superficie que precisamente se quiere reducir.
 
 ## Plan
 
-- [x] Escribir primero tests semánticos del bootstrap opcional y actualizar `src/contract.mjs`; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR7, CR8)
+- [x] Escribir primero tests semánticos del bootstrap opcional y actualizar `src/contract.mjs`
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR7, CR8
   - **Resolved:** `2026-07-20T21:46:34Z`
-- [x] Escribir primero la cobertura de la notificación de divergencias y ajustar `templates/contract/core.md` y `templates/contract/implement.md` sin duplicar lifecycle; verify: `node --test test/context.test.mjs` (CR6, CR7)
+- [x] Escribir primero la cobertura de la notificación de divergencias y ajustar `templates/contract/core.md` y `templates/contract/implement.md` sin duplicar lifecycle
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6, CR7
   - **Resolved:** `2026-07-20T21:47:18Z`
-- [x] Actualizar `README.md` con el modelo de adopción opcional y la distinción entre ausencia, error, truncación y divergencia (support)
+- [x] Actualizar `README.md` con el modelo de adopción opcional y la distinción entre ausencia, error, truncación y divergencia
+  - **Support:**
   - **Resolved:** `2026-07-20T21:47:42Z`
-- [x] Re-registrar el bootstrap del propio repositorio después de cubrir su migración en la primera tarea (support)
+- [x] Re-registrar el bootstrap del propio repositorio después de cubrir su migración en la primera tarea
+  - **Support:**
   - **Resolved:** `2026-07-20T21:47:53Z`
-- [x] Ejecutar `pnpm verify` tras completar la implementación (support)
+- [x] Ejecutar `pnpm verify` tras completar la implementación
+  - **Support:**
   - **Resolved:** `2026-07-20T21:49:06Z`
-- [x] Corregir primero `test/contract.test.mjs` y `test/agent-prompt.test.mjs`, y después `src/contract.mjs` y `templates/contract/agent-prompts/`, para exigir un bootstrap sin delegación ni divergencias, con anti-truncado adyacente al comando, y prompts que reemplacen explícitamente la carga predeterminada; verify: `node --test test/contract.test.mjs test/agent-prompt.test.mjs` (CR3, CR5, CR6, CR7)
+- [x] Corregir primero `test/contract.test.mjs` y `test/agent-prompt.test.mjs`, y después `src/contract.mjs` y `templates/contract/agent-prompts/`, para exigir un bootstrap sin delegación ni divergencias, con anti-truncado adyacente al comando, y prompts que reemplacen explícitamente la carga predeterminada
+  - **Verify:** `node --test test/contract.test.mjs test/agent-prompt.test.mjs`
+  - **Criteria:** CR3, CR5, CR6, CR7
   - **Resolved:** `2026-07-20T22:16:08Z`
-- [x] Mantener el bloque canónico en `src/contract.mjs`, re-registrar `AGENTS.md` y comprobar la migración determinista; verify: `node --test test/register.test.mjs` (CR8)
+- [x] Mantener el bloque canónico en `src/contract.mjs`, re-registrar `AGENTS.md` y comprobar la migración determinista
+  - **Verify:** `node --test test/register.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-20T22:16:08Z`
-- [x] Ejecutar los gates completos de la corrección; verify: Biome sobre archivos afectados, `pnpm test` y `pnpm check` (support)
+- [x] Ejecutar los gates completos de la corrección
+  - **Verify:** Biome sobre archivos afectados, `pnpm test` y `pnpm check`
+  - **Support:**
   - **Resolved:** `2026-07-20T22:16:41Z`
 
 ## Log

@@ -72,13 +72,21 @@ antes de medir los contextos efectivos y sus márgenes.
 
 ## Plan
 
-- [x] Añadir `templates/contract/budgets.yml`, actualizar `contract-discovery.md` y cubrir su carga/forma en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1)
+- [x] Añadir `templates/contract/budgets.yml`, actualizar `contract-discovery.md` y cubrir su carga/forma en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-10T17:34:21Z`
-- [x] Actualizar `templates/contract/budgets.yml` y `test/context.test.mjs` para aplicar target (diagnóstico) y hard cap (fallo) a los cinco contextos base; verify: `node --test test/context.test.mjs` (CR2, CR4)
+- [x] Actualizar `templates/contract/budgets.yml` y `test/context.test.mjs` para aplicar target (diagnóstico) y hard cap (fallo) a los cinco contextos base
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2, CR4
   - **Resolved:** `2026-07-10T17:34:21Z`
-- [x] Actualizar `templates/contract/budgets.yml`, `test/context.test.mjs` y `test/agent-context.test.mjs` para medir overlays y capsules sin change seleccionado; verify: `node --test test/context.test.mjs test/agent-context.test.mjs` (CR3, CR4)
+- [x] Actualizar `templates/contract/budgets.yml`, `test/context.test.mjs` y `test/agent-context.test.mjs` para medir overlays y capsules sin change seleccionado
+  - **Verify:** `node --test test/context.test.mjs test/agent-context.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-10T17:34:31Z`
-- [x] Revisar `templates/contract/core.md` y ejecutar el gate completo para confirmar que detalle específico no entró al core; verify: `pnpm verify` (support)
+- [x] Revisar `templates/contract/core.md` y ejecutar el gate completo para confirmar que detalle específico no entró al core
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-10T17:34:31Z`
 
 ## Log

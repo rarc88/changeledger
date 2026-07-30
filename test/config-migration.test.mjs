@@ -36,12 +36,16 @@ test('225637 CR1: schema 2 gains a documented blank integration branch at schema
   const result = buildMigration(SCHEMA_2_CONFIG);
   assert.ok(result);
   assert.equal(result.fromVersion, 2);
-  assert.match(result.yaml, /^schema_version: 3$/m);
+  assert.match(result.yaml, /^schema_version: 4$/m);
   assert.match(
     result.yaml,
     /project_name: myrepo\n\n# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\s*$/m,
   );
-  assert.deepEqual(result.changes, ['updated schema_version: 2 → 3', 'added git section']);
+  assert.deepEqual(result.changes, [
+    'updated schema_version: 2 → 4',
+    'added git section',
+    'added readiness section',
+  ]);
 });
 
 test('225637 CR2: schema 2 preserves an existing git section and custom comments', () => {
@@ -54,6 +58,112 @@ test('225637 CR2: schema 2 preserves an existing git section and custom comments
   );
   assert.equal(result.changes.includes('added git section'), false);
   assert.equal(buildMigration(result.yaml), null);
+});
+
+// 20260730-183807 CR1 — pins one historical, incidental shape: the `git`
+// section templates/config.yml actually ships holds exactly one key
+// (`integration_branch`), so a blank value there is always the *last* item of
+// its own map, and `relocateNullValueComments` climbs cleanly to the true
+// top-level next key. This is NOT a general guarantee about "any unrelated
+// comment anywhere" — a null scalar that is not the last item of its
+// enclosing map (or nested under one that is not) can still relocate a
+// following comment to an intermediate (nested) indent instead of the source
+// column. That wider case is a known, unresolved gap in
+// `relocateNullValueComments`; fixing it is out of scope here.
+const SCHEMA_3_WITH_FOREIGN_COMMENT = `\
+schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+
+# Valid lifecycle statuses (order = progress)
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('183807 CR1: an empty integration_branch does not re-indent an unrelated comment', () => {
+  const result = buildMigration(SCHEMA_3_WITH_FOREIGN_COMMENT);
+  assert.ok(result);
+  const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
+  assert.equal(line, '# Valid lifecycle statuses (order = progress)');
+});
+
+test('183807 CR1: a non-empty integration_branch keeps the same comment untouched', () => {
+  const withBranch = SCHEMA_3_WITH_FOREIGN_COMMENT.replace(
+    'integration_branch:\n',
+    'integration_branch: main\n',
+  );
+  const result = buildMigration(withBranch);
+  assert.ok(result);
+  const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
+  assert.equal(line, '# Valid lifecycle statuses (order = progress)');
+});
+
+// 20260730-183807 CR3 — the migration must retire the old template's
+// commented-out `# readiness:` block (pre-da84722c) when it still matches the
+// template's own text verbatim, and leave it alone when the user edited it.
+const SCHEMA_3_WITH_STALE_READINESS_COMMENT = `\
+schema_version: 3
+language: en
+tdd: true
+release:
+  impacts:
+    feature: minor
+    bug: patch
+    audit: none
+    refactor: none
+    chore: none
+    quick: patch
+
+# Optional Definition of Ready path/command hints. When present, tasks that
+# reference CRs should name at least one target and one verification matching
+# these patterns. Patterns can be path globs or literal command snippets.
+# readiness:
+#   target_patterns: ["src/**"]
+#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]
+
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('183807 CR3: migration removes a verbatim stale commented readiness block from the old template', () => {
+  const result = buildMigration(SCHEMA_3_WITH_STALE_READINESS_COMMENT);
+  assert.ok(result);
+  assert.doesNotMatch(result.yaml, /# readiness:/);
+  assert.doesNotMatch(result.yaml, /# Optional Definition of Ready/);
+  // The live block published by addReadinessSection is the only one left.
+  assert.match(result.yaml, /^readiness:$/m);
+  assert.ok(result.changes.includes('removed stale commented-out readiness block'));
+});
+
+test('183807 CR3: a user-edited commented readiness block is preserved intact', () => {
+  const edited = SCHEMA_3_WITH_STALE_READINESS_COMMENT.replace(
+    '#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]',
+    '#   verification_patterns: ["test/**", "pnpm run test"]',
+  );
+  const result = buildMigration(edited);
+  assert.ok(result);
+  assert.match(result.yaml, /# {3}verification_patterns: \["test\/\*\*", "pnpm run test"\]/);
+  assert.ok(!result.changes.includes('removed stale commented-out readiness block'));
 });
 
 function tmp() {
@@ -102,9 +212,9 @@ test('113219 CR1: init creates config with the current schema_version', () => {
   const root = tmp();
   init(root);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  assert.match(configText, /^schema_version: 3$/m);
+  assert.match(configText, /^schema_version: 4$/m);
   const config = loadConfig(path.join(root, '.changeledger'));
-  assert.equal(config.schema_version, 3);
+  assert.equal(config.schema_version, 4);
   assert.match(
     configText,
     /specs_dir: \.changeledger\/specs\n\n# Git integration: change branches start from and merge into this branch\ngit:\n {2}integration_branch:\s*$/m,
@@ -169,8 +279,8 @@ test('113219 CR3: buildMigration returns candidate YAML without writing', () => 
 
   assert.ok(result, 'should produce a migration result for schema 0');
   assert.ok(
-    result.yaml.includes('schema_version: 3'),
-    'candidate YAML must include schema_version: 3',
+    result.yaml.includes('schema_version: 4'),
+    'candidate YAML must include schema_version: 4',
   );
   assert.equal(
     fs.readFileSync(configFile, 'utf8'),
@@ -187,7 +297,7 @@ test('113219 CR4: migration adds required fields and removes id_digits', () => {
   assert.ok(result);
   const { yaml: migrated } = result;
 
-  assert.match(migrated, /^schema_version: 3/m);
+  assert.match(migrated, /^schema_version: 4/m);
   assert.match(migrated, /tdd: true/);
   assert.match(migrated, /in-review/);
   assert.match(migrated, /in-validation/);
@@ -328,7 +438,7 @@ project_name: myrepo
     1,
     'no duplicate schema_version',
   );
-  assert.match(migrated, /^schema_version: 3/m);
+  assert.match(migrated, /^schema_version: 4/m);
   // Idempotent
   assert.equal(buildMigration(migrated), null);
 });
@@ -339,10 +449,10 @@ test('113219 CR8: invalid YAML throws with explanation', () => {
 });
 
 test('113219 CR8: future schema throws with explanation and does not write', () => {
-  const futureConfig = `schema_version: 4\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
+  const futureConfig = `schema_version: 5\nlanguage: en\nchanges_dir: .changeledger/changes\n`;
   assert.throws(
     () => buildMigration(futureConfig),
-    /config schema 4 is newer than supported schema 3/,
+    /config schema 5 is newer than supported schema 4/,
   );
 });
 
@@ -370,7 +480,7 @@ test('113219 CR9: all historical fixture generations converge to the current sch
     // Verify the current schema version in output
     assert.match(
       migrated,
-      /schema_version: 3/,
+      /schema_version: 4/,
       `fixture did not converge: ${fixture.slice(0, 80)}`,
     );
     // Verify idempotent
@@ -502,7 +612,7 @@ test('162556 CR1: schema 1 without quick gains quick type and impact on migratio
   assert.ok(result, 'schema 1 must produce a migration to the current schema');
   const { yaml: migrated, changes } = result;
 
-  assert.match(migrated, /^schema_version: 3$/m);
+  assert.match(migrated, /^schema_version: 4$/m);
   // quick type with stages [request, log]
   assert.match(migrated, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
   // no review_required inside the quick block
@@ -526,13 +636,16 @@ test('162556 CR1: applyMigration summary reports 1 → current for schema 1 conf
   const configFile = `${os.tmpdir()}/cl-162556-summary-${process.pid}.yml`;
   fs.writeFileSync(configFile, SCHEMA1_CONFIG);
   const summary = applyMigration(configFile, { dryRun: true });
-  assert.match(summary, /Config migration 1 → 3/);
+  assert.match(summary, /Config migration 1 → 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG, 'dry run must not write');
   fs.rmSync(configFile, { force: true });
 });
 
-// CR2 — custom quick type and impacts preserved byte for byte
-test('162556 CR2: existing custom quick type and impacts stay intact; only schema_version changes', () => {
+// CR2 — custom quick type, its impact and its comment survive migration. Since
+// schema 4 this custom flavour also declares `review_required: true`, so the
+// 3 → 4 migration repairs the one thing that made it invalid — the missing
+// `specification` stage — and touches nothing else.
+test('162556 CR2: existing custom quick type and impacts stay intact through migration', () => {
   const customized = `\
 schema_version: 1
 language: en
@@ -560,15 +673,30 @@ project_name: myrepo
   assert.ok(result);
   const { yaml: migrated, changes } = result;
 
-  const expected = `${customized.replace('schema_version: 1', 'schema_version: 3')}\n# Git integration: change branches start from and merge into this branch\ngit:\n  integration_branch:\n`;
-  assert.equal(migrated, expected, 'schema version and the inert git section may change');
+  const expected = `${customized
+    .replace('schema_version: 1', 'schema_version: 4')
+    .replace(
+      '    stages: [request, plan, log]',
+      '    stages: [request, specification, plan, log]',
+    )}\n# Git integration: change branches start from and merge into this branch\ngit:\n  integration_branch:\n`;
   assert.equal(
-    changes.length,
-    2,
-    `only schema_version and git section changes expected, got: ${JSON.stringify(changes)}`,
+    withoutReadiness(migrated),
+    expected,
+    'only schema version, git section, readiness and the review coupling',
   );
-  assert.match(changes[0], /schema_version/);
+  assert.deepEqual(changes, [
+    'updated schema_version: 1 → 4',
+    'added git section',
+    'added readiness section',
+    'added stage specification to types.quick.stages',
+  ]);
 });
+
+// The migration appends the published readiness section last; stripping it
+// isolates what a migration must leave byte for byte alone.
+function withoutReadiness(yaml) {
+  return yaml.replace(/\n\n# Definition of Ready[\s\S]*$/, '\n');
+}
 
 // CR3 — idempotency and version boundary
 test('162556 CR3: current config needs no migration and file is untouched', () => {
@@ -580,15 +708,15 @@ test('162556 CR3: current config needs no migration and file is untouched', () =
   fs.writeFileSync(configFile, result.yaml);
   const before = fs.statSync(configFile).mtimeMs;
   const summary = applyMigration(configFile);
-  assert.match(summary, /already at schema 3/);
+  assert.match(summary, /already at schema 4/);
   assert.equal(fs.statSync(configFile).mtimeMs, before, 'no rewrite when already current');
   fs.rmSync(configFile, { force: true });
 });
 
 test('162556 CR3: schema newer than current fails closed', () => {
   assert.throws(
-    () => buildMigration('schema_version: 4\nlanguage: en\n'),
-    /config schema 4 is newer than supported schema 3/,
+    () => buildMigration('schema_version: 5\nlanguage: en\n'),
+    /config schema 5 is newer than supported schema 4/,
   );
 });
 
@@ -596,10 +724,210 @@ test('162556 CR3: schema newer than current fails closed', () => {
 test('162556 CR1: schema 0 migration lands at current and includes quick', () => {
   const result = buildMigration(SPECLEDGER_CONFIG);
   assert.ok(result);
-  assert.match(result.yaml, /^schema_version: 3$/m);
+  assert.match(result.yaml, /^schema_version: 4$/m);
   assert.match(result.yaml, /quick:\s*\n\s+stages: \[ ?request, log ?\]/);
   assert.match(result.yaml, /quick: patch/);
   assert.equal(buildMigration(result.yaml), null);
+});
+
+// 20260726-141119 — migration 3 → 4 activates the verifiable stages on every
+// type that already demands independent review
+
+const SCHEMA3_REVIEW_WITHOUT_SPEC = `\
+schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+  audit:
+    stages: [request, investigation, log]
+  refactor:
+    stages: [request, proposal, plan, log]
+    review_required: true
+  chore:
+    stages: [request, plan]
+  quick:
+    stages: [request, log]
+release:
+  impacts:
+    feature: minor
+    audit: none
+    refactor: none
+    chore: none
+    quick: patch
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('141119 CR6: migration 3 → 4 inserts the stages a review_required type lacks', () => {
+  const configFile = path.join(tmp(), 'config.yml');
+  fs.writeFileSync(configFile, SCHEMA3_REVIEW_WITHOUT_SPEC);
+
+  const summary = applyMigration(configFile);
+  assert.match(summary, /Config migration 3 → 4/);
+  assert.ok(summary.includes('added stage specification to types.refactor.stages'), summary);
+
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.match(migrated, /^schema_version: 4$/m);
+  assert.match(migrated, /^ {4}stages: \[request, proposal, specification, plan, log\]$/m);
+  // Types that do not demand review keep their stage lists byte for byte.
+  assert.match(migrated, /^ {4}stages: \[request, investigation, log\]$/m);
+  assert.match(migrated, /^ {4}stages: \[request, plan\]$/m);
+  assert.match(migrated, /^ {4}stages: \[request, log\]$/m);
+  assert.equal(buildMigration(migrated), null, 'migration must be terminal');
+});
+
+test('141119 CR6: the migrated config no longer trips the review/stage coupling', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(configFile, SCHEMA3_REVIEW_WITHOUT_SPEC);
+
+  const before = silentOutput();
+  check([], root, before);
+  assert.ok(
+    before.messages.error.some((m) => m.includes('requires active stages')),
+    `expected the coupling error before migrating, got: ${JSON.stringify(before.messages.error)}`,
+  );
+
+  applyMigration(configFile);
+
+  const after = silentOutput();
+  check([], root, after);
+  assert.ok(
+    !after.messages.error.some((m) => m.includes('requires active stages')),
+    `migrating must clear the coupling error, got: ${JSON.stringify(after.messages.error)}`,
+  );
+  assert.ok(
+    !after.messages.warn.some((m) => m.includes('is outdated')),
+    `migrating must clear the stale-schema warning, got: ${JSON.stringify(after.messages.warn)}`,
+  );
+});
+
+test('141119 CR6: a light type demanding review gains both stages in canonical order', () => {
+  const source = SCHEMA3_REVIEW_WITHOUT_SPEC.replace(
+    '  quick:\n    stages: [request, log]\n',
+    '  quick:\n    stages: [request, log]\n    review_required: true\n',
+  );
+  const result = buildMigration(source);
+  assert.ok(result);
+  assert.match(result.yaml, /^ {4}stages: \[request, specification, plan, log\]$/m);
+  assert.deepEqual(
+    result.changes.filter((c) => c.includes('types.quick.stages')),
+    ['added stage specification to types.quick.stages', 'added stage plan to types.quick.stages'],
+  );
+});
+
+// 20260726-141122 — migration 3 → 4 also publishes the Definition of Ready
+// hints, which until now only ever existed as a comment in the template.
+
+const SCHEMA3_WITH_COMMENTS = `\
+schema_version: 3
+language: en
+# our own policy note — must survive
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: dev
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+release:
+  impacts:
+    feature: minor
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('141122 CR4: migration adds the readiness defaults to a config that lacks them', () => {
+  const configFile = path.join(tmp(), 'config.yml');
+  fs.writeFileSync(configFile, SCHEMA3_WITH_COMMENTS);
+
+  const summary = applyMigration(configFile);
+  assert.ok(
+    summary.split('\n').some((line) => line.includes('readiness')),
+    `the summary must report the readiness addition, got:\n${summary}`,
+  );
+
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.match(migrated, /^schema_version: 4$/m);
+  assert.ok(
+    migrated.includes(
+      'readiness:\n  target_patterns: ["src/**"]\n  verification_patterns: ["test/**"]\n',
+    ),
+    `migrated config must publish the readiness defaults, got:\n${migrated}`,
+  );
+  // The user's own comments, values and key order survive untouched.
+  assert.match(migrated, /# our own policy note — must survive\ntdd: true/);
+  assert.match(migrated, /integration_branch: dev/);
+  assert.equal(
+    withoutReadiness(migrated),
+    SCHEMA3_WITH_COMMENTS.replace('schema_version: 3', 'schema_version: 4'),
+    'nothing but the schema version and the appended readiness section may change',
+  );
+  assert.equal(buildMigration(migrated), null, 'migration must be terminal');
+});
+
+test('141122 CR5: a readiness the user already declared survives the migration', () => {
+  const source = SCHEMA3_WITH_COMMENTS.replace(
+    'changes_dir:',
+    '# tuned for this Ruby repo\nreadiness:\n  target_patterns: ["lib/**"]\n  verification_patterns: ["verify:"]\n\nchanges_dir:',
+  );
+  const result = buildMigration(source);
+  assert.ok(result);
+  assert.equal(
+    result.yaml,
+    source.replace('schema_version: 3', 'schema_version: 4'),
+    'a declared readiness must survive byte for byte, with nothing appended',
+  );
+  assert.deepEqual(result.changes, ['updated schema_version: 3 → 4']);
+  assert.equal(buildMigration(result.yaml), null, 'migration must be terminal');
+});
+
+// 20260726-141119 CR6 (review defect) — a stage absent from the config's own
+// canonical `stages` list must never be inserted into a type, even when that
+// type demands review. Inserting it there produces a config `check` itself
+// calls invalid ("references unknown stage"), while migrate declares success.
+const SCHEMA3_REVIEW_STAGE_NOT_CANONICAL = `\
+schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, proposal, plan, log]
+types:
+  refactor:
+    stages: [request, proposal, plan, log]
+    review_required: true
+release:
+  impacts:
+    refactor: none
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('141119 CR6: a stage missing from the canonical list is never inserted into a type', () => {
+  const result = buildMigration(SCHEMA3_REVIEW_STAGE_NOT_CANONICAL);
+  assert.ok(result);
+  assert.deepEqual(result.changes, ['updated schema_version: 3 → 4', 'added readiness section']);
+
+  const migrated = result.yaml;
+  assert.match(migrated, /^ {4}stages: \[request, proposal, plan, log\]$/m);
 });
 
 // CR4 — check detects schema 1 as outdated and points at the migration

@@ -56,6 +56,17 @@ test('171002 CR1: a review_required type cannot skip review before validation', 
   );
 });
 
+test('162616 CR3: an empty type does not deform the review-required message with a double space', () => {
+  assert.throws(
+    () =>
+      assertTransition('in-progress', 'in-validation', {
+        type: '',
+        reviewRequired: true,
+      }),
+    /^Error: changes must be reviewed before validation — move to in-review first$/,
+  );
+});
+
 test('171002 CR5: a non-review_required type goes from in-progress to validation', () => {
   assert.doesNotThrow(() =>
     assertTransition('in-progress', 'in-validation', { type: 'chore', reviewRequired: false }),
@@ -76,7 +87,47 @@ test('CR5: in-review is only reachable from in-progress', () => {
     () => assertTransition('approved', 'in-review'),
     /^Error: invalid lifecycle transition: approved → in-review$/,
   );
-  assert.doesNotThrow(() => assertTransition('in-progress', 'in-review'));
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
+  );
+});
+
+// 20260726-141120 — the review gate closes on entry too: a type that does not
+// declare `review_required` activates neither `specification` nor `plan`, so a
+// reviewer dispatched against it has no criterion and no task to inspect.
+
+test('141120 CR1: a type without review cannot enter in-review', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'in-review', { type: 'audit', reviewRequired: false }),
+    /^Error: audit changes do not require review — move to in-validation instead$/,
+  );
+});
+
+test('141120: a typeless document gets a named cause instead of "undefined"', () => {
+  assert.throws(
+    () => assertTransition('in-progress', 'in-review', { reviewRequired: false }),
+    /^Error: cannot decide review entry: the change declares no type$/,
+  );
+});
+
+test('141120 CR3: the lightweight type keeps its legitimate route to validation', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-validation', { type: 'audit', reviewRequired: false }),
+  );
+});
+
+test('141120 CR4: feature and bug keep both review edges', () => {
+  for (const type of ['feature', 'bug']) {
+    assert.doesNotThrow(() =>
+      assertTransition('in-progress', 'in-review', { type, reviewRequired: true }),
+    );
+    assert.throws(
+      () => assertTransition('in-progress', 'in-validation', { type, reviewRequired: true }),
+      new RegExp(
+        `^Error: ${type} changes must be reviewed before validation — move to in-review first$`,
+      ),
+    );
+  }
 });
 
 test('CR12: an edge outside the graph is rejected', () => {
@@ -188,4 +239,57 @@ test('125007 CR7: typed log text payloads round-trip without delimiter parsing',
     assert.deepEqual(parseLogEvent(line), event);
     assert.equal(serializeLogEvent(parseLogEvent(line)), line);
   }
+});
+
+// 20260730-183807 CR6 — `changeledger log <id> "[note] msg"` must not
+// duplicate the `[note]` tag the renderer already prepends.
+
+test('183807 CR6: a message already prefixed with "[note] " is not duplicated', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: '[note] this is a manual note',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` this is a manual note');
+});
+
+test('183807 CR6: a doubled "[note] [note] " prefix strips exactly one occurrence', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: '[note] [note] x',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` [note] x');
+});
+
+test('183807 CR6: a message without the prefix is kept verbatim', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: 'this is a manual note',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` this is a manual note');
+});
+
+test('183807 CR6: an interior "[note]" is ordinary text and is preserved', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: 'saw a [note] in the middle',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` saw a [note] in the middle');
+});
+
+// 20260722-124656 CR3 — the readiness refusal lives on the write path in
+// `src/commands/agent.mjs`, never in the graph. Removing this edge would "fix"
+// an unready candidate by making every candidate unreachable, so pin it here.
+test('124656 CR3: the in-review edges stay legal; readiness is not a graph rule', () => {
+  assert.doesNotThrow(() =>
+    assertTransition('in-progress', 'in-review', { type: 'feature', reviewRequired: true }),
+  );
+  // The no-verdict return the contract names is a graph edge, not a review verdict.
+  // Only `canTransition` is asserted here: `assertTransition('in-review',
+  // 'in-progress')` is already pinned by `171002 CR1/CR3` above, and this repo
+  // keeps one home per truth.
+  assert.equal(canTransition('in-review', 'in-progress'), true);
 });

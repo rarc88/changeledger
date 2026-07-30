@@ -73,11 +73,17 @@ repita mientras el resultado completo continúe en contexto.
 
 ## Plan
 
-- [x] Tighten one-pass acquisition in `src/contract.mjs` and `templates/contract/core.md`, including the mode/status matrix in `test/context.test.mjs`; verify: `node --test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Tighten one-pass acquisition in `src/contract.mjs` and `templates/contract/core.md`, including the mode/status matrix in `test/context.test.mjs`
+  - **Verify:** `node --test test/contract.test.mjs test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-03T16:58:44Z`
-- [x] Update `.changeledger/specs/contract-discovery.md` with first-call capture and reload semantics; verify: `node bin/changeledger.mjs check 20260703-150229` (CR1, CR2, CR3, CR4, CR5)
+- [x] Update `.changeledger/specs/contract-discovery.md` with first-call capture and reload semantics
+  - **Verify:** `node bin/changeledger.mjs check 20260703-150229`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-03T16:58:44Z`
-- [x] Run the complete quality gate after implementation; verify: `pnpm verify` (support)
+- [x] Run the complete quality gate after implementation
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-03T16:58:44Z`
 
 ## Log

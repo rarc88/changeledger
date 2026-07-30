@@ -19,6 +19,10 @@ checklist that agent-context gives you.
 
 Change under review: {{change_id}}.
 
+Review mandate: {{mandate}} (exactly one of — a spot check of the named diff, the
+surface the change governs, or a full audit). Inspect within that mandate; report
+anything you notice outside it without expanding the inspection.
+
 Boundaries — expressed by effect, not by tool name: do not modify any file, do
 not change Git state, and do not mutate the ledger. You inspect and report only;
 you never record the verdict — the orchestrator does that.

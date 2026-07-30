@@ -104,11 +104,17 @@ spec a change, y deep-linking por URL. Si se quieren, serán changes aparte.
 
 ## Plan
 
-- [x] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`; verify: `node --test test/view.test.mjs` (CR1, CR4)
+- [x] Añadir `openSpecByName(name)` en `src/viewer/public/app.js` que normalice el href (quita `./` y `.md`) y abra el spec de `state.repo.specs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-06-27T22:07:57Z`
-- [x] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos; verify: `node --test test/view.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir en `src/viewer/public/app.js` la delegación de click sobre el contenedor del cuerpo del spec que intercepte solo enlaces relativos `*.md` y deje pasar los externos
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-27T22:07:57Z`
-- [x] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op); verify: `node --test test/view.test.mjs` (CR2)
+- [x] Cubrir en `src/viewer/public/app.js` el caso de spec inexistente sin excepción (no-op)
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-27T22:07:57Z`
 
 ## Log

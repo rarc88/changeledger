@@ -7,8 +7,10 @@ import { loadRepoAsync } from '../../repo.mjs';
 import {
   applyConfigMigration,
   changeStatus,
+  listLedgerTree,
   patchProjectConfig,
   previewConfigMigration,
+  readLedgerDocument,
   readProjectConfig,
   readProjectConfigStructured,
   repairProjectPath,
@@ -74,8 +76,8 @@ const SECURITY_HEADERS = {
 
 const MAX_BODY = 64 * 1024; // a status payload is tiny; cap to stay defensive
 
-function send(res, code, type, body) {
-  res.writeHead(code, { 'Content-Type': type, ...SECURITY_HEADERS });
+function send(res, code, type, body, headers = {}) {
+  res.writeHead(code, { 'Content-Type': type, ...SECURITY_HEADERS, ...headers });
   res.end(body);
 }
 
@@ -101,6 +103,14 @@ export function createRequestListener(cwd, localOnly, token) {
       const url = new URL(req.url, 'http://127.0.0.1');
       const route = url.pathname;
       const params = url.searchParams;
+
+      const LEDGER_ROUTES = new Set(['/api/ledger-tree', '/api/ledger-document']);
+      if (LEDGER_ROUTES.has(route) && req.method !== 'GET') {
+        send(res, 405, MIME['.json'], JSON.stringify({ error: 'method not allowed' }), {
+          Allow: 'GET',
+        });
+        return;
+      }
 
       const WRITE_ROUTES = new Set([
         '/api/status',
@@ -209,6 +219,22 @@ export function createRequestListener(cwd, localOnly, token) {
       if (route === '/api/search') {
         const { projects } = resolveProjects(cwd, localOnly);
         send(res, 200, MIME['.json'], JSON.stringify(searchProjects(projects, params.get('q'))));
+        return;
+      }
+      if (route === '/api/ledger-tree') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const { code, body } = listLedgerTree(projects, params.get('project'));
+        send(res, code, MIME['.json'], JSON.stringify(body));
+        return;
+      }
+      if (route === '/api/ledger-document') {
+        const { projects } = resolveProjects(cwd, localOnly);
+        const { code, body } = readLedgerDocument(projects, {
+          project: params.get('project'),
+          category: params.get('category'),
+          path: params.get('path'),
+        });
+        send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
       if (route === '/api/repo') {

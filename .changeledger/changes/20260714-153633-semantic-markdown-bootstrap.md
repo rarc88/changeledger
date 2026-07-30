@@ -95,15 +95,25 @@ verdad persistente afectada continúa siendo `contract-discovery`.
 
 ## Plan
 
-- [x] Añadir el fixture exacto de Prettier 3.9.5 como test fallido en `test/contract.test.mjs`, luego sustituir en `src/contract.mjs` la normalización por líneas por una proyección de tokens de `marked.lexer()`; verify: `node --test test/contract.test.mjs` (CR1, CR3)
+- [x] Añadir el fixture exacto de Prettier 3.9.5 como test fallido en `test/contract.test.mjs`, luego sustituir en `src/contract.mjs` la normalización por líneas por una proyección de tokens de `marked.lexer()`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-07-14T15:55:49Z`
-- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar la integración de equivalencia en `src/contract.mjs` para preservar `AGENTS.md`/`CLAUDE.md` y completar el registro sin warning; verify: `node --test test/register.test.mjs` (CR2)
+- [x] Añadir tests fallidos en `test/register.test.mjs`, luego ajustar la integración de equivalencia en `src/contract.mjs` para preservar `AGENTS.md`/`CLAUDE.md` y completar el registro sin warning
+  - **Verify:** `node --test test/register.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-14T15:55:49Z`
-- [x] Añadir una matriz de mutaciones semánticas y estructurales en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier proyección más amplia que el árbol permitido; verify: `node --test test/contract.test.mjs test/register.test.mjs` (CR4, CR5)
+- [x] Añadir una matriz de mutaciones semánticas y estructurales en `test/contract.test.mjs` y `test/register.test.mjs`, luego cerrar en `src/contract.mjs` cualquier proyección más amplia que el árbol permitido
+  - **Verify:** `node --test test/contract.test.mjs test/register.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-14T15:55:49Z`
-- [x] Ejecutar el CLI de esta rama contra `/Users/raruiz/repositories/mine/ranchops` sin modificarlo y confirmar que `check` pasa mientras Prettier mantiene el archivo canónico; verify: `node /Users/raruiz/repositories/mine/spec-ledger/bin/changeledger.mjs check` desde `ranchops` (support)
+- [x] Ejecutar el CLI de esta rama contra `/Users/raruiz/repositories/mine/ranchops` sin modificarlo y confirmar que `check` pasa mientras Prettier mantiene el archivo canónico
+  - **Verify:** `node /Users/raruiz/repositories/mine/spec-ledger/bin/changeledger.mjs check` desde `ranchops`
+  - **Support:**
   - **Resolved:** `2026-07-14T15:55:49Z`
-- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+- [x] Ejecutar la puerta completa del repositorio
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-14T15:56:27Z`
 
 ## Log

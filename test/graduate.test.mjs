@@ -173,6 +173,7 @@ test('162020 CR3: new and graduate share slug normalization behavior', () => {
       now: '2026-06-13T12:00:01Z',
     },
     root,
+    { ownerHandle: () => '' },
   );
   const specFile = scaffoldSpec(id, 'Árbol Técnico', root);
   assert.equal(path.basename(changeFile), '20260613-120001-arbol-tecnico.md');

@@ -75,7 +75,8 @@ changes mediante su API HTTP.
   - **Resolved:** `2026-06-15T11:58:05Z`
 - [x] Añadir tests HTTP de acceso autorizado/no autorizado y ausencia de escrituras ante rechazo
   - **Resolved:** `2026-06-15T11:58:05Z`
-- [x] Actualizar la arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR4, CR5)
+- [x] Actualizar la arquitectura y ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR2, CR4, CR5
   - **Resolved:** `2026-06-15T11:58:05Z`
 
 ## Log

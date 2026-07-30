@@ -107,25 +107,44 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Añadir en `test/metrics.test.mjs` percentiles, espera de validación, retries y desglose por owner para `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3)
+- [x] Añadir en `test/metrics.test.mjs` percentiles, espera de validación, retries y desglose por owner para `src/metrics.mjs`
+  - **Verify:** `node --test test/metrics.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T16:46:30Z`
-- [x] Implementar esas métricas en `src/metrics.mjs`; verify: `node --test test/metrics.test.mjs` (CR3)
+- [x] Implementar esas métricas en `src/metrics.mjs`
+  - **Verify:** `node --test test/metrics.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T16:46:30Z`
-- [x] Servir el módulo compartido en `src/viewer/server/router.mjs` con test de ruta y contención en `test/view.test.mjs`; verify: `node --test test/view.test.mjs` (CR2)
+- [x] Servir el módulo compartido en `src/viewer/server/router.mjs` con test de ruta y contención en `test/view.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T16:46:30Z`
-- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `metricsHtml` de `src/viewer/public/view-renderers.js`: SVG de throughput, barras con escala común y estado vacío; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
+- [x] Añadir en `test/viewer-metadata.test.mjs` cobertura de `metricsHtml` de `src/viewer/public/view-renderers.js`: SVG de throughput, barras con escala común y estado vacío
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-11T16:46:31Z`
-- [x] Reescribir `metricsHtml` en `src/viewer/public/view-renderers.js` con KPI cards, SVG y tablas; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
+- [x] Reescribir `metricsHtml` en `src/viewer/public/view-renderers.js` con KPI cards, SVG y tablas
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-11T16:46:31Z`
-- [x] Conectar `renderMetrics` de `src/viewer/public/app.js` al predicado de filtros compartido y al módulo servido; verify: manual browser check con filtros activos (CR1)
+- [x] Conectar `renderMetrics` de `src/viewer/public/app.js` al predicado de filtros compartido y al módulo servido
+  - **Verify:** manual browser check con filtros activos
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:46:31Z`
-- [x] Estilos de KPI cards y charts en `src/viewer/public/styles.css`; verify: manual browser check (CR4)
+- [x] Estilos de KPI cards y charts en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-11T16:46:31Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T16:46:31Z`
-- [x] Añadir en `test/viewer-metadata.test.mjs` la estructura de cuadrantes de `metricsHtml` de `src/viewer/public/view-renderers.js` (grid con 4 paneles); verify: `node --test test/viewer-metadata.test.mjs` (CR6)
+- [x] Añadir en `test/viewer-metadata.test.mjs` la estructura de cuadrantes de `metricsHtml` de `src/viewer/public/view-renderers.js` (grid con 4 paneles)
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-11T20:56:34Z`
-- [x] Reestructurar `metricsHtml` en `src/viewer/public/view-renderers.js` en paneles y añadir la cuadrícula responsive en `src/viewer/public/styles.css`; verify: manual browser check a 1280 px y 1000 px (CR6)
+- [x] Reestructurar `metricsHtml` en `src/viewer/public/view-renderers.js` en paneles y añadir la cuadrícula responsive en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check a 1280 px y 1000 px
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-11T20:56:35Z`
 
 ## Log

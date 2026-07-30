@@ -103,13 +103,17 @@ _Alternativas descartadas:_
 
 - [x] Parser de change: frontmatter + etapas + tareas (reutilizable por el visor)
   - **Resolved:** `2026-06-13T15:15:00Z`
-- [x] Validaciones por archivo (CR1–CR4)
+- [x] Validaciones por archivo
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-06-13T15:17:00Z`
-- [x] Validaciones agregadas: ids únicos, depends_on, ciclos (CR5–CR6)
+- [x] Validaciones agregadas: ids únicos, depends_on, ciclos
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-06-13T15:18:00Z`
-- [x] Checks de consistencia estado↔tareas (CR7)
+- [x] Checks de consistencia estado↔tareas
+  - **Criteria:** CR7
   - **Resolved:** `2026-06-13T15:19:00Z`
-- [x] Comando `sl check` con salida legible + `--json` (CR8)
+- [x] Comando `sl check` con salida legible + `--json`
+  - **Criteria:** CR8
   - **Resolved:** `2026-06-13T15:20:00Z`
 - [x] Documentar uso en pre-commit / CI
   - **Resolved:** `2026-06-13T15:21:36Z`

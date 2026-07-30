@@ -177,19 +177,26 @@ que dirija a `changeledger`.
 
 ## Plan
 
-- [x] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test` (CR1, CR2)
+- [x] Renombrar `package.json`, `bin/sl.mjs` y wiring del CLI a `changeledger`; verificar binario y ayuda en `test/cli-bin.test.mjs` con `node --test`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-26T23:32:26Z`
-- [x] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check` (CR3, CR4)
+- [x] Mover `.sl/**` a `.changeledger/**` y actualizar defaults/configuración en `src/paths.mjs`, `src/repo.mjs` y `.changeledger/config.yml`; verificar descubrimiento e historial en `test/repo.test.mjs` y con `node bin/changeledger.mjs check`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-26T23:32:26Z`
-- [x] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test` (CR5, CR6)
+- [x] Renombrar home, variable, registry, marcador y symlink en `src/registry.mjs`, `src/contract.mjs` y comandos relacionados; verificar aislamiento e idempotencia en `test/cli.test.mjs` y `test/registry.test.mjs` con `node --test`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-06-26T23:32:26Z`
-- [x] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test` (CR3, CR6, CR7)
+- [x] Actualizar `templates/AGENTS.md`, `templates/config.yml`, `AGENTS.md` y hooks para la nueva convención; verificar repositorios nuevos y registrados en `test/cli.test.mjs` con `node --test`
+  - **Criteria:** CR3, CR6, CR7
   - **Resolved:** `2026-06-26T23:32:26Z`
-- [x] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test` (CR1, CR9)
+- [x] Renombrar mensajes, comentarios, viewer, README, CONTRIBUTING, SECURITY, INTENT y metadata en `src/**` y documentos raíz; verificar ausencia de identidad operativa antigua mediante búsqueda versionada y `node --test`
+  - **Criteria:** CR1, CR9
   - **Resolved:** `2026-06-26T23:32:26Z`
-- [x] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run` (CR7, CR8)
+- [x] Actualizar `.github/workflows/**`, hooks y `bin/changeledger.mjs` para el smoke test del tarball `changeledger`; verificar el checkout limpio en `test/cli-bin.test.mjs`, `pnpm verify` y `pnpm pack --dry-run`
+  - **Criteria:** CR7, CR8
   - **Resolved:** `2026-06-26T23:32:27Z`
-- [x] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run` (CR2, CR8)
+- [x] Instalar el tarball generado desde `bin/changeledger.mjs` en un directorio aislado y ejecutar `changeledger init`, `changeledger check` y la ayuda; verificar contenido y nombre en `test/cli-bin.test.mjs` y con `npm pack --dry-run`
+  - **Criteria:** CR2, CR8
   - **Resolved:** `2026-06-26T23:32:27Z`
 
 ## Log

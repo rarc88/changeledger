@@ -83,15 +83,20 @@ debe seguir referenciando los criterios que satisface.
 
 ## Plan
 
-- [x] Documentar el marcador final `(support)` para tareas operativas sin CR en `templates/AGENTS.md` y `.sl/specs/architecture.md`, verificado por `test/cli.test.mjs` o `test/check.test.mjs` (CR1, CR3)
+- [x] Documentar el marcador final `(support)` para tareas operativas sin CR en `templates/AGENTS.md` y `.sl/specs/architecture.md`, verificado por `test/cli.test.mjs` o `test/check.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-17T22:46:28Z`
-- [x] Ajustar `src/check.mjs` para no advertir tareas sin CR cuando usen la convención operativa documentada, cubierto por `test/check.test.mjs` (CR1, CR2, CR4)
+- [x] Ajustar `src/check.mjs` para no advertir tareas sin CR cuando usen la convención operativa documentada, cubierto por `test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-06-17T22:46:28Z`
-- [x] Agregar tests en `test/check.test.mjs` sobre `src/check.mjs`: tarea operativa sin CR no advierte; tarea normal sin CR sigue advirtiendo; CR sin cobertura sigue advirtiendo (CR1, CR2)
+- [x] Agregar tests en `test/check.test.mjs` sobre `src/check.mjs`: tarea operativa sin CR no advierte; tarea normal sin CR sigue advirtiendo; CR sin cobertura sigue advirtiendo
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-17T22:46:28Z`
-- [x] Agregar tests o asserts en `test/cli.test.mjs` o `test/check.test.mjs` para que `templates/AGENTS.md` documente la convención y su límite (CR3)
+- [x] Agregar tests o asserts en `test/cli.test.mjs` o `test/check.test.mjs` para que `templates/AGENTS.md` documente la convención y su límite
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T22:46:29Z`
-- [x] Correr `pnpm test -- test/check.test.mjs test/cli.test.mjs` y `pnpm exec sl check --json` sobre `src/check.mjs`, `templates/AGENTS.md` y `.sl/specs/architecture.md` como verificación final (CR1, CR2, CR3, CR4)
+- [x] Correr `pnpm test -- test/check.test.mjs test/cli.test.mjs` y `pnpm exec sl check --json` sobre `src/check.mjs`, `templates/AGENTS.md` y `.sl/specs/architecture.md` como verificación final
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T22:46:29Z`
 
 ## Log

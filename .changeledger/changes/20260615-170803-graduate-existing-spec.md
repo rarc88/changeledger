@@ -128,11 +128,14 @@ solo difiere el manejo del archivo del spec.
 
 ## Plan
 
-- [x] Añadir `setSpecUpdated(text, iso)` puro en `src/writer.mjs` (reemplaza la línea `updated:` del frontmatter); test en `test/writer.test.mjs` (CR5)
+- [x] Añadir `setSpecUpdated(text, iso)` puro en `src/writer.mjs` (reemplaza la línea `updated:` del frontmatter); test en `test/writer.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-15T17:36:16Z`
-- [x] Extender `graduate(id, slug, cwd, { into })` en `src/commands/graduate.mjs`: rama `into` exige spec existente (error simétrico), refresca `updated` vía `setSpecUpdated`, no toca el cuerpo; marker + `setReviewed` compartidos; test en `test/graduate.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Extender `graduate(id, slug, cwd, { into })` en `src/commands/graduate.mjs`: rama `into` exige spec existente (error simétrico), refresca `updated` vía `setSpecUpdated`, no toca el cuerpo; marker + `setReviewed` compartidos; test en `test/graduate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-15T17:36:16Z`
-- [x] Parsear `--into` en el caso `graduate` de `bin/sl.mjs` (positionals robustos a flags) + entrada en `HELP`/`USAGE`; test e2e en `test/cli-bin.test.mjs` (CR6)
+- [x] Parsear `--into` en el caso `graduate` de `bin/sl.mjs` (positionals robustos a flags) + entrada en `HELP`/`USAGE`; test e2e en `test/cli-bin.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-15T17:36:16Z`
 - [x] Documentar `--into` en `templates/AGENTS.md` §9 (`sl graduate … --into`) y §10 (graduar a spec existente)
   - **Resolved:** `2026-06-15T17:36:17Z`

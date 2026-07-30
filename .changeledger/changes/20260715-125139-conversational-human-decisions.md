@@ -131,15 +131,24 @@ validation → in-progress (human rejected via conversation): <razón>
 
 ## Plan
 
-- [x] Escribir pruebas rojas en test/agent.test.mjs para atribución por canal conversacional y no-regresión del viewer; adaptar src/commands/agent.mjs sin duplicar guards ni el check scoped; verify: node --test test/agent.test.mjs test/view.test.mjs (CR1, CR3, CR4, CR5, CR6, CR7)
+- [x] Escribir pruebas rojas en test/agent.test.mjs para atribución por canal conversacional y no-regresión del viewer; adaptar src/commands/agent.mjs sin duplicar guards ni el check scoped
+  - **Verify:** node --test test/agent.test.mjs test/view.test.mjs
+  - **Criteria:** CR1, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-07-15T13:30:53Z`
-- [x] Escribir pruebas e2e en test/cli-bin.test.mjs para `approve`, `validation pass`, `validation fail --human`, estados inválidos y razones vacías; exponer los comandos y ayuda en bin/changeledger.mjs; verify: node --test test/cli-bin.test.mjs (CR1, CR3, CR4, CR5, CR6, CR8)
+- [x] Escribir pruebas e2e en test/cli-bin.test.mjs para `approve`, `validation pass`, `validation fail --human`, estados inválidos y razones vacías; exponer los comandos y ayuda en bin/changeledger.mjs
+  - **Verify:** node --test test/cli-bin.test.mjs
+  - **Criteria:** CR1, CR3, CR4, CR5, CR6, CR8
   - **Resolved:** `2026-07-15T13:30:53Z`
-- [x] Actualizar templates/contract/core.md, templates/contract/spec.md y templates/contract/validation.md con viewer o conversación como mecanismos human-owned y la prohibición de inferir; cubrir composición y presupuestos en test/context.test.mjs; verify: node --test test/context.test.mjs (CR2, CR8)
+- [x] Actualizar templates/contract/core.md, templates/contract/spec.md y templates/contract/validation.md con viewer o conversación como mecanismos human-owned y la prohibición de inferir; cubrir composición y presupuestos en test/context.test.mjs
+  - **Verify:** node --test test/context.test.mjs
+  - **Criteria:** CR2, CR8
   - **Resolved:** `2026-07-15T13:30:54Z`
-- [x] Actualizar `.changeledger/specs/lifecycle.md` con decisiones humanas multicanal, comandos y eventos auditables, manteniendo el viewer como alternativa; verify: `changeledger check 20260715-125139` (CR1, CR3, CR5, CR6, CR7, CR8)
+- [x] Actualizar `.changeledger/specs/lifecycle.md` con decisiones humanas multicanal, comandos y eventos auditables, manteniendo el viewer como alternativa
+  - **Verify:** `changeledger check 20260715-125139`
+  - **Criteria:** CR1, CR3, CR5, CR6, CR7, CR8
   - **Resolved:** `2026-07-15T13:30:54Z`
-- [x] Ejecutar `pnpm verify` y confirmar que CLI, viewer, lifecycle y contrato completo permanecen verdes (support)
+- [x] Ejecutar `pnpm verify` y confirmar que CLI, viewer, lifecycle y contrato completo permanecen verdes
+  - **Support:**
   - **Resolved:** `2026-07-15T13:34:09Z`
 
 ## Log

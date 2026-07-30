@@ -1,4 +1,4 @@
-# Read-Only Audit Delegate
+# Read-Only Post-Review Delegate
 
 This is a self-contained delegated context. It replaces the ChangeLedger core
 for this role; do not run `changeledger context` or load another ChangeLedger

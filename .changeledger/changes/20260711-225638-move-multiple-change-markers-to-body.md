@@ -87,15 +87,24 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad; verify: `node --test test/commit.test.mjs` (CR1, CR2)
+- [x] Escribir tests red y adaptar `src/commands/commit.mjs` para subject/cuerpo según cardinalidad
+  - **Verify:** `node --test test/commit.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-11T23:11:30Z`
-- [x] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`; verify: `node --test test/check.test.mjs test/git.test.mjs` (CR3, CR4)
+- [x] Extender lectura y lint del mensaje en `src/git.mjs` y `src/commands/check.mjs`
+  - **Verify:** `node --test test/check.test.mjs test/git.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-11T23:11:30Z`
-- [x] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`; verify: `node --test test/git.test.mjs test/view.test.mjs` (CR5)
+- [x] Cubrir lookup por marcador en el cuerpo y presentación del subject en `src/git.mjs`
+  - **Verify:** `node --test test/git.test.mjs test/view.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-11T23:11:31Z`
-- [x] Actualizar `templates/contract/implement.md`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Actualizar `templates/contract/implement.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-07-11T23:11:31Z`
-- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support)
+- [x] Ejecutar `pnpm verify` después de los ciclos red-green
+  - **Support:**
   - **Resolved:** `2026-07-11T23:11:31Z`
 
 ## Log

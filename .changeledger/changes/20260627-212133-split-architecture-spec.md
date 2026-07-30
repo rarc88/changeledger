@@ -93,13 +93,21 @@ contenido obsoleto, añadir specs de dominios no presentes hoy, o tocar el códi
 
 ## Plan
 
-- [x] Crear los specs por dominio en `.changeledger/specs/` repartiendo las 14 secciones según la tabla, con frontmatter mínimo; verify: `node bin/changeledger.mjs check` (support)
+- [x] Crear los specs por dominio en `.changeledger/specs/` repartiendo las 14 secciones según la tabla, con frontmatter mínimo
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-27T21:31:33Z`
-- [x] Reducir `.changeledger/specs/architecture.md` al mapa de componentes con enlaces a cada spec de dominio; verify: `node bin/changeledger.mjs check` (support)
+- [x] Reducir `.changeledger/specs/architecture.md` al mapa de componentes con enlaces a cada spec de dominio
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-27T21:31:33Z`
-- [x] Verificar que ninguna línea de contenido del monolito se perdió en el reparto (diff de cobertura sección→archivo); verify: `node bin/changeledger.mjs check` (support)
+- [x] Verificar que ninguna línea de contenido del monolito se perdió en el reparto (diff de cobertura sección→archivo)
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-27T21:31:33Z`
-- [x] Distribuir los 35 markers de graduación al spec de su dominio (cada id 1 vez); verify: `node bin/changeledger.mjs check` (support)
+- [x] Distribuir los 35 markers de graduación al spec de su dominio (cada id 1 vez)
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-27T21:53:42Z`
 
 ## Log

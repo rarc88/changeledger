@@ -73,13 +73,17 @@ la capacidad persistente.
 - **Then** `architecture.md` documenta la mecánica como parte del flujo de agentes
 
 ## Plan
-- [x] Añadir regla de friction capture en `templates/AGENTS.md` y asegurar su instalación desde `src/contract.mjs`, cubierta por `test/init.test.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir regla de friction capture en `templates/AGENTS.md` y asegurar su instalación desde `src/contract.mjs`, cubierta por `test/init.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:19:52Z`
-- [x] Actualizar `.sl/specs/architecture.md` para reflejar la mecánica, validada por `src/check.mjs` y `test/check.test.mjs` (CR5)
+- [x] Actualizar `.sl/specs/architecture.md` para reflejar la mecánica, validada por `src/check.mjs` y `test/check.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-17T10:19:56Z`
-- [x] Añadir o ajustar tests de contrato en `test/init.test.mjs` para asegurar que `src/contract.mjs` instala la regla en el contrato enlazado (CR1, CR2, CR3, CR4)
+- [x] Añadir o ajustar tests de contrato en `test/init.test.mjs` para asegurar que `src/contract.mjs` instala la regla en el contrato enlazado
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:20:02Z`
-- [x] Ejecutar `pnpm test -- test/init.test.mjs test/check.test.mjs` sobre `src/contract.mjs` y `src/check.mjs`, más `node bin/sl.mjs check` (CR1, CR2, CR3, CR4, CR5)
+- [x] Ejecutar `pnpm test -- test/init.test.mjs test/check.test.mjs` sobre `src/contract.mjs` y `src/check.mjs`, más `node bin/sl.mjs check`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T10:20:06Z`
 
 ## Log

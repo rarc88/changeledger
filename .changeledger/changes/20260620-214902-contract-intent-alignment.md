@@ -149,17 +149,23 @@ alcance ya aprobado.
 
 ## Plan
 
-- [x] Ajustar principios y gate conversacional en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR1, CR2, CR8)
+- [x] Ajustar principios y gate conversacional en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs`
+  - **Criteria:** CR1, CR2, CR8
   - **Resolved:** `2026-06-20T22:03:55Z`
-- [x] Definir crecimiento autorizado del change en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR3, CR4)
+- [x] Definir crecimiento autorizado del change en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-20T22:03:55Z`
-- [x] Completar el protocolo de correcciones de review y validación en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR5, CR6)
+- [x] Completar el protocolo de correcciones de review y validación en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-06-20T22:03:56Z`
-- [x] Separar triage y retrospectiva en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs` (CR7)
+- [x] Separar triage y retrospectiva en `templates/AGENTS.md` y su cobertura en `test/cli.test.mjs`; verificar: `node --test test/cli.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-06-20T22:03:56Z`
-- [x] Alinear `INTENT.md`, reflejar sus precisiones en `templates/AGENTS.md` y verificar con `node --test test/cli.test.mjs`, conservando la versión original en el commit base (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
+- [x] Alinear `INTENT.md`, reflejar sus precisiones en `templates/AGENTS.md` y verificar con `node --test test/cli.test.mjs`, conservando la versión original en el commit base
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8
   - **Resolved:** `2026-06-20T22:03:56Z`
-- [x] Ejecutar `pnpm verify` y confirmar que el contrato y el repositorio no presentan regresiones (support)
+- [x] Ejecutar `pnpm verify` y confirmar que el contrato y el repositorio no presentan regresiones
+  - **Support:**
   - **Resolved:** `2026-06-20T22:04:27Z`
 
 ## Log

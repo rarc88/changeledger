@@ -58,7 +58,10 @@ function doneRepo() {
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver, and since
+  // 20260726-124836 `new` defaults to the host's git identity, which would make
+  // the owner-filter assertions depend on who runs the suite.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const changeFile = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -95,7 +98,8 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
   assert.equal(runIn(root, env, 'approve', id).code, 0);
@@ -130,7 +134,8 @@ test('125139 CR4/CR6/CR8: decision commands fail closed and explain human author
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   const file = path.join(
     root,
@@ -299,7 +304,7 @@ test('105457 CR1/CR3: archive CLI transmits owner filters and rejects id combina
     .readFileSync(changeFile, 'utf8')
     .replace(
       'status: done',
-      'status: done\nreviewed: true\nowner: Roberto Ruiz',
+      'status: done\nreviewed: true',
     )}\n## Log\n\n- **2026-07-18T12:00:00Z** \`[graduation]\` skipped: no durable truth\n`;
   assert.match(candidate, /\[graduation\]` skipped: no durable truth/);
   fs.writeFileSync(changeFile, candidate);
@@ -447,36 +452,111 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
   );
 });
 
-// 160444: `context --have <rev>` is wired through the real binary, not just
-// the module — a current rev gets the short `unchanged` block (no contract
-// body), a stale/unknown rev gets the full framed output with its END line.
-test('160444: context --have wires through the CLI for current and stale rev', () => {
+// 20260729-162616 CR1: `context <id>` used to degrade silently on an
+// undecidable type — an empty `Active stages(undefined)=` line, exit 0 — for
+// three distinct causes. The contract requires it to abort naming the cause
+// instead, exactly like `changeledger check` already does for the config-level
+// version of the same defect.
+function contextRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Test').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const changeFile = fs
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => path.join(root, '.changeledger', 'changes', name))
+    .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${item.id}"`));
+  return { root, env, id: item.id, changeFile, original: fs.readFileSync(changeFile, 'utf8') };
+}
+
+test('162616 CR1: an unknown type aborts naming it instead of an empty stages line', () => {
+  const { root, env, id, changeFile, original } = contextRepo();
+  fs.writeFileSync(changeFile, original.replace('type: chore', 'type: bogus'));
+
+  const { code, err, out } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /unknown type "bogus"/);
+  assert.doesNotMatch(out, /Active stages\(bogus\)=\s*$/m);
+});
+
+test('162616 CR1: a missing frontmatter type aborts naming it', () => {
+  const { root, env, id, changeFile, original } = contextRepo();
+  fs.writeFileSync(changeFile, original.replace(/^type: chore\n/m, ''));
+
+  const { code, err } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /missing frontmatter "type"/);
+});
+
+test('162616 CR1: a type whose config declares stages as a string aborts naming it', () => {
+  const { root, env, id } = contextRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('stages: [request, plan]', 'stages: "request, plan"'),
+  );
+
+  const { code, err } = runIn(root, env, 'context', id);
+  assert.notEqual(code, 0);
+  assert.match(err, /stages must be a list/);
+});
+
+test('162616 CR1: a valid type with valid stages produces the same capture as before', () => {
+  const { root, env, id } = contextRepo();
+  const { code, out } = runIn(root, env, 'context', id);
+  assert.equal(code, 0);
+  assert.match(out, /Active stages\(chore\)=request, plan/);
+});
+
+// 20260729-162616 CR5: `readiness.md` is the only fragment that defines the
+// `tdd` obligation, and it is excluded for a type that never activates
+// `specification` (chore has no such stage in the default template). The
+// policy line must not publish `tdd=` when its definition was never served.
+test('162616 CR5: the policy line omits tdd= for a type without specification', () => {
+  const { root, env, id } = contextRepo();
+  const { code, out } = runIn(root, env, 'context', id);
+  assert.equal(code, 0);
+  const policyLine = out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.doesNotMatch(policyLine, /tdd=/);
+});
+
+test('162616 CR5: a type with specification keeps the tdd= line identical to today', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Test').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const { code, out } = runIn(root, env, 'context', item.id);
+  assert.equal(code, 0);
+  const policyLine = out.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policyLine, /tdd=on/);
+});
+
+// 124833 CR1: `--have` was retired with the revision segment it served. It is
+// rejected as an unknown option and no longer appears in the help text, so a
+// caller carrying a stale habit fails loudly instead of being silently ignored.
+test('124833 CR1: context rejects --have as an unknown option', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  const first = runIn(root, env, 'context');
-  assert.equal(first.code, 0);
-  const [, rev] = first.out.match(/rev:([0-9a-f]+)/) ?? [];
-  assert.ok(rev, `expected a rev: in ${first.out}`);
+  const rejected = runIn(root, env, 'context', '--have', 'deadbeefcafe');
+  assert.equal(rejected.code, 1);
+  assert.match(rejected.err, /error: unknown option '--have'/);
 
-  const unchanged = runIn(root, env, 'context', '--have', rev);
-  assert.equal(unchanged.code, 0);
-  assert.match(unchanged.out, /unchanged/);
-  assert.match(unchanged.out, new RegExp(`rev:${rev}`));
-  assert.doesNotMatch(unchanged.out, /# ChangeLedger — Core Contract/);
-  assert.ok(
-    unchanged.out.split('\n').length < 10,
-    `--have with a current rev should be a short framed block, got ${unchanged.out}`,
-  );
-
-  const stale = runIn(root, env, 'context', '--have', '000000000000');
-  assert.equal(stale.code, 0);
-  assert.match(stale.out, /CHANGELEDGER CONTEXT END/);
-  assert.match(stale.out, /# ChangeLedger — Core Contract/);
-  assert.match(stale.out, new RegExp(`rev:${rev}`));
+  const help = runIn(root, env, 'context', '--help');
+  assert.equal(help.code, 0);
+  assert.doesNotMatch(help.out, /--have/);
+  assert.doesNotMatch(help.out, /rev:/);
 });
 
 test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () => {
@@ -487,7 +567,8 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
   const file = fs
     .readdirSync(path.join(root, '.changeledger', 'changes'))
@@ -536,7 +617,8 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
   status(id, 'approved', root);
@@ -611,8 +693,8 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 3 \(dry run\)/);
-  assert.match(out, /schema_version: 3/);
+  assert.match(out, /Config migration 0 → 4 \(dry run\)/);
+  assert.match(out, /schema_version: 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
 
@@ -653,7 +735,8 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
-  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X').code, 0);
+  // Explicit owner: a spawned CLI takes no injected identity resolver.
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
   // chore: no review gate, but human validation is still required.
   status(id, 'approved', root);
@@ -674,4 +757,119 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const after = fs.readFileSync(specFile, 'utf8');
   assert.match(after, /Body kept\./);
   assert.doesNotMatch(after, /2020-01-01T00:00:00Z/);
+});
+
+// --- 20260728-151336 CR4: `changeledger commit --no-change <reason>` ---
+//
+// A real git repo is required here (unlike the rest of this file, which only
+// exercises the ChangeLedger ledger): the CLI must actually create a git
+// commit and `check --commits` must lint it. Strip the outer repo's
+// GIT_DIR/GIT_WORK_TREE/etc so a run inside this repo's own pre-commit hook
+// cannot redirect these git calls onto the outer repo.
+const NO_CHANGE_GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete NO_CHANGE_GIT_ENV[key];
+}
+function noChangeGit(root, args) {
+  return execFileSync('git', args, { cwd: root, env: NO_CHANGE_GIT_ENV, encoding: 'utf8' });
+}
+
+// A git + ChangeLedger repo with one seed commit, branched as `base` so
+// `check --commits base` has something to diff against.
+function noChangeRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  noChangeGit(root, ['init', '-q']);
+  noChangeGit(root, ['config', 'user.email', 'test@example.com']);
+  noChangeGit(root, ['config', 'user.name', 'Test']);
+  noChangeGit(root, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  noChangeGit(root, ['add', '-A']);
+  noChangeGit(root, ['commit', '-m', 'chore(init): seed']);
+  noChangeGit(root, ['branch', 'base']);
+  return { root, env };
+}
+
+// A plain commit through the bin, with neither --no-change nor --id: proves
+// commander's `--no-` negate default (`options.change === true` when the flag
+// is absent) is correctly treated as "not passed", not as a truthy reason.
+test('151336 CR4: a plain commit with no --no-change and no --id still succeeds', () => {
+  const { root, env } = noChangeRepo();
+  fs.writeFileSync(path.join(root, 'plain.txt'), 'x\n');
+  noChangeGit(root, ['add', 'plain.txt']);
+
+  const committed = runIn(root, env, 'commit', '-m', 'chore(x): plain', '--id', '20260711-000001');
+  assert.equal(committed.code, 0, committed.err);
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%s']).trim(),
+    'chore(x): plain [#20260711-000001]',
+  );
+});
+
+test('151336 CR4: commit -h documents --no-change', () => {
+  const { code, out } = run('commit', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /--no-change <reason>/);
+});
+
+test('151336 CR4: --no-change composes a marker-less commit that check --commits accepts', () => {
+  const { root, env } = noChangeRepo();
+  fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs', 'workflow-hardening.md'), 'notes\n');
+  noChangeGit(root, ['add', 'docs/workflow-hardening.md']);
+
+  const committed = runIn(
+    root,
+    env,
+    'commit',
+    '-m',
+    'docs(workflow): record the sieve',
+    '--no-change',
+    'acta de análisis, ningún change la cubre',
+  );
+  assert.equal(committed.code, 0);
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%s']).trim(),
+    'docs(workflow): record the sieve',
+  );
+  assert.equal(
+    noChangeGit(root, ['log', '-1', '--pretty=%b']).trim(),
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  );
+
+  const checked = runIn(root, env, 'check', '--commits', 'base');
+  assert.equal(checked.code, 0);
+});
+
+test('151336 CR4: --no-change and --id are mutually exclusive and create no commit', () => {
+  const { root, env } = noChangeRepo();
+  fs.writeFileSync(path.join(root, 'docs-note.md'), 'x\n');
+  noChangeGit(root, ['add', 'docs-note.md']);
+  const before = noChangeGit(root, ['rev-list', '--count', 'HEAD']).trim();
+
+  const conflict = runIn(
+    root,
+    env,
+    'commit',
+    '-m',
+    'docs(x): y',
+    '--no-change',
+    'reason',
+    '--id',
+    '20260711-000001',
+  );
+  assert.equal(conflict.code, 1);
+  assert.match(conflict.err, /--no-change/);
+  assert.match(conflict.err, /--id/);
+  assert.equal(noChangeGit(root, ['rev-list', '--count', 'HEAD']).trim(), before);
 });

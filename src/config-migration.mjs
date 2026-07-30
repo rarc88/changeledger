@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseDocument } from 'yaml';
+import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
+import { REVIEWABLE_STAGES } from './check.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 3;
+export const SUPPORTED_SCHEMA_VERSION = 4;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -78,11 +79,66 @@ export function buildMigration(originalText) {
   }
   if (current < 2) migrateToV2(doc, config, changes);
   if (current < 3) migrateToV3(doc, config, changes);
+  if (current < 4) migrateToV4(doc, changes);
+
+  relocateNullValueComments(doc);
 
   // No line wrapping and no flow padding: keeps untouched flow sequences
   // (statuses, stages) byte-identical to their common written form.
   const yaml = doc.toString({ lineWidth: 0, flowCollectionPadding: false });
   return { yaml, changes, fromVersion: current };
+}
+
+// A blank scalar (e.g. `integration_branch:` with nothing after the colon)
+// leaves the parser no explicit end token to anchor from, so a comment that
+// the source wrote before the *next* sibling key gets attached as a trailing
+// `.comment` on that null scalar instead of `commentBefore` on the sibling.
+// `doc.toString()` then renders it at the null scalar's own (deeper) nesting
+// indent rather than the column the source actually used — the re-indent
+// defect this corrects. Reassign it to `commentBefore` on whatever node
+// follows, climbing through enclosing collections when the null scalar is the
+// last item of its own map/seq; with no sibling anywhere above, it is
+// genuinely the document's own trailing comment. Proven correct only for that
+// shape (the one templates/config.yml actually ships, where `git` holds
+// exactly one key): the sibling found while climbing can land at an
+// intermediate nesting level rather than the source's own column when the
+// null scalar is not the last item of its enclosing map. That wider case is a
+// known, unresolved gap.
+function relocateNullValueComments(doc) {
+  function relocate(scalarNode, chain) {
+    for (let level = chain.length - 1; level >= 0; level--) {
+      const { items, i } = chain[level];
+      if (i + 1 < items.length) {
+        const nextItem = items[i + 1];
+        const target = isPair(nextItem) ? nextItem.key : nextItem;
+        if (target && typeof target === 'object') {
+          target.commentBefore = target.commentBefore
+            ? `${scalarNode.comment}\n${target.commentBefore}`
+            : scalarNode.comment;
+          scalarNode.comment = null;
+          return;
+        }
+      }
+    }
+    doc.comment = doc.comment ? `${doc.comment}\n${scalarNode.comment}` : scalarNode.comment;
+    scalarNode.comment = null;
+  }
+
+  function walk(node, ancestors) {
+    if (!isMap(node) && !isSeq(node)) return;
+    const items = node.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const value = isPair(item) ? item.value : item;
+      const chain = [...ancestors, { items, i }];
+      if (isScalar(value) && value.value === null && value.comment) {
+        relocate(value, chain);
+      }
+      walk(value, chain);
+    }
+  }
+
+  walk(doc.contents, []);
 }
 
 // 0 → 1: structural additions and managed-comment refresh.
@@ -174,6 +230,111 @@ function migrateToV3(doc, config, changes) {
   }
 }
 
+// 3 → 4: two additive repairs. Readiness runs first because the stage repair
+// returns early on configs it cannot act on, and skipping readiness there would
+// leave exactly the defect this migration exists to fix.
+function migrateToV4(doc, changes) {
+  addReadinessSection(doc, changes);
+  removeStaleReadinessComment(doc, changes);
+  activateReviewableStages(doc, changes);
+}
+
+// `readiness` shipped commented out, so every existing repo — however it is laid
+// out — silently inherited the JavaScript-shaped defaults `check` applies when
+// the key is absent, and could not approve a well-formed change. Publish the
+// block so it becomes visible and editable. A repo that already declares
+// `readiness` keeps it byte for byte: it is the user's key, and `check` owns any
+// diagnostic about its contents.
+function addReadinessSection(doc, changes) {
+  if (doc.has('readiness')) return;
+  const pair = templateSection('readiness');
+  pair.key.spaceBefore = true;
+  doc.contents.items.push(pair);
+  changes.push('added readiness section');
+}
+
+// The one historical form of the commented-out `# readiness:` hint the
+// template shipped before da84722c published a live section (20260726-141122).
+// It never existed in any other wording — a single frozen constant, exactly
+// like the legacy AGENTS.md hashes in contract.mjs. Comparison is a verbatim
+// match on `commentBefore` (the parser's normalized comment text, sans leading
+// `#`): a repo that edited so much as a character owns that divergence, and
+// the migration must never guess which part of it is still "the same" block.
+const OLD_READINESS_COMMENT =
+  ' Optional Definition of Ready path/command hints. When present, tasks that\n' +
+  ' reference CRs should name at least one target and one verification matching\n' +
+  ' these patterns. Patterns can be path globs or literal command snippets.\n' +
+  ' readiness:\n' +
+  '   target_patterns: ["src/**"]\n' +
+  '   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]\n';
+
+// Publishing the live section (above) leaves the old template's commented
+// block sitting next to it verbatim — dead prose nobody asked to keep. Retire
+// it, but only the exact text the template itself shipped; any user edit is a
+// divergence and stays untouched, byte for byte.
+function removeStaleReadinessComment(doc, changes) {
+  for (const pair of doc.contents.items) {
+    if (pair.key?.commentBefore !== OLD_READINESS_COMMENT) continue;
+    pair.key.commentBefore = undefined;
+    changes.push('removed stale commented-out readiness block');
+    return;
+  }
+}
+
+// The shipped template is the single source of truth for the published
+// defaults, so a migrated repo cannot drift from what `init` seeds. Fail loudly
+// rather than skip: a migration that silently omitted the section would leave
+// the repo with the defect it was run to remove.
+function templateSection(key) {
+  const text = fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8');
+  const pair = parseDocument(text, { merge: false }).contents.items.find(
+    (item) => item.key?.value === key,
+  );
+  if (!pair) throw new Error(`templates/config.yml declares no "${key}" section to migrate from`);
+  return pair;
+}
+
+// A type that demands independent review must activate the stages that
+// make review possible — `specification` holds the criteria and `plan` the tasks
+// that cite them — the coupling `checkConfig` now enforces. Additive: only types
+// already declaring `review_required: true` are touched, and only to insert the
+// stages they lack. Reads the live doc, not the pre-migration snapshot, so a
+// `review_required` added by migrateToV1 in the same run is seen here too.
+// A config with no canonical `stages` list is left alone: without it there is no
+// order to insert into, and `check` already reports the missing key.
+function activateReviewableStages(doc, changes) {
+  const canonicalNode = doc.get('stages', true);
+  const typesNode = doc.get('types', true);
+  if (!canonicalNode?.items || !typesNode?.items) return;
+  const canonical = canonicalNode.items.map((n) => String(n.value));
+
+  for (const pair of typesNode.items) {
+    const typeName = pair.key?.value ?? pair.key;
+    if (doc.getIn(['types', typeName, 'review_required']) !== true) continue;
+    const stagesNode = doc.getIn(['types', typeName, 'stages'], true);
+    if (!stagesNode?.items) continue;
+    const stages = stagesNode.items.map((n) => String(n.value));
+    for (const stage of REVIEWABLE_STAGES) {
+      if (stages.includes(stage)) continue;
+      // A stage absent from the canonical `stages` list cannot be inserted into
+      // a type: there is no canonical position for it, and `checkConfig` already
+      // emits the accurate "requires active stages" error for this config. Stay
+      // silent here rather than replace that diagnostic with a corrupt insert.
+      if (!canonical.includes(stage)) continue;
+      const insertBefore = findInsertBefore(stages, canonical, stage);
+      const node = doc.createNode(stage);
+      if (insertBefore === -1) {
+        stagesNode.items.push(node);
+        stages.push(stage);
+      } else {
+        stagesNode.items.splice(insertBefore, 0, node);
+        stages.splice(insertBefore, 0, stage);
+      }
+      changes.push(`added stage ${stage} to types.${typeName}.stages`);
+    }
+  }
+}
+
 function setBlankGitSection(doc) {
   const gitNode = parseDocument('git:\n  integration_branch:\n').get('git', true);
   doc.set('git', gitNode);
@@ -216,10 +377,10 @@ export function applyMigration(configFile, { dryRun = false } = {}) {
   return `${summary}\n\n--- candidate YAML ---\n${result.yaml}`;
 }
 
-// Find the index in currentList where `status` should be inserted, based on
+// Find the index in currentList where `value` should be inserted, based on
 // canonical order. Returns -1 to append at end.
-function findInsertBefore(currentList, canonicalOrder, status) {
-  const canonIdx = canonicalOrder.indexOf(status);
+function findInsertBefore(currentList, canonicalOrder, value) {
+  const canonIdx = canonicalOrder.indexOf(value);
   for (let i = canonIdx + 1; i < canonicalOrder.length; i++) {
     const pos = currentList.indexOf(canonicalOrder[i]);
     if (pos !== -1) return pos;

@@ -57,9 +57,13 @@ change nuevo y no alterar la semántica del CLI.
 
 ## Plan
 
-- [x] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`; verify: `node --test test/intent.test.mjs` (CR1, CR2)
+- [x] Añadir `test/intent.test.mjs`, usar `src/commands/agent.mjs` como referencia de actores y actualizar las secciones de cierre, retrospectiva y reglas de `INTENT.md`
+  - **Verify:** `node --test test/intent.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-10T17:27:52Z`
-- [x] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental; verify: `node --test test/intent.test.mjs && git diff --check` (CR3)
+- [x] Usar `test/intent.test.mjs` y `.changeledger/specs/lifecycle.md` para comprobar que `INTENT.md` no declara cambios de CLI/viewer/lifecycle y revisar el diff documental
+  - **Verify:** `node --test test/intent.test.mjs && git diff --check`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-10T17:27:52Z`
 
 ## Log

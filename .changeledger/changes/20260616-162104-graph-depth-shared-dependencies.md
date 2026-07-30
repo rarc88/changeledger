@@ -47,11 +47,14 @@ todo lo visitado por ramas hermanas.
 
 ## Plan
 
-- [x] Añadir tests en `test/viewer-metadata.test.mjs` para `src/viewer/public/view-renderers.js` con dependencias compartidas, ciclo real y grafo simple (CR1, CR2, CR3)
+- [x] Añadir tests en `test/viewer-metadata.test.mjs` para `src/viewer/public/view-renderers.js` con dependencias compartidas, ciclo real y grafo simple
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:34:17Z`
-- [x] Actualizar `src/viewer/public/view-renderers.js` y cubrirlo con `test/viewer-metadata.test.mjs` para clonar o retirar `seen` por rama, preservando el cache de profundidades (CR1, CR2, CR3)
+- [x] Actualizar `src/viewer/public/view-renderers.js` y cubrirlo con `test/viewer-metadata.test.mjs` para clonar o retirar `seen` por rama, preservando el cache de profundidades
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:34:20Z`
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/viewer/public/view-renderers.js` con `test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/viewer/public/view-renderers.js` con `test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:34:23Z`
 
 ## Log

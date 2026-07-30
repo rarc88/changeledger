@@ -192,8 +192,14 @@ export function setTask(text, n, state, { iso, reason } = {}) {
   if (!task) throw new Error(`no task #${n} in ## Plan`);
   if (state === 'done' && task.state === 'done') return text;
 
-  const target = start + 1 + task.lineIndex;
-  const metadataTargets = task.metadataLineIndices.map((index) => start + 1 + index);
+  const base = start + 1;
+  const target = base + task.lineIndex;
+  // Only the state children are rewritten; `Target`/`Verify`/`Criteria`/`Support`
+  // are description, not resolution, and survive every status move. The new state
+  // child lands at the end of the block so those stay next to their description.
+  const stateTargets = task.stateMetadataLineIndices.map((index) => base + index);
+  const blockEnd =
+    base + Math.max(task.lineIndex, ...task.continuationLineIndices, ...task.metadataLineIndices);
   const marker = state === 'done' ? 'x' : state === 'blocked' ? '!' : ' ';
 
   if (state === 'done') {
@@ -203,8 +209,8 @@ export function setTask(text, n, state, { iso, reason } = {}) {
   }
 
   lines[target] = lines[target].replace(/^- \[( |x|!)\]/, `- [${marker}]`);
-  for (const index of metadataTargets.sort((a, b) => b - a)) lines.splice(index, 1);
+  for (const index of [...stateTargets].sort((a, b) => b - a)) lines.splice(index, 1);
   const metadata = taskMetadataLine(state, { iso, reason });
-  if (metadata) lines.splice(target + 1, 0, metadata);
+  if (metadata) lines.splice(blockEnd + 1 - stateTargets.length, 0, metadata);
   return lines.join('\n');
 }

@@ -13,6 +13,7 @@ import {
   archive,
   archiveGraduated,
   discard,
+  isPendingGraduation,
   list,
   log,
   owner,
@@ -35,12 +36,22 @@ function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   init(root);
+  // Born ownerless on purpose: these tests pin the `in-progress` auto-assignment,
+  // whose precondition is an empty `owner`. Since 20260726-124836 `new` resolves
+  // the local git identity by default, so the resolver is injected here to keep
+  // the precondition explicit instead of depending on the host's git identity.
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
-  // give it a task to operate on
-  const text = fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] do it\n');
+  // Give it a task to operate on. `(support)` because that is what this task
+  // honestly is — scaffolding for the lifecycle tests below, which declare no
+  // criteria — and since 20260729-185200 an unmarked task with no CR blocks
+  // approval, which these tests cross on their way to later statuses.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
@@ -69,6 +80,153 @@ test('125139 CR1/CR7: conversational approval is attributed without changing vie
   ).body;
   assert.match(viewerLog, /`\[status\]` draft → approved/);
   assert.doesNotMatch(viewerLog, /via conversation/);
+});
+
+// 20260729-185200 — the draft's exit gate. `emptyRepo` keeps the defective and
+// the ready candidate side by side: both are hand-written drafts, because the
+// scaffold `new` produces is empty and therefore already ready.
+function emptyRepo() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-gate-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  return root;
+}
+
+function writeDraft(root, id, body) {
+  const file = path.join(root, '.changeledger', 'changes', `${id}-gate.md`);
+  fs.writeFileSync(file, body);
+  return file;
+}
+
+// The readiness defect classes the Investigation reproduced: a criterion with no
+// Given/When/Then, a task citing a criterion that does not exist, and CR-bearing
+// tasks that name neither target nor verification.
+function defectiveDraft(id) {
+  return `---
+id: "${id}"
+title: Defective
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+### CR2 — Not test-grade
+- **Given** a
+
+## Plan
+
+- [ ] vague work
+  - **Criteria:** CR1
+- [ ] more vague work
+  - **Criteria:** CR2
+- [ ] Update \`src/x.mjs\`
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR99
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+function readyDraft(id) {
+  return `---
+id: "${id}"
+title: Ready
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+### CR1 — Test-grade
+- **Given** a
+- **When** b
+- **Then** c
+
+## Plan
+
+- [ ] Update \`src/x.mjs\`
+  - **Target:** \`src/x.mjs\`
+  - **Verify:** \`node --test test/x.test.mjs\`
+  - **Criteria:** CR1
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+test('185200 CR1: approve rejects a draft whose defects would be errors once approved', () => {
+  const root = emptyRepo();
+  const id = '20260613-120000';
+  const file = writeDraft(root, id, defectiveDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(
+    () => approve(id, root),
+    (error) => {
+      assert.match(error.message, /failed scoped validation/);
+      assert.match(error.message, /CR2 is not test-grade: missing Given\/When\/Then/);
+      assert.match(error.message, /Plan task references unknown criterion "CR99"/);
+      assert.match(error.message, /Plan task for CR1 must name target and verification/);
+      assert.match(error.message, /Plan task for CR2 must name target and verification/);
+      return true;
+    },
+  );
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+test('185200 CR2: a ready draft approves exactly as before', () => {
+  const root = emptyRepo();
+  const id = '20260613-120001';
+  const file = writeDraft(root, id, readyDraft(id));
+
+  approve(id, root);
+
+  const after = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(after.frontmatter.status, 'approved');
+  assert.match(
+    after.stages.find((stage) => stage.key === 'log').body,
+    /`\[status\]` draft → approved \(human via conversation\)/,
+  );
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -144,6 +302,42 @@ test('status to in-progress tolerates a missing owner handle', () => {
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+test('144812 CR1: an assigned owner skips resolution entirely', () => {
+  const { root, file, id } = repoWithChange();
+  owner(id, 'ana', root);
+  status(id, 'approved', root);
+  let calls = 0;
+  status(id, 'in-progress', root, {
+    ownerHandle: () => {
+      calls += 1;
+      return 'raruiz';
+    },
+  });
+  assert.equal(calls, 0);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'ana');
+  assert.doesNotMatch(c.stages.find((s) => s.key === 'log').body, /\(auto\)/);
+});
+
+test('144812 CR2: an absent owner is resolved exactly once', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  let calls = 0;
+  status(id, 'in-progress', root, {
+    ownerHandle: () => {
+      calls += 1;
+      return 'resolved-user';
+    },
+  });
+  assert.equal(calls, 1);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.owner, 'resolved-user');
+  assert.match(
+    c.stages.find((s) => s.key === 'log').body,
+    /`\[owner\]` set: resolved-user \(auto\)/,
+  );
 });
 
 test('archive sets the archived flag', () => {
@@ -311,6 +505,26 @@ test('131649 CR1/CR2: list owns graduation and archive pending queries', () => {
   );
 });
 
+test('141643 CR3: pending graduation is exactly done with reviewed other than true', () => {
+  const change = (status, reviewed, stages = []) => ({
+    frontmatter: { status, ...(reviewed === undefined ? {} : { reviewed }) },
+    stages,
+  });
+  const graduationMarker = [
+    {
+      key: 'log',
+      body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `legacy.md`',
+    },
+  ];
+
+  assert.equal(isPendingGraduation(change('done', undefined)), true);
+  assert.equal(isPendingGraduation(change('done', false)), true);
+  assert.equal(isPendingGraduation(change('done', 'true')), true);
+  assert.equal(isPendingGraduation(change('done', undefined, graduationMarker)), true);
+  assert.equal(isPendingGraduation(change('done', true)), false);
+  assert.equal(isPendingGraduation(change('in-validation', undefined)), false);
+});
+
 test('131649 CR3-CR5: list combines owner, unowned, status and type filters', () => {
   const { root, write } = repoWithArchiveCandidates();
   write({ id: '20260613-120001', owner: 'Roberto Ruiz', status: 'in-validation' });
@@ -364,14 +578,20 @@ function repoWithChore() {
   const file = newChange(
     { type: 'chore', slug: 'c', title: 'C', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
   return { root, file, id };
 }
 
+// repoWithChange() deliberately produces an owner-less change (see its own
+// comment), so the pre-existing in-progress auto-assign guard (!fm.owner)
+// fires here for every caller. None of reach()'s callers assert anything
+// about owner, so inject a deterministic empty identity to keep the suite
+// hermetic instead of reaching the host's real gh/git identity.
 const reach = (id, root, target) => {
   for (const s of ['approved', 'in-progress', 'in-review']) {
-    status(id, s, root);
+    status(id, s, root, { ownerHandle: () => '' });
     if (s === target) return;
   }
 };
@@ -387,10 +607,150 @@ test('171002 CR1: status blocks review-required in-progress → in-validation', 
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+// 20260726-141120 — entry into review is closed for a type without
+// `review_required`. `init` seeds `audit` without it.
+
+function repoWithAudit() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const file = newChange(
+    { type: 'audit', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  return { root, file, id };
+}
+
+test('141120 CR2: rejecting review entry leaves the document and Log untouched', () => {
+  const { root, file, id } = repoWithAudit();
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => status(id, 'in-review', root),
+    /^Error: audit changes do not require review — move to in-validation instead$/,
+  );
+  const after = fs.readFileSync(file, 'utf8');
+  assert.equal(after, before);
+  const c = parseChange(after);
+  assert.equal(c.frontmatter.status, 'in-progress');
+  assert.doesNotMatch(c.stages.find((s) => s.key === 'log').body, /in-review/);
+});
+
+test('141120 CR1: the CLI reports the rejection and exits 1', async () => {
+  const { root, id } = repoWithAudit();
+  const bin = path.resolve('bin/changeledger.mjs');
+  const failure = await execFileAsync(process.execPath, [bin, 'status', id, 'in-review'], {
+    cwd: root,
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(failure, 'the CLI must fail');
+  assert.equal(failure.code, 1);
+  assert.match(
+    failure.stderr,
+    /^Error: audit changes do not require review — move to in-validation instead$/m,
+  );
+});
+
+// 20260722-124656 — the local gate decides whether a reviewable candidate exists,
+// so the transition that claims review started is the last place the readiness of
+// that candidate can still be refused instead of delegated to the reviewer.
+function repoWithUnreadyChange() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  init(root);
+  const file = newChange(
+    { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  // Walk to in-progress while the document is still ready: since 20260729-185200
+  // the draft → approved gate refuses a defective candidate, and the subject here
+  // is the in-review gate, not approval.
+  const ready = fs
+    .readFileSync(file, 'utf8')
+    .replace(
+      '## Specification\n',
+      '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
+    );
+  fs.writeFileSync(file, ready);
+  const id = parseChange(ready).frontmatter.id;
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  // Two readiness defects at once, introduced where this fixture needs them: CR1
+  // has no When/Then, and the Plan task that claims it names neither a target
+  // (`src/**`) nor a verification (`test/**`).
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+        '### CR1 — Something\n- **Given** a thing\n',
+      )
+      .replace(
+        '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
+        '- [ ] do the thing\n  - **Criteria:** CR1',
+      ),
+  );
+  return { root, file, id };
+}
+
+test('124656 CR3: the in-review transition refuses an unready candidate', () => {
+  const { root, file, id } = repoWithUnreadyChange();
+  const before = fs.readFileSync(file, 'utf8');
+  let thrown;
+  try {
+    status(id, 'in-review', root);
+  } catch (error) {
+    thrown = error;
+  }
+  assert.ok(thrown, 'the transition must refuse an unready candidate');
+  // Every readiness defect is named, not just the first one found.
+  assert.match(thrown.message, /CR1 is not test-grade: missing Given\/When\/Then/);
+  assert.match(thrown.message, /Plan task for CR1 must name target and verification/);
+  // The refusal is byte-preserving: no status flip, and no Log entry at all.
+  const after = fs.readFileSync(file, 'utf8');
+  assert.equal(after, before);
+  const c = parseChange(after);
+  assert.equal(c.frontmatter.status, 'in-progress');
+  const logBody = c.stages.find((s) => s.key === 'log').body;
+  // CR2: neither a transition into in-review nor any review-typed event.
+  assert.doesNotMatch(logBody, /in-review/);
+  assert.doesNotMatch(logBody, /\[review\]/);
+});
+
+test('124656 CR3: a ready candidate still reaches in-review', () => {
+  const { root, file, id } = repoWithUnreadyChange();
+  const repaired = fs
+    .readFileSync(file, 'utf8')
+    .replace(
+      '### CR1 — Something\n- **Given** a thing\n',
+      '### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '- [ ] do the thing\n  - **Criteria:** CR1',
+      '- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1',
+    );
+  fs.writeFileSync(file, repaired);
+  status(id, 'in-review', root);
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.status, 'in-review');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /in-progress → in-review/);
+});
+
 test('171002 CR5: a chore goes directly to in-validation, not done', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-validation', root);
   const c = parseChange(fs.readFileSync(file, 'utf8'));
   assert.equal(c.frontmatter.status, 'in-validation');
@@ -643,7 +1003,7 @@ test('171002 CR3: human rejection requires a reason and returns to in-progress',
 test('171002 CR2: generic status cannot close a change on behalf of the human', () => {
   const { root, file, id } = repoWithChore();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-validation', root);
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(() => status(id, 'done', root), /use human validation in the viewer/);
@@ -674,10 +1034,46 @@ test('CR8: review fail --block escalates to blocked with the reason', () => {
 test('CR9: review requires status in-review', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   const before = fs.readFileSync(file, 'utf8');
   assert.throws(
     () => review(id, 'pass', {}, root),
+    /review requires status in-review \(current: in-progress\)/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+// 20260729-162616 CR2: review() now validates every one of its three outcomes
+// through assertTransition, the same lifecycle authority status()/validation()/
+// discard()/reopen() already use — instead of writing setStatus directly once
+// its own bespoke `current !== 'in-review'` guard passes. Under today's graph
+// every in-review edge is legal (`in-review: ['in-validation', 'in-progress',
+// 'blocked']` mirrors review()'s three outcomes exactly), so assertTransition
+// can never actually throw through review() right now — exactly like the
+// equally-defensive call already in reopen() (`assertTransition('done',
+// 'in-progress', ...)`, always legal too). These tests pin the illegal-current
+// rejection (the only reachable one) across all three verdict paths, not just
+// `pass`, so a future edit that narrows the graph or the review-required gate
+// is enforced here the same way it already is for the other verbs.
+test('162616 CR2: review fail --retry rejects an illegal current status without writing', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'fail', { mode: 'retry', reason: 'x' }, root),
+    /review requires status in-review \(current: in-progress\)/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('162616 CR2: review fail --block rejects an illegal current status without writing', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(
+    () => review(id, 'fail', { mode: 'block', reason: 'x' }, root),
     /review requires status in-review \(current: in-progress\)/,
   );
   assert.equal(fs.readFileSync(file, 'utf8'), before);
@@ -704,10 +1100,12 @@ function repoWithTwoSamePrefix() {
   const fileA = newChange(
     { type: 'feature', slug: 'a', title: 'A', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const fileB = newChange(
     { type: 'feature', slug: 'b', title: 'B', now: '2026-06-13T12:00:01Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
   const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
@@ -740,9 +1138,13 @@ test('175734 CR3: a filename whose frontmatter id differs is not an exact match'
   );
   // The filename still begins with idA, but no change has that exact frontmatter id.
   assert.throws(() => status(idA, 'approved', root), new RegExp(`No change with id "${idA}"`));
-  // The real (corrupted) id resolves regardless of the filename.
-  status('20260613-999999', 'approved', root);
-  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.status, 'approved');
+  // The real (corrupted) id resolves regardless of the filename. The witness is
+  // `owner`, not `approve`: the corruption this fixture needs is itself a check
+  // error ("filename does not match id"), and since 20260729-185200 the
+  // draft → approved gate refuses any document with errors. Resolution, not
+  // readiness, is what this criterion owns.
+  owner('20260613-999999', 'ana', root);
+  assert.equal(parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.owner, 'ana');
 });
 
 // 20260615-210508 — discard requires a reason and writes a terminal status.
@@ -771,7 +1173,7 @@ test('210508 CR3/CR4: cannot discard a done change, and discarded is terminal', 
   const { root, file, id } = repoWithChange();
   task(id, 'done', 1, '', root);
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   // Drive the feature through review and human validation to test terminal done.
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
@@ -798,6 +1200,7 @@ function repoWithTwoTasks() {
   const file = newChange(
     { type: 'feature', slug: 'race', title: 'Race', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const text = fs
     .readFileSync(file, 'utf8')
@@ -853,6 +1256,7 @@ test('212314 CR2: a lock on one change does not block mutating another change', 
   const secondFile = newChange(
     { type: 'feature', slug: 'other', title: 'Other', now: '2026-06-13T12:00:01Z' },
     first.root,
+    { ownerHandle: () => '' },
   );
   const secondText = fs
     .readFileSync(secondFile, 'utf8')

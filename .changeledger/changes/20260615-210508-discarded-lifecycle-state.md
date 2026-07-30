@@ -105,15 +105,20 @@ conceptos (ocultar vs decidir-no-hacer), no lleva razón y no es terminal.
 
 ## Plan
 
-- [x] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs` (CR3, CR4)
+- [x] Añadir `discarded` a `CANONICAL_STATUSES` y a `TRANSITIONS` en `src/lifecycle.mjs` (entrada desde draft/approved/in-progress/blocked; sin salida) con tests en `test/lifecycle.test.mjs`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-15T21:26:49Z`
-- [x] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs` (CR5, CR7)
+- [x] Añadir `discarded` a `statuses` en `templates/config.yml` y `.sl/config.yml`, y exentar el estado terminal de los requisitos de stage/cobertura en `src/check.mjs`, con tests en `test/check.test.mjs`
+  - **Criteria:** CR5, CR7
   - **Resolved:** `2026-06-15T21:26:49Z`
-- [x] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs` (CR1, CR2)
+- [x] Implementar `discard(id, reason, cwd)` en `src/commands/agent.mjs` (razón obligatoria con el error literal, transición vía `assertTransition`, razón al Log) y cablear `sl discard` en `bin/sl.mjs`, con tests en `test/agent.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T21:26:49Z`
-- [x] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs` (CR6)
+- [x] Ocultar descartados por defecto y añadir el toggle "Discarded" sin columna nueva en `src/viewer/public/app.js` e `index.html`, con tests en `test/viewer-metadata.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-06-15T21:26:50Z`
-- [x] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify` (CR1–CR7)
+- [x] Documentar el estado `discarded` y la resurrección manual en `templates/AGENTS.md` §5 y `README.md`, y ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR7
   - **Resolved:** `2026-06-15T21:26:50Z`
 
 ## Log

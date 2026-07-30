@@ -5,28 +5,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
+import { status } from '../src/commands/agent.mjs';
 import { buildAgentContext } from '../src/commands/agent-context.mjs';
+import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
 const execFileAsync = promisify(execFile);
 const bin = path.resolve('bin/changeledger.mjs');
-const agentBudget = JSON.parse(
-  fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
-).agent;
-
-function assertWithinBudget(label, output, budget) {
-  const lines = output.split('\n').length;
-  const bytes = Buffer.byteLength(output, 'utf8');
-  if (lines > budget.target.lines || bytes > budget.target.bytes) {
-    process.emitWarning(
-      `${label} exceeds target (${lines}/${budget.target.lines} lines, ${bytes}/${budget.target.bytes} bytes)`,
-    );
-  }
-  assert.ok(lines <= budget.hard.lines, `${label} exceeds ${budget.hard.lines} lines: ${lines}`);
-  assert.ok(bytes <= budget.hard.bytes, `${label} exceeds ${budget.hard.bytes} bytes: ${bytes}`);
-}
+const agentBudget = contextBudgets.agent;
 
 function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-repo-'));
@@ -66,7 +55,10 @@ Chosen approach.
 
 ## Plan
 
-- [ ] Update \`src/example.mjs\`; verify: \`node --test test/example.test.mjs\` (CR1)
+- [ ] Update the example module
+  - **Target:** \`src/example.mjs\`
+  - **Verify:** \`node --test test/example.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -164,20 +156,81 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
 
   assert.match(buildAgentContext('investigation', undefined, root), /read-only/i);
   assert.match(buildAgentContext('review', fixtures.review, root), /read-only/i);
+  // 20260730-002730: tolerant, not the capsule's sentence — the obligation is that the
+  // implementation capsule bounds writes to what the prompt assigned, however worded.
   assert.match(
     buildAgentContext('implementation', fixtures.implementation, root),
-    /only the files assigned in the delegation prompt/i,
+    /\bonly\b[^.]{0,30}\bfiles?\b[^.]{0,40}\b(assigned|listed|named|owned)\b/i,
   );
 });
 
-test('201703 CR1: audit context is allowed only for in-validation and is framed, read-only', () => {
+// 183520 CR1/CR2: the capsule's checklist is conditional on the mandate the
+// prompt declares, so a narrow mandate is not handed a full-audit order. Two
+// tests, not one: CR2's fail-safe default is the half a rewrite is most likely
+// to drop, and it must fail naming the default rather than hiding inside CR1.
+//
+// Tolerant concept patterns over flattened text, never the capsule's sentence:
+// each is one half of the obligation and written in both directions, so
+// rewording is free. Every pattern below was run against the pre-edit capsule
+// and was red there, which is what proves none of them is satisfied by prose
+// that already existed.
+const mandateCapsule = (root, id) => {
+  addChange(root, 'in-review', id);
+  return buildAgentContext('review', id, root).split('\n# Selected change')[0].replace(/\s+/g, ' ');
+};
+
+test('183520 CR1: the review capsule bounds its checklist by the declared mandate', () => {
+  const flat = mandateCapsule(repo(), '20260705-120008');
+  for (const pattern of [
+    // The mandate arrives in the prompt; the capsule does not invent one.
+    /\b(prompt|delegation)\b[^.;]{0,70}\bmandate\b|\bmandate\b[^.;]{0,70}\b(prompt|declares?|declared)\b/i,
+    // A narrower mandate makes the declared scope the inspection.
+    /\b(narrow\w*|spot check|bounded)\b[^.;]{0,90}\b(inspect\w*|scope)\b|\b(inspect\w*|scope)\b[^.;]{0,90}\b(narrow\w*|spot check|bounded)\b/i,
+    // What is noticed outside it is reported without widening the inspection.
+    /\boutside\b[^.;]{0,70}\bwithout\b[^.;]{0,45}\bexpand|\bwithout\b[^.;]{0,45}\bexpand\w*[^.;]{0,70}\boutside\b/i,
+  ]) {
+    assert.match(
+      flat,
+      pattern,
+      `the review capsule no longer bounds its checklist by mandate: ${pattern}`,
+    );
+  }
+});
+
+test('183520 CR2: with no mandate declared the review capsule applies the full audit', () => {
+  const flat = mandateCapsule(repo(), '20260705-120009');
+  assert.match(
+    flat,
+    /\b(no|without|absent|unstated)\b[^.;]{0,45}\bmandate\b[^.;]{0,90}\b(full|complete|whole)\b|\b(full|complete|whole)\b[^.;]{0,90}\b(no|without|absent|unstated)\b[^.;]{0,45}\bmandate\b/i,
+    'the review capsule no longer defaults to the full audit when the prompt declares no mandate',
+  );
+});
+
+// 20260728-212043 CR6: `agent` is the one entry that bounds both capsule
+// classes. `144327 CR8` above only measures `buildAgentContext`'s capsules; the
+// four `changeledger agent-prompt <role>` capsules were never measured against
+// any ceiling, so a regression there could grow silently. Portable — no repo
+// fixture needed, `buildAgentPrompt` reads only the packaged templates.
+//
+// One `test()` per role, not a loop with a single assertion: a loop's first
+// `assert.ok` throws and aborts the remaining iterations, so with the ceiling
+// still at 350 only `investigation` would report while implementation, review
+// and post-review stayed silently unexecuted. Four independent tests is what
+// proves all four measured capsules actually exceed 350 tokens.
+for (const role of ['investigation', 'implementation', 'review', 'post-review']) {
+  test(`20260728-212043 CR6: ${role} prompt capsule fits the shared agent budget`, () => {
+    assertWithinBudget(`${role} prompt capsule`, buildAgentPrompt(role), agentBudget);
+  });
+}
+
+test('201703 CR1: post-review context is allowed only for in-validation and is framed, read-only', () => {
   const root = repo();
   const id = '20260705-120008';
   const selected = addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   assert.equal(
     out.split('\n')[0],
-    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: audit — change: #${id} — v${VERSION} =====`,
+    `===== CHANGELEDGER AGENT CONTEXT BEGIN — role: post-review — change: #${id} — v${VERSION} =====`,
   );
   assert.equal(
     out.trimEnd().split('\n').at(-1),
@@ -186,18 +239,21 @@ test('201703 CR1: audit context is allowed only for in-validation and is framed,
   assert.match(out, /self-contained delegated context/i);
   assert.match(out, /do not run `changeledger context`/i);
   assert.match(out, /read-only/i);
-  assert.match(out, /do not modify files, do not change Git state, do not mutate the\s+ledger/i);
+  // 20260730-002730: the three prohibitions as concepts, not as one sentence.
+  assert.match(out, /do not modify[^.]{0,20}\bfiles?\b/i);
+  assert.match(out, /do not change[^.]{0,15}\bgit\b/i);
+  assert.match(out, /do not mutate[^.]{0,20}\bledger\b/i);
   assert.match(out, /do not\s+change status/i);
   assert.match(out, /do not add\s+Log entries/i);
   assert.match(out, /# Selected change[\s\S]*Do the delegated work/);
   assert.ok(out.includes(selected.trim()));
 });
 
-test('201703 CR2: audit never asks for a verdict or a lifecycle command', () => {
+test('201703 CR2: post-review never asks for a verdict or a lifecycle command', () => {
   const root = repo();
   const id = '20260705-120009';
   addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   const base = out.split('\n# Selected change')[0];
   assert.match(base, /findings and evidence/i);
   assert.doesNotMatch(base, /recommended (outcome|verdict)/i);
@@ -208,7 +264,15 @@ test('201703 CR2: audit never asks for a verdict or a lifecycle command', () => 
   );
 });
 
-test('201703 CR1/CR2: audit requires in-validation and requires a change id; review keeps its own guard', () => {
+test('20260726-141123 CR2: the retired role name audit never resolves as a role, no alias', () => {
+  const root = repo();
+  assert.throws(
+    () => buildAgentContext('audit', undefined, root),
+    /^Error: Unknown role "audit" — valid roles: investigation, implementation, review, post-review$/,
+  );
+});
+
+test('201703 CR1/CR2: post-review requires in-validation and requires a change id; review keeps its own guard', () => {
   const root = repo();
   const approved = '20260705-120010';
   const inReview = '20260705-120011';
@@ -217,18 +281,18 @@ test('201703 CR1/CR2: audit requires in-validation and requires a change id; rev
   addChange(root, 'in-review', inReview);
   addChange(root, 'in-validation', inValidation);
 
-  assert.doesNotThrow(() => buildAgentContext('audit', inValidation, root));
+  assert.doesNotThrow(() => buildAgentContext('post-review', inValidation, root));
   assert.throws(
-    () => buildAgentContext('audit', inReview, root),
-    /role audit requires change status in-validation; got in-review/,
+    () => buildAgentContext('post-review', inReview, root),
+    /role post-review requires change status in-validation; got in-review/,
   );
   assert.throws(
-    () => buildAgentContext('audit', approved, root),
-    /role audit requires change status in-validation; got approved/,
+    () => buildAgentContext('post-review', approved, root),
+    /role post-review requires change status in-validation; got approved/,
   );
   assert.throws(
-    () => buildAgentContext('audit', undefined, root),
-    /role audit requires a change id/,
+    () => buildAgentContext('post-review', undefined, root),
+    /role post-review requires a change id/,
   );
   // review keeps its current in-review-only guard and verdict recipe untouched.
   assert.doesNotThrow(() => buildAgentContext('review', inReview, root));
@@ -240,16 +304,16 @@ test('201703 CR1/CR2: audit requires in-validation and requires a change id; rev
   assert.match(reviewOut, /pass, fail-retry|fail-block/i);
 });
 
-test('201703 CR3: audit capsule fits the shared agent budget and lists in the CLI role set', () => {
+test('201703 CR3: post-review capsule fits the shared agent budget and lists in the CLI role set', () => {
   const root = repo();
   const id = '20260705-120013';
   addChange(root, 'in-validation', id);
-  const out = buildAgentContext('audit', id, root);
+  const out = buildAgentContext('post-review', id, root);
   const base = out.split('\n# Selected change')[0];
-  assertWithinBudget('audit capsule', base, agentBudget);
+  assertWithinBudget('post-review capsule', base, agentBudget);
   assert.throws(
     () => buildAgentContext('scaffolding', undefined, root),
-    /valid roles: investigation, implementation, review, audit/,
+    /valid roles: investigation, implementation, review, post-review/,
   );
 });
 
@@ -262,4 +326,63 @@ test('144327 CR7: agent-context is wired through the CLI', async () => {
   );
   assert.match(stdout, /^===== CHANGELEDGER AGENT CONTEXT BEGIN — role: investigation/);
   assert.match(stdout, /CHANGELEDGER AGENT CONTEXT END/);
+});
+
+// 20260726-141120 CR5 — the review capsule is unreachable for a type without
+// `review_required`: the lifecycle refuses the only status that would dispatch
+// it, so the role guard is the last line rather than the only one.
+
+function addQuickChange(root, id = '20260726-141120') {
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-quick-fixture.md`),
+    `---
+id: "${id}"
+title: Quick fixture
+type: quick
+status: in-progress
+created: 2026-07-26T14:11:20Z
+depends_on: []
+---
+
+## Request
+
+Small reversible work.
+
+## Log
+
+- Initial note.
+`,
+  );
+  return id;
+}
+
+test('141120 CR5: a quick change can never reach the status the review role needs', () => {
+  const root = repo();
+  const id = addQuickChange(root);
+  assert.throws(
+    () => status(id, 'in-review', root),
+    /^Error: quick changes do not require review — move to in-validation instead$/,
+  );
+  assert.throws(
+    () => buildAgentContext('review', id, root),
+    /^Error: role review requires change status in-review; got in-progress$/,
+  );
+});
+
+test('141120 CR5: the CLI refuses the review capsule and emits no BEGIN line', async () => {
+  const root = repo();
+  const id = addQuickChange(root);
+  const failure = await execFileAsync(process.execPath, [bin, 'agent-context', 'review', id], {
+    cwd: root,
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(failure, 'the CLI must fail');
+  assert.equal(failure.code, 1);
+  assert.match(
+    failure.stderr,
+    /^Error: role review requires change status in-review; got in-progress$/m,
+  );
+  assert.doesNotMatch(failure.stdout, /CHANGELEDGER AGENT CONTEXT BEGIN/);
 });

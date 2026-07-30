@@ -50,7 +50,8 @@ invisible para el visor y reportado como error por `sl check`.
   - **Resolved:** `2026-06-15T11:44:28Z`
 - [x] Cubrir con test el caso de config sin `specs_dir`: graduar y luego cargar/checkear el repo
   - **Resolved:** `2026-06-15T11:44:29Z`
-- [x] Ejecutar `pnpm verify` (CR1, CR2)
+- [x] Ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T11:44:29Z`
 
 ## Log

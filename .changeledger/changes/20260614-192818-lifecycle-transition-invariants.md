@@ -71,7 +71,8 @@ terminados.
   - **Resolved:** `2026-06-15T11:47:16Z`
 - [x] Añadir tests de happy path, blocked reversible, saltos, regresiones, no-op y graduación prematura
   - **Resolved:** `2026-06-15T11:47:16Z`
-- [x] Actualizar contrato/spec de arquitectura y ejecutar `pnpm verify` (CR1, CR2, CR3, CR4, CR5)
+- [x] Actualizar contrato/spec de arquitectura y ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-15T11:47:16Z`
 
 ## Log

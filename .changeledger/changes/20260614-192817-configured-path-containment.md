@@ -59,11 +59,13 @@ repo Spec Ledger que descubrieron.
   - **Resolved:** `2026-06-15T11:43:18Z`
 - [x] Sustituir resoluciones directas en carga y comandos por el helper compartido
   - **Resolved:** `2026-06-15T11:43:18Z`
-- [x] Añadir validación accionable en `sl check` para ambos campos de config (CR1, CR2, CR3)
+- [x] Añadir validación accionable en `sl check` para ambos campos de config
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T11:43:19Z`
 - [x] Añadir tests de traversal, absoluta, symlink externo y rutas internas en las plataformas soportadas
   - **Resolved:** `2026-06-15T11:43:19Z`
-- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-15T11:43:19Z`
 
 ## Log

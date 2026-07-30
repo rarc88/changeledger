@@ -103,21 +103,26 @@ _Alternativas descartadas:_
 
 ## Plan
 
-- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas) (CR7)
+- [x] Definir contrato `AGENTS.md` (formato, ciclo, tipos, etapas, reglas)
+  - **Criteria:** CR7
   - **Resolved:** `2026-06-13T13:30:00Z`
-- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template (CR1)
+- [x] Definir `config.yml` (idioma + tipos + etapas activas) y template
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T13:35:00Z`
 - [x] Change bootstrap (este documento) como formato vivo
   - **Resolved:** `2026-06-13T13:40:00Z`
 - [x] Definir política de idioma (estructura inglés, contenido según `language`)
   - **Resolved:** `2026-06-13T13:45:48Z`
-- [x] CLI `sl` con `init` / `view` / `new <tipo>` (CR1, CR2)
+- [x] CLI `sl` con `init` / `view` / `new <tipo>`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-13T14:30:00Z`
 - [x] Visor: server Node (`node:http`) que lee `.sl/` y expone JSON
   - **Resolved:** `2026-06-13T14:35:00Z`
-- [x] Visor: UI kanban + pipeline de etapas + filtros y búsqueda (CR3, CR4)
+- [x] Visor: UI kanban + pipeline de etapas + filtros y búsqueda
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-13T14:38:00Z`
-- [x] Visor: grafo `depends_on` + progreso de tareas (CR5, CR6)
+- [x] Visor: grafo `depends_on` + progreso de tareas
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-06-13T14:40:44Z`
 
 ## Log

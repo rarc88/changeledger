@@ -64,9 +64,11 @@ vive cada uno. Repos movidos o clonados en otro equipo deben poder revincularse.
   - **Resolved:** `2026-06-13T22:15:38Z`
 - [x] `config.yml` template: `project_id`/`project_name`; generación en `init`
   - **Resolved:** `2026-06-13T22:15:38Z`
-- [x] `sl init`: generar identidad + registrar; no clobbear (CR1, CR4)
+- [x] `sl init`: generar identidad + registrar; no clobbear
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-06-13T22:15:38Z`
-- [x] `sl register` command (CR2, CR3)
+- [x] `sl register` command
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-06-13T22:15:38Z`
 - [x] Tests (init registra, register revincula, no duplica)
   - **Resolved:** `2026-06-13T22:15:38Z`

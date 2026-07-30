@@ -17,9 +17,11 @@ Build the thing.
 
 ## Plan
 
-- [x] First task (CR1)
+- [x] First task
+  - **Criteria:** CR1
   - **Resolved:** \`2026-06-13T13:30:00Z\`
-- [ ] Second task (CR2, CR3)
+- [ ] Second task
+  - **Criteria:** CR2, CR3
 - [!] Third task
   - **Blocked:** blocked by upstream
 
@@ -75,7 +77,8 @@ depends_on: []
 
 ## Plan
 
-- [x] Preserve wording — with an internal dash | and colon: value (CR1)
+- [x] Preserve wording — with an internal dash | and colon: value
+  - **Criteria:** CR1
   - **Resolved:** \`2026-06-13T13:30:00Z\`
 `);
   assert.equal(c.tasks[0].text, 'Preserve wording — with an internal dash | and colon: value');
@@ -108,6 +111,152 @@ depends_on: []
       'invalid task metadata structure for task #2',
       'invalid task metadata structure for task #3',
     ],
+  );
+});
+
+// 20260729-203257 CR1: a description wrapped onto an indented second physical
+// line is one logical task. The old positional parser dropped the continuation
+// and, with it, any trace on it.
+test('203257 CR1: an indented continuation joins the description and keeps the trace', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [ ] Descripción que envuelve
+  a una segunda línea física
+  - **Criteria:** CR2
+`);
+  assert.equal(c.tasks.length, 1);
+  assert.equal(c.tasks[0].text, 'Descripción que envuelve a una segunda línea física');
+  assert.deepEqual(c.tasks[0].criteria, ['CR2']);
+  assert.deepEqual(c.taskIssues, []);
+});
+
+// 20260729-203257 CR2: nothing inside `## Plan` is discarded in silence.
+test('203257 CR2: a non-indented undecidable Plan line is a named issue', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: draft
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [ ] Tarea uno
+  - **Criteria:** CR1
+Prosa suelta que no es tarea
+- [ ] Tarea dos
+  - **Criteria:** CR2
+`);
+  assert.deepEqual(
+    c.taskIssues.map((issue) => issue.message),
+    ['unrecognized Plan line: "Prosa suelta que no es tarea"'],
+  );
+  assert.equal(c.tasks.length, 2);
+});
+
+// 20260729-203257 CR3: the trace comes from the `Criteria` child only; every
+// parenthesis in the description is prose, whatever it looks like.
+test('203257 CR3: parentheses in the description are prose, not trace', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [ ] Hacer cosas (CR1) (support)
+  - **Criteria:** CR2
+`);
+  assert.deepEqual(c.tasks[0].criteria, ['CR2']);
+  assert.equal(c.tasks[0].text, 'Hacer cosas (CR1) (support)');
+  assert.deepEqual(c.taskIssues, []);
+});
+
+test('203257 CR3: a non-CRn token in Criteria is a named issue', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [ ] Hacer cosas
+  - **Criteria:** CR1, banana
+`);
+  assert.deepEqual(
+    c.taskIssues.map((issue) => issue.message),
+    ['invalid Criteria value "banana" for task #1'],
+  );
+});
+
+// The four descriptive children are legal in any state and at most once each.
+test('203257 CR1: Target, Verify, Criteria and Support are parsed as task fields', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [x] Implementar
+  - **Target:** \`src/task.mjs\`
+  - **Verify:** \`node --test test/change.test.mjs\`
+  - **Criteria:** CR1, CR2
+  - **Resolved:** \`2026-06-13T13:30:00Z\`
+- [ ] Ejecutar el gate
+  - **Support:** cierre operativo
+`);
+  assert.deepEqual(c.taskIssues, []);
+  assert.equal(c.tasks[0].target, '`src/task.mjs`');
+  assert.equal(c.tasks[0].verify, '`node --test test/change.test.mjs`');
+  assert.deepEqual(c.tasks[0].criteria, ['CR1', 'CR2']);
+  assert.equal(c.tasks[0].resolvedAt, '2026-06-13T13:30:00Z');
+  assert.equal(c.tasks[1].support, 'cierre operativo');
+  assert.deepEqual(c.tasks[1].criteria, []);
+});
+
+test('203257 CR1: a repeated descriptive child is a structure issue', () => {
+  const c = parseChange(`---
+id: "0001"
+title: X
+type: feature
+status: in-progress
+created: 2026-06-13T13:30:00Z
+depends_on: []
+---
+
+## Plan
+
+- [ ] Implementar
+  - **Target:** \`src/task.mjs\`
+  - **Target:** \`src/check.mjs\`
+`);
+  assert.deepEqual(
+    c.taskIssues.map((issue) => issue.message),
+    ['invalid task metadata structure for task #1'],
   );
 });
 

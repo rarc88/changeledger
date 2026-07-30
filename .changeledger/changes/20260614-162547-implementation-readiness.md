@@ -138,15 +138,20 @@ flowchart LR
 
 ## Plan
 
-- [x] Añadir `tdd: true` a `templates/config.yml` (copiado por `init`) y a `.sl/config.yml` (CR1)
+- [x] Añadir `tdd: true` a `templates/config.yml` (copiado por `init`) y a `.sl/config.yml`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T16:43:29Z`
-- [x] Parser: exponer CR declarados en `## Specification` desde `src/change.mjs` (`parseChange().criteria`) (CR2)
+- [x] Parser: exponer CR declarados en `## Specification` desde `src/change.mjs` (`parseChange().criteria`)
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-14T16:43:29Z`
-- [x] Cobertura CR↔tarea en `src/check.mjs` (`checkCoverage`), solo `approved`/`in-progress`, warnings no errores (CR2, CR3, CR4, CR5)
+- [x] Cobertura CR↔tarea en `src/check.mjs` (`checkCoverage`), solo `approved`/`in-progress`, warnings no errores
+  - **Criteria:** CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-14T16:43:29Z`
-- [x] Documentar el DoR y el efecto de `tdd` en el contrato `templates/AGENTS.md` §11 (CR2, CR3, CR4, CR5)
+- [x] Documentar el DoR y el efecto de `tdd` en el contrato `templates/AGENTS.md` §11
+  - **Criteria:** CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-14T16:43:29Z`
-- [x] Tests de config `tdd` en `test/cli.test.mjs` y de cobertura en `test/check.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Tests de config `tdd` en `test/cli.test.mjs` y de cobertura en `test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-14T16:43:29Z`
 - [x] README: mencionar el flag `tdd` y el DoR en `README.md` (sin CR — docs)
   - **Resolved:** `2026-06-14T16:43:29Z`

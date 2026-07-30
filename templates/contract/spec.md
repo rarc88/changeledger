@@ -2,23 +2,8 @@
 
 ## Repository layout and creation
 
-```text
-.changeledger/
-  config.yml
-  changes/<id>-<english-slug>.md
-  specs/
-AGENTS.md
-CLAUDE.md  # optional
-```
-
-The project-owned `AGENTS.md` contains the bootstrap. Run `changeledger context`
-before acting. Create a change with:
-
-```text
-changeledger new <type> <slug> "<title>"
-```
-
-The CLI generates the UTC id, filename and active stages. The slug is structural
+The project-owned `AGENTS.md` carries the bootstrap; run `changeledger context`
+before acting and `changeledger new` to create a change. The slug is structural
 and must be English; title and narrative follow the configured language. Files
 remain the source of truth and may be edited directly, but prefer the CLI for
 timestamps, enums and markers that are easy to mistype.
@@ -56,41 +41,20 @@ lifecycle progress and cycles. Use optional `related_to` for useful context that
 must not impose execution order or affect readiness. Both accept local ids and
 external `project:id` refs; declare a local relation once, deriving its backlink.
 
-`owner` identifies responsibility. `approved → in-progress` assigns an absent
-owner via `gh api user --jq .login`, then `git config user.name`. Override with
-`changeledger owner <id> <name|->`; absence means unassigned.
+`owner` identifies responsibility and is born at creation, resolved by the CLI
+unless `--owner` sets it. Override with `changeledger owner <id> <name|->`;
+absence means unassigned.
 
 Keep each fact in one stage and link to it from the others. Do not let summaries
 or plans become competing versions of the same truth.
 
 ## Stages
 
-Use fixed English `##` headings in this order and only when activated for the
-type in `config.yml`:
-
-| Key | Heading | Purpose |
-|---|---|---|
-| request | `## Request` | Ask, context and why |
-| investigation | `## Investigation` | Evidence, constraints and risks; root cause for bugs, core analysis for audits |
-| proposal | `## Proposal` | Chosen solution, discarded alternatives and scenarios |
-| specification | `## Specification` | Testable requirements and acceptance criteria |
-| plan | `## Plan` | Actionable task checklist |
-| log | `## Log` | Chronological decisions and execution changes |
-
-Default activation matrix:
-
-| Type | request | investigation | proposal | specification | plan | log |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| feature | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| bug | ✓ | ✓ | — | ✓ | ✓ | ✓ |
-| audit | ✓ | ✓ | — | — | — | ✓ |
-| refactor | ✓ | — | ✓ | — | ✓ | ✓ |
-| chore | ✓ | — | — | — | ✓ | — |
-| quick | ✓ | — | — | — | — | ✓ |
-
-The configured matrix is authoritative. For bugs, Investigation contains the
-root cause; for audits, it is the core analysis. Proposal includes the chosen
-solution, discarded alternatives and scenarios.
+Use fixed English `##` headings — `Request`, `Investigation`, `Proposal`,
+`Specification`, `Plan`, `Log` — in that order and only when activated for the
+type in `config.yml`, whose configured matrix is authoritative. For bugs,
+Investigation contains the root cause; for audits, it is the core analysis.
+Proposal includes the chosen solution, discarded alternatives and scenarios.
 
 `quick` is for small, reversible, single-concern work that adds no public surface
 or persistent truth (`specs/`): only Request and Log, ~10-15 lines. It retains
@@ -125,61 +89,49 @@ Given/When/Then/And keywords stay English; scenario content follows the repo
 language. Localized headings, translated keywords, inline criteria and
 `#### CR1` are not machine-readable.
 
+A criterion is a falsifiable claim, so its wording is part of the contract:
+
+- Every `Then` states a fact measured at writing time, never a plausible
+  assumption: verify before you write it.
+- A criterion that quantifies universally (e.g. `every`, `all`, `no`) either covers
+  its whole domain or narrows to what it verifies.
+- Derive sets from `config.yml` instead of enumerating members by hand, so a new
+  member cannot leave the criterion silently partial.
+- For code the change will edit, cite symbols, paths and test names, never line
+  numbers: the change's own work invalidates them.
+
 ## Plan task grammar
 
-Markers encode state and the final parenthesized block encodes traceability:
+Markers encode state; structured children carry every trace, never a position:
 
 ```markdown
-- [ ] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
-- [x] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+- [ ] Rewrite the parser, wrapping onto
+  an indented continuation line
+  - **Target:** `src/foo.ts`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2
+- [x] Update `src/bar.ts`
+  - **Target:** `src/bar.ts`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-13T14:20:00Z`
-- [!] Update `src/app/foo.ts`; verify: `pnpm test` (CR1)
+- [!] Run the complete test suite after implementation
+  - **Support:**
   - **Blocked:** blocked reason — arbitrary punctuation is safe
-- [ ] Run the complete test suite after implementation (support)
 ```
 
-For a CR-bearing task, target and verification precede the final `(CRn)` block; only that block supplies traceability. Any mentions of `CR1` earlier in the sentence are prose, and one task may cover `(CR1, CR2)`.
-Resolution metadata is structural: `[x]` requires one immediate `Resolved` child with a backticked ISO UTC timestamp, `[!]` one immediate `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
+`Target`, `Verify`, `Criteria` and `Support` are legal in any state, at most once each, and contiguous with their task. `Criteria` is the sole traceability — a list of `CRn` ids — so parentheses in the description are always prose. An indented non-child line continues the description; a non-indented line that is neither task nor blank is reported, never dropped.
 
-Verification must precede the final criteria block; this is invalid:
+`Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
 
-```markdown
-- [ ] Update `src/app/foo.ts` (CR1) — verify: `pnpm test`
-```
-
-`(support)` marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks, must be the final parenthesized marker and cannot replace a criterion for observable behaviour.
-
-## Log event grammar
-
-Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
-
-```markdown
-- **2026-06-13T14:20:00Z** `[status]` draft → approved
-- **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
-```
-
-Types are `status`, `review`, `validation`, `owner`, `graduation`, `archive` and `note`. Lifecycle commands write their type; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+Pre-existing Plan tasks without structured children migrate to this grammar with `changeledger fix --plan-tags`, and legacy task metadata or Log events migrate with `changeledger fix --structured-sections` (both previewed with `--dry-run`).
 
 ## IDs and language
 
-The id is the UTC creation instant in `YYYYMMDD-HHMMSS`, derived from `created`:
-`2026-06-13T15:04:02Z` becomes `20260613-150402`. The filename is
-`{id}-{english-slug}.md`. Timestamp ids sort chronologically and avoid central
-coordination; abbreviated viewer ids are display-only.
+The id is the UTC creation instant in `YYYYMMDD-HHMMSS`, derived from `created`;
+the filename is `{id}-{english-slug}.md`. Abbreviated viewer ids are
+display-only.
 
 Always English: frontmatter keys, enum values, stage headings, CR ids and step
 keywords, task markers, filenames/directories and CLI. Configured language:
 title, stage prose, scenario content and task descriptions.
-
-## Authoring helpers
-
-- `changeledger new <type> <slug> "<title>"`
-- `changeledger check [id]`
-- `changeledger list [--status S] [--type T] [--owner NAME|--unowned] [--pending graduation|archive] [--archived|--all] [--json]`
-- `changeledger show <id> [--json]`
-- `changeledger search <terms...> [--type T] [--status S] [--json]`
-- `changeledger owner <id> <name|->`
-- `changeledger fix --structured-sections [--dry-run]`
-
-Run `changeledger <command> --help` for exact options; the commands support the
-file contract rather than replacing it.

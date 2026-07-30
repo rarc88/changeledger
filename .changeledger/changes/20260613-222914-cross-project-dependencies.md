@@ -63,9 +63,11 @@ pureza del validador y acopla el check al registro/FS global.
 
 - [x] `check.mjs`: deps con `:` son externas
   - **Resolved:** `2026-06-14T11:45:24Z`
-- [x] Visor: pill de dep externa + navegación cross-proyecto (`gotoChange`) (CR3)
+- [x] Visor: pill de dep externa + navegación cross-proyecto (`gotoChange`)
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-14T11:45:24Z`
-- [x] Tests: dep externa no falsea; dep local rota sí; grafo ignora externas (CR1, CR2)
+- [x] Tests: dep externa no falsea; dep local rota sí; grafo ignora externas
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-14T11:45:24Z`
 
 ## Log

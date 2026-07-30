@@ -57,13 +57,17 @@ defensivo por construcción.
 
 ## Plan
 
-- [x] Añadir tests de traversal codificado en `test/view.test.mjs` y helper de resolución estática en `src/commands/view.mjs` (CR1)
+- [x] Añadir tests de traversal codificado en `test/view.test.mjs` y helper de resolución estática en `src/commands/view.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-16T15:31:36Z`
-- [x] Añadir test de directorio hermano con prefijo común en `test/view.test.mjs` y reemplazar la comprobación de prefijo en `src/commands/view.mjs` (CR2)
+- [x] Añadir test de directorio hermano con prefijo común en `test/view.test.mjs` y reemplazar la comprobación de prefijo en `src/commands/view.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-16T15:31:37Z`
-- [x] Añadir/ajustar test de asset válido en `test/view.test.mjs` manteniendo MIME en `src/commands/view.mjs` (CR3)
+- [x] Añadir/ajustar test de asset válido en `test/view.test.mjs` manteniendo MIME en `src/commands/view.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-16T15:31:37Z`
-- [x] Ejecutar tests existentes de API/vendor en `test/view.test.mjs` contra `src/commands/view.mjs` sin cambios de comportamiento (CR4)
+- [x] Ejecutar tests existentes de API/vendor en `test/view.test.mjs` contra `src/commands/view.mjs` sin cambios de comportamiento
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-16T15:31:37Z`
 - [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
   - **Resolved:** `2026-06-16T15:31:37Z`

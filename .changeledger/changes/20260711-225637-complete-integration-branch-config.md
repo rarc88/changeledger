@@ -76,13 +76,20 @@ permite verla ni editarla. Los repos nuevos tampoco reciben orientación porque
 
 ## Plan
 
-- [x] Añadir migración v2 → v3 y actualizar `templates/config.yml`; verify: `node --test test/config-migration.test.mjs test/cli.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir migración v2 → v3 y actualizar `templates/config.yml`
+  - **Verify:** `node --test test/config-migration.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-11T23:04:41Z`
-- [x] Añadir el campo Git a `formEditorTemplate()` y `collectFormPatch()` en `src/viewer/public/app.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR4, CR5)
+- [x] Añadir el campo Git a `formEditorTemplate()` y `collectFormPatch()` en `src/viewer/public/app.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-11T23:04:41Z`
-- [x] Verificar patch anidado y migración compartida en `src/viewer/domain.mjs`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6)
+- [x] Verificar patch anidado y migración compartida en `src/viewer/domain.mjs`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR5, CR6
   - **Resolved:** `2026-07-11T23:04:42Z`
-- [x] Ejecutar `pnpm verify` después de los ciclos red-green (support)
+- [x] Ejecutar `pnpm verify` después de los ciclos red-green
+  - **Support:**
   - **Resolved:** `2026-07-11T23:05:49Z`
 
 ## Log

@@ -73,13 +73,17 @@ Todas escriben de forma idempotente y dejan el archivo válido para `sl check`.
 
 - [x] Escritor de change: editar frontmatter y secciones preservando formato
   - **Resolved:** `2026-06-13T21:11:35Z`
-- [x] `sl status` (CR1, CR2)
+- [x] `sl status`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-13T21:11:35Z`
-- [x] `sl log` (CR3)
+- [x] `sl log`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-13T21:11:35Z`
-- [x] `sl task` done/block (CR4)
+- [x] `sl task` done/block
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-13T21:11:35Z`
-- [x] `sl list` + `sl show` con `--json` (CR5)
+- [x] `sl list` + `sl show` con `--json`
+  - **Criteria:** CR5
   - **Resolved:** `2026-06-13T21:11:35Z`
 - [x] Tests de cada comando
   - **Resolved:** `2026-06-13T21:11:35Z`

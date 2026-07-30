@@ -64,13 +64,17 @@ configuración, headings de etapa, tareas o referencias.
 
 ## Plan
 
-- [x] Añadir tests DOM con payloads en metadatos, headings, tareas, config y atributos para reproducir cada contexto (CR1, CR2, CR3)
+- [x] Añadir tests DOM con payloads en metadatos, headings, tareas, config y atributos para reproducir cada contexto
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:52:27Z`
-- [x] Inventariar las escrituras `innerHTML` y clasificar cada interpolación por contexto HTML, atributo, selector o estilo (CR1, CR2, CR3)
+- [x] Inventariar las escrituras `innerHTML` y clasificar cada interpolación por contexto HTML, atributo, selector o estilo
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:52:27Z`
-- [x] Sustituir interpolaciones no confiables por APIs DOM seguras o helpers de escape contextual; limitar valores dinámicos usados en CSS/selectores (CR1, CR2, CR3)
+- [x] Sustituir interpolaciones no confiables por APIs DOM seguras o helpers de escape contextual; limitar valores dinámicos usados en CSS/selectores
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:52:27Z`
-- [x] Ejecutar `pnpm verify` y smoke visual de todas las vistas con Markdown/Mermaid normal (CR3, CR4)
+- [x] Ejecutar `pnpm verify` y smoke visual de todas las vistas con Markdown/Mermaid normal
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-15T18:52:27Z`
 
 ## Log
