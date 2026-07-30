@@ -2,9 +2,10 @@
 id: "20260730-214503"
 title: Guards de obligación a evidencia de fragmento y semántica de confirmación
 type: feature
-status: in-validation
+status: done
 created: 2026-07-30T21:45:03Z
 depends_on: []
+reviewed: true
 related_to:
   - "20260722-124655"
   - "20260730-165310"
@@ -148,3 +149,5 @@ tabla de obligaciones.
 - **2026-07-30T22:21:54Z** `[status]` in-progress → in-review
 - **2026-07-30T22:21:54Z** `[note]` Mandato del review de confirmación, declarado antes de delegar: spot check del diff nombrado — la corrección sin commitear (frase reescrita a vocabulario review/round, guard ensanchado con la orden nueva, comentarios D1 y los 4 menores). Semántica de la confirmación: la de la propia frase corregida — falla solo el defecto nombrado no cerrado o regresión.
 - **2026-07-30T22:26:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T22:50:55Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T22:51:17Z** `[graduation]` spec: `lifecycle.md`
