@@ -2,7 +2,7 @@
 id: "20260730-183520"
 title: "La cápsula del revisor obedece el mandato y el retry nombra la vuelta a in-review"
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-30T18:35:20Z
 depends_on: []
 related_to:
@@ -193,3 +193,5 @@ cápsula aplica auditoría completa por construcción; (3) orquestador tras
 - **2026-07-30T18:56:31Z** `[note]` Selección única resuelta. Rojo-verde literal por CR (los cuatro patrones de CR1 ejecutados individualmente contra la cápsula pre-edición: rojos los cuatro); 5 mutantes de uno en uno; la frase del retry costó 38 tokens (base.implement 2375/2500 medido como mide el gate). Decisiones no especificadas del implementador para escrutinio del review: sitio de la frase de CR3 (tras la cláusula del guard 9), la nota de re-validación y el 'loads nowhere else' incluidos (verificado contra ALLOWED_STATUSES), 'with that same rigour' en la rama de mandato estrecho, entrada nueva de DELEGATION_OBLIGATIONS en tercera posición, dos tests con helper compartido. Residual nombrado y no tocado: las tres formas del mandato viven ahora en cuatro sedes (cápsula de prompt, review.md, spec lifecycle, cápsula de contexto) — tensión de sede única para decisión posterior, la reutilización verbatim era instrucción del documento.
 - **2026-07-30T18:57:00Z** `[status]` in-progress → in-review
 - **2026-07-30T18:57:01Z** `[note]` Mandato del review, declarado antes de delegar: auditoría completa — primera review del change. Puntos de escrutinio: las 5 decisiones no especificadas de la nota anterior y el residual de las cuatro sedes.
+- **2026-07-30T19:40:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T19:40:31Z** `[note]` Review PASS con mandato de auditoría completa, sin defectos. Deudas nombradas por el revisor, con sede: las tres formas del mandato viven en cuatro sedes sin test que las cruce (deriva independiente posible — candidata a follow-up si muerde); los fixtures nuevos reutilizan ids 120008/120009 de 201703 (convención de un id por fixture rota, inocuo con repos temporales); la mitad de orden del guard de CR3 no discrimina orden (techo de tolerancia inherente a las mitades bidireccionales autorizadas, probado con mutante de inversión); línea de 119 chars en implement.md (cosmética, sin formatter de md). En la graduación: el diagrama de lifecycle.md gana el arco de vuelta del retry.
