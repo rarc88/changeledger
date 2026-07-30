@@ -2,9 +2,11 @@
 id: "20260730-002341"
 title: La atribución de ids se acota a la declaración del commit
 type: bug
-status: approved
+status: done
 created: 2026-07-30T00:23:41Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260728-151336"]
 owner: raruiz-hiberuscom
 release_impact: patch
@@ -118,17 +120,34 @@ que consume el viewer no cambia; solo se estrecha qué commits entran.
 
 ## Plan
 
-- [ ] Acotar la atribución en `gitRefs`: filtro sobre los candidatos del grep que exige marcador al final del subject o línea canónica en cabeza del body
+- [x] Acotar la atribución en `gitRefs`: filtro sobre los candidatos del grep que exige marcador al final del subject o línea canónica en cabeza del body
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/git.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Relajar `commitMarkerViolation` a declaración-en-primera-línea con cola libre, fail-closed ante segunda declaración, retargeteando los tests de `225638 CR4` y `151336` cuya semántica cambia
+  - **Resolved:** `2026-07-30T10:02:45Z`
+- [x] Relajar `commitMarkerViolation` a declaración-en-primera-línea con cola libre, fail-closed ante segunda declaración, retargeteando los tests de `225638 CR4` y `151336` cuya semántica cambia
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-07-30T10:02:46Z`
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-07-30T10:02:46Z`
 
 ## Log
 - **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T09:48:29Z** `[status]` approved → in-progress
+- **2026-07-30T10:03:05Z** `[note]` Selección única resuelta. Evidencia: repros de baseline literales (commit none atribuido, prosa atribuye, línea extra rechazada), rojo-verde por CR, 5 mutantes de uno en uno — M3 (atribución leyendo el body entero) no tenía asesino y se añadió el test 002341 CR2 de marcador-en-cola-libre, ruta de escape que el documento no nombraba. Batería adversarial re-derivada: 38 rutas, 0 regresiones; la propiedad se mantiene con la declaración en cabeza. Cero retargets en check.test.mjs: inventariado que ningún test existente tenía declaración legal seguida de cola — diff 102 inserciones, 0 borrados; los seis tests nombrados en CR4 pasan byte-idénticos. pnpm test 1010/1010, check exit 0.
+- **2026-07-30T10:03:05Z** `[note]` Protocolo y residuos para el review: (1) el implementador usó git stash una vez para probar el caso NBSP — regla de restaurar-editando incumplida, round-trip limpio y auto-reportado. (2) NBSP antes de la etiqueta se acepta: preexistente, verificado contra baseline, sin tocar. (3) .changeledger/specs/git-traceability.md queda contradicha en dos puntos (body exactamente la declaración; gitRefs busca el mensaje entero) — se corrige en la graduación al cerrar. (4) commit.mjs no ofrece componer párrafo de porqué en --no-change, ahora gramática legal: follow-up, no implementado. Decisiones no especificadas: hasBodyLabel sigue leyendo el body entero (más fail-closed, M5 lo prueba portador); precedencia de mensajes byte-idéntica; regla de cola startsWith no includes.
+- **2026-07-30T10:03:05Z** `[note]` Mandato de review, registrado antes de delegar: auditoría del rango a190de7e..HEAD de la rama change/scoped-commit-attribution por revisor fresco top-tier. Puntos de escrutinio: las 3 decisiones no especificadas, el incidente del stash, la cobertura del caso NBSP como residuo preexistente, que la relajación no abra ninguna ruta de la batería (re-derivarla o muestrearla), y las notas de este Log al estándar del implementador.
+- **2026-07-30T10:03:06Z** `[status]` in-progress → in-review
+- **2026-07-30T10:18:44Z** `[review]` in-review → in-progress (retry): Tres mutantes sobreviven la suite completa en código nuevo del change: el trim() que rechaza la segunda declaración indentada no lo pinnea ningún test (un refactor futuro lo quita con suite verde y reabre la ruta), y el asiento marcador-cierra-el-subject de CR2 tampoco está pinneado. Comportamiento correcto hoy, verificado e2e, pero sin red: misma clase que el CR6 de 203257. Corrección: dos tests de pin que maten M-d y M-f, más corrección de dos afirmaciones del Log (la precedencia de mensajes no es byte-idéntica a nivel de resultado en dos formas ya ilegales; el set de mutantes estaba incompleto).
+- **2026-07-30T10:19:19Z** `[note]` Correcciones del review a afirmaciones previas de este Log: (1) 'precedencia de mensajes byte-idéntica' es verdad estructural pero falsa a nivel de resultado en dos formas ya ilegales — none con cola sin razón pasa de malformed a 'requires a reason', y none+marcador pasa a 'cannot coexist' — ambas siguen siendo violación y el mensaje nuevo es más exacto. (2) 'cinco mutantes de uno en uno' era un set incompleto: tres supervivientes en código nuevo (M-d trim de la segunda declaración indentada, M-f marcador-cierra-subject, M-c startsWith→includes benigno). (3) Residuo adicional no listado: comentario rancio en src/commands/commit.mjs que aún dice que la declaración es el body entero — fuera del Target autorizado, queda para follow-up con el del párrafo de porqué. (4) El cap -n 100 de gitRefs ahora acota candidatos pre-filtro, no resultados: preexistente, insignificante a esta escala, anotado.
+- **2026-07-30T10:23:30Z** `[note]` Corrección del retry: dos tests de pin añadidos — '002341 CR4: an indented second declaration is still malformed' (mata M-d: bajo el mutante el commit queda exento, exit 0 literal) y '002341 CR2: a marker that does not close the subject does not attribute' (mata M-f, con commit de control positivo contra el pase vacuo). Ambos verdes en código real antes de plantar mutante; restauración editando con diff vacío contra HEAD probado entre mutantes; M-c queda sin pin por dirección benigna (solo puede rechazar más). Suite 1012/1012. Corrección sin commitear a la espera de confirmación fresca.
+- **2026-07-30T10:23:30Z** `[note]` Mandato de la ronda de confirmación, registrado antes de delegar: mandato mínimo — verificar que el diff sin commitear son solo los dos tests (+43 líneas, adiciones puras) más la ventana del ledger, re-derivar los dos rojos-bajo-mutante, y correr la suite y check. Nada más: el resto del rango tiene PASS técnico de la auditoría.
+- **2026-07-30T10:23:30Z** `[status]` in-progress → in-review
+- **2026-07-30T10:28:33Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T11:00:03Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T11:00:48Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-30T11:01:08Z** `[archive]` archived

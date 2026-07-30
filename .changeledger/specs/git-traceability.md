@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-29T18:40:37Z
+updated: 2026-07-30T11:00:48Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336", "20260728-164620", "20260729-111349", "20260729-162616"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336", "20260728-164620", "20260729-111349", "20260729-162616", "20260730-002341"]
 ---
 
 ## Trazabilidad git
@@ -48,7 +48,11 @@ reporta la causa concreta de marcadores ausentes, ambiguos o mal formados;
 exime merges, `chore(release)` y el **commit operativo declarado**.
 
 El commit operativo es la forma legal de commitear trabajo que ningún change
-cubre: su body es exactamente `ChangeLedger: none — <razón>` con razón no vacía.
+cubre: la primera línea de su body es `ChangeLedger: none — <razón>` con razón
+no vacía, y las líneas posteriores son texto libre — párrafo de porqué,
+trailers. Una declaración enterrada tras otra línea, o cualquier línea
+posterior que empiece por `ChangeLedger:`, siguen siendo
+`malformed ChangeLedger body`: la cola libre no abre rutas a la exención.
 La exención sólo se activa con esa declaración positiva, nunca por omisión —
 olvidar el marcador sigue fallando— y la razón es obligatoria porque un commit sin
 documento de change no tiene otro sitio donde registrar su porqué. `ChangeLedger:
@@ -57,11 +61,13 @@ el subject. `changeledger commit -m "<subject>" --no-change "<razón>"` la compo
 es mutuamente excluyente con `--id`, ignorando la resolución del change en curso:
 una declaración explícita no puede depender del estado ambiente del repositorio.
 
-`gitRefs()` busca en el mensaje completo y presenta el subject limpio. **Residual
-declarado**: por eso un id citado dentro de la razón de un commit operativo queda
-atribuido a ese change, aunque el commit declare que ninguno lo cubre; la regla de
-no coexistencia sólo inspecciona el subject. Cerrarlo exige decidir si las razones
-pueden citar ids. El runner de `git.mjs` sanea
+`gitRefs()` atribuye un commit a un change únicamente por sus dos sedes de
+declaración — el marcador que cierra el subject y la línea canónica
+`ChangeLedger: [#A] [#B]` en cabeza del body — y presenta el subject limpio.
+Un id citado en texto libre (la razón de un commit operativo, una nota de
+prosa, la cola bajo la declaración) es prosa y no atribuye: las razones pueden
+citar ids por decisión humana (2026-07-30), y el residual que aquí vivía quedó
+cerrado por `20260730-002341`. El runner de `git.mjs` sanea
 `GIT_DIR`/`GIT_WORK_TREE` del entorno heredado para que hooks anidados no
 redirijan comandos git al repo equivocado. `git.mjs` distingue dos perfiles de
 ejecución: las consultas tolerantes (`defaultRun`) degradan en silencio a vacío,

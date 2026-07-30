@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { defaultGhRun, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
+const RECORD_SEP = String.fromCharCode(30);
 const ID = '20260613-222918';
 
 // Extracts the full text of every `<name>(` call in `source`, balancing
@@ -149,8 +150,8 @@ test('CR1: parses commits that reference the id', () => {
   const run = (args) => {
     if (args[0] === 'log')
       return [
-        `abc123${SEP}feat: do it [#${ID}]${SEP}2026-06-14T10:00:00Z`,
-        `def456${SEP}fix: tweak [#${ID}]${SEP}2026-06-14T11:00:00Z`,
+        `abc123${SEP}feat: do it [#${ID}]${SEP}2026-06-14T10:00:00Z${SEP}${RECORD_SEP}`,
+        `def456${SEP}fix: tweak [#${ID}]${SEP}2026-06-14T11:00:00Z${SEP}${RECORD_SEP}`,
       ].join('\n');
     return '';
   };
@@ -341,4 +342,84 @@ test('225638 CR5: gitRefs finds a body marker and returns the clean subject', ()
   const refs = gitRefs(root, ID);
   assert.equal(refs.commits.length, 1);
   assert.equal(refs.commits[0].subject, 'docs(context): checkpoint');
+});
+
+// --- attribution is scoped to the declaration (20260730-002341 CR1-CR2) ---
+
+// Commits `[subject, ...bodyParagraphs]` into a fresh scratch repo and returns
+// its root, so an attribution test states only the messages it is about.
+function scratchRepoWithCommits(messages) {
+  const root = scratchGitRepo();
+  mutatingRun(['config', 'user.email', 'test@example.com'], root);
+  mutatingRun(['config', 'user.name', 'Test'], root);
+  mutatingRun(['config', 'commit.gpgsign', 'false'], root);
+  messages.forEach((parts, index) => {
+    const file = `f${index}.txt`;
+    fs.writeFileSync(path.join(root, file), `${file}\n`);
+    mutatingRun(['add', file], root);
+    mutatingRun(['commit', ...parts.flatMap((part) => ['-m', part])], root);
+  });
+  return root;
+}
+
+test('002341 CR1: a ChangeLedger: none commit is not attributed to an id its reason cites', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: initial [#X]'],
+    ['chore: cleanup', 'ChangeLedger: none — supersedes [#X], no longer needed'],
+  ]);
+
+  const refs = gitRefs(root, 'X');
+  assert.deepEqual(
+    refs.commits.map((c) => c.subject),
+    ['feat: initial [#X]'],
+  );
+});
+
+test('002341 CR2: a prose id in the body does not attribute; subject and declaration do', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: third [#Y]', 'Related to work also tracked under [#Z] in a prose note.'],
+    ['docs(context): checkpoint', 'ChangeLedger: [#Y] [#Z]'],
+  ]);
+
+  assert.deepEqual(
+    gitRefs(root, 'Y')
+      .commits.map((c) => c.subject)
+      .sort(),
+    ['docs(context): checkpoint', 'feat: third [#Y]'],
+  );
+  assert.deepEqual(
+    gitRefs(root, 'Z').commits.map((c) => c.subject),
+    ['docs(context): checkpoint'],
+  );
+});
+
+// The relaxed body grammar (CR3) makes the lines under the declaration legal
+// free text; attribution must read the declaration line only, or that tail
+// becomes a second way to join a change's refs without declaring it.
+test('002341 CR2: a marker cited in the free tail below a declaration does not attribute', () => {
+  const root = scratchRepoWithCommits([
+    ['docs(context): checkpoint', 'ChangeLedger: [#Y] [#Z]', 'Supersedes [#W], now dropped.'],
+  ]);
+
+  assert.deepEqual(gitRefs(root, 'W').commits, []);
+  assert.deepEqual(
+    gitRefs(root, 'Y').commits.map((c) => c.subject),
+    ['docs(context): checkpoint'],
+  );
+});
+
+// Pins the subject seat as "the marker CLOSES the subject" (MARKER_RE), not
+// "the subject mentions the marker": a mid-subject marker is a mention. The
+// second commit is the positive control, so an empty result cannot pass this
+// test by way of a broken fixture or a grep that matched nothing.
+test('002341 CR2: a marker that does not close the subject does not attribute', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: touch [#Q] while doing something else'],
+    ['feat: proper close [#Q]'],
+  ]);
+
+  assert.deepEqual(
+    gitRefs(root, 'Q').commits.map((c) => c.subject),
+    ['feat: proper close [#Q]'],
+  );
 });
