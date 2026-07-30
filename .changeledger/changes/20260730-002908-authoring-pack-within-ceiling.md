@@ -2,7 +2,7 @@
 id: "20260730-002908"
 title: El pack de autoría cabe en su techo decidido
 type: refactor
-status: draft
+status: approved
 created: 2026-07-30T00:29:08Z
 depends_on: ["20260730-002730"]
 related_to: ["20260729-162015", "20260728-212043"]
@@ -136,3 +136,4 @@ leyendo `changeledger context spec`; el head de modos (350) no cambia.
   - **Support:** cierre operativo
 
 ## Log
+- **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
