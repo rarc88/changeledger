@@ -2,7 +2,7 @@
 id: "20260730-165310"
 title: Mandato de review declarado y cuantificadores en prosa entregable
 type: feature
-status: draft
+status: approved
 created: 2026-07-30T16:53:10Z
 depends_on: []
 related_to:
@@ -208,3 +208,4 @@ límite → mismo tratamiento.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-30T17:06:23Z** `[status]` draft → approved
