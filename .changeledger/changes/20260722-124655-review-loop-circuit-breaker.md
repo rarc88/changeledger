@@ -2,9 +2,10 @@
 id: "20260722-124655"
 title: El fallo se clasifica por clase antes de corregirse
 type: feature
-status: in-validation
+status: done
 created: 2026-07-22T12:46:55Z
 depends_on: []
+reviewed: true
 related_to:
   - "20260726-124836"
   - "20260726-194220"
@@ -196,3 +197,5 @@ clasificación: extensión con re-aprobación, el precedente exacto de `194220`.
 - **2026-07-30T21:35:46Z** `[status]` in-progress → in-review
 - **2026-07-30T21:35:46Z** `[note]` Mandato del review de confirmación (3ª), declarado antes de delegar: spot check del diff nombrado — la tabla corregida (+52/−16). Semántica del mandato, explícita en el prompt: recomendar fail solo si el defecto nombrado no quedó cerrado o la corrección introdujo regresión; hallazgos latentes o adyacentes se reportan como follow-ups sin tumbar la ronda — el orquestador los juzga.
 - **2026-07-30T21:39:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T21:42:41Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T21:43:16Z** `[graduation]` spec: `lifecycle.md`
