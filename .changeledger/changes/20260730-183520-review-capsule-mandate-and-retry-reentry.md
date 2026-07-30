@@ -2,9 +2,10 @@
 id: "20260730-183520"
 title: "La cápsula del revisor obedece el mandato y el retry nombra la vuelta a in-review"
 type: feature
-status: in-validation
+status: done
 created: 2026-07-30T18:35:20Z
 depends_on: []
+reviewed: true
 related_to:
   - "20260704-144327"
   - "20260722-124656"
@@ -195,3 +196,5 @@ cápsula aplica auditoría completa por construcción; (3) orquestador tras
 - **2026-07-30T18:57:01Z** `[note]` Mandato del review, declarado antes de delegar: auditoría completa — primera review del change. Puntos de escrutinio: las 5 decisiones no especificadas de la nota anterior y el residual de las cuatro sedes.
 - **2026-07-30T19:40:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T19:40:31Z** `[note]` Review PASS con mandato de auditoría completa, sin defectos. Deudas nombradas por el revisor, con sede: las tres formas del mandato viven en cuatro sedes sin test que las cruce (deriva independiente posible — candidata a follow-up si muerde); los fixtures nuevos reutilizan ids 120008/120009 de 201703 (convención de un id por fixture rota, inocuo con repos temporales); la mitad de orden del guard de CR3 no discrimina orden (techo de tolerancia inherente a las mitades bidireccionales autorizadas, probado con mutante de inversión); línea de 119 chars en implement.md (cosmética, sin formatter de md). En la graduación: el diagrama de lifecycle.md gana el arco de vuelta del retry.
+- **2026-07-30T19:49:15Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T19:50:15Z** `[graduation]` spec: `lifecycle.md`

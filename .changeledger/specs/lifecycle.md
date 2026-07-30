@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-30T18:10:41Z
+updated: 2026-07-30T19:50:15Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -54,8 +54,11 @@ diff nombrado, la superficie que el change gobierna, o auditoría completa — q
 el orquestador registra como nota de Log del change (`changeledger log`) y
 entrega ya relleno en el prompt: el revisor inspecciona dentro del mandato y
 reporta lo que note fuera de él sin ampliar la inspección. La cápsula
-`agent-prompt review` porta el campo; sin mandato declarado, toda review sería
-auditoría completa por construcción.
+`agent-prompt review` porta el campo, y la checklist de la cápsula de contexto
+(`agent-context review`) es **condicional al mandato**: bajo auditoría completa
+—o sin mandato declarado, el default fail-safe— aplica la inspección completa;
+bajo mandato más estrecho, el alcance declarado es la inspección, con el mismo
+rigor.
 
 El estado revisado es el estado entregable, y **el gate local decide si existe un
 candidato revisable**: el agente anfitrión aplica el formatter y ejecuta los gates
@@ -214,6 +217,10 @@ escritura de la reapertura.
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
+Confirmar la corrección de un `fail --retry` exige **volver con
+`changeledger status <id> in-review` antes de delegar al revisor fresco**: la
+transición re-valida el candidato y el rol de review no carga en ningún otro
+status — el arco de vuelta es el mismo `in_progress --> in_review` del diagrama.
 
 **Parada de validación local.** `in-validation` detiene solo ese change: el
 humano decide, el agente nunca acepta en su nombre. No es una pausa global de
