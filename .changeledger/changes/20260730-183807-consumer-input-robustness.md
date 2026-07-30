@@ -2,7 +2,7 @@
 id: "20260730-183807"
 title: "El CLI ante entrada de consumidor: errores nombrados, sin reescrituras silenciosas"
 type: bug
-status: draft
+status: approved
 created: 2026-07-30T18:38:07Z
 depends_on: []
 related_to:
@@ -156,3 +156,4 @@ atribución, superficie adyacente a `commit.mjs`). Cerrados → `related_to`.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-30T18:42:59Z** `[status]` draft → approved (human via conversation)
