@@ -35,6 +35,7 @@ readiness:
     - ".changeledger/specs/**"
     - "AGENTS.md"
     - "hooks/**"
+    - "test/**"
   verification_patterns:
     - "test/**"
     - "**/*.test.*"
