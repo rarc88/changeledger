@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-30T22:51:17Z
+updated: 2026-07-30T23:13:18Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -318,7 +318,10 @@ resolución es perezosa: con owner ya fijado no se lanza ningún subproceso. El
 runner por defecto de `gh` respeta el kill-switch `CHANGELEDGER_NO_GH` (retorno
 vacío antes de cualquier exec); los scripts `test` y `verify` lo fijan, así que
 la suite es hermética por construcción — ningún test alcanza la red por esta
-vía aunque no inyecte resolver. Un runner inyectado puentea el kill-switch, de
+vía aunque no inyecte resolver. Los scripts usan una asignación de entorno
+inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
+kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. Un runner
+inyectado puentea el kill-switch, de
 modo que los tests de la propia resolución no cambian de comportamiento.
 
 ## Graduación

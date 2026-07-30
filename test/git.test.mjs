@@ -4,11 +4,37 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { defaultGhRun, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import { fileURLToPath } from 'node:url';
+import {
+  defaultGhRun,
+  githubLogin,
+  gitPrefix,
+  gitRefs,
+  mutatingRun,
+  ownerHandle,
+} from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
 const ID = '20260613-222918';
+
+test('220545 CR2: gitPrefix removes only Git record terminator', () => {
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push({ args, cwd });
+    if (args[1] === '--absolute-git-dir') return '/repo/.git\n';
+    return 'dir with space/line\nbreak/\r\n';
+  };
+
+  assert.equal(gitPrefix('/repo/subdir', '/repo', run), 'dir with space/line\nbreak/');
+  assert.deepEqual(calls, [
+    { args: ['rev-parse', '--absolute-git-dir'], cwd: '/repo' },
+    {
+      args: ['--git-dir=/repo/.git', '--work-tree=/repo', 'rev-parse', '--show-prefix'],
+      cwd: '/repo/subdir',
+    },
+  ]);
+});
 
 // Extracts the full text of every `<name>(` call in `source`, balancing
 // parentheses so a call spread over several lines is read whole. Returns
@@ -94,7 +120,7 @@ function injectsResolver(callText, source) {
 // it names the file and line. A counter inside `src/git.mjs` could not do this —
 // its only reader would be its own unit test, so a regressed site stayed green.
 test('124836 CR7: no test creates a change without injecting an identity', () => {
-  const dir = path.dirname(new URL(import.meta.url).pathname);
+  const dir = fileURLToPath(new URL('.', import.meta.url));
   // Recursive: a suite added under a subdirectory tomorrow must be scanned too.
   const suites = fs
     .readdirSync(dir, { recursive: true })
@@ -236,8 +262,11 @@ test('144812 CR4: an injected runner bypasses the kill-switch', () => {
 
 test('144812 CR5: the test and verify scripts set CHANGELEDGER_NO_GH so the suite is hermetic by construction', () => {
   const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+  const workspace = fs.readFileSync(path.resolve('pnpm-workspace.yaml'), 'utf8');
   assert.match(pkg.scripts.test, /CHANGELEDGER_NO_GH=1/);
   assert.match(pkg.scripts.verify, /CHANGELEDGER_NO_GH=1/);
+  assert.doesNotMatch(pkg.scripts.verify, /\bexport\b/);
+  assert.match(workspace, /^shellEmulator:\s*true$/m);
 });
 
 test('CR1: ownerHandle prefers the GitHub login', () => {

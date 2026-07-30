@@ -138,6 +138,26 @@ export function gitTopLevel(cwd, run = defaultRun) {
   return run(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
+// Git-native path from `topLevel` to `cwd`. Pin both repository coordinates so
+// discovery from `cwd` cannot select a nested Git repository whose index is not
+// the one stagedFiles reads. `--absolute-git-dir` also supports linked
+// worktrees, where `${topLevel}/.git` is a file rather than the repository
+// directory. Unlike a native filesystem relative path, `--show-prefix` stays
+// in the same coordinate system as index entries on Windows.
+//
+// Remove only Git's record terminator: whitespace and newlines are otherwise
+// legal path bytes and must remain untouched.
+export function gitPrefix(cwd, topLevel, run = defaultRun) {
+  const gitDir = run(['rev-parse', '--absolute-git-dir'], topLevel).trim();
+  const out = run(
+    [`--git-dir=${gitDir}`, `--work-tree=${topLevel}`, 'rev-parse', '--show-prefix'],
+    cwd,
+  );
+  if (out.endsWith('\r\n')) return out.slice(0, -2);
+  if (out.endsWith('\n')) return out.slice(0, -1);
+  return out;
+}
+
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {

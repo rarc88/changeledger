@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRepoPath } from '../config.mjs';
-import { gitTopLevel, mutatingRun, stagedFiles } from '../git.mjs';
+import { gitPrefix, gitTopLevel, mutatingRun, stagedFiles } from '../git.mjs';
 import { loadRepo } from '../repo.mjs';
 
 const SUBJECT_RE = /^[a-zA-Z]+\([^()]+\):\s+\S.*/;
@@ -34,12 +34,23 @@ function realpathNearest(target) {
   }
 }
 
-// `absPath` expressed the way git reports a staged path: relative to the git
-// top-level, with forward slashes. The asymmetry is the whole design — this
-// tool's own paths are moved into git's coordinate system, and what git reported
-// is never moved into the tool's.
-function gitRelative(gitTopReal, absPath) {
-  return path.relative(gitTopReal, absPath).split(path.sep).join('/');
+// `absPath` expressed the way Git reports a staged path. Ask the same outer
+// repository that supplied the staged index for the existing ancestor's prefix
+// and append only the non-existent tail; deriving the whole value with native
+// path.relative() mixes Windows filesystem coordinates with Git's
+// slash-delimited index coordinates.
+function gitRelative(absPath, gitTop, run) {
+  const tail = [];
+  let current = path.resolve(absPath);
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    tail.unshift(path.basename(current));
+    current = parent;
+  }
+  const prefix = gitPrefix(fs.realpathSync(current), gitTop, run);
+  const relative = `${prefix}${tail.join('/')}`;
+  return relative.endsWith('/') ? relative.slice(0, -1) : relative;
 }
 
 // The raw string plus both its Unicode forms. Git precomposes a path to NFC
@@ -125,8 +136,9 @@ export function commit(
   // unexpected-but-harmless entry (a `.DS_Store`, an atomic-write leftover)
   // rather than deciding it is safe to ignore; the error names it.
   const changesDirRel = gitRelative(
+    resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'),
     gitTopReal,
-    realpathNearest(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir')),
+    run,
   );
   // A `changes_dir` that resolves to the repo root collapses the prefix this
   // guard matches against to the empty string: no staged path (git never

@@ -122,6 +122,13 @@ function recordingRun(root, stagedOut) {
   const calls = [];
   const run = (args, cwd) => {
     calls.push({ args, cwd });
+    if (args.includes('--show-prefix')) {
+      const prefix = path.relative(fs.realpathSync(root), cwd).split(path.sep).join('/');
+      return prefix ? `${prefix}/\n` : '\n';
+    }
+    if (args[0] === 'rev-parse' && args[1] === '--absolute-git-dir') {
+      return `${path.join(fs.realpathSync(root), '.git')}\n`;
+    }
     if (args[0] === 'rev-parse') return `${fs.realpathSync(root)}\n`;
     if (args.includes('diff')) {
       if (typeof stagedOut === 'function') return stagedOut(args, cwd);
@@ -162,6 +169,28 @@ function gitRepoWithSymlinkedLedger() {
   fs.writeFileSync(path.join(root, 'ledger', 'config.yml'), 'changes_dir: .changeledger/changes\n');
   fs.symlinkSync('ledger', path.join(root, '.changeledger'));
   return root;
+}
+
+// A real nested Git repository can sit at either the ledger path itself or the
+// internal target of a symlinked ledger. The outer index can still carry an
+// entry below it (for example after a history operation), so the guard must
+// derive its boundary from the outer repository rather than rediscovering the
+// nested one from changes_dir.
+function gitRepoWithNestedGitLedger({ symlink = false } = {}) {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-nested-git-')),
+  );
+  git(root, ['init', '-q']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  const ledgerName = symlink ? 'ledger' : '.changeledger';
+  const ledger = path.join(root, ledgerName);
+  fs.mkdirSync(path.join(ledger, 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(ledger, 'config.yml'), 'changes_dir: .changeledger/changes\n');
+  git(ledger, ['init', '-q']);
+  if (symlink) fs.symlinkSync(ledgerName, path.join(root, '.changeledger'));
+  return { root, ledgerName };
 }
 
 // The two Unicode forms of `añadir`. macOS stores what it is given but git
@@ -332,20 +361,24 @@ test('CR6 (20260726-141124): a staged path whose ancestor is named like a change
 test('CR7 (20260726-141124): a quoted filename outside changes_dir is not a path form and never aborts', () => {
   const root = gitRepo();
   writeChange(root, '20260711-000001', 'in-progress');
-  stageFile(root, '"quoted.mjs"', 'x');
+  const { run, calls } = recordingRun(root, '"quoted.mjs"\0');
 
-  const subject = commit({ message: 'feat(x): y' }, root, undefined, noop);
+  const subject = commit({ message: 'feat(x): y' }, root, run, noop);
 
   assert.equal(subject, 'feat(x): y [#20260711-000001]');
-  assert.equal(commitCount(root), 1);
+  assert.equal(
+    calls.some((call) => call.args[0] === 'commit'),
+    true,
+    'the outside path must reach the commit invocation',
+  );
 });
 
 test('CR7 (20260726-141124): a quoted filename under changes_dir aborts as undeclared, named verbatim', () => {
   const root = gitRepo();
-  stageFile(root, '.changeledger/changes/"20260711-999999-x.md"', 'x');
+  const { run } = recordingRun(root, '.changeledger/changes/"20260711-999999-x.md"\0');
 
   assert.throws(
-    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
     (e) =>
       e.message ===
       'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/"20260711-999999-x.md" (declared: 20260711-000001)',
@@ -418,8 +451,8 @@ test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-ex
   git(root, ['config', 'user.email', 'test@example.com']);
   git(root, ['config', 'user.name', 'Test']);
   git(root, ['config', 'commit.gpgsign', 'false']);
-  // The directory name is stored decomposed while git records it precomposed, so
-  // the prefix this tool computes from disk and the prefix git reports differ.
+  // Git may report the decomposed directory in a platform-configured Unicode
+  // form, so the byte-exact diagnostic must follow the pinned index output.
   const dirNfd = `cambio\u0301s`;
   fs.mkdirSync(path.join(root, '.changeledger', dirNfd), { recursive: true });
   fs.writeFileSync(
@@ -431,12 +464,16 @@ test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-ex
     '---\nid: "20260711-999999"\n---\n',
   );
   git(root, ['add', '-A']);
+  const foreignPath = git(root, PINNED_STAGED_ARGS)
+    .split('\0')
+    .find((stagedPath) => stagedPath.endsWith('/20260711-999999-x.md'));
+  assert.ok(foreignPath, 'fixture must stage the foreign change document');
 
   assert.throws(
     () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
     (e) =>
       e.message ===
-      `Staged path(s) under the changes directory not declared for this commit: .changeledger/cambi\u00f3s/20260711-999999-x.md (declared: 20260711-000001)`,
+      `Staged path(s) under the changes directory not declared for this commit: ${foreignPath} (declared: 20260711-000001)`,
   );
   assert.equal(commitCount(root), 0);
 });
@@ -503,16 +540,66 @@ test('CR11 (20260726-141124): the staged index is read through a fully pinned in
   assert.equal(staged.cwd, fs.realpathSync(root));
 });
 
-test('CR11 (20260726-141124): a staged filename containing a newline stays one entry', () => {
+test('220545 CR2: changes_dir boundary comes from git prefix coordinates', () => {
   const root = gitRepo();
-  fs.writeFileSync(
-    path.join(root, '.changeledger', 'changes', '20260711-999999-a\nb.md'),
-    '---\nid: "20260711-999999"\n---\n',
+  const staged = '.changeledger/changes/20260711-999999-x.md';
+  const { run, calls } = recordingRun(root, `${staged}\0`);
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
   );
-  git(root, ['add', '-A']);
+
+  const prefixReads = calls.filter((call) => call.args.includes('--show-prefix'));
+  assert.deepEqual(prefixReads, [
+    {
+      args: [
+        `--git-dir=${path.join(fs.realpathSync(root), '.git')}`,
+        `--work-tree=${fs.realpathSync(root)}`,
+        'rev-parse',
+        '--show-prefix',
+      ],
+      cwd: fs.realpathSync(path.join(root, '.changeledger', 'changes')),
+    },
+  ]);
+});
+
+test('220545 CR1/CR2: a real nested Git ledger cannot move the outer-index boundary', () => {
+  const { root, ledgerName } = gitRepoWithNestedGitLedger();
+  const staged = `${ledgerName}/changes/20260711-999999-x.md`;
+  stageViaIndex(root, staged, 'foreign');
 
   assert.throws(
     () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('220545 CR2: an internal symlink to a nested Git ledger keeps outer-index coordinates', () => {
+  const { root, ledgerName } = gitRepoWithNestedGitLedger({ symlink: true });
+  const staged = `${ledgerName}/changes/20260711-999999-x.md`;
+  stageViaIndex(root, staged, 'foreign');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('CR11 (20260726-141124): a staged filename containing a newline stays one entry', () => {
+  const root = gitRepo();
+  const { run } = recordingRun(root, '.changeledger/changes/20260711-999999-a\nb.md\0');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
     (e) =>
       e.message ===
       'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/20260711-999999-a\nb.md (declared: 20260711-000001)',
