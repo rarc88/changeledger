@@ -268,10 +268,9 @@ test('122611 CR3: installed contract recommends structural verify clauses', () =
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
   const contract = contractText();
-  assert.match(
-    contract,
-    /`changeledger status <id> <status>`[\s\S]*does not accept\s+`approved`, `done`, `discarded` or reopening/,
-  );
+  // 20260730-002730 retired the sentence pin over the refusal. The behaviour it
+  // described is independently covered by `125139` in `cli-bin.test.mjs`, which runs
+  // `status <id> approved` and asserts exit 1 — a behavioural test, not a wording.
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
 });
 

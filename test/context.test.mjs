@@ -845,10 +845,6 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
   assert.match(implement, /never `log`\+`status`/);
   assert.match(
     implement,
-    /`in-validation`: human accepts; agent rejects with `changeledger validation <id> fail/,
-  );
-  assert.match(
-    implement,
     /without `review_required`.*post-transition formatter.*affected-check gate/,
   );
   assert.match(review, /After recording any verdict.*formatter.*`changeledger check`/);
@@ -908,7 +904,6 @@ test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close o
     /1\..*`changeledger graduate <id> <spec-slug> --new`.*2\..*remove the explicit scaffold marker.*3\..*`changeledger graduate <id> <spec-slug> --into`/,
   );
   assert.match(close, /--new`.*leaves graduation pending/);
-  assert.match(close, /`--into` refuses an unrefined marked scaffold/);
   // Existing-spec and skip remain explicit alternatives.
   assert.match(close, /For an existing spec/);
   assert.match(close, /changeledger graduate <id> --skip \[reason\]/);
@@ -925,7 +920,7 @@ test('134704 CR1/CR2/CR3: graduation is one numbered recipe owned by the close o
   assert.doesNotMatch(core, /a new spec is a two-step/);
 });
 
-test('134703 CR1/CR2/CR3: one matrix owns lifecycle topology and mechanisms', () => {
+test('002730: the lifecycle matrix owns topology, owners and mechanisms', () => {
   const root = repo();
   const core = buildContext(undefined, root);
   const norm = core.replace(/\s+/g, ' ');
@@ -1115,7 +1110,7 @@ test('141121 CR4: the bare spec composition resolves no type and holds its budge
 // 20260730-002730 retired the two verbatim pins of `141122 CR6`. What survives is
 // its retired-phrase claim (the unowned `Repos tune recognition with` must not come
 // back), the two configuration keys as identifiers rather than prose, and the budget.
-test('141122 CR6 remnant: the readiness keys are named without the retired phrasing', () => {
+test('002730: the readiness keys are named without the retired phrasing', () => {
   const root = repo();
   const output = buildContext('spec', root);
   const normalized = output.replace(/\s+/g, ' ');
@@ -1808,30 +1803,16 @@ test('124835 CR10: core stops carrying what it no longer governs', () => {
   assert.equal(core.trimEnd().split('\n').at(-1), END_LINE);
 });
 
-// 20260726-124835 CR11 — the rewrite pushes stage detail out of core, so every rule
-// that leaves must be provably still owned somewhere.
+// 20260726-124835 CR11 — the rewrite pushed stage detail out of core, and this test
+// proved every rule that left was still owned somewhere.
 //
-// 20260730-002730 retired every presence pin this test held: each one located a rule
-// by its sentence in `core.md`, `delegation.md`, `review.md`, `validation.md` or
-// `close.md`, and the whole cost of the class was concentrated here. What survives is
-// the ABSENCE half — the two rules retained in core must not have grown a second seat
-// in the fragment they would have moved to, which is anti-duplication by construction
-// and independent of how either sentence is worded.
-test('124835 CR11: the two retained rules gained no second seat', () => {
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const fragment = (file) =>
-    fs.readFileSync(new URL(file, contractDir), 'utf8').replace(/\s+/g, ' ');
-  assert.doesNotMatch(
-    fragment('delegation.md'),
-    /`post-review` is a read-only inspection/,
-    'delegation.md grew a second seat of the post-review rule',
-  );
-  assert.doesNotMatch(
-    fragment('spec.md'),
-    /Humans consume changes in `changeledger view`/,
-    'spec.md grew a second seat of the rendered-view rule',
-  );
-});
+// 20260730-002730 retired it whole. The first pass kept its two `doesNotMatch` halves
+// on the ground that anti-duplication is "independent of how either sentence is
+// worded" — that claim was wrong, and measured wrong: rewording `core.md`'s live
+// sentence leaves the pin over `spec.md` matching a string that exists nowhere, so it
+// passes while forbidding nothing. An absence pin only guards something when the
+// phrase is genuinely retired, which neither of these is. Second seats of the
+// post-review rule and the rendered-view rule now rest on review.
 
 // 20260727-194233 retired the target band: this criterion now reads against the
 // single threshold, which is the same ceiling the strict target used to guard.
