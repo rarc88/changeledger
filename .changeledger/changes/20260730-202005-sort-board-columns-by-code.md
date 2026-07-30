@@ -2,7 +2,7 @@
 id: "20260730-202005"
 title: Ordenar las columnas del board por código
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-30T20:20:05Z
 depends_on: []
 related_to: ["20260627-111219", "20260728-141643"]
@@ -108,3 +108,8 @@ del cliente.
 - **2026-07-30T20:31:12Z** `[note]` TDD verificado: las pruebas fallaron inicialmente por ausencia de estado, comparación y controles; después pasaron 126/126. Mutantes de dirección, normalización, alternancia y nombre accesible fueron detectados y restaurados.
 - **2026-07-30T20:33:56Z** `[status]` in-progress → in-review
 - **2026-07-30T20:34:06Z** `[note]` La implementación parte de la contribución de Carlos Rodríguez Fernández en el PR #1; el commit de implementación conserva su autoría y añade la especificación, robustez, accesibilidad y cobertura exigidas por el proyecto.
+- **2026-07-30T20:35:47Z** `[note]` Mandato de revisión: auditoría completa de change/workflow-core-drafts..57cba0f4, incluyendo criterios, tests, accesibilidad, persistencia, spec y disciplina de commits.
+- **2026-07-30T20:41:07Z** `[review]` in-review → in-progress (retry): El commit baseline 9a682681 tiene un subject de 51 caracteres; el estándar global exige un máximo de 50.
+- **2026-07-30T20:43:51Z** `[status]` in-progress → in-review
+- **2026-07-30T20:44:13Z** `[note]` Mandato de re-revisión: spot check de la corrección de disciplina en change/workflow-core-drafts..70e32f07; confirmar subjects ≤50, markers válidos y que el árbol 38d922fb es idéntico al candidato funcional ya auditado.
+- **2026-07-30T20:46:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
