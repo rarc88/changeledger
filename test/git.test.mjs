@@ -236,8 +236,11 @@ test('144812 CR4: an injected runner bypasses the kill-switch', () => {
 
 test('144812 CR5: the test and verify scripts set CHANGELEDGER_NO_GH so the suite is hermetic by construction', () => {
   const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+  const workspace = fs.readFileSync(path.resolve('pnpm-workspace.yaml'), 'utf8');
   assert.match(pkg.scripts.test, /CHANGELEDGER_NO_GH=1/);
   assert.match(pkg.scripts.verify, /CHANGELEDGER_NO_GH=1/);
+  assert.doesNotMatch(pkg.scripts.verify, /\bexport\b/);
+  assert.match(workspace, /^shellEmulator:\s*true$/m);
 });
 
 test('CR1: ownerHandle prefers the GitHub login', () => {

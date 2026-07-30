@@ -2,7 +2,7 @@
 id: "20260730-213353"
 title: Ejecutar los scripts pnpm en Windows
 type: quick
-status: approved
+status: in-validation
 created: 2026-07-30T21:33:53Z
 depends_on: []
 related_to: []
@@ -22,3 +22,6 @@ Node 24 y 26.
 
 - **2026-07-30T21:33:53Z** `[note]` Draft creado tras observar que pnpm usa `cmd.exe` en Windows y rechaza los prefijos POSIX de `test` y `verify`; se propone habilitar el emulador de shell propio de pnpm.
 - **2026-07-30T21:37:06Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T21:38:45Z** `[status]` approved → in-progress
+- **2026-07-30T21:41:55Z** `[note]` TDD verificado: la prueba falló primero por ausencia de pnpm-workspace.yaml, detectó el mutante shellEmulator:false y luego rechazó el builtin export no soportado por el emulador. La asignación inline conservó el kill-switch; test focalizado 21/21 y pnpm verify 1044/1044.
+- **2026-07-30T21:41:55Z** `[status]` in-progress → in-validation

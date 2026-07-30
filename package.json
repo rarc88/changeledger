@@ -36,7 +36,7 @@
     "test:coverage": "node --test --experimental-test-coverage",
     "audit:deps": "pnpm audit --audit-level moderate",
     "check": "node bin/changeledger.mjs check",
-    "verify": "export CHANGELEDGER_NO_GH=1 && pnpm lint && pnpm test && pnpm check",
+    "verify": "CHANGELEDGER_NO_GH=1 pnpm lint && pnpm test && pnpm check",
     "prepublishOnly": "pnpm verify"
   },
   "engines": {
