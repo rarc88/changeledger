@@ -2,9 +2,10 @@
 id: "20260730-002730"
 title: Los guards de frase se retiran de todos los .md
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-30T00:27:30Z
 depends_on: []
+reviewed: true
 related_to: ["20260729-143656", "20260729-162015"]
 owner: raruiz-hiberuscom
 ---
@@ -184,3 +185,5 @@ autorizado aparte) para que este documento sea aprobable.
 - **2026-07-30T10:57:26Z** `[status]` in-progress → in-review
 - **2026-07-30T11:01:46Z** `[note]` Decisión humana (2026-07-30): la permeabilidad a inversión de la entrada 6 y la obligación de redacción 1 se ACEPTA DOCUMENTADA, sin endurecer — una inversión no ocurre por reflow accidental (lo que los guards cubren) sino deliberadamente, y lo deliberado ya pertenece al review del change que toque la prosa, que es el trade declarado de §16.1. Los patrones sensibles a negación quedan descartados como media ceremonia de vuelta. Esta nota es la documentación del residuo: los 8 guards enunciados en negativo cazan su inversión; los enunciados en positivo no, por construcción.
 - **2026-07-30T11:05:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T11:07:53Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T11:07:54Z** `[graduation]` skipped: la verdad durable de este change es el perímetro de guards y ya vive en AGENTS.md, creada por el propio change como sede única; una spec la duplicaría
