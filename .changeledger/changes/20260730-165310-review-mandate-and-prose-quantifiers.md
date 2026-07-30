@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-30T16:53:10Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260704-144327"
@@ -226,3 +227,4 @@ límite → mismo tratamiento.
 - **2026-07-30T18:08:36Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T18:09:04Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T18:10:41Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-30T18:11:17Z** `[archive]` archived
