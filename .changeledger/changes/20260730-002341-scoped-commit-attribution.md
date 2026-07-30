@@ -2,7 +2,7 @@
 id: "20260730-002341"
 title: La atribución de ids se acota a la declaración del commit
 type: bug
-status: draft
+status: approved
 created: 2026-07-30T00:23:41Z
 depends_on: []
 related_to: ["20260728-151336"]
@@ -131,3 +131,4 @@ que consume el viewer no cambia; solo se estrecha qué commits entran.
   - **Support:** cierre operativo
 
 ## Log
+- **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
