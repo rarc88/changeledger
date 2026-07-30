@@ -2,7 +2,7 @@
 id: "20260730-214504"
 title: El contrato servido documenta la ruta de migración de cada fix
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-30T21:45:04Z
 depends_on: []
 related_to:
@@ -96,3 +96,4 @@ captura le nombra `fix --plan-tags --dry-run` como ruta.
 - **2026-07-30T22:34:53Z** `[note]` Selección única resuelta. base.spec 2403→2452/2500 medido antes y después; guard de fragmento único en tabla hermana MIGRATION_OBLIGATIONS (una fila en DELEGATION_OBLIGATIONS habría titulado el test como 165310 — decisión del implementador, correcta); delete rojo / reword verde ejecutados; paridad 1/1 en los 4 patrones de DRAFTING_OBLIGATIONS.
 - **2026-07-30T22:35:25Z** `[status]` in-progress → in-review
 - **2026-07-30T22:35:25Z** `[note]` Mandato del review, declarado antes de delegar: la superficie que el change gobierna — la frase de spec.md y su guard contra CR1. Modelo medio: un CR, una frase, evidencia ya ejecutada; la cápsula condicional acota la checklist.
+- **2026-07-30T22:39:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
