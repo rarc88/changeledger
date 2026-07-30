@@ -10,6 +10,18 @@ import {
 } from '../contract.mjs';
 import { register } from '../registry.mjs';
 
+// `ensureReference` writes the file for every state except `unchanged` and
+// `equivalent` (those two are the only ones that leave it alone). One
+// mechanism drives the warning for every writing state instead of a branch
+// per state: a lookup supplies the cause, and any state absent from it (the
+// two silent ones) is skipped by construction rather than enumerated.
+const REWRITE_CAUSE = {
+  updated: 'was outdated',
+  replaced: 'content had drifted from the reference',
+  inserted: 'reference was missing',
+  migrated: 'used the retired legacy marker',
+};
+
 // Refreshes the repo bootstrap and registry path. Also migrates the per-machine
 // contract artifact left by legacy versions.
 export function registerRepo(cwd = process.cwd(), output = console) {
@@ -35,15 +47,11 @@ export function registerRepo(cwd = process.cwd(), output = console) {
   removeLegacyGitignore(repoRoot);
   if (fs.existsSync(rootContract(repoRoot))) {
     for (const { name, status } of ensureReference(repoRoot)) {
-      if (status === 'updated') {
-        output.warn(
-          `warn  ${name}: ChangeLedger bootstrap was outdated; updated to the current version`,
-        );
-      } else if (status === 'replaced') {
-        output.warn(
-          `warn  ${name}: ChangeLedger bootstrap content had drifted from the reference; replaced (status: ${status})`,
-        );
-      }
+      const cause = REWRITE_CAUSE[status];
+      if (!cause) continue; // unchanged/equivalent: ensureReference left the file alone
+      output.warn(
+        `warn  ${name}: ChangeLedger bootstrap ${cause}; rewritten to the current version (${status})`,
+      );
     }
   }
 

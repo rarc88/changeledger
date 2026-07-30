@@ -98,7 +98,12 @@ export function buildMigration(originalText) {
 // defect this corrects. Reassign it to `commentBefore` on whatever node
 // follows, climbing through enclosing collections when the null scalar is the
 // last item of its own map/seq; with no sibling anywhere above, it is
-// genuinely the document's own trailing comment.
+// genuinely the document's own trailing comment. Proven correct only for that
+// shape (the one templates/config.yml actually ships, where `git` holds
+// exactly one key): the sibling found while climbing can land at an
+// intermediate nesting level rather than the source's own column when the
+// null scalar is not the last item of its enclosing map. That wider case is a
+// known, unresolved gap.
 function relocateNullValueComments(doc) {
   function relocate(scalarNode, chain) {
     for (let level = chain.length - 1; level >= 0; level--) {

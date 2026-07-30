@@ -60,9 +60,16 @@ test('225637 CR2: schema 2 preserves an existing git section and custom comments
   assert.equal(buildMigration(result.yaml), null);
 });
 
-// 20260730-183807 CR1 — a null-valued scalar earlier in the document (a blank
-// `git.integration_branch:`) must not shift the indentation of an unrelated,
-// untouched comment elsewhere in the migrated output.
+// 20260730-183807 CR1 — pins one historical, incidental shape: the `git`
+// section templates/config.yml actually ships holds exactly one key
+// (`integration_branch`), so a blank value there is always the *last* item of
+// its own map, and `relocateNullValueComments` climbs cleanly to the true
+// top-level next key. This is NOT a general guarantee about "any unrelated
+// comment anywhere" — a null scalar that is not the last item of its
+// enclosing map (or nested under one that is not) can still relocate a
+// following comment to an intermediate (nested) indent instead of the source
+// column. That wider case is a known, unresolved gap in
+// `relocateNullValueComments`; fixing it is out of scope here.
 const SCHEMA_3_WITH_FOREIGN_COMMENT = `\
 schema_version: 3
 language: en

@@ -162,7 +162,7 @@ test('183807 CR4: a symlink to a file without frontmatter gets a named error wit
 // be diagnosed as the collapse itself, not left to die on the first ordinary
 // markdown file (e.g. AGENTS.md) with the raw frontmatter error. The message
 // stays consistent with the commit guard's own diagnosis of the same collapse
-// (162616 CR9), since loadRepo is now the first thing `commit` calls.
+// (162616 CR9), since loadRepo is the first thing `commit` calls.
 
 test('183807 CR5: a collapsed changes_dir aborts naming the collapse, not the frontmatter error', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-collapsed-'));

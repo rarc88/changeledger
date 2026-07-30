@@ -209,6 +209,44 @@ test('183807 CR2: register warns when a same-version bootstrap block is replaced
   );
 });
 
+// 20260730-183807 CR2 (amended) — `ensureReference` writes the file for
+// every state except `unchanged`/`equivalent`: `inserted` (no block at all,
+// e.g. a fresh CLAUDE.md) and `migrated` (the legacy `<!-- changeledger -->`
+// marker) both rewrite the file exactly like `updated`/`replaced`, and were
+// reproduced rewriting with zero warnings before this fix.
+test('183807 CR2: register warns on inserted (a contract file with no block at all)', () => {
+  const dir = initializedRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules, no block here\n');
+
+  const warnings = [];
+  const result = registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const claude = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+
+  assert.equal(result.path, dir);
+  assert.match(claude, new RegExp(`CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION}`));
+  assert.ok(
+    warnings.some((msg) => msg.includes('CLAUDE.md') && msg.includes('inserted')),
+    `expected a warning naming the file and the "inserted" state, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
+test('183807 CR2: register warns on migrated (the retired legacy marker)', () => {
+  const before = '# Project\n\nprose before.\n';
+  const legacyBlock =
+    '<!-- changeledger -->\n> Read `.changeledger/AGENTS.md`.\n> More legacy prose.\n';
+  const dir = initializedRepo(`${before}${legacyBlock}`);
+
+  const warnings = [];
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+
+  assert.doesNotMatch(agents, /<!-- changeledger -->/);
+  assert.ok(
+    warnings.some((msg) => msg.includes('AGENTS.md') && msg.includes('migrated')),
+    `expected a warning naming the file and the "migrated" state, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
 test('150300 CR3: register repairs semantic changes and preserves surrounding bytes', () => {
   const before = '# Project\n\nprose before.\n';
   const after = '\nprose after.\n';

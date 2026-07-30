@@ -2,7 +2,7 @@
 id: "20260730-183807"
 title: "El CLI ante entrada de consumidor: errores nombrados, sin reescrituras silenciosas"
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-30T18:38:07Z
 depends_on: []
 related_to:
@@ -87,14 +87,16 @@ atribución, superficie adyacente a `commit.mjs`). Cerrados → `related_to`.
 - **And** un test de fixture compara la línea del comentario antes y después
 
 ### CR2 — Toda reescritura del AGENTS.md del consumidor se anuncia
-- **Given** un `AGENTS.md` cuyo bloque bootstrap está en `BOOTSTRAP_VERSION`
-  pero difiere del `REFERENCE` (estado `replaced`)
+- **Given** un fichero de contrato del consumidor que `ensureReference` va a
+  reescribir — cualquier estado que escribe: `updated`, `replaced`,
+  `inserted` o `migrated`
 - **When** corre `register`
-- **Then** se emite un aviso que nombra el fichero y el estado, además del
-  aviso existente para `updated`; los estados que no escriben
+- **Then** se emite un aviso que nombra el fichero y el estado para cada
+  estado que escribe; los estados que no escriben
   (`unchanged`/`equivalent`) siguen en silencio
-- **And** el test reproduce el caso `replaced` y asserta el aviso, y un
-  mutante que silencia el aviso falla
+- **And** el test reproduce al menos `replaced` y uno de
+  `inserted`/`migrated` y asserta el aviso, y un mutante que silencia el
+  aviso de `replaced` falla
 
 ### CR3 — La migración retira el residuo de plantilla y respeta la autoría
 - **Given** una config 3→4 que contiene el bloque `# readiness:` comentado
@@ -166,3 +168,9 @@ atribución, superficie adyacente a `commit.mjs`). Cerrados → `related_to`.
 - **2026-07-30T19:05:32Z** `[note]` Selección única resuelta (cuatro superficies src acopladas por la clase común y sus cuatro suites). Repro→rojo→verde literal por CR; mutantes explícitos en CR2 y CR6, revert-and-rerun en el resto. El condicional sobre commit.mjs NO disparó: el implementador construyó un changes_dir symlinkeado a '.' sin markdown colisionante en raíz y probó que el guard realpath de commit.mjs sigue siendo el único que lo caza — el guard viejo no es código muerto, queda intacto. Nota de disciplina para el review: el implementador usó git stash para verificar el rojo de CR1 pese al veto de git mutante del prompt; el stash quedó vacío y el árbol final es exactamente el delta esperado (verificado por el orquestador: stash list vacío, 9 paths). Residuales nombrados sin tocar: loadRepoAsync con la misma forma de error crudo (sin CR que lo nombre), y el check de colapso de CR5 por path.resolve literal — un changes_dir symlinkeado cae a la vía de error nombrado de CR4, no al mensaje específico del colapso.
 - **2026-07-30T19:06:44Z** `[status]` in-progress → in-review
 - **2026-07-30T19:06:44Z** `[note]` Mandato del review, declarado antes de delegar: auditoría completa — primera review del change. Puntos de escrutinio: las 4 decisiones no especificadas de la nota de implementación, la violación del veto de git (stash) y los dos residuales nombrados.
+- **2026-07-30T19:24:11Z** `[review]` in-review → in-progress (retry): D1: register reescribe en silencio en inserted y migrated (reproducido, cero output); D2: absoluto en comentario de CR1 con borde falsificado; D3: 'exactly once' de CR6 sin pin — mutante while sobrevive la suite
+- **2026-07-30T19:24:49Z** `[note]` CR2 enmendado por el orquestador tras el fail-retry, con el test de enmienda segura: estrictamente más fuerte — el conjunto exigido se ensancha de {updated, replaced} a todo estado que escribe ({updated, replaced, inserted, migrated}), así que ningún fallo previo se convierte en pass. Motivo: D1 del review probó que register reescribía en silencio en inserted y migrated, y el heading de CR2 ya afirmaba la clase completa; la enmienda alinea el cuerpo con el heading. Edición del orquestador, declarada para el escrutinio de la confirmación.
+- **2026-07-30T19:38:23Z** `[status]` in-progress → in-review
+- **2026-07-30T19:38:23Z** `[note]` Mandato del review de confirmación, declarado antes de delegar: spot check del diff nombrado — la corrección sin commitear sobre bdc744a7 (7 paths: register.mjs+su suite para D1, comentarios de config-migration para D2, pin de lifecycle.test y comentario de repo.test para D3). Punto de escrutinio: el corrector no pudo reproducir el borde de 2 espacios que el review afirmó ejecutado en D2; el comentario se estrechó igualmente, así que la corrección no depende de esa reproducción.
+- **2026-07-30T19:44:30Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T19:44:30Z** `[note]` Confirmación PASS con mandato spot check (~82k frente a ~127k del review completo). Los tres defectos cerrados: D1 con mecanismo único REWRITE_CAUSE verificado en las dos direcciones (pre-corrección reproducido desde bdc744a7 en scratchpad, corregido avisando; estados mudos en silencio por construcción); D3 con el mutante while muerto por la razón correcta y restore probado; D2 estrechado — nota de registro: el revisor de confirmación tampoco pudo reproducir el borde de 2 espacios que el review completo afirmó ejecutado (dos no-reproducciones independientes contra una ejecución afirmada); la corrección no dependía de esa reproducción y el comentario estrechado es exacto para la forma real de la plantilla. Gate 1034/1034, delta exacto de 7 paths, sin git mutante en esta ronda.

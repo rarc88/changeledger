@@ -253,6 +253,15 @@ test('183807 CR6: a message already prefixed with "[note] " is not duplicated', 
   assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` this is a manual note');
 });
 
+test('183807 CR6: a doubled "[note] [note] " prefix strips exactly one occurrence', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: '[note] [note] x',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` [note] x');
+});
+
 test('183807 CR6: a message without the prefix is kept verbatim', () => {
   const line = serializeLogEvent({
     at: '2026-07-30T18:00:00Z',
