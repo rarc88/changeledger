@@ -332,20 +332,24 @@ test('CR6 (20260726-141124): a staged path whose ancestor is named like a change
 test('CR7 (20260726-141124): a quoted filename outside changes_dir is not a path form and never aborts', () => {
   const root = gitRepo();
   writeChange(root, '20260711-000001', 'in-progress');
-  stageFile(root, '"quoted.mjs"', 'x');
+  const { run, calls } = recordingRun(root, '"quoted.mjs"\0');
 
-  const subject = commit({ message: 'feat(x): y' }, root, undefined, noop);
+  const subject = commit({ message: 'feat(x): y' }, root, run, noop);
 
   assert.equal(subject, 'feat(x): y [#20260711-000001]');
-  assert.equal(commitCount(root), 1);
+  assert.equal(
+    calls.some((call) => call.args[0] === 'commit'),
+    true,
+    'the outside path must reach the commit invocation',
+  );
 });
 
 test('CR7 (20260726-141124): a quoted filename under changes_dir aborts as undeclared, named verbatim', () => {
   const root = gitRepo();
-  stageFile(root, '.changeledger/changes/"20260711-999999-x.md"', 'x');
+  const { run } = recordingRun(root, '.changeledger/changes/"20260711-999999-x.md"\0');
 
   assert.throws(
-    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
     (e) =>
       e.message ===
       'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/"20260711-999999-x.md" (declared: 20260711-000001)',
@@ -509,14 +513,10 @@ test('CR11 (20260726-141124): the staged index is read through a fully pinned in
 
 test('CR11 (20260726-141124): a staged filename containing a newline stays one entry', () => {
   const root = gitRepo();
-  fs.writeFileSync(
-    path.join(root, '.changeledger', 'changes', '20260711-999999-a\nb.md'),
-    '---\nid: "20260711-999999"\n---\n',
-  );
-  git(root, ['add', '-A']);
+  const { run } = recordingRun(root, '.changeledger/changes/20260711-999999-a\nb.md\0');
 
   assert.throws(
-    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
     (e) =>
       e.message ===
       'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/20260711-999999-a\nb.md (declared: 20260711-000001)',

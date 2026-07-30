@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { defaultGhRun, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
@@ -94,7 +95,7 @@ function injectsResolver(callText, source) {
 // it names the file and line. A counter inside `src/git.mjs` could not do this —
 // its only reader would be its own unit test, so a regressed site stayed green.
 test('124836 CR7: no test creates a change without injecting an identity', () => {
-  const dir = path.dirname(new URL(import.meta.url).pathname);
+  const dir = fileURLToPath(new URL('.', import.meta.url));
   // Recursive: a suite added under a subdirectory tomorrow must be scanned too.
   const suites = fs
     .readdirSync(dir, { recursive: true })

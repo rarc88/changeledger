@@ -58,13 +58,10 @@ function publishedLines(text) {
   return Number(match[1]);
 }
 
-// Real `changeledger context ... 2>&1 | head -<n>` pipeline, so the count is
-// proven against actual CLI stdout and not only against the composed string.
-function headPipeline(root, args, n) {
-  const command = `node ${JSON.stringify(bin)} context${args
-    .map((arg) => ` ${JSON.stringify(arg)}`)
-    .join('')} 2>&1 | head -${n}`;
-  return execFileSync('/bin/sh', ['-c', command], { cwd: root, encoding: 'utf8' });
+// Bound the actual CLI stdout in-process so the exact count is exercised on
+// every host without making the test depend on a platform shell or `head`.
+function headOutput(root, args, n) {
+  return cliContext(root, args).split('\n').slice(0, n).join('\n');
 }
 
 function cliContext(root, args) {
@@ -74,9 +71,9 @@ function cliContext(root, args) {
 // Asserts the published N is the exact size of the CLI output: `head -N` keeps
 // END as its last line and `head -(N-1)` loses it.
 function assertHeadIsExact(root, args, n) {
-  assert.equal(headPipeline(root, args, n).trimEnd().split('\n').at(-1), END_LINE);
+  assert.equal(headOutput(root, args, n).trimEnd().split('\n').at(-1), END_LINE);
   assert.notEqual(
-    headPipeline(root, args, n - 1)
+    headOutput(root, args, n - 1)
       .trimEnd()
       .split('\n')
       .at(-1),

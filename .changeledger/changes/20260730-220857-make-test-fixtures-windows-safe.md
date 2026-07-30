@@ -2,7 +2,7 @@
 id: "20260730-220857"
 title: Hacer portables los fixtures de tests en Windows
 type: quick
-status: approved
+status: in-validation
 created: 2026-07-30T22:08:57Z
 depends_on: []
 related_to: []
@@ -25,3 +25,6 @@ dependencias ni cambios de producción.
 
 - **2026-07-30T22:08:57Z** `[note]` Borrador creado tras la matriz remota: cuatro casos intentaron `spawnSync /bin/sh`, el barrido resolvió `D:\D:\...` y tres fixtures intentaron crear nombres que NTFS no representa.
 - **2026-07-30T22:17:33Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T22:18:23Z** `[status]` approved → in-progress
+- **2026-07-30T22:20:50Z** `[note]` TDD respaldado por la matriz Windows: antes falló con spawnSync /bin/sh ENOENT, D:\D:\... y ENOENT al crear nombres no representables en NTFS. Los fixtures ahora usan salida CLI acotada en proceso, fileURLToPath y dobles staged byte-exactos; tests focalizados 168/168 y pnpm verify 1044/1044.
+- **2026-07-30T22:20:58Z** `[status]` in-progress → in-validation
