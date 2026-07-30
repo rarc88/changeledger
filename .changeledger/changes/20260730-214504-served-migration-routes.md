@@ -2,7 +2,7 @@
 id: "20260730-214504"
 title: El contrato servido documenta la ruta de migración de cada fix
 type: feature
-status: draft
+status: approved
 created: 2026-07-30T21:45:04Z
 depends_on: []
 related_to:
@@ -89,3 +89,4 @@ captura le nombra `fix --plan-tags --dry-run` como ruta.
 
 ## Log
 - **2026-07-30T21:47:13Z** `[owner]` set: raruiz-hiberuscom
+- **2026-07-30T21:50:27Z** `[status]` draft → approved (human via conversation)
