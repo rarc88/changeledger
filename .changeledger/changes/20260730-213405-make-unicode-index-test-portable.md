@@ -2,7 +2,7 @@
 id: "20260730-213405"
 title: Hacer portable la prueba Unicode del índice
 type: bug
-status: approved
+status: in-review
 created: 2026-07-30T21:34:05Z
 depends_on: []
 related_to: ["20260726-141124"]
@@ -49,15 +49,20 @@ derivadas por la herramienta, nunca la entrada de Git.
 
 ## Plan
 
-- [ ] Derivar la expectativa Unicode desde la salida staged fijada y probar el aborto byte-exacto
+- [x] Derivar la expectativa Unicode desde la salida staged fijada y probar el aborto byte-exacto
   - **Target:** `test/commit.test.mjs`
   - **Verify:** `node --test test/commit.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Ejecutar el gate completo después de la corrección
+  - **Resolved:** `2026-07-30T21:45:33Z`
+- [x] Ejecutar el gate completo después de la corrección
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T21:46:23Z`
 
 ## Log
 
 - **2026-07-30T21:34:05Z** `[note]` Draft creado tras reproducir que macOS entrega NFC por `core.precomposeunicode=true` y Ubuntu conserva NFD; producción aborta correctamente en ambos casos y la expectativa fija del test es la única parte no portable.
 - **2026-07-30T21:37:57Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T21:42:59Z** `[status]` approved → in-progress
+- **2026-07-30T21:46:23Z** `[note]` TDD verificado: con Git raw-byte el test original falló al comparar NFC fija contra la ruta NFD staged; la expectativa derivada de PINNED_STAGED_ARGS pasó en raw-byte y macOS. El mutante que normalizó a NFC fue detectado; test focalizado 31/31 y gate combinado 1044/1044.
+- **2026-07-30T21:47:02Z** `[status]` in-progress → in-review

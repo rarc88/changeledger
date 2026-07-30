@@ -418,8 +418,8 @@ test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-ex
   git(root, ['config', 'user.email', 'test@example.com']);
   git(root, ['config', 'user.name', 'Test']);
   git(root, ['config', 'commit.gpgsign', 'false']);
-  // The directory name is stored decomposed while git records it precomposed, so
-  // the prefix this tool computes from disk and the prefix git reports differ.
+  // Git may report the decomposed directory in a platform-configured Unicode
+  // form, so the byte-exact diagnostic must follow the pinned index output.
   const dirNfd = `cambio\u0301s`;
   fs.mkdirSync(path.join(root, '.changeledger', dirNfd), { recursive: true });
   fs.writeFileSync(
@@ -431,12 +431,16 @@ test('CR10 (20260726-141124): a non-ASCII changes_dir keeps the boundary byte-ex
     '---\nid: "20260711-999999"\n---\n',
   );
   git(root, ['add', '-A']);
+  const foreignPath = git(root, PINNED_STAGED_ARGS)
+    .split('\0')
+    .find((stagedPath) => stagedPath.endsWith('/20260711-999999-x.md'));
+  assert.ok(foreignPath, 'fixture must stage the foreign change document');
 
   assert.throws(
     () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
     (e) =>
       e.message ===
-      `Staged path(s) under the changes directory not declared for this commit: .changeledger/cambi\u00f3s/20260711-999999-x.md (declared: 20260711-000001)`,
+      `Staged path(s) under the changes directory not declared for this commit: ${foreignPath} (declared: 20260711-000001)`,
   );
   assert.equal(commitCount(root), 0);
 });
