@@ -407,3 +407,19 @@ test('002341 CR2: a marker cited in the free tail below a declaration does not a
     ['docs(context): checkpoint'],
   );
 });
+
+// Pins the subject seat as "the marker CLOSES the subject" (MARKER_RE), not
+// "the subject mentions the marker": a mid-subject marker is a mention. The
+// second commit is the positive control, so an empty result cannot pass this
+// test by way of a broken fixture or a grep that matched nothing.
+test('002341 CR2: a marker that does not close the subject does not attribute', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: touch [#Q] while doing something else'],
+    ['feat: proper close [#Q]'],
+  ]);
+
+  assert.deepEqual(
+    gitRefs(root, 'Q').commits.map((c) => c.subject),
+    ['feat: proper close [#Q]'],
+  );
+});
