@@ -1,0 +1,91 @@
+---
+id: "20260730-214504"
+title: El contrato servido documenta la ruta de migración de cada fix
+type: feature
+status: draft
+created: 2026-07-30T21:45:04Z
+depends_on: []
+related_to:
+  - "20260729-203257"
+  - "20260730-183807"
+owner: raruiz-hiberuscom
+---
+
+## Request
+
+El follow-up más material antes del release, nombrado por Roberto y registrado
+desde el cierre de `20260729-203257`: un repo consumidor que actualice a la
+gramática de tags del Plan ve errores de readiness en sus tareas antiguas **sin
+ruta de migración documentada** — `changeledger fix --plan-tags` existe en el
+CLI y no aparece en ningún fragmento del contrato servido. La investigación de
+`20260730-183807` verificó la clase completa: de los tres modos de migración de
+`fix`, solo `--graduation-links` está documentado (`close.md`);
+`--structured-sections` y `--plan-tags` no aparecen en `templates/contract/`.
+
+## Investigation
+
+Verificado hoy contra HEAD (2026-07-30), por ejecución:
+
+- `changeledger fix --help` publica tres modos de migración: `--graduation-links`
+  (procedencia de graduación), `--structured-sections` (metadata de tareas y
+  eventos tipados del Log) y `--plan-tags` (criteria/support/verify del Plan a
+  hijos estructurados), todos con `--dry-run`.
+- Grep de los tres flags sobre `templates/contract/`: un solo hit,
+  `close.md` con `--graduation-links`. Los otros dos, cero sedes.
+- La sede natural de `--plan-tags` es el pack de autoría: `spec.md` documenta
+  la gramática de tags que las tareas viejas incumplen, y es la captura que el
+  agente tiene delante cuando `check` reporta los errores de readiness. La de
+  `--structured-sections` es la misma zona (migra la otra mitad de la misma
+  estructura: metadata de tareas y Log tipado).
+- **Restricción dura de presupuesto**: `base.spec` está a ~2397/2500 tokens
+  (~103 de margen, medido hoy). La prosa nueva debe ser una frase compacta que
+  cubra los dos flags, o el implementador para y reporta.
+- El precedente de redacción está en `close.md`: comando en backticks +
+  paréntesis de `--dry-run`, una línea.
+- Relacionados: `20260729-203257` (la gramática que crea la necesidad),
+  `20260730-183807` (la investigación que verificó la clase). Cerrados →
+  `related_to`.
+
+## Proposal
+
+Una frase en la zona de la gramática del Plan de `spec.md` (o los *authoring
+helpers*, a juicio del implementador midiendo): las tareas preexistentes sin
+hijos estructurados migran con `changeledger fix --plan-tags` y la metadata
+legada con `--structured-sections`, ambos con `--dry-run` para previsualizar.
+Guard tolerante de fragmento único.
+
+Alternativa descartada: documentarlos en `close.md` junto a
+`--graduation-links` — el consumidor no está cerrando un change cuando choca
+con los errores de readiness; está redactando o migrando, y su captura es la
+de autoría. Segunda alternativa descartada: un verificador de paridad
+automática CLI↔contrato (todo flag de `fix` documentado) — superficie nueva
+sin coste medido detrás; el guard fija los dos que este change añade.
+
+Escenario: un consumidor actualiza el paquete, `changeledger check` le reporta
+tareas sin target/verification, carga `changeledger context spec` y la propia
+captura le nombra `fix --plan-tags --dry-run` como ruta.
+
+## Specification
+
+### CR1 — El pack de autoría nombra la ruta de migración del Plan
+- **Given** el pack compuesto por `buildContext('spec', root)`
+- **When** un consumidor con tareas de gramática vieja lo carga
+- **Then** contiene la ruta: `changeledger fix --plan-tags` para los hijos
+  estructurados del Plan y `--structured-sections` para la metadata legada,
+  con `--dry-run` como previsualización
+- **And** un guard tolerante de fragmento fija la obligación, y `base.spec`
+  sigue bajo su techo {2500, 250} — si la frase correcta no cabe, el
+  implementador para y reporta las cifras
+
+## Plan
+
+- [ ] Escribir la frase de migración en spec.md y su guard, midiendo el techo
+  - **Target:** `templates/contract/spec.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1
+- [ ] Correr el gate completo tras la implementación
+  - **Support:**
+  - **Verify:** `pnpm verify`
+
+## Log
+- **2026-07-30T21:47:13Z** `[owner]` set: raruiz-hiberuscom
