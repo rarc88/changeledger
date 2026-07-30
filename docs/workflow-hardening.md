@@ -1956,6 +1956,30 @@ identidad y barrido — lo posee el review, nombrado en el propio test.
 del pack → CH-19 → CH-5a. WT-B (`../spec-ledger-wtb`): techo 1250 → CH-16.
 Después, en solitario: barrido de verdad persistente. Cola final sin cambios.
 
+**Actualizaciones del 2026-07-30 (madrugada):**
+- **CH-16 (`20260730-002341`) done, graduado a `git-traceability` y archivado**
+  en la rama `change/scoped-commit-attribution` (WT-B, pendiente de apilar en la
+  integración). Atribución por dos sedes, cola libre bajo la declaración,
+  enterrada/duplicada rechazadas; la spec reescrita en la graduación. Ciclo: 1
+  review + 1 fail-retry (tres mutantes supervivientes en código nuevo — el
+  orquestador discrepó del pass recomendado por consistencia con el estándar de
+  CH-1) + 1 confirmación. Follow-ups nombrados: `--no-change` sin forma CLI de
+  añadir párrafo de porqué; comentario rancio en `commit.mjs`; NBSP preexistente.
+- **Decisión de Roberto**: la permeabilidad a inversión de 2 de los 18 guards
+  tolerantes (los enunciados en positivo) se acepta documentada, sin patrones
+  sensibles a negación — lo deliberado pertenece al review, trade de §16.1.
+- **Guards (`20260730-002730`)**: primera pasada commiteada (−695 netas, 18
+  guards tolerantes, perímetro en `AGENTS.md` a petición de Roberto); un
+  fail-retry por CR1 (tres títulos nombrados supervivientes + cuatro pins >5
+  palabras, uno vacuo con gemelo que el propio implementador destapó);
+  corrección en confirmación fresca. La premisa "specs sin tests" del Request
+  era falsa: `111349 CR6` pinneaba la spec de git — partido en
+  presencia-fuera/ausencia-dentro dentro del alcance "todos los .md".
+- **El change del techo 1250 murió por investigación fresca**: ya lo implementó
+  CH-17 (`212043 CR6`). La edición de `target_patterns` (`test/**`) la hizo
+  Roberto a mano como commit operativo — feedback registrado: las ediciones
+  operativas de una línea no exigen change, la exención de CH-14 es su forma.
+
 ### Método que sostuvo el día (para replicar, no re-derivar)
 
 Investigación fresca contra HEAD antes de todo draft (falsificó hechos del acta
