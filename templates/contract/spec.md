@@ -124,6 +124,8 @@ Markers encode state; structured children carry every trace, never a position:
 
 `Support` (value optional) marks operational work such as test suites, reading, blast-radius analysis or scaffolding. It needs no CR or target/verification readiness checks and cannot replace a criterion for observable behaviour.
 
+Pre-existing Plan tasks without structured children migrate to this grammar with `changeledger fix --plan-tags`, and legacy task metadata or Log events migrate with `changeledger fix --structured-sections` (both previewed with `--dry-run`).
+
 ## IDs and language
 
 The id is the UTC creation instant in `YYYYMMDD-HHMMSS`, derived from `created`;

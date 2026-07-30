@@ -2,7 +2,7 @@
 id: "20260730-214504"
 title: El contrato servido documenta la ruta de migración de cada fix
 type: feature
-status: approved
+status: in-review
 created: 2026-07-30T21:45:04Z
 depends_on: []
 related_to:
@@ -79,14 +79,20 @@ captura le nombra `fix --plan-tags --dry-run` como ruta.
 
 ## Plan
 
-- [ ] Escribir la frase de migración en spec.md y su guard, midiendo el techo
+- [x] Escribir la frase de migración en spec.md y su guard, midiendo el techo
   - **Target:** `templates/contract/spec.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR1
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T22:34:53Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T22:34:53Z`
 
 ## Log
 - **2026-07-30T21:47:13Z** `[owner]` set: raruiz-hiberuscom
 - **2026-07-30T21:50:27Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T22:26:50Z** `[status]` approved → in-progress
+- **2026-07-30T22:34:53Z** `[note]` Selección única resuelta. base.spec 2403→2452/2500 medido antes y después; guard de fragmento único en tabla hermana MIGRATION_OBLIGATIONS (una fila en DELEGATION_OBLIGATIONS habría titulado el test como 165310 — decisión del implementador, correcta); delete rojo / reword verde ejecutados; paridad 1/1 en los 4 patrones de DRAFTING_OBLIGATIONS.
+- **2026-07-30T22:35:25Z** `[status]` in-progress → in-review
+- **2026-07-30T22:35:25Z** `[note]` Mandato del review, declarado antes de delegar: la superficie que el change gobierna — la frase de spec.md y su guard contra CR1. Modelo medio: un CR, una frase, evidencia ya ejecutada; la cápsula condicional acota la checklist.

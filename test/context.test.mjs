@@ -1597,6 +1597,47 @@ for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
   });
 }
 
+// 20260730-214504 CR1 — the migration route from pre-existing Plan tasks and
+// legacy task metadata/Log events to the current grammar, named in `spec.md`
+// because that is the capture a consumer already has open when `check` reports
+// the readiness errors those old shapes cause. Fragment-only, following the
+// regime `20260730-214503` established above for `DELEGATION_OBLIGATIONS` and
+// `CLASSIFICATION_OBLIGATIONS`: the fragment's transport into the composed
+// `spec` pack is already proven by the structural-composition test, so no
+// composed half is asserted here. A sibling table rather than a row inside
+// `DELEGATION_OBLIGATIONS` — that table's loop still titles every test
+// `165310: the ${mode} pack …`, and this obligation belongs to a different
+// change; a row there would misattribute a failure to `165310` instead of the
+// change that actually owns it.
+//
+// Tolerant halves, each anchored on a CLI flag token that grep confirms is
+// unique to this sentence in `spec.md` (`--plan-tags`, `--structured-sections`,
+// `--dry-run` appear nowhere else in the fragment), so a delete mutant has
+// nothing coincidental left to match. Each half is written in both directions
+// and was run, before being kept, against a reword mutant (different verbs and
+// clause order, same meaning) and stayed green, and against the fragment with
+// the sentence deleted and went red.
+const MIGRATION_OBLIGATIONS = [
+  [
+    'pre-existing Plan tasks without structured children migrate with `fix --plan-tags`, legacy task metadata or Log events migrate with `fix --structured-sections`, and both are previewable with `--dry-run`',
+    'spec.md',
+    [
+      /\bstructured\b[^.;]{0,30}\bchildren\b[^.;]{0,90}--plan-tags|--plan-tags[^.;]{0,90}\bstructured\b[^.;]{0,30}\bchildren\b/i,
+      /\b(metadata|log)\b[^.;]{0,90}--structured-sections|--structured-sections[^.;]{0,90}\b(metadata|log)\b/i,
+      /\bpreview\w*\b[^.;]{0,40}--dry-run|--dry-run[^.;]{0,40}\bpreview\w*\b/i,
+    ],
+  ],
+];
+
+for (const [label, owner, patterns] of MIGRATION_OBLIGATIONS) {
+  test(`214504 CR1: the spec pack obliges that ${label}`, () => {
+    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
+    for (const pattern of patterns) {
+      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
+    }
+  });
+}
+
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
 function budgetEntries() {
