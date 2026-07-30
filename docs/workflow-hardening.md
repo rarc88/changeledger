@@ -1979,6 +1979,24 @@ Después, en solitario: barrido de verdad persistente. Cola final sin cambios.
   CH-17 (`212043 CR6`). La edición de `target_patterns` (`test/**`) la hizo
   Roberto a mano como commit operativo — feedback registrado: las ediciones
   operativas de una línea no exigen change, la exención de CH-14 es su forma.
+- **Guards (`20260730-002730`) done, graduación skip razonado (el perímetro
+  vive en `AGENTS.md`), archivado.** Ciclo: 1 review fail-retry (CR1: tres
+  títulos supervivientes + cuatro pins, uno vacuo con gemelo) + 1 confirmación.
+  Quedan: presupuestos, composición, barridos y 18 guards de concepto con doble
+  evidencia; −715 líneas netas de tests. Decisión de Roberto: la permeabilidad
+  a inversión de los 2 guards enunciados en positivo, aceptada documentada.
+- **LA SALIDA DEL ANDAMIO DE `base.spec` ATERRIZÓ** — deja de estar pendiente
+  en todo este documento: el refactor del pack (`20260730-002908`, done,
+  graduado a `contract-discovery`, archivado) dejó spec en **2403 tokens / 239
+  líneas contra el techo decidido `{2500, 250}`**, sin clave `scaffold` en
+  ningún sitio y con los tres números de §10 por fin uniformes. Método:
+  responsabilidad única del pack — a `implement.md` se mudaron las 8 cláusulas
+  de evidencia, la gramática del Log, la regla estructural de Resolved/Blocked
+  y la mecánica de owner (todo con sede grepada); ningún fence de ejemplo se
+  tocó, condición explícita de Roberto verificada dos veces (censo 47/47 +
+  caza de contraejemplos vacía). Dos paradas honestas del implementador en el
+  camino (2711 y 2467 medidos) — el mandato de parar antes de vaciar normativa
+  funcionó. Primer change de la iniciativa con review limpio a la primera.
 
 ### Método que sostuvo el día (para replicar, no re-derivar)
 
