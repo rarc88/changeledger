@@ -2,9 +2,11 @@
 id: "20260730-213353"
 title: Ejecutar los scripts pnpm en Windows
 type: quick
-status: in-validation
+status: done
 created: 2026-07-30T21:33:53Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: []
 owner: rarc88
 release_impact: none
@@ -25,3 +27,6 @@ Node 24 y 26.
 - **2026-07-30T21:38:45Z** `[status]` approved → in-progress
 - **2026-07-30T21:41:55Z** `[note]` TDD verificado: la prueba falló primero por ausencia de pnpm-workspace.yaml, detectó el mutante shellEmulator:false y luego rechazó el builtin export no soportado por el emulador. La asignación inline conservó el kill-switch; test focalizado 21/21 y pnpm verify 1044/1044.
 - **2026-07-30T21:41:55Z** `[status]` in-progress → in-validation
+- **2026-07-30T23:11:51Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T23:13:18Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-30T23:13:26Z** `[archive]` archived
