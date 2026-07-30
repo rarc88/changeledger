@@ -2,7 +2,7 @@
 id: "20260730-183520"
 title: "La cápsula del revisor obedece el mandato y el retry nombra la vuelta a in-review"
 type: feature
-status: draft
+status: approved
 created: 2026-07-30T18:35:20Z
 depends_on: []
 related_to:
@@ -185,3 +185,4 @@ cápsula aplica auditoría completa por construcción; (3) orquestador tras
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-30T18:42:59Z** `[status]` draft → approved (human via conversation)
