@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-30T21:45:03Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260722-124655"
@@ -151,3 +152,4 @@ tabla de obligaciones.
 - **2026-07-30T22:26:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T22:50:55Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T22:51:17Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-30T22:52:29Z** `[archive]` archived
