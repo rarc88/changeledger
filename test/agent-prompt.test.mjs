@@ -145,6 +145,30 @@ test('165310 CR1: the review skeleton carries the mandate field and its three fo
   }
 });
 
+// The mandate is worthless if the capsule states the bound and nothing keeps it
+// there: `review.md` guards its own version of this obligation, so an unguarded
+// capsule is the drift seam between the two seats — the reviewer deleted this
+// sentence and the whole suite stayed green.
+//
+// The two halves below are a deliberate local copy of the CR2 entry of
+// `DELEGATION_OBLIGATIONS` in `test/context.test.mjs`, not an import: that file is
+// a `node:test` suite, so importing it would run its 112 tests inside this one.
+// Both copies must move together. Only this side carries the cross-reference: the
+// correction that added it owned this file alone, so the twin does not name it back.
+//
+// A separate test from the placeholder pin above, not another assert inside it: a
+// failure must say which of the two obligations the capsule lost, and the first
+// failing assert aborts the rest of its test.
+test('165310 CR1: the review skeleton bounds the inspection to the declared mandate', () => {
+  const body = prose('review');
+  for (const half of [
+    /\bwithin\b[^.;]{0,45}\bmandate\b|\bmandate\b[^.;]{0,45}\bbounds?\b/i,
+    /\boutside\b[^.;]{0,60}\bwithout\b[^.;]{0,45}\bexpand|\bwithout\b[^.;]{0,45}\bexpand\w*[^.;]{0,60}\boutside\b/i,
+  ]) {
+    assert.match(body, half, `the review skeleton no longer bounds the inspection: ${half}`);
+  }
+});
+
 test('CR4: each role loads available context without inventing a change', () => {
   for (const role of ROLES) {
     assert.match(
