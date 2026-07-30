@@ -2,7 +2,7 @@
 id: "20260730-220545"
 title: Mantener activo el guard de commit en Windows
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-30T22:05:45Z
 depends_on: []
 owner: rarc88
@@ -58,9 +58,10 @@ la salida NUL-delimitada de la invocación ya fijada.
   - **Verify:** `node --test test/commit.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-30T22:25:00Z`
-- [ ] Ejecutar el gate completo y la matriz remota
+- [x] Ejecutar el gate completo y la matriz remota
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T22:30:03Z`
 
 ## Log
 
@@ -68,3 +69,5 @@ la salida NUL-delimitada de la invocación ya fijada.
 - **2026-07-30T22:16:38Z** `[status]` draft → approved (human via conversation)
 - **2026-07-30T22:22:05Z** `[status]` approved → in-progress
 - **2026-07-30T22:26:19Z** `[note]` TDD local: la prueba nueva falló con Expected values to be strictly deep-equal porque no existía ninguna lectura rev-parse --show-prefix; pasó al derivar la frontera en coordenadas Git. El mutante sin prefijo fue detectado. Suite del guard 32/32 y gate completo 1046/1046; queda pendiente la matriz remota Windows.
+- **2026-07-30T22:29:57Z** `[note]` Matriz remota 7/7 verde en el run 30587195239: tarball smoke test y verify en Ubuntu, macOS y Windows con Node 24/26; los dos jobs de Windows ejecutaron pnpm verify sin fallos.
+- **2026-07-30T22:30:48Z** `[status]` in-progress → in-review
