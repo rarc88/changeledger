@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-30T18:38:07Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260729-162616"
@@ -177,3 +178,4 @@ atribución, superficie adyacente a `commit.mjs`). Cerrados → `related_to`.
 - **2026-07-30T19:44:30Z** `[note]` Confirmación PASS con mandato spot check (~82k frente a ~127k del review completo). Los tres defectos cerrados: D1 con mecanismo único REWRITE_CAUSE verificado en las dos direcciones (pre-corrección reproducido desde bdc744a7 en scratchpad, corregido avisando; estados mudos en silencio por construcción); D3 con el mutante while muerto por la razón correcta y restore probado; D2 estrechado — nota de registro: el revisor de confirmación tampoco pudo reproducir el borde de 2 espacios que el review completo afirmó ejecutado (dos no-reproducciones independientes contra una ejecución afirmada); la corrección no dependía de esa reproducción y el comentario estrechado es exacto para la forma real de la plantilla. Gate 1034/1034, delta exacto de 7 paths, sin git mutante en esta ronda.
 - **2026-07-30T19:49:16Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T19:52:15Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-30T19:52:52Z** `[archive]` archived
