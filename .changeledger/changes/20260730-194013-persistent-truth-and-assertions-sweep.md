@@ -2,9 +2,11 @@
 id: "20260730-194013"
 title: Barrido de verdad persistente y aserciones frágiles
 type: refactor
-status: in-validation
+status: done
 created: 2026-07-30T19:40:13Z
 depends_on: []
+archived: true
+reviewed: true
 related_to:
   - "20260726-124835"
   - "20260728-194157"
@@ -172,3 +174,6 @@ que el review de graduación ya caza.
 - **2026-07-30T20:40:22Z** `[status]` in-progress → in-review
 - **2026-07-30T20:40:22Z** `[note]` Mandato del review de confirmación, declarado antes de delegar: spot check del diff nombrado — la corrección sin commitear sobre 8b26f77e (4 paths: patrón anclado en cli.test.mjs con la clase barrida, wrap de contract-discovery.md, enumeración completada en viewer.md, y este ledger). Punto de escrutinio: la lethalidad del patrón anclado con mutante de solo-obligación, y que los dos patrones no anclados mueren de verdad con esa forma de mutante.
 - **2026-07-30T20:43:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T20:44:56Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T20:44:57Z** `[graduation]` skipped: las correcciones de verdad persistente (specs) son el propio entregable del barrido, ya revisadas dentro del change; no queda verdad nueva que extraer
+- **2026-07-30T20:44:58Z** `[archive]` archived
