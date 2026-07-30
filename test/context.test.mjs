@@ -1361,11 +1361,15 @@ for (const [label, owner, obligation] of DRAFTING_OBLIGATIONS) {
 }
 
 // 20260730-165310 CR2/CR3/CR4 — the three obligations this change adds to the
-// delegation contract, guarded by the mechanism `185200 CR5` above uses: the
-// fragment that owns the obligation, and the composed pack that must carry it to
-// the role that executes it, so a failure names which of the two seats lost it.
-// The mode differs per entry, which is why this is a second table rather than
-// rows in that one: `spec` is not where these obligations are read.
+// delegation contract. Each row was guarded by the mechanism `185200 CR5` above
+// uses — the fragment that owns the obligation, and the composed pack that must
+// carry it to the role that executes it — until 20260730-214503 retired the
+// composed half: the fragment's transport into its pack is already guarded by
+// `234939 structural remnant: pack composition and owned headings`, which fails
+// if a fragment is dropped from a pack in `MODE_CONTEXT`, so a row here no longer
+// needs to prove the transport itself. The mode column stays: it still labels
+// the test title with where each obligation is read, but no longer selects a
+// pack for the loop to build and assert against.
 //
 // Tolerant concept matches over flattened text, never the sentence: each pattern
 // is one half of the obligation, so rewording is free and dropping a half fails
@@ -1429,27 +1433,59 @@ const DELEGATION_OBLIGATIONS = [
       /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
     ],
   ],
+  // 20260730-214503 CR2 — the first guard of the new regime `DELEGATION_OBLIGATIONS`
+  // and `CLASSIFICATION_OBLIGATIONS` adopt above (`DRAFTING_OBLIGATIONS` directly
+  // above still asserts the composed spec capture and is untouched): fragment-only
+  // by construction, since there is no seat other than `review.md` for the
+  // orchestrator to read this rule from before it delegates the confirmation
+  // review. Co-traveller proof against `handoff.md` is therefore not required to
+  // show the transport is safe — that is CR1's point — but it was run once anyway:
+  // all four halves below are red against `handoff.md` alone, none of them
+  // borrowing a match from that fragment's unrelated prose.
+  [
+    'a confirmation review fails only for the named defect left open or a regression the correction introduced, with anything latent or adjacent reported as a follow-up for the orchestrator to judge',
+    'review.md',
+    'review',
+    [
+      // Confirm paired with fail, and confirm paired with defect/regression,
+      // rather than one three-token chain: a reword mutant reordered defect and
+      // regression ahead of "confirmation", which a strict confirm-fail-defect
+      // chain does not survive. Anchoring both halves on "confirm" (never on
+      // "fail" alone) is deliberate — `fail --retry "<reason>"` — fixable
+      // defect inside the authorized contract already pairs fail with defect a
+      // few words apart, and a half that drops the confirm anchor would be
+      // satisfied by that unrelated bullet instead of this sentence. `\bfail\w*\b`
+      // rather than `\bfails?\b` so "failure"/"failing" reword the verb freely.
+      /\bconfirm\w*\b[^.;]{0,100}\bfail\w*\b|\bfail\w*\b[^.;]{0,100}\bconfirm\w*\b/i,
+      /\bconfirm\w*\b[^.;]{0,120}\b(defect|regression)\b|\b(defect|regression)\b[^.;]{0,120}\bconfirm\w*\b/i,
+      /\b(latent|adjacent)\b[^.;]{0,60}\bfollow-?ups?\b|\bfollow-?ups?\b[^.;]{0,60}\b(latent|adjacent)\b/i,
+      // Both orders of the closing clause: the shipped sentence reads
+      // follow-up...orchestrator...judge, but "go to the orchestrator as
+      // follow-ups for it to judge" reverses it to orchestrator...follow-up...judge.
+      /\bfollow-?ups?\b[^.;]{0,60}\borchestrator\b[^.;]{0,30}\bjudg\w*\b|\borchestrator\b[^.;]{0,60}\bjudg\w*\b[^.;]{0,60}\bfollow-?ups?\b|\borchestrator\b[^.;]{0,60}\bfollow-?ups?\b[^.;]{0,30}\bjudg\w*\b/i,
+    ],
+  ],
 ];
 
 for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
   test(`165310: the ${mode} pack obliges that ${label}`, () => {
     const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
-    const composed = flattened(buildContext(mode, repo()));
     for (const pattern of patterns) {
       assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
-      assert.match(
-        composed,
-        pattern,
-        `the composed ${mode} capture no longer carries the obligation: ${pattern}`,
-      );
     }
   });
 }
 
-// 20260722-124655 CR1/CR2/CR3 — the post-failure classification, guarded by the
-// same double-evidence mechanism as the two tables above: the fragment that owns
-// the obligation, and the composed capture that must carry it to the role that
-// executes it.
+// 20260722-124655 CR1/CR2/CR3 — the post-failure classification. Each row was
+// guarded, until 20260730-214503, by the same double-evidence mechanism as the
+// two tables above: the fragment that owns the obligation, and the composed
+// capture that must carry it to the role that executes it. That change retired
+// the composed half here too: the fragment's transport into its pack is already
+// guarded by `234939 structural remnant: pack composition and owned headings`,
+// and the composed half's real cost was exactly the co-traveller class recorded
+// below — every new pattern having to be proved against every fragment riding
+// the same pack. Each row now asserts only the fragment that owns the
+// obligation.
 //
 // A third table rather than rows in `DELEGATION_OBLIGATIONS`: two of these three
 // seats are status overlays, and `blocked` and `in-validation` compose per change
@@ -1461,21 +1497,35 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
 // Tolerant concept matches over flattened text, never the sentence. A half that a
 // pre-existing sentence already satisfies guards nothing — the lesson the reviewer
 // quantifier entry above records, whose first draft matched the unrelated
-// `fail --retry` line — so each pattern below was run against the unedited fragment
-// before the prose existed and was red there. The blocked rows were also run
-// against `handoff.md`, which the blocked overlay composes alongside `blocked.md`
-// and which already read "classify friction": none of them matched it either, so no
-// half rests on the mere presence of `classif…`. A reword mutant of each obligation,
-// clause order and voice inverted, was then run against the kept patterns and stayed
-// green.
+// `fail --retry` line. The co-traveller fragment was where that trap sprang again
+// here: `handoff.md` composed into the review pack as well as the blocked overlay,
+// and its "Before handing completed or blocked work to the human, classify
+// friction" line satisfied a first draft of this row's ordering and seat halves in
+// the composed capture while proving nothing about `review.md`. All fifteen patterns
+// below were therefore run three ways before being kept — against `handoff.md`
+// alone, against the pre-change fragment, and against the shipped prose — and all
+// fifteen were red on the first two. Red on a whole pattern is red on each of its
+// alternatives, so the mirrors inherited that evidence; on the shipped prose it is
+// the joined half that has to be green, never every alternative, since a mirror
+// exists for the reword and not for the wording that shipped.
+//
+// The ordering halves carry an `(after|once)` mirror because the `before` form alone
+// died on three rewords a reviewer wrote and ran — "Decide with the human, having
+// stopped first", "Choosing between `--block` and `--retry` comes after the finding
+// has been classified", "Iteration begins only once the rejection has been
+// classified". Those three were re-run against the patterns as kept and are green,
+// and deleting the obligation sentence still fails the row it belongs to.
 const CLASSIFICATION_OBLIGATIONS = [
   [
     'a diagnosed failure is classified by class before correction starts',
     'blocked.md',
     { status: 'blocked' },
     [
-      // The classification PRECEDES the correction: the ordering is the obligation.
-      /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b|\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,70}\bclassif\w+/i,
+      // The classification PRECEDES the correction: the ordering is the obligation,
+      // so it is written in four shapes — `before` and its `(after|once)` mirror,
+      // each with the correction on either side. A `before`-only half died on a
+      // reviewer's reword; see the note above.
+      /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b|\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,70}\bclassif\w+|\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,60}\b(after|once)\b[^.;]{0,70}\bclassif\w+|\b(after|once)\b[^.;]{0,70}\bclassif\w+[^.;]{0,60}\b(correct\w+|fix\w*|iterat\w+)\b/i,
       // Both diagnosed failures enter the taxonomy, not the reviewer's verdict alone.
       /\b(verdict|fail\w*)\b[^.;]{0,60}\b(rejection|reject\w+)\b|\b(rejection|reject\w+)\b[^.;]{0,60}\b(verdict|fail\w*)\b/i,
       // First class: an incomplete enumeration inside a strategy already verified.
@@ -1487,7 +1537,9 @@ const CLASSIFICATION_OBLIGATIONS = [
       /\brounds?\b[^.;]{0,80}\b(class|holds?)\b|\b(class|holds?)\b[^.;]{0,80}\brounds?\b/i,
       // Second class: a new class of defect goes to the human, not to another retry.
       /\bnew\b[^.;]{0,30}\bclass\b|\bclass\b[^.;]{0,30}\bnew\b/i,
-      /\b(stop|halt|pause)\w*\b[^.;]{0,60}\bhuman\b|\bhuman\b[^.;]{0,60}\b(decid\w+|choos\w+|chooses?)\b/i,
+      // Stopping and deciding ride one window in both orders: the human may be
+      // named before or after either verb, which a reviewer's reword proved.
+      /\b(stop|halt|pause|decid|choos)\w*[^.;]{0,60}\bhuman\b|\bhuman\b[^.;]{0,60}\b(stop|halt|pause|decid|choos)\w*/i,
       // The exits stay an illustration instead of a closed enumeration.
       /\b(illustrat\w+|examples?|non-?exhaustive)\b[^.;]{0,70}\b(clos\w+|exhaust\w+|enumerat\w+)\b|\b(clos\w+|exhaust\w+)\b[^.;]{0,70}\b(illustrat\w+|examples?)\b/i,
     ],
@@ -1498,9 +1550,17 @@ const CLASSIFICATION_OBLIGATIONS = [
     { mode: 'review' },
     [
       /\bclassif\w+[^.;]{0,90}(--retry|--block)|(--retry|--block)[^.;]{0,90}\bclassif\w+/i,
-      /\bclassif\w+[^.;]{0,60}\bbefore\b|\bbefore\b[^.;]{0,60}\bclassif\w+/i,
-      // Pointer, not a copy: the classes are attributed to the blocked seat.
-      /\bblocked\b[^.;]{0,80}\b(class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,80}\bblocked\b/i,
+      // Anchored to the verdict CHOICE, not to a bare `classif…before`: `handoff.md`
+      // rides this pack and already says "Before handing … work to the human,
+      // classify friction", which satisfied the bare form in the composed capture
+      // while proving nothing about `review.md`. The dash forms carry no leading
+      // `\b` on purpose — a backtick before `--retry` is not a word boundary, so a
+      // `\b` there would make that alternative unreachable.
+      /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,60}(?:\bchoos\w+|\bselect\w+|\bverdict\b|--retry|--block)|(?:\bchoos\w+|\bselect\w+|\bverdict\b|--retry|--block)[^.;]{0,70}\b(after|once)\b[^.;]{0,60}\bclassif\w+/i,
+      // Pointer, not a copy: the classes are attributed to the blocked SEAT, and the
+      // seat is `blocked` immediately followed by its context — `handoff.md`'s
+      // "blocked work to the human, classify" satisfied a looser first draft.
+      /\bblocked\b[^.;]{0,25}\bcontext\b[^.;]{0,70}\b(owns?|class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,70}\bblocked\b[^.;]{0,25}\bcontext\b/i,
     ],
   ],
   [
@@ -1509,10 +1569,17 @@ const CLASSIFICATION_OBLIGATIONS = [
     { status: 'in-validation' },
     [
       /\b(rejection|reject\w+)\b[^.;]{0,80}\bclassif\w+|\bclassif\w+[^.;]{0,80}\b(rejection|reject\w+)\b/i,
-      /\bclassif\w+[^.;]{0,90}\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b|\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+)\b[^.;]{0,90}\bclassif\w+/i,
+      // Same four shapes as the blocked row's ordering half: `before` and its
+      // `(after|once)` mirror, with the iteration on either side.
+      /\bclassif\w+[^.;]{0,90}\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b|\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+)\b[^.;]{0,90}\bclassif\w+|\b(iterat\w+|correct\w+|implement\w*)\b[^.;]{0,60}\b(after|once)\b[^.;]{0,90}\bclassif\w+|\b(after|once)\b[^.;]{0,90}\bclassif\w+[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b/i,
       // The same classification as a review verdict, so the two paths cannot drift.
       /\b(same|like|way)\b[^.;]{0,80}\bverdict\b[^.;]{0,40}\bclassif\w+|\bclassif\w+[^.;]{0,60}\b(same|like|way)\b[^.;]{0,60}\bverdict\b/i,
-      /\bblocked\b[^.;]{0,80}\b(class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,80}\bblocked\b/i,
+      // The seat, anchored exactly as the review row's pointer is: `blocked` followed
+      // by its context. The looser form this replaces matched `handoff.md`'s "blocked
+      // work to the human, classify" when run against that text alone — latent here,
+      // since the in-validation overlay composes `validation` alone, but the review
+      // row proved the same shape false-satisfying one seat over.
+      /\bblocked\b[^.;]{0,25}\bcontext\b[^.;]{0,70}\b(owns?|class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,70}\bblocked\b[^.;]{0,25}\bcontext\b/i,
     ],
   ],
 ];
@@ -1520,20 +1587,50 @@ const CLASSIFICATION_OBLIGATIONS = [
 for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
   const where = seat.mode ? `${seat.mode} pack` : `${seat.status} overlay`;
   test(`124655: the ${where} obliges that ${label}`, () => {
-    const root = repo();
     const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
-    const composed = flattened(
-      seat.mode
-        ? buildContext(seat.mode, root)
-        : buildContext(addChange(root, seat.status, '20260722-124655'), root),
-    );
     for (const pattern of patterns) {
       assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
-      assert.match(
-        composed,
-        pattern,
-        `the composed ${where} capture no longer carries the obligation: ${pattern}`,
-      );
+    }
+  });
+}
+
+// 20260730-214504 CR1 — the migration route from pre-existing Plan tasks and
+// legacy task metadata/Log events to the current grammar, named in `spec.md`
+// because that is the capture a consumer already has open when `check` reports
+// the readiness errors those old shapes cause. Fragment-only, following the
+// regime `20260730-214503` established above for `DELEGATION_OBLIGATIONS` and
+// `CLASSIFICATION_OBLIGATIONS`: the fragment's transport into the composed
+// `spec` pack is already proven by the structural-composition test, so no
+// composed half is asserted here. A sibling table rather than a row inside
+// `DELEGATION_OBLIGATIONS` — that table's loop still titles every test
+// `165310: the ${mode} pack …`, and this obligation belongs to a different
+// change; a row there would misattribute a failure to `165310` instead of the
+// change that actually owns it.
+//
+// Tolerant halves, each anchored on a CLI flag token that grep confirms is
+// unique to this sentence in `spec.md` (`--plan-tags`, `--structured-sections`,
+// `--dry-run` appear nowhere else in the fragment), so a delete mutant has
+// nothing coincidental left to match. Each half is written in both directions
+// and was run, before being kept, against a reword mutant (different verbs and
+// clause order, same meaning) and stayed green, and against the fragment with
+// the sentence deleted and went red.
+const MIGRATION_OBLIGATIONS = [
+  [
+    'pre-existing Plan tasks without structured children migrate with `fix --plan-tags`, legacy task metadata or Log events migrate with `fix --structured-sections`, and both are previewable with `--dry-run`',
+    'spec.md',
+    [
+      /\bstructured\b[^.;]{0,30}\bchildren\b[^.;]{0,90}--plan-tags|--plan-tags[^.;]{0,90}\bstructured\b[^.;]{0,30}\bchildren\b/i,
+      /\b(metadata|log)\b[^.;]{0,90}--structured-sections|--structured-sections[^.;]{0,90}\b(metadata|log)\b/i,
+      /\bpreview\w*\b[^.;]{0,40}--dry-run|--dry-run[^.;]{0,40}\bpreview\w*\b/i,
+    ],
+  ],
+];
+
+for (const [label, owner, patterns] of MIGRATION_OBLIGATIONS) {
+  test(`214504 CR1: the spec pack obliges that ${label}`, () => {
+    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
+    for (const pattern of patterns) {
+      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
     }
   });
 }

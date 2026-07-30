@@ -2,7 +2,7 @@
 title: Ciclo de vida y gate de revisión
 updated: 2026-07-30T23:13:18Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260730-213353"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -221,6 +221,21 @@ Confirmar la corrección de un `fail --retry` exige **volver con
 `changeledger status <id> in-review` antes de delegar al revisor fresco**: la
 transición re-valida el candidato y el rol de review no carga en ningún otro
 status — el arco de vuelta es el mismo `in_progress --> in_review` del diagrama.
+**Una review de confirmación falla solo por el defecto nombrado sin cerrar o
+por una regresión que la corrección introdujo**; lo latente o adyacente que
+encuentre se reporta como follow-up y lo juzga el orquestador, sin tumbar la
+ronda.
+
+**Todo fallo diagnosticado se clasifica antes de corregirse** — el veredicto
+`fail` del revisor y el rechazo humano en `in-validation` por igual. La
+taxonomía la posee el contexto de blocked (sede única; review y validation
+apuntan): enumeración incompleta dentro de una estrategia ya verificada →
+corrección normal barriendo la clase, sin que el número de rondas cierre el
+camino mientras la clase se sostenga; clase nueva de defecto → parar y decidir
+con el humano entre salidas ilustradas como no exhaustivas (rediseño en el
+mismo alcance, extensión con re-aprobación, partición, descarte). No hay
+contador ni mecanismo: la clasificación es prosa del contrato y decisión
+registrada en el Log.
 
 **Parada de validación local.** `in-validation` detiene solo ese change: el
 humano decide, el agente nunca acepta en su nombre. No es una pausa global de

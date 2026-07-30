@@ -2128,3 +2128,68 @@ CLI en specs, aserciones vacuas, y el punto 3 de arriba) → F1 de CH-5a
 (checklist condicional al mandato) → change del camino del retry (punto 2) →
 CH-7 → CH-3 (draft 124655) → CH-10. Los dos nuevos se documentan cuando toque,
 con investigación fresca — orden dentro de la cola a decisión de Roberto.
+
+## 19. Cierre de la iniciativa — 2026-07-30 (sesión completa)
+
+**La lista nombrada del acta queda a cero.** Cerrados hoy, en orden: CH-5a
+(`20260730-165310`, mandato + cuantificadores, graduado a `lifecycle`), la
+fusión F1+retry (`20260730-183520`, cápsula condicional + vuelta a in-review,
+graduado a `lifecycle`), CH-7 (`20260730-183807`, robustez de consumidor,
+graduado a `contract-discovery`, rama de worktree fusionada), el barrido de
+verdad persistente (`20260730-194013`, skip razonado), y CH-3 reescrito y
+cerrado (`20260722-124655`, clasificación por clase, graduado a `lifecycle` —
+los 10 warnings del draft viejo murieron con la reescritura: `check` a cero
+warnings por primera vez en la iniciativa). **CH-10 (Prettier) aplazado sin
+fecha por decisión de Roberto** («por ahora no haremos CH-10») — el hallazgo 42
+sigue siendo su objeción de fondo y el barrido eliminó la fragilidad al reflow
+que era su riesgo técnico.
+
+**Dos changes nuevos por el criterio de admisión** (coste medido el mismo día),
+ambos con review PASS y en `in-validation` al cierre de esta sesión:
+`20260730-214503` (guards de obligación a evidencia de fragmento única +
+semántica de confirmación — nacido de la observación de Roberto «parece que
+seguimos con ciclos de review» y de 3 rondas pagadas a la mitad compuesta) y
+`20260730-214504` (rutas de migración `fix --plan-tags`/`--structured-sections`
+en el pack de autoría — el follow-up material del release).
+
+**El diagnóstico de los ciclos de review, medido hoy**: las rondas ya no vienen
+de prosa ni de diseño (las cuatro decisiones de Roberto en CH-3 pasaron
+intactas a la primera; CH-7 y el barrido tuvieron retries por defectos reales
+que el review debía cazar) — venían de la combinatoria de la doble evidencia de
+los guards (co-traveller de `handoff.md` dos veces, direcciones, mutantes por
+alternativa). `214503` retira esa mitad; la confirmación de mandato mínimo bajo
+la semántica nueva costó 63-82k frente a 100-127k de las completas.
+
+**Follow-ups con sede, sin coste medido — no entran solos:**
+
+- `DRAFTING_OBLIGATIONS` sigue en régimen compuesto: dos regímenes conviven en
+  `test/context.test.mjs` (review de `214503`).
+- La regla de confirmación y la clasificación por clase viven en packs del
+  orquestador; ni la cápsula del revisor confirmador ni la del implementador
+  post-retry las componen — la clase de F1 de `165310`, un peldaño más allá
+  (reviews de `214503` y `124655`). Hoy se relayan por prompt.
+- El transporte se guarda a granularidad de encabezado (un fragmento truncado
+  con su encabezado pasaría) — trade aceptado del régimen nuevo.
+- Las tres formas del mandato en cuatro sedes sin test cruzado (review de
+  `183520`).
+- `loadRepoAsync` con la forma de error crudo que CR4 de `183807` arregló en
+  la vía síncrona; el colapso symlinkeado de `changes_dir` cae a la vía de
+  error nombrado, no al mensaje del colapso (Log de `183807`).
+- El narrowing (b) de `162616 CR7` es visible para consumidores → **nota de
+  release** (registrado también en el Log de `183807`).
+
+**Método de la sesión**: el paso in-progress→in-review del retry ya es
+contrato (nació de la fricción reportada por otro agente de Roberto — segunda
+ocurrencia de H1 de CH-15); la clasificación por clase se estrenó sobre su
+propio ciclo (el retry 2 de CH-3 se clasificó como enumeración incompleta);
+la regla de cuantificadores cazó al orquestador (nota de Log con «todos
+rojos» falsificado por el revisor) y a dos implementadores. Incidente
+operativo: una cancelación accidental del humano mató dos agentes en vuelo
+(~100-150k perdidos) — relanzados frescos tras verificar el árbol; los
+delegados vivos sobreviven, los interrumpidos no se reanudan.
+
+**Pendientes al cierre**: validar `214503` y `214504` (Roberto); release desde
+otra sesión de Roberto (con la nota del narrowing); integrar
+`change/workflow-core-drafts` → `dev` (push de Roberto). El worktree
+`../spec-ledger-wtb` queda con la rama `change/consumer-input-robustness` ya
+fusionada — borrable.
