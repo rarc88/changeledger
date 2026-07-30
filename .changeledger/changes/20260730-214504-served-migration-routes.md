@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-30T21:45:04Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260729-203257"
@@ -100,3 +101,4 @@ captura le nombra `fix --plan-tags --dry-run` como ruta.
 - **2026-07-30T22:39:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T22:50:55Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T22:51:17Z** `[graduation]` skipped: la ruta de migración vive en el contrato servido, que es el entregable; la spec de readiness documenta la gramática, no su distribución
+- **2026-07-30T22:52:29Z** `[archive]` archived
