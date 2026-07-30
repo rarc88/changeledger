@@ -2052,3 +2052,79 @@ mandato mínimo; ediciones del orquestador declaradas y sometidas al mismo
 estándar (dos veces el guard/revisor cazó al orquestador). Coste del día: ~2,9M
 de tokens de delegados en 5 changes cerrados con 3 retries, los 3 cazados por el
 proceso antes de llegar al humano.
+
+## 18. CH-5a cerrado — 2026-07-30
+
+**`20260730-165310` done, graduado a `lifecycle` (el gate de review gana el
+párrafo del mandato), archivado.** Los dos entregables autorizados: la cápsula
+`agent-prompt review` porta `{{mandate}}` con las tres formas (spot check del
+diff nombrado / superficie que gobierna / auditoría completa) y `review.md`
+obliga a declararlo y registrarlo como nota de Log antes de delegar; y la
+obligación de cuantificadores de CH-2 extendida a prosa entregable (comentarios
+de test y notas de Log) como novena cláusula del contrato de evidencia en
+`implement.md`, con contraparte pass/fail del revisor en `review.md`. Guards en
+tabla `DELEGATION_OBLIGATIONS` (doble evidencia fragmento+pack, mecanismo de
+`185200 CR5` — los `CONCEPT_GUARDS` no leen fragmentos, verificado).
+
+**Ciclo**: investigación fresca → draft (check limpio a la primera) → una
+selección de implementación → **corrección pre-review cazada por el paso de
+auto-falsación del orquestador** (el comentario del implementador afirmaba
+"Every half is written in both directions" con un patrón unidireccional;
+corregido ensanchando el patrón) → review PASS a la primera con mandato de
+auditoría completa → `validation fail --human` de Roberto (arreglar F2 aquí) →
+corrección con confirmación fresca de mandato mínimo (spot check, modelo medio,
+~98k) → PASS → aceptado. **El change se estrenó sobre sí mismo**: mandato
+declarado y registrado en su propio review, y la regla de cuantificadores cazó
+dos absolutos (el del orquestador pre-review y uno del propio implementador en
+su comentario de corrección, que él mismo estrechó).
+
+**Coste, medido: ~560k de delegados** — investigación 110k, implementación
+117k, corrección 1 (patrón) ~117k, review completo 107k, corrección 2 (F2)
+~125k, confirmación 98k. Respuesta a la pregunta de Roberto («¿no fue muy
+costoso para lo que tocó?»): sí en proporción al diff (+126 líneas), y el
+desglose confirma el diagnóstico de §CH-5b — **el coste es fijo por delegación,
+no proporcional al diff**: cada delegado carga cápsula, relee el change,
+re-verifica cifras y corre el gate entero. Las palancas que quedan: (1) F1
+abajo — sin él, el mandato no abarata nada porque la cápsula de contexto sigue
+mandando checklist completa; (2) menos delegaciones por ciclo — la corrección
+por SendMessage al implementador vivo ya es la forma barata (retuvo contexto,
+~117k frente a una carga fresca); (3) el review de confirmación con mandato
+mínimo y modelo medio costó 98k frente a 107k del completo top-tier — el ahorro
+real llega cuando F1 permita que el mandato acote la checklist, no solo el
+prompt.
+
+**Hallazgos del ciclo, con destino:**
+
+1. **F1 (medium) → change futuro, en fila**: `agent-contexts/review.md` manda
+   checklist de auditoría completa incondicional; con mandato estrecho el
+   delegado recibe el límite en el prompt y la checklist completa en la cápsula
+   que se le manda obedecer. El ahorro 62k/106k del Request no se realiza hasta
+   hacer la checklist condicional al mandato. Change pequeño, superficie:
+   `agent-contexts/review.md` + su test.
+2. **Fricción del retry, SEGUNDA ocurrencia → change futuro, en fila.** Ya
+   registrada como H1 del ciclo de CH-15 (§9, hallazgos del 2026-07-29):
+   tras `fail --retry` el change queda `in-progress`, el rol review exige
+   `in-review`, y ningún fragmento nombra el paso de volver a `in-review` antes
+   de delegar la confirmación. Roberto la reporta ahora desde otro agente: el
+   revisor trabajó desde el diff y hubo que devolver el change a `in-review`
+   solo para registrar el pass. La salida legal existe (`status <id> in-review`
+   re-valida el candidato); falta que `implement.md`/`review.md` la nombren en
+   el camino del retry. Evidencia acumulada: dos agentes distintos cayeron en
+   el mismo hueco.
+3. **Divergencia spec↔contrato, quinta de la clase 19/48 → barrido de verdad
+   persistente**: `contract-discovery.md` (§ sede única) dice que las
+   obligaciones de evidencia del implementador/corrector las conserva
+   `delegation.md`; el refactor del pack (`002908`) las mudó a `implement.md`.
+   Detectada al graduar CH-5a; no reconciliada por inferencia (fuera de
+   alcance).
+4. **F3/F4 (registro)**: una nota de Log del orquestador con razón inexacta,
+   corregida append-only; cifras de Investigation 6 tokens bajas en el
+   baseline, corregidas en el Log del change — la Investigation no se
+   retro-edita.
+
+**Fila restante**: barrido de verdad persistente (absorbe F1/F2 de CH-19, el
+comentario rancio de `commit.mjs`, `CLAUDE.md`-opcional sin sede, invocaciones
+CLI en specs, aserciones vacuas, y el punto 3 de arriba) → F1 de CH-5a
+(checklist condicional al mandato) → change del camino del retry (punto 2) →
+CH-7 → CH-3 (draft 124655) → CH-10. Los dos nuevos se documentan cuando toque,
+con investigación fresca — orden dentro de la cola a decisión de Roberto.
