@@ -234,8 +234,8 @@ agrupa los resultados por proyecto.
 El registry local distingue archivo ausente de archivo corrupto: si no existe,
 empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un error
 claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
-read-modify-write del registry (`register`, `remove`) se envuelven en
-`withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
+read-modify-write del registry (`register`, `remove`, `update`) se envuelven en
+`withFileLock(registryPath())`, lo que serializa invocaciones concurrentes de
 esas funciones internas de `registry.mjs` sobre el mismo archivo. El directorio se
 garantiza antes de tomar el lock porque el lock file requiere que el directorio
 exista.

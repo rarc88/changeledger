@@ -51,9 +51,9 @@ core no duplica al overlay y el overlay amplía o especifica lo puntual de su
 etapa sin repetir ni contradecir al core—. `delegation.md` conserva solo lo que
 no tiene otra sede: el contrato de campos del prompt, los disparadores por
 etapa, y la guía de no sobre-fragmentar. Las obligaciones de evidencia viven en
-`implement.md` (sección `## Evidence obligations`) para el implementador/
-corrector y en `review.md` para el revisor, servidas cada una al pack que las
-consume.
+`implement.md` (sección `## Evidence obligations`) para el
+implementador/corrector y en `review.md` para el revisor, servidas cada una al
+pack que las consume.
 
 El status elige el pack, pero **el tipo puede retirar un fragmento** que su
 configuración vuelve inaplicable. `readiness` es hoy el único condicionado así:

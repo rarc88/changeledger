@@ -332,7 +332,11 @@ test('214902 CR5/CR6: the installed contract regrows no retired commit rule', ()
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
   const contract = contractText();
-  assert.match(contract, /in-progress → in-review.*`changeledger status`/);
+  // Anchored to the row's own cells, not just its label: an unanchored `.*`
+  // reaches past this row's own mechanism into the next row's `changeledger
+  // status` cell post-normalization, so the pin can pass while this row's own
+  // mechanism is wrong.
+  assert.match(contract, /in-progress → in-review \| agent \| `changeledger status`/);
   assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
   assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
   // Widened reach after normalization (intra-fragment newlines no longer block
