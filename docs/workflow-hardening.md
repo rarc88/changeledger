@@ -1932,9 +1932,14 @@ identidad y barrido — lo posee el review, nombrado en el propio test.
    CH-16 queda decidido: acotar la atribución de `gitRefs` al subject y a la
    línea canónica `ChangeLedger:` del body; un id en texto libre es prosa y no
    atribuye. (Cierra el hueco 1 sin prohibición.)
-3. **Techo de las cápsulas `agent-prompt`: 1250 tokens**, la misma cifra de
-   cápsulas/overlays/bloques de §10. Hoy ningún test las mide (hallazgo del
-   2026-07-28); el change añade las entradas y su aplicación.
+3. **Techo de las cápsulas `agent-prompt`: 1250 tokens** — decidido y
+   **YA IMPLEMENTADO**: la investigación fresca del 2026-07-29 (noche) encontró
+   que CH-17 (`212043 CR6`) dejó los cuatro tests que miden `buildAgentPrompt`
+   contra el presupuesto `agent` (1250/125), en HEAD y en verde (433/478/398/414
+   tokens). El hallazgo "ningún test las mide" era del 2026-07-28 y CH-17 lo
+   cerró; el punto anterior de esta lista lo repitió sin re-verificar — clase
+   "actuar sobre el modelo mental". **No hay change que crear**; WT-B queda
+   solo con CH-16.
 4. **El refactor del pack de autoría es change propio y adoptado**: la condición
    de salida del andamio de §10 se consumió dos veces sin ejecutarse (la
    doctrina cerró sin bajarlo; CH-2 gastó el espacio; CH-1 quedó 3445/3450).
