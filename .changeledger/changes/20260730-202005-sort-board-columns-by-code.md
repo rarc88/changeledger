@@ -2,9 +2,11 @@
 id: "20260730-202005"
 title: Ordenar las columnas del board por código
 type: feature
-status: in-validation
+status: done
 created: 2026-07-30T20:20:05Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260627-111219", "20260728-141643"]
 owner: rarc88
 release_impact: minor
@@ -113,3 +115,6 @@ del cliente.
 - **2026-07-30T20:43:51Z** `[status]` in-progress → in-review
 - **2026-07-30T20:44:13Z** `[note]` Mandato de re-revisión: spot check de la corrección de disciplina en change/workflow-core-drafts..70e32f07; confirmar subjects ≤50, markers válidos y que el árbol 38d922fb es idéntico al candidato funcional ya auditado.
 - **2026-07-30T20:46:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T21:11:42Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T21:11:53Z** `[graduation]` spec: `viewer.md`
+- **2026-07-30T21:12:52Z** `[archive]` archived
