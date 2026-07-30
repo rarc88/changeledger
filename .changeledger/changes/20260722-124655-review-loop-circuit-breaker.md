@@ -1,141 +1,181 @@
 ---
 id: "20260722-124655"
-title: Cortar ciclos de review que revelan diseño incompleto
+title: El fallo se clasifica por clase antes de corregirse
 type: feature
 status: draft
 created: 2026-07-22T12:46:55Z
 depends_on: []
-related_to: ["20260629-234939", "20260704-114323"]
+related_to:
+  - "20260726-124836"
+  - "20260726-194220"
+  - "20260727-194234"
+  - "20260730-183520"
+owner: raruiz-hiberuscom
 ---
 
 ## Request
 
-Los changes complejos están entrando repetidamente en `in-review`, recibiendo un
-hallazgo parcial y volviendo a `in-progress` para aplicar otro parche. En
-`20260721-193102` hubo cinco rechazos técnicos; en trabajos anteriores se
-alcanzaron nueve ciclos. El review terminó funcionando como descubrimiento
-incremental del diseño, con alto coste y poca previsibilidad.
+Reescritura total de este draft por decisión de Roberto (2026-07-30): el diseño
+original —un contador que bloqueaba al segundo rechazo— murió porque congela
+casos legítimos, y `20260727-194234` es el contraejemplo medido: dos rondas de
+la misma clase de defecto (residuos de un reemplazo global), la segunda con
+mandato mínimo, y el change salió bien — un contador lo habría bloqueado.
 
-ChangeLedger debe permitir una corrección normal, pero cortar el ciclo cuando
-dos rechazos muestran que la definición o la estrategia siguen incompletas. El
-bloqueo debe conservar todos los hallazgos y forzar un replanteamiento amplio,
-no otra corrección local disfrazada de retry.
+Lo que sí falta, y es lo que este change escribe: **tras un fallo diagnosticado
+—veredicto `fail` del revisor o rechazo humano en `in-validation`— nadie exige
+clasificarlo antes de corregir**. Hoy ambos caminos reciben el mismo parche
+local iterando sobre el último hallazgo. El coste medido de no clasificar:
+`20260726-124836` gastó 6 rondas, 5 de ellas correcciones flojas sucesivas
+sobre el mismo guard — cada ronda arreglaba la instancia señalada y daba la
+clase por cerrada.
+
+Diseño decidido por Roberto (2026-07-30, cuatro decisiones):
+
+1. El contrato nombra la **clasificación como paso obligatorio**, y las salidas
+   amplias como ilustración no exhaustiva, no como enum cerrado.
+2. El **rechazo humano** en `in-validation` recibe la misma clasificación.
+3. La **sede de la taxonomía es `blocked.md`** — el core ya le atribuye esa
+   propiedad; los demás fragmentos apuntan sin repetir.
+4. **Solo prosa y guards, sin mecanismo**: ni contador, ni episodios, ni
+   métricas nuevas.
 
 ## Investigation
 
-`20260629-234939` restauró Definition of Ready y detalle contractual;
-`20260704-114323` restauró los comandos y ownership del veredicto. Ninguno
-limita `review fail --retry`, agrupa intentos en episodios ni distingue una
-regresión puntual de evidencia acumulada de diseño insuficiente.
+Investigación delegada fresca contra HEAD (2026-07-30):
 
-El lifecycle actual acepta una cantidad ilimitada de eventos
-`in-review → in-progress (retry)`. El contexto de corrección ordena volver a
-implementar, pero no exige sintetizar todos los hallazgos anteriores, revisar la
-clase completa del defecto ni revalidar la matriz CR/superficies/riesgos. Cada
-reviewer fresco puede descubrir la siguiente frontera omitida y el historial no
-cambia el mecanismo disponible.
-
-Los cinco rechazos de `20260721-193102` no fueron cinco variantes del mismo bug:
-aparecieron sucesivamente CAS/OID de publicación, distinción commit/tree,
-preflight del primer acceso mutador y preservación de errores contractuales. El
-patrón muestra que el primer diseño no convirtió el protocolo extremo a extremo
-en una matriz adversarial antes del review. Seguir parcheando después del
-segundo rechazo aumentó cobertura, pero no dio una señal operativa de que había
-que detenerse y rediseñar.
-
-La causa es doble: retry ilimitado y un contrato de corrección centrado en el
-último finding. Las métricas actuales pueden contar transiciones, pero no
-definen un episodio de review ni un límite que altere el lifecycle.
+- **El ancla del core ya existe**: *"After work has started, a failed
+  verification is diagnosed, never auto-split: the blocked and review contexts
+  own that classification"* (`core.md`, sección *Complexity ceiling*). Este
+  change cumple esa promesa; el core no se toca.
+- **El split de veredictos ya tiene forma de clasificación**: `fail --retry` =
+  *"fixable defect inside the authorized contract"*, `fail --block` =
+  *"correction requires scope or product judgment"* (`review.md`). El paso de
+  clasificar se engancha ahí sin vocabulario nuevo.
+- **`blocked.md` hoy son 12 líneas sin taxonomía** — solo distingue
+  "resoluble dentro del alcance autorizado" de "exige juicio de alcance o
+  producto". Presupuesto medido: 445/1250 tokens, 45/125 líneas — 805 tokens de
+  holgura. **Ningún guard pinnea su contenido** (solo el inventario estructural
+  nombra el fichero): coste de re-pin cero.
+- **`validation.md` describe el rechazo sin clasificación**: *"Rejection
+  requires a reason and returns the same change to `in-progress`"* y ordena
+  actualizar Specification/Plan según haga falta. Su párrafo no está pinneado;
+  las dos filas de la tabla de transiciones del core que citan `validation`
+  sí lo están (`test/context.test.mjs`, pins de la matriz) y no se tocan.
+- **`implement.md` queda excluido a propósito**: está a ~125 tokens de su techo
+  y su párrafo de corrección lleva la frase de la vuelta a `in-review` recién
+  pinneada por `20260730-183520`. La clasificación no necesita sede ahí: ocurre
+  antes de iterar, y el camino de corrección ya remite al contexto que toque.
+- **Precedentes que fijan las salidas como reales**: `20260726-194220` usó
+  extensión con re-aprobación tras un rechazo humano (Log del 2026-07-26:
+  Roberto rechazó, se extendió el alcance con criterios nuevos y re-aprobación,
+  y una fuga salió como change propio — extensión y partición en un mismo
+  caso), sin que el contrato nombrara ninguna de las dos. `20260727-194234`
+  fija el caso contrario: dos rondas de la misma clase son corrección normal.
+- **Guards colindantes que la implementación no puede romper**, verificados:
+  el guard de concepto 8 (gate antes de in-review + revisor fresco read-only,
+  regexes sobre el pack de review), y la entrada del cuantificador del revisor
+  en `DELEGATION_OBLIGATIONS`, cuyo comentario documenta un falso positivo ya
+  vivido con la línea *"fixable defect inside the authorized contract"* — la
+  prosa nueva de review.md debe redactarse sin re-crear ese solape.
+- Presupuestos de las otras sedes: `base.review` 971/2500, overlay
+  `in-validation` 398/1250 — holgura amplia en ambas.
+- Relacionados declarados: `20260726-124836` (el coste de no clasificar),
+  `20260726-194220` y `20260727-194234` (los dos precedentes),
+  `20260730-183520` (la vuelta a in-review que este change no debe duplicar).
+  Todos cerrados → `related_to`.
 
 ## Proposal
 
-Tratar cada paso por review como un episodio explícito. El episodio empieza al
-entrar por primera vez en `in-review` y acumula los verdicts fallidos hasta
-aceptación, descarte o un reset de diseño autorizado por el humano.
+**`blocked.md` gana la taxonomía** (sede única, con el margen y el coste de
+re-pin cero verificados): tras un fallo diagnosticado —veredicto del revisor o
+rechazo humano— la corrección empieza clasificando el hallazgo por clase:
 
-El primer rechazo puede usar el retry normal. Antes de volver a review, el
-contexto exige una síntesis de la clase del defecto: criterios afectados,
-superficies hermanas, invariantes, matriz de escenarios y tests negativos. El
-objetivo no es arreglar solo la línea reportada, sino demostrar que el conjunto
-equivalente quedó cubierto.
+- **Enumeración incompleta dentro de una estrategia ya verificada** →
+  corrección normal: retry local sobre el mismo diff, barriendo la clase
+  completa del defecto, no la instancia señalada. Legítima en cualquier número
+  de rondas mientras la clase se sostenga.
+- **Clase nueva de defecto** — el hallazgo revela una dimensión que la
+  estrategia verificada no cubría → parar y decidir con el humano entre las
+  salidas amplias, ilustradas y no exhaustivas: rediseño dentro del mismo
+  alcance, extensión con re-aprobación, partición en changes menores, o
+  descarte.
 
-El segundo rechazo se registra, pero el CLI mueve el change a `blocked` aunque
-se solicite otro retry. La salida explica que se alcanzó el límite de dos y
-presenta el historial completo del episodio. No existe un tercer
-`in-review → in-progress` automático.
+**`review.md` apunta**: junto a los veredictos `fail`, una frase — el hallazgo
+se clasifica antes de elegir `--retry` o `--block`, y la taxonomía la posee el
+contexto de blocked. Redactada sin solapar el regex documentado del falso
+positivo.
 
-Salir de ese bloqueo requiere decisión humana explícita. El agente presenta una
-revisión de Investigation/Proposal/Specification/Plan, decide con el humano si
-se refina, divide o descarta el change y registra un reset de diseño. Solo ese
-reset abre un episodio nuevo; una transición genérica `blocked → in-progress`
-no borra el contador.
+**`validation.md` apunta igual**: el rechazo humano se clasifica antes de
+iterar, mismo puntero. Su párrafo no tiene pin; las filas de la matriz del core
+no se tocan.
 
-Se descarta prohibir todo retry: una regresión localizada sigue siendo normal.
-También se descarta un warning sin enforcement: ya se ignoraron señales
-similares bajo presión por continuar.
+Guards: una entrada nueva de obligación por sede tocada (tolerante a redacción,
+doble evidencia fragmento + captura compuesta), siguiendo el mecanismo vigente.
+
+Excluido con nombre: mecanismo de conteo o episodios (decisión 4 — el contador
+original congelaba a `194234`); métricas por change (`reviewRetryCount` sigue
+agregado repo-wide; exponerlo sería alcance nuevo sin coste medido);
+`implement.md` y `core.md` como superficies (razones arriba).
+
+Escenarios: (1) revisor reporta un residuo más de la clase ya corregida — el
+implementador clasifica «enumeración incompleta», barre la clase entera y
+vuelve, cuarta ronda legítima; (2) revisor reporta que el protocolo entero
+tiene una dimensión sin cubrir — clase nueva: se para, el humano elige entre
+rediseño/extensión/partición/descarte y el Log registra la decisión; (3)
+Roberto rechaza en `in-validation` por deuda que el change no cubría — misma
+clasificación: extensión con re-aprobación, el precedente exacto de `194220`.
 
 ## Specification
 
-### CR1 — Primer rechazo permite corrección integral
-- **Given** un change en su primer intento de review del episodio actual
-- **When** el orquestador registra `review fail --retry "F"`
-- **Then** el change vuelve a `in-progress` y el Log registra intento 1 con `F`
-- **And** el contexto de implementación exige sintetizar criterios, superficies hermanas, invariantes y tests negativos antes de volver a review
+### CR1 — blocked.md posee la taxonomía de clasificación
+- **Given** la captura compuesta de un change en `blocked`
+- **When** el agente la carga para resolver el impedimento
+- **Then** contiene la clasificación por clase: enumeración incompleta dentro
+  de una estrategia verificada → corrección normal sin límite de rondas
+  mientras la clase se sostenga; clase nueva de defecto → decisión humana
+  entre salidas ilustradas como no exhaustivas (rediseño en el mismo alcance,
+  extensión con re-aprobación, partición, descarte)
+- **And** un guard tolerante con doble evidencia — fragmento
+  `templates/contract/blocked.md` y captura compuesta de un fixture en
+  `blocked` — falla nombrando la sede si la obligación desaparece
 
-### CR2 — Segundo rechazo activa el cortacircuito
-- **Given** un episodio con un rechazo previo y el change nuevamente en `in-review`
-- **When** el reviewer emite un segundo veredicto fallido
-- **Then** el CLI registra el hallazgo y deja el change en `blocked`
-- **And** no crea una segunda transición `in-review → in-progress (retry)`
-- **And** la salida contiene `review retry limit reached after 2 failed reviews`
+### CR2 — El veredicto del review clasifica antes de corregir
+- **Given** el pack compuesto por `buildContext('review', root)`
+- **When** el orquestador va a registrar un veredicto `fail`
+- **Then** contiene la obligación de clasificar el hallazgo antes de elegir
+  `--retry` o `--block`, con la taxonomía apuntada a la sede de blocked, sin
+  repetirla
+- **And** un guard tolerante con doble evidencia la fija, y los guards
+  existentes sobre el pack de review (concepto 8 y la entrada del cuantificador
+  del revisor) siguen verdes sin editarse
 
-### CR3 — El historial del episodio no se pierde
-- **Given** un change bloqueado por el límite
-- **When** se ejecuta `context`, `show` o la vista del change
-- **Then** se muestran ambos findings, sus timestamps y el número de episodio
-- **And** notas, cambios de owner y transiciones no relacionadas no reinician el conteo
-
-### CR4 — Solo un reset humano abre otro episodio
-- **Given** un change bloqueado por dos reviews fallidos
-- **When** el agente intenta devolverlo a `in-progress` sin una decisión humana de reset
-- **Then** la operación falla sin mutar el lifecycle
-- **When** el humano autoriza un reset que identifica el change y la estrategia revisada
-- **Then** se registra un nuevo episodio y el change puede volver a `in-progress`
-- **And** el historial y métricas del episodio anterior permanecen intactos
-
-### CR5 — El reset exige redefinición comprobable
-- **Given** un reset de diseño autorizado
-- **When** se prepara el siguiente intento
-- **Then** `changeledger check` exige una nota estructurada que referencia los CR modificados, superficies auditadas y comando de gate completo
-- **And** si cambia comportamiento o alcance, Specification y Plan deben actualizarse antes de volver a review
-
-### CR6 — Métricas distinguen retries y resets
-- **Given** changes con cero, uno o dos rechazos y posibles resets
-- **When** se calculan métricas de lifecycle
-- **Then** se informan intentos por episodio, changes bloqueados por límite y resets autorizados
-- **And** un fallo del gate previo al reviewer no cuenta como intento de review
+### CR3 — El rechazo humano recibe la misma clasificación
+- **Given** la captura compuesta de un change en `in-validation`
+- **When** el humano rechaza con motivo y el agente retoma
+- **Then** el overlay obliga a clasificar el rechazo igual que un veredicto de
+  review — mismo par de clases, mismo puntero a la sede de blocked — antes de
+  iterar la implementación
+- **And** un guard tolerante con doble evidencia la fija, y los pins de la
+  matriz de transiciones del core quedan intactos sin editarse
 
 ## Plan
 
-- [ ] Añadir tests de episodios, conteo y límite en `test/lifecycle.test.mjs` y `test/review-command.test.mjs`; implementar el cortacircuito en `src/lifecycle.mjs` y `src/commands/review.mjs`
-  - **Verify:** `node --test test/lifecycle.test.mjs test/review-command.test.mjs`
-  - **Criteria:** CR1, CR2, CR4
-- [ ] Persistir y renderizar historial de episodio/reset en `src/change-parser.mjs`, `src/commands/show.mjs` y `src/viewer/`
-  - **Verify:** `node --test test/parser.test.mjs test/view.test.mjs`
-  - **Criteria:** CR3, CR4
-- [ ] Extender `templates/contract/review.md`, `implement.md` y overlays de bloqueo con síntesis integral y reset autorizado
+- [ ] Escribir la taxonomía en blocked.md y su guard de doble evidencia
+  - **Target:** `templates/contract/blocked.md`
   - **Verify:** `node --test test/context.test.mjs`
-  - **Criteria:** CR1, CR4, CR5
-- [ ] Añadir validación de evidencia de reset a `src/check.mjs`
-  - **Verify:** `node --test test/check.test.mjs`
-  - **Criteria:** CR5
-- [ ] Exponer intentos por episodio, bloqueos y resets en `src/metrics.mjs`
-  - **Verify:** `node --test test/metrics.test.mjs`
-  - **Criteria:** CR6
-- [ ] Ejecutar el gate completo
-  - **Verify:** `pnpm verify`
+  - **Criteria:** CR1
+- [ ] Añadir la obligación de clasificar junto a los veredictos de review.md,
+  sin solapar el regex del falso positivo documentado
+  - **Target:** `templates/contract/review.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
+- [ ] Añadir la clasificación del rechazo humano en validation.md y su guard
+  - **Target:** `templates/contract/validation.md`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
+- [ ] Correr el gate completo tras la implementación
   - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
-
-- **2026-07-22T12:46:55Z** `[note]` Draft creado para evitar que review sustituya al diseño: un retry normal, segundo rechazo bloquea y solo un reset humano abre otro episodio.
+- **2026-07-30T20:15:55Z** `[note]` Reescritura total sobre investigación fresca por decisión de Roberto (2026-07-30): muere el contador — congelaba el caso legítimo de 194234 — y entra la clasificación por clase con las cuatro decisiones registradas en el Request. El contenido anterior queda en la historia de git de este fichero.
