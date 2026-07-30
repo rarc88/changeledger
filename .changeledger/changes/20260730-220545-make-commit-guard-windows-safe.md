@@ -2,7 +2,7 @@
 id: "20260730-220545"
 title: Mantener activo el guard de commit en Windows
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-30T22:05:45Z
 depends_on: []
 owner: rarc88
@@ -53,10 +53,11 @@ la salida NUL-delimitada de la invocación ya fijada.
 
 ## Plan
 
-- [ ] Derivar la frontera de `changes_dir` desde las coordenadas repo-relativas de Git mediante TDD
+- [x] Derivar la frontera de `changes_dir` desde las coordenadas repo-relativas de Git mediante TDD
   - **Target:** `src/commands/commit.mjs`, `src/git.mjs`, `test/commit.test.mjs`
   - **Verify:** `node --test test/commit.test.mjs`
   - **Criteria:** CR1, CR2, CR3
+  - **Resolved:** `2026-07-30T22:25:00Z`
 - [ ] Ejecutar el gate completo y la matriz remota
   - **Support:**
   - **Verify:** `pnpm verify`
@@ -65,3 +66,5 @@ la salida NUL-delimitada de la invocación ya fijada.
 
 - **2026-07-30T22:05:45Z** `[note]` Borrador creado a partir de 16 escenarios del guard que no abortaron en Windows Node 24/26 después de que el script portable permitió ejecutar la suite.
 - **2026-07-30T22:16:38Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T22:22:05Z** `[status]` approved → in-progress
+- **2026-07-30T22:26:19Z** `[note]` TDD local: la prueba nueva falló con Expected values to be strictly deep-equal porque no existía ninguna lectura rev-parse --show-prefix; pasó al derivar la frontera en coordenadas Git. El mutante sin prefijo fue detectado. Suite del guard 32/32 y gate completo 1046/1046; queda pendiente la matriz remota Windows.

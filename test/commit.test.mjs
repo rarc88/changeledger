@@ -122,6 +122,10 @@ function recordingRun(root, stagedOut) {
   const calls = [];
   const run = (args, cwd) => {
     calls.push({ args, cwd });
+    if (args[0] === 'rev-parse' && args[1] === '--show-prefix') {
+      const prefix = path.relative(fs.realpathSync(root), cwd).split(path.sep).join('/');
+      return prefix ? `${prefix}/\n` : '\n';
+    }
     if (args[0] === 'rev-parse') return `${fs.realpathSync(root)}\n`;
     if (args.includes('diff')) {
       if (typeof stagedOut === 'function') return stagedOut(args, cwd);
@@ -509,6 +513,29 @@ test('CR11 (20260726-141124): the staged index is read through a fully pinned in
   const staged = calls.find((c) => c.args.includes('diff'));
   assert.deepEqual(staged.args, PINNED_STAGED_ARGS);
   assert.equal(staged.cwd, fs.realpathSync(root));
+});
+
+test('220545 CR2: changes_dir boundary comes from git prefix coordinates', () => {
+  const root = gitRepo();
+  const staged = '.changeledger/changes/20260711-999999-x.md';
+  const { run, calls } = recordingRun(root, `${staged}\0`);
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, run, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
+  );
+
+  const prefixReads = calls.filter(
+    (call) => call.args[0] === 'rev-parse' && call.args[1] === '--show-prefix',
+  );
+  assert.deepEqual(prefixReads, [
+    {
+      args: ['rev-parse', '--show-prefix'],
+      cwd: fs.realpathSync(path.join(root, '.changeledger', 'changes')),
+    },
+  ]);
 });
 
 test('CR11 (20260726-141124): a staged filename containing a newline stays one entry', () => {

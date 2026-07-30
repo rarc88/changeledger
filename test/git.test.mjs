@@ -5,11 +5,29 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { defaultGhRun, githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import {
+  defaultGhRun,
+  githubLogin,
+  gitPrefix,
+  gitRefs,
+  mutatingRun,
+  ownerHandle,
+} from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
 const ID = '20260613-222918';
+
+test('220545 CR2: gitPrefix removes only Git record terminator', () => {
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push({ args, cwd });
+    return 'dir with space/line\nbreak/\r\n';
+  };
+
+  assert.equal(gitPrefix('/repo/subdir', run), 'dir with space/line\nbreak/');
+  assert.deepEqual(calls, [{ args: ['rev-parse', '--show-prefix'], cwd: '/repo/subdir' }]);
+});
 
 // Extracts the full text of every `<name>(` call in `source`, balancing
 // parentheses so a call spread over several lines is read whole. Returns

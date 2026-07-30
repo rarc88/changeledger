@@ -138,6 +138,17 @@ export function gitTopLevel(cwd, run = defaultRun) {
   return run(['rev-parse', '--show-toplevel'], cwd).trim();
 }
 
+// Git-native path from the repository top-level to `cwd`. Unlike a native
+// filesystem relative path, this stays in the same coordinate system as index
+// entries on Windows. Remove only Git's record terminator: whitespace and
+// newlines are otherwise legal path bytes and must remain untouched.
+export function gitPrefix(cwd, run = defaultRun) {
+  const out = run(['rev-parse', '--show-prefix'], cwd);
+  if (out.endsWith('\r\n')) return out.slice(0, -2);
+  if (out.endsWith('\n')) return out.slice(0, -1);
+  return out;
+}
+
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {
