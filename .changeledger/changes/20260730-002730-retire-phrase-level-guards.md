@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-07-30T00:27:30Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260729-143656", "20260729-162015"]
 owner: raruiz-hiberuscom
@@ -187,3 +188,4 @@ autorizado aparte) para que este documento sea aprobable.
 - **2026-07-30T11:05:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T11:07:53Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T11:07:54Z** `[graduation]` skipped: la verdad durable de este change es el perímetro de guards y ya vive en AGENTS.md, creada por el propio change como sede única; una spec la duplicaría
+- **2026-07-30T11:08:15Z** `[archive]` archived
