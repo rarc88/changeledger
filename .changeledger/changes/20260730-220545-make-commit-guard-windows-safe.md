@@ -2,9 +2,11 @@
 id: "20260730-220545"
 title: Mantener activo el guard de commit en Windows
 type: bug
-status: in-validation
+status: done
 created: 2026-07-30T22:05:45Z
 depends_on: []
+archived: true
+reviewed: true
 owner: rarc88
 release_impact: patch
 related_to: ["20260726-141124"]
@@ -78,3 +80,6 @@ la salida NUL-delimitada de la invocación ya fijada.
 - **2026-07-30T22:56:08Z** `[status]` in-progress → in-review
 - **2026-07-30T23:03:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T23:07:24Z** `[note]` Corrección confirmada en la matriz remota del run 30589365469 sobre f31e9d6f: tarball y verify 7/7 verdes en Ubuntu, macOS y Windows con Node 24/26; los dos jobs Windows ejecutaron la suite con las regresiones de repo Git anidado y symlink interno.
+- **2026-07-30T23:11:56Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T23:15:55Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-30T23:16:02Z** `[archive]` archived
