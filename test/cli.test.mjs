@@ -42,9 +42,19 @@ function tmp() {
 // `agent-prompts/` fragments are installed and shipped exactly like the top-level
 // ones, so concatenating only the top level gave those sweeps eight seats they
 // never read. The enumeration is the shared one, so no ninth guard is born blind.
+// Each fragment's own whitespace is collapsed to a single space before the join,
+// matching the equivalent sweeps in context.test.mjs: a `.*` pattern otherwise
+// depends on a fragment's own line-wrap cut (`.` never matches `\n`), so a
+// harmless reflow of prose that does not touch the obligation itself breaks the
+// assert in silence. The join separator itself stays a real `\n`, added after
+// normalizing each fragment rather than collapsed away with the rest of the
+// whitespace: `.` still cannot cross it, so a pattern cannot match by pasting
+// one fragment's tail against the next fragment's head.
 function contractText() {
   return contractFragmentNames()
-    .map((name) => fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8'))
+    .map((name) =>
+      fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8').replace(/\s+/g, ' '),
+    )
     .join('\n');
 }
 
@@ -52,10 +62,14 @@ function contractText() {
 // has to name the seat the rule came back in, and `doesNotMatch` over the
 // concatenation cannot: it reprints a truncated dump of the whole contract, which
 // locates nothing. Per fragment is also the exact claim — no fragment carries it —
-// where a match across the join of two fragments would be an artefact.
+// where a match across the join of two fragments would be an artefact. Each
+// fragment's own text is whitespace-normalized before testing, for the same
+// reflow-independence reason as `contractText()`.
 function fragmentsCarrying(pattern) {
   return contractFragmentNames().filter((name) =>
-    pattern.test(fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8')),
+    pattern.test(
+      fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8').replace(/\s+/g, ' '),
+    ),
   );
 }
 
@@ -321,7 +335,13 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /in-progress → in-review.*`changeledger status`/);
   assert.match(contract, /in-review → in-validation.*`changeledger review <id> pass`/);
   assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
-  assert.match(contract, /in-validation → done.*human.*viewer/);
+  // Widened reach after normalization (intra-fragment newlines no longer block
+  // `.*`) let this pin drift onto the next row's unrelated "human"/"viewer": tied
+  // to the accept command so only this row's own content can satisfy it.
+  assert.match(
+    contract,
+    /in-validation → done.*human.*viewer.*`changeledger validation <id> pass`/,
+  );
   assert.match(contract, /human accepted the complete result/);
   // 20260730-002730 retired the two sentence pins that stood here. The transition rows
   // above are table cells, and the lifecycle value's own terminality is asserted by the

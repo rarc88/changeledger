@@ -236,8 +236,9 @@ empieza vacío; si existe y no es JSON válido, `readRegistry` falla con un erro
 claro y `register` no lo sobrescribe silenciosamente. Las mutaciones
 read-modify-write del registry (`register`, `remove`) se envuelven en
 `withFileLock(registryPath())`, lo que serializa dos invocaciones concurrentes de
-`changeledger register`/`changeledger remove` sobre el mismo archivo. El directorio se garantiza
-antes de tomar el lock porque el lock file requiere que el directorio exista.
+esas funciones internas de `registry.mjs` sobre el mismo archivo. El directorio se
+garantiza antes de tomar el lock porque el lock file requiere que el directorio
+exista.
 
 El estado global `~/.changeledger/` y los datos de proyecto `.changeledger/`
 comparten nombre, pero no marcador. `findChangeledgerDir()` asciende por los

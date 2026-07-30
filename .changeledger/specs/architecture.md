@@ -82,9 +82,9 @@ payload del servidor en vez de duplicar la constante.
 
 El contexto core funciona también como índice operativo mínimo. Antes de escanear
 archivos, orienta a consultar trabajo autorizado con `changeledger list --status
-approved` y decisiones de cierre pendientes con `changeledger graduate --pending`.
-La orientación es estática: no ejecuta esas consultas ni incorpora estado efímero
-al contexto determinista.
+approved` y decisiones de cierre pendientes con `changeledger list --pending
+graduation`. La orientación es estática: no ejecuta esas consultas ni incorpora
+estado efímero al contexto determinista.
 
 ## API documental del visor
 

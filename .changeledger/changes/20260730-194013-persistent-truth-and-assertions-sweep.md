@@ -2,7 +2,7 @@
 id: "20260730-194013"
 title: Barrido de verdad persistente y aserciones frágiles
 type: refactor
-status: approved
+status: in-review
 created: 2026-07-30T19:40:13Z
 depends_on: []
 related_to:
@@ -136,25 +136,34 @@ que el review de graduación ya caza.
 
 ## Plan
 
-- [ ] Corregir las dos invocaciones y la sede de la evidencia en las specs
+- [x] Corregir las dos invocaciones y la sede de la evidencia en las specs
   - **Target:** `.changeledger/specs/architecture.md`, `.changeledger/specs/viewer.md`, `.changeledger/specs/contract-discovery.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Criteria:** CR1, CR2
-- [ ] Reescribir el barrido de 124837 CR8 a por-fragmento y añadir la aserción
+  - **Resolved:** `2026-07-30T20:12:18Z`
+- [x] Reescribir el barrido de 124837 CR8 a por-fragmento y añadir la aserción
   de completitud del inventario
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Normalizar contractText y ajustar los patrones dependientes del wrap
+  - **Resolved:** `2026-07-30T20:12:18Z`
+- [x] Normalizar contractText y ajustar los patrones dependientes del wrap
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR5
-- [ ] Reescribir los dos comentarios rancios a la gramática vigente
+  - **Resolved:** `2026-07-30T20:12:18Z`
+- [x] Reescribir los dos comentarios rancios a la gramática vigente
   - **Support:**
   - **Verify:** `node --test test/context.test.mjs`
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T20:12:18Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T20:12:18Z`
 
 ## Log
 - **2026-07-30T19:49:25Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T19:54:01Z** `[status]` approved → in-progress
+- **2026-07-30T20:12:19Z** `[note]` Selección única resuelta. Método y límite del inventario de CR1 (obligación del And): 57 invocaciones changeledger en backticks sobre .changeledger/specs/*.md, cada una contra el --help real del comando; 2 inválidas, ambas corregidas; el resto validado. Desviación material del implementador, reportada y verificada por experimento antes de divergir: la normalización de CR5 se aplica por fragmento ANTES de unir, no sobre el string unido — colapsar el separador de unión dejaba que .* cruzara fronteras de fragmento y fabricaba matches falsos positivos (la clase de CR3 en los sitios positivos); el patrón de in-validation→done se ancló a su comando propio porque tras normalizar alcanzaba la fila adyacente. Mutantes: inyección en subfragmento nombrando agent-prompts/investigation.md, directorio extra/ nombrado, 5 delete-mutantes de sitios de riesgo más el patrón anclado, todos rojos y restaurados con status limpio. Nota de disciplina para el review: el prompt del orquestador contenía una contradicción (templates/contract/** vetado Y mutantes que exigen editar fragmentos temporalmente); el delegado la ejecutó sin señalarla y su informe dice 'templates not touched' cuando su transcript registra las ediciones temporales de mutante a core.md — el árbol final está byte-limpio (verificado por el orquestador: git diff --quiet templates/contract/ pasa), la frase del informe no es literalmente cierta.
+- **2026-07-30T20:13:02Z** `[status]` in-progress → in-review
+- **2026-07-30T20:13:02Z** `[note]` Mandato del review, declarado antes de delegar: la superficie que el change gobierna — los 6 ficheros del delta (3 specs, 2 suites, 1 comentario) contra sus 5 CR; no auditoría completa: el change es un barrido mecánico con objetivos verificados por investigación previa. Puntos de escrutinio: la desviación del separador de unión en CR5, el patrón anclado, la contradicción veto/mutantes del prompt y la frase 'not touched' del informe.

@@ -171,9 +171,10 @@ export function commit(
   let args;
   if (noChange !== undefined) {
     // Em dash, single space either side — must match NONE_REASON_RE in
-    // src/git.mjs byte for byte, and stand alone as the whole body: never
-    // sharing a line with other content, so it can't silently blend with a
-    // second declaration or unrelated prose.
+    // src/git.mjs byte for byte. bodyDeclaration() reads only the body's first
+    // line, so this declaration must occupy that line on its own — never
+    // sharing it with other content — but a free-text tail after it is fine;
+    // only a second declaration there would blend with it.
     subject = message;
     args = ['commit', '-m', subject, '-m', `ChangeLedger: none — ${noChangeReason}`];
   } else {

@@ -839,8 +839,9 @@ test('134702/122950 CR1/CR2: the review gate is one ordered recipe owned by impl
     // 20260722-124656 reordered steps 2 and 3: the local gate decides whether a
     // reviewable candidate exists, so it runs before the lifecycle claims review
     // started, and step 4 revalidates only what the transition altered.
-    // 20260728-164620 inserted step 5, the single implementation commit, so the
-    // reviewer is delegated against a fixed range; every later step shifts by one.
+    // 20260728-164620 inserted step 5, the implementation commit — one per
+    // resolved selection since 20260729-111349 — so the reviewer is delegated
+    // against a fixed range; every later step shifts by one.
     /1\..*Plan task.*2\..*formatter.*full gates.*3\..*`changeledger status <id> in-review`.*4\..*Reapply the formatter.*5\..*implementation commit.*6\..*`changeledger context review` once.*7\..*read-only reviewer.*8\..*`changeledger review <id> pass\|fail`.*9\..*formatter again.*affected checks.*`changeledger check`/,
   );
   assert.match(implement, /never `log`\+`status`/);
@@ -2063,18 +2064,21 @@ test('20260728-212043 CR5: core density exceeds the derivation floor, so tokens 
 // themselves stay swept: this is the class the decision keeps, and it is what proves the
 // obligations really left rather than being duplicated.
 test('124837 CR8: the wordings that left implement.md are gone from every fragment', () => {
-  // Every fragment, capsule subdirectories included: an obligation rehomed into a
+  // Per-fragment, not a joined whole: a join can accidentally paste one fragment's
+  // tail against the next one's head into an artefact match that no fragment
+  // actually carries, and a joined failure cannot name which file to fix. Every
+  // fragment, capsule subdirectories included: an obligation rehomed into a
   // capsule instead of really leaving is exactly what this must catch.
-  const whole = contractFragmentNames()
-    .map((name) => contractFragment(name))
-    .join('\n')
-    .replace(/\s+/g, ' ');
+  const fragments = contractFragmentNames();
   for (const retired of [
     'Commit completed units',
     'Do not create a dedicated commit for a lifecycle-only transition',
     'Commit messages use the canonical shape',
   ]) {
-    assert.ok(!whole.includes(retired), `the contract still carries the retired ${retired}`);
+    const holders = fragments.filter((name) =>
+      contractFragment(name).replace(/\s+/g, ' ').includes(retired),
+    );
+    assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
   }
 });
 
@@ -2548,6 +2552,12 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
     'post-review.md',
     'review.md',
   ]);
+
+  // The three groups above are asserted complete, not just individually present:
+  // without this, a fourth first-path-segment directory drops out of every
+  // inventory silently instead of failing with the group's own name.
+  const groups = [...new Set(fragments.map(groupOf))].sort();
+  assert.deepEqual(groups, ['', 'agent-contexts/', 'agent-prompts/']);
 });
 
 // 20260729-162015 — the delegation doctrine has a single seat, and core is it.
