@@ -2,7 +2,7 @@
 id: "20260730-213405"
 title: Hacer portable la prueba Unicode del índice
 type: bug
-status: draft
+status: approved
 created: 2026-07-30T21:34:05Z
 depends_on: []
 related_to: ["20260726-141124"]
@@ -60,3 +60,4 @@ derivadas por la herramienta, nunca la entrada de Git.
 ## Log
 
 - **2026-07-30T21:34:05Z** `[note]` Draft creado tras reproducir que macOS entrega NFC por `core.precomposeunicode=true` y Ubuntu conserva NFD; producción aborta correctamente en ambos casos y la expectativa fija del test es la única parte no portable.
+- **2026-07-30T21:37:57Z** `[status]` draft → approved (human via conversation)
