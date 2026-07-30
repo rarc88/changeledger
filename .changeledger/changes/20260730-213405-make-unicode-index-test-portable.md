@@ -2,9 +2,11 @@
 id: "20260730-213405"
 title: Hacer portable la prueba Unicode del índice
 type: bug
-status: in-validation
+status: done
 created: 2026-07-30T21:34:05Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260726-141124"]
 owner: rarc88
 release_impact: none
@@ -68,3 +70,6 @@ derivadas por la herramienta, nunca la entrada de Git.
 - **2026-07-30T21:47:02Z** `[status]` in-progress → in-review
 - **2026-07-30T21:48:34Z** `[note]` Mandato de revisión: auditoría completa del baseline aprobado al HEAD, incluyendo CR1/CR2, semántica byte-exacta, invocación PINNED_STAGED_ARGS, TDD/mutante, gate 1044/1044, disciplina de commits y ausencia de cambios de producción o residuos.
 - **2026-07-30T21:56:02Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T23:11:54Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T23:14:32Z** `[graduation]` skipped: Corrección exclusiva del fixture Unicode: producción y la verdad byte-exacta de git-traceability no cambiaron.
+- **2026-07-30T23:14:41Z** `[archive]` archived
