@@ -1362,6 +1362,78 @@ for (const [label, owner, obligation] of DRAFTING_OBLIGATIONS) {
   });
 }
 
+// 20260730-165310 CR2/CR3/CR4 — the three obligations this change adds to the
+// delegation contract, guarded by the mechanism `185200 CR5` above uses: the
+// fragment that owns the obligation, and the composed pack that must carry it to
+// the role that executes it, so a failure names which of the two seats lost it.
+// The mode differs per entry, which is why this is a second table rather than
+// rows in that one: `spec` is not where these obligations are read.
+//
+// Tolerant concept matches over flattened text, never the sentence: each pattern
+// is one half of the obligation, so rewording is free and dropping a half fails
+// with a message naming the half that went. Every half is written in both
+// directions, the lesson `185200 CR5` records above: an ordered pattern dies on
+// the passive voice, and a reword mutant of each obligation below was run against
+// these patterns before they were kept.
+const DELEGATION_OBLIGATIONS = [
+  [
+    'the review mandate is declared, recorded in the Log, and bounds the inspection',
+    'review.md',
+    'review',
+    [
+      /\b(declare|state|name)\w*\b[^.;]{0,45}\bmandate\b|\bmandate\b[^.;]{0,45}\b(declared|stated|named)\b/i,
+      // The mandate must reach the Log through the note command, not a private note.
+      /\bmandate\b[^.;]{0,80}`?changeledger log`?|`?changeledger log`?[^.;]{0,80}\bmandate\b/i,
+      /\bwithin\b[^.;]{0,45}\bmandate\b|\bmandate\b[^.;]{0,45}\bbounds?\b/i,
+      /\boutside\b[^.;]{0,60}\bwithout\b[^.;]{0,45}\bexpand|\bwithout\b[^.;]{0,45}\bexpand\w*[^.;]{0,60}\boutside\b/i,
+    ],
+  ],
+  [
+    'deliverable prose executes the edge of a universal quantifier or narrows to what was observed',
+    'implement.md',
+    'implement',
+    [
+      // The gaps are wide because a reword mutant that led with the quantifier and
+      // named the audience last put 105 characters between the two halves and
+      // turned this guard red; `[^.;]` is what still holds the match to one
+      // sentence, and the count is only a second fence.
+      /\b(test comments?|Log notes?)\b[^.;]{0,140}\bquantif\w+|\bquantif\w+[^.;]{0,140}\b(test comments?|Log notes?)\b/i,
+      // The edge is executed, and executed BEFORE the sentence exists: the ordering
+      // is the obligation, so it stays inside the same bounded window.
+      /\b(edge|falsif\w+)\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\bbefore\b|\bbefore\b[^.;]{0,100}\b(execut\w+|run|ran)\b[^.;]{0,100}\b(edge|falsif\w+)\b/i,
+      /\bnarrow\w*\b[^.;]{0,60}\b(observed|incident|measured)\b|\b(observed|incident|measured)\b[^.;]{0,60}\bnarrow\w*/i,
+    ],
+  ],
+  [
+    'the reviewer treats an unexecuted universal quantifier as a defect, not as style',
+    'review.md',
+    'review',
+    [
+      /\b(universal\w*|quantif\w+)\b[^.;]{0,120}\b(edge|falsif\w+)|\b(edge|falsif\w+)\b[^.;]{0,120}\b(universal\w*|quantif\w+)/i,
+      // Defect and style ride one window on purpose. A first draft split them and
+      // matched the unrelated `fail --retry` line ("fixable defect inside the
+      // authorized contract") instead of this clause: a half that a pre-existing
+      // sentence already satisfies guards nothing.
+      /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
+    ],
+  ],
+];
+
+for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
+  test(`165310: the ${mode} pack obliges that ${label}`, () => {
+    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
+    const composed = flattened(buildContext(mode, repo()));
+    for (const pattern of patterns) {
+      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
+      assert.match(
+        composed,
+        pattern,
+        `the composed ${mode} capture no longer carries the obligation: ${pattern}`,
+      );
+    }
+  });
+}
+
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
 function budgetEntries() {

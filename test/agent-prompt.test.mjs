@@ -129,6 +129,22 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
   assert.match(impl, /never reconstruct.*from memory.*never continue from another base/i);
 });
 
+// 20260730-165310 CR1: the review skeleton must say WHAT is reviewed. Without a
+// mandate field every review is a full audit by construction, so the placeholder
+// and its three legal forms are structural composition of the capsule and are
+// pinned literally — the register the CR3 loop above uses for placeholders.
+test('165310 CR1: the review skeleton carries the mandate field and its three forms', () => {
+  const body = prose('review');
+  assert.match(body, /\{\{mandate\}\}/, 'the review skeleton lost the mandate placeholder');
+  for (const form of [
+    /spot check of the named diff/i,
+    /the surface the change governs/i,
+    /full audit/i,
+  ]) {
+    assert.match(body, form, `the review skeleton no longer offers the mandate form ${form}`);
+  }
+});
+
 test('CR4: each role loads available context without inventing a change', () => {
   for (const role of ROLES) {
     assert.match(

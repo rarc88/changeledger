@@ -2,7 +2,7 @@
 id: "20260730-165310"
 title: Mandato de review declarado y cuantificadores en prosa entregable
 type: feature
-status: approved
+status: in-review
 created: 2026-07-30T16:53:10Z
 depends_on: []
 related_to:
@@ -187,25 +187,33 @@ límite → mismo tratamiento.
 
 ## Plan
 
-- [ ] Añadir el bloque de mandato a la cápsula de review y fijar su presencia
+- [x] Añadir el bloque de mandato a la cápsula de review y fijar su presencia
   con un assert literal junto al bucle CR3 existente
   - **Target:** `templates/contract/agent-prompts/review.md`
   - **Verify:** `node --test test/agent-prompt.test.mjs`
   - **Criteria:** CR1
-- [ ] Escribir en el fragmento de review la obligación de declarar y registrar
+  - **Resolved:** `2026-07-30T17:27:16Z`
+- [x] Escribir en el fragmento de review la obligación de declarar y registrar
   el mandato, con su guard de doble evidencia
   - **Target:** `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR2
-- [ ] Extender el contrato de evidencia a la prosa entregable: cláusula del
+  - **Resolved:** `2026-07-30T17:27:16Z`
+- [x] Extender el contrato de evidencia a la prosa entregable: cláusula del
   productor en implement, contraparte pass/fail del revisor en review, guards
   de ambas
   - **Target:** `templates/contract/implement.md`, `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T17:27:16Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T17:27:16Z`
 
 ## Log
 - **2026-07-30T17:06:23Z** `[status]` draft → approved
+- **2026-07-30T17:08:05Z** `[status]` approved → in-progress
+- **2026-07-30T17:27:29Z** `[note]` Selección única resuelta (las 3 tareas comparten review.md y context.test.mjs). Rojo-verde literal por CR; 8 mutantes de uno en uno más 3 de la corrección pre-review. Defecto cazado por el paso de auto-falsación del orquestador antes del in-review: el comentario del bloque DELEGATION_OBLIGATIONS afirmaba 'Every half is written in both directions' con el patrón 4 de CR2 unidireccional; corregido por el implementador vivo ensanchando el patrón (nunca debilitando la frase), con mutante de reword verde y delete rojo. Presupuestos medidos tras el cierre: cápsula review 448/1250 tokens, base.review 977/2500, base.implement 2343/2500. Cifras de la Investigation corregidas por el delegado: base.review era 866 (no 860) y base.implement 2294 (no 2288) en el baseline.
+- **2026-07-30T17:27:39Z** `[note]` Mandato del review, declarado antes de delegar (estrena la obligación de este change): auditoría completa — primera review del change, sin review previa que acote. Puntos de escrutinio que recibirá el revisor: las 8 decisiones no especificadas que reportó el implementador (la sustantiva: la frase de inspección acotada vive en la cápsula Y en review.md, dos audiencias) y la corrección pre-review del orquestador descrita en la nota anterior.
+- **2026-07-30T17:29:04Z** `[status]` in-progress → in-review

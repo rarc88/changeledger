@@ -123,3 +123,4 @@ Every prompt to an implementer or corrector also states these obligations:
 - Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
 - Stop and report when the work turns out to need a different type or a wider scope.
 - Report the list of decisions the document did not specify.
+- Deliverable prose — test comments and Log notes — that quantifies universally (every, all, no, cannot, always) has the edge that would falsify it executed before it is written, or is narrowed to the incident actually observed.

@@ -9,12 +9,19 @@ then loads `changeledger agent-context review <id>`. That self-contained capsule
 owns the inspection checklist, read-only boundary and return format. Do not copy
 its checklist into this orchestrator context.
 
+Before delegating, declare the mandate of this review — a spot check of the named
+diff, the surface the change governs, or a full audit — and record that mandate
+as a Log note of the change with `changeledger log <id>`. The delegate receives it
+already filled in: the reviewer inspects within the declared mandate and reports
+whatever it finds outside it without expanding the inspection.
+
 The review prompt adds the evidence standard the capsule does not carry:
 
 - Mark every claim as confirmed by running it or as reasoned from the code.
 - Trace every helper a suspect path calls before reporting a validation as missing.
 - Take the implementer's list of decisions the document did not specify as scrutiny points, not as settled.
 - Hold the orchestrator's own edits to the deliverable to the same standard as the implementer's.
+- Treat a universal quantifier in deliverable prose whose falsifying edge was not executed as a defect that fails the review, not as style.
 
 The orchestrator records exactly one verdict; the read-only reviewer reports its
 finding but never runs the verdict command:
