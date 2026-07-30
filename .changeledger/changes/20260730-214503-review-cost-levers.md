@@ -2,7 +2,7 @@
 id: "20260730-214503"
 title: Guards de obligación a evidencia de fragmento y semántica de confirmación
 type: feature
-status: draft
+status: approved
 created: 2026-07-30T21:45:03Z
 depends_on: []
 related_to:
@@ -136,3 +136,4 @@ tabla de obligaciones.
 
 ## Log
 - **2026-07-30T21:47:12Z** `[owner]` set: raruiz-hiberuscom
+- **2026-07-30T21:50:27Z** `[status]` draft → approved (human via conversation)
