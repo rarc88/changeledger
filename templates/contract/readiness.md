@@ -1,8 +1,7 @@
 # Definition of Ready
 
-ChangeLedger supports a deliberate split: a strong model documents and a less
-capable but able model implements. The approved change must contain enough
-precision that implementation does not redefine what should be tested.
+The approved change must contain enough precision that implementation does not
+redefine what should be tested.
 
 The `tdd` flag in `.changeledger/config.yml` defaults to `true`; set `tdd` to
 `false` only for exploratory repos where behavior is intentionally still being

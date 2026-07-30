@@ -1,11 +1,7 @@
 {
   "base": {
     "core": { "tokens": 4000, "lines": 400 },
-    "spec": {
-      "tokens": 3450,
-      "lines": 345,
-      "scaffold": "temporary — measures 3416 tokens in 317 lines today, above the decided 2500 for contexts; exit condition: the authoring pack's pending refactor. Do not read this as a decided ceiling."
-    },
+    "spec": { "tokens": 2500, "lines": 250 },
     "implement": { "tokens": 2500, "lines": 250 },
     "review": { "tokens": 2500, "lines": 250 },
     "release": { "tokens": 2500, "lines": 250 }

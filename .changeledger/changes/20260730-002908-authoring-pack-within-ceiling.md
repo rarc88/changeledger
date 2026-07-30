@@ -2,7 +2,7 @@
 id: "20260730-002908"
 title: El pack de autoría cabe en su techo decidido
 type: refactor
-status: approved
+status: in-review
 created: 2026-07-30T00:29:08Z
 depends_on: ["20260730-002730"]
 related_to: ["20260729-162015", "20260728-212043"]
@@ -119,21 +119,32 @@ leyendo `changeledger context spec`; el head de modos (350) no cambia.
 
 ## Plan
 
-- [ ] Recortar `spec.md` (Stages sin tablas, Repository layout sin árbol ni sintaxis, IDs sin ejemplo, Authoring helpers fuera) y los menores de `readiness.md`, conservando el censo
+- [x] Recortar `spec.md` (Stages sin tablas, Repository layout sin árbol ni sintaxis, IDs sin ejemplo, Authoring helpers fuera) y los menores de `readiness.md`, conservando el censo
   - **Target:** `templates/contract/spec.md`, `templates/contract/readiness.md`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
   - **Criteria:** CR2
-- [ ] Mudar las 8 cláusulas de evidencia de `delegation.md` a `implement.md` y recortar la redundancia no normativa de `delegation.md`
+  - **Resolved:** `2026-07-30T11:48:01Z`
+- [x] Mudar las 8 cláusulas de evidencia de `delegation.md` a `implement.md` y recortar la redundancia no normativa de `delegation.md`
   - **Target:** `templates/contract/delegation.md`, `templates/contract/implement.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR2, CR3, CR4
-- [ ] Bajar `budgets.yml` a `{2500, 250}` sin scaffold y retargetear los tests de forma del andamio y el pin de la matriz retirada
+  - **Resolved:** `2026-07-30T11:48:01Z`
+- [x] Bajar `budgets.yml` a `{2500, 250}` sin scaffold y retargetear los tests de forma del andamio y el pin de la matriz retirada
   - **Target:** `templates/contract/budgets.yml`
   - **Verify:** `node --test test/context.test.mjs test/contract.test.mjs`
   - **Criteria:** CR1, CR3
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-07-30T11:48:01Z`
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-07-30T11:48:01Z`
 
 ## Log
 - **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T11:08:45Z** `[status]` approved → in-progress
+- **2026-07-30T11:26:21Z** `[note]` Parada honesta en CR1 conforme al mandato del propio documento: tras todos los cortes autorizados (medidos corte a corte: 164+230+63+36+174+67 = 734 contra 945 estimados) el pack mide 2711 tokens / 256 líneas contra el techo 2500/250. El censo de 48 obligaciones normativas grepa completo en los packs servidos; implement absorbió las 8 cláusulas y BAJÓ a 2122/190; review byte-idéntico. budgets.yml deliberadamente intacto para mantener el gate verde. Palancas no gastadas, todas de la clase ejemplo-copiable que 20260730-002730 pinnea como deliberadamente conservada en un caso (el fence de Verify): frontmatter YAML 125/13, plantilla de tarea del Plan 141/15, fence de evento de Log 60/4, plantilla de CR1 42/7 — 368/39 en total. Hallazgo del implementador: son CUATRO los tests de forma con la excepción del andamio, no tres (170429 CR1 también). Decisión elevada a Roberto.
+- **2026-07-30T11:34:56Z** `[note]` Autorización de Roberto (2026-07-30) para refinar el alcance sin forzar el techo: no se corta ningún fence de ejemplo; en su lugar, responsabilidad única del pack — la gramática de eventos del Log se muda a implement.md (los eventos los escriben los comandos del lifecycle, no el autor del draft), la mecánica de resolución de owner se recorta a su semántica de autoría, y la delegación servida en spec se afina a lo que el autor usa (delegar investigación). Condición explícita de la autorización: no afectar a la elaboración integral de los drafts — toda obligación que un autor necesite sigue servida en spec, el censo viaja con cada movimiento con sede nueva nombrada y grep, y los guards de concepto siguen verdes. Con esto CR1 se completa: budgets.yml baja a {2500,250} sin scaffold, con holgura real medida (~150), y los CUATRO tests de forma se retargetean.
+- **2026-07-30T11:45:11Z** `[note]` Corrección de una cifra mía: la nota de autorización anticipaba 'holgura real medida (~150)' — era estimación, no medida, y la señaló el implementador como residuo. Medido tras las tres mudanzas: 2467/240, holgura 33/10; con la cuarta palanca autorizada por el orquestador (la regla estructural de Resolved/Blocked, 64 tokens, misma clase que la gramática del Log: la escribe changeledger task, no el autor; el fence de ejemplo se queda en spec) se espera ~2403/236 con holgura ~97/14. La decisión queda vetable por Roberto. Supersede a registrar de la ronda: D6 (review-is-special) se sirve ahora por implement+review, no por spec — el censo de CR2 lo listaba en spec; movimiento con sede grepada, no pérdida.
+- **2026-07-30T11:48:21Z** `[note]` Selección única resuelta en tres rondas con dos paradas honestas. Final medido: spec 2403 tokens / 239 líneas (holgura 97/11 contra el techo decidido 2500/250, desde 3445/320: −1042), implement 2293/198 absorbiendo el bloque de evidencia, la gramática del Log y la regla estructural de Resolved/Blocked, review 866/80 byte-idéntico a baseline. budgets.yml en {2500,250} sin clave scaffold en ningún sitio; los cuatro tests de forma retargeteados con rojo-verde por mutante único, y 212043 CR7 quedó estrictamente más fuerte (barrido de scaffold sobre el fichero entero). Censo 47/48 con delta única autorizada: D6 (review-is-special) re-sedado en implement+review — supersede parcial del enunciado del censo de CR2, con grep de la sede nueva. Cortes medidos contra estimaciones ronda a ronda en este Log; ningún fence de ejemplo tocado; guard 12 y los 18 tolerantes verdes. Suites 1012/1012, check exit 0, lint limpio.
+- **2026-07-30T11:48:21Z** `[note]` Mandato de review, registrado antes de delegar: auditoría del rango por revisor fresco top-tier. Puntos de escrutinio: (1) el censo de 48 obligaciones re-derivado independientemente — cada una servida en el pack que la posee, en especial las cuatro mudanzas a implement (evidencia, Log, Resolved/Blocked, owner-mecánica recortada) y que NINGUNA obligación de autoría salió de spec (condición explícita de Roberto); (2) la cadena de autorizaciones (dos paradas honestas + palanca del orquestador vetable) contra el alcance aprobado; (3) el supersede de D6 frente a la letra de CR2; (4) los cuatro retargets de forma y el CR7 reforzado; (5) review byte-idéntico y sin las 8 cláusulas (CR4); (6) que la holgura es real y ninguna prosa normativa se recortó para cuadrar número; (7) las notas de este Log al estándar del implementador — incluida la corrección de mi ~150 estimado como medido.
+- **2026-07-30T11:48:21Z** `[status]` in-progress → in-review

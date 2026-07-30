@@ -619,12 +619,11 @@ test('141119 CR5: refactor activates specification in every versioned artifact',
       `${file} must activate specification for the refactor type`,
     );
   }
-  assert.ok(
-    fs
-      .readFileSync(new URL('templates/contract/spec.md', repoRoot), 'utf8')
-      .includes('| refactor | ✓ | — | ✓ | ✓ | ✓ | ✓ |'),
-    'the default activation matrix must mark specification active for refactor',
-  );
+  // 20260730-002908 retired this test's third assert: it pinned the `refactor` row of
+  // the activation matrix rendered in `templates/contract/spec.md`, and that matrix is
+  // gone — it was a render of `config.yml`, which the fragment itself declares
+  // authoritative. Consistency now rests on the single seat the two asserts above pin:
+  // there is no second copy left to drift from.
 });
 
 test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokenizer unit, drops bytes/dual-publish and bans spending headroom', () => {

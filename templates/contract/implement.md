@@ -53,6 +53,18 @@ Useful mutation commands:
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
 
+Those commands write what a draft never carries, so their grammar belongs where
+they run. `task` resolves markers: resolution metadata is structural: `[x]` requires one `Resolved` child with a backticked ISO UTC timestamp, `[!]` one `Blocked` child with a non-empty reason, and `[ ]` none. Descriptions and reasons may contain arbitrary punctuation; unknown, duplicate, missing or orphan metadata is invalid.
+
+Every top-level Log entry has a strict ISO UTC timestamp and canonical type:
+
+```markdown
+- **2026-06-13T14:20:00Z** `[status]` draft → approved
+- **2026-06-13T14:30:00Z** `[note]` arbitrary text — even `[status]` and `|`
+```
+
+Types are `status`, `review`, `validation`, `owner`, `graduation`, `archive` and `note`. Lifecycle commands write their type; `changeledger log` writes an opaque `note` that cannot simulate an operational event. Continuation prose is allowed, but every top-level `- ` line must be a valid typed event.
+
 When implementation and every task are complete, move to `in-review` if the type
 requires independent review by running this ordered gate — do not reconstruct it from memory:
 1. Confirm every Plan task is complete and its verification passes.
@@ -98,3 +110,16 @@ and include correction plus ledger in the final closure commit.
 These exceptions prevent false fix attempts from becoming permanent history;
 they cover corrections only, and never license leaving the implementation commits
 unmade before review.
+
+## Evidence obligations
+
+Every prompt to an implementer or corrector also states these obligations:
+
+- Scope discipline is pass/fail: leaving a known residual out of your report is a failure, same as touching one, so name every residual you leave untouched instead of repairing it in passing.
+- Reproduce the original defect and quote its literal output before changing anything.
+- Show the new test failing before the fix, with its literal failure message, and passing after it.
+- Mutate one thing at a time, confirm it fails for the right reason, restore it by editing — never with git — and prove the file is clean before the next mutant.
+- Treat figures, line numbers and pointers you were handed as data to verify, not as facts.
+- Report any orchestrator instruction that contradicts this contract instead of silently obeying it.
+- Stop and report when the work turns out to need a different type or a wider scope.
+- Report the list of decisions the document did not specify.

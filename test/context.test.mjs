@@ -1406,7 +1406,7 @@ function declaredCeilings() {
 // not in a second copy.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 4000, lines: 400 },
-  'base.spec': { tokens: 3450, lines: 345 },
+  'base.spec': { tokens: 2500, lines: 250 },
   'base.implement': { tokens: 2500, lines: 250 },
   'base.review': { tokens: 2500, lines: 250 },
   'base.release': { tokens: 2500, lines: 250 },
@@ -1465,16 +1465,17 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
 });
 
 // 20260728-212043 CR7: the token ceilings themselves are three decided values —
-// core, contexts, everything else — not eleven independent numbers. `base.spec`
-// is the one declared exception: it is above the 2500 contexts share because
-// its measured usage, tracked in the `scaffold` note in
-// `templates/contract/budgets.yml` rather than duplicated here, is still
-// climbing toward it. The scaffold marker lives in the entry itself (`194233
-// CR1` above pins its shape), so a future reader cannot mistake 3450 for a
-// settled decision the way this change's own draft once did.
-test('20260728-212043 CR7: token ceilings are the three decided values, and spec is marked scaffold', () => {
+// core, contexts, everything else — not eleven independent numbers.
+//
+// 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
+// whose exit condition was the authoring pack's refactor, and that refactor landed,
+// so spec now takes the same 2500 contexts share as the others. There is no scaffold
+// key left in the file and no entry outside the three values — the loop below sweeps
+// every context including spec, so a future widening cannot reintroduce a private
+// number without failing here.
+test('20260728-212043 CR7: token ceilings are the three decided values, with no scaffolded exception', () => {
   assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
-  for (const context of ['implement', 'review', 'release']) {
+  for (const context of ['spec', 'implement', 'review', 'release']) {
     assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
   }
   assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
@@ -1486,16 +1487,15 @@ test('20260728-212043 CR7: token ceilings are the three decided values, and spec
     1250,
     'core-commits block token ceiling moved',
   );
-  assert.equal(contextBudgets.base.spec.tokens, 3450, 'spec token ceiling moved');
-  assert.match(
-    contextBudgets.base.spec.scaffold,
-    /temporary/i,
-    'spec must declare its scaffold status in the file itself',
-  );
-  assert.match(
-    contextBudgets.base.spec.scaffold,
-    /refactor/i,
-    'spec scaffold marker must name its exit condition',
+  // No entry may carry a scaffold marker any more, and the file must not regrow the
+  // word: an exception announced only in prose is how 3450 outlived its exit condition.
+  for (const [path, budget] of Object.entries(declaredCeilings())) {
+    assert.equal(budget.scaffold, undefined, `${path} declares a scaffold exception again`);
+  }
+  assert.doesNotMatch(
+    fs.readFileSync(new URL('../templates/contract/budgets.yml', import.meta.url), 'utf8'),
+    /scaffold/,
+    'the budget file regrew a scaffold marker',
   );
 });
 
@@ -1503,14 +1503,13 @@ test('20260728-212043 CR7: token ceilings are the three decided values, and spec
 // reads against the two dimensions the budget file declares today.
 test('194233 CR1: every budget entry declares one flat threshold per dimension', () => {
   for (const [label, budget] of budgetEntries()) {
-    // 20260728-212043: `base.spec` alone also carries a `scaffold` marker
-    // string, declaring in the file itself that its token ceiling is temporary
-    // — see `212043 CR7` below. Every other entry stays exactly tokens+lines.
-    const expectedKeys = label === 'spec' ? ['lines', 'scaffold', 'tokens'] : ['lines', 'tokens'];
+    // 20260730-002908 removed the `base.spec` exception: the scaffold marker is gone
+    // with the ceiling it excused, so every entry — spec included — declares exactly
+    // the two dimensions and nothing else.
     assert.deepEqual(
       Object.keys(budget).sort(),
-      expectedKeys,
-      `${label} does not declare exactly ${expectedKeys.join(' and ')}`,
+      ['lines', 'tokens'],
+      `${label} does not declare exactly lines and tokens`,
     );
     assert.equal(Number.isInteger(budget.lines), true, `${label} lines is not an integer`);
     assert.equal(Number.isInteger(budget.tokens), true, `${label} tokens is not an integer`);
@@ -2008,13 +2007,12 @@ function suiteSource(name) {
 
 test('170429 CR1: the budget is expressed in tokens and lines, never in bytes', () => {
   for (const [label, budget] of budgetEntries()) {
-    // 20260728-212043: `base.spec` also carries a `scaffold` marker string;
-    // see `194233 CR1` and `212043 CR7` for why that entry alone is wider.
-    const expectedKeys = label === 'spec' ? ['lines', 'scaffold', 'tokens'] : ['lines', 'tokens'];
+    // 20260730-002908: the `base.spec` scaffold exception is gone; see `194233 CR1`
+    // and `212043 CR7`. Every entry declares exactly the two dimensions.
     assert.deepEqual(
       Object.keys(budget).sort(),
-      expectedKeys,
-      `${label} does not declare exactly ${expectedKeys.join(' and ')}`,
+      ['lines', 'tokens'],
+      `${label} does not declare exactly lines and tokens`,
     );
   }
   // The file as text, not only the parsed shape: no stray byte dimension survives.
@@ -2678,26 +2676,41 @@ const CONCEPT_GUARDS = [
   },
   {
     entry: 11,
-    obligation: 'the evidence contract reaches spec and implement as a whole section',
+    obligation: 'the evidence contract reaches implement as a whole section',
     verify: (pack) => {
+      // 20260730-002908 moved the block from `delegation.md` to `implement.md`: the
+      // author does not execute the evidence contract, so the spec pack no longer
+      // serves it and this entry demands it in `implement` alone. Both directions
+      // are asserted — present in implement, absent from spec — so the move cannot
+      // be undone in either direction without a failure naming which way it went.
+      //
       // The SECTION, not its clauses: the lead-in plus the count of obligations it
       // introduces. Rewording any clause is free; dropping one is not.
-      for (const mode of ['spec', 'implement']) {
-        const text = pack(mode);
-        const at = text.search(
-          /\b(every|each)\b\s+prompt\b[^.;]{0,70}\b(obligations?|clauses?|standards?)\b[^.;]{0,20}:/i,
-        );
-        assert.notEqual(
-          at,
-          -1,
-          `the ${mode} pack no longer introduces the implementer evidence contract as a section`,
-        );
-        const clauses = text.slice(at).split(/\s-\s/).length - 1;
-        assert.ok(
-          clauses >= 8,
-          `the ${mode} pack's evidence contract lists ${clauses} obligations, fewer than the eight it must carry`,
-        );
-      }
+      const leadIn =
+        /\b(every|each)\b\s+prompt\b[^.;]{0,70}\b(obligations?|clauses?|standards?)\b[^.;]{0,20}:/i;
+      const implement = pack('implement');
+      const at = implement.search(leadIn);
+      assert.notEqual(
+        at,
+        -1,
+        'the implement pack no longer introduces the implementer evidence contract as a section',
+      );
+      // Counted inside the section alone, bounded by the next heading: counting to the
+      // end of the pack let the list items of every following fragment stand in for the
+      // clauses, so dropping one survived. Proven with a mutant, not assumed.
+      const tail = implement.slice(at);
+      const nextHeading = tail.search(/\s#{1,3}\s/);
+      const section = nextHeading === -1 ? tail : tail.slice(0, nextHeading);
+      const clauses = section.split(/\s-\s/).length - 1;
+      assert.ok(
+        clauses >= 8,
+        `the implement pack's evidence contract lists ${clauses} obligations, fewer than the eight it must carry`,
+      );
+      assert.doesNotMatch(
+        pack('spec'),
+        leadIn,
+        'the spec pack regrew the implementer evidence contract the author never executes',
+      );
       // The reviewer clauses ride review.md, and must not leak into implement.
       assert.match(
         pack('review'),
