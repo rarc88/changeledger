@@ -156,9 +156,11 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
 
   assert.match(buildAgentContext('investigation', undefined, root), /read-only/i);
   assert.match(buildAgentContext('review', fixtures.review, root), /read-only/i);
+  // 20260730-002730: tolerant, not the capsule's sentence — the obligation is that the
+  // implementation capsule bounds writes to what the prompt assigned, however worded.
   assert.match(
     buildAgentContext('implementation', fixtures.implementation, root),
-    /only the files assigned in the delegation prompt/i,
+    /\bonly\b[^.]{0,30}\bfiles?\b[^.]{0,40}\b(assigned|listed|named|owned)\b/i,
   );
 });
 
@@ -195,7 +197,10 @@ test('201703 CR1: post-review context is allowed only for in-validation and is f
   assert.match(out, /self-contained delegated context/i);
   assert.match(out, /do not run `changeledger context`/i);
   assert.match(out, /read-only/i);
-  assert.match(out, /do not modify files, do not change Git state, do not mutate the\s+ledger/i);
+  // 20260730-002730: the three prohibitions as concepts, not as one sentence.
+  assert.match(out, /do not modify[^.]{0,20}\bfiles?\b/i);
+  assert.match(out, /do not change[^.]{0,15}\bgit\b/i);
+  assert.match(out, /do not mutate[^.]{0,20}\bledger\b/i);
   assert.match(out, /do not\s+change status/i);
   assert.match(out, /do not add\s+Log entries/i);
   assert.match(out, /# Selected change[\s\S]*Do the delegated work/);

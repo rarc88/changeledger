@@ -246,36 +246,24 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   assert.match(cfg, /^ {4}feature: minor$/m);
   assert.match(cfg, /^ {4}bug: patch$/m);
   assert.match(contract, /changeledger release plan \[--json\]/);
-  assert.match(contract, /Never infer that every ChangeLedger repository uses npm or GitHub/);
+  // 20260730-002730 retired the portability sentence pin; the naming sweep stays.
   assert.doesNotMatch(contract, /Spec\s+Ledger/i);
 });
 
+// 20260730-002730 retired the sentence pin of `020229 CR4`. The two configuration
+// keys the criterion is actually about are identifiers, not prose, so they stay.
 test('020229 CR4: installed contract documents configurable readiness patterns', () => {
   const contract = contractText();
-  // 20260729-203257 CR7 retarget: the duty used to be satisfied by naming the
-  // target anywhere in the description "before the final `(CRn)` block". The
-  // pinned literal now carries the child each half of the duty lands in, so
-  // reverting the item to the positional wording fails here.
-  const normalized = contract.replace(/\s+/g, ' ');
   assert.match(contract, /readiness\.target_patterns/);
   assert.match(contract, /readiness\.verification_patterns/);
-  assert.match(
-    normalized,
-    /cites at least one CR in its `Criteria` child, names target file\(s\)\/area\(s\) in `Target` and concrete verification in `Verify`\./,
-  );
 });
 
+// 20260730-002730 retired the sentence pin of `122611 CR3`. The configured value and
+// the copyable example child stay: both are structure a reader copies, not prose.
 test('122611 CR3: installed contract recommends structural verify clauses', () => {
   const contract = contractText();
-  const normalized = contract.replace(/\s+/g, ' ');
   assert.match(contract, /verification_patterns: \["verify:"\]/);
-  // The manual example is pinned in the child form the patterns now match, so an
-  // example that puts the clause back in the description fails.
   assert.match(contract, /- \*\*Verify:\*\* verify: manual Android device check/);
-  assert.match(
-    normalized,
-    /start the `Verify` value with `verify:` and put the evidence there instead of listing every possible manual phrase in config\./,
-  );
 });
 
 test('221849: installed CLI reference names actors and dedicated terminal actions', () => {
@@ -285,83 +273,23 @@ test('221849: installed CLI reference names actors and dedicated terminal action
     /`changeledger status <id> <status>`[\s\S]*does not accept\s+`approved`, `done`, `discarded` or reopening/,
   );
   assert.match(contract, /`changeledger discard <id> "<reason>"`/);
-  assert.match(contract, /For an existing spec, edit its body first, then run/);
 });
 
-test('214902 CR1-CR4/CR7/CR8: installed contract gates creation, scope growth and friction', () => {
-  const contract = contractText();
-  // 20260726-124835: the installed contract no longer carries core's first-capture
-  // recipe — the bootstrap owns making and verifying that capture — so the
-  // creation gate is asserted through the rewritten routing rules instead. Its
-  // amendment restores the two pins this test had deleted rather than repointed:
-  // the documentation precondition and what counts as authorization.
-  assert.match(contract, /Classifying the human's intent is free and mandatory on every message/);
-  assert.match(contract, /enough clarity to document faithfully/);
-  assert.match(contract, /direct request such as “create the\s+change” is authorization/);
-  assert.match(contract, /never invent missing requirements/);
-  assert.match(contract, /never load one speculatively and never reload one\s+already held/);
-  assert.match(contract, /Escalate to a mode before acting/);
-  assert.match(contract, /No artifact without explicit human authorization/);
-  assert.match(contract, /only once the human authorizes documenting it/);
-  assert.match(contract, /ask the human: `quick` type or operational edit/);
-  assert.match(contract, /The human decides and the agent\s+executes/);
-  assert.match(contract, /If no approved or in-progress change applies/);
-  assert.match(contract, /ask the human whether a purely operational,\s+reversible edit/);
-  assert.match(contract, /If unsure, document\s+it in ChangeLedger/);
-  assert.match(
-    contract,
-    /materially expands observable scope, obtain explicit human\s+authorization/,
-  );
-  assert.match(contract, /Triage friction at handoff; retrospect after completion/);
-  assert.match(contract, /necessary to fulfill the purpose of an active change/);
-  assert.match(contract, /operational step such as verify, commit, graduate/);
-  assert.match(contract, /propose its type, title, and reason to\s+the human/);
-  assert.match(contract, /Create the draft only after explicit authorization/);
-  assert.match(contract, /too vague for backlog/);
-  assert.match(contract, /When a change reaches `done`, also share a brief retrospective/);
-});
+// 20260730-002730 retired `214902 CR1-CR4/CR7/CR8`: all 20 of its asserts pinned a
+// sentence of `core.md`, `implement.md` or `handoff.md` through the installed contract.
+// The creation gate, the authorization rule and the intent routing are curated entries
+// 1 and 2, guarded against the composed core rather than against this concatenation.
+// `test/contract.test.mjs` still pins the published bootstrap block, which is a
+// consumer-facing interface and out of this change's scope.
 
-test('214902 CR5/CR6: installed contract preserves traceability without false-fix commits', () => {
+// 20260730-002730: the twelve presence pins are retired — the commit unit, the baseline
+// and the correction isolation are curated entries 6 and 9. The two retired-phrase
+// sweeps stay: the installed contract must not regrow the fixed per-change count or the
+// inseparable-Plan-tasks excuse, and that is the class the decision preserves.
+test('214902 CR5/CR6: the installed contract regrows no retired commit rule', () => {
   const contract = contractText();
-  assert.match(contract, /Never implement approved changes on `main`, `master`, or `dev`/);
-  assert.match(contract, /Inspect the\s+worktree/);
-  assert.match(contract, /unrelated changes exist/);
-  assert.match(
-    contract,
-    /\*\*Baseline\*\*: exactly one, the approved change\s+document, before any code/,
-  );
-  assert.match(contract, /Implement one\s+change at a\s+time/);
-  // 20260728-164620 replaced the per-task class with the per-change one; the
-  // installed contract must carry the new unit, not the retired counting rule.
-  // 20260729-111349 REPLACED it again: the unit is the resolved selection of work and
-  // the number per change is not fixed, so the installed contract is pinned by the
-  // unit rather than by a count. The ordering guarantee is preserved, not retired —
-  // asserted below on its own.
-  assert.match(contract, /\*\*Implementation\*\*: one per resolved selection of work/);
-  assert.match(contract, /Every selection is committed before the review is\s+delegated/);
   assert.doesNotMatch(contract, /\*\*Implementation\*\*: exactly one/);
-  assert.match(
-    contract,
-    /After review `fail --retry`, keep the\s+candidate correction uncommitted/,
-  );
-  assert.match(
-    contract,
-    /After `pass`, commit the confirmed correction[\s\S]*before human validation/,
-  );
-  assert.match(contract, /keep the correction\s+uncommitted until the human confirms/);
-  assert.match(contract, /do not start another task or change\s+while a correction waits/i);
-  // 20260728-164620 emptied the second form on the ground that with the change as the
-  // commit unit every Plan task travels in one commit. 20260729-111349 retired that
-  // ground — the unit is the resolved selection — but the conclusion survives on a
-  // different one: each resolved selection is committed on its own, so separating Plan
-  // tasks is always possible and inseparability can never be the reason.
-  assert.match(contract, /separation is impossible: several changes share the same files/);
   assert.doesNotMatch(contract, /several Plan tasks are inseparable/);
-  assert.match(contract, /five commit classes and no others/);
-  assert.match(contract, /is never a commit of its own; it travels inside the next real class/);
-  assert.match(contract, /\*\*Correction\*\*: zero or more/);
-  assert.match(contract, /\*\*Handoff\*\*: mandatory whenever work stops/);
-  assert.match(contract, /one final closure commit[\s\S]*graduation/i);
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {
@@ -371,11 +299,10 @@ test('171002 CR1-CR5: installed contract gives done one human-accepted meaning',
   assert.match(contract, /in-progress → in-validation \(no review\).*`changeledger status`/);
   assert.match(contract, /in-validation → done.*human.*viewer/);
   assert.match(contract, /human accepted the complete result/);
-  // 20260726-124835: core stopped restating this; validation.md is the only owner
-  // left, and it wraps the sentence across a line.
-  assert.match(contract, /agent\s+never accepts on the human's behalf/i);
+  // 20260730-002730 retired the two sentence pins that stood here. The transition rows
+  // above are table cells, and the lifecycle value's own terminality is asserted by the
+  // enum literal rather than by the sentence explaining it.
   assert.match(contract, /`discarded` never reopens/);
-  assert.match(contract, /A `done`\s+change can reopen only to finish its original scope/);
 });
 
 test('131649 CR2/CR9: list previews archive --graduated without writing files', async () => {

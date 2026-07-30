@@ -46,6 +46,14 @@ bootstrap above, not a linked or copied contract.
   so staged formatting stays compatible with partial commits.
 - Edit the convention in `templates/contract/`; keep each rule in one fragment
   so task contexts compose without duplicated truth.
+- Tests over `templates/contract/` prose are bounded to four kinds: budgets,
+  structural composition (which pack composes which fragment, owned headings,
+  table rows, sentinels), sweeps that keep a retired phrase retired, and a small
+  curated set of concept guards written with wording-tolerant patterns. A new pin
+  on a literal sentence of a fragment is rejected in review: it charges every
+  later rewrite of that sentence a retarget, a mutant and review scrutiny, which
+  is what made editing normative prose expensive. Guard the obligation, never its
+  phrasing.
 - Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and
   a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by
   what a particular model consumes, and lines bound what the bootstrap `head`

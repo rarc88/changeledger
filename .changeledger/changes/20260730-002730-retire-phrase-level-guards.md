@@ -2,7 +2,7 @@
 id: "20260730-002730"
 title: Los guards de frase se retiran de todos los .md
 type: refactor
-status: approved
+status: in-review
 created: 2026-07-30T00:27:30Z
 depends_on: []
 related_to: ["20260729-143656", "20260729-162015"]
@@ -144,25 +144,36 @@ autorizado aparte) para que este documento sea aprobable.
 
 ## Plan
 
-- [ ] Retirar los tests y asserts de frase nombrados en las cuatro suites, dejando intactos presupuestos, estructura y barridos
+- [x] Retirar los tests y asserts de frase nombrados en las cuatro suites, dejando intactos presupuestos, estructura y barridos
   - **Target:** `test/context.test.mjs`, `test/cli.test.mjs`, `test/agent-context.test.mjs`, `test/agent-prompt.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs test/agent-context.test.mjs test/agent-prompt.test.mjs`
   - **Criteria:** CR1, CR3
-- [ ] Escribir el guard curado de doce entradas con su doble evidencia por entrada
+  - **Resolved:** `2026-07-30T10:27:50Z`
+- [x] Escribir el guard curado de doce entradas con su doble evidencia por entrada
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR2
-- [ ] Demostrar el coste nuevo con la reformulación de control y registrar el barrido de literales largos
+  - **Resolved:** `2026-07-30T10:27:50Z`
+- [x] Demostrar el coste nuevo con la reformulación de control y registrar el barrido de literales largos
   - **Target:** `test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR4
-- [ ] Declarar el perímetro de tests sobre prosa del contrato en las notas de proyecto de `AGENTS.md`
+  - **Resolved:** `2026-07-30T10:27:50Z`
+- [x] Declarar el perímetro de tests sobre prosa del contrato en las notas de proyecto de `AGENTS.md`
   - **Target:** `AGENTS.md`
   - **Verify:** verify: grep de la regla sobre `AGENTS.md` registrado en el Log
   - **Criteria:** CR5
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-07-30T10:27:50Z`
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-07-30T10:27:50Z`
 
 ## Log
 - **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T09:48:29Z** `[status]` approved → in-progress
+- **2026-07-30T10:28:18Z** `[note]` Selección única resuelta: −622 líneas netas en context.test (3381→2759), −73 en cli.test, +5/+5 tolerantes en las suites de cápsulas, +8 en AGENTS.md. Evidencia: reproduce-first en baseline (reformulación de spec.md rompe el pin 234939 con rojo literal); 18 guards tolerantes — los 12 curados más los 6 del gate de redacción de 185200 CR5, convertidos en vez de borrados — con doble evidencia por entrada (36 mutaciones de una en una: borrado rojo nombrando la obligación, reformulación verde); demo CR4: la misma reformulación pasa la suite entera en el árbol retirado (1004/1004) donde en baseline rompía un pin nombrado. Barrido de literales (método: extractor de literales de las cuatro suites, ventanas de exactamente 6 palabras contra el stream de palabras de cada fragmento, tablas markdown excluidas y contadas aparte): baseline 353 hits / 326 literales → 0.
+- **2026-07-30T10:28:19Z** `[note]` Correcciones a cifras del draft, medidas por el implementador: el desglose de los 60 asserts de cli.test pliega los 3 barridos (60 match + 3 doesNotMatch, no 46+9+3+2 exactos); los ~17 de cápsulas son 10 al umbral de 6 palabras; los ~90 directos de context.test no eran recontables como se enunciaron (192 match + 72 doesNotMatch en baseline → 123 + 64). Y la premisa del Request era FALSA: las specs sí tenían un test — 111349 CR6 pinneaba oraciones en español de git-traceability.md; mi investigación lo pasó por alto. Resuelto dentro del alcance decidido (todos los .md): sus 8 pins de presencia retirados con reproduce-first, sus barridos de ausencia conservados y probados no-vacuos con mutante de regresión, retitulado. Además evita la colisión con 20260730-002341, que reescribe esas mismas oraciones en su graduación.
+- **2026-07-30T10:28:19Z** `[note]` Decisiones no especificadas del implementador, para el review: (1) los 6 guards de 185200 CR5 convertidos a tolerantes en vez de borrados — no estaban ni en la lista de retiro ni en la de conservación, borrarlos destruía un mecanismo de un día; son 18 tolerantes, no 12; (2) 134703 y 124835 CR10 conservan título recortados — CR1 solo exige la desaparición de seis títulos; (3) anclas de orden convertidas a búsqueda tolerante en vez de borradas; (4) un solape ≥6 palabras deliberado con la spec de git: el literal de ausencia conserva prefijo y sufijo para distinguir enunciar-como-regla de citar-como-retirada. Residuos nombrados: la lista de obligaciones que pasan a descansar solo en review (rama de integración, las siete del pack release, mitad positiva de divergencias, elegibilidad quick, clasificación de relaciones, mecánica de commits, test de granularidad, forma combinada, deber de porqué en handoff, ventana de sucio esperado, redacción individual de las 8 cláusulas de evidencia) — es el trade aceptado de la decisión §16.1.
+- **2026-07-30T10:28:19Z** `[note]` Mandato de review, registrado antes de delegar: auditoría del rango sobre la rama principal por revisor fresco top-tier. Puntos de escrutinio: (1) que ningún assert de presupuesto, estructura o barrido se haya perdido en el retiro — CR3 los enumera y el diff es grande (−622); (2) las 4 decisiones no especificadas; (3) la tolerancia real de los 18 guards (muestrear reformulaciones adversariales: ¿una reformulación que DEBILITA la obligación sigue verde? — eso es lo aceptado, confirmar que no hay caso peor: una que la elimina de facto y quede verde); (4) el barrido de 6 palabras y sus exclusiones (tablas); (5) la regla de AGENTS.md contra el CR5; (6) las notas de este Log al estándar del implementador.
+- **2026-07-30T10:28:19Z** `[status]` in-progress → in-review

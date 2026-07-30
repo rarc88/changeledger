@@ -86,10 +86,11 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
     assert.match(body, /\{\{integration\}\}/, `${role} missing integration`);
     // Ownership or question, per role (files, question, or the change under review).
     assert.match(body, /\{\{(files|question|change_id)\}\}/, `${role} missing ownership/question`);
-    // No re-delegation, and a stated return to the orchestrator.
+    // No re-delegation, and a stated return to the orchestrator. Tolerant since
+    // 20260730-002730: the obligation, not the skeleton's sentence.
     assert.match(
       body,
-      /Do not delegate any part of this to another agent/,
+      /\bdo not delegate\b[^.]{0,45}\b(another|other)\b[^.]{0,15}\b(agent|subagent|delegate)\b/i,
       `${role} allows re-delegation`,
     );
     assert.match(body, /Return to the orchestrator/, `${role} missing return contract`);
@@ -113,14 +114,18 @@ test('CR3: every skeleton materializes the full delegation contract', () => {
   }
 
   // Implementation bounds writes and reserves the ledger to the orchestrator.
+  // Tolerant concept matches since 20260730-002730: each obligation, never its sentence.
   const impl = prose('implementation');
-  assert.match(impl, /modify only the files under your ownership/i);
-  assert.match(impl, /do not revert or overwrite anyone else's work/i);
-  assert.match(impl, /report it instead of resolving it silently/i);
+  assert.match(
+    impl,
+    /\b(modify|edit|touch)\b[^.]{0,20}\bonly\b[^.]{0,30}\b(ownership|owned|assigned)\b/i,
+  );
+  assert.match(impl, /do not\b[^.]{0,20}\b(revert|overwrite)\b[^.]{0,35}\b(anyone|others?)\b/i);
+  assert.match(impl, /\breport\b[^.]{0,30}\binstead of\b[^.]{0,30}\b(resolving|fixing)\b/i);
   assert.match(impl, /Do not mutate the ledger/i);
   // 20260711-160446: a baseline that fails to resolve is a stop, not a
   // recovery-from-memory or another-base fallback.
-  assert.match(impl, /does not resolve the change.*stop and report instead of proceeding/i);
+  assert.match(impl, /\bdoes not\b[^.]{0,15}\bresolve\b[^.]{0,90}\bstop and report\b/i);
   assert.match(impl, /never reconstruct.*from memory.*never continue from another base/i);
 });
 
@@ -128,7 +133,7 @@ test('CR4: each role loads available context without inventing a change', () => 
   for (const role of ROLES) {
     assert.match(
       prose(role),
-      /For this delegated task, do not run the bootstrap's default `changeledger context`/i,
+      /\bdo not run\b[^.]{0,30}\bbootstrap\b[^.]{0,25}`changeledger context`/i,
       `${role} must explicitly replace the bootstrap default`,
     );
     assert.match(
@@ -148,8 +153,8 @@ test('CR4: each role loads available context without inventing a change', () => 
   assert.match(prose('review'), /checklist that agent-context gives you/i);
   // Investigation admits there may be no change id yet.
   const inv = prose('investigation');
-  assert.match(inv, /There may be no change yet: work without a change id/i);
-  assert.match(inv, /If the optional id below is empty, omit it/i);
+  assert.match(inv, /\bno change\b[^.]{0,25}\bwork\b[^.]{0,30}\bwithout a change id\b/i);
+  assert.match(inv, /\boptional id\b[^.]{0,25}\bempty\b[^.]{0,15}\bomit\b/i);
   // Post-review never issues a verdict — the review gate already ran.
   const postReview = prose('post-review');
   assert.match(postReview, /never issues a verdict|do not issue a verdict/i);
