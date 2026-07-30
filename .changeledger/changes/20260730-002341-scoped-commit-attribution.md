@@ -2,7 +2,7 @@
 id: "20260730-002341"
 title: La atribución de ids se acota a la declaración del commit
 type: bug
-status: approved
+status: in-review
 created: 2026-07-30T00:23:41Z
 depends_on: []
 related_to: ["20260728-151336"]
@@ -118,17 +118,25 @@ que consume el viewer no cambia; solo se estrecha qué commits entran.
 
 ## Plan
 
-- [ ] Acotar la atribución en `gitRefs`: filtro sobre los candidatos del grep que exige marcador al final del subject o línea canónica en cabeza del body
+- [x] Acotar la atribución en `gitRefs`: filtro sobre los candidatos del grep que exige marcador al final del subject o línea canónica en cabeza del body
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/git.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Relajar `commitMarkerViolation` a declaración-en-primera-línea con cola libre, fail-closed ante segunda declaración, retargeteando los tests de `225638 CR4` y `151336` cuya semántica cambia
+  - **Resolved:** `2026-07-30T10:02:45Z`
+- [x] Relajar `commitMarkerViolation` a declaración-en-primera-línea con cola libre, fail-closed ante segunda declaración, retargeteando los tests de `225638 CR4` y `151336` cuya semántica cambia
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-07-30T10:02:46Z`
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-07-30T10:02:46Z`
 
 ## Log
 - **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T09:48:29Z** `[status]` approved → in-progress
+- **2026-07-30T10:03:05Z** `[note]` Selección única resuelta. Evidencia: repros de baseline literales (commit none atribuido, prosa atribuye, línea extra rechazada), rojo-verde por CR, 5 mutantes de uno en uno — M3 (atribución leyendo el body entero) no tenía asesino y se añadió el test 002341 CR2 de marcador-en-cola-libre, ruta de escape que el documento no nombraba. Batería adversarial re-derivada: 38 rutas, 0 regresiones; la propiedad se mantiene con la declaración en cabeza. Cero retargets en check.test.mjs: inventariado que ningún test existente tenía declaración legal seguida de cola — diff 102 inserciones, 0 borrados; los seis tests nombrados en CR4 pasan byte-idénticos. pnpm test 1010/1010, check exit 0.
+- **2026-07-30T10:03:05Z** `[note]` Protocolo y residuos para el review: (1) el implementador usó git stash una vez para probar el caso NBSP — regla de restaurar-editando incumplida, round-trip limpio y auto-reportado. (2) NBSP antes de la etiqueta se acepta: preexistente, verificado contra baseline, sin tocar. (3) .changeledger/specs/git-traceability.md queda contradicha en dos puntos (body exactamente la declaración; gitRefs busca el mensaje entero) — se corrige en la graduación al cerrar. (4) commit.mjs no ofrece componer párrafo de porqué en --no-change, ahora gramática legal: follow-up, no implementado. Decisiones no especificadas: hasBodyLabel sigue leyendo el body entero (más fail-closed, M5 lo prueba portador); precedencia de mensajes byte-idéntica; regla de cola startsWith no includes.
+- **2026-07-30T10:03:05Z** `[note]` Mandato de review, registrado antes de delegar: auditoría del rango a190de7e..HEAD de la rama change/scoped-commit-attribution por revisor fresco top-tier. Puntos de escrutinio: las 3 decisiones no especificadas, el incidente del stash, la cobertura del caso NBSP como residuo preexistente, que la relajación no abra ninguna ruta de la batería (re-derivarla o muestrearla), y las notas de este Log al estándar del implementador.
+- **2026-07-30T10:03:06Z** `[status]` in-progress → in-review

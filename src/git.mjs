@@ -224,14 +224,28 @@ const MARKER_RE = /\[#[^\]\s]+\]$/;
 const ANY_MARKER_RE = /\[#[^\]\s]+\]/g;
 const MULTI_BODY_RE = /^ChangeLedger: (\[#[^\]\s]+\])( \[#[^\]\s]+\])+$/;
 
-// The operational-commit exemption: a body whose whole trimmed text is exactly
-// this declaration (house style: em dash, single space either side) exempts
-// the commit from the [#id] marker. Anchored on the full trimmed body — like
-// MULTI_BODY_RE — so the declaration must stand alone, never share the body
-// with other prose or a second declaration; those fall through to the
-// "malformed ChangeLedger body" catch below rather than silently matching.
+// The operational-commit exemption: a body whose declaration is exactly this
+// (house style: em dash, single space either side) exempts the commit from the
+// [#id] marker. Anchored on the declaration line — like MULTI_BODY_RE — so a
+// shape that only contains the declaration never matches; it falls through to
+// the "malformed ChangeLedger body" catch below rather than silently matching.
 const NONE_BARE_RE = /^ChangeLedger: none$/;
 const NONE_REASON_RE = /^ChangeLedger: none — (\S.*)$/;
+
+const DECLARATION_LABEL = 'ChangeLedger:';
+
+// What the body declares: its FIRST line, so the lines below are free text (the
+// why-paragraph Conventional Commits asks for, trailers like Co-Authored-By)
+// with no effect on the lint. One exception keeps the relaxation fail-closed: a
+// later line opening with the label is a second, conflicting declaration, so
+// the body declares nothing ('') and the caller reports it malformed. A
+// declaration buried under any other line is likewise not in head position and
+// so declares nothing.
+function bodyDeclaration(body) {
+  const [head = '', ...tail] = body.trim().split('\n');
+  const conflicting = tail.some((line) => line.trim().startsWith(DECLARATION_LABEL));
+  return conflicting ? '' : head.trim();
+}
 
 export function hasCommitMarker(subject) {
   return MARKER_RE.test(subject.trim());
@@ -239,15 +253,18 @@ export function hasCommitMarker(subject) {
 
 function commitMarkerViolation({ subject, body }) {
   const subjectMarkers = subject.match(ANY_MARKER_RE) ?? [];
-  const trimmedBody = body.trim();
-  const hasBodyLabel = trimmedBody.includes('ChangeLedger:');
-  const validMultiBody = MULTI_BODY_RE.test(trimmedBody);
+  const declaration = bodyDeclaration(body);
+  // Deliberately the whole body, not just the declaration: a label anywhere in
+  // a body that declares nothing valid stays malformed instead of being read as
+  // prose, so the free tail never becomes a route to the exemption.
+  const hasBodyLabel = body.includes(DECLARATION_LABEL);
+  const validMultiBody = MULTI_BODY_RE.test(declaration);
 
   // The declaration is checked before the marker-shape rules below: a bare or
   // reasoned `none` is a different grammar than the `[#id]` body label, and
   // must resolve on its own terms rather than be judged as a malformed marker.
-  if (NONE_BARE_RE.test(trimmedBody)) return 'ChangeLedger: none requires a reason';
-  if (NONE_REASON_RE.test(trimmedBody)) {
+  if (NONE_BARE_RE.test(declaration)) return 'ChangeLedger: none requires a reason';
+  if (NONE_REASON_RE.test(declaration)) {
     return subjectMarkers.length > 0
       ? 'ChangeLedger: none cannot coexist with an [#id] marker'
       : null;
@@ -279,22 +296,47 @@ export function lintCommitRange(repoRoot, range, run = defaultRun) {
   return violations;
 }
 
+// A commit is attributed to `id` by exactly two seats — the marker closing its
+// subject, and the canonical multi-id declaration heading its body. An `[#id]`
+// anywhere else is prose: a `ChangeLedger: none` reason may cite the change it
+// supersedes, and a note may cite related work, without either commit joining
+// that change's refs.
+function attributesTo({ subject, body }, id) {
+  const marker = `[#${id}]`;
+  if (subject.trim().match(MARKER_RE)?.[0] === marker) return true;
+  const declaration = bodyDeclaration(body);
+  return MULTI_BODY_RE.test(declaration) && declaration.includes(marker);
+}
+
 export function gitRefs(repoRoot, id, run = defaultRun) {
   const refs = { commits: [], branches: [] };
   if (!id) return refs;
 
   try {
+    // The grep only prefilters candidates: it matches the whole message, so
+    // attributesTo decides which of them the id actually belongs to.
     const out = run(
-      ['log', '--all', '-n', '100', '-F', `--grep=[#${id}]`, `--pretty=format:%H${SEP}%s${SEP}%cI`],
+      [
+        'log',
+        '--all',
+        '-n',
+        '100',
+        '-F',
+        `--grep=[#${id}]`,
+        `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`,
+      ],
       repoRoot,
     );
     refs.commits = out
-      .split('\n')
+      .split(RECORD_SEP)
+      .map((record) => record.trim())
       .filter(Boolean)
-      .map((line) => {
-        const [sha, subject, date] = line.split(SEP);
-        return { sha, subject, date };
-      });
+      .map((record) => {
+        const [sha, subject, date, body = ''] = record.split(SEP);
+        return { sha, subject, date, body };
+      })
+      .filter((commit) => attributesTo(commit, id))
+      .map(({ sha, subject, date }) => ({ sha, subject, date }));
   } catch {
     // not a git repo, or git unavailable — leave commits empty
   }

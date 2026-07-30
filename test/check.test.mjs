@@ -2514,6 +2514,108 @@ test('151336: the declaration appearing twice in the body is rejected', () => {
   assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
 });
 
+// --- the declaration is the first body line, the tail is free text
+//     (20260730-002341 CR3-CR4) ---
+
+test('002341 CR3: a multi-id declaration admits a why paragraph and a trailer below it', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+    '-m',
+    'Both changes needed the same edit, so one commit carries them.',
+    '-m',
+    'Co-Authored-By: Someone <someone@example.com>',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('002341 CR3: a ChangeLedger: none declaration admits a why paragraph below it', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'chore: tidy',
+    '-m',
+    'ChangeLedger: none — housekeeping, no change covers it',
+    '-m',
+    'Removed a stale fixture left behind by an earlier run.',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+// The free tail must not become the escape route the whole-body anchor used to
+// block: a declaration only counts in the head position, and a second one
+// anywhere below is a conflict, not prose — even when prose separates the two.
+test('002341 CR4: a multi-id declaration buried under another line is still malformed', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'Explanation paragraph unrelated to the declaration.',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('002341 CR4: a second declaration separated by prose is still malformed', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+    '-m',
+    'A why paragraph sitting between the two declarations.',
+    '-m',
+    'ChangeLedger: none — and now it claims no change covers it',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
 // --- check --commits base from config (20260711-210115 CR1) ---
 
 test('210115 CR1: configured git.integration_branch is the default lint base', () => {
