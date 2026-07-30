@@ -2,7 +2,7 @@
 id: "20260730-214503"
 title: Guards de obligación a evidencia de fragmento y semántica de confirmación
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-30T21:45:03Z
 depends_on: []
 related_to:
@@ -144,3 +144,7 @@ tabla de obligaciones.
 - **2026-07-30T22:02:46Z** `[note]` Selección única resuelta. Los tres mutantes de CR1 ejecutados con rojo literal — el de composición (handoff fuera de MODE_CONTEXT.review) murió por el test estructural 234939, no por las tablas, que es la evidencia que la palanca exigía. Paridad de conteo de matches para la frase de CR2: idéntica antes y después en los 13 patrones que leen review.md. El guard de CR2 se rediseñó durante su propio ciclo TDD (la cadena ordenada ingenua murió con un reword legítimo — cazado por el mutante antes de shippear). base.review 1048/2500.
 - **2026-07-30T22:03:19Z** `[status]` in-progress → in-review
 - **2026-07-30T22:03:19Z** `[note]` Mandato del review, declarado antes de delegar: la superficie que el change gobierna — las dos tablas de test/context.test.mjs y la frase nueva de review.md contra sus 2 CR. Escrutinio: que los comentarios reescritos no afirmen evidencia del régimen viejo como vigente, y la deformación de la regla de confirmación.
+- **2026-07-30T22:15:33Z** `[review]` in-review → in-progress (retry): D1: comentario promete co-traveller 'reported as data below' inexistente; D2: 'a confirmation pass fails' colisiona con 'pass' como veredicto en el mismo párrafo — regla de veredicto ambigua; D3: guard con fails? estrecho frente a fail\w* y orden faltante, interactúa con el fix de D2
+- **2026-07-30T22:21:54Z** `[status]` in-progress → in-review
+- **2026-07-30T22:21:54Z** `[note]` Mandato del review de confirmación, declarado antes de delegar: spot check del diff nombrado — la corrección sin commitear (frase reescrita a vocabulario review/round, guard ensanchado con la orden nueva, comentarios D1 y los 4 menores). Semántica de la confirmación: la de la propia frase corregida — falla solo el defecto nombrado no cerrado o regresión.
+- **2026-07-30T22:26:11Z** `[review]` in-review → in-validation (delegated subagent, clean context)

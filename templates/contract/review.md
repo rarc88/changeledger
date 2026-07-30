@@ -47,10 +47,9 @@ runs no configurable formatter, hook or external command as a mutation side effe
 
 A pass leaves `in-validation` for closure unless it confirms uncommitted
 correction; then correction, tests and ledger form a commit. Retry keeps the diff
-isolated. A confirmation pass fails only for the named defect left open or a
+isolated. A confirmation review fails only for the named defect left open or a
 regression the correction introduced; anything latent or adjacent it finds is
-reported as a follow-up for the orchestrator to judge, not grounds to fail the
-pass.
+reported as a follow-up for the orchestrator to judge, not grounds to fail it.
 
 After `fail --retry`, the correction remains uncommitted until another fresh
 reviewer passes it. After the transition, run `changeledger context <id>` before

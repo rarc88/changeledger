@@ -1370,8 +1370,9 @@ for (const [label, owner, obligation] of DRAFTING_OBLIGATIONS) {
 // composed half: the fragment's transport into its pack is already guarded by
 // `234939 structural remnant: pack composition and owned headings`, which fails
 // if a fragment is dropped from a pack in `MODE_CONTEXT`, so a row here no longer
-// needs to prove the transport itself. The mode column stays as documentation —
-// it names where each obligation is read, not what the row builds.
+// needs to prove the transport itself. The mode column stays: it still labels
+// the test title with where each obligation is read, but no longer selects a
+// pack for the loop to build and assert against.
 //
 // Tolerant concept matches over flattened text, never the sentence: each pattern
 // is one half of the obligation, so rewording is free and dropping a half fails
@@ -1435,12 +1436,15 @@ const DELEGATION_OBLIGATIONS = [
       /\bdefect\b[^.;]{0,90}\b(not|never)\b[^.;]{0,40}\bstyle\b|\bstyle\b[^.;]{0,40}\bdefect\b/i,
     ],
   ],
-  // 20260730-214503 CR2 — the first guard of the new regime this file's tables
-  // establish above: fragment-only by construction, since there is no seat other
-  // than `review.md` for the orchestrator to read this rule from before it
-  // delegates the confirmation pass. Co-traveller proof against `handoff.md` is
-  // therefore not required to show the transport is safe — that is CR1's point —
-  // but it is still run once below and its result reported as data.
+  // 20260730-214503 CR2 — the first guard of the new regime `DELEGATION_OBLIGATIONS`
+  // and `CLASSIFICATION_OBLIGATIONS` adopt above (`DRAFTING_OBLIGATIONS` directly
+  // above still asserts the composed spec capture and is untouched): fragment-only
+  // by construction, since there is no seat other than `review.md` for the
+  // orchestrator to read this rule from before it delegates the confirmation
+  // review. Co-traveller proof against `handoff.md` is therefore not required to
+  // show the transport is safe — that is CR1's point — but it was run once anyway:
+  // all four halves below are red against `handoff.md` alone, none of them
+  // borrowing a match from that fragment's unrelated prose.
   [
     'a confirmation review fails only for the named defect left open or a regression the correction introduced, with anything latent or adjacent reported as a follow-up for the orchestrator to judge',
     'review.md',
@@ -1450,14 +1454,18 @@ const DELEGATION_OBLIGATIONS = [
       // rather than one three-token chain: a reword mutant reordered defect and
       // regression ahead of "confirmation", which a strict confirm-fail-defect
       // chain does not survive. Anchoring both halves on "confirm" (never on
-      // "fails" alone) is deliberate — `fail --retry "<reason>"` — fixable
-      // defect inside the authorized contract" already pairs fail with defect a
+      // "fail" alone) is deliberate — `fail --retry "<reason>"` — fixable
+      // defect inside the authorized contract already pairs fail with defect a
       // few words apart, and a half that drops the confirm anchor would be
-      // satisfied by that unrelated bullet instead of this sentence.
-      /\bconfirm\w*\b[^.;]{0,100}\bfails?\b|\bfails?\b[^.;]{0,100}\bconfirm\w*\b/i,
+      // satisfied by that unrelated bullet instead of this sentence. `\bfail\w*\b`
+      // rather than `\bfails?\b` so "failure"/"failing" reword the verb freely.
+      /\bconfirm\w*\b[^.;]{0,100}\bfail\w*\b|\bfail\w*\b[^.;]{0,100}\bconfirm\w*\b/i,
       /\bconfirm\w*\b[^.;]{0,120}\b(defect|regression)\b|\b(defect|regression)\b[^.;]{0,120}\bconfirm\w*\b/i,
       /\b(latent|adjacent)\b[^.;]{0,60}\bfollow-?ups?\b|\bfollow-?ups?\b[^.;]{0,60}\b(latent|adjacent)\b/i,
-      /\bfollow-?ups?\b[^.;]{0,60}\borchestrator\b[^.;]{0,30}\bjudg\w*\b|\borchestrator\b[^.;]{0,60}\bjudg\w*\b[^.;]{0,60}\bfollow-?ups?\b/i,
+      // Both orders of the closing clause: the shipped sentence reads
+      // follow-up...orchestrator...judge, but "go to the orchestrator as
+      // follow-ups for it to judge" reverses it to orchestrator...follow-up...judge.
+      /\bfollow-?ups?\b[^.;]{0,60}\borchestrator\b[^.;]{0,30}\bjudg\w*\b|\borchestrator\b[^.;]{0,60}\bjudg\w*\b[^.;]{0,60}\bfollow-?ups?\b|\borchestrator\b[^.;]{0,60}\bfollow-?ups?\b[^.;]{0,30}\bjudg\w*\b/i,
     ],
   ],
 ];
@@ -1477,10 +1485,10 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
 // capture that must carry it to the role that executes it. That change retired
 // the composed half here too: the fragment's transport into its pack is already
 // guarded by `234939 structural remnant: pack composition and owned headings`,
-// and the composed half's real cost was exactly the co-traveller class the next
-// paragraph records — every new pattern having to be proved against every
-// fragment riding the same pack. Each row now asserts only the fragment that
-// owns the obligation.
+// and the composed half's real cost was exactly the co-traveller class recorded
+// below — every new pattern having to be proved against every fragment riding
+// the same pack. Each row now asserts only the fragment that owns the
+// obligation.
 //
 // A third table rather than rows in `DELEGATION_OBLIGATIONS`: two of these three
 // seats are status overlays, and `blocked` and `in-validation` compose per change
