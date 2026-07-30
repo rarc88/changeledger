@@ -2,7 +2,7 @@
 id: "20260722-124655"
 title: El fallo se clasifica por clase antes de corregirse
 type: feature
-status: draft
+status: approved
 created: 2026-07-22T12:46:55Z
 depends_on: []
 related_to:
@@ -179,3 +179,4 @@ clasificación: extensión con re-aprobación, el precedente exacto de `194220`.
 
 ## Log
 - **2026-07-30T20:15:55Z** `[note]` Reescritura total sobre investigación fresca por decisión de Roberto (2026-07-30): muere el contador — congelaba el caso legítimo de 194234 — y entra la clasificación por clase con las cuatro decisiones registradas en el Request. El contenido anterior queda en la historia de git de este fichero.
+- **2026-07-30T20:45:37Z** `[status]` draft → approved (human via conversation)
