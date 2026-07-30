@@ -1913,6 +1913,44 @@ persistente; el rango histórico de `src/task.mjs` queda binario para siempre
 (el blob de b7aa3032 lleva el NUL); residuo CR6: una clase ofuscada `[[]` evade
 identidad y barrido — lo posee el review, nombrado en el propio test.
 
+## 16. Decisiones de Roberto — 2026-07-29 (noche, tras CH-1)
+
+> Autoridad, no historial — misma regla que §10.
+
+1. **Los guards de obligación a nivel de frase se retiran para TODOS los `.md`**
+   (hoy solo existen sobre `templates/contract/`; specs, docs y README no tienen
+   tests). Supersede parcialmente el veredicto de §13.1 ("guards por grep se
+   quedan"). Se quedan: presupuestos, composición estructural (fragmentos,
+   sentinelas) y una **docena curada de guards a nivel de concepto** con regex
+   tolerante a redacción — cazan la pérdida de una regla portadora, no su
+   reescritura. Cazar reformulaciones debilitantes pasa al review del change que
+   toque la prosa. Motivo: coste medido por edición (S2 de CH-1 ~142k mayormente
+   guards; doctrina re-pinneó 430→440 asserts). Nota: la validación de
+   invocaciones CLI en specs que propone CH-8 es un test nuevo sobre `.md` —
+   Roberto decide su suerte cuando llegue ese draft.
+2. **Los ids pueden citarse dentro de las razones** `ChangeLedger: none — …`.
+   CH-16 queda decidido: acotar la atribución de `gitRefs` al subject y a la
+   línea canónica `ChangeLedger:` del body; un id en texto libre es prosa y no
+   atribuye. (Cierra el hueco 1 sin prohibición.)
+3. **Techo de las cápsulas `agent-prompt`: 1250 tokens**, la misma cifra de
+   cápsulas/overlays/bloques de §10. Hoy ningún test las mide (hallazgo del
+   2026-07-28); el change añade las entradas y su aplicación.
+4. **El refactor del pack de autoría es change propio y adoptado**: la condición
+   de salida del andamio de §10 se consumió dos veces sin ejecutarse (la
+   doctrina cerró sin bajarlo; CH-2 gastó el espacio; CH-1 quedó 3445/3450).
+   Autorizado documentarlo. Va tras la reducción de guards — reescribir
+   `spec.md` bajo el régimen de 440 asserts pagaría el máximo de la ceremonia
+   que la decisión 1 retira — y antes de CH-19/CH-5a, para que los drafts
+   nuevos se diseñen con el pack bueno.
+5. **CH-5a reducido incluye la regla de prosa**: la obligación de
+   cuantificadores de CH-2 extendida a toda prosa entregable (comentarios de
+   test, notas de Log) como obligación del contrato de evidencia, pass/fail
+   para el revisor.
+
+**Carriles vigentes**: WT-A (checkout principal): reducción de guards → refactor
+del pack → CH-19 → CH-5a. WT-B (`../spec-ledger-wtb`): techo 1250 → CH-16.
+Después, en solitario: barrido de verdad persistente. Cola final sin cambios.
+
 ### Método que sostuvo el día (para replicar, no re-derivar)
 
 Investigación fresca contra HEAD antes de todo draft (falsificó hechos del acta
