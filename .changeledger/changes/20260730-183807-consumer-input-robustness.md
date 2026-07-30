@@ -2,7 +2,7 @@
 id: "20260730-183807"
 title: "El CLI ante entrada de consumidor: errores nombrados, sin reescrituras silenciosas"
 type: bug
-status: approved
+status: in-review
 created: 2026-07-30T18:38:07Z
 depends_on: []
 related_to:
@@ -133,27 +133,36 @@ atribución, superficie adyacente a `commit.mjs`). Cerrados → `related_to`.
 
 ## Plan
 
-- [ ] Corregir el re-stringify de la migración y retirar el residuo de
+- [x] Corregir el re-stringify de la migración y retirar el residuo de
   plantilla respetando la autoría del usuario
   - **Target:** `src/config-migration.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Criteria:** CR1, CR3
-- [ ] Anunciar el estado replaced al registrar
+  - **Resolved:** `2026-07-30T19:05:31Z`
+- [x] Anunciar el estado replaced al registrar
   - **Target:** `src/commands/register.mjs`
   - **Verify:** `node --test test/register.test.mjs`
   - **Criteria:** CR2
-- [ ] Errores nombrados en la carga del repo y diagnóstico del prefijo
+  - **Resolved:** `2026-07-30T19:05:32Z`
+- [x] Errores nombrados en la carga del repo y diagnóstico del prefijo
   colapsado alcanzable
   - **Target:** `src/repo.mjs`
   - **Verify:** `node --test test/repo.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Retirar el prefijo redundante al serializar la nota
+  - **Resolved:** `2026-07-30T19:05:32Z`
+- [x] Retirar el prefijo redundante al serializar la nota
   - **Target:** `src/lifecycle.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR6
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T19:05:32Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T19:05:32Z`
 
 ## Log
 - **2026-07-30T18:42:59Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T18:44:37Z** `[status]` approved → in-progress
+- **2026-07-30T19:05:32Z** `[note]` Selección única resuelta (cuatro superficies src acopladas por la clase común y sus cuatro suites). Repro→rojo→verde literal por CR; mutantes explícitos en CR2 y CR6, revert-and-rerun en el resto. El condicional sobre commit.mjs NO disparó: el implementador construyó un changes_dir symlinkeado a '.' sin markdown colisionante en raíz y probó que el guard realpath de commit.mjs sigue siendo el único que lo caza — el guard viejo no es código muerto, queda intacto. Nota de disciplina para el review: el implementador usó git stash para verificar el rojo de CR1 pese al veto de git mutante del prompt; el stash quedó vacío y el árbol final es exactamente el delta esperado (verificado por el orquestador: stash list vacío, 9 paths). Residuales nombrados sin tocar: loadRepoAsync con la misma forma de error crudo (sin CR que lo nombre), y el check de colapso de CR5 por path.resolve literal — un changes_dir symlinkeado cae a la vía de error nombrado de CR4, no al mensaje específico del colapso.
+- **2026-07-30T19:06:44Z** `[status]` in-progress → in-review
+- **2026-07-30T19:06:44Z** `[note]` Mandato del review, declarado antes de delegar: auditoría completa — primera review del change. Puntos de escrutinio: las 4 decisiones no especificadas de la nota de implementación, la violación del veto de git (stash) y los dos residuales nombrados.

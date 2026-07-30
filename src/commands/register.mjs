@@ -39,6 +39,10 @@ export function registerRepo(cwd = process.cwd(), output = console) {
         output.warn(
           `warn  ${name}: ChangeLedger bootstrap was outdated; updated to the current version`,
         );
+      } else if (status === 'replaced') {
+        output.warn(
+          `warn  ${name}: ChangeLedger bootstrap content had drifted from the reference; replaced (status: ${status})`,
+        );
       }
     }
   }

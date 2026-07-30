@@ -60,6 +60,105 @@ test('225637 CR2: schema 2 preserves an existing git section and custom comments
   assert.equal(buildMigration(result.yaml), null);
 });
 
+// 20260730-183807 CR1 — a null-valued scalar earlier in the document (a blank
+// `git.integration_branch:`) must not shift the indentation of an unrelated,
+// untouched comment elsewhere in the migrated output.
+const SCHEMA_3_WITH_FOREIGN_COMMENT = `\
+schema_version: 3
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+
+# Valid lifecycle statuses (order = progress)
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('183807 CR1: an empty integration_branch does not re-indent an unrelated comment', () => {
+  const result = buildMigration(SCHEMA_3_WITH_FOREIGN_COMMENT);
+  assert.ok(result);
+  const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
+  assert.equal(line, '# Valid lifecycle statuses (order = progress)');
+});
+
+test('183807 CR1: a non-empty integration_branch keeps the same comment untouched', () => {
+  const withBranch = SCHEMA_3_WITH_FOREIGN_COMMENT.replace(
+    'integration_branch:\n',
+    'integration_branch: main\n',
+  );
+  const result = buildMigration(withBranch);
+  assert.ok(result);
+  const line = result.yaml.split('\n').find((l) => l.includes('Valid lifecycle'));
+  assert.equal(line, '# Valid lifecycle statuses (order = progress)');
+});
+
+// 20260730-183807 CR3 — the migration must retire the old template's
+// commented-out `# readiness:` block (pre-da84722c) when it still matches the
+// template's own text verbatim, and leave it alone when the user edited it.
+const SCHEMA_3_WITH_STALE_READINESS_COMMENT = `\
+schema_version: 3
+language: en
+tdd: true
+release:
+  impacts:
+    feature: minor
+    bug: patch
+    audit: none
+    refactor: none
+    chore: none
+    quick: patch
+
+# Optional Definition of Ready path/command hints. When present, tasks that
+# reference CRs should name at least one target and one verification matching
+# these patterns. Patterns can be path globs or literal command snippets.
+# readiness:
+#   target_patterns: ["src/**"]
+#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]
+
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch:
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  feature:
+    stages: [request, investigation, proposal, specification, plan, log]
+    review_required: true
+project_id: "abc123"
+project_name: myrepo
+`;
+
+test('183807 CR3: migration removes a verbatim stale commented readiness block from the old template', () => {
+  const result = buildMigration(SCHEMA_3_WITH_STALE_READINESS_COMMENT);
+  assert.ok(result);
+  assert.doesNotMatch(result.yaml, /# readiness:/);
+  assert.doesNotMatch(result.yaml, /# Optional Definition of Ready/);
+  // The live block published by addReadinessSection is the only one left.
+  assert.match(result.yaml, /^readiness:$/m);
+  assert.ok(result.changes.includes('removed stale commented-out readiness block'));
+});
+
+test('183807 CR3: a user-edited commented readiness block is preserved intact', () => {
+  const edited = SCHEMA_3_WITH_STALE_READINESS_COMMENT.replace(
+    '#   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]',
+    '#   verification_patterns: ["test/**", "pnpm run test"]',
+  );
+  const result = buildMigration(edited);
+  assert.ok(result);
+  assert.match(result.yaml, /# {3}verification_patterns: \["test\/\*\*", "pnpm run test"\]/);
+  assert.ok(!result.changes.includes('removed stale commented-out readiness block'));
+});
+
 function tmp() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');

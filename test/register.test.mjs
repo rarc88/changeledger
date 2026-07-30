@@ -188,6 +188,27 @@ test('153633 CR2: register preserves the Prettier fixture in every contract file
   }
 });
 
+// 20260730-183807 CR2 — `replaceDelimited` computes `replaced` when the block
+// is already at BOOTSTRAP_VERSION but its content diverges from REFERENCE;
+// `ensureReference` rewrites the file for that state exactly like `updated`,
+// so `register` must warn there too — naming the file and the state — not
+// just for `updated`.
+test('183807 CR2: register warns when a same-version bootstrap block is replaced for drifted content', () => {
+  const before = '# Project\n\nprose.\n';
+  const driftedBlock = `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION} -->\n> [!IMPORTANT]\n> This text is not the reference at all.\n<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
+  const dir = initializedRepo(`${before}\n${driftedBlock}`);
+
+  const warnings = [];
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+
+  assert.ok(agents.includes(REFERENCE.trim()), 'file must be rewritten with the current reference');
+  assert.ok(
+    warnings.some((msg) => msg.includes('AGENTS.md') && msg.includes('replaced')),
+    `expected a warning naming the file and the "replaced" state, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
 test('150300 CR3: register repairs semantic changes and preserves surrounding bytes', () => {
   const before = '# Project\n\nprose before.\n';
   const after = '\nprose after.\n';

@@ -149,7 +149,15 @@ export function serializeLogEvent(event) {
   } else if (type === 'archive') {
     payload = 'archived';
   } else if (type === 'note') {
-    payload = event.message;
+    // The rendered line already prepends the literal `` `[note]` `` tag
+    // (below); a caller-supplied message that repeats it verbatim at the very
+    // start (`changeledger log <id> "[note] msg"`) would otherwise duplicate
+    // it in the output. Strip exactly that one leading occurrence — an
+    // interior `[note]` is ordinary message text and stays untouched.
+    const NOTE_PREFIX = '[note] ';
+    payload = event.message?.startsWith(NOTE_PREFIX)
+      ? event.message.slice(NOTE_PREFIX.length)
+      : event.message;
   }
 
   const line = `- **${at}** \`[${type}]\` ${payload ?? ''}`;
