@@ -2,7 +2,7 @@
 id: "20260728-194157"
 title: Las guardas del contrato barren todo subfragmento
 type: feature
-status: approved
+status: in-review
 created: 2026-07-28T19:41:57Z
 depends_on: []
 related_to: ["20260728-170429", "20260726-124837", "20260727-194234", "20260729-203257", "20260730-002730", "20260729-143656"]
@@ -151,17 +151,20 @@ legal desde el matching por campo.
 
 ## Plan
 
-- [ ] Extraer el helper compartido de enumeración recursiva y hacer que las seis guardas exhaustivo-negativas, las cinco copias recursivas y `contractText()` lo usen, conservando la semántica de `contractFragment` y de los inventarios de `143656 CR4`
+- [x] Extraer el helper compartido de enumeración recursiva y hacer que las seis guardas exhaustivo-negativas, las cinco copias recursivas y `contractText()` lo usen, conservando la semántica de `contractFragment` y de los inventarios de `143656 CR4`
   - **Target:** `test/context.test.mjs`, `test/cli.test.mjs`
   - **Verify:** `node --test test/context.test.mjs test/cli.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Comprobar el nulo en `bootstrapHeadCut` y fallar nombrando la ausencia del corte
+  - **Resolved:** `2026-07-30T12:42:30Z`
+- [x] Comprobar el nulo en `bootstrapHeadCut` y fallar nombrando la ausencia del corte
   - **Target:** `test/context.test.mjs`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR4
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-07-30T12:42:30Z`
+- [x] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
+  - **Resolved:** `2026-07-30T12:42:30Z`
 
 ## Log
 
@@ -169,3 +172,8 @@ legal desde el matching por campo.
 - **2026-07-28T19:43:53Z** `[note]` BLOQUEADO POR EL HALLAZGO 41, en su forma mas pura. Todo el entregable de este change vive en test/context.test.mjs, pero test/** es patron de verificacion y no de target, asi que NINGUNA de sus tareas pasa readiness: 4 warnings en draft que serian errores en approved. Y no hay tarea de src/ ni templates/ con la que fusionarlas, que es el apano que usaron 194233 y 124837, porque el change es puramente endurecimiento de guardas. Las tres salidas conocidas son todas malas: meter test/** en target_patterns vuelve vacio el requisito de target para todo el repo porque check busca ambas listas sobre el mismo texto de la tarea; marcar todo (support) es el bypass que convierte errores en warnings y desactiva la trazabilidad; y bajar el tipo a chore deja cero diagnosticos. El arreglo estructural es la gramatica del Plan por tags, que separa el campo de target del de verificacion. Este change espera a ese, y su existencia es el mejor argumento para priorizarlo: demuestra que un change cuyo entregable es enteramente una guarda de test no tiene forma legal de documentarse con criterios.
 - **2026-07-30T12:21:36Z** `[note]` Draft reescrito contra HEAD del 2026-07-30 sobre investigación fresca delegada, tras dos reescrituras del fichero objetivo (retiro de pins y refactor del pack) y la gramática de tags. Cambios de fondo: el bloqueador del hallazgo 41 está resuelto y verificado (Target: en las tareas da check valid); el alcance crece a test/cli.test.mjs (contractText alimenta sus tres barridos y también es no-recursivo, exploit reproducido en ambas suites); la duplicación empeoró a 8 sedes de enumeración sin helper (las 5 recursivas se pegaron después del draft original); los referentes de CR3 se actualizaron (el inventario de digests ya no existe — lo borró el retiro de pins; la búsqueda por nombre es contractFragment, sin escaneo). Tareas en la gramática nueva con Target/Verify/Criteria.
 - **2026-07-30T12:27:23Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T12:27:44Z** `[status]` approved → in-progress
+- **2026-07-30T12:42:30Z** `[note]` Selección única resuelta. Sede única test/contract-support.mjs (contractFragmentNames, raíz resuelta desde su propia URL de módulo — una guarda que tomara la raíz del código bajo test podría ser redirigida por él); las 12 llamadas readdirSync sobre el contrato en las dos suites reducidas a 1 (grep verificado); TDD por guarda: verde-con-inyección a HEAD → rojo-nombrando-al-infractor tras el fix, las seis, con pre-flight que probó que ningún subfragmento portaba ya un literal vigilado; mutante de copia local delatado por contraste (inyección invisible para el mutante, visible para la guarda arreglada) y segundo mutante sobre la sede misma (sin recursive: 3 tests rojos en árbol limpio, incluidos los inventarios de 143656 que ahora doblan como test de alcance de la sede). CR4 rojo literal (TypeError de null hoy) → verde con mensaje nombrado. Suites 1014/1014, check 0 errores y solo los 10 warnings de 124655, lint limpio. Cifra corregida: eran 9 sedes de guarda entre ambas suites (12 readdirSync brutos), no 8 — el conteo del draft era solo de context.test.mjs.
+- **2026-07-30T12:42:30Z** `[note]` Precisión sobre la cláusula And de CR2, misma doctrina que la And de CR1 en 203257: dice que la copia local plantada 'su test de inyección la delata en rojo', y la polaridad observada es la contraria — bajo el mutante su inyección queda VERDE (no ve nada) y es el contraste con la guarda arreglada lo que delata. El mecanismo cumple la intención (la reintroducción se caza); el criterio aprobado no se enmienda y queda como punto de escrutinio del review. Residuo nombrado: 124837 CR8 sigue afirmando sobre el texto unido, así que nombra la redacción encontrada pero no el fragmento portador — asimetría con las otras cinco, fuera del mandato de enumeración.
+- **2026-07-30T12:42:30Z** `[note]` Mandato de review, registrado antes de delegar: revisor fresco top-tier sobre el rango cerrado. Escrutinio: (1) re-derivar al menos dos inyecciones por su cuenta (una por suite, subfragmento distinto al usado); (2) los dos mutantes (copia local y sede sin recursive); (3) las 5 decisiones no especificadas — en particular la raíz desde la URL del módulo y el cambio de forma de los barridos cli a fragmentsCarrying (¿estrictamente más fuerte?); (4) la precisión de la And de CR2 — ¿aceptable o blanqueo?; (5) CR3: inventarios de 143656 byte-idénticos en sus igualdades; (6) mis notas del Log al estándar del implementador.
+- **2026-07-30T12:42:30Z** `[status]` in-progress → in-review

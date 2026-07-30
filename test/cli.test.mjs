@@ -17,6 +17,7 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
+import { contractFragmentNames } from './contract-support.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -36,13 +37,26 @@ function tmp() {
   return root;
 }
 
+// The whole installed contract, at every depth. The sweeps below assert that a
+// retired rule appears NOWHERE in it, and the `agent-contexts/` and
+// `agent-prompts/` fragments are installed and shipped exactly like the top-level
+// ones, so concatenating only the top level gave those sweeps eight seats they
+// never read. The enumeration is the shared one, so no ninth guard is born blind.
 function contractText() {
-  return fs
-    .readdirSync(contractTemplatesDir)
-    .filter((name) => name.endsWith('.md'))
-    .sort()
+  return contractFragmentNames()
     .map((name) => fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8'))
     .join('\n');
+}
+
+// The fragments that carry a retired rule, by name. An exhaustive-negative sweep
+// has to name the seat the rule came back in, and `doesNotMatch` over the
+// concatenation cannot: it reprints a truncated dump of the whole contract, which
+// locates nothing. Per fragment is also the exact claim — no fragment carries it —
+// where a match across the join of two fragments would be an artefact.
+function fragmentsCarrying(pattern) {
+  return contractFragmentNames().filter((name) =>
+    pattern.test(fs.readFileSync(path.join(contractTemplatesDir, name), 'utf8')),
+  );
 }
 
 // --- 20260728-151336 CR4 fixtures: commit()'s --no-change declaration ---
@@ -247,7 +261,11 @@ test('235628 CR3/CR8: init seeds portable release impacts and contract boundary'
   assert.match(cfg, /^ {4}bug: patch$/m);
   assert.match(contract, /changeledger release plan \[--json\]/);
   // 20260730-002730 retired the portability sentence pin; the naming sweep stays.
-  assert.doesNotMatch(contract, /Spec\s+Ledger/i);
+  assert.deepEqual(
+    fragmentsCarrying(/Spec\s+Ledger/i),
+    [],
+    'a contract fragment carries the retired product name',
+  );
 });
 
 // 20260730-002730 retired the sentence pin of `020229 CR4`. The two configuration
@@ -286,9 +304,16 @@ test('221849: installed CLI reference names actors and dedicated terminal action
 // sweeps stay: the installed contract must not regrow the fixed per-change count or the
 // inseparable-Plan-tasks excuse, and that is the class the decision preserves.
 test('214902 CR5/CR6: the installed contract regrows no retired commit rule', () => {
-  const contract = contractText();
-  assert.doesNotMatch(contract, /\*\*Implementation\*\*: exactly one/);
-  assert.doesNotMatch(contract, /several Plan tasks are inseparable/);
+  for (const retired of [
+    /\*\*Implementation\*\*: exactly one/,
+    /several Plan tasks are inseparable/,
+  ]) {
+    assert.deepEqual(
+      fragmentsCarrying(retired),
+      [],
+      `a contract fragment regrew the retired ${retired}`,
+    );
+  }
 });
 
 test('171002 CR1-CR5: installed contract gives done one human-accepted meaning', () => {

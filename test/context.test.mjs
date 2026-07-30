@@ -22,6 +22,7 @@ import {
   TOKENIZER_PACKAGE,
   tokenCount,
 } from './budget-support.mjs';
+import { contractFragmentNames } from './contract-support.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
@@ -1148,14 +1149,11 @@ test('203257 CR7: the spec pack teaches the four task children and no positional
     normalized,
     /`target_patterns`[^.]{0,60}`Target`[^.]{0,60}`verification_patterns`[^.]{0,40}`Verify`/,
   );
-  // Recursive: the `agent-contexts/` and `agent-prompts/` capsules ship to
-  // consuming repos exactly like the top-level fragments, so a top-level-only
-  // sweep would leave the retired phrases a seat to survive in.
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const fragments = fs
-    .readdirSync(contractDir, { recursive: true })
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => name.split(path.sep).join('/'));
+  // The shared enumeration reaches every depth: the `agent-contexts/` and
+  // `agent-prompts/` capsules ship to consuming repos exactly like the top-level
+  // fragments, so a top-level-only sweep would leave the retired phrases a seat
+  // to survive in.
+  const fragments = contractFragmentNames();
   // The sweep's own reach is asserted, not assumed.
   for (const seat of ['spec.md', 'readiness.md', 'agent-contexts/implementation.md']) {
     assert.ok(fragments.includes(seat), `the sweep does not reach ${seat}`);
@@ -1281,10 +1279,9 @@ test('194234 CR1/CR2/CR3: each overlay drops the retired copy', () => {
 // sentence. The four retired copies stay: that sweep is what proves they did not
 // grow back anywhere in the fragment tree.
 test('194234 CR4: the retired commit-unit copies are absent from every fragment', () => {
-  const fragments = fs
-    .readdirSync(contractFragments)
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => [name, fs.readFileSync(new URL(name, contractFragments), 'utf8')]);
+  // Every fragment means every depth: the capsule subdirectories carried the copies
+  // as readily as the top level, and this sweep was blind to them.
+  const fragments = contractFragmentNames().map((name) => [name, contractFragment(name)]);
   for (const copy of RETIRED_COPIES) {
     const holders = fragments.filter(([, text]) => text.includes(copy)).map(([name]) => name);
     assert.deepEqual(holders, [], `retired copy still present: ${copy}`);
@@ -1866,8 +1863,9 @@ test('124837 CR1: the attribution judgment is gone from the whole contract', () 
       `the ${mode ?? 'core'} pack still carries the attribution judgment`,
     );
   }
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  for (const file of fs.readdirSync(contractDir).filter((name) => name.endsWith('.md'))) {
+  // The whole contract, at every depth: the judgment could sit in a capsule
+  // subfragment and this loop would never have opened the file.
+  for (const file of contractFragmentNames()) {
     assert.ok(
       !contractFragment(file).replace(/\s+/g, ' ').includes(judgment),
       `${file} still carries the attribution judgment`,
@@ -1910,10 +1908,28 @@ test('124837 CR3: implement carries no commit unit or message mechanics', () => 
 // is parsed out of the published `REFERENCE` block rather than copied as a
 // second literal, so the two can never diverge without this assertion's feet
 // moving under it.
-function bootstrapHeadCut() {
-  const [, cut] = REFERENCE.match(/head -(\d+)/);
-  return Number(cut);
+function bootstrapHeadCut(reference = REFERENCE) {
+  const declared = reference.match(/head -(\d+)/);
+  assert.ok(
+    declared,
+    'the published bootstrap declares no `head -<n>` cut for the core ceiling to equal',
+  );
+  return Number(declared[1]);
 }
+
+// A bootstrap that stopped declaring its cut is a real failure of this criterion —
+// the ceiling would have nothing to equal — and it has to be reported as that. The
+// parse destructures the match, so a REFERENCE without `head -<n>` destructured
+// `null` and threw a TypeError about destructuring: a stack trace that names the
+// expression and never the fact, which is the one thing a reader needs here.
+test('194157 CR4: a bootstrap that declares no head cut is named, not destructured', () => {
+  const withoutCut = REFERENCE.replace(/head -\d+/g, 'head');
+  assert.doesNotMatch(withoutCut, /head -\d/, 'the stripped reference still declares a cut');
+  assert.throws(() => bootstrapHeadCut(withoutCut), {
+    name: 'AssertionError',
+    message: /the published bootstrap declares no `head -<n>` cut/,
+  });
+});
 
 test('124837 CR7 / 212043 CR2: the core pack line ceiling equals the bootstrap cut', () => {
   const core = buildContext(undefined, repo());
@@ -1961,10 +1977,9 @@ test('20260728-212043 CR5: core density exceeds the derivation floor, so tokens 
 // themselves stay swept: this is the class the decision keeps, and it is what proves the
 // obligations really left rather than being duplicated.
 test('124837 CR8: the wordings that left implement.md are gone from every fragment', () => {
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const whole = fs
-    .readdirSync(contractDir)
-    .filter((name) => name.endsWith('.md'))
+  // Every fragment, capsule subdirectories included: an obligation rehomed into a
+  // capsule instead of really leaving is exactly what this must catch.
+  const whole = contractFragmentNames()
     .map((name) => contractFragment(name))
     .join('\n')
     .replace(/\s+/g, ' ');
@@ -2043,14 +2058,10 @@ test('170429 CR2: the tokenizer is a devDependency pinned to an exact version', 
   );
   // No contract fragment gains the unit's declaration: a consuming repo inherits
   // the line ceiling its `head` needs, never a token ceiling only our tests apply.
-  // Recursive: the versioned `agent-contexts/` and `agent-prompts/` fragments
-  // compose into agent capsules and ship to consuming repos exactly like the
-  // top-level ones, so a top-level-only scan would leave them unchecked.
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const declaring = fs
-    .readdirSync(contractDir, { recursive: true })
-    .filter((name) => name.endsWith('.md'))
-    .filter((name) => /token/i.test(contractFragment(name)));
+  // The shared enumeration covers the versioned `agent-contexts/` and
+  // `agent-prompts/` fragments too: they compose into agent capsules and ship to
+  // consuming repos exactly like the top-level ones.
+  const declaring = contractFragmentNames().filter((name) => /token/i.test(contractFragment(name)));
   assert.deepEqual(declaring, [], 'a contract fragment declares the token unit');
 });
 
@@ -2315,13 +2326,9 @@ const RETIRED_COMMIT_COUNT_LITERALS = [
 ];
 
 test('111349 CR1/CR2/CR3/CR5: no fragment fixes the number of implementation commits', () => {
-  // Recursive: the `agent-contexts/` and `agent-prompts/` fragments ship to consuming
-  // repos exactly like the top-level ones, so a top-level-only sweep proves less.
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const fragments = fs
-    .readdirSync(contractDir, { recursive: true })
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => name.split(path.sep).join('/'));
+  // The shared enumeration reaches the `agent-contexts/` and `agent-prompts/`
+  // fragments, which ship to consuming repos exactly like the top-level ones.
+  const fragments = contractFragmentNames();
   assert.ok(fragments.length > 1, 'the fragment sweep found nothing to check');
   for (const retired of RETIRED_COMMIT_COUNT_LITERALS) {
     const holders = fragments.filter((name) =>
@@ -2378,11 +2385,7 @@ test('111349 CR6: the graduated spec regrows no superseded commit formulation', 
 // `agent-contexts/` and `agent-prompts/` capsules included, so reintroducing the single
 // commit anywhere fails.
 test('111349 CR7: no fragment demands one implementation commit per change', () => {
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const fragments = fs
-    .readdirSync(contractDir, { recursive: true })
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => name.split(path.sep).join('/'));
+  const fragments = contractFragmentNames();
   // The sweep's own reach is asserted, not assumed: a guard that silently stopped
   // covering the seat the defect lived in would pass while proving nothing.
   assert.ok(fragments.length > 1, 'the fragment sweep found nothing to check');
@@ -2414,11 +2417,7 @@ test('111349 CR7: no fragment demands one implementation commit per change', () 
 // swept `composedCore()`, so `implement.md` (not composed into core) was never
 // checked; and no test pinned the file list, so a new fragment passed silently.
 test('143656 CR4: retired phrases stay retired recursively and the fragment inventory is pinned', () => {
-  const contractDir = new URL('../templates/contract/', import.meta.url);
-  const fragments = fs
-    .readdirSync(contractDir, { recursive: true })
-    .filter((name) => name.endsWith('.md'))
-    .map((name) => name.split(path.sep).join('/'));
+  const fragments = contractFragmentNames();
   const retired = 'reconstruct mixed diffs';
   const holders = fragments.filter((name) =>
     contractFragment(name).replace(/\s+/g, ' ').includes(retired),
@@ -2426,11 +2425,13 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   assert.deepEqual(holders, [], `a contract fragment still carries the retired "${retired}"`);
 
   // The exact top-level inventory, read from today's tree: a new fragment must
-  // widen this list, not slip past it.
-  const topLevel = fs
-    .readdirSync(contractDir)
-    .filter((name) => name.endsWith('.md'))
-    .sort();
+  // widen this list, not slip past it. Derived from the same shared enumeration as
+  // the sweep above, so these pinned lists are also that enumeration's reach test:
+  // a helper that stopped seeing a directory fails here with the names it lost.
+  const groupOf = (name) => (name.includes('/') ? name.slice(0, name.indexOf('/') + 1) : '');
+  const inventory = (group) =>
+    fragments.filter((name) => groupOf(name) === group).map((name) => name.slice(group.length));
+  const topLevel = inventory('');
   assert.deepEqual(topLevel, [
     'blocked.md',
     'close.md',
@@ -2447,20 +2448,14 @@ test('143656 CR4: retired phrases stay retired recursively and the fragment inve
   ]);
 
   // Same guard for the two composed capsule subdirectories.
-  const agentContexts = fs
-    .readdirSync(new URL('agent-contexts/', contractDir))
-    .filter((name) => name.endsWith('.md'))
-    .sort();
+  const agentContexts = inventory('agent-contexts/');
   assert.deepEqual(agentContexts, [
     'implementation.md',
     'investigation.md',
     'post-review.md',
     'review.md',
   ]);
-  const agentPrompts = fs
-    .readdirSync(new URL('agent-prompts/', contractDir))
-    .filter((name) => name.endsWith('.md'))
-    .sort();
+  const agentPrompts = inventory('agent-prompts/');
   assert.deepEqual(agentPrompts, [
     'implementation.md',
     'investigation.md',
