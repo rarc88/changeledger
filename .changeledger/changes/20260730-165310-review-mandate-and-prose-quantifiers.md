@@ -2,7 +2,7 @@
 id: "20260730-165310"
 title: Mandato de review declarado y cuantificadores en prosa entregable
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-30T16:53:10Z
 depends_on: []
 related_to:
@@ -217,3 +217,5 @@ límite → mismo tratamiento.
 - **2026-07-30T17:27:29Z** `[note]` Selección única resuelta (las 3 tareas comparten review.md y context.test.mjs). Rojo-verde literal por CR; 8 mutantes de uno en uno más 3 de la corrección pre-review. Defecto cazado por el paso de auto-falsación del orquestador antes del in-review: el comentario del bloque DELEGATION_OBLIGATIONS afirmaba 'Every half is written in both directions' con el patrón 4 de CR2 unidireccional; corregido por el implementador vivo ensanchando el patrón (nunca debilitando la frase), con mutante de reword verde y delete rojo. Presupuestos medidos tras el cierre: cápsula review 448/1250 tokens, base.review 977/2500, base.implement 2343/2500. Cifras de la Investigation corregidas por el delegado: base.review era 866 (no 860) y base.implement 2294 (no 2288) en el baseline.
 - **2026-07-30T17:27:39Z** `[note]` Mandato del review, declarado antes de delegar (estrena la obligación de este change): auditoría completa — primera review del change, sin review previa que acote. Puntos de escrutinio que recibirá el revisor: las 8 decisiones no especificadas que reportó el implementador (la sustantiva: la frase de inspección acotada vive en la cápsula Y en review.md, dos audiencias) y la corrección pre-review del orquestador descrita en la nota anterior.
 - **2026-07-30T17:29:04Z** `[status]` in-progress → in-review
+- **2026-07-30T17:43:47Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T17:43:47Z** `[note]` Review PASS con mandato de auditoría completa. Corrección a la nota de implementación (F3 del revisor): la razón 'las 3 tareas comparten review.md y context.test.mjs' era inexacta — la tarea 1 (cápsula + agent-prompt.test.mjs) no comparte esos ficheros; la selección única se sostiene por el acoplamiento de las tareas 2-3 y el techo de coordinación, no por ese solape. Hallazgos no bloqueantes del review, con sede: F1 (medium, follow-up) agent-contexts/review.md sigue mandando checklist de auditoría completa incondicional — el ahorro 62k/106k del mandato no se realiza hasta tocar esa sede, fuera del alcance autorizado de este change; F2 (low) la frase de inspección acotada de la cápsula no tiene guard propio (drift seam del arreglo de dos sedes); F4 (informational) las cifras 860/2288 del cuerpo de la Investigation quedan como estaban — la corrección vive en la nota de implementación y el documento es autoconsistente.
