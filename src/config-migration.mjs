@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseDocument } from 'yaml';
+import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
 import { templatesDir } from './paths.mjs';
@@ -81,10 +81,64 @@ export function buildMigration(originalText) {
   if (current < 3) migrateToV3(doc, config, changes);
   if (current < 4) migrateToV4(doc, changes);
 
+  relocateNullValueComments(doc);
+
   // No line wrapping and no flow padding: keeps untouched flow sequences
   // (statuses, stages) byte-identical to their common written form.
   const yaml = doc.toString({ lineWidth: 0, flowCollectionPadding: false });
   return { yaml, changes, fromVersion: current };
+}
+
+// A blank scalar (e.g. `integration_branch:` with nothing after the colon)
+// leaves the parser no explicit end token to anchor from, so a comment that
+// the source wrote before the *next* sibling key gets attached as a trailing
+// `.comment` on that null scalar instead of `commentBefore` on the sibling.
+// `doc.toString()` then renders it at the null scalar's own (deeper) nesting
+// indent rather than the column the source actually used — the re-indent
+// defect this corrects. Reassign it to `commentBefore` on whatever node
+// follows, climbing through enclosing collections when the null scalar is the
+// last item of its own map/seq; with no sibling anywhere above, it is
+// genuinely the document's own trailing comment. Proven correct only for that
+// shape (the one templates/config.yml actually ships, where `git` holds
+// exactly one key): the sibling found while climbing can land at an
+// intermediate nesting level rather than the source's own column when the
+// null scalar is not the last item of its enclosing map. That wider case is a
+// known, unresolved gap.
+function relocateNullValueComments(doc) {
+  function relocate(scalarNode, chain) {
+    for (let level = chain.length - 1; level >= 0; level--) {
+      const { items, i } = chain[level];
+      if (i + 1 < items.length) {
+        const nextItem = items[i + 1];
+        const target = isPair(nextItem) ? nextItem.key : nextItem;
+        if (target && typeof target === 'object') {
+          target.commentBefore = target.commentBefore
+            ? `${scalarNode.comment}\n${target.commentBefore}`
+            : scalarNode.comment;
+          scalarNode.comment = null;
+          return;
+        }
+      }
+    }
+    doc.comment = doc.comment ? `${doc.comment}\n${scalarNode.comment}` : scalarNode.comment;
+    scalarNode.comment = null;
+  }
+
+  function walk(node, ancestors) {
+    if (!isMap(node) && !isSeq(node)) return;
+    const items = node.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const value = isPair(item) ? item.value : item;
+      const chain = [...ancestors, { items, i }];
+      if (isScalar(value) && value.value === null && value.comment) {
+        relocate(value, chain);
+      }
+      walk(value, chain);
+    }
+  }
+
+  walk(doc.contents, []);
 }
 
 // 0 → 1: structural additions and managed-comment refresh.
@@ -181,6 +235,7 @@ function migrateToV3(doc, config, changes) {
 // leave exactly the defect this migration exists to fix.
 function migrateToV4(doc, changes) {
   addReadinessSection(doc, changes);
+  removeStaleReadinessComment(doc, changes);
   activateReviewableStages(doc, changes);
 }
 
@@ -196,6 +251,34 @@ function addReadinessSection(doc, changes) {
   pair.key.spaceBefore = true;
   doc.contents.items.push(pair);
   changes.push('added readiness section');
+}
+
+// The one historical form of the commented-out `# readiness:` hint the
+// template shipped before da84722c published a live section (20260726-141122).
+// It never existed in any other wording — a single frozen constant, exactly
+// like the legacy AGENTS.md hashes in contract.mjs. Comparison is a verbatim
+// match on `commentBefore` (the parser's normalized comment text, sans leading
+// `#`): a repo that edited so much as a character owns that divergence, and
+// the migration must never guess which part of it is still "the same" block.
+const OLD_READINESS_COMMENT =
+  ' Optional Definition of Ready path/command hints. When present, tasks that\n' +
+  ' reference CRs should name at least one target and one verification matching\n' +
+  ' these patterns. Patterns can be path globs or literal command snippets.\n' +
+  ' readiness:\n' +
+  '   target_patterns: ["src/**"]\n' +
+  '   verification_patterns: ["test/**", "**/*.test.*", "**/*.spec.*", "pnpm test"]\n';
+
+// Publishing the live section (above) leaves the old template's commented
+// block sitting next to it verbatim — dead prose nobody asked to keep. Retire
+// it, but only the exact text the template itself shipped; any user edit is a
+// divergence and stays untouched, byte for byte.
+function removeStaleReadinessComment(doc, changes) {
+  for (const pair of doc.contents.items) {
+    if (pair.key?.commentBefore !== OLD_READINESS_COMMENT) continue;
+    pair.key.commentBefore = undefined;
+    changes.push('removed stale commented-out readiness block');
+    return;
+  }
 }
 
 // The shipped template is the single source of truth for the published

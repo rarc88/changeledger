@@ -1,8 +1,8 @@
 ---
 title: Discovery del contrato
-updated: 2026-07-30T12:09:19Z
+updated: 2026-07-30T19:52:15Z
 tags: [ contract ]
-graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015", "20260730-002908"]
+graduated_from: ["20260614-151759", "20260616-162027", "20260626-174204", "20260627-103625", "20260627-205033", "20260629-155349", "20260629-165838", "20260629-210543", "20260629-234939", "20260630-225213", "20260701-213931", "20260701-230608", "20260703-150229", "20260704-144327", "20260710-102907", "20260711-103759", "20260711-103803", "20260714-150300", "20260714-153633", "20260715-124113", "20260720-212659", "20260726-141121", "20260726-124833", "20260726-130727", "20260727-110603", "20260726-124834", "20260726-130728", "20260726-124835", "20260727-194233", "20260728-170429", "20260728-195445", "20260728-212043", "20260729-143656", "20260729-162015", "20260730-002908", "20260730-183807"]
 ---
 
 ## Discovery del contrato
@@ -266,7 +266,11 @@ existe, reemplaza solo el interior cuando encuentra BEGIN/END (idempotente,
 contenido externo byte a byte intacto), migra el marcador legacy
 `<!-- changeledger -->` con su blockquote contiguo al formato delimitado y,
 cuando la versión del marcador es anterior a la vigente, actualiza el bloque
-informando de la desactualización. Si la versión es vigente, el contenido
+informando de la desactualización. **Toda escritura sobre el fichero del
+consumidor se anuncia**: cada estado que reescribe (`updated`, `replaced`,
+`inserted`, `migrated`) emite un aviso que nombra el fichero y el estado, y
+solo los estados que no escriben (`unchanged`, `equivalent`) quedan en
+silencio. Si la versión es vigente, el contenido
 administrado se compara mediante una proyección del árbol Markdown producido
 por `marked`: debe existir un único `blockquote`, se ignoran sólo el padding
 exterior y los campos de representación, y los saltos blandos de texto se

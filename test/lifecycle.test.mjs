@@ -241,6 +241,45 @@ test('125007 CR7: typed log text payloads round-trip without delimiter parsing',
   }
 });
 
+// 20260730-183807 CR6 — `changeledger log <id> "[note] msg"` must not
+// duplicate the `[note]` tag the renderer already prepends.
+
+test('183807 CR6: a message already prefixed with "[note] " is not duplicated', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: '[note] this is a manual note',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` this is a manual note');
+});
+
+test('183807 CR6: a doubled "[note] [note] " prefix strips exactly one occurrence', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: '[note] [note] x',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` [note] x');
+});
+
+test('183807 CR6: a message without the prefix is kept verbatim', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: 'this is a manual note',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` this is a manual note');
+});
+
+test('183807 CR6: an interior "[note]" is ordinary text and is preserved', () => {
+  const line = serializeLogEvent({
+    at: '2026-07-30T18:00:00Z',
+    type: 'note',
+    message: 'saw a [note] in the middle',
+  });
+  assert.equal(line, '- **2026-07-30T18:00:00Z** `[note]` saw a [note] in the middle');
+});
+
 // 20260722-124656 CR3 — the readiness refusal lives on the write path in
 // `src/commands/agent.mjs`, never in the graph. Removing this edge would "fix"
 // an unready candidate by making every candidate unreachable, so pin it here.

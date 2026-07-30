@@ -36,6 +36,29 @@ export function resolveChange(start, id) {
   );
 }
 
+// Reads and parses one change document, naming the offending path on any
+// failure instead of letting a raw fs or parse error surface unattributed. A
+// consumer repo can hand `changes_dir` a directory whose name happens to look
+// like a document (raw `EISDIR`) or a symlink to a file with no frontmatter
+// block (a message with no path at all) — both must name the file and the
+// cause so the operator knows which entry to fix.
+function readChangeFile(file) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    if (e.code === 'EISDIR') {
+      throw new Error(`${file}: expected a change document but found a directory`);
+    }
+    throw new Error(`${file}: cannot read change document (${e.message})`);
+  }
+  try {
+    return { file, text, ...parseChange(text) };
+  } catch (e) {
+    throw new Error(`${file}: ${e.message}`);
+  }
+}
+
 // Loads a ChangeLedger repo: locates .changeledger/, reads config and every change file.
 // Shared by `changeledger view` and `changeledger check`.
 export function loadRepo(start = process.cwd()) {
@@ -56,13 +79,24 @@ export function loadRepo(start = process.cwd()) {
 export function loadRepoWithConfig(repoRoot, changeledgerDir, config) {
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
+  // A `changes_dir` that resolves to the repo root collapses every other file
+  // in the repo (AGENTS.md, README, whatever else lives there) into "looks
+  // like a change document" — the parser then dies on the first ordinary
+  // markdown file with a raw, path-less error. Name the collapse itself as
+  // the cause before any of that parsing is attempted, consistent with the
+  // commit guard's own diagnosis of the same collapse (162616 CR9).
+  if (path.resolve(changesDir) === path.resolve(repoRoot)) {
+    throw new Error(
+      `changes_dir "${config.changes_dir}" resolves to the repo root; the commit guard cannot judge staged paths — configure changes_dir to a subdirectory`,
+    );
+  }
+
   const changes = [];
   if (fs.existsSync(changesDir)) {
     for (const name of fs.readdirSync(changesDir).sort()) {
       if (!name.endsWith('.md')) continue;
       const file = path.join(changesDir, name);
-      const text = fs.readFileSync(file, 'utf8');
-      changes.push({ file, name, text, ...parseChange(text) });
+      changes.push({ name, ...readChangeFile(file) });
     }
   }
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
