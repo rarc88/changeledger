@@ -2,7 +2,7 @@
 id: "20260730-002730"
 title: Los guards de frase se retiran de todos los .md
 type: refactor
-status: draft
+status: approved
 created: 2026-07-30T00:27:30Z
 depends_on: []
 related_to: ["20260729-143656", "20260729-162015"]
@@ -165,3 +165,4 @@ autorizado aparte) para que este documento sea aprobable.
   - **Support:** cierre operativo
 
 ## Log
+- **2026-07-30T09:46:33Z** `[status]` draft → approved (human via conversation)
