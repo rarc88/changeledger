@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-07-30T00:23:41Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260728-151336"]
 owner: raruiz-hiberuscom
@@ -149,3 +150,4 @@ que consume el viewer no cambia; solo se estrecha qué commits entran.
 - **2026-07-30T10:28:33Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T11:00:03Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T11:00:48Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-30T11:01:08Z** `[archive]` archived
