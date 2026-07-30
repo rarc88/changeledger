@@ -99,13 +99,21 @@ siguen descubriendo ChangeLedger mediante `AGENTS.md`, ejecutan primero
 
 ## Plan
 
-- [x] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Reestructurar las declaraciones Commander y el help raíz en `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-01T22:30:06Z`
-- [x] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos; verify: `node --test test/cli-bin.test.mjs test/view.test.mjs` (CR4)
+- [x] Hacer explícita la gramática de `view` en `bin/changeledger.mjs`/`src/commands/view.mjs` y rechazar argumentos desconocidos
+  - **Verify:** `node --test test/cli-bin.test.mjs test/view.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-01T22:30:06Z`
-- [x] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Añadir en `test/cli-bin.test.mjs` una matriz que cubra las declaraciones de `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-01T22:30:06Z`
-- [x] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`; verify: `pnpm test` (CR1, CR2, CR3, CR4, CR5, CR6)
+- [x] Alinear `templates/contract/**` y `README.md` con la interfaz de `bin/changeledger.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6
   - **Resolved:** `2026-07-01T22:30:10Z`
 
 ## Log

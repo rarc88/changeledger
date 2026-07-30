@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo } from '../src/repo.mjs';
 
@@ -121,4 +123,94 @@ test('175731 CR2: an internal intermediate symlink is accepted for a non-existen
   fs.symlinkSync(real, path.join(root, '.changeledger', 'link'));
   const resolved = resolveRepoPath(root, '.changeledger/link/newdir', 'changes_dir');
   assert.equal(resolved, path.join(root, '.changeledger', 'link', 'newdir'));
+});
+
+// 20260730-183807 CR4 — loadRepo must never let a raw fs or parse error reach
+// the caller unattributed when a consumer repo's changes_dir contains a
+// directory that merely looks like a document, or a symlink to a file with no
+// frontmatter block.
+
+test('183807 CR4: a directory named like a change document gets a named error, never raw EISDIR', () => {
+  const root = fixture();
+  const changes = path.join(root, '.changeledger', 'changes');
+  const offender = path.join(changes, '0002-looks-like-a-doc.md');
+  fs.mkdirSync(offender);
+
+  assert.throws(
+    () => loadRepo(root),
+    (e) =>
+      e.message === `${offender}: expected a change document but found a directory` &&
+      e.code !== 'EISDIR',
+  );
+});
+
+test('183807 CR4: a symlink to a file without frontmatter gets a named error with its path', () => {
+  const root = fixture();
+  const changes = path.join(root, '.changeledger', 'changes');
+  const target = path.join(root, 'no-frontmatter-target.md');
+  fs.writeFileSync(target, 'no frontmatter here, just prose\n');
+  const offender = path.join(changes, '0002-symlink.md');
+  fs.symlinkSync(target, offender);
+
+  assert.throws(
+    () => loadRepo(root),
+    (e) => e.message === `${offender}: Change is missing its frontmatter block`,
+  );
+});
+
+// 20260730-183807 CR5 — a `changes_dir` that collapses to the repo root must
+// be diagnosed as the collapse itself, not left to die on the first ordinary
+// markdown file (e.g. AGENTS.md) with the raw frontmatter error. The message
+// stays consistent with the commit guard's own diagnosis of the same collapse
+// (162616 CR9), since loadRepo is the first thing `commit` calls.
+
+test('183807 CR5: a collapsed changes_dir aborts naming the collapse, not the frontmatter error', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-collapsed-'));
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: "."\n');
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+
+  assert.throws(
+    () => loadRepo(root),
+    /changes_dir "\." resolves to the repo root; the commit guard cannot judge staged paths/,
+  );
+});
+
+const GIT_ENV = { ...process.env };
+for (const key of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+]) {
+  delete GIT_ENV[key];
+}
+function git(root, args) {
+  return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' });
+}
+
+test('183807 CR5: the realistic `commit` route reaches the collapse message, not the frontmatter one', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-collapsed-commit-'));
+  git(root, ['init', '-q']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(root, '.changeledger'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'changes_dir: "."\n');
+  // An ordinary consumer markdown file — before CR5 this is exactly what
+  // `loadRepo` tried to parse as a change document and died on, raw.
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  fs.writeFileSync(path.join(root, 'leftover.tmp'), 'not declared anywhere');
+  git(root, ['add', '-A']);
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, () => {}),
+    (e) =>
+      e.message ===
+        'changes_dir "." resolves to the repo root; the commit guard cannot judge staged paths — configure changes_dir to a subdirectory' &&
+      !e.message.includes('frontmatter'),
+  );
 });

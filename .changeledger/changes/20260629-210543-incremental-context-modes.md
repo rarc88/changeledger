@@ -75,11 +75,17 @@ siendo determinista y stateless, y la precondición continúa en el bootstrap.
 
 ## Plan
 
-- [x] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Ajustar la composición en `src/commands/context.mjs` y escribir primero las regresiones en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-29T21:14:05Z`
-- [x] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Actualizar `templates/contract/core.md` y sus aserciones en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-29T21:14:05Z`
-- [x] Ejecutar la puerta completa del repositorio; verify: `pnpm verify` (support)
+- [x] Ejecutar la puerta completa del repositorio
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-06-29T21:14:31Z`
 
 ## Log

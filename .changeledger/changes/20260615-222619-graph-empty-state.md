@@ -42,13 +42,17 @@ graph está aislado en `src/viewer/public/view-renderers.js`.
 
 ## Plan
 
-- [x] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN` (CR1)
+- [x] Añadir test unitario de `graphSvg([])` para estado vacío y ausencia de `Infinity`/`NaN`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T22:45:09Z`
-- [x] Añadir o preservar test con cambios visibles para no romper nodos/edges (CR2)
+- [x] Añadir o preservar test con cambios visibles para no romper nodos/edges
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-15T22:45:09Z`
-- [x] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros (CR1, CR2)
+- [x] Cambiar `graphSvg()` para devolver un estado vacío antes de calcular capas o usar mínimos seguros
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T22:45:09Z`
-- [x] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check` (CR1, CR2)
+- [x] Ejecutar `pnpm test -- test/viewer-metadata.test.mjs test/viewer-sanitize.test.mjs` y `pnpm check`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T22:45:20Z`
 
 ## Log

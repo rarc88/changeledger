@@ -3,7 +3,7 @@
 
 # Schema version — used to detect and migrate outdated configurations.
 # Run `changeledger config migrate --dry-run` to inspect available migrations.
-schema_version: 3
+schema_version: 4
 # Language for generated documentation CONTENT. Structure (headings, keys, enums)
 # is always English. See `changeledger context spec`.
 language: es
@@ -33,6 +33,9 @@ readiness:
     - "templates/**"
     - ".changeledger/config.yml"
     - ".changeledger/specs/**"
+    - "AGENTS.md"
+    - "hooks/**"
+    - "test/**"
   verification_patterns:
     - "test/**"
     - "**/*.test.*"
@@ -65,7 +68,7 @@ types:
   audit:
     stages: [request, investigation, log]
   refactor:
-    stages: [request, proposal, plan, log]
+    stages: [request, proposal, specification, plan, log]
     review_required: true
   chore:
     stages: [request, plan]

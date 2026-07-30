@@ -56,11 +56,14 @@ mermaid es declarativo en texto, mejor para documentación versionada.
 
 ## Plan
 
-- [x] Vendorizar mermaid en el visor (CR1)
+- [x] Vendorizar mermaid en el visor
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T15:33:00Z`
-- [x] Renderizar bloques `mermaid` tras `marked` (CR1)
+- [x] Renderizar bloques `mermaid` tras `marked`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T15:34:00Z`
-- [x] Regla de diagramas en `AGENTS.md` (CR2)
+- [x] Regla de diagramas en `AGENTS.md`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-13T15:34:30Z`
 
 ## Log

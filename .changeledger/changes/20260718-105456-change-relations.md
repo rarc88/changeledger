@@ -195,25 +195,43 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir primero tests de validación y extender `src/check.mjs` para `related_to`; verify: `node --test test/check.test.mjs` (CR1, CR2, CR3)
+- [x] Escribir primero tests de validación y extender `src/check.mjs` para `related_to`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-18T12:38:14Z`
-- [x] Escribir primero tests de contexto y extender `src/commands/context.mjs` para relaciones salientes y backlinks locales; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Escribir primero tests de contexto y extender `src/commands/context.mjs` para relaciones salientes y backlinks locales
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-18T12:39:09Z`
-- [x] Escribir primero tests del modelo y del componente expandible común, y extender `src/viewer/domain.mjs` y `src/viewer/public/view-parts.js`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (CR5, CR6, CR7)
+- [x] Escribir primero tests del modelo y del componente expandible común, y extender `src/viewer/domain.mjs` y `src/viewer/public/view-parts.js`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Criteria:** CR5, CR6, CR7
   - **Resolved:** `2026-07-18T12:41:34Z`
-- [x] Escribir primero tests del grafo y extender `src/viewer/public/view-renderers.js` y sus estilos; verify: `node --test test/viewer-metadata.test.mjs` (CR5)
+- [x] Escribir primero tests del grafo y extender `src/viewer/public/view-renderers.js` y sus estilos
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-18T12:41:34Z`
-- [x] Escribir primero tests del scaffold y actualizar `src/commands/new.mjs` y `templates/contract/spec.md`; verify: `node --test test/cli-bin.test.mjs test/context.test.mjs` (CR8)
+- [x] Escribir primero tests del scaffold y actualizar `src/commands/new.mjs` y `templates/contract/spec.md`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/context.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-18T12:44:26Z`
-- [x] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Ejecutar el gate completo `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-18T12:45:11Z`
-- [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral; verify: `node --test test/context.test.mjs` (CR8)
+- [x] Escribir primero un test del contexto de autoría y exigir en `templates/contract/spec.md` la clasificación de resultados de búsqueda y la declaración unilateral
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-20T10:11:59Z`
-- [x] Escribir primero tests del warning y extender `src/check.mjs` para detectar IDs locales activos sin vínculo, con exclusiones y backlinks; verify: `node --test test/check.test.mjs` (CR9)
+- [x] Escribir primero tests del warning y extender `src/check.mjs` para detectar IDs locales activos sin vínculo, con exclusiones y backlinks
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR9
   - **Resolved:** `2026-07-20T20:29:17Z`
-- [x] Generalizar el test y `templates/contract/spec.md` para clasificar todo change descubierto independientemente de la fuente; verify: `node --test test/context.test.mjs` (CR8)
+- [x] Generalizar el test y `templates/contract/spec.md` para clasificar todo change descubierto independientemente de la fuente
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-20T20:30:11Z`
-- [x] Ejecutar el gate completo `pnpm verify` sobre la corrección integrada (support)
+- [x] Ejecutar el gate completo `pnpm verify` sobre la corrección integrada
+  - **Support:**
   - **Resolved:** `2026-07-20T20:31:24Z`
 
 ## Log

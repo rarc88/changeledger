@@ -50,15 +50,20 @@ versiones exactas o empaquetar assets en un paso minimo.
 
 ## Plan
 
-- [x] Agregar tests HTTP en `test/view.test.mjs` para las rutas vendor criticas de `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR1)
+- [x] Agregar tests HTTP en `test/view.test.mjs` para las rutas vendor criticas de `src/viewer/server/router.mjs`, verificando con `pnpm test`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-18T10:08:49Z`
-- [x] Agregar test de 404 allowlist en `test/view.test.mjs` para `/vendor/unknown.js` contra `src/viewer/server/router.mjs`, verificando con `pnpm test` (CR2)
+- [x] Agregar test de 404 allowlist en `test/view.test.mjs` para `/vendor/unknown.js` contra `src/viewer/server/router.mjs`, verificando con `pnpm test`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-18T10:08:49Z`
-- [x] Actualizar `.github/workflows/ci.yml` o un helper de smoke que pruebe vendor de `src/viewer/server/router.mjs` desde el tarball instalado, verificando con `pnpm test` y `node bin/sl.mjs check` (CR3)
+- [x] Actualizar `.github/workflows/ci.yml` o un helper de smoke que pruebe vendor de `src/viewer/server/router.mjs` desde el tarball instalado, verificando con `pnpm test` y `node bin/sl.mjs check`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-18T10:08:49Z`
-- [x] Decidir en `package.json` si las dependencias runtime servidas por `src/viewer/server/router.mjs` deben quedar fijadas exactas, verificando con `pnpm verify` (support)
+- [x] Decidir en `package.json` si las dependencias runtime servidas por `src/viewer/server/router.mjs` deben quedar fijadas exactas, verificando con `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-06-18T10:08:49Z`
-- [x] Ejecutar `pnpm verify` como cierre (support)
+- [x] Ejecutar `pnpm verify` como cierre
+  - **Support:**
   - **Resolved:** `2026-06-18T10:08:49Z`
 
 ## Log

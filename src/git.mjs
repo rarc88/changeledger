@@ -21,8 +21,11 @@ const GIT_LOCATION_ENV_VARS = [
   'GIT_CEILING_DIRECTORIES',
 ];
 
+// Git localizes its diagnostics, but `mutatingRun` hands that stderr to an agent
+// that classifies failures by message. Pin the locale so the text a caller reads
+// never depends on the host's language.
 function sanitizedEnv() {
-  const env = { ...process.env };
+  const env = { ...process.env, LC_ALL: 'C' };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
   return env;
 }
@@ -59,6 +62,102 @@ export function mutatingRun(args, cwd) {
   }
 }
 
+// git's default `diff --name-only` output is a *presentation* surface: the
+// surrounding repo's configuration changes its format, so parsing it unpinned
+// makes every config axis a hole in `commit()`'s guard. Two review rounds found
+// three such holes. Every flag below pins one axis, and `-c` beats both repo
+// and user config:
+//
+// - `core.quotePath=false` + `-z`: by default git wraps a path in double quotes
+//   and octal/C-escapes it as soon as it holds a non-ASCII byte, a quote or a
+//   control character (`".changeledger/changes/…-a\303\261adir.md"`). `-z` is
+//   the stronger of the two — it emits raw, NUL-terminated bytes and never
+//   quotes — but `core.quotePath=false` is kept so any future non-`-z` read of
+//   this argv is not silently re-escaped.
+// - `--no-renames`: change documents are ~98% boilerplate, so a staged deletion
+//   of one paired with a staged addition of another is detected as a rename and
+//   collapsed to only the destination path, hiding the deletion of a foreign
+//   document. Disabled, the delete and the add are two visible entries.
+// - `--no-relative`: `diff.relative=true` (a repo config or a user alias) makes
+//   paths relative to the cwd instead of the top-level. `commit()` additionally
+//   invokes this with the top-level *as* the cwd, so the two coordinate systems
+//   coincide even if this flag were ever dropped.
+// - `--ignore-submodules=none`: `diff.ignoreSubmodules=all` would otherwise
+//   hide a staged gitlink entry from the listing.
+//
+// Returns the raw entries (relative to git's own top-level directory — see
+// `gitTopLevel`), never trimmed: leading/trailing whitespace and newlines are
+// legal in a filename and trimming them would corrupt the path the caller has
+// to judge. Splitting on NUL, not newline, is what makes that safe.
+const STAGED_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '--cached',
+  '-z',
+  '--no-renames',
+  '--no-relative',
+  '--ignore-submodules=none',
+  '--name-only',
+];
+
+// Minimum git that understands `--no-relative` (git 2.28, 2020). Older git
+// rejects the pinned invocation; `stagedFiles` then fails loudly with this
+// floor rather than falling back to an unpinned read whose format the repo
+// could steer.
+const GIT_FLOOR = '2.28';
+
+// An old git names the option it does not know, and `sanitizedEnv` pins LC_ALL=C
+// so that text is stable. Anything else — a corrupt or locked index, a missing
+// repo, a killed process — is a different failure and must be reported as
+// itself: attributing it to the version floor sent the reader looking for a git
+// upgrade that would not fix anything.
+const UNKNOWN_NO_RELATIVE_RE = /unknown option[^\n]*no-relative/i;
+
+export function stagedFiles(cwd, run = defaultRun) {
+  let out;
+  try {
+    out = run(STAGED_ARGS, cwd);
+  } catch (e) {
+    // Both branches fail closed; only the attribution differs.
+    const message = UNKNOWN_NO_RELATIVE_RE.test(e.message)
+      ? `Cannot read the staged index; git >= ${GIT_FLOOR} is required for --no-relative: ${e.message}`
+      : `Cannot read the staged index: ${e.message}`;
+    throw new Error(message, { cause: e });
+  }
+  return out.split('\0').filter((entry) => entry !== '');
+}
+
+// Git's own repository root, via `git rev-parse --show-toplevel`. This is the
+// coordinate system `stagedFiles`' paths are relative to, regardless of `cwd`
+// — which differs from a ChangeLedger repo's `repoRoot` (dirname of
+// `.changeledger/`, see src/repo.mjs) whenever the ledger lives below the git
+// root. `commit()`'s guard must resolve staged paths against this, not
+// `repoRoot`, or it silently never matches anything.
+export function gitTopLevel(cwd, run = defaultRun) {
+  return run(['rev-parse', '--show-toplevel'], cwd).trim();
+}
+
+// Git-native path from `topLevel` to `cwd`. Pin both repository coordinates so
+// discovery from `cwd` cannot select a nested Git repository whose index is not
+// the one stagedFiles reads. `--absolute-git-dir` also supports linked
+// worktrees, where `${topLevel}/.git` is a file rather than the repository
+// directory. Unlike a native filesystem relative path, `--show-prefix` stays
+// in the same coordinate system as index entries on Windows.
+//
+// Remove only Git's record terminator: whitespace and newlines are otherwise
+// legal path bytes and must remain untouched.
+export function gitPrefix(cwd, topLevel, run = defaultRun) {
+  const gitDir = run(['rev-parse', '--absolute-git-dir'], topLevel).trim();
+  const out = run(
+    [`--git-dir=${gitDir}`, `--work-tree=${topLevel}`, 'rev-parse', '--show-prefix'],
+    cwd,
+  );
+  if (out.endsWith('\r\n')) return out.slice(0, -2);
+  if (out.endsWith('\n')) return out.slice(0, -1);
+  return out;
+}
+
 // Local git identity (`git config user.name`), or '' if unavailable. Tolerant.
 export function gitUser(cwd, run = defaultRun) {
   try {
@@ -68,7 +167,12 @@ export function gitUser(cwd, run = defaultRun) {
   }
 }
 
-function defaultGhRun(args) {
+// Kill-switch: with CHANGELEDGER_NO_GH set, returns '' before any subprocess
+// runs, so a hermetic suite can never reach api.github.com through this
+// default runner regardless of what a given test injects. Injected runners
+// (e.g. `githubLogin(spy)`) are unaffected — the switch lives only here.
+export function defaultGhRun(args) {
+  if (process.env.CHANGELEDGER_NO_GH) return '';
   return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
@@ -140,15 +244,51 @@ const MARKER_RE = /\[#[^\]\s]+\]$/;
 const ANY_MARKER_RE = /\[#[^\]\s]+\]/g;
 const MULTI_BODY_RE = /^ChangeLedger: (\[#[^\]\s]+\])( \[#[^\]\s]+\])+$/;
 
+// The operational-commit exemption: a body whose declaration is exactly this
+// (house style: em dash, single space either side) exempts the commit from the
+// [#id] marker. Anchored on the declaration line — like MULTI_BODY_RE — so a
+// shape that only contains the declaration never matches; it falls through to
+// the "malformed ChangeLedger body" catch below rather than silently matching.
+const NONE_BARE_RE = /^ChangeLedger: none$/;
+const NONE_REASON_RE = /^ChangeLedger: none — (\S.*)$/;
+
+const DECLARATION_LABEL = 'ChangeLedger:';
+
+// What the body declares: its FIRST line, so the lines below are free text (the
+// why-paragraph Conventional Commits asks for, trailers like Co-Authored-By)
+// with no effect on the lint. One exception keeps the relaxation fail-closed: a
+// later line opening with the label is a second, conflicting declaration, so
+// the body declares nothing ('') and the caller reports it malformed. A
+// declaration buried under any other line is likewise not in head position and
+// so declares nothing.
+function bodyDeclaration(body) {
+  const [head = '', ...tail] = body.trim().split('\n');
+  const conflicting = tail.some((line) => line.trim().startsWith(DECLARATION_LABEL));
+  return conflicting ? '' : head.trim();
+}
+
 export function hasCommitMarker(subject) {
   return MARKER_RE.test(subject.trim());
 }
 
 function commitMarkerViolation({ subject, body }) {
   const subjectMarkers = subject.match(ANY_MARKER_RE) ?? [];
-  const trimmedBody = body.trim();
-  const hasBodyLabel = trimmedBody.includes('ChangeLedger:');
-  const validMultiBody = MULTI_BODY_RE.test(trimmedBody);
+  const declaration = bodyDeclaration(body);
+  // Deliberately the whole body, not just the declaration: a label anywhere in
+  // a body that declares nothing valid stays malformed instead of being read as
+  // prose, so the free tail never becomes a route to the exemption.
+  const hasBodyLabel = body.includes(DECLARATION_LABEL);
+  const validMultiBody = MULTI_BODY_RE.test(declaration);
+
+  // The declaration is checked before the marker-shape rules below: a bare or
+  // reasoned `none` is a different grammar than the `[#id]` body label, and
+  // must resolve on its own terms rather than be judged as a malformed marker.
+  if (NONE_BARE_RE.test(declaration)) return 'ChangeLedger: none requires a reason';
+  if (NONE_REASON_RE.test(declaration)) {
+    return subjectMarkers.length > 0
+      ? 'ChangeLedger: none cannot coexist with an [#id] marker'
+      : null;
+  }
 
   if (subjectMarkers.length > 1) return 'multiple [#id] markers must be in the body';
   if (hasBodyLabel && !validMultiBody) return 'malformed ChangeLedger body';
@@ -160,8 +300,10 @@ function commitMarkerViolation({ subject, body }) {
 }
 
 // Lints `range`: every non-merge commit must carry a well-formed `[#id]`
-// marker, except `chore(release)` prep commits. Returns only the violations
-// (sha + subject); never throws for a clean range.
+// marker, except `chore(release)` prep commits and a body-declared
+// `ChangeLedger: none — <reason>` operational commit (see
+// commitMarkerViolation). Returns only the violations (sha + subject); never
+// throws for a clean range.
 export function lintCommitRange(repoRoot, range, run = defaultRun) {
   const commits = commitsInRange(repoRoot, range, run);
   const violations = [];
@@ -174,22 +316,47 @@ export function lintCommitRange(repoRoot, range, run = defaultRun) {
   return violations;
 }
 
+// A commit is attributed to `id` by exactly two seats — the marker closing its
+// subject, and the canonical multi-id declaration heading its body. An `[#id]`
+// anywhere else is prose: a `ChangeLedger: none` reason may cite the change it
+// supersedes, and a note may cite related work, without either commit joining
+// that change's refs.
+function attributesTo({ subject, body }, id) {
+  const marker = `[#${id}]`;
+  if (subject.trim().match(MARKER_RE)?.[0] === marker) return true;
+  const declaration = bodyDeclaration(body);
+  return MULTI_BODY_RE.test(declaration) && declaration.includes(marker);
+}
+
 export function gitRefs(repoRoot, id, run = defaultRun) {
   const refs = { commits: [], branches: [] };
   if (!id) return refs;
 
   try {
+    // The grep only prefilters candidates: it matches the whole message, so
+    // attributesTo decides which of them the id actually belongs to.
     const out = run(
-      ['log', '--all', '-n', '100', '-F', `--grep=[#${id}]`, `--pretty=format:%H${SEP}%s${SEP}%cI`],
+      [
+        'log',
+        '--all',
+        '-n',
+        '100',
+        '-F',
+        `--grep=[#${id}]`,
+        `--pretty=format:%H${SEP}%s${SEP}%cI${SEP}%b${RECORD_SEP}`,
+      ],
       repoRoot,
     );
     refs.commits = out
-      .split('\n')
+      .split(RECORD_SEP)
+      .map((record) => record.trim())
       .filter(Boolean)
-      .map((line) => {
-        const [sha, subject, date] = line.split(SEP);
-        return { sha, subject, date };
-      });
+      .map((record) => {
+        const [sha, subject, date, body = ''] = record.split(SEP);
+        return { sha, subject, date, body };
+      })
+      .filter((commit) => attributesTo(commit, id))
+      .map(({ sha, subject, date }) => ({ sha, subject, date }));
   } catch {
     // not a git repo, or git unavailable — leave commits empty
   }

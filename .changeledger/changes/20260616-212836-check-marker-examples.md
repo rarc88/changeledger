@@ -48,11 +48,14 @@ integridad change↔spec.
 - **Then** mantiene el error de backlink roto
 
 ## Plan
-- [x] Limitar en `src/check.mjs` la detección de enlaces change→spec a marcadores reales del `## Log`, cubierto por `test/check.test.mjs` (CR1, CR2, CR3)
+- [x] Limitar en `src/check.mjs` la detección de enlaces change→spec a marcadores reales del `## Log`, cubierto por `test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-17T10:15:59Z`
-- [x] Añadir regresiones en `test/check.test.mjs` para ejemplo narrativo, placeholder, enlace real roto y backlink roto de `src/check.mjs` (CR1, CR2, CR3, CR4)
+- [x] Añadir regresiones en `test/check.test.mjs` para ejemplo narrativo, placeholder, enlace real roto y backlink roto de `src/check.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:16:06Z`
-- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm test -- test/check.test.mjs` contra `src/check.mjs` y `node bin/sl.mjs check`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-17T10:16:15Z`
 
 ## Log

@@ -31,7 +31,8 @@ parecen duplicados. Mostrar el **id completo**.
 
 ## Plan
 
-- [x] Eliminar `shortId`; mostrar el id completo en card, grafo y tabla (CR1)
+- [x] Eliminar `shortId`; mostrar el id completo en card, grafo y tabla
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T21:37:20Z`
 
 ## Log

@@ -156,13 +156,20 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Escribir primero tests fallidos en `test/agent.test.mjs`, centralizar después los predicados y filtros en `src/commands/agent.mjs` y retirar `pendingGraduation()` de `src/commands/graduate.mjs`; verify: `node --test test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10)
+- [x] Escribir primero tests fallidos en `test/agent.test.mjs`, centralizar después los predicados y filtros en `src/commands/agent.mjs` y retirar `pendingGraduation()` de `src/commands/graduate.mjs`
+  - **Verify:** `node --test test/agent.test.mjs test/graduate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR9, CR10
   - **Resolved:** `2026-07-16T13:26:33Z`
-- [x] Escribir primero tests fallidos en `test/cli-bin.test.mjs` y reorganizar después opciones, validación, salida y help en `bin/changeledger.mjs`; verify: `node --test test/cli-bin.test.mjs test/agent.test.mjs test/graduate.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10)
+- [x] Escribir primero tests fallidos en `test/cli-bin.test.mjs` y reorganizar después opciones, validación, salida y help en `bin/changeledger.mjs`
+  - **Verify:** `node --test test/cli-bin.test.mjs test/agent.test.mjs test/graduate.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8, CR9, CR10
   - **Resolved:** `2026-07-16T13:26:33Z`
-- [x] Actualizar los fragmentos aplicables de `templates/contract/` y la documentación pública; verify: `pnpm test` (CR11)
+- [x] Actualizar los fragmentos aplicables de `templates/contract/` y la documentación pública
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR11
   - **Resolved:** `2026-07-16T13:26:33Z`
-- [x] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Ejecutar el gate completo `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-16T13:28:50Z`
 
 ## Log

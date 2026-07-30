@@ -60,13 +60,17 @@ contenido fuera de la raíz del repositorio descubierto.
 
 ## Plan
 
-- [x] Añadir un test de regresión en `test/repo.test.mjs` con symlink intermedio externo y destino final inexistente (CR1)
+- [x] Añadir un test de regresión en `test/repo.test.mjs` con symlink intermedio externo y destino final inexistente
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-15T18:31:37Z`
-- [x] Endurecer `resolveRepoPath` en `src/config.mjs` comprobando la cadena existente de ancestros contra la raíz real (CR1, CR2)
+- [x] Endurecer `resolveRepoPath` en `src/config.mjs` comprobando la cadena existente de ancestros contra la raíz real
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-15T18:31:38Z`
-- [x] Cubrir destino existente/inexistente y symlink interno/externo en las plataformas soportadas (CR1, CR2, CR3)
+- [x] Cubrir destino existente/inexistente y symlink interno/externo en las plataformas soportadas
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T18:31:38Z`
-- [x] Ejecutar `pnpm verify` y el smoke test del tarball (CR3, CR4)
+- [x] Ejecutar `pnpm verify` y el smoke test del tarball
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-06-15T18:31:38Z`
 
 ## Log

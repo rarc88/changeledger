@@ -12,25 +12,33 @@ const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.document = window.document;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
-const { render } = await import('lit-html');
+const { html, render } = await import('lit-html');
 const {
+  activateView,
   boardStatuses,
   applyDetailPresentation,
+  bindApproveAction,
+  bindBoardInteractions,
+  bindBoardSortControls,
   bindDetailPresentation,
   bindProjectViewActions,
   card,
   choiceFilterSummary,
   closeFilterMenusOnOutsideClick,
   collectFormPatch,
+  configureViewerNavigation,
   createDiagramLightbox,
   cssIdent,
   esc,
   isVisible,
+  moveStatus,
   openChangeById,
   passesTombstones,
   projectMutation,
   projectsViewTemplate,
   requestUnregisterConfirmation,
+  renderLedger,
+  restoreLedgerRouteSelection,
   bindReopenAction,
   reopenPanel,
   renderChoiceFilter,
@@ -40,6 +48,7 @@ const {
   restoreInitialViewerShell,
   resetValidationState,
   scrollToStage,
+  selectViewerProject,
   runValidationSubmission,
   setConfirmImpl,
   setPromptImpl,
@@ -56,12 +65,27 @@ const {
   taskList,
 } = await import('../src/viewer/public/app.js');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
-const { closeButton, referenceDetails, specBody, validationPanel } = await import(
-  '../src/viewer/public/view-parts.js'
-);
+const {
+  approvalPanel,
+  boardColumnHeader,
+  closeButton,
+  referenceDetails,
+  specBody,
+  validationPanel,
+} = await import('../src/viewer/public/view-parts.js');
 const { graphSvg, metricsHtml, specsListHtml } = await import(
   '../src/viewer/public/view-renderers.js'
 );
+
+const viewerShell = () => {
+  const root = document.createElement('div');
+  root.innerHTML = `<input id="search"><button id="toggle-global"></button><select id="project"></select>
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
+      .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
+      .join('')}
+    <section id="global"></section>`;
+  return root;
+};
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into
@@ -92,6 +116,9 @@ const baseChange = () => ({
   stages: [],
   tasks: [],
 });
+const approvalDetail = (change) => html`
+  ${detailToolbar('side', 'wide', change.stages)} ${approvalPanel(change)}
+`;
 
 test('111218 CR1/CR2: projects view renders health, exact YAML text and safe metadata', () => {
   const host = parse(
@@ -239,7 +266,7 @@ test('111218 CR3/CR6/CR7/CR9: project view wires select, reload, save, repair an
 test('111219 CR1/CR2: restored state hydrates search, active view and global mode', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -257,13 +284,29 @@ test('111219 CR1/CR2: restored state hydrates search, active view and global mod
   assert.ok(root.querySelector('#toggle-global').classList.contains('active'));
   assert.ok(!root.querySelector('#global').classList.contains('hidden'));
   assert.ok(root.querySelector('#graph').classList.contains('hidden'));
+
+  appState.globalMode = false;
+  appState.currentView = 'ledger';
+  syncViewerShell(root, false);
+  assert.ok(root.querySelector('#view-ledger').classList.contains('active'));
+  assert.ok(!root.querySelector('#ledger').classList.contains('hidden'));
+});
+
+test('141859 CR1: the static shell renames the Specs view hook to Ledger', () => {
+  const html = fs.readFileSync(new URL('../src/viewer/public/index.html', import.meta.url), 'utf8');
+  const shell = new JSDOM(html).window.document;
+
+  assert.equal(shell.querySelector('#view-ledger')?.textContent, 'Ledger');
+  assert.ok(shell.querySelector('section#ledger.ledger-view'));
+  assert.equal(shell.querySelector('#view-specs'), null);
+  assert.equal(shell.querySelector('section#specs'), null);
 });
 
 test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates blocked storage access', () => {
   const shell = () => {
     const root = document.createElement('div');
     root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-      ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+      ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
         .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
         .join('')}
       <section id="global"></section>`;
@@ -293,7 +336,7 @@ test('111219 CR1/CR6: bootstrap restores shell synchronously and tolerates block
 test('111219 CR4: no live project replaces a restored view with the visible empty state', () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button>
-    ${['board', 'table', 'graph', 'specs', 'metrics', 'projects']
+    ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
@@ -315,6 +358,383 @@ test('175732 CR1: a payload in id/type/status does not create active HTML in a c
   const host = parse(card({ ...baseChange(), id: XSS, type: XSS, status: XSS }));
   assert.equal(host.querySelector('img'), null, 'no injected <img>');
   assert.equal(host.querySelectorAll('[onerror]').length, 0, 'no event-handler attribute');
+});
+
+test('141643 CR1/CR6: Approve uses the lifecycle panel, never the toolbar or cards', () => {
+  for (const status of ['draft', 'approved', 'in-progress', 'done', 'discarded']) {
+    const change = { ...baseChange(), status };
+    assert.equal(parse(card(change)).querySelector('[data-approve]'), null);
+    assert.equal(
+      parse(detailToolbar('side', 'wide', change.stages)).querySelector('[data-approve]'),
+      null,
+    );
+    const panel = parse(approvalPanel(change));
+    const actions = panel.querySelectorAll('[data-approve]');
+    assert.equal(actions.length, status === 'draft' ? 1 : 0);
+    if (status === 'draft') {
+      assert.equal(actions[0].tagName, 'BUTTON');
+      assert.equal(actions[0].type, 'button');
+      assert.equal(actions[0].textContent.trim(), 'Approve');
+      assert.equal(actions[0].getAttribute('aria-label'), `Approve change ${change.id}`);
+      assert.ok(actions[0].closest('.validation-actions'));
+      assert.ok(actions[0].closest('.approval-controls'));
+      assert.match(panel.textContent, /Human checkpoint/);
+      assert.match(panel.textContent, /Ready for approval/);
+    }
+  }
+});
+
+test('141643 CR1/CR2: detail approval and draft-only drag share one single-flight guard', async () => {
+  const draft = baseChange();
+  const approved = { ...baseChange(), id: '20260613-120001', status: 'approved' };
+  const board = document.createElement('section');
+  const draftColumn = document.createElement('div');
+  const approvedColumn = document.createElement('div');
+  draftColumn.className = 'column';
+  draftColumn.dataset.status = 'draft';
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  render(card(draft), draftColumn);
+  render(card(approved), approvedColumn);
+  board.append(draftColumn, approvedColumn);
+
+  const calls = [];
+  let resolveApproval;
+  let detailsOpened = 0;
+  bindBoardInteractions(board, [draft, approved], {
+    open: () => detailsOpened++,
+    move: (id, status) => {
+      calls.push([id, status]);
+      if (calls.length === 1) {
+        return new Promise((resolve) => {
+          resolveApproval = resolve;
+        });
+      }
+      return Promise.resolve(true);
+    },
+  });
+
+  const draftCard = draftColumn.querySelector('.card');
+  const approvedCard = approvedColumn.querySelector('.card');
+  const detail = parse(approvalDetail(draft));
+  const approve = detail.querySelector('[data-approve]');
+  let closes = 0;
+  bindApproveAction(detail, {
+    id: draft.id,
+    move: (id, status) => {
+      calls.push([id, status]);
+      return new Promise((resolve) => {
+        resolveApproval = resolve;
+      });
+    },
+    close: () => closes++,
+  });
+  const firstApproval = approve.onclick(new window.Event('click'));
+  const duplicateApproval = approve.onclick(new window.Event('click'));
+  assert.deepEqual(calls, [[draft.id, 'approved']]);
+  assert.equal(approve.disabled, true);
+
+  const values = new Map();
+  const dataTransfer = {
+    effectAllowed: '',
+    setData: (type, value) => values.set(type, value),
+    getData: (type) => values.get(type) ?? '',
+  };
+  const dragStart = new window.Event('dragstart', { bubbles: true, cancelable: true });
+  Object.defineProperty(dragStart, 'dataTransfer', { value: dataTransfer });
+  draftCard.dispatchEvent(dragStart);
+  assert.equal(dataTransfer.effectAllowed, 'move');
+  assert.equal(dataTransfer.getData('text/plain'), draft.id);
+
+  const drop = new window.Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
+  approvedColumn.dispatchEvent(drop);
+  assert.equal(calls.length, 1, 'detail action and drop share one pending approval per id');
+
+  resolveApproval(true);
+  assert.equal(await firstApproval, true);
+  assert.equal(await duplicateApproval, false);
+  assert.equal(closes, 1);
+  assert.equal(approve.disabled, false);
+  assert.equal(draftCard.getAttribute('draggable'), 'true');
+  assert.equal(approvedCard.hasAttribute('draggable'), false);
+
+  draftCard.click();
+  assert.equal(detailsOpened, 1);
+
+  approvedColumn.dispatchEvent(drop);
+  assert.deepEqual(calls.at(-1), [draft.id, 'approved']);
+
+  dataTransfer.setData('text/plain', approved.id);
+  approvedColumn.dispatchEvent(drop);
+  assert.equal(calls.length, 2, 'a non-draft cannot initiate approval by drop');
+});
+
+test('141643 CR1/CR2: a detail action bound during a pending drop is re-enabled', async () => {
+  const draft = { ...baseChange(), id: 'drop-first' };
+  const board = document.createElement('section');
+  const approvedColumn = document.createElement('div');
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  board.append(approvedColumn);
+
+  let resolveApproval;
+  const approval = new Promise((resolve) => {
+    resolveApproval = resolve;
+  });
+  bindBoardInteractions(board, [draft], { move: () => approval });
+  approvedColumn.ondrop({
+    preventDefault() {},
+    dataTransfer: { getData: () => draft.id },
+  });
+
+  const detail = parse(approvalDetail(draft));
+  bindApproveAction(detail, { id: draft.id });
+  const approve = detail.querySelector('[data-approve]');
+  assert.equal(approve.disabled, true);
+
+  resolveApproval(false);
+  await approval;
+  await Promise.resolve();
+  assert.equal(approve.disabled, false);
+});
+
+test('141643 CR1/CR2: a detail opened during a successful drop closes with that operation', async () => {
+  const draft = { ...baseChange(), id: 'drop-success' };
+  const board = document.createElement('section');
+  const approvedColumn = document.createElement('div');
+  approvedColumn.className = 'column';
+  approvedColumn.dataset.status = 'approved';
+  board.append(approvedColumn);
+
+  let resolveApproval;
+  const approval = new Promise((resolve) => {
+    resolveApproval = resolve;
+  });
+  let requests = 0;
+  bindBoardInteractions(board, [draft], {
+    move: () => {
+      requests++;
+      return approval;
+    },
+  });
+  approvedColumn.ondrop({
+    preventDefault() {},
+    dataTransfer: { getData: () => draft.id },
+  });
+
+  const detail = parse(approvalDetail(draft));
+  let closes = 0;
+  bindApproveAction(detail, { id: draft.id, close: () => closes++ });
+  assert.equal(detail.querySelector('[data-approve]').disabled, true);
+
+  resolveApproval(true);
+  await approval;
+  await Promise.resolve();
+  assert.equal(requests, 1);
+  assert.equal(closes, 1);
+});
+
+test('141643 CR1: approval completion cannot close a replacement detail', async () => {
+  const first = { ...baseChange(), id: 'first-detail' };
+  const second = { ...baseChange(), id: 'second-detail' };
+  const detail = parse(approvalDetail(first));
+  let resolveApproval;
+  let closes = 0;
+  bindApproveAction(detail, {
+    id: first.id,
+    move: () =>
+      new Promise((resolve) => {
+        resolveApproval = resolve;
+      }),
+    close: () => closes++,
+  });
+  const approval = detail.querySelector('[data-approve]').onclick(new window.Event('click'));
+
+  render(approvalDetail(second), detail);
+  bindApproveAction(detail, { id: second.id, close: () => closes++ });
+  resolveApproval(true);
+  assert.equal(await approval, true);
+  assert.equal(closes, 0);
+  assert.equal(
+    detail.querySelector('[data-approve]').getAttribute('aria-label'),
+    'Approve change second-detail',
+  );
+});
+
+test('141643 CR1: pending approvals are isolated by project and change id', async () => {
+  const change = { ...baseChange(), id: 'shared-id' };
+  const alpha = parse(approvalDetail(change));
+  let resolveAlpha;
+  let alphaCloses = 0;
+  bindApproveAction(alpha, {
+    id: change.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveAlpha = resolve;
+      }),
+    close: () => alphaCloses++,
+  });
+  const alphaApproval = alpha.querySelector('[data-approve]').onclick(new window.Event('click'));
+
+  const beta = parse(approvalDetail(change));
+  let betaCloses = 0;
+  bindApproveAction(beta, {
+    id: change.id,
+    project: 'beta',
+    move: async () => true,
+    close: () => betaCloses++,
+  });
+  assert.equal(beta.querySelector('[data-approve]').disabled, false);
+
+  resolveAlpha(true);
+  assert.equal(await alphaApproval, true);
+  assert.equal(alphaCloses, 1);
+  assert.equal(betaCloses, 0);
+});
+
+test('141643 CR1: finishing one approval cannot enable a reused button owned by another', async () => {
+  const first = { ...baseChange(), id: 'first-pending' };
+  const second = { ...baseChange(), id: 'second-pending' };
+  const detail = parse(approvalDetail(first));
+  let resolveFirst;
+  bindApproveAction(detail, {
+    id: first.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+  });
+  const reusedButton = detail.querySelector('[data-approve]');
+  const firstApproval = reusedButton.onclick(new window.Event('click'));
+
+  render(approvalDetail(second), detail);
+  let resolveSecond;
+  bindApproveAction(detail, {
+    id: second.id,
+    project: 'alpha',
+    move: () =>
+      new Promise((resolve) => {
+        resolveSecond = resolve;
+      }),
+  });
+  const secondButton = detail.querySelector('[data-approve]');
+  assert.equal(secondButton, reusedButton, 'Lit reuses the approval button node');
+  const secondApproval = secondButton.onclick(new window.Event('click'));
+
+  resolveFirst(true);
+  assert.equal(await firstApproval, true);
+  assert.equal(secondButton.disabled, true);
+
+  resolveSecond(false);
+  assert.equal(await secondApproval, false);
+  assert.equal(secondButton.disabled, false);
+});
+
+test('141643 CR1: detail approval closes after reload success but stays open and re-enables on failure', async () => {
+  appState.currentProject = 'project-alpha';
+  const successChange = { ...baseChange(), id: 'success' };
+  const success = parse(approvalDetail(successChange));
+  const requests = [];
+  const errors = [];
+  const sequence = [];
+  bindApproveAction(success, {
+    id: successChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async (...args) => {
+          requests.push(args);
+          return { ok: true, json: async () => ({ ok: true }) };
+        },
+        reload: async () => sequence.push('reload'),
+        onError: (message) => errors.push(message),
+      }),
+    close: () => sequence.push('close'),
+  });
+  const successButton = success.querySelector('[data-approve]');
+  assert.equal(await successButton.onclick(new window.Event('click')), true);
+  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined]]);
+  assert.deepEqual(sequence, ['reload', 'close']);
+  assert.deepEqual(errors, []);
+
+  const failureChange = { ...baseChange(), id: 'failure' };
+  const failure = parse(approvalDetail(failureChange));
+  document.body.append(failure);
+  let failureCloses = 0;
+  bindApproveAction(failure, {
+    id: failureChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async () => ({ ok: false, json: async () => ({ error: 'approval denied' }) }),
+        reload: async () => sequence.push('unexpected reload'),
+        onError: (message) => errors.push(message),
+      }),
+    close: () => failureCloses++,
+  });
+  const failureButton = failure.querySelector('[data-approve]');
+  assert.equal(await failureButton.onclick(new window.Event('click')), false);
+  assert.equal(errors.at(-1), 'approval denied');
+  assert.equal(failureCloses, 0);
+  assert.ok(failure.isConnected, 'the draft detail remains open after failure');
+  assert.equal(failureButton.disabled, false);
+  failure.remove();
+
+  const reloadFailureChange = { ...baseChange(), id: 'reload-failure' };
+  const reloadFailure = parse(approvalDetail(reloadFailureChange));
+  document.body.append(reloadFailure);
+  let reloadFailureCloses = 0;
+  bindApproveAction(reloadFailure, {
+    id: reloadFailureChange.id,
+    move: (id, status) =>
+      moveStatus(id, status, undefined, {
+        request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+        reload: async () => false,
+        onError: (message) => errors.push(message),
+      }),
+    close: () => reloadFailureCloses++,
+  });
+  const reloadFailureButton = reloadFailure.querySelector('[data-approve]');
+  assert.equal(await reloadFailureButton.onclick(new window.Event('click')), false);
+  assert.equal(errors.at(-1), 'status changed but reload failed');
+  assert.equal(reloadFailureCloses, 0);
+  assert.ok(
+    reloadFailure.isConnected,
+    'the detail remains open when the approved state cannot reload',
+  );
+  assert.equal(reloadFailureButton.disabled, false);
+  reloadFailure.remove();
+});
+
+test('141643 CR1: a status move cannot validate by reloading another project', async () => {
+  appState.currentProject = 'alpha';
+  let resolveRequest;
+  const requestProjects = [];
+  const reloadProjects = [];
+  const errors = [];
+  const moving = moveStatus('project-switch', 'approved', undefined, {
+    project: 'alpha',
+    request: async (project) => {
+      requestProjects.push(project);
+      await new Promise((resolve) => {
+        resolveRequest = resolve;
+      });
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+    reload: async (project) => {
+      reloadProjects.push(project);
+      return true;
+    },
+    onError: (message) => errors.push(message),
+  });
+
+  appState.currentProject = 'beta';
+  resolveRequest();
+  assert.equal(await moving, false);
+  assert.deepEqual(requestProjects, ['alpha']);
+  assert.deepEqual(reloadProjects, []);
+  assert.equal(errors.at(-1), 'status changed but project changed before reload');
 });
 
 test('175732 CR1: a payload in a stage heading does not create active HTML', () => {
@@ -412,6 +832,38 @@ test('105206 CR1/CR2/CR3: type and owner sets combine inclusively without a sent
   assert.equal(
     isVisible({ ...baseChange(), type: 'feature', owner: '__unassigned__' }, filters),
     false,
+  );
+});
+
+test('141643 CR3: pending graduation combines with every visible-change filter but not Graph', () => {
+  const filters = {
+    text: 'needle',
+    types: new Set(['feature']),
+    owners: new Set(['ana']),
+    includeUnassigned: false,
+    statuses: new Set(['done']),
+    pendingGraduation: true,
+    showArchived: false,
+    showDiscarded: false,
+  };
+  const matching = {
+    ...baseChange(),
+    title: 'Needle change',
+    status: 'done',
+    owner: 'ana',
+    pending_graduation: true,
+  };
+
+  assert.equal(isVisible(matching, filters), true);
+  assert.equal(isVisible({ ...matching, pending_graduation: false }, filters), false);
+  assert.equal(isVisible({ ...matching, type: 'bug' }, filters), false);
+  assert.equal(isVisible({ ...matching, owner: 'bob' }, filters), false);
+  assert.equal(isVisible({ ...matching, status: 'draft' }, filters), false);
+  assert.equal(isVisible({ ...matching, title: 'Other' }, filters), false);
+  assert.equal(
+    passesTombstones({ ...matching, pending_graduation: false }, filters),
+    true,
+    'Graph keeps its tombstone-only filter semantics',
   );
 });
 
@@ -694,6 +1146,49 @@ test('20260704-103715 CR1/CR2/CR4/CR5: detail CSS keeps the toolbar fixed and di
   assert.match(css, /\.stage\s*\{[^}]*scroll-margin-top:/s);
 });
 
+test('141643 CR4/CR5: desktop board is the sole two-axis viewport and all lanes share its effective height', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  const boardRule = css.match(/\/\* Board \*\/\s*\.board\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const columnRule = css.match(/\.column\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const bodyRule = css.match(/\.column-body\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.match(boardRule, /height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\)/);
+  assert.match(boardRule, /overflow:\s*auto/);
+  assert.doesNotMatch(boardRule, /overflow-[xy]:/);
+  assert.match(boardRule, /display:\s*grid/);
+  assert.match(boardRule, /grid-auto-flow:\s*column/);
+  assert.match(boardRule, /grid-template-rows:\s*minmax\(max-content,\s*100%\)/);
+  assert.doesNotMatch(boardRule, /grid-template-rows:\s*minmax\(100%,\s*max-content\)/);
+  assert.match(
+    boardRule,
+    /grid-auto-columns:\s*clamp\(190px,\s*calc\(\(100vw - 140px\) \/ 6\),\s*400px\)/,
+  );
+  assert.match(boardRule, /align-items:\s*stretch/);
+  assert.match(columnRule, /display:\s*flex/);
+  assert.match(columnRule, /flex-direction:\s*column/);
+  assert.match(bodyRule, /flex:\s*1\s+0\s+auto/);
+  assert.doesNotMatch(css, /proxy[-_ ]scroll|scrollbar[-_ ]proxy|sync(?:ed|hronized)?[-_ ]scroll/i);
+  assert.match(app, /new ResizeObserver\(syncHeaderHeight\)\.observe\(topbar\)/);
+  assert.match(app, /setProperty\('--header-height',\s*`\$\{topbar\.offsetHeight\}px`\)/);
+});
+
+test('141643 CR6: mobile board restores natural stacked lanes without internal overflow', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const responsive = css.slice(css.indexOf('/* Responsive: stack on narrow viewports (mobile) */'));
+  const mobileBoard =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\.board\s*\{([^}]*)\}/)?.[1] ?? '';
+  const mobileColumn =
+    responsive.match(/@media\s*\(max-width:\s*680px\)[\s\S]*?\.column\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  assert.match(mobileBoard, /display:\s*flex/);
+  assert.match(mobileBoard, /flex-direction:\s*column/);
+  assert.match(mobileBoard, /height:\s*auto/);
+  assert.match(mobileBoard, /overflow:\s*visible/);
+  assert.match(mobileColumn, /width:\s*100%/);
+  assert.match(mobileColumn, /flex:\s*0\s+0\s+auto/);
+});
+
 test('125850 CR5: real diagram lightbox clones SVG and closes by button, Escape, or backdrop', () => {
   const fixture = document.createElement('div');
   fixture.innerHTML = `<div class="hidden" id="lightbox"><button type="button">Close</button><div class="canvas"></div></div>
@@ -760,6 +1255,33 @@ test('125850 CR9: sort indicator is a bounded SVG icon', () => {
   assert.equal(icon.getAttribute('width'), '10');
   assert.equal(icon.getAttribute('height'), '10');
   assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
+});
+
+test('202005 CR2/CR4: board column sort control is independent and accessible', () => {
+  appState.boardSortColumns = new Set();
+  const ascending = parse(boardColumnHeader('draft', 3, false));
+  const ascendingButton = ascending.querySelector('.column-sort-btn');
+  assert.equal(ascendingButton.getAttribute('aria-pressed'), 'false');
+  assert.equal(
+    ascendingButton.getAttribute('aria-label'),
+    'draft: sorted by code oldest to newest. Sort newest to oldest',
+  );
+  assert.equal(ascendingButton.querySelector('svg').getAttribute('aria-hidden'), 'true');
+
+  let renders = 0;
+  bindBoardSortControls(ascending, () => renders++);
+  ascendingButton.click();
+  assert.deepEqual([...appState.boardSortColumns], ['draft']);
+  assert.equal(appState.boardSortColumns.has('approved'), false);
+  assert.equal(renders, 1);
+
+  const descending = parse(boardColumnHeader('draft', 3, true));
+  const descendingButton = descending.querySelector('.column-sort-btn');
+  assert.equal(descendingButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(
+    descendingButton.getAttribute('aria-label'),
+    'draft: sorted by code newest to oldest. Sort oldest to newest',
+  );
 });
 
 test('105456 CR6: spec history resolves metadata, navigation and unavailable ids', () => {
@@ -1492,6 +2014,721 @@ test('155720 CR3: cards are ordered by updated descending', () => {
   );
 });
 
+test('141859 CR1/CR2: Ledger mounts the rich Specs grid and switches among four categories', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'project-docs', documents: [] },
+        { category: 'contract', documents: [] },
+        { category: 'templates', documents: [] },
+      ],
+    }),
+    getDocument: async () => assert.fail('no document should be selected'),
+  });
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    text: appState.filters.text,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = {
+    changes: [],
+    specs: [
+      spec({
+        title: 'Older truth',
+        updated: '2026-01-01T00:00:00Z',
+        tags: ['architecture'],
+        body: '# Older\n\nSafe **summary**.',
+      }),
+      spec({
+        title: 'Newest truth',
+        updated: '2026-07-01T00:00:00Z',
+        tags: ['viewer'],
+        body: `# Newest\n\n${XSS} searchable summary.`,
+      }),
+    ],
+  };
+  appState.filters.text = '';
+  appState.ledgerCategory = 'specs';
+  appState.currentProject = 'alpha';
+
+  try {
+    await renderLedger(root, browser);
+    const controls = [...root.querySelectorAll('[data-ledger-category]')];
+    assert.deepEqual(
+      controls.map((button) => button.textContent.trim()),
+      ['Specs', 'Project docs', 'Contract', 'Templates'],
+    );
+    assert.equal(controls[0].getAttribute('aria-pressed'), 'true');
+    assert.ok(controls[0].classList.contains('active'));
+    assert.deepEqual(
+      [...root.querySelectorAll('.spec-title')].map((title) => title.textContent),
+      ['Newest truth', 'Older truth'],
+    );
+    assert.equal(root.querySelector('.spec-card .pill').textContent, 'viewer');
+    assert.match(root.querySelector('.spec-card .spec-excerpt').textContent, /searchable summary/);
+    assert.equal(root.querySelector('img'), null);
+
+    appState.filters.text = 'older';
+    await renderLedger(root, browser);
+    assert.deepEqual(
+      [...root.querySelectorAll('.spec-title')].map((title) => title.textContent),
+      ['Older truth'],
+    );
+
+    appState.filters.text = '';
+    await renderLedger(root, browser);
+    await root.querySelector('[data-ledger-category="contract"]').onclick();
+    assert.equal(appState.ledgerCategory, 'contract');
+    assert.equal(
+      root.querySelector('[data-ledger-category="contract"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.ok(root.querySelector('[data-ledger-category="contract"]').classList.contains('active'));
+    assert.equal(root.querySelectorAll('.spec-card').length, 0);
+    const mount = root.querySelector('[data-ledger-content="contract"]');
+    assert.ok(mount);
+    assert.equal(
+      mount.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
+  } finally {
+    appState.repo = previous.repo;
+    appState.filters.text = previous.text;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+  }
+});
+
+test('141859 CR3/CR5: documentary Ledger renders a deterministic tree and escaped source', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const calls = [];
+  const browser = createLedgerBrowser({
+    getTree: async (project) => {
+      calls.push(['tree', project]);
+      return {
+        categories: [
+          {
+            category: 'templates',
+            documents: [
+              { path: 'z-last.yaml', format: 'source' },
+              { path: 'agent/prompts.yml', format: 'source' },
+              { path: 'config.yml', format: 'source' },
+            ],
+          },
+        ],
+      };
+    },
+    getDocument: async (project, category, path) => {
+      calls.push(['document', project, category, path]);
+      return {
+        category,
+        path,
+        format: 'source',
+        content: '<img src=x onerror=alert(1)>\nkey: &value',
+      };
+    },
+  });
+  const root = document.createElement('section');
+  document.body.append(root);
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'templates';
+  appState.currentProject = 'alpha';
+
+  try {
+    await renderLedger(root, browser);
+    assert.deepEqual(
+      [...root.querySelectorAll('[data-ledger-document]')].map(
+        (button) => button.dataset.ledgerDocument,
+      ),
+      ['agent/prompts.yml', 'config.yml', 'z-last.yaml'],
+    );
+    assert.equal(
+      root.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
+
+    const selected = root.querySelector('[data-ledger-document="config.yml"]');
+    await selected.onclick();
+    const current = root.querySelector('[data-ledger-document="config.yml"]');
+    assert.equal(current.getAttribute('aria-current'), 'page');
+    assert.ok(current.classList.contains('active'));
+    assert.equal(
+      root.querySelector('.ledger-source code').textContent,
+      '<img src=x onerror=alert(1)>\nkey: &value',
+    );
+    assert.equal(root.querySelector('.ledger-article img'), null);
+    assert.deepEqual(calls, [
+      ['tree', 'alpha'],
+      ['document', 'alpha', 'templates', 'config.yml'],
+    ]);
+
+    let scrolled = false;
+    const tree = root.querySelector('[data-ledger-tree]');
+    tree.scrollIntoView = () => {
+      scrolled = true;
+    };
+    root.querySelector('[data-ledger-back]').click();
+    assert.equal(document.activeElement, tree);
+    assert.equal(scrolled, true);
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+    root.remove();
+  }
+});
+
+test('141859 CR5: documentary Markdown is sanitized and Mermaid remains expandable', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const originalMermaid = globalThis.mermaid;
+  globalThis.mermaid = {
+    run: async ({ nodes }) => {
+      for (const node of nodes) node.innerHTML = '<svg><text>diagram</text></svg>';
+    },
+  };
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'project-docs', documents: [{ path: 'README.md', format: 'markdown' }] },
+      ],
+    }),
+    getDocument: async () => ({
+      category: 'project-docs',
+      path: 'README.md',
+      format: 'markdown',
+      content:
+        '# Readme\n\n<script>alert(1)</script><style>body{display:none}</style>[bad](javascript:alert(1))\n\n```mermaid\ngraph TD; A-->B;\n```',
+    }),
+  });
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'project-docs';
+  appState.currentProject = 'alpha';
+  try {
+    await renderLedger(root, browser);
+    await root.querySelector('[data-ledger-document="README.md"]').onclick();
+    assert.equal(root.querySelector('.ledger-article script'), null);
+    assert.equal(root.querySelector('.ledger-article style'), null);
+    assert.equal(root.querySelector('.ledger-article a[href^="javascript:"]'), null);
+    const diagram = root.querySelector('.ledger-article .mermaid');
+    assert.ok(diagram.querySelector('svg'));
+    assert.equal(diagram.getAttribute('role'), 'button');
+    assert.equal(diagram.getAttribute('aria-label'), 'Expand diagram');
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+    if (originalMermaid === undefined) delete globalThis.mermaid;
+    else globalThis.mermaid = originalMermaid;
+  }
+});
+
+test('141859 CR3/CR5: documentary loading, empty and errors remain explicit without fallback', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  let resolveTree;
+  const loadingBrowser = createLedgerBrowser({
+    getTree: () =>
+      new Promise((resolve) => {
+        resolveTree = resolve;
+      }),
+    getDocument: async () => assert.fail('empty trees cannot open a document'),
+  });
+  const root = document.createElement('section');
+  const previous = {
+    repo: appState.repo,
+    category: appState.ledgerCategory,
+    project: appState.currentProject,
+  };
+  appState.repo = { changes: [], specs: [] };
+  appState.ledgerCategory = 'contract';
+  appState.currentProject = 'alpha';
+  try {
+    const loading = renderLedger(root, loadingBrowser);
+    assert.match(root.textContent, /Loading documents/);
+    assert.match(root.textContent, /Select a document/);
+    resolveTree({ categories: [{ category: 'contract', documents: [] }] });
+    await loading;
+    assert.match(root.textContent, /No documents available/);
+    assert.match(root.textContent, /Select a document/);
+
+    const errorBrowser = createLedgerBrowser({
+      getTree: async () => {
+        throw new Error('project path is gone');
+      },
+      getDocument: async () => assert.fail('tree errors cannot open a document'),
+    });
+    await renderLedger(root, errorBrowser);
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'project path is gone');
+    assert.equal(errorBrowser.state.selectedPath, null);
+
+    const missingBrowser = createLedgerBrowser({
+      getTree: async () => ({
+        categories: [
+          { category: 'contract', documents: [{ path: 'core.md', format: 'markdown' }] },
+        ],
+      }),
+      getDocument: async () => {
+        throw new Error('document not found');
+      },
+    });
+    await renderLedger(root, missingBrowser);
+    await root.querySelector('[data-ledger-document="core.md"]').onclick();
+    assert.equal(
+      root.querySelector('.ledger-article-panel [role="alert"]').textContent,
+      'document not found',
+    );
+    assert.equal(missingBrowser.state.selectedPath, 'core.md');
+    assert.equal(root.querySelector('[data-ledger-document]').getAttribute('aria-current'), 'page');
+  } finally {
+    appState.repo = previous.repo;
+    appState.ledgerCategory = previous.category;
+    appState.currentProject = previous.project;
+  }
+});
+
+test('141859 CR5: only same-category allowlisted relative document links are intercepted', async () => {
+  const { handleLedgerDocumentLink, resolveLedgerDocumentLink } = await import(
+    '../src/viewer/public/ledger-browser.js'
+  );
+  const documents = [
+    { path: 'guide/start.md', format: 'markdown' },
+    { path: 'guide/next.md', format: 'markdown' },
+    { path: 'guide/deep/current.md', format: 'markdown' },
+    { path: 'root.md', format: 'markdown' },
+  ];
+  assert.equal(resolveLedgerDocumentLink('next.md', 'guide/start.md', documents), 'guide/next.md');
+  assert.equal(
+    resolveLedgerDocumentLink('./next.md', 'guide/start.md', documents),
+    'guide/next.md',
+  );
+  assert.equal(
+    resolveLedgerDocumentLink('../next.md', 'guide/deep/current.md', documents),
+    'guide/next.md',
+  );
+  assert.equal(resolveLedgerDocumentLink('../root.md', 'guide/start.md', documents), 'root.md');
+  for (const href of [
+    'https://example.com/x.md',
+    '/root.md',
+    '../../root.md',
+    '%2Froot.md',
+    '%E0%A4%A',
+    'guide\\next.md',
+    'guide%5Cnext.md',
+    'next.md%00',
+    'missing.md',
+  ]) {
+    assert.equal(resolveLedgerDocumentLink(href, 'guide/start.md', documents), null, href);
+  }
+
+  let prevented = false;
+  let opened;
+  const event = {
+    target: { closest: () => ({ getAttribute: () => 'next.md' }) },
+    preventDefault: () => {
+      prevented = true;
+    },
+  };
+  assert.equal(
+    handleLedgerDocumentLink(event, 'guide/start.md', documents, (path) => {
+      opened = path;
+    }),
+    true,
+  );
+  assert.equal(prevented, true);
+  assert.equal(opened, 'guide/next.md');
+});
+
+test('141859 CR8: Ledger documentary layout is independently scrollable and stacks on mobile', () => {
+  const css = fs.readFileSync(new URL('../src/viewer/public/styles.css', import.meta.url), 'utf8');
+  const browserRule = css.match(/\.ledger-document-browser\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const treeRule = css.match(/\.ledger-tree-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const articleRule = css.match(/\.ledger-article-panel\s*\{([^}]*)\}/s)?.[1] ?? '';
+  const mobile = css.slice(css.lastIndexOf('@media (max-width: 680px)'));
+
+  assert.match(browserRule, /grid-template-columns:/);
+  assert.match(browserRule, /minmax\(0,\s*1fr\)/);
+  assert.match(treeRule, /overflow:\s*auto/);
+  assert.match(articleRule, /overflow:\s*auto/);
+  assert.match(
+    mobile,
+    /\.ledger-document-browser\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+  );
+  assert.match(mobile, /\.ledger-back\s*\{[^}]*display:/s);
+  assert.match(mobile, /overflow-x:\s*hidden/);
+});
+
+test('141859 CR6/CR7: valid startup URL overrides storage while invalid Ledger intent stays explicit', () => {
+  const previous = {
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+    globalMode: appState.globalMode,
+  };
+  const writes = [];
+  const storage = {
+    getItem: () =>
+      JSON.stringify({
+        version: 1,
+        currentProject: 'stored',
+        currentView: 'board',
+        ledgerCategory: 'contract',
+        projects: {},
+      }),
+    setItem: (_key, value) => writes.push(value),
+  };
+
+  try {
+    const route = restoreInitialViewerShell(viewerShell(), () => storage, {
+      href: 'https://viewer.test/?view=ledger&project=url-project&category=templates&doc=config.yml',
+    });
+    assert.equal(route.kind, 'valid');
+    assert.equal(appState.currentProject, 'url-project');
+    assert.equal(appState.currentView, 'ledger');
+    assert.equal(appState.ledgerCategory, 'templates');
+    assert.ok(writes.every((snapshot) => !snapshot.includes('config.yml')));
+
+    const invalid = restoreInitialViewerShell(viewerShell(), () => storage, {
+      href: 'https://viewer.test/?view=ledger&project=partial&category=unknown',
+    });
+    assert.equal(invalid.kind, 'invalid');
+    assert.equal(appState.currentProject, 'stored');
+    assert.equal(appState.currentView, 'ledger');
+    assert.equal(appState.ledgerCategory, 'contract');
+  } finally {
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+    appState.globalMode = previous.globalMode;
+  }
+});
+
+test('141859 CR6: stale repo responses cannot overwrite newer project or polling loads', async () => {
+  const { load } = await import('../src/viewer/public/app.js');
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const apply = (text) => {
+    appState.lastJson = text;
+    appState.repo = JSON.parse(text);
+  };
+  const previous = {
+    project: appState.currentProject,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+  };
+
+  try {
+    const alpha = deferred();
+    const beta = deferred();
+    const byProject = { alpha, beta };
+    appState.currentProject = 'alpha';
+    appState.lastJson = '';
+    const alphaLoad = load((project) => byProject[project].promise, apply);
+    appState.currentProject = 'beta';
+    const betaLoad = load((project) => byProject[project].promise, apply);
+    beta.resolve('{"marker":"beta"}');
+    assert.equal(await betaLoad, true);
+    alpha.resolve('{"marker":"alpha"}');
+    assert.equal(await alphaLoad, false);
+    assert.equal(appState.repo.marker, 'beta');
+
+    const older = deferred();
+    const newer = deferred();
+    const requests = [older, newer];
+    appState.currentProject = 'alpha';
+    appState.lastJson = '';
+    const olderLoad = load(() => requests.shift().promise, apply);
+    const newerLoad = load(() => requests.shift().promise, apply);
+    newer.resolve('{"marker":"newer"}');
+    assert.equal(await newerLoad, true);
+    older.resolve('{"marker":"older"}');
+    assert.equal(await olderLoad, true);
+    assert.equal(appState.repo.marker, 'newer');
+
+    const superseded = deferred();
+    const polling = deferred();
+    const sameProjectRequests = [superseded, polling];
+    appState.lastJson = '';
+    const supersededLoad = load(() => sameProjectRequests.shift().promise, apply);
+    const pollingLoad = load(() => sameProjectRequests.shift().promise, apply);
+    let supersededSettled = false;
+    supersededLoad.then(() => {
+      supersededSettled = true;
+    });
+    superseded.resolve('{"marker":"superseded"}');
+    await Promise.resolve();
+    assert.equal(
+      supersededSettled,
+      false,
+      'a superseded reload waits for the active same-project load',
+    );
+    polling.resolve('{"marker":"polling"}');
+    assert.equal(await pollingLoad, true);
+    assert.equal(await supersededLoad, true);
+    assert.equal(appState.repo.marker, 'polling');
+  } finally {
+    appState.currentProject = previous.project;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+  }
+});
+
+test('141859 CR7: invalid Ledger popstate stays visible without writing history', async () => {
+  const { restoreViewerLocation } = await import('../src/viewer/public/app.js');
+  const fixture = viewerShell();
+  document.body.append(fixture);
+  const calls = [];
+  const previous = {
+    view: appState.currentView,
+    globalMode: appState.globalMode,
+  };
+  configureViewerNavigation({
+    read: () => ({ kind: 'invalid' }),
+    push: (...args) => calls.push(['push', ...args]),
+    replace: (...args) => calls.push(['replace', ...args]),
+    clear: (...args) => calls.push(['clear', ...args]),
+  });
+
+  try {
+    appState.currentView = 'board';
+    await restoreViewerLocation({ state: null });
+    assert.equal(appState.currentView, 'ledger');
+    assert.equal(fixture.querySelector('#ledger').classList.contains('hidden'), false);
+    assert.equal(fixture.querySelector('#ledger [role="alert"]').textContent, 'Invalid Ledger URL');
+    assert.deepEqual(calls, []);
+  } finally {
+    configureViewerNavigation(null);
+    fixture.remove();
+    appState.currentView = previous.view;
+    appState.globalMode = previous.globalMode;
+  }
+});
+
+test('141859 CR7: exact deep-link project initialization never falls back to another project', async () => {
+  const { initializeProjects } = await import('../src/viewer/public/app-state.js');
+  const previous = appState.currentProject;
+  appState.currentProject = 'missing';
+  try {
+    assert.equal(
+      initializeProjects(
+        [
+          { id: 'alpha', alive: true },
+          { id: 'dead', alive: false },
+        ],
+        'alpha',
+        { exact: true },
+      ),
+      'missing',
+    );
+    assert.equal(appState.currentProject, 'missing');
+  } finally {
+    appState.currentProject = previous;
+  }
+});
+
+test('141859 CR6/CR7: route restoration opens exact documents and keeps stale selections explicit without pushes', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'templates', documents: [{ path: 'config.yml', format: 'source' }] },
+      ],
+    }),
+    getDocument: async (_project, category, path) => ({
+      category,
+      path,
+      format: 'source',
+      content: 'key: value',
+    }),
+  });
+  const root = document.createElement('section');
+  const historyCalls = [];
+  configureViewerNavigation({
+    push: (route) => historyCalls.push(['push', route]),
+    replace: (route) => historyCalls.push(['replace', route]),
+    clear: (...args) => historyCalls.push(['clear', ...args]),
+  });
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+  };
+  appState.repo = { changes: [], specs: [] };
+
+  try {
+    const ensureProject = async (project) => ({
+      ok: project === 'alpha',
+      error: 'Project not found',
+    });
+    assert.equal(
+      await restoreLedgerRouteSelection(
+        { view: 'ledger', project: 'alpha', category: 'templates', doc: 'config.yml' },
+        { root, browser, ensureProject },
+      ),
+      true,
+    );
+    assert.equal(browser.state.selectedPath, 'config.yml');
+    assert.equal(root.querySelector('.ledger-source').textContent, 'key: value');
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: null },
+      { root, browser, ensureProject },
+    );
+    assert.equal(browser.state.selectedPath, null);
+    assert.equal(
+      root.querySelector('.ledger-article-panel').textContent.trim(),
+      'Select a document',
+    );
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: 'missing.yml' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(browser.state.selectedPath, 'missing.yml');
+    assert.match(root.querySelector('[role="alert"]').textContent, /Document not found/);
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'alpha', category: 'specs', doc: 'missing.md' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'Spec not found');
+
+    await restoreLedgerRouteSelection(
+      { view: 'ledger', project: 'unknown', category: 'templates', doc: 'config.yml' },
+      { root, browser, ensureProject },
+    );
+    assert.equal(appState.currentProject, 'unknown');
+    assert.equal(root.querySelector('[role="alert"]').textContent, 'Project not found');
+    assert.deepEqual(historyCalls, [], 'bootstrap and popstate restoration never write history');
+  } finally {
+    configureViewerNavigation(null);
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+  }
+});
+
+test('141859 CR2/CR6: Ledger user actions push one canonical entry each and non-Ledger clears it', async () => {
+  const { createLedgerBrowser } = await import('../src/viewer/public/ledger-browser.js');
+  const browser = createLedgerBrowser({
+    getTree: async () => ({
+      categories: [
+        { category: 'templates', documents: [{ path: 'config.yml', format: 'source' }] },
+      ],
+    }),
+    getDocument: async (_project, category, path) => ({
+      category,
+      path,
+      format: 'source',
+      content: 'key: value',
+    }),
+  });
+  const calls = [];
+  configureViewerNavigation({
+    push: (route) => calls.push(['push', structuredClone(route)]),
+    replace: (route) => calls.push(['replace', structuredClone(route)]),
+    clear: (mode, view) => calls.push(['clear', mode, view]),
+  });
+  const fixture = viewerShell();
+  fixture.innerHTML += '<div id="overlay" class="hidden"><div id="detail"></div></div>';
+  document.body.append(fixture);
+  const root = fixture.querySelector('#ledger');
+  const previous = {
+    repo: appState.repo,
+    project: appState.currentProject,
+    view: appState.currentView,
+    category: appState.ledgerCategory,
+    text: appState.filters.text,
+  };
+  appState.repo = {
+    changes: [],
+    specs: [
+      {
+        name: 'viewer.md',
+        title: 'Viewer',
+        updated: '2026-07-01T00:00:00Z',
+        tags: [],
+        body: '# Viewer',
+        graduated_from: [],
+      },
+    ],
+  };
+  appState.currentProject = 'alpha';
+  appState.currentView = 'ledger';
+  appState.ledgerCategory = 'specs';
+  appState.filters.text = '';
+
+  try {
+    await renderLedger(root, browser);
+    root.querySelector('.spec-card').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'specs', doc: 'viewer.md' },
+    ]);
+
+    await root.querySelector('[data-ledger-category="templates"]').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: null },
+    ]);
+    await root.querySelector('[data-ledger-document="config.yml"]').onclick();
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'alpha', category: 'templates', doc: 'config.yml' },
+    ]);
+
+    await selectViewerProject('beta', { loadProject: async () => true });
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'beta', category: 'templates', doc: null },
+    ]);
+
+    activateView('ledger', { renderContent: false });
+    assert.deepEqual(calls.pop(), [
+      'push',
+      { view: 'ledger', project: 'beta', category: 'templates', doc: null },
+    ]);
+    activateView('board', { renderContent: false });
+    assert.deepEqual(calls.pop(), ['clear', 'push', 'board']);
+  } finally {
+    configureViewerNavigation(null);
+    fixture.remove();
+    appState.repo = previous.repo;
+    appState.currentProject = previous.project;
+    appState.currentView = previous.view;
+    appState.ledgerCategory = previous.category;
+    appState.filters.text = previous.text;
+  }
+});
+
+test('141859 CR1: top-level dispatch binds Ledger rather than the retired Specs view', () => {
+  const source = fs.readFileSync(new URL('../src/viewer/public/app.js', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /#view-ledger['"]\)\.onclick\s*=\s*\(\)\s*=>\s*activateView\(['"]ledger['"]\)/,
+  );
+  assert.doesNotMatch(source, /#view-specs['"]\)\.onclick/);
+});
+
 test('113924: requestUnregisterConfirmation still accepts legacy ask override', () => {
   let message = '';
   const answer = requestUnregisterConfirmation({ name: 'alpha' }, (value) => {
@@ -1544,6 +2781,34 @@ test('124934: clearing statuses preserves Lit markers for the next render', () =
     fixture.querySelector('[data-clear-status]').click();
 
     assert.doesNotThrow(renderStatusFilter);
+    assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'All statuses');
+  } finally {
+    fixture.remove();
+  }
+});
+
+test('141643 CR3: Status menu toggles and clears pending graduation without losing Lit markers', () => {
+  const fixture = document.createElement('div');
+  fixture.innerHTML = '<div id="status-filter"></div><section id="board"></section>';
+  document.body.append(fixture);
+  appState.repo = { changes: [], statuses: ['draft', 'done'] };
+  appState.filters.statuses = new Set();
+  appState.filters.pendingGraduation = false;
+  appState.currentView = 'board';
+
+  try {
+    renderStatusFilter();
+    const pending = fixture.querySelector('[data-pending-graduation]');
+    assert.ok(pending);
+    assert.match(pending.closest('label').textContent, /Pending graduation/);
+    pending.click();
+    assert.equal(appState.filters.pendingGraduation, true);
+    assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'Pending graduation');
+
+    fixture.querySelector('[data-clear-status]').click();
+    assert.equal(appState.filters.pendingGraduation, false);
+    assert.doesNotThrow(renderStatusFilter);
+    assert.equal(fixture.querySelector('[data-pending-graduation]').checked, false);
     assert.equal(fixture.querySelector('[data-status-summary]').textContent, 'All statuses');
   } finally {
     fixture.remove();

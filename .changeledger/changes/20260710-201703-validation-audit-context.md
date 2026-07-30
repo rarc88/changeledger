@@ -56,15 +56,25 @@ orquestador o al humano sin exponer comandos de mutación ni cambiar el estado.
 
 ## Plan
 
-- [x] Añadir en `test/agent-context.test.mjs` pruebas de la cápsula de auditoría y sus guards para `src/commands/agent-context.mjs`; verify: `node --test test/agent-context.test.mjs` (CR1)
+- [x] Añadir en `test/agent-context.test.mjs` pruebas de la cápsula de auditoría y sus guards para `src/commands/agent-context.mjs`
+  - **Verify:** `node --test test/agent-context.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:02:02Z`
-- [x] Implementar la cápsula de auditoría en `src/commands/agent-context.mjs` y `templates/contract/agent-contexts/audit.md`; verify: `node --test test/agent-context.test.mjs` (CR1)
+- [x] Implementar la cápsula de auditoría en `src/commands/agent-context.mjs` y `templates/contract/agent-contexts/audit.md`
+  - **Verify:** `node --test test/agent-context.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:02:02Z`
-- [x] Preservar la restricción de `review` en `src/commands/agent-context.mjs` y cubrirla en `test/agent-context.test.mjs`; verify: `node --test test/agent-context.test.mjs` (CR2)
+- [x] Preservar la restricción de `review` en `src/commands/agent-context.mjs` y cubrirla en `test/agent-context.test.mjs`
+  - **Verify:** `node --test test/agent-context.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T16:02:02Z`
-- [x] Exponer la auditoría en `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/audit.md` y `README.md`; verify: `node --test test/agent-prompt.test.mjs test/cli-bin.test.mjs` (CR3)
+- [x] Exponer la auditoría en `src/commands/agent-prompt.mjs`, `bin/changeledger.mjs`, `templates/contract/agent-prompts/audit.md` y `README.md`
+  - **Verify:** `node --test test/agent-prompt.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T16:02:02Z`
-- [x] Ejecutar el gate completo tras actualizar `templates/contract/core.md`; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo tras actualizar `templates/contract/core.md`
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-11T16:02:02Z`
 
 ## Log

@@ -109,17 +109,29 @@ navegación que ya existe.
 
 ## Plan
 
-- [x] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir pruebas fallidas de estructura compartida y navegación en `test/viewer-metadata.test.mjs`, luego implementar la toolbar en `src/viewer/public/app.js` y `src/viewer/public/view-parts.js`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-04T10:57:36Z`
-- [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`; verify: `node --test test/view.test.mjs` (CR5)
+- [x] Añadir pruebas fallidas del reset por apertura en `test/view.test.mjs`, luego centralizarlo en `src/viewer/public/app.js`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-04T10:57:36Z`
-- [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px (CR1, CR2, CR4)
+- [x] Añadir aserciones fallidas de hooks de estilo en `test/viewer-metadata.test.mjs`, luego implementar sticky layout, compensación de destinos y overflow responsive en `src/viewer/public/styles.css`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs` y comprobación manual a 1280 px y 680 px
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-07-04T10:57:36Z`
-- [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable; verify: `node bin/changeledger.mjs check 20260704-103715` (CR1, CR2, CR3, CR4, CR5)
+- [x] Actualizar `.changeledger/specs/viewer.md` con el comportamiento durable
+  - **Verify:** `node bin/changeledger.mjs check 20260704-103715`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-07-04T10:57:36Z`
-- [x] Ejecutar el quality gate completo al terminar; verify: `pnpm verify` (support)
+- [x] Ejecutar el quality gate completo al terminar
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-04T11:23:31Z`
-- [x] Corregir CR4 en `src/viewer/public/styles.css` con `container-type: inline-size` en `.detail` y un `@container` que apile la navegación por ancho de panel, no de viewport, cubriendo el preset `Compact`; verify: `node --test test/viewer-metadata.test.mjs` y comprobación manual en `Compact` a 1280 px (CR4)
+- [x] Corregir CR4 en `src/viewer/public/styles.css` con `container-type: inline-size` en `.detail` y un `@container` que apile la navegación por ancho de panel, no de viewport, cubriendo el preset `Compact`
+  - **Verify:** `node --test test/viewer-metadata.test.mjs` y comprobación manual en `Compact` a 1280 px
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-04T11:23:41Z`
 
 ## Log

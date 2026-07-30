@@ -228,27 +228,49 @@ determinista que lo soporte.
 
 ## Plan
 
-- [x] Crear los fragmentos del contrato en `templates/contract/` (`core.md`, packs `implement`/`review`/`spec`/`release`, `readiness.md` compartido y overlays `blocked`/`validation`/`close`/`discarded`) extraídos de `templates/AGENTS.md`, con el núcleo dentro del presupuesto; verify: `node --test test/context.test.mjs` (CR1, CR6, CR7, CR8)
+- [x] Crear los fragmentos del contrato en `templates/contract/` (`core.md`, packs `implement`/`review`/`spec`/`release`, `readiness.md` compartido y overlays `blocked`/`validation`/`close`/`discarded`) extraídos de `templates/AGENTS.md`, con el núcleo dentro del presupuesto
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR6, CR7, CR8
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Implementar `src/commands/context.mjs` que componga núcleo + pack de forma determinista; verify: `node --test test/context.test.mjs` (CR1, CR3, CR5, CR6)
+- [x] Implementar `src/commands/context.mjs` que componga núcleo + pack de forma determinista
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR3, CR5, CR6
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Añadir en `src/commands/context.mjs` la resolución de change id (vía `resolveChange` en `src/repo.mjs`), la inferencia status→modo/overlay para todos los estados y release explícito, y la inclusión del contenido relevante del change sin inferir specs relacionadas; verify: `node --test test/context.test.mjs` (CR2, CR8, CR9)
+- [x] Añadir en `src/commands/context.mjs` la resolución de change id (vía `resolveChange` en `src/repo.mjs`), la inferencia status→modo/overlay para todos los estados y release explícito, y la inclusión del contenido relevante del change sin inferir specs relacionadas
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2, CR8, CR9
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Manejar el argumento desconocido en `src/commands/context.mjs` con el mensaje literal y exit 1; verify: `node --test test/context.test.mjs` (CR4)
+- [x] Manejar el argumento desconocido en `src/commands/context.mjs` con el mensaje literal y exit 1
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Registrar el comando `context` en `bin/changeledger.mjs` con USAGE y help; verify: `node --test test/cli-bin.test.mjs` (CR1, CR3)
+- [x] Registrar el comando `context` en `bin/changeledger.mjs` con USAGE y help
+  - **Verify:** `node --test test/cli-bin.test.mjs`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Retirar `linkContract` y `ensureGitignore` de `src/contract.mjs` y reescribir `REFERENCE` con bootstrap fail-closed apuntando a `changeledger context`; verify: `node --test test/contract.test.mjs` (CR10)
+- [x] Retirar `linkContract` y `ensureGitignore` de `src/contract.mjs` y reescribir `REFERENCE` con bootstrap fail-closed apuntando a `changeledger context`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR10
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Actualizar `src/commands/init.mjs` para no enlazar ni tocar `.gitignore`; verify: `node --test test/contract.test.mjs` (CR10)
+- [x] Actualizar `src/commands/init.mjs` para no enlazar ni tocar `.gitignore`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR10
   - **Resolved:** `2026-06-28T01:17:02Z`
-- [x] Implementar la migración segura en `src/commands/register.mjs`: eliminar symlink o copia legacy reconocible, preservar y rechazar copias desconocidas, limpiar la entrada exacta de `.gitignore` y reescribir la referencia; verify: `node --test test/contract.test.mjs` (CR11)
+- [x] Implementar la migración segura en `src/commands/register.mjs`: eliminar symlink o copia legacy reconocible, preservar y rechazar copias desconocidas, limpiar la entrada exacta de `.gitignore` y reescribir la referencia
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR11
   - **Resolved:** `2026-06-28T01:17:03Z`
-- [x] Ajustar `checkContract` en `src/contract.mjs`: no exigir link, exigir referencia y detectar la forma obsoleta; verify: `node --test test/check.test.mjs` (CR12)
+- [x] Ajustar `checkContract` en `src/contract.mjs`: no exigir link, exigir referencia y detectar la forma obsoleta
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR12
   - **Resolved:** `2026-06-28T01:17:03Z`
-- [x] Eliminar `templates/AGENTS.md` y `agentsTemplate` de `src/paths.mjs` una vez los fragmentos lo cubren, y migrar `README.md`, ayuda y tests para que no quede documentación operativa del modelo anterior salvo fixtures explícitas de migración; verify: `node --test test/contract.test.mjs test/cli-bin.test.mjs` (CR6, CR13)
+- [x] Eliminar `templates/AGENTS.md` y `agentsTemplate` de `src/paths.mjs` una vez los fragmentos lo cubren, y migrar `README.md`, ayuda y tests para que no quede documentación operativa del modelo anterior salvo fixtures explícitas de migración
+  - **Verify:** `node --test test/contract.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR6, CR13
   - **Resolved:** `2026-06-28T01:17:03Z`
-- [x] Auto-aplicar al propio repo: borrar el symlink/copia `.changeledger/AGENTS.md`, quitar su línea de `.gitignore`, reescribir la referencia en `AGENTS.md` y `CLAUDE.md`; verify: `node bin/changeledger.mjs check` (support)
+- [x] Auto-aplicar al propio repo: borrar el symlink/copia `.changeledger/AGENTS.md`, quitar su línea de `.gitignore`, reescribir la referencia en `AGENTS.md` y `CLAUDE.md`
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-28T01:17:03Z`
 
 ## Log

@@ -40,13 +40,17 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests (support)
+- [x] Eliminar el subcomando y su implementación en `bin/changeledger.mjs` y `src/commands/agent.mjs`, incluidos sus tests
+  - **Support:**
   - **Resolved:** `2026-07-11T11:01:32Z`
-- [x] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs` (support)
+- [x] Añadir la nota de reversión manual al help de `archive` en `bin/changeledger.mjs`
+  - **Support:**
   - **Resolved:** `2026-07-11T11:01:32Z`
-- [x] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo (support)
+- [x] Buscar y retirar menciones de `unarchive` en `templates/contract/` y specs del repo
+  - **Support:**
   - **Resolved:** `2026-07-11T11:01:33Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T11:01:33Z`
 
 ## Log

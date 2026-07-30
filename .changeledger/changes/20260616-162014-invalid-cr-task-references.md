@@ -53,11 +53,14 @@ Esto debilita la trazabilidad criterio -> tarea que el contrato promete.
 
 ## Plan
 
-- [x] Añadir tests en `test/check.test.mjs` para `src/check.mjs` con referencias CR inexistentes en tareas de `## Plan` y hacerlos fallar primero (CR1, CR3)
+- [x] Añadir tests en `test/check.test.mjs` para `src/check.mjs` con referencias CR inexistentes en tareas de `## Plan` y hacerlos fallar primero
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-16T16:28:20Z`
-- [x] Actualizar `src/check.mjs` y cubrirlo con `test/check.test.mjs` para comparar `task.criteria` contra los criterios declarados y emitir errores por cada referencia desconocida (CR1, CR2, CR3)
+- [x] Actualizar `src/check.mjs` y cubrirlo con `test/check.test.mjs` para comparar `task.criteria` contra los criterios declarados y emitir errores por cada referencia desconocida
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:28:24Z`
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/check.mjs` con `test/check.test.mjs` y el contrato del repo (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/check.mjs` con `test/check.test.mjs` y el contrato del repo
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:28:28Z`
 
 ## Log

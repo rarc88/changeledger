@@ -70,13 +70,21 @@ elemento y actualizará las pruebas de persistencia, predicado y UI.
 
 ## Plan
 
-- [x] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR3)
+- [x] Añadir en `test/viewer-metadata.test.mjs` pruebas para `src/viewer/public/state.js`: predicado OR/AND, owners sin asignar y ausencia de colisión
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-10T17:16:45Z`
-- [x] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1; verify: `node --test test/app-state.test.mjs` (CR3)
+- [x] Migrar `src/viewer/public/app-state.js` a sets por proyecto, `includeUnassigned` y lectura compatible de snapshots v1
+  - **Verify:** `node --test test/app-state.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-10T17:16:46Z`
-- [x] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos; verify: `node --test test/viewer-metadata.test.mjs` (CR1, CR2, CR4)
+- [x] Reemplazar los selects de `src/viewer/public/index.html`/`app.js` por popovers accesibles y conectarlos
+  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Criteria:** CR1, CR2, CR4
   - **Resolved:** `2026-07-10T17:16:46Z`
-- [x] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo; verify: `node --test test/viewer-metadata.test.mjs && pnpm verify` (CR4)
+- [x] Ajustar `src/viewer/public/styles.css` y `.changeledger/specs/viewer.md`, y ejecutar el gate completo
+  - **Verify:** `node --test test/viewer-metadata.test.mjs && pnpm verify`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-10T17:25:41Z`
 
 ## Log

@@ -105,11 +105,14 @@ actual.
 
 ## Plan
 
-- [x] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs` (CR1, CR2)
+- [x] Actualizar el texto `REFERENCE` en `src/contract.mjs`; verificar: `node --test test/contract.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-29T16:05:03Z`
-- [x] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs` (CR3, CR4, CR5)
+- [x] Actualizar `templates/contract/core.md` con las reglas de cumplimiento completo, bloqueo ante truncado y edición operativa explícita; verificar: `node --test test/context.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR3, CR4, CR5
   - **Resolved:** `2026-06-29T16:05:08Z`
-- [x] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349` (CR1, CR2, CR3, CR4, CR5)
+- [x] Ajustar tests de contexto/contrato para fijar la nueva redacción sin ampliar el presupuesto del core; verificar: `pnpm test` y `node bin/changeledger.mjs check 20260629-155349`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-29T16:05:27Z`
 
 ## Log

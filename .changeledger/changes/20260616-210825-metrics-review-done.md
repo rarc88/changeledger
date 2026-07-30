@@ -45,11 +45,14 @@ para 2026-06-16. Además, la primera marca de graduación en
 - **Then** esa primera entrada conserva el id parseable y añade contexto humano
 
 ## Plan
-- [x] Ampliar `src/metrics.mjs` para reconocer `review → done` como cierre, cubierto por `test/metrics.test.mjs` (CR1, CR2)
+- [x] Ampliar `src/metrics.mjs` para reconocer `review → done` como cierre, cubierto por `test/metrics.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-16T21:09:38Z`
-- [x] Añadir cobertura en `test/metrics.test.mjs` para cierre por revisión y convivencia con cierres directos en `src/metrics.mjs` (CR1, CR2)
+- [x] Añadir cobertura en `test/metrics.test.mjs` para cierre por revisión y convivencia con cierres directos en `src/metrics.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-16T21:09:38Z`
-- [x] Normalizar la primera marca de graduación de `.sl/specs/architecture.md`, cuyo formato sigue validado por `src/check.mjs` y `test/check.test.mjs` (CR3)
+- [x] Normalizar la primera marca de graduación de `.sl/specs/architecture.md`, cuyo formato sigue validado por `src/check.mjs` y `test/check.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-16T21:09:38Z`
 
 ## Log

@@ -1,93 +1,216 @@
+// Single seat for `## Plan` task recognition and parsing.
+//
+// Grammar (20260729-203257): a task is a checklist line plus indented children.
+// The description may wrap onto indented continuation lines; every trace is a
+// structured child, never a position:
+//
+//   - [ ] Descripción libre, que puede envolver
+//     a la línea siguiente indentada
+//     - **Target:** `src/task.mjs`
+//     - **Verify:** `node --test test/change.test.mjs`
+//     - **Criteria:** CR1, CR2
+//
+// Nothing inside `## Plan` is discarded in silence: a line that cannot be
+// decided becomes a named issue. The parser records issues, it never throws, so
+// frozen documents keep loading whatever they contain.
 import { isIsoUtc } from './lifecycle.mjs';
 
 const TASK_LINE = /^- \[( |x|!)\]\s+(.*)$/;
+// Repairable checkbox spellings (`[ x ]`, `[X]`, an indented bullet). Only the
+// `fix` converter may accept them; `parseTaskBlocks` requires the canonical form.
+const LENIENT_TASK_LINE = /^(\s*-\s)\[([^\]]*)\](\s+)(.*)$/;
 const METADATA_LINE = /^ {2}- \*\*([^*]+):\*\*(?: (.*))?$/;
+const CONTINUATION_LINE = /^\s+(\S.*)$/;
 const RESOLVED_VALUE = /^`([^`]+)`$/;
+const CRITERION_TOKEN = /^CR\d+$/;
 const STATE_BY_MARK = { ' ': 'todo', x: 'done', '!': 'blocked' };
+const FIELD_PROPERTY = {
+  Target: 'target',
+  Verify: 'verify',
+  Criteria: 'criteria',
+  Support: 'support',
+};
 
-function taskContent(raw) {
-  let text = raw.trim();
-  let criteria = [];
-  const crMatch = text.match(/\(([^)]*\bCR\d+[^)]*)\)\s*$/);
-  if (crMatch) {
-    criteria = crMatch[1].match(/CR\d+/g) ?? [];
-    text = text.slice(0, crMatch.index).trim();
-  }
-  return { text, criteria };
+// Canonical recognition. `src/fix.mjs` imports these instead of declaring its
+// own literal, so the two modules cannot drift in what they accept (CR6).
+export function matchTaskLine(line) {
+  const m = String(line).match(TASK_LINE);
+  return m ? { mark: m[1], state: STATE_BY_MARK[m[1]], content: m[2] } : null;
 }
 
-function issueFor(taskNumber) {
-  return {
-    taskNumber,
-    message: `invalid task metadata structure for task #${taskNumber}`,
-  };
+export function matchLenientTaskLine(line) {
+  const m = String(line).match(LENIENT_TASK_LINE);
+  return m ? { prefix: m[1], marker: m[2], gap: m[3], content: m[4] } : null;
+}
+
+export function matchTaskMetadataLine(line) {
+  const m = String(line).match(METADATA_LINE);
+  return m ? { key: m[1], value: m[2] } : null;
 }
 
 export function parseTaskBlocks(body) {
   const lines = Array.isArray(body) ? body : String(body).split('\n');
   const tasks = [];
-  const issuesByTask = new Map();
+  const issues = [];
+  const seen = new Set();
+  const fieldsByTask = new Map();
 
-  const addIssue = (taskNumber) => {
-    if (!issuesByTask.has(taskNumber)) issuesByTask.set(taskNumber, issueFor(taskNumber));
+  const addIssue = (taskNumber, message) => {
+    const key = `${taskNumber}\u0000${message}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    issues.push({ taskNumber, message });
   };
+  const addStructureIssue = (taskNumber) =>
+    addIssue(taskNumber, `invalid task metadata structure for task #${taskNumber}`);
+
+  let current = null;
+  let cursor = -1;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    const match = lines[lineIndex].match(TASK_LINE);
-    if (match) {
-      const { text, criteria } = taskContent(match[2]);
-      tasks.push({
-        text,
-        rawText: match[2],
-        state: STATE_BY_MARK[match[1]],
-        criteria,
+    const line = lines[lineIndex];
+
+    const task = matchTaskLine(line);
+    if (task) {
+      current = {
+        text: task.content.trim(),
+        state: task.state,
+        criteria: [],
         lineIndex,
+        continuationLineIndices: [],
         metadataLineIndices: [],
+        stateMetadataLineIndices: [],
+      };
+      tasks.push(current);
+      fieldsByTask.set(current, new Set());
+      cursor = lineIndex + 1;
+      continue;
+    }
+
+    // A blank line closes the block: children must be contiguous with their task.
+    if (!line.trim()) {
+      current = null;
+      cursor = -1;
+      continue;
+    }
+
+    const taskNumber = tasks.length || 1;
+
+    const metadata = matchTaskMetadataLine(line);
+    if (metadata) {
+      if (!current || lineIndex !== cursor) {
+        addStructureIssue(taskNumber);
+        continue;
+      }
+      current.metadataLineIndices.push(lineIndex);
+      cursor = lineIndex + 1;
+      applyChild(current, taskNumber, metadata, fieldsByTask.get(current), {
+        addIssue,
+        addStructureIssue,
       });
       continue;
     }
 
-    const metadata = lines[lineIndex].match(METADATA_LINE);
-    if (!metadata) continue;
-    const task = tasks.at(-1);
-    const taskNumber = tasks.length || 1;
-    const expectedLine = task ? task.lineIndex + task.metadataLineIndices.length + 1 : -1;
-    if (!task || lineIndex !== expectedLine) {
-      addIssue(taskNumber);
+    const continuation = line.match(CONTINUATION_LINE);
+    if (continuation) {
+      if (!current || lineIndex !== cursor) {
+        addStructureIssue(taskNumber);
+        continue;
+      }
+      current.continuationLineIndices.push(lineIndex);
+      cursor = lineIndex + 1;
+      current.text = `${current.text} ${continuation[1].trim()}`.trim();
       continue;
     }
-    task.metadataLineIndices.push(lineIndex);
-    if (metadata[1] === 'Resolved') {
-      const value = String(metadata[2] ?? '').match(RESOLVED_VALUE);
-      if (value && isIsoUtc(value[1])) task.resolvedAt = value[1];
-      else addIssue(tasks.length);
-    } else if (metadata[1] === 'Blocked' && String(metadata[2] ?? '').trim()) {
-      task.reason = metadata[2];
-    } else {
-      addIssue(tasks.length);
-    }
+
+    // Not indented, not blank, not a task line: undecidable, and saying so is the
+    // whole point — the old parser dropped it without a trace.
+    addIssue(tasks.length, `unrecognized Plan line: "${line.trim()}"`);
+    current = null;
+    cursor = -1;
   }
 
   for (let index = 0; index < tasks.length; index++) {
     const task = tasks[index];
     task.number = index + 1;
+    const stateChildren = task.stateMetadataLineIndices.length;
     const valid =
-      (task.state === 'todo' && task.metadataLineIndices.length === 0) ||
+      (task.state === 'todo' &&
+        stateChildren === 0 &&
+        task.resolvedAt === undefined &&
+        task.reason === undefined) ||
       (task.state === 'done' &&
-        task.metadataLineIndices.length === 1 &&
+        stateChildren === 1 &&
         task.resolvedAt !== undefined &&
         task.reason === undefined) ||
       (task.state === 'blocked' &&
-        task.metadataLineIndices.length === 1 &&
+        stateChildren === 1 &&
         task.reason !== undefined &&
         task.resolvedAt === undefined);
-    if (!valid) addIssue(task.number);
+    if (!valid) addStructureIssue(task.number);
   }
 
-  return {
-    tasks,
-    issues: [...issuesByTask.values()].sort((a, b) => a.taskNumber - b.taskNumber),
-  };
+  return { tasks, issues: issues.sort((a, b) => a.taskNumber - b.taskNumber) };
+}
+
+// `Resolved`/`Blocked` keep their per-state structural rules untouched. The four
+// descriptive children are legal in any state, at most once each.
+function applyChild(
+  task,
+  taskNumber,
+  { key, value: rawValue },
+  fields,
+  { addIssue, addStructureIssue },
+) {
+  const value = String(rawValue ?? '');
+
+  if (key === 'Resolved' || key === 'Blocked') {
+    task.stateMetadataLineIndices.push(task.metadataLineIndices.at(-1));
+    if (key === 'Resolved') {
+      const iso = value.match(RESOLVED_VALUE);
+      if (iso && isIsoUtc(iso[1]) && task.resolvedAt === undefined) task.resolvedAt = iso[1];
+      else addStructureIssue(taskNumber);
+      return;
+    }
+    if (value.trim() && task.reason === undefined) task.reason = value;
+    else addStructureIssue(taskNumber);
+    return;
+  }
+
+  const property = FIELD_PROPERTY[key];
+  if (!property || fields.has(key)) {
+    addStructureIssue(taskNumber);
+    return;
+  }
+  fields.add(key);
+
+  if (key === 'Criteria') {
+    const tokens = value
+      .trim()
+      .split(/[,\s]+/)
+      .filter(Boolean);
+    if (!tokens.length) {
+      addStructureIssue(taskNumber);
+      return;
+    }
+    for (const token of tokens) {
+      if (CRITERION_TOKEN.test(token)) task.criteria.push(token);
+      else addIssue(taskNumber, `invalid Criteria value "${token}" for task #${taskNumber}`);
+    }
+    return;
+  }
+
+  // `Support` marks an operational task; its value is optional prose.
+  if (key === 'Support') {
+    task.support = value.trim();
+    return;
+  }
+
+  if (!value.trim()) {
+    addStructureIssue(taskNumber);
+    return;
+  }
+  task[property] = value.trim();
 }
 
 export function taskMetadataLine(state, { iso, reason } = {}) {

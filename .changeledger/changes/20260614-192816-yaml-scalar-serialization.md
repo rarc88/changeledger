@@ -62,7 +62,8 @@ comentarios YAML ni producir documentos inválidos al volver a cargarlos.
   - **Resolved:** `2026-06-15T11:40:50Z`
 - [x] Añadir tests round-trip con comentarios, tipos ambiguos, comillas, dos puntos y saltos de línea o rechazo explícito de estos últimos
   - **Resolved:** `2026-06-15T11:40:50Z`
-- [x] Ejecutar `pnpm verify` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm verify`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-15T11:40:50Z`
 
 ## Log

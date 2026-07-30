@@ -89,15 +89,23 @@ Superficie compartida: el texto del bootstrap se edita también en
 
 ## Plan
 
-- [x] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`; verify: `node --test test/framing.test.mjs` (CR1, CR2)
+- [x] Calcular y exponer `rev` del contenido compuesto en `src/framing.mjs`
+  - **Verify:** `node --test test/framing.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-11T11:25:58Z`
-- [x] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed; verify: `pnpm test` (CR3, CR4)
+- [x] Añadir `--have <rev>` en `src/commands/context.mjs` con la respuesta corta framed
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-11T11:25:58Z`
-- [x] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`; verify: `pnpm test` (CR5)
+- [x] Actualizar `templates/contract/core.md` y el bootstrap en `src/contract.mjs`
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR5
   - **Resolved:** `2026-07-11T11:25:58Z`
-- [x] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register` (support)
+- [x] Regenerar el bloque bootstrap de `AGENTS.md` de este repo con `changeledger register`
+  - **Support:**
   - **Resolved:** `2026-07-11T11:25:58Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T11:25:58Z`
 
 ## Log

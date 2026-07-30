@@ -52,13 +52,17 @@ temporal adicional y reduce la superficie de fallo.
 
 ## Plan
 
-- [x] Añadir un test que simule un lock huérfano antes de llamar a `newChange()` (CR1, CR3)
+- [x] Añadir un test que simule un lock huérfano antes de llamar a `newChange()`
+  - **Criteria:** CR1, CR3
   - **Resolved:** `2026-06-15T22:48:00Z`
-- [x] Simplificar `src/commands/new.mjs` para depender de escritura exclusiva del archivo final o limpiar locks stale con regla explícita (CR1, CR2, CR3)
+- [x] Simplificar `src/commands/new.mjs` para depender de escritura exclusiva del archivo final o limpiar locks stale con regla explícita
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T22:50:12Z`
-- [x] Mantener los tests existentes de concurrencia, no-overwrite y coherencia `id`/`created` (CR2)
+- [x] Mantener los tests existentes de concurrencia, no-overwrite y coherencia `id`/`created`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-15T22:48:00Z`
-- [x] Ejecutar `pnpm test -- test/cli.test.mjs` y `pnpm check` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test -- test/cli.test.mjs` y `pnpm check`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-15T22:48:00Z`
 
 ## Log

@@ -47,11 +47,14 @@ orden incorrecto o perdida de contenido renderizado.
 
 ## Plan
 
-- [x] Añadir tests en `test/change.test.mjs` para `src/change.mjs` con headings dentro de fences cerrados y abiertos (CR1, CR2, CR3)
+- [x] Añadir tests en `test/change.test.mjs` para `src/change.mjs` con headings dentro de fences cerrados y abiertos
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:32:51Z`
-- [x] Actualizar `src/change.mjs` y cubrirlo con `test/change.test.mjs` para que `splitStages` lleve estado de fenced code blocks y solo detecte etapas fuera de fences (CR1, CR2, CR3)
+- [x] Actualizar `src/change.mjs` y cubrirlo con `test/change.test.mjs` para que `splitStages` lleve estado de fenced code blocks y solo detecte etapas fuera de fences
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:32:54Z`
-- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/change.mjs` con `test/change.test.mjs` (CR1, CR2, CR3)
+- [x] Ejecutar `pnpm test` y `node bin/sl.mjs check` para verificar `src/change.mjs` con `test/change.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-16T16:32:58Z`
 
 ## Log

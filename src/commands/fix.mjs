@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { writeFileAtomic } from '../atomic-write.mjs';
-import { computeFixes, migrateStructuredSections } from '../fix.mjs';
+import { computeFixes, migratePlanTags, migrateStructuredSections } from '../fix.mjs';
 import { parseLogEvent } from '../lifecycle.mjs';
 import { loadRepo } from '../repo.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
@@ -11,6 +11,7 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
   const dryRun = args.includes('--dry-run');
   const graduationLinks = args.includes('--graduation-links');
   const structuredSections = args.includes('--structured-sections');
+  const planTags = args.includes('--plan-tags');
   const id = args.find((a) => !a.startsWith('--'));
 
   let repo;
@@ -35,6 +36,14 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
       return 1;
     }
     return fixStructuredSections(repo, { dryRun, output });
+  }
+
+  if (planTags) {
+    if (id) {
+      output.error('  error  --plan-tags cannot be combined with a change id');
+      return 1;
+    }
+    return fixPlanTags(repo, { dryRun, output });
   }
 
   let targets = repo.changes;
@@ -75,6 +84,35 @@ export function fix(args = [], cwd = process.cwd(), output = console) {
     for (const a of applied) output.log(`  - ${a}`);
   }
 
+  if (!anyChanged && !anyManual) output.log('nothing to fix');
+  return 0;
+}
+
+// Unlike `--structured-sections`, a `manual` note here never blocks the write:
+// the deterministic part of a task (its criteria and support marker) migrates
+// even when its verification cannot be placed by machine. The note names what a
+// human still owes; leaving the file behind would only hide the trace instead.
+function fixPlanTags(repo, { dryRun, output }) {
+  let anyChanged = false;
+  let anyManual = false;
+  for (const change of repo.changes) {
+    const result = migratePlanTags(change.text);
+    if (result.manual.length) {
+      anyManual = true;
+      output.log(`requires manual fix — ${change.name}:`);
+      for (const message of result.manual) output.log(`  - ${message}`);
+    }
+    if (!result.changed) continue;
+    anyChanged = true;
+    if (dryRun) {
+      output.log(`--- ${change.name} (dry run)`);
+      for (const line of diffLines(change.text, result.text)) output.log(line);
+    } else {
+      writeFileAtomic(change.file, result.text);
+      output.log(`fixed — ${change.name}:`);
+      for (const message of result.applied) output.log(`  - ${message}`);
+    }
+  }
   if (!anyChanged && !anyManual) output.log('nothing to fix');
   return 0;
 }

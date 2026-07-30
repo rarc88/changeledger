@@ -120,15 +120,20 @@ errores.
 
 ## Plan
 
-- [x] Escribir tests de serialización, restauración, normalización y fallos de storage en `test/app-state.test.mjs`; implementar snapshot versionado y filtros por proyecto en `src/viewer/public/app-state.js`; verificar con `node --test test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8)
+- [x] Escribir tests de serialización, restauración, normalización y fallos de storage en `test/app-state.test.mjs`; implementar snapshot versionado y filtros por proyecto en `src/viewer/public/app-state.js`; verificar con `node --test test/app-state.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7, CR8
   - **Resolved:** `2026-06-27T19:28:18Z`
-- [x] Añadir tests DOM de hidratación inicial y cambios de controles en `test/viewer-metadata.test.mjs`; integrar restauración previa al primer render y persistencia de cada mutación en `src/viewer/public/app.js`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR2, CR3, CR4, CR5, CR6, CR7)
+- [x] Añadir tests DOM de hidratación inicial y cambios de controles en `test/viewer-metadata.test.mjs`; integrar restauración previa al primer render y persistencia de cada mutación en `src/viewer/public/app.js`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5, CR6, CR7
   - **Resolved:** `2026-06-27T19:28:18Z`
-- [x] Ejecutar `pnpm verify` y comprobar manualmente recarga, reinicio, cambio entre dos proyectos, Global, storage corrupto y proyecto previamente seleccionado ya ausente (support)
+- [x] Ejecutar `pnpm verify` y comprobar manualmente recarga, reinicio, cambio entre dos proyectos, Global, storage corrupto y proyecto previamente seleccionado ya ausente
+  - **Support:**
   - **Resolved:** `2026-06-27T19:28:18Z`
-- [x] Aplicar el snapshot al shell antes de los fetches y proteger el acceso inicial a storage en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR1, CR6)
+- [x] Aplicar el snapshot al shell antes de los fetches y proteger el acceso inicial a storage en `src/viewer/public/app.js` y `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs`
+  - **Criteria:** CR1, CR6
   - **Resolved:** `2026-06-27T19:34:56Z`
-- [x] Mostrar el estado vacío en Board cuando no queda ningún proyecto vivo en `src/viewer/public/app.js` y cubrir la regresión en `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs` (CR4)
+- [x] Mostrar el estado vacío en Board cuando no queda ningún proyecto vivo en `src/viewer/public/app.js` y cubrir la regresión en `test/viewer-metadata.test.mjs`; verificar con `node --test test/viewer-metadata.test.mjs test/app-state.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-27T19:37:15Z`
 
 ## Log

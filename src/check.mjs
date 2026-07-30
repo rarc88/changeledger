@@ -1,5 +1,7 @@
 // Pure validator: takes a loaded repo ({ config, changes }) and returns
-// { errors, warnings }. No IO — the `changeledger check` command does the IO and printing.
+// { errors, warnings, validated, notValidated } — the counts say how many
+// documents were validated as subjects and how many were exempt as frozen
+// history. No IO — the `changeledger check` command does the IO and printing.
 
 import { parseChange } from './change.mjs';
 import { hasFixableDefects } from './fix.mjs';
@@ -9,8 +11,27 @@ import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
 const REQUIRED = ['id', 'title', 'type', 'status', 'created', 'depends_on'];
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const ID_FORM = /^\d{8}-\d{6}$/;
-const CLOSED_STATUSES = new Set(['done', 'discarded']);
 const SEMANTIC_STAGES = new Set(['request', 'investigation', 'proposal', 'specification', 'plan']);
+// Stages a `review_required` type must activate, in canonical order. Exported so
+// the schema migration repairs exactly the coupling `checkConfig` enforces.
+export const REVIEWABLE_STAGES = ['specification', 'plan'];
+
+// Frozen history: `archived` is one-way (there is no `unarchive`) and
+// `discarded` is a tombstone the contract forbids reopening, so a diagnostic
+// about either could only be "fixed" by rewriting finished work. A frozen
+// change therefore stops being the SUBJECT of the per-document loop while
+// remaining DATA for every repo-wide invariant (duplicate ids, the depends_on
+// graph, spec graduations, releases, mention backlinks). `done` without
+// `archived` is live work pending graduation or archive; `archived` under an
+// open status can only come from a hand edit, so it stays validated instead of
+// hiding an anomaly. Single authority for the rule — callers ask, never
+// re-derive. Returns the reason a change is frozen, or null when it is not.
+export function frozenReason(change) {
+  const fm = change?.frontmatter ?? {};
+  if (fm.status === 'discarded') return 'discarded';
+  if (fm.status === 'done' && fm.archived === true) return 'archived';
+  return null;
+}
 
 export function checkRepo({ config, changes, specs = [], releases = [] }, opts = {}) {
   const errors = [];
@@ -25,11 +46,24 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const canonical = Array.isArray(config.stages) ? config.stages : [];
 
   // Scope: a single change (fast, post-write check) or the whole repo.
-  let targets = changes;
+  let scoped = changes;
   if (opts.id) {
-    targets = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
-    if (!targets.length) err(null, `no change with id "${opts.id}"`);
+    scoped = changes.filter((c) => String(c.frontmatter?.id) === String(opts.id));
+    if (!scoped.length) err(null, `no change with id "${opts.id}"`);
   }
+
+  // Severity projection: the status the subject is judged AS, whatever its
+  // frontmatter still says. `approve` needs it to judge a draft at the severity
+  // of the status it is about to reach (20260729-185200 CR1). It only makes
+  // sense for one named subject — a repo-wide sweep judges every document by its
+  // own status — so an unscoped projection is a caller error, not a no-op.
+  if (opts.asStatus !== undefined && !opts.id) {
+    throw new Error('checkRepo: asStatus projects onto one subject and requires an id');
+  }
+
+  // Subjects of the per-document loop. The data feed below stays `changes`.
+  const targets = scoped.filter((c) => frozenReason(c) === null);
+  const counts = { validated: targets.length, notValidated: scoped.length - targets.length };
 
   const knownIds = new Set(changes.map((c) => String(c.frontmatter?.id ?? '')).filter(Boolean));
   const incomingRelations = relatedBacklinks(changes);
@@ -97,13 +131,13 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
       warn(c, 'status is "blocked" but no task is marked [!]');
     }
 
-    checkCoverage(c, fm, active, config, warn, err);
+    checkCoverage(c, fm, active, config, { warn, err, asStatus: opts.asStatus });
     checkLifecycleSequence(c, fm, err);
     checkUnclassifiedMentions(c, knownIds, incomingRelations, warn);
   }
 
   // Aggregate checks only make sense over the whole repo.
-  if (opts.id) return { errors, warnings };
+  if (opts.id) return { errors, warnings, ...counts };
 
   const seen = new Map();
   for (const c of changes) {
@@ -122,8 +156,14 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   for (const c of changes) {
     const id = c.frontmatter?.id;
     const deps = c.frontmatter?.depends_on ?? [];
+    // Frozen history (`frozenReason`) never emits these invariants as their
+    // subject — a discarded or archived-done change can never be edited to fix
+    // a dangling reference — but keeps feeding the dependency graph as data:
+    // an open change resolving a frozen id must still resolve (CR6).
+    const frozen = frozenReason(c) !== null;
     for (const d of deps) {
-      if (!isExternal(d) && !ids.has(d)) err(c, `depends_on references missing change "${d}"`);
+      if (!frozen && !isExternal(d) && !ids.has(d))
+        err(c, `depends_on references missing change "${d}"`);
     }
     if (id)
       graph.set(
@@ -133,6 +173,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
     const relations = Array.isArray(c.frontmatter?.related_to) ? c.frontmatter.related_to : [];
     for (const raw of relations) {
+      if (frozen) continue;
       const related = String(raw);
       if (String(id) === related) {
         err(c, `related_to cannot reference its own change "${related}"`);
@@ -148,7 +189,7 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   checkSpecs(changes, specs, ids, err, warn);
   checkReleases(releases, new Map(changes.map((c) => [String(c.frontmatter?.id), c])), err);
 
-  return { errors, warnings };
+  return { errors, warnings, ...counts };
 }
 
 function relatedBacklinks(changes) {
@@ -184,7 +225,7 @@ function textOutsideFences(text) {
 
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
-  if (CLOSED_STATUSES.has(fm.status) || fm.archived === true) return;
+  if (frozenReason(change) !== null) return;
 
   const ownId = String(fm.id ?? '');
   const linkedIds = new Set(
@@ -213,7 +254,7 @@ function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
 // Reuses the scoped validator for a selected change, optionally replacing its
 // in-memory text with a candidate that has not been written yet. Callers gate
 // mutations on errors only; warnings remain informational by contract.
-export function checkSelectedChange(repo, id, candidateText) {
+export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) {
   let changes = repo.changes;
   if (candidateText !== undefined) {
     const index = changes.findIndex((c) => String(c.frontmatter?.id) === String(id));
@@ -223,11 +264,11 @@ export function checkSelectedChange(repo, id, candidateText) {
       changes = changes.with(index, candidate);
     }
   }
-  return checkRepo({ ...repo, changes }, { id });
+  return checkRepo({ ...repo, changes }, { id, asStatus });
 }
 
-export function assertSelectedChangeValid(repo, id, candidateText) {
-  const { errors } = checkSelectedChange(repo, id, candidateText);
+export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
+  const { errors } = checkSelectedChange(repo, id, candidateText, opts);
   if (!errors.length) return;
   throw new Error(
     `change ${id} failed scoped validation:\n${errors.map((error) => `- ${error.message}`).join('\n')}`,
@@ -236,12 +277,16 @@ export function assertSelectedChangeValid(repo, id, candidateText) {
 
 // Validates one already-resolved file without loading or parsing siblings. This
 // is the write-gate path for operations whose scope is exactly one change.
-export function assertChangeTextValid(config, name, text) {
+// `asStatus` judges the text at a projected status instead of its own, so a
+// transition can falsify its candidate before writing it (20260729-185200 CR1).
+export function assertChangeTextValid(config, name, text, opts = {}) {
   const parsed = parseChange(text);
   const id = parsed.frontmatter.id;
   assertSelectedChangeValid(
     { config, changes: [{ name, text, ...parsed }], specs: [], releases: [] },
     id,
+    undefined,
+    opts,
   );
 }
 
@@ -348,7 +393,9 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
       const ts = event.at;
       const specName = event.spec;
       if (!specNames.has(specName)) {
-        err(c, `graduated to a missing spec "${specName}"`);
+        // Frozen history is never the emitting subject (CR6): the reference is
+        // unfixable on a discarded or archived-done change either way.
+        if (frozenReason(c) === null) err(c, `graduated to a missing spec "${specName}"`);
         continue;
       }
       const changeId = String(c.frontmatter?.id);
@@ -492,17 +539,34 @@ function checkLifecycleSequence(c, fm, err) {
 
 // Definition-of-Ready coverage: when `tdd` is on (default), a change whose type
 // activates `## Specification` is checked in draft, approved and in-progress.
-// Draft reports everything as warnings. In approved/in-progress, readiness
-// defects (criterion missing Given/When/Then, reference to an unknown
-// criterion, CR-bearing task without target+verification) are errors, while
-// coverage gaps (uncovered criterion, non-support task without a CR) stay
-// warnings. Only the Given/When/Then structure is machine-checkable; semantic
-// test-grade quality remains the documenting agent's judgment.
-function checkCoverage(c, fm, active, config, warn, err = () => {}) {
+// Draft reports everything as warnings, because a draft is still being written.
+// From `approved` onward every diagnostic here is an error — readiness defects
+// (criterion missing Given/When/Then, reference to an unknown criterion,
+// CR-bearing task without target+verification) and coverage gaps (uncovered
+// criterion, non-support task without a CR) alike: the criterion → task →
+// verification net is what approval commits to, so a hole in it cannot be advice
+// (20260729-185200 CR3/CR4). `asStatus` judges the subject at a status other
+// than the one in its frontmatter, which is how `approve` falsifies a draft
+// before flipping it. Only the Given/When/Then structure is machine-checkable;
+// semantic test-grade quality remains the documenting agent's judgment.
+function checkCoverage(c, fm, active, config, { warn, err, asStatus }) {
   if (config?.tdd === false) return;
-  if (!active?.includes('specification')) return;
-  if (!['draft', 'approved', 'in-progress'].includes(fm.status)) return;
-  const report = fm.status === 'draft' ? warn : err;
+  const judged = asStatus ?? fm.status;
+  if (!['draft', 'approved', 'in-progress'].includes(judged)) return;
+  const report = judged === 'draft' ? warn : err;
+
+  // A type that never activates `specification` can declare no `### CRn`
+  // block, so `c.criteria` is always empty here — every Plan task reference is
+  // by definition unknown. `checkCoverage` used to return before this point,
+  // letting a `(CR99)` on a chore/quick/audit task pass clean (CR4).
+  if (!active?.includes('specification')) {
+    for (const t of c.tasks ?? []) {
+      for (const cr of t.criteria ?? []) {
+        report(c, `Plan task references unknown criterion "${cr}"`);
+      }
+    }
+    return;
+  }
 
   const declared = c.criteria ?? [];
   const declaredSet = new Set(declared);
@@ -521,53 +585,41 @@ function checkCoverage(c, fm, active, config, warn, err = () => {}) {
     for (const cr of t.criteria) {
       if (!declaredSet.has(cr)) report(c, `Plan task references unknown criterion "${cr}"`);
     }
-    if (!namesTargetAndVerification(t.text, config)) {
+    if (!namesTargetAndVerification(t, config)) {
       const hint = readinessHint(config);
-      const misplaced = misplacedVerificationSuffix(t, config);
       for (const cr of t.criteria) {
-        if (misplaced) {
-          report(
-            c,
-            `Plan task for ${cr} puts verification in the reserved suffix; move "${misplaced}" before the final (CRn) block because "— ..." is reserved for done timestamps and blocked reasons`,
-          );
-        } else {
-          report(c, `Plan task for ${cr} must name target and verification (${hint})`);
-        }
+        report(c, `Plan task for ${cr} must name target and verification (${hint})`);
       }
     }
   }
 
   for (const cr of declared)
-    if (!referenced.has(cr)) warn(c, `${cr} is not covered by any Plan task`);
+    if (!referenced.has(cr)) report(c, `${cr} is not covered by any Plan task`);
 
   for (const t of tasks)
-    if (!t.criteria?.length && !isSupportTask(t.text)) {
+    if (!t.criteria?.length && !isSupportTask(t)) {
       const label = t.text.length > 50 ? `${t.text.slice(0, 50)}…` : t.text;
-      warn(c, `Plan task "${label}" references no criterion`);
+      report(c, `Plan task "${label}" references no criterion`);
     }
 }
 
-// A task ending with `(support)` is intentionally operational (running tests,
-// reading docs, scaffolding) and is exempt from the "references no criterion"
-// warning. Readiness checks (target + verification patterns) already skip
-// tasks with no criteria, so no additional exclusion is needed there.
-function isSupportTask(text) {
-  return /\(support\)\s*$/.test(text);
+// A task declaring the `Support` child is intentionally operational (running
+// tests, reading docs, scaffolding) and is exempt from the "references no
+// criterion" warning. Readiness checks already skip tasks with no criteria, so
+// no additional exclusion is needed there.
+function isSupportTask(task) {
+  return task.support !== undefined;
 }
 
-function namesTargetAndVerification(text, config) {
+// Each list judges its own field (20260729-203257 CR4). While both were matched
+// against the whole task description, two overlapping lists satisfied each other
+// on the same string and the requirement was vacuous — a task naming only a test
+// file passed as target and as verification at once.
+function namesTargetAndVerification(task, config) {
   const readiness = readinessConfig(config);
   return (
-    matchesAnyReadinessPattern(text, readiness.target_patterns) &&
-    matchesAnyReadinessPattern(text, readiness.verification_patterns)
-  );
-}
-
-function misplacedVerificationSuffix(task, config) {
-  if (task.state !== 'todo' || !task.suffix) return null;
-  const readiness = readinessConfig(config);
-  return readiness.verification_patterns.find((pattern) =>
-    readinessPatternMatches(task.suffix, pattern),
+    matchesAnyReadinessPattern(task.target ?? '', readiness.target_patterns) &&
+    matchesAnyReadinessPattern(task.verify ?? '', readiness.verification_patterns)
   );
 }
 
@@ -683,6 +735,19 @@ function checkConfig(config, err) {
     }
     if (def && 'review_required' in def && typeof def.review_required !== 'boolean')
       err(null, `config type "${type}": review_required must be a boolean`);
+    // An independent reviewer needs something to verify: criteria live in
+    // `## Specification` (the only stage `parseChange` reads `### CRn` from) and
+    // the tasks that cite them live in `## Plan`. A type that demands review
+    // without both stages hands the reviewer an empty contract.
+    if (def.review_required === true) {
+      const missing = REVIEWABLE_STAGES.filter((s) => !def.stages.includes(s));
+      if (missing.length) {
+        err(
+          null,
+          `config type "${type}": review_required: true requires active stages: ${missing.join(', ')}`,
+        );
+      }
+    }
   }
 }
 

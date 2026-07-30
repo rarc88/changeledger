@@ -42,7 +42,6 @@ export function status(
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
-  const autoOwner = newStatus === 'in-progress' ? ownerHandle(path.dirname(file)) : '';
   mutateFileAtomic(file, (text) => {
     const fm = parseChange(text).frontmatter;
     if (fm.status === 'done' && newStatus === 'in-progress') {
@@ -55,6 +54,20 @@ export function status(
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
+    // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
+    // Validate the document as it still stands, before the status flip: readiness
+    // defects are errors only while the change is pre-review, so checking the
+    // post-flip text would silently exempt the very candidate under judgment.
+    if (newStatus === 'in-review') assertChangeTextValid(config, path.basename(file), text);
+    // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
+    // shape as the in-review gate — validate the pre-flip text — but the severity
+    // has to be projected: a draft's readiness and coverage diagnostics are
+    // warnings precisely because it is a draft, so judging the text as it stands
+    // would exempt every defect the approval is supposed to catch. `approved` is
+    // reachable only from `draft`, so this is the single seat for the gate.
+    if (newStatus === 'approved') {
+      assertChangeTextValid(config, path.basename(file), text, { asStatus: 'approved' });
+    }
     text = setStatus(text, newStatus);
     const detail =
       actor === 'human' &&
@@ -72,15 +85,20 @@ export function status(
     });
 
     // Work begins here: assign the owner from the local git identity unless one was
-    // set explicitly (see change 20260614-124047).
-    if (newStatus === 'in-progress' && !fm.owner && autoOwner) {
-      text = setOwner(text, autoOwner);
-      text = appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'owner',
-        owner: autoOwner,
-        automatic: true,
-      });
+    // set explicitly (see change 20260614-124047). Resolution runs only when it is
+    // actually needed — an assigned owner must never trigger the resolver's network
+    // call just to discard the result (20260729-144812).
+    if (newStatus === 'in-progress' && !fm.owner) {
+      const autoOwner = ownerHandle(path.dirname(file));
+      if (autoOwner) {
+        text = setOwner(text, autoOwner);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'owner',
+          owner: autoOwner,
+          automatic: true,
+        });
+      }
     }
     return text;
   });
@@ -99,14 +117,24 @@ export function approve(id, cwd = process.cwd()) {
 // implementer fixes), `block` for one that escalates to a human. Requires the
 // change to be in-review.
 export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) {
-  const { file } = locate(cwd, id);
+  const { config, file } = locate(cwd, id);
   mutateFileAtomic(file, (text) => {
-    const { status: current } = parseChange(text).frontmatter;
+    const fm = parseChange(text).frontmatter;
+    const current = fm.status;
     if (current !== 'in-review') {
       throw new Error(`review requires status in-review (current: ${current})`);
     }
+    // Validate before any mutation, same contract as status()/validation()/
+    // discard()/reopen(): assertTransition is the single lifecycle authority,
+    // even though every in-review edge is legal today (the graph's three
+    // in-review destinations mirror review()'s three outcomes by design).
+    const opts = {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    };
 
     if (verdict === 'pass') {
+      assertTransition(current, 'in-validation', opts);
       text = setStatus(text, 'in-validation');
       text = appendLogEvent(text, {
         at: nowUtc(),
@@ -122,6 +150,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
         );
       }
       if (mode === 'retry') {
+        assertTransition(current, 'in-progress', opts);
         text = setStatus(text, 'in-progress');
         text = appendLogEvent(text, {
           at: nowUtc(),
@@ -132,6 +161,7 @@ export function review(id, verdict, { mode, reason } = {}, cwd = process.cwd()) 
           reason,
         });
       } else if (mode === 'block') {
+        assertTransition(current, 'blocked', opts);
         text = setStatus(text, 'blocked');
         text = appendLogEvent(text, {
           at: nowUtc(),
@@ -301,6 +331,10 @@ function matchesOwner(c, { owner: byOwner, unowned = false } = {}) {
   return true;
 }
 
+export function isPendingGraduation(c) {
+  return c.frontmatter.status === 'done' && c.frontmatter.reviewed !== true;
+}
+
 export function selectArchivableGraduated(changes, filters = {}) {
   assertOwnerFilter(filters);
   return changes.filter((c) => isArchivableGraduated(c) && matchesOwner(c, filters));
@@ -385,7 +419,7 @@ export function list(
       if (byType && fm.type !== byType) return false;
       if (byOwner !== undefined && fm.owner !== byOwner) return false;
       if (unowned && fm.owner != null) return false;
-      if (pending === 'graduation' && !(fm.status === 'done' && fm.reviewed !== true)) return false;
+      if (pending === 'graduation' && !isPendingGraduation(c)) return false;
       return true;
     })
     .map((c) => ({

@@ -40,9 +40,13 @@ humana mediante el gate normal de graduación; no se adelanta verdad a
 
 ## Plan
 
-- [x] Ampliar `INTENT.md` con el presupuesto de complejidad, las preguntas de evaluación y los no-goals, sin duplicar los principios que ya contiene; verify: `node bin/changeledger.mjs check` (support)
+- [x] Ampliar `INTENT.md` con el presupuesto de complejidad, las preguntas de evaluación y los no-goals, sin duplicar los principios que ya contiene
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-28T01:03:17Z`
-- [x] Añadir en el `AGENTS.md` raíz de este repo una versión breve que remita a `INTENT.md`, para que influya en decisiones de desarrollo sin cargar el detalle en repos consumidores; verify: `node bin/changeledger.mjs check` (support)
+- [x] Añadir en el `AGENTS.md` raíz de este repo una versión breve que remita a `INTENT.md`, para que influya en decisiones de desarrollo sin cargar el detalle en repos consumidores
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-06-28T01:03:18Z`
 
 ## Log

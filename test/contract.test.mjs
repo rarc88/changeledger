@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { marked } from 'marked';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { checkContract, REFERENCE, removeLegacyContract } from '../src/contract.mjs';
@@ -18,15 +19,15 @@ function root() {
 
 function reflowBootstrap(text) {
   return text.replace(
-    '> Attempt to run **ChangeLedger** with `changeledger context` immediately after\n> reading this file — before planning, investigating, or acting.',
-    '>Attempt to run **ChangeLedger** with `changeledger context` immediately\n> after reading this file — before planning, investigating, or acting.',
+    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
+    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
   );
 }
 
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
+    .replace('> or editing anything, run', 'or editing anything, run')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
@@ -36,10 +37,10 @@ test('212659 CR1/CR2: init installs an optional bootstrap without hiding real fa
   assert.equal(fs.existsSync(path.join(dir, '.changeledger', 'AGENTS.md')), false);
   assert.equal(fs.existsSync(path.join(dir, '.gitignore')), false);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /Attempt to run[\s\S]*`changeledger context`/);
-  assert.match(agents, /command is unavailable[\s\S]*continue normally without ChangeLedger/i);
-  assert.match(agents, /starts but fails[\s\S]*report the error[\s\S]*human/i);
-  assert.match(agents, /human[\s\S]*decide how\s+>?\s*to continue/i);
+  assert.match(agents, /run exactly this[\s\S]*`changeledger context 2>&1 \| head -400`/);
+  assert.match(agents, /Command not installed[\s\S]*continue the task normally/i);
+  assert.match(agents, /Command present but failing[\s\S]*report the captured error[\s\S]*human/i);
+  assert.match(agents, /human, and wait\s+>?\s*for their decision/i);
   assert.doesNotMatch(agents, /restore\/install ChangeLedger|command -v|which changeledger/i);
   assert.doesNotMatch(agents, /\.changeledger\/AGENTS\.md/);
   assert.deepEqual(checkContract(dir), []);
@@ -49,8 +50,8 @@ test('212659 CR1: bootstrap attempts the core load immediately, not only before 
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /immediately after\s+>?\s*reading this file/i);
-  assert.match(agents, /before\s+>?\s*planning, investigating, or acting/);
+  assert.match(agents, /Before planning, investigating, answering\s+>?\s*or editing anything/);
+  assert.match(agents, /run exactly this — it is mandatory, not optional/);
   assert.doesNotMatch(agents, /Before creating or modifying files/);
 });
 
@@ -58,32 +59,266 @@ test('212659 CR7: bootstrap leaves lifecycle authority to loaded context', () =>
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(
-    agents,
-    /If it succeeds,[\s\S]*follow (?:its|that)\s+>?\s*complete (?:output|context)/i,
-  );
+  assert.match(agents, /Nothing before that line is\s+>?\s*actionable/i);
   assert.doesNotMatch(agents, /Do not create or modify files without an authorized change/);
   assert.doesNotMatch(agents, /workflow, the task contexts, and the narrow operational exception/);
   assert.doesNotMatch(agents, /spec\|implement\|review\|release/);
 });
 
-test('212659 CR3/CR4: bootstrap preserves complete capture and revision recovery', () => {
+// 20260726-124833 retired the revision-recovery half of 212659 CR4 together
+// with `--have`. 20260726-124834 restated CR3's complete-capture rule as a
+// checkable validity condition plus a bounded retry, replacing prose that
+// forbade truncation without giving the agent any way to detect it.
+test('212659 CR3: bootstrap preserves the complete-capture rule', () => {
   const dir = root();
   init(dir);
   const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
-  assert.match(agents, /through the `CHANGELEDGER CONTEXT END` line/);
-  assert.match(
-    agents.replace(/\s+/g, ' '),
-    /`changeledger context`[^.]*\.[^.]*(?:If it succeeds|On success),\s*>?\s*retain complete stdout/i,
+  assert.match(agents, /only if its last line contains\s+>?\s*`CHANGELEDGER CONTEXT END`\*\*/);
+  assert.match(agents, /Nothing before that line is\s+>?\s*actionable/i);
+  assert.match(agents, /if `END` is missing, re-run with/i);
+  assert.doesNotMatch(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
+});
+
+// 20260726-124833 CR5: the installed bootstrap no longer teaches a revision
+// check that the CLI cannot perform any more.
+test('124833 CR5: the installed bootstrap never mentions --have or a retained rev', () => {
+  const dir = root();
+  init(dir);
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.doesNotMatch(agents, /--have/);
+  assert.doesNotMatch(agents, /rev:/);
+  assert.doesNotMatch(agents, /After a compaction/i);
+  assert.doesNotMatch(agents, /retained capture/i);
+  assert.deepEqual(checkContract(dir), []);
+});
+
+// The delimited block wraps every line in `> `; flatten the blockquote so the
+// literal phrases the specification pins can be asserted without encoding the
+// hard line wraps that Markdown formatters are free to move.
+function bootstrapProse(dir) {
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  const begin = agents.indexOf('<!-- CHANGELEDGER BOOTSTRAP BEGIN');
+  const end = agents.indexOf('<!-- CHANGELEDGER BOOTSTRAP END -->');
+  assert.ok(begin !== -1 && end > begin, 'AGENTS.md must carry a delimited bootstrap block');
+  return agents.slice(begin, end);
+}
+
+const flatten = (block) => block.replace(/^>[ ]?/gm, '').replace(/\s+/g, ' ');
+
+test('124834 CR1: the bootstrap publishes the exact bounded capture command', () => {
+  const dir = root();
+  init(dir);
+  const prose = flatten(bootstrapProse(dir));
+  assert.ok(
+    prose.includes('`changeledger context 2>&1 | head -400`'),
+    'the block must publish the bounded command literally',
   );
-  assert.match(agents, /no pipes, filters, summaries, previews or voluntary output limits/i);
-  assert.match(agents, /output budget[\s\S]*whole response/i);
-  assert.match(agents, /missing END[\s\S]*re-run with a larger capture/i);
-  assert.match(
-    agents,
-    /After a compaction[\s\S]*`changeledger context\s+>?\s*\[mode\] --have <rev>`/i,
+  assert.ok(
+    prose.includes('run exactly this — it is mandatory, not optional'),
+    'the block must state the mandatory framing literally',
   );
-  assert.match(agents, /context or its revision was lost[\s\S]*load it completely again/i);
+});
+
+test('124834 CR2: a positive validity condition replaces the negative rule', () => {
+  const dir = root();
+  init(dir);
+  const block = bootstrapProse(dir);
+  const prose = flatten(block);
+  assert.ok(
+    prose.includes('valid **only if its last line contains `CHANGELEDGER CONTEXT END`**'),
+    'the block must state the positive validity condition literally',
+  );
+  assert.ok(
+    !prose.includes('no pipes, filters, summaries, previews or voluntary output limits'),
+    'the retired negative rule must be gone',
+  );
+  assert.ok(
+    prose.includes('re-run with `head -<lines>`'),
+    'the truncation retry must name the exact bounded retry command',
+  );
+  assert.ok(!block.includes('lines + 2'), 'the block must not carry the retired retry arithmetic');
+});
+
+test('124834 CR3: absent command stays distinct from a present command that fails', () => {
+  const dir = root();
+  init(dir);
+  const prose = flatten(bootstrapProse(dir));
+  assert.ok(
+    prose.includes(
+      'Command not installed (`command not found`) → ChangeLedger is absent: continue the task normally and never emulate it',
+    ),
+    'the absent branch must be stated literally',
+  );
+  assert.ok(
+    prose.includes(
+      'Command present but failing (any other error or non-zero exit) → stop, report the captured error to the human, and wait for their decision',
+    ),
+    'the failing branch must be stated literally and separately',
+  );
+});
+
+test('124834 CR4: the block re-runs after compaction and teaches no revision check', () => {
+  const dir = root();
+  init(dir);
+  const block = bootstrapProse(dir);
+  assert.ok(
+    flatten(block).includes(
+      'Run this again as the first action of the first response after any context compaction',
+    ),
+    'the compaction retry must be stated literally',
+  );
+  assert.ok(!block.includes('--have'), 'the block must not mention the retired --have flag');
+  assert.ok(!block.includes('rev:'), 'the block must not mention a retained rev');
+});
+
+// Retirement of a `BEGIN vN` block is generic: `replaceDelimited` compares the
+// version numerically and never the payload, so no hash has to be registered in
+// `LEGACY_CONTRACT_HASHES`. The first fixture holds the current payload under a
+// v3 marker to isolate that numeric comparison from any content comparison; the
+// second is the real v3 prose this change retires.
+test('124834 CR5: a v3 block is outdated and register rewrites it to v4', () => {
+  const historicalV3 = `> [!IMPORTANT]
+> Attempt to run **ChangeLedger** with \`changeledger context\` immediately after
+> reading this file — before planning, investigating, or acting. If it succeeds,
+> retain complete stdout through the \`CHANGELEDGER CONTEXT END\` line and follow that
+> complete context: no pipes, filters, summaries, previews or voluntary output limits.
+> If the tool exposes an output budget, reserve enough for the whole response. A
+> missing END means the output was truncated: stop and re-run with a larger capture.
+>
+> If the command is unavailable, continue normally without ChangeLedger. If it
+> starts but fails, report the error to the human and wait for them to decide how
+> to continue; do not treat a failing command as absent.
+`;
+
+  for (const payload of [REFERENCE, historicalV3]) {
+    const dir = root();
+    init(dir);
+    const file = path.join(dir, 'AGENTS.md');
+    const stale = `# Project\n\n<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->\n${payload}<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
+    fs.writeFileSync(file, stale);
+
+    assert.deepEqual(checkContract(dir), [
+      'AGENTS.md has an outdated ChangeLedger reference — run `changeledger register`',
+    ]);
+
+    registerRepo(dir);
+
+    assert.equal(
+      fs.readFileSync(file, 'utf8'),
+      `# Project\n\n<!-- CHANGELEDGER BOOTSTRAP BEGIN v4 -->\n${REFERENCE}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
+    );
+    assert.deepEqual(checkContract(dir), []);
+  }
+});
+
+const OUTDATED = 'AGENTS.md has an outdated ChangeLedger reference — run `changeledger register`';
+
+const ABSENT_BULLET = `> - Command not installed (\`command not found\`) → ChangeLedger is absent:
+>   continue the task normally and never emulate it.
+`;
+const FAILING_BULLET = `> - Command present but failing (any other error or non-zero exit) → stop,
+>   report the captured error to the human, and wait for their decision.
+`;
+
+// The v4 block is the first REFERENCE built from a Markdown list. These fixtures
+// pin the two halves a list must not cost us: formatter tolerance beyond byte
+// equality (CR7) and drift detection inside the bullets (CR8).
+function installed() {
+  const dir = root();
+  init(dir);
+  const file = path.join(dir, 'AGENTS.md');
+  const canonical = fs.readFileSync(file, 'utf8');
+  assert.match(canonical, /CHANGELEDGER BOOTSTRAP BEGIN v4/);
+  return { dir, file, canonical };
+}
+
+function rejects(mutate, why) {
+  const { dir, file, canonical } = installed();
+  const changed = mutate(canonical);
+  assert.notEqual(changed, canonical, `the fixture must actually change the block: ${why}`);
+  fs.writeFileSync(file, changed);
+  assert.deepEqual(checkContract(dir), [OUTDATED], why);
+}
+
+test('124834 CR7: semantic equivalence survives the bullet list', () => {
+  const { dir, file, canonical } = installed();
+  const equivalent = canonical
+    .replace('**ChangeLedger governs this repo.**', '__ChangeLedger governs this repo.__')
+    .replace('>   compaction.', '> compaction.');
+  assert.notEqual(equivalent, canonical);
+  assert.match(equivalent, /__ChangeLedger governs this repo\.__/);
+  assert.match(equivalent, /any context\n> compaction\./);
+  fs.writeFileSync(file, equivalent);
+
+  assert.deepEqual(checkContract(dir), []);
+
+  registerRepo(dir);
+  assert.equal(
+    fs.readFileSync(file, 'utf8'),
+    equivalent,
+    'register must leave an equivalent file byte-for-byte identical',
+  );
+});
+
+test('124834 CR8: drift in the bounded command is still outdated', () => {
+  rejects((text) => text.replace('head -400', 'head -500'), 'a changed capture bound is drift');
+});
+
+// 20260728-212043 CR3: `124834 CR8` above only ever mutated the bound upward.
+// That direction alone would tolerate a guard that only rejects raising the
+// literal — the exact defect a `head -400` → `head -300` mutation would slip
+// through undetected. This is the direction this change's own edit takes, so
+// it is the one this test must prove the guard was never blind to.
+test('20260728-212043 CR3: drift lowering the bounded command is outdated too', () => {
+  rejects((text) => text.replace('head -400', 'head -300'), 'a lowered capture bound is drift too');
+});
+
+// Enumerate the bullets with the same parser the projection uses, so the test's
+// notion of "a bullet" cannot drift from `projectToken`'s. Pinning individual
+// bullets by hand left the uncovered ones open: a projection that dropped any
+// subset of `items` (`slice(0, -1)`, `slice(1)`, …) survived. Deriving the set
+// from the parse makes coverage exhaustive and self-extending — a bullet added
+// to `REFERENCE` is verified without anyone remembering to extend this test.
+function referenceBullets() {
+  const blockquote = marked.lexer(REFERENCE).filter((token) => token.type !== 'space')[0];
+  assert.equal(blockquote?.type, 'blockquote', 'the reference must be a single blockquote');
+  const list = blockquote.tokens.find((token) => token.type === 'list');
+  assert.ok(list, 'the v4 reference must carry a bullet list');
+
+  const anchors = list.items.map((item) => {
+    const anchor = `> ${item.raw.split('\n')[0]}`;
+    assert.equal(
+      REFERENCE.split(anchor).length - 1,
+      1,
+      `each bullet must be locatable exactly once in the block: ${anchor}`,
+    );
+    return anchor;
+  });
+
+  // Cross-check the parsed count against an independent scan of the raw block.
+  // Two derivations agreeing is what makes the loop provably exhaustive; no
+  // bullet count is ever written down here.
+  const bulletLines = (REFERENCE.match(/^> - /gm) ?? []).length;
+  assert.ok(bulletLines > 0, 'the v4 reference must contain at least one bullet');
+  assert.equal(anchors.length, bulletLines, 'every bullet line must be enumerated');
+  return anchors;
+}
+
+test('124834 CR8: drift in every parsed bullet is still outdated', () => {
+  const bullets = referenceBullets();
+  for (const anchor of bullets) {
+    rejects(
+      (text) => text.replace(anchor, anchor.replace('> - ', '> - Never ')),
+      `drift must be detected in bullet ${bullets.indexOf(anchor) + 1}/${bullets.length}: ${anchor}`,
+    );
+  }
+});
+
+test('124834 CR8: reordering two bullets without changing their text is outdated', () => {
+  rejects((text) => {
+    assert.ok(text.includes(`${ABSENT_BULLET}${FAILING_BULLET}`), 'both bullets must be adjacent');
+    return text.replace(`${ABSENT_BULLET}${FAILING_BULLET}`, `${FAILING_BULLET}${ABSENT_BULLET}`);
+  }, 'bullet order must be preserved inside lists');
 });
 
 test('212659 CR5: bootstrap contains no delegation mechanism', () => {
@@ -160,7 +395,7 @@ test('153633 CR1/CR3: check accepts the real Prettier lazy-continuation fixture'
   const canonical = fs.readFileSync(file, 'utf8');
   const reformatted = prettierBootstrap(canonical);
   assert.notEqual(reformatted, canonical);
-  assert.match(reformatted, /context\n\[mode\] --have/);
+  assert.match(reformatted, /investigating, answering\nor editing anything, run/);
 
   fs.writeFileSync(file, reformatted);
 
@@ -172,7 +407,10 @@ test('153633 CR3: check accepts different Markdown syntax with the same token tr
   init(dir);
   const file = path.join(dir, 'AGENTS.md');
   const canonical = fs.readFileSync(file, 'utf8');
-  const equivalent = canonical.replace('**ChangeLedger**', '__ChangeLedger__');
+  const equivalent = canonical.replace(
+    '**ChangeLedger governs this repo.**',
+    '__ChangeLedger governs this repo.__',
+  );
   assert.notEqual(equivalent, canonical);
 
   fs.writeFileSync(file, equivalent);
@@ -239,10 +477,7 @@ test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () 
   const file = path.join(dir, 'CLAUDE.md');
   const stale = fs
     .readFileSync(file, 'utf8')
-    .replace(
-      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v3 -->',
-      '<!-- CHANGELEDGER BOOTSTRAP BEGIN v0 -->',
-    );
+    .replace(/BOOTSTRAP BEGIN v\d+ -->/, 'BOOTSTRAP BEGIN v0 -->');
   fs.writeFileSync(file, `@AGENTS.md\n\n${stale}`);
 
   assert.deepEqual(checkContract(dir), [
@@ -254,11 +489,12 @@ test('124113 CR5: a direct stale CLAUDE.md bootstrap still requires repair', () 
 
 test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', () => {
   const mutations = [
-    (text) => text.replace('with `changeledger context`', 'with `changeledger check`'),
-    (text) => text.replace('Attempt to run **ChangeLedger**', 'Attempt  to run **ChangeLedger**'),
-    (text) => text.replace('> reading this file', '>\n> reading this file'),
+    (text) => text.replace('`changeledger context 2>&1', '`changeledger check 2>&1'),
     (text) =>
-      text.replace('> reading this file', '>\n\noutside the blockquote\n\n> reading this file'),
+      text.replace('**ChangeLedger governs this repo.**', '**ChangeLedger  governs this repo.**'),
+    (text) => text.replace('> or editing anything', '>\n> or editing anything'),
+    (text) =>
+      text.replace('> or editing anything', '>\n\noutside the blockquote\n\n> or editing anything'),
   ];
 
   for (const mutate of mutations) {
@@ -293,8 +529,12 @@ test('150300 CR3/CR4: check rejects semantic and structural bootstrap changes', 
 
 test('153633 CR4/CR5: check rejects semantic token and delimiter changes', () => {
   const mutations = [
-    (text) => text.replace('`changeledger context`', '`changeledger check`'),
-    (text) => text.replace('**ChangeLedger**', '**[ChangeLedger](https://example.com)**'),
+    (text) => text.replace('`changeledger context 2>&1', '`changeledger check 2>&1'),
+    (text) =>
+      text.replace(
+        '**ChangeLedger governs this repo.**',
+        '**[ChangeLedger](https://example.com) governs this repo.**',
+      ),
     (text) => `${text}<!-- CHANGELEDGER BOOTSTRAP END -->\n`,
     (text) =>
       text.replace('<!-- CHANGELEDGER BOOTSTRAP BEGIN', 'prefix <!-- CHANGELEDGER BOOTSTRAP BEGIN'),
@@ -367,5 +607,67 @@ test('CR11: register removes only the literal legacy gitignore line', () => {
   assert.equal(
     fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
     ' .changeledger/AGENTS.md\n.changeledger/AGENTS.md \n',
+  );
+});
+
+test('141119 CR5: refactor activates specification in every versioned artifact', () => {
+  const repoRoot = new URL('../', import.meta.url);
+  for (const file of ['.changeledger/config.yml', 'templates/config.yml']) {
+    assert.match(
+      fs.readFileSync(new URL(file, repoRoot), 'utf8'),
+      / {2}refactor:\n {4}stages: \[request, proposal, specification, plan, log\]\n {4}review_required: true\n/,
+      `${file} must activate specification for the refactor type`,
+    );
+  }
+  // 20260730-002908 retired this test's third assert: it pinned the `refactor` row of
+  // the activation matrix rendered in `templates/contract/spec.md`, and that matrix is
+  // gone — it was a render of `config.yml`, which the fragment itself declares
+  // authoritative. Consistency now rests on the single seat the two asserts above pin:
+  // there is no second copy left to drift from.
+});
+
+test('20260728-170429 CR2/CR6: the AGENTS.md budgets paragraph names the tokenizer unit, drops bytes/dual-publish and bans spending headroom', () => {
+  const repoRoot = new URL('../', import.meta.url);
+  const normalized = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8').replace(/\s+/g, ' ');
+
+  const expectedParagraph =
+    'Each entry in `templates/contract/budgets.yml` declares a `tokens` ceiling and ' +
+    'a `lines` ceiling: tokens are counted by a pinned reference tokenizer, not by ' +
+    'what a particular model consumes, and lines bound what the bootstrap `head` ' +
+    'must carry. A ceiling is never a goal: never remove normative prose to fit ' +
+    'one, and headroom under a ceiling is never permission to spend it — every ' +
+    'entry into a context is deliberate and optimized. A rule may leave a fragment ' +
+    'only when its new home is named and a grep of the obligation itself — not of ' +
+    'similar words — finds it there. If correct content does not fit, stop and ask ' +
+    'the human.';
+
+  // Exact match, not a partial regex: any wording drift on the tokenizer unit
+  // (CR2) or on the kept/added budgets rules (CR6) fails this on its own.
+  assert.ok(
+    normalized.includes(expectedParagraph),
+    `AGENTS.md must carry the budgets paragraph verbatim; got:\n${normalized}`,
+  );
+
+  // CR6, belt and suspenders across the whole file, not just the paragraph:
+  // the retired per-entry `bytes` ceiling and dual-dimension BEGIN publish
+  // must not resurface anywhere, even outside the paragraph above.
+  assert.doesNotMatch(normalized, /`bytes` ceiling/);
+  assert.doesNotMatch(normalized, /publishes its occupancy of both/);
+});
+
+// 20260728-212043 CR2: the `head -400` literal lives in two production places —
+// this repo's own `AGENTS.md` and the `REFERENCE` block `src/contract.mjs`
+// publishes to every consuming repo — and they must never read a different
+// number. Byte equality of the whole block is what proves they agree, not just
+// a shared substring: a `.trim()` because `AGENTS.md` wraps `REFERENCE` with a
+// leading marker line and a trailing blank line that are not part of the block.
+test("20260728-212043 CR2: this repo's own AGENTS.md bootstrap matches the published REFERENCE, and both say head -400", () => {
+  const repoRoot = new URL('../', import.meta.url);
+  const agents = fs.readFileSync(new URL('AGENTS.md', repoRoot), 'utf8');
+  assert.match(REFERENCE, /head -400/);
+  assert.match(agents, /head -400/);
+  assert.ok(
+    agents.includes(REFERENCE.trim()),
+    "AGENTS.md's installed bootstrap block must be byte-identical to the published REFERENCE",
   );
 });

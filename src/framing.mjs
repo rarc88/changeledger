@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { packageRoot } from './paths.mjs';
@@ -20,11 +19,4 @@ export function beginSentinel(kind, meta) {
 
 export function endSentinel(kind) {
   return `===== CHANGELEDGER ${kind} END — ${TRUNCATION_SUFFIX} =====`;
-}
-
-// 12-hex-char content revision for a composed body. Callers hash the body
-// only (never the BEGIN/END lines themselves) so the revision never
-// references its own framing.
-export function contentRev(body) {
-  return crypto.createHash('sha256').update(body).digest('hex').slice(0, 12);
 }

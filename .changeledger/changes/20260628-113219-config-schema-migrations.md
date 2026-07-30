@@ -142,17 +142,27 @@ archivo vigente es un no-op byte-idéntico.
 
 ## Plan
 
-- [x] Añadir `schema_version: 1` al template y detección compartida en `src/config.mjs`, `src/check.mjs` y `src/commands/register.mjs`; verify: `test/config-migration.test.mjs`, `test/cli.test.mjs` y `test/check.test.mjs` cubren schema actual y antiguo (CR1, CR2, CR8)
+- [x] Añadir `schema_version: 1` al template y detección compartida en `src/config.mjs`, `src/check.mjs` y `src/commands/register.mjs`
+  - **Verify:** `test/config-migration.test.mjs`, `test/cli.test.mjs` y `test/check.test.mjs` cubren schema actual y antiguo
+  - **Criteria:** CR1, CR2, CR8
   - **Resolved:** `2026-06-28T11:59:59Z`
-- [x] Implementar migraciones secuenciales y render preservador en `src/config-migration.mjs` usando el AST de `yaml` y `writeFileAtomic`; verify: fixtures históricas y casos custom en `test/config-migration.test.mjs` (CR3, CR4, CR5, CR6, CR7, CR8, CR9)
+- [x] Implementar migraciones secuenciales y render preservador en `src/config-migration.mjs` usando el AST de `yaml` y `writeFileAtomic`
+  - **Verify:** fixtures históricas y casos custom en `test/config-migration.test.mjs`
+  - **Criteria:** CR3, CR4, CR5, CR6, CR7, CR8, CR9
   - **Resolved:** `2026-06-28T12:00:00Z`
-- [x] Exponer `changeledger config migrate [--dry-run]` desde `bin/changeledger.mjs`; verify: `test/cli-bin.test.mjs` comprueba stdout, códigos de salida y no-escritura (CR2, CR3, CR7, CR8)
+- [x] Exponer `changeledger config migrate [--dry-run]` desde `bin/changeledger.mjs`
+  - **Verify:** `test/cli-bin.test.mjs` comprueba stdout, códigos de salida y no-escritura
+  - **Criteria:** CR2, CR3, CR7, CR8
   - **Resolved:** `2026-06-28T12:00:00Z`
-- [x] Documentar el flujo de upgrade en `README.md` y el contexto de implementación; verify: inspección renderizada y `pnpm test` (support)
+- [x] Documentar el flujo de upgrade en `README.md` y el contexto de implementación
+  - **Verify:** inspección renderizada y `pnpm test`
+  - **Support:**
   - **Resolved:** `2026-06-28T12:00:00Z`
-- [x] Migrar el `.changeledger/config.yml` de este repo como caso dogfood y comprobar que conserva `language: es`, readiness e identidad (support)
+- [x] Migrar el `.changeledger/config.yml` de este repo como caso dogfood y comprobar que conserva `language: es`, readiness e identidad
+  - **Support:**
   - **Resolved:** `2026-06-28T12:00:00Z`
-- [x] Ejecutar `pnpm verify` y probar la migración sobre copias temporales de configs históricos (support)
+- [x] Ejecutar `pnpm verify` y probar la migración sobre copias temporales de configs históricos
+  - **Support:**
   - **Resolved:** `2026-06-28T12:00:00Z`
 
 ## Log

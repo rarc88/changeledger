@@ -4,9 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { ensureReference } from '../src/contract.mjs';
+import { templatesDir } from '../src/paths.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -60,6 +63,19 @@ test('config specs_dir escaping the repo is an error', () => {
 test('a valid repo has no errors', () => {
   const { errors } = run([change()]);
   assert.deepEqual(errors, []);
+});
+
+// Confirm-only (20260726-124836 CR5): src/check.mjs never validated `owner`,
+// so a change without it already passed cleanly — no production change needed.
+test('20260726-124836 CR5: a change with no owner in frontmatter reports no error or warning', () => {
+  const c = change();
+  assert.equal('owner' in c.frontmatter, false);
+  const { errors, warnings } = run([c]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /owner/i.test(m)),
+    [],
+  );
 });
 
 test('CR1: missing frontmatter key is an error', () => {
@@ -201,6 +217,36 @@ example 20260613-130004
   });
   const sibling = (id, over = {}) =>
     change({ frontmatter: { id, ...over }, name: `${id}-sibling.md` });
+  // A `done`-but-unarchived and an archived-under-an-open-status source used to
+  // sit in this same fixture as further exempt cases, via the function's own
+  // (pre-162616) broader inline predicate. 162616 CR7 unifies on `frozenReason`,
+  // which does not consider either shape frozen — see the dedicated test below.
+  const changes = [
+    source,
+    sibling('20260613-130001'),
+    sibling('20260613-130002'),
+    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
+    sibling('20260613-130004'),
+  ];
+
+  const unclassified = run(changes).warnings.filter((warning) =>
+    warning.message.startsWith('mentions change'),
+  );
+  assert.deepEqual(unclassified, []);
+});
+
+// 20260729-162616 CR7: `checkUnclassifiedMentions` used to exempt via its own
+// inline `CLOSED_STATUSES.has(status) || archived === true`, broader than
+// `frozenReason` (only `discarded`, or `done` AND `archived`). Unifying on
+// `frozenReason` narrows the skip for exactly two shapes that the inline
+// predicate treated as frozen but `frozenReason` does not: a `done` change
+// that is not archived (still live work pending graduation/archive, per the
+// comment on `frozenReason` itself), and an `archived: true` change under an
+// open status (the comment on `frozenReason` already calls that combination an
+// anomaly that "stays validated instead of hiding"). Both are now checked like
+// any other change — this is a deliberate, documented behavioral consequence
+// of CR7, not a regression.
+test('162616 CR7: a done-unarchived change and an open-status-archived change are no longer exempt', () => {
   const closedSource = change({
     frontmatter: { id: '20260613-130005', status: 'done' },
     name: '20260613-130005-closed.md',
@@ -219,20 +265,16 @@ example 20260613-130004
       { key: 'log', body: '' },
     ],
   });
-  const changes = [
-    source,
-    sibling('20260613-130001'),
-    sibling('20260613-130002'),
-    sibling('20260613-130003', { related_to: ['20260613-120000'] }),
-    sibling('20260613-130004'),
-    closedSource,
-    archivedSource,
-  ];
-
-  const unclassified = run(changes).warnings.filter((warning) =>
-    warning.message.startsWith('mentions change'),
-  );
-  assert.deepEqual(unclassified, []);
+  const target = change({
+    frontmatter: { id: '20260613-130004' },
+    name: '20260613-130004-target.md',
+  });
+  const { warnings } = run([closedSource, archivedSource, target]);
+  const unclassified = warnings
+    .filter((w) => w.message.startsWith('mentions change'))
+    .map((w) => w.file)
+    .sort();
+  assert.deepEqual(unclassified, ['20260613-130005-closed.md', '20260613-130006-archived.md']);
 });
 
 test('CR6: duplicate ids are an error', () => {
@@ -383,7 +425,7 @@ test('CR5: an auto-fixable defect hints at changeledger fix', () => {
     '',
     '## Plan',
     '',
-    '- [ ] Update src/foo.mjs (CR1) — verify: pnpm test',
+    '- [x] Update src/foo.mjs (CR1) - 2026-01-01T12:00:00Z',
     '',
   ].join('\n');
   const c = change({ text, frontmatter: { id: '20260613-120099' } });
@@ -776,10 +818,14 @@ const covResult = (text, cfg = tddConfig) => {
   });
 };
 
+// These two pin the diagnostic, not its severity: since 20260729-185200 CR3/CR4
+// the coverage gaps are warnings only while the change is a draft, so the fixture
+// says `draft` explicitly instead of inheriting `cov()`'s `approved`.
 test('CR2: a criterion with no covering task warns', () => {
   const w = covWarn({
     criteria: ['CR1', 'CR2'],
     tasks: [{ state: 'todo', text: 'do', criteria: ['CR1'] }],
+    frontmatter: { status: 'draft' },
   });
   assert.ok(w.some((m) => /CR2 is not covered by any Plan task/.test(m)));
 });
@@ -791,32 +837,129 @@ test('CR3: a task with no criterion warns', () => {
       { state: 'todo', text: 'orphan support task', criteria: [] },
       { state: 'todo', text: 'real', criteria: ['CR1'] },
     ],
+    frontmatter: { status: 'draft' },
   });
   assert.ok(w.some((m) => /Plan task "orphan support task" references no criterion/.test(m)));
 });
 
-test('195016 CR1: task with (support) does not warn about missing criterion', () => {
-  const w = covWarn({
-    criteria: ['CR1'],
-    tasks: [
-      { state: 'todo', text: 'run pnpm test (support)', criteria: [] },
-      { state: 'todo', text: 'real impl (CR1)', criteria: ['CR1'] },
-    ],
+// 20260729-185200 CR3/CR4 — the two coverage diagnostics stop being warn-always:
+// they are warnings while the draft is still being written and errors from
+// `approved` onward, so the criterion → task → verification net is a condition of
+// approval and not advice.
+const READY_TASK = 'Update `src/x.mjs`; verify: `node --test test/x.test.mjs` (CR1)';
+const coverageMessages = (status, over) => {
+  const { errors, warnings } = checkRepo({
+    config: tddConfig,
+    changes: [cov({ ...over, frontmatter: { status } })],
   });
-  assert.ok(!w.some((m) => /pnpm test/.test(m)), '(support) task must not warn');
+  return { errors: msgs(errors), warnings: msgs(warnings) };
+};
+
+test('185200 support: a severity projection without a subject is a caller error', () => {
+  assert.throws(
+    () => checkRepo({ config: tddConfig, changes: [cov({})] }, { asStatus: 'approved' }),
+    /asStatus projects onto one subject and requires an id/,
+  );
 });
 
-test('195016 CR2: task without (support) still warns when no criterion', () => {
-  const w = covWarn({
+test('185200 CR3: an uncovered criterion warns in draft and errors from approved', () => {
+  const gap = {
+    criteria: ['CR1', 'CR2'],
+    tasks: [{ state: 'todo', text: READY_TASK, criteria: ['CR1'] }],
+  };
+  const uncovered = /CR2 is not covered by any Plan task/;
+
+  const draft = coverageMessages('draft', gap);
+  assert.ok(
+    draft.warnings.some((m) => uncovered.test(m)),
+    'draft must still warn',
+  );
+  assert.deepEqual(
+    draft.errors.filter((m) => uncovered.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => uncovered.test(m)),
+      `an uncovered criterion must be an error in ${status}`,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => uncovered.test(m)),
+      [],
+    );
+  }
+});
+
+test('185200 CR4: a non-support task with no criterion warns in draft and errors from approved', () => {
+  const gap = {
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: READY_TASK, criteria: ['CR1'] },
+      { state: 'todo', text: 'plain implementation work', criteria: [] },
+    ],
+  };
+  const orphan = /Plan task "plain implementation work" references no criterion/;
+
+  const draft = coverageMessages('draft', gap);
+  assert.ok(
+    draft.warnings.some((m) => orphan.test(m)),
+    'draft must still warn',
+  );
+  assert.deepEqual(
+    draft.errors.filter((m) => orphan.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => orphan.test(m)),
+      `a non-support task without a criterion must be an error in ${status}`,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => orphan.test(m)),
+      [],
+    );
+  }
+});
+
+// Both channels, not just warnings: since 20260729-185200 CR4 the severity of
+// this diagnostic depends on status, so asserting one channel would let the
+// `(support)` exemption break silently in the other.
+test('195016 CR1: task with (support) is reported in neither channel', () => {
+  const { errors, warnings } = coverageMessages('approved', {
+    criteria: ['CR1'],
+    tasks: [
+      { state: 'todo', text: 'run pnpm test', criteria: [], support: '' },
+      {
+        state: 'todo',
+        text: 'Update `src/x.mjs`',
+        target: '`src/x.mjs`',
+        verify: '`test/x.test.mjs`',
+        criteria: ['CR1'],
+      },
+    ],
+  });
+  assert.ok(![...errors, ...warnings].some((m) => /pnpm test/.test(m)), '(support) is exempt');
+});
+
+test('195016 CR2: task without (support) is still reported when no criterion', () => {
+  const { errors } = coverageMessages('approved', {
     criteria: ['CR1'],
     tasks: [
       { state: 'todo', text: 'plain task with no cr', criteria: [] },
-      { state: 'todo', text: 'real (CR1)', criteria: ['CR1'] },
+      {
+        state: 'todo',
+        text: 'Update `src/x.mjs`; verify: `test/x.test.mjs` (CR1)',
+        criteria: ['CR1'],
+      },
     ],
   });
   assert.ok(
-    w.some((m) => /plain task with no cr/.test(m)),
-    'non-support task must warn',
+    errors.some((m) => /plain task with no cr/.test(m)),
+    'non-support task must be reported',
   );
 });
 
@@ -861,12 +1004,21 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR999)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR999
 
 ## Log
 `);
   assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR999"/.test(m)));
-  assert.ok(msgs(warnings).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+  // The consequence of the unknown reference: CR1 is left uncovered, an error too
+  // from `approved` since 20260729-185200 CR3.
+  assert.ok(msgs(errors).some((m) => /CR1 is not covered by any Plan task/.test(m)));
+  assert.deepEqual(
+    msgs(warnings).filter((m) => /covered by any Plan task/.test(m)),
+    [],
+  );
 });
 
 test('162014 CR2: a task referencing a declared criterion is valid', () => {
@@ -892,7 +1044,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -925,7 +1080,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1, CR2, CR404)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1, CR2, CR404
 
 ## Log
 `);
@@ -965,7 +1123,10 @@ X
 
 ## Plan
 
-- [ ] Update src/check.mjs and test/check.test.mjs (CR1)
+- [ ] Update src/check.mjs and test/check.test.mjs
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -995,7 +1156,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1027,7 +1189,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1061,7 +1224,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts and app/profile.spec.ts (CR1)
+- [ ] Update app/profile.ts and app/profile.spec.ts
+  - **Target:** app/profile.ts
+  - **Verify:** app/profile.spec.ts
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1103,7 +1269,10 @@ X
 
 ## Plan
 
-- [ ] Update packages/auth/index.ts and run pnpm test --filter auth (CR1)
+- [ ] Update packages/auth/index.ts and run pnpm test --filter auth
+  - **Target:** packages/auth/index.ts
+  - **Verify:** pnpm test --filter auth
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1145,7 +1314,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior somewhere else (CR1)
+- [ ] Implement the behavior somewhere else
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1161,6 +1331,52 @@ X
   assert.match(message, /configured readiness/);
   assert.match(message, /target_patterns=\["app\/\*\*"\]/);
   assert.match(message, /verification_patterns=\["pnpm test"\]/);
+});
+
+// A repo that already declares its own `readiness` keeps them: publishing the
+// defaults in the template must never leak into a configured repo's diagnostic.
+test('141122 CR3: a repo with its own readiness sees its own patterns in the hint', () => {
+  const { errors } = covResult(
+    `---
+id: "20260613-120000"
+title: X
+type: feature
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior somewhere else
+  - **Criteria:** CR1
+
+## Log
+`,
+    {
+      ...tddConfig,
+      readiness: {
+        target_patterns: ['custom/**'],
+        verification_patterns: ['custom-verify:'],
+      },
+    },
+  );
+  const message = msgs(errors).find((m) => /Plan task for CR1/.test(m));
+  assert.ok(
+    message.includes('target_patterns=["custom/**"], verification_patterns=["custom-verify:"]'),
+    `hint must quote the repo's own patterns verbatim, got: ${message}`,
+  );
 });
 
 test('122611 CR3: verify clause can be the configured verification convention', () => {
@@ -1187,7 +1403,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts; verify: manual device check (CR1)
+- [ ] Update app/profile.ts
+  - **Target:** app/profile.ts
+  - **Verify:** verify: manual device check
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1205,7 +1424,11 @@ X
   );
 });
 
-test('115134 CR5 / 125007 CR1: verification precedes final criteria despite punctuation', () => {
+// 20260729-203257 CR4 retires the positional rule 115134 CR5 pinned ("verification
+// must precede the final criteria block"): with `Target` and `Verify` as children
+// there is no reserved suffix and no wrong place for verification to sit. The
+// punctuation half of 125007 CR1 is pinned by `test/change.test.mjs` instead.
+test('203257 CR4: punctuation in the description cannot break the field readiness', () => {
   const { errors } = covResult(
     `---
 id: "20260613-120000"
@@ -1229,7 +1452,10 @@ X
 
 ## Plan
 
-- [ ] Update app/profile.ts — verify: manual device check (CR1)
+- [ ] Update the profile screen — keeping (parens) and a colon: value
+  - **Target:** app/profile.ts
+  - **Verify:** manual device check
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1237,7 +1463,7 @@ X
       ...tddConfig,
       readiness: {
         target_patterns: ['app/**'],
-        verification_patterns: ['verify:'],
+        verification_patterns: ['manual device check'],
       },
     },
   );
@@ -1265,7 +1491,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `);
@@ -1301,7 +1528,8 @@ X
 
 ## Plan
 
-- [ ] Implement the behavior (CR1)
+- [ ] Implement the behavior
+  - **Criteria:** CR1
 
 ## Log
 `,
@@ -1311,6 +1539,209 @@ X
     [...msgs(errors), ...msgs(warnings)].filter((m) =>
       /test-grade|target and verification/.test(m),
     ),
+    [],
+  );
+});
+
+// 20260729-203257 CR4: each readiness list judges its own field. Before the tag
+// grammar both lists matched the same `t.text`, so a task naming only
+// `test/check.test.mjs` satisfied `target_patterns` and `verification_patterns`
+// at once and the requirement was vacuous whenever the two lists overlapped.
+const crossConfig = {
+  ...tddConfig,
+  readiness: { target_patterns: ['src/**', 'test/**'], verification_patterns: ['test/**'] },
+};
+
+test('203257 CR4: a Verify that also matches target_patterns does not satisfy Target', () => {
+  // The description still carries the old prose form, so at HEAD the single
+  // string satisfied both lists at once and nothing fired at any status.
+  const task = {
+    state: 'todo',
+    text: 'Add the guard; verify: test/check.test.mjs',
+    verify: 'test/check.test.mjs',
+  };
+  const drafted = checkRepo({
+    config: crossConfig,
+    changes: [
+      cov({
+        frontmatter: { status: 'draft' },
+        criteria: ['CR1'],
+        tasks: [{ ...task, criteria: ['CR1'] }],
+      }),
+    ],
+  });
+  assert.ok(
+    msgs(drafted.warnings).some((m) =>
+      /Plan task for CR1 must name target and verification/.test(m),
+    ),
+    'draft warns',
+  );
+  assert.deepEqual(
+    msgs(drafted.errors).filter((m) => /target and verification/.test(m)),
+    [],
+    'draft does not error',
+  );
+
+  const projected = checkRepo(
+    {
+      config: crossConfig,
+      changes: [
+        cov({
+          frontmatter: { status: 'draft' },
+          criteria: ['CR1'],
+          tasks: [{ ...task, criteria: ['CR1'] }],
+        }),
+      ],
+    },
+    { id: '20260613-120000', asStatus: 'approved' },
+  );
+  assert.ok(
+    msgs(projected.errors).some((m) =>
+      /Plan task for CR1 must name target and verification/.test(m),
+    ),
+    'the approved projection errors',
+  );
+});
+
+test('203257 CR4: Target and Verify together satisfy readiness, each one alone does not', () => {
+  const both = covWarn(
+    {
+      criteria: ['CR1'],
+      tasks: [
+        {
+          state: 'todo',
+          text: 'Add the guard',
+          criteria: ['CR1'],
+          target: 'src/check.mjs',
+          verify: 'pnpm test',
+        },
+      ],
+    },
+    {
+      ...tddConfig,
+      readiness: { target_patterns: ['src/**'], verification_patterns: ['pnpm test'] },
+    },
+  );
+  assert.deepEqual(
+    both.filter((m) => /target and verification/.test(m)),
+    [],
+  );
+
+  const targetOnly = msgs(
+    checkRepo({
+      config: crossConfig,
+      changes: [
+        cov({
+          criteria: ['CR1'],
+          tasks: [
+            { state: 'todo', text: 'Add the guard', criteria: ['CR1'], target: 'src/check.mjs' },
+          ],
+        }),
+      ],
+    }).errors,
+  );
+  assert.ok(
+    targetOnly.some((m) => /Plan task for CR1 must name target and verification/.test(m)),
+    'Target without Verify still fires',
+  );
+});
+
+// The readiness patterns never look at the description again: a target named
+// only in prose is exactly the evasion the tag grammar closes.
+test('203257 CR4: a target named only in the description does not satisfy readiness', () => {
+  const errors = msgs(
+    checkRepo({
+      config: crossConfig,
+      changes: [
+        cov({
+          criteria: ['CR1'],
+          tasks: [
+            {
+              state: 'todo',
+              text: 'Patch src/check.mjs and run test/check.test.mjs',
+              criteria: ['CR1'],
+            },
+          ],
+        }),
+      ],
+    }).errors,
+  );
+  assert.ok(errors.some((m) => /Plan task for CR1 must name target and verification/.test(m)));
+});
+
+// 20260729-203257 CR2: an undecidable Plan line reaches the operator through the
+// existing `taskIssues` channel — an error at any open status.
+test('203257 CR2: an unrecognized Plan line is an error on an open change', () => {
+  const { errors } = covResult(`---
+id: "20260613-120000"
+title: X
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [ ] Implement the behavior
+  - **Target:** src/check.mjs
+  - **Verify:** test/check.test.mjs
+  - **Criteria:** CR1
+Prosa suelta que no es tarea
+
+## Log
+`);
+  assert.ok(
+    msgs(errors).includes('unrecognized Plan line: "Prosa suelta que no es tarea"'),
+    `expected the named issue, got ${JSON.stringify(msgs(errors))}`,
+  );
+});
+
+test('203257 CR2: a frozen change with the same line emits no diagnostic', () => {
+  const text = `---
+id: "20260613-120000"
+title: X
+type: feature
+status: done
+archived: true
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+X
+
+## Specification
+
+### CR1 — Complete
+- **Given** input
+- **When** action
+- **Then** output
+
+## Plan
+
+- [x] Implement the behavior
+  - **Criteria:** CR1
+  - **Resolved:** \`2026-06-13T13:00:00Z\`
+Prosa suelta que no es tarea
+
+## Log
+`;
+  const { errors, warnings } = covResult(text);
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /unrecognized Plan line/.test(m)),
     [],
   );
 });
@@ -1327,6 +1758,73 @@ test('020229 CR5: invalid readiness config fails clearly', () => {
   assert.ok(msgs(errors).some((m) => /readiness\.verification_patterns" entries/.test(m)));
 });
 
+// Pin for 20260728-170429 CR7: this repository's own readiness.target_patterns
+// must keep covering AGENTS.md and hooks/pre-commit, both versioned production
+// paths (hallazgo 13). No other test in this file exercises this repo's real
+// `.changeledger/config.yml` — every other readiness test above runs against a
+// synthetic fixture (`app/**`, `packages/**`, `custom/**`), so a silent removal
+// of either pattern from the real config would pass the whole suite unnoticed.
+// The patterns are read from the real file, not duplicated as a literal list,
+// so this pin tracks the config instead of drifting from it.
+test("20260728-170429 CR7: this repo's readiness keeps AGENTS.md and hooks/pre-commit covered", () => {
+  const repoConfig = parseYaml(
+    fs.readFileSync(new URL('../.changeledger/config.yml', import.meta.url), 'utf8'),
+  );
+  const realTargetPatterns = repoConfig.readiness.target_patterns;
+
+  const agentsTask = {
+    state: 'todo',
+    text: 'Update AGENTS.md',
+    target: 'AGENTS.md',
+    verify: 'node --test test/check.test.mjs',
+    criteria: ['CR1'],
+  };
+  const hooksTask = {
+    state: 'todo',
+    text: 'Update hooks/pre-commit',
+    target: 'hooks/pre-commit',
+    verify: 'node --test test/check.test.mjs',
+    criteria: ['CR2'],
+  };
+
+  const gapsWith = (target_patterns) =>
+    msgs(
+      checkRepo({
+        config: { ...tddConfig, readiness: { ...repoConfig.readiness, target_patterns } },
+        changes: [cov({ criteria: ['CR1', 'CR2'], tasks: [agentsTask, hooksTask] })],
+      }).errors,
+    ).filter((m) => /must name target and verification/.test(m));
+
+  assert.deepEqual(
+    gapsWith(realTargetPatterns),
+    [],
+    'the real target_patterns must cover both AGENTS.md and hooks/pre-commit today',
+  );
+
+  const formatPatterns = (patterns) => `[${patterns.map((p) => JSON.stringify(p)).join(', ')}]`;
+  const verificationHint = formatPatterns(repoConfig.readiness.verification_patterns);
+
+  const withoutAgentsMd = realTargetPatterns.filter((p) => p !== 'AGENTS.md');
+  assert.deepEqual(
+    gapsWith(withoutAgentsMd),
+    [
+      'Plan task for CR1 must name target and verification (configured readiness: ' +
+        `target_patterns=${formatPatterns(withoutAgentsMd)}, verification_patterns=${verificationHint})`,
+    ],
+    'removing AGENTS.md from target_patterns must fail the CR1 task that targets it',
+  );
+
+  const withoutHooks = realTargetPatterns.filter((p) => p !== 'hooks/**');
+  assert.deepEqual(
+    gapsWith(withoutHooks),
+    [
+      'Plan task for CR2 must name target and verification (configured readiness: ' +
+        `target_patterns=${formatPatterns(withoutHooks)}, verification_patterns=${verificationHint})`,
+    ],
+    'removing hooks/** from target_patterns must fail the CR2 task that targets it',
+  );
+});
+
 test('CR5: a type without specification is not coverage-checked', () => {
   const w = covWarn({
     frontmatter: { type: 'chore', status: 'approved' },
@@ -1340,19 +1838,32 @@ test('CR5: a type without specification is not coverage-checked', () => {
   );
 });
 
-test('coverage warns in draft and applies to approved/in-progress; done is skipped', () => {
+test('coverage warns in draft and errors in approved/in-progress; done is skipped', () => {
   const gap = { criteria: ['CR1', 'CR2'], tasks: [{ state: 'todo', text: 'x', criteria: [] }] };
-  const draft = covWarn({ ...gap, frontmatter: { status: 'draft' } });
-  assert.ok(draft.some((m) => /covered|criterion/.test(m)));
-
-  const done = covWarn({ ...gap, frontmatter: { status: 'done' } });
+  const draft = coverageMessages('draft', gap);
+  assert.ok(draft.warnings.some((m) => /covered|criterion/.test(m)));
   assert.deepEqual(
-    done.filter((m) => /covered|criterion/.test(m)),
+    draft.errors.filter((m) => /covered|criterion/.test(m)),
     [],
   );
 
-  const w = covWarn({ ...gap, frontmatter: { status: 'in-progress' } });
-  assert.ok(w.some((m) => /covered|criterion/.test(m)));
+  const done = coverageMessages('done', gap);
+  assert.deepEqual(
+    [...done.warnings, ...done.errors].filter((m) => /covered|criterion/.test(m)),
+    [],
+  );
+
+  for (const status of ['approved', 'in-progress']) {
+    const judged = coverageMessages(status, gap);
+    assert.ok(
+      judged.errors.some((m) => /covered|criterion/.test(m)),
+      status,
+    );
+    assert.deepEqual(
+      judged.warnings.filter((m) => /covered|criterion/.test(m)),
+      [],
+    );
+  }
 });
 
 test('CR2: a Log section is allowed on a type that does not scaffold it (chore)', () => {
@@ -1421,7 +1932,7 @@ test('210508 CR7: a dependency on a discarded change is not flagged as missing',
   assert.ok(!msgs(errors).some((m) => /dangling|missing|depend/i.test(m)), msgs(errors).join('; '));
 });
 
-test('225208 CR3: approved keeps the severity split — defects error, coverage gaps warn', () => {
+test('225208 CR3 → 185200 CR3/CR4: from approved, defects and coverage gaps both error', () => {
   const text = `---
 id: "20260613-120000"
 title: x
@@ -1452,9 +1963,16 @@ r
 
 ## Plan
 
-- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
-- [ ] vague work without recognizable evidence (CR2)
-- [ ] Update \`src/b.mjs\`; verify: \`node --test test/b.test.mjs\` (CR404)
+- [ ] Update \`src/a.mjs\`
+  - **Target:** \`src/a.mjs\`
+  - **Verify:** \`node --test test/a.test.mjs\`
+  - **Criteria:** CR1
+- [ ] vague work without recognizable evidence
+  - **Criteria:** CR2
+- [ ] Update \`src/b.mjs\`
+  - **Target:** \`src/b.mjs\`
+  - **Verify:** \`node --test test/b.test.mjs\`
+  - **Criteria:** CR404
 - [ ] loose task without criterion
 
 ## Log
@@ -1467,10 +1985,13 @@ r
   assert.ok(e.some((m) => /CR2 is not test-grade: missing Given\/When\/Then/.test(m)));
   assert.ok(e.some((m) => /references unknown criterion "CR404"/.test(m)));
   assert.ok(e.some((m) => /Plan task for CR2 must name target and verification/.test(m)));
-  assert.ok(w.some((m) => /CR3 is not covered by any Plan task/.test(m)));
-  assert.ok(w.some((m) => /references no criterion/.test(m)));
+  // 20260729-185200 CR3/CR4 superseded the warn half of the original split: from
+  // `approved` the two coverage gaps are errors as well. What this criterion still
+  // owns is that every diagnostic class reaches the report, none silently dropped.
+  assert.ok(e.some((m) => /CR3 is not covered by any Plan task/.test(m)));
+  assert.ok(e.some((m) => /references no criterion/.test(m)));
   assert.deepEqual(
-    e.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
+    w.filter((m) => /covered by any Plan task|references no criterion/.test(m)),
     [],
   );
 });
@@ -1499,7 +2020,10 @@ r
 
 ## Plan
 
-- [ ] Update \`src/a.mjs\`; verify: \`node --test test/a.test.mjs\` (CR1)
+- [ ] Update \`src/a.mjs\`
+  - **Target:** \`src/a.mjs\`
+  - **Verify:** \`node --test test/a.test.mjs\`
+  - **Criteria:** CR1
 
 ## Log
 
@@ -1644,7 +2168,14 @@ function gitFixture() {
 
 function captureOutput() {
   const calls = [];
-  return { calls, log: (m) => calls.push(m), warn: () => {}, error: () => {} };
+  const diagnostics = [];
+  return {
+    calls,
+    diagnostics,
+    log: (m) => calls.push(m),
+    warn: (m) => diagnostics.push(m),
+    error: (m) => diagnostics.push(m),
+  };
 }
 
 test('CR5: check --commits reports only the commit missing the marker', () => {
@@ -1725,6 +2256,393 @@ test('225638 CR4: check --commits rejects multi-change subjects and malformed bo
   assert.match(errors, /malformed ChangeLedger body/);
 });
 
+// --- ChangeLedger: none — <reason> operational commit exemption (20260728-151336 CR1-CR3) ---
+
+test('151336 CR1: ChangeLedger: none with a reason exempts the commit', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('151336 CR1: an identical commit without the declaration still reports missing marker', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'docs(workflow): record the findings sieve']);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} missing [#id] marker: "docs(workflow): record the findings sieve"`,
+  );
+});
+
+test('151336 CR2: ChangeLedger: none without a reason is an error', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none',
+  ]);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} ChangeLedger: none requires a reason: "docs(workflow): record the findings sieve"`,
+  );
+});
+
+test('151336 CR3: ChangeLedger: none cannot coexist with a subject marker', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve [#20260728-151336]',
+    '-m',
+    'ChangeLedger: none — acta de análisis, ningún change la cubre',
+  ]);
+  const sha = git(['rev-parse', '--short', 'HEAD']).trim();
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.equal(
+    parsed.errors[0].message,
+    `${sha} ChangeLedger: none cannot coexist with an [#id] marker: "docs(workflow): record the findings sieve [#20260728-151336]"`,
+  );
+});
+
+// Ambiguous shapes near the grammar boundary — each is pinned deliberately,
+// not left to fall through silently (see AGENTS.md on the defect class this
+// repo keeps hitting: an exemption that activates on a form nobody intended).
+
+test('151336: leading/trailing whitespace around the declaration line is still accepted', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    '   ChangeLedger: none — acta de análisis, ningún change la cubre   ',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('151336: the declaration among other body lines is rejected, not silently matched', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'Explanation paragraph unrelated to the declaration.',
+    '-m',
+    'ChangeLedger: none — acta de análisis',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: a reason that is only whitespace is rejected, not treated as present', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none —    ',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+// Pins the `\S` in NONE_REASON_RE, which the review found to be a surviving
+// mutant: `body.trim()` in commitsInRange already rejects a wholly blank reason,
+// so `\S`'s only observable effect is refusing padding between the em dash and a
+// real reason. Without this test, relaxing `(\S.*)` to `(.*)` leaves the suite
+// green and the declaration's single-space grammar stops being enforced.
+test('151336: extra whitespace between the em dash and the reason is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none —  padded reason',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: a plain hyphen instead of an em dash is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none - acta de análisis',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: ChangeLedger: none appearing inside a longer line is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'See ChangeLedger: none for context, no reason needed',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('151336: the declaration appearing twice in the body is rejected', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(workflow): record the findings sieve',
+    '-m',
+    'ChangeLedger: none — first reason',
+    '-m',
+    'ChangeLedger: none — second reason',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+// --- the declaration is the first body line, the tail is free text
+//     (20260730-002341 CR3-CR4) ---
+
+test('002341 CR3: a multi-id declaration admits a why paragraph and a trailer below it', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+    '-m',
+    'Both changes needed the same edit, so one commit carries them.',
+    '-m',
+    'Co-Authored-By: Someone <someone@example.com>',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+test('002341 CR3: a ChangeLedger: none declaration admits a why paragraph below it', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'chore: tidy',
+    '-m',
+    'ChangeLedger: none — housekeeping, no change covers it',
+    '-m',
+    'Removed a stale fixture left behind by an earlier run.',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(out.calls.at(-1)).errors, []);
+});
+
+// The free tail must not become the escape route the whole-body anchor used to
+// block: a declaration only counts in the head position, and a second one
+// anywhere below is a conflict, not prose — even when prose separates the two.
+test('002341 CR4: a multi-id declaration buried under another line is still malformed', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'Explanation paragraph unrelated to the declaration.',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+test('002341 CR4: a second declaration separated by prose is still malformed', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+    '-m',
+    'A why paragraph sitting between the two declarations.',
+    '-m',
+    'ChangeLedger: none — and now it claims no change covers it',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
+// Pins the `.trim()` on each tail line: without it an indented second
+// declaration reads as prose and the first one still exempts the commit, so the
+// conflicting-declaration route reopens with the suite green.
+test('002341 CR4: an indented second declaration is still malformed', () => {
+  const { root, git } = gitFixture();
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git([
+    'commit',
+    '-q',
+    '-m',
+    'docs(context): checkpoint',
+    '-m',
+    'ChangeLedger: [#A] [#B]',
+    '-m',
+    '  ChangeLedger: none — indented, so easily mistaken for prose',
+  ]);
+
+  const out = captureOutput();
+  const code = check(['--commits', 'main', '--json'], root, out);
+  assert.equal(code, 1);
+  const parsed = JSON.parse(out.calls.at(-1));
+  assert.equal(parsed.errors.length, 1);
+  assert.match(parsed.errors[0].message, /malformed ChangeLedger body/);
+});
+
 // --- check --commits base from config (20260711-210115 CR1) ---
 
 test('210115 CR1: configured git.integration_branch is the default lint base', () => {
@@ -1780,5 +2698,586 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
   assert.ok(
     out.calls.some((line) => line.includes('commits main..HEAD')),
     out.calls.join('\n'),
+  );
+});
+
+// --- frozen history (20260726-194220): archived/discarded documents are not
+// validated as subjects, but keep feeding every repo-wide invariant ---
+
+const FROZEN_FIXTURE_CONFIG = `schema_version: 4
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  refactor:
+    stages: [request, proposal, specification, plan, log]
+    review_required: true
+  chore:
+    stages: [request, plan]
+`;
+
+// Repo-wide `check` reads the contract bootstrap and the config from disk, so
+// these criteria need a real repo instead of an in-memory one.
+function frozenFixture(
+  changeFiles,
+  specFiles = {},
+  releaseFiles = {},
+  configText = FROZEN_FIXTURE_CONFIG,
+) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-frozen-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\n');
+  ensureReference(root);
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), configText);
+  for (const [name, text] of Object.entries(changeFiles)) {
+    fs.writeFileSync(path.join(root, '.changeledger', 'changes', name), text);
+  }
+  if (Object.keys(specFiles).length) {
+    fs.mkdirSync(path.join(root, '.changeledger', 'specs'), { recursive: true });
+    for (const [name, text] of Object.entries(specFiles)) {
+      fs.writeFileSync(path.join(root, '.changeledger', 'specs', name), text);
+    }
+  }
+  if (Object.keys(releaseFiles).length) {
+    fs.mkdirSync(path.join(root, '.changeledger', 'releases'), { recursive: true });
+    for (const [name, text] of Object.entries(releaseFiles)) {
+      fs.writeFileSync(path.join(root, '.changeledger', 'releases', name), text);
+    }
+  }
+  return root;
+}
+
+function frontmatter(over = {}) {
+  const fm = {
+    id: '20260101-000000',
+    title: 'X',
+    type: 'refactor',
+    status: 'done',
+    created: '2026-01-01T00:00:00Z',
+    depends_on: '[]',
+    ...over,
+  };
+  return Object.entries(fm)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+}
+
+// A `refactor` body that omits `## Specification`, the stage the fixture config
+// activates for that type — the defect today's rules report on frozen history.
+function missingSpecification(over) {
+  return `---\n${frontmatter(over)}\n---\n\n## Request\n\nX\n\n## Proposal\n\nX\n\n## Plan\n\nX\n\n## Log\n`;
+}
+
+// A well-formed `chore` body, used where the criterion is about repo-wide
+// invariants rather than about per-document defects.
+function validChore(over, logBody = '') {
+  const fm = frontmatter({ type: 'chore', ...over });
+  const log = logBody ? `\n## Log\n\n${logBody}\n` : '';
+  return `---\n${fm}\n---\n\n## Request\n\nX\n\n## Plan\n\nX\n${log}`;
+}
+
+function runCheck(root, args = []) {
+  const out = captureOutput();
+  const code = check(args, root, out);
+  return { code, out, text: [...out.diagnostics, ...out.calls].join('\n') };
+}
+
+test('194220 CR1: a done and archived change gets no diagnostics of its own', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({ archived: 'true' }),
+  });
+  const { code, out } = runCheck(root);
+  assert.deepEqual(
+    out.diagnostics.filter((line) => line.includes('20260101-000000-frozen.md')),
+    [],
+  );
+  assert.equal(code, 0);
+});
+
+test('194220 CR2: a done change that is not archived is still validated', () => {
+  const root = frozenFixture({ '20260101-000000-frozen.md': missingSpecification() });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('missing active stage "## specification" for type refactor'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR3: a discarded change gets no diagnostics of its own', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({ status: 'discarded' }),
+  });
+  const { code, out } = runCheck(root);
+  assert.deepEqual(
+    out.diagnostics.filter((line) => line.includes('20260101-000000-frozen.md')),
+    [],
+  );
+  assert.equal(code, 0);
+});
+
+test('194220 CR4: archived under an open status is validated like live work', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': missingSpecification({
+      status: 'in-progress',
+      archived: 'true',
+    }),
+  });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('missing active stage "## specification" for type refactor'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR5: an id duplicated between a live and an archived change is still detected', () => {
+  const root = frozenFixture({
+    '20260101-000000-live.md': validChore({ status: 'approved' }),
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+  });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('duplicate id "20260101-000000" (also in '), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR6: depends_on pointing at an archived change still resolves', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+    '20260102-000000-live.md': validChore({
+      id: '20260102-000000',
+      status: 'approved',
+      depends_on: '["20260101-000000"]',
+    }),
+  });
+  const { text } = runCheck(root);
+  assert.ok(!text.includes('depends_on references missing change "20260101-000000"'), text);
+});
+
+test('194220 CR7: a graduation recorded by an archived change still backs checkSpecs', () => {
+  const root = frozenFixture(
+    {
+      '20260101-000000-frozen.md': validChore(
+        { archived: 'true' },
+        '- **2026-01-01T00:00:00Z** `[graduation]` spec: `arch.md`',
+      ),
+    },
+    {
+      'arch.md':
+        '---\ntitle: Arch\nupdated: 2026-01-02T00:00:00Z\ngraduated_from: ["20260101-000000"]\n---\n\nTruth.\n',
+    },
+  );
+  const { code, text } = runCheck(root);
+  assert.ok(!text.includes('orphan spec'), text);
+  assert.ok(!text.includes('missing graduated_from "20260101-000000"'), text);
+  assert.equal(code, 0);
+});
+
+test('194220 CR12: an archived flag that is not the boolean true does not freeze', () => {
+  const root = frozenFixture({ 'mismatch.md': validChore({ archived: '"true"' }) });
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('archived must be a boolean'), text);
+  assert.ok(text.includes('filename does not match id "20260101-000000"'), text);
+  assert.equal(code, 1);
+});
+
+test('194220 CR13: the ids of frozen changes still feed mention detection', () => {
+  const mentioning = `---\n${frontmatter({
+    id: '20260102-000000',
+    type: 'chore',
+    status: 'approved',
+  })}\n---\n\n## Request\n\nThe groundwork landed in 20260101-000000 and is not declared here.\n\n## Plan\n\nX\n`;
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({ archived: 'true' }),
+    '20260102-000000-live.md': mentioning,
+  });
+  const { out, text } = runCheck(root);
+  assert.ok(
+    out.diagnostics.some(
+      (line) =>
+        line.includes('20260102-000000-live.md') &&
+        line.includes(
+          'mentions change "20260101-000000" without declaring it in depends_on or related_to',
+        ),
+    ),
+    text,
+  );
+});
+
+test('194220 CR13b: a frozen change declaring related_to still derives the backlink', () => {
+  const mentioning = `---\n${frontmatter({
+    id: '20260102-000000',
+    type: 'chore',
+    status: 'approved',
+  })}\n---\n\n## Request\n\nThe groundwork landed in 20260101-000000 and is not declared here.\n\n## Plan\n\nX\n`;
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({
+      archived: 'true',
+      related_to: '["20260102-000000"]',
+    }),
+    '20260102-000000-live.md': mentioning,
+  });
+  const { out, text } = runCheck(root);
+  assert.ok(
+    !out.diagnostics.some(
+      (line) =>
+        line.includes('20260102-000000-live.md') &&
+        line.includes(
+          'mentions change "20260101-000000" without declaring it in depends_on or related_to',
+        ),
+    ),
+    text,
+  );
+});
+
+test('194220 CR14: a dependency cycle through a frozen change is detected', () => {
+  const root = frozenFixture({
+    '20260101-000000-frozen.md': validChore({
+      archived: 'true',
+      depends_on: '["20260102-000000"]',
+    }),
+    '20260102-000000-live.md': validChore({
+      id: '20260102-000000',
+      status: 'approved',
+      depends_on: '["20260101-000000"]',
+    }),
+  });
+  const { code, out, text } = runCheck(root);
+  const cycle = out.diagnostics.find((line) => line.includes('dependency cycle: '));
+  assert.ok(cycle, text);
+  assert.ok(cycle.includes('20260101-000000'), cycle);
+  assert.ok(cycle.includes('20260102-000000'), cycle);
+  assert.equal(code, 1);
+});
+
+test('194220 CR15: releases still read the status of a frozen change', () => {
+  const root = frozenFixture(
+    {
+      '20260102-000000-discarded.md': validChore({
+        id: '20260102-000000',
+        status: 'discarded',
+      }),
+    },
+    {},
+    {
+      '1.0.0.yml': 'version: 1.0.0\ncreated: 2026-01-02T00:00:00Z\nchanges:\n  - 20260102-000000\n',
+    },
+  );
+  const { code, text } = runCheck(root);
+  assert.ok(text.includes('references change "20260102-000000" whose status is not done'), text);
+  assert.equal(code, 1);
+});
+
+test('141119 CR7: a refactor missing Specification errors until the stage is written', () => {
+  const cfg = {
+    ...tddConfig,
+    stages: ['request', 'proposal', 'specification', 'plan', 'log'],
+    types: {
+      refactor: {
+        stages: ['request', 'proposal', 'specification', 'plan', 'log'],
+        review_required: true,
+      },
+    },
+  };
+  const head = `---
+id: "20260613-120000"
+title: X
+type: refactor
+status: approved
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Quitar el flag heredado.
+
+## Proposal
+
+Eliminación limpia, sin capa de compatibilidad.
+`;
+  const tail = `
+## Plan
+
+- [ ] Quitar la opción de \`src/cli.mjs\`
+  - **Target:** \`src/cli.mjs\`
+  - **Verify:** \`node --test test/cli.test.mjs\`
+  - **Criteria:** CR1
+
+## Log
+`;
+  const without = covResult(head + tail, cfg);
+  assert.ok(
+    msgs(without.errors).some((m) =>
+      /missing active stage "## specification" for type refactor/.test(m),
+    ),
+    'a refactor without Specification must be an error once the stage is active',
+  );
+
+  const specification = `
+## Specification
+
+### CR1 — La opción deja de existir
+
+- **Given** un repo inicializado
+- **When** se ejecuta \`changeledger context --have x\`
+- **Then** el proceso termina con código de salida 1
+`;
+  const withSpec = covResult(head + specification + tail, cfg);
+  assert.deepEqual(msgs(withSpec.errors), []);
+});
+
+// --- 141119: review_required is only meaningful on a type that can hold
+// criteria (## Specification) and tasks that cite them (## Plan) ---
+
+const LIGHT_REVIEW_CONFIG = `schema_version: 4
+language: en
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  quick:
+    stages: [request, log]
+    review_required: true
+`;
+
+test('141119 CR1: a light type requiring review names both missing stages', () => {
+  const root = frozenFixture({}, {}, {}, LIGHT_REVIEW_CONFIG);
+  const { code, text } = runCheck(root);
+  assert.ok(
+    text.includes(
+      'config type "quick": review_required: true requires active stages: specification, plan',
+    ),
+    text,
+  );
+  assert.equal(code, 1);
+});
+
+test('141119 CR2: a type missing only specification names only that stage', () => {
+  const bad = {
+    ...config,
+    types: {
+      refactor: { stages: ['request', 'proposal', 'plan', 'log'], review_required: true },
+    },
+  };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  const configErrors = msgs(errors).filter((m) => m.includes('config type "refactor"'));
+  assert.deepEqual(configErrors, [
+    'config type "refactor": review_required: true requires active stages: specification',
+  ]);
+});
+
+test('141119 CR3: a type missing only plan names only that stage', () => {
+  const bad = {
+    ...config,
+    types: {
+      audit: {
+        stages: ['request', 'investigation', 'specification', 'log'],
+        review_required: true,
+      },
+    },
+  };
+  const { errors } = checkRepo({ config: bad, changes: [] });
+  assert.ok(
+    msgs(errors).includes(
+      'config type "audit": review_required: true requires active stages: plan',
+    ),
+    msgs(errors).join('\n'),
+  );
+});
+
+// A `refactor` in `approved` whose Plan cites a criterion its Specification
+// never declares. Before `refactor` activated `specification`, checkCoverage
+// returned early for this type and both diagnostics were unreachable.
+const REFACTOR_WITH_ORPHAN_REFERENCE = `---
+id: "20260101-000000"
+title: X
+type: refactor
+status: approved
+created: 2026-01-01T00:00:00Z
+depends_on: []
+---
+
+## Request
+
+Quitar el flag heredado.
+
+## Proposal
+
+Eliminación limpia, sin capa de compatibilidad.
+
+## Specification
+
+### CR1 — La opción deja de existir
+
+- **Given** un repo inicializado
+- **When** se ejecuta \`changeledger context --have x\`
+- **Then** el proceso termina con código de salida 1
+
+## Plan
+
+- [ ] Ajustar el comportamiento
+  - **Criteria:** CR9
+
+## Log
+`;
+
+test('141119 CR8: a refactor citing an undeclared criterion is no longer silently valid', () => {
+  const root = frozenFixture({ '20260101-000000-orphan.md': REFACTOR_WITH_ORPHAN_REFERENCE });
+  const { code, out, text } = runCheck(root);
+  assert.ok(text.includes('Plan task references unknown criterion "CR9"'), text);
+  assert.ok(
+    out.diagnostics.some((line) =>
+      line.includes('Plan task for CR9 must name target and verification ('),
+    ),
+    text,
+  );
+  assert.equal(code, 1);
+  assert.ok(!out.calls.some((line) => line.includes('✓ 1 change(s) valid')), out.calls.join('\n'));
+});
+
+test('141119 CR4: the distributed config and review_required: false are legitimate', () => {
+  const distributed = parseYaml(fs.readFileSync(path.join(templatesDir, 'config.yml'), 'utf8'), {
+    merge: false,
+  });
+  const { errors, warnings } = checkRepo({ config: distributed, changes: [] });
+  const all = [...msgs(errors), ...msgs(warnings)];
+  assert.ok(!all.some((m) => m.includes('requires active stages')), all.join('\n'));
+
+  const optedOut = {
+    ...distributed,
+    types: {
+      ...distributed.types,
+      quick: { stages: ['request', 'log'], review_required: false },
+    },
+  };
+  const opted = checkRepo({ config: optedOut, changes: [] });
+  const optedAll = [...msgs(opted.errors), ...msgs(opted.warnings)];
+  assert.ok(!optedAll.some((m) => m.includes('requires active stages')), optedAll.join('\n'));
+});
+
+// --- 20260729-162616: silent-failure sweep (CR4, CR6, CR7) ---
+
+test('162616 CR4: a chore citing an unknown criterion is diagnosed, not silently skipped', () => {
+  const { errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'approved' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (CR99)', criteria: ['CR99'] }],
+      }),
+    ],
+  });
+  assert.ok(msgs(errors).some((m) => /Plan task references unknown criterion "CR99"/.test(m)));
+});
+
+test('162616 CR4: a chore with no CR references stays clean', () => {
+  const { errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'approved' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (support)', criteria: [] }],
+      }),
+    ],
+  });
+  assert.deepEqual(msgs(errors), []);
+});
+
+test('162616 CR4: the same unknown reference is a warning while the chore is still draft', () => {
+  const { warnings, errors } = checkRepo({
+    config: tddConfig,
+    changes: [
+      cov({
+        frontmatter: { type: 'chore', status: 'draft' },
+        stages: [{ key: 'request' }, { key: 'plan' }],
+        tasks: [{ state: 'todo', text: 'do it (CR99)', criteria: ['CR99'] }],
+      }),
+    ],
+  });
+  assert.deepEqual(msgs(errors), []);
+  assert.ok(msgs(warnings).some((m) => /Plan task references unknown criterion "CR99"/.test(m)));
+});
+
+test('162616 CR6: a discarded change never emits depends_on/related_to invariants of its own', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const frozen = change({
+    frontmatter: {
+      id: '20260613-120000',
+      status: 'discarded',
+      depends_on: ['20260613-199999'],
+      related_to: ['20260613-120000'],
+    },
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [frozen] }).errors);
+  assert.deepEqual(
+    errors.filter((m) =>
+      /depends_on references missing|related_to cannot reference|related_to references missing/.test(
+        m,
+      ),
+    ),
+    [],
+  );
+});
+
+test('162616 CR6: an open change with the same defects still emits its own errors', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const open = change({
+    frontmatter: { id: '20260613-130000', depends_on: ['20260613-199999'] },
+    name: '20260613-130000-y.md',
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [open] }).errors);
+  assert.ok(errors.includes('depends_on references missing change "20260613-199999"'));
+});
+
+test('162616 CR6: an open change referencing an existing frozen change resolves without error', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const frozen = change({ frontmatter: { id: '20260613-120000', status: 'discarded' } });
+  const open = change({
+    frontmatter: { id: '20260613-130000', depends_on: ['20260613-120000'] },
+    name: '20260613-130000-y.md',
+  });
+  const errors = msgs(checkRepo({ config: cfg, changes: [frozen, open] }).errors);
+  assert.deepEqual(
+    errors.filter((m) => /depends_on references missing/.test(m)),
+    [],
+  );
+});
+
+test('162616 CR6: a done+archived change graduating to a missing spec does not emit', () => {
+  const frozen = change({
+    frontmatter: { id: '20260613-120000', status: 'done', archived: true },
+    stages: [
+      { key: 'request' },
+      { key: 'plan' },
+      { key: 'log', body: '- **2026-06-13T12:00:00Z** `[graduation]` spec: `ghost.md`\n' },
+    ],
+  });
+  const errors = msgs(checkRepo({ config, changes: [frozen], specs: [] }).errors);
+  assert.deepEqual(
+    errors.filter((m) => /graduated to a missing spec/.test(m)),
+    [],
+  );
+});
+
+test('162616 CR7: a discarded change is still exempt from its own unclassified-mention check', () => {
+  const cfg = { ...config, statuses: [...config.statuses, 'discarded'] };
+  const target = change({
+    frontmatter: { id: '20260613-130000' },
+    name: '20260613-130000-target.md',
+  });
+  const source = change({
+    frontmatter: { status: 'discarded' },
+    stages: [
+      { key: 'request', body: 'Builds on #20260613-130000 without declaring it.' },
+      { key: 'plan', body: '' },
+      { key: 'log', body: '' },
+    ],
+  });
+  const { warnings } = checkRepo({ config: cfg, changes: [source, target] });
+  assert.deepEqual(
+    msgs(warnings).filter((m) => /mentions change/.test(m)),
+    [],
   );
 });

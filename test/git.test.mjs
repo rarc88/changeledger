@@ -4,17 +4,180 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { githubLogin, gitRefs, mutatingRun, ownerHandle } from '../src/git.mjs';
+import { fileURLToPath } from 'node:url';
+import {
+  defaultGhRun,
+  githubLogin,
+  gitPrefix,
+  gitRefs,
+  mutatingRun,
+  ownerHandle,
+} from '../src/git.mjs';
 
 const SEP = String.fromCharCode(31);
+const RECORD_SEP = String.fromCharCode(30);
 const ID = '20260613-222918';
+
+test('220545 CR2: gitPrefix removes only Git record terminator', () => {
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push({ args, cwd });
+    if (args[1] === '--absolute-git-dir') return '/repo/.git\n';
+    return 'dir with space/line\nbreak/\r\n';
+  };
+
+  assert.equal(gitPrefix('/repo/subdir', '/repo', run), 'dir with space/line\nbreak/');
+  assert.deepEqual(calls, [
+    { args: ['rev-parse', '--absolute-git-dir'], cwd: '/repo' },
+    {
+      args: ['--git-dir=/repo/.git', '--work-tree=/repo', 'rev-parse', '--show-prefix'],
+      cwd: '/repo/subdir',
+    },
+  ]);
+});
+
+// Extracts the full text of every `<name>(` call in `source`, balancing
+// parentheses so a call spread over several lines is read whole. Returns
+// `{ line, text }` per call, so a violation can be reported where it lives.
+function callsTo(source, name) {
+  const calls = [];
+  const opener = `${name}(`;
+  for (let at = source.indexOf(opener); at !== -1; at = source.indexOf(opener, at + 1)) {
+    let depth = 0;
+    let end = at + opener.length - 1;
+    for (; end < source.length; end += 1) {
+      if (source[end] === '(') depth += 1;
+      else if (source[end] === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    calls.push({
+      start: at,
+      end,
+      line: source.slice(0, at).split('\n').length,
+      text: source.slice(at, end + 1),
+    });
+  }
+  return calls;
+}
+
+// Counts arguments at the call's top level, ignoring commas nested in objects,
+// arrays or inner calls. Empty segments do not count: a trailing comma is style,
+// not an argument, and counting it would let a dropped injection pass unseen.
+function topLevelArgs(callText) {
+  const inner = callText.slice(callText.indexOf('(') + 1, -1);
+  let depth = 0;
+  let current = '';
+  const args = [];
+  for (const character of inner) {
+    if ('([{'.includes(character)) depth += 1;
+    else if (')]}'.includes(character)) depth -= 1;
+    if (character === ',' && depth === 0) {
+      args.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  args.push(current);
+  return args.filter((argument) => argument.trim()).length;
+}
+
+// True when the call's options argument actually carries an identity resolver,
+// inline or through a variable declared in the same file. Presence of a third
+// argument is not enough: an empty `{}` would leave the default resolver running.
+function injectsResolver(callText, source) {
+  const inner = callText.slice(callText.indexOf('(') + 1, -1);
+  let depth = 0;
+  let current = '';
+  const args = [];
+  for (const character of inner) {
+    if ('([{'.includes(character)) depth += 1;
+    else if (')]}'.includes(character)) depth -= 1;
+    if (character === ',' && depth === 0) {
+      args.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  args.push(current);
+  const options = args.map((argument) => argument.trim()).filter(Boolean)[2];
+  if (!options) return false;
+  if (options.includes('ownerHandle')) return true;
+  const identifier = options.match(/^[A-Za-z_$][\w$]*$/);
+  if (!identifier) return false;
+  const declaration = source.match(new RegExp(`\\b(?:const|let|var)\\s+${options}\\s*=([^;]*);`));
+  return Boolean(declaration?.[1].includes('ownerHandle'));
+}
+
+// 20260726-124836 CR7: creating a change resolves the local git identity, which
+// runs `gh api user` — a network subprocess. A suite that creates changes
+// without injecting an identity therefore reaches api.github.com on every one of
+// them, and no assertion notices, because nothing depends on the value. This
+// guard is the falsifiable form of that criterion: drop an injection anywhere and
+// it names the file and line. A counter inside `src/git.mjs` could not do this —
+// its only reader would be its own unit test, so a regressed site stayed green.
+test('124836 CR7: no test creates a change without injecting an identity', () => {
+  const dir = fileURLToPath(new URL('.', import.meta.url));
+  // Recursive: a suite added under a subdirectory tomorrow must be scanned too.
+  const suites = fs
+    .readdirSync(dir, { recursive: true })
+    .filter((name) => String(name).endsWith('.test.mjs'));
+  const offenders = [];
+  for (const suite of suites) {
+    const source = fs.readFileSync(path.join(dir, suite), 'utf8');
+    const throwSpans = callsTo(source, 'assert.throws').map((call) => [call.start, call.end]);
+    // In-process creation: safe when the identity resolver is injected, or when
+    // an explicit owner short-circuits the resolution entirely.
+    for (const call of callsTo(source, 'newChange')) {
+      // Injected when a third argument is present — the options object carrying
+      // the resolver, whether written inline or held in a variable. Also safe
+      // when the first argument names an owner, which short-circuits resolution
+      // before any subprocess, and when the call is expected to throw.
+      // `newChange()` with no arguments is prose naming the function, not a call.
+      if (topLevelArgs(call.text) === 0) continue;
+      // Injected only when the options argument really carries the resolver:
+      // counting arguments would let an empty `{}` exempt while the default
+      // resolver still runs. The options may be written inline or held in a
+      // variable, so a bare identifier is resolved against its declaration.
+      if (injectsResolver(call.text, source)) continue;
+      // A literal owner short-circuits resolution before any subprocess.
+      // `owner: undefined` or a variable does not, so only a non-empty literal
+      // counts here.
+      if (/\bowner: '[^']+'/.test(call.text)) continue;
+      // A call the test expects to throw never reaches the resolver. Scope it to
+      // the actual `assert.throws(...)` span, not to a fixed lookbehind that a
+      // creation on the next line would slip through.
+      if (throwSpans.some(([from, to]) => call.start > from && call.end < to)) continue;
+      offenders.push(`${suite}:${call.line} newChange without an injected identity`);
+    }
+    // Spawned CLI: a child process takes no injection, so `--owner` is the only
+    // way to keep it off the network. Every helper in the tree that launches the
+    // binary is scanned, not just one of them — keying this to a single helper
+    // name let a sibling spawn escape unseen.
+    for (const helper of ['run', 'runIn', 'runDirect', 'execFileSync', 'execFileAsync']) {
+      for (const call of callsTo(source, helper)) {
+        if (!/(^|[[(,]\s*)'new'/.test(call.text)) continue;
+        // `new --help` prints usage and creates nothing. Scoped to the token
+        // right after `new`: a literal `--help` sitting in some other argument,
+        // such as a fixture title, must not exempt a call that really creates.
+        if (/'new',\s*'(-h|--help)'/.test(call.text)) continue;
+        if (call.text.includes('--owner')) continue;
+        offenders.push(`${suite}:${call.line} spawned \`new\` without --owner`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
 
 test('CR1: parses commits that reference the id', () => {
   const run = (args) => {
     if (args[0] === 'log')
       return [
-        `abc123${SEP}feat: do it [#${ID}]${SEP}2026-06-14T10:00:00Z`,
-        `def456${SEP}fix: tweak [#${ID}]${SEP}2026-06-14T11:00:00Z`,
+        `abc123${SEP}feat: do it [#${ID}]${SEP}2026-06-14T10:00:00Z${SEP}${RECORD_SEP}`,
+        `def456${SEP}fix: tweak [#${ID}]${SEP}2026-06-14T11:00:00Z${SEP}${RECORD_SEP}`,
       ].join('\n');
     return '';
   };
@@ -66,6 +229,44 @@ test('CR4: githubLogin is empty when gh fails', () => {
     }),
     '',
   );
+});
+
+// 20260729-144812 CR3/CR4: the kill-switch lives only in the default `gh`
+// runner, so injected runners bypass it and the suite stays hermetic by
+// construction rather than by per-test discipline.
+
+test("144812 CR3: defaultGhRun returns '' under the kill-switch, without a subprocess", () => {
+  const before = process.env.CHANGELEDGER_NO_GH;
+  process.env.CHANGELEDGER_NO_GH = '1';
+  try {
+    assert.equal(defaultGhRun(['api', 'user', '--jq', '.login']), '');
+  } finally {
+    if (before === undefined) delete process.env.CHANGELEDGER_NO_GH;
+    else process.env.CHANGELEDGER_NO_GH = before;
+  }
+});
+
+test('144812 CR4: an injected runner bypasses the kill-switch', () => {
+  const before = process.env.CHANGELEDGER_NO_GH;
+  process.env.CHANGELEDGER_NO_GH = '1';
+  try {
+    assert.equal(
+      githubLogin(() => 'spied-login\n'),
+      'spied-login',
+    );
+  } finally {
+    if (before === undefined) delete process.env.CHANGELEDGER_NO_GH;
+    else process.env.CHANGELEDGER_NO_GH = before;
+  }
+});
+
+test('144812 CR5: the test and verify scripts set CHANGELEDGER_NO_GH so the suite is hermetic by construction', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+  const workspace = fs.readFileSync(path.resolve('pnpm-workspace.yaml'), 'utf8');
+  assert.match(pkg.scripts.test, /CHANGELEDGER_NO_GH=1/);
+  assert.match(pkg.scripts.verify, /CHANGELEDGER_NO_GH=1/);
+  assert.doesNotMatch(pkg.scripts.verify, /\bexport\b/);
+  assert.match(workspace, /^shellEmulator:\s*true$/m);
 });
 
 test('CR1: ownerHandle prefers the GitHub login', () => {
@@ -170,4 +371,84 @@ test('225638 CR5: gitRefs finds a body marker and returns the clean subject', ()
   const refs = gitRefs(root, ID);
   assert.equal(refs.commits.length, 1);
   assert.equal(refs.commits[0].subject, 'docs(context): checkpoint');
+});
+
+// --- attribution is scoped to the declaration (20260730-002341 CR1-CR2) ---
+
+// Commits `[subject, ...bodyParagraphs]` into a fresh scratch repo and returns
+// its root, so an attribution test states only the messages it is about.
+function scratchRepoWithCommits(messages) {
+  const root = scratchGitRepo();
+  mutatingRun(['config', 'user.email', 'test@example.com'], root);
+  mutatingRun(['config', 'user.name', 'Test'], root);
+  mutatingRun(['config', 'commit.gpgsign', 'false'], root);
+  messages.forEach((parts, index) => {
+    const file = `f${index}.txt`;
+    fs.writeFileSync(path.join(root, file), `${file}\n`);
+    mutatingRun(['add', file], root);
+    mutatingRun(['commit', ...parts.flatMap((part) => ['-m', part])], root);
+  });
+  return root;
+}
+
+test('002341 CR1: a ChangeLedger: none commit is not attributed to an id its reason cites', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: initial [#X]'],
+    ['chore: cleanup', 'ChangeLedger: none — supersedes [#X], no longer needed'],
+  ]);
+
+  const refs = gitRefs(root, 'X');
+  assert.deepEqual(
+    refs.commits.map((c) => c.subject),
+    ['feat: initial [#X]'],
+  );
+});
+
+test('002341 CR2: a prose id in the body does not attribute; subject and declaration do', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: third [#Y]', 'Related to work also tracked under [#Z] in a prose note.'],
+    ['docs(context): checkpoint', 'ChangeLedger: [#Y] [#Z]'],
+  ]);
+
+  assert.deepEqual(
+    gitRefs(root, 'Y')
+      .commits.map((c) => c.subject)
+      .sort(),
+    ['docs(context): checkpoint', 'feat: third [#Y]'],
+  );
+  assert.deepEqual(
+    gitRefs(root, 'Z').commits.map((c) => c.subject),
+    ['docs(context): checkpoint'],
+  );
+});
+
+// The relaxed body grammar (CR3) makes the lines under the declaration legal
+// free text; attribution must read the declaration line only, or that tail
+// becomes a second way to join a change's refs without declaring it.
+test('002341 CR2: a marker cited in the free tail below a declaration does not attribute', () => {
+  const root = scratchRepoWithCommits([
+    ['docs(context): checkpoint', 'ChangeLedger: [#Y] [#Z]', 'Supersedes [#W], now dropped.'],
+  ]);
+
+  assert.deepEqual(gitRefs(root, 'W').commits, []);
+  assert.deepEqual(
+    gitRefs(root, 'Y').commits.map((c) => c.subject),
+    ['docs(context): checkpoint'],
+  );
+});
+
+// Pins the subject seat as "the marker CLOSES the subject" (MARKER_RE), not
+// "the subject mentions the marker": a mid-subject marker is a mention. The
+// second commit is the positive control, so an empty result cannot pass this
+// test by way of a broken fixture or a grep that matched nothing.
+test('002341 CR2: a marker that does not close the subject does not attribute', () => {
+  const root = scratchRepoWithCommits([
+    ['feat: touch [#Q] while doing something else'],
+    ['feat: proper close [#Q]'],
+  ]);
+
+  assert.deepEqual(
+    gitRefs(root, 'Q').commits.map((c) => c.subject),
+    ['feat: proper close [#Q]'],
+  );
 });

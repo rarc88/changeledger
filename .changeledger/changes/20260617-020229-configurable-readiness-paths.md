@@ -82,15 +82,20 @@ changes aprobados vuelven a ser demasiado ambiguos para implementación TDD.
 - **Then** reporta un error de config claro sin validar cambios con supuestos silenciosos
 
 ## Plan
-- [x] Añadir parsing/validación de `readiness.target_patterns` y `readiness.verification_patterns` en `src/check.mjs`, cubierto por `test/check.test.mjs` (CR1, CR2, CR5)
+- [x] Añadir parsing/validación de `readiness.target_patterns` y `readiness.verification_patterns` en `src/check.mjs`, cubierto por `test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR5
   - **Resolved:** `2026-06-17T10:11:32Z`
-- [x] Cambiar `namesTargetAndTestFiles` en `src/check.mjs` por una función semántica configurable, cubierta por `test/check.test.mjs` (CR1, CR2, CR3)
+- [x] Cambiar `namesTargetAndTestFiles` en `src/check.mjs` por una función semántica configurable, cubierta por `test/check.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-17T10:11:35Z`
-- [x] Actualizar `templates/AGENTS.md` para explicar target+verification configurables, cubierto por `test/init.test.mjs` o tests de contrato existentes en `src/contract.mjs` (CR4)
+- [x] Actualizar `templates/AGENTS.md` para explicar target+verification configurables, cubierto por `test/init.test.mjs` o tests de contrato existentes en `src/contract.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-17T10:11:40Z`
-- [x] Actualizar `.sl/config.yml` y `.sl/specs/architecture.md` con los defaults de este repo, validado por `src/check.mjs` y `test/check.test.mjs` (CR1, CR4)
+- [x] Actualizar `.sl/config.yml` y `.sl/specs/architecture.md` con los defaults de este repo, validado por `src/check.mjs` y `test/check.test.mjs`
+  - **Criteria:** CR1, CR4
   - **Resolved:** `2026-06-17T10:11:44Z`
-- [x] Ejecutar `pnpm test -- test/check.test.mjs test/init.test.mjs` y `node bin/sl.mjs check` sobre `src/check.mjs` y `src/contract.mjs` (CR1, CR2, CR3, CR4, CR5)
+- [x] Ejecutar `pnpm test -- test/check.test.mjs test/init.test.mjs` y `node bin/sl.mjs check` sobre `src/check.mjs` y `src/contract.mjs`
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T10:11:52Z`
 
 ## Log

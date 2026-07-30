@@ -24,10 +24,18 @@ para no volver a engordar el monolito.
 
 ## Plan
 
-- [ ] Listar los pendientes reales con `changeledger graduate --pending` y clasificar cada uno: graduable a un spec de dominio vs. skip sin verdad persistente; verify: `node bin/changeledger.mjs graduate --pending` (support)
-- [ ] Graduar con `changeledger graduate <id> <spec> --into` cada pendiente que aporte verdad persistente, hacia el spec de dominio correspondiente; verify: `node bin/changeledger.mjs check` (support)
-- [ ] Marcar `changeledger graduate <id> --skip "<razón>"` cada pendiente sin verdad persistente; verify: `node bin/changeledger.mjs check` (support)
-- [ ] Confirmar que `changeledger graduate --pending` queda en cero; verify: `node bin/changeledger.mjs graduate --pending` (support)
+- [ ] Listar los pendientes reales con `changeledger graduate --pending` y clasificar cada uno: graduable a un spec de dominio vs. skip sin verdad persistente
+  - **Verify:** `node bin/changeledger.mjs graduate --pending`
+  - **Support:**
+- [ ] Graduar con `changeledger graduate <id> <spec> --into` cada pendiente que aporte verdad persistente, hacia el spec de dominio correspondiente
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
+- [ ] Marcar `changeledger graduate <id> --skip "<razón>"` cada pendiente sin verdad persistente
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Support:**
+- [ ] Confirmar que `changeledger graduate --pending` queda en cero
+  - **Verify:** `node bin/changeledger.mjs graduate --pending`
+  - **Support:**
 
 ## Log
 - **2026-06-27T21:22:57Z** `[status]` draft → approved

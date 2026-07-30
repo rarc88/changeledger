@@ -80,11 +80,14 @@ en inyección (defensa en profundidad).
 
 ## Plan
 
-- [x] Actualizar `serveIndex` en `src/viewer/server/router.mjs` para usar escape Unicode: `JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')`, verificar con `test/view.test.mjs` (CR1, CR2)
+- [x] Actualizar `serveIndex` en `src/viewer/server/router.mjs` para usar escape Unicode: `JSON.stringify(token).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')`, verificar con `test/view.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-06-17T20:27:08Z`
-- [x] Agregar test en `test/view.test.mjs`: token `x</script>x` → extraer body del `<script>` (todo antes del último `</script>`) y verificar que no contiene `</script>` literal en `src/viewer/server/router.mjs` (CR3)
+- [x] Agregar test en `test/view.test.mjs`: token `x</script>x` → extraer body del `<script>` (todo antes del último `</script>`) y verificar que no contiene `</script>` literal en `src/viewer/server/router.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T20:27:08Z`
-- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/viewer/server/router.mjs` sin regresiones (CR1, CR2, CR3)
+- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/viewer/server/router.mjs` sin regresiones
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-06-17T20:27:08Z`
 
 ## Log

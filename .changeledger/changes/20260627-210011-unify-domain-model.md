@@ -56,11 +56,21 @@ complejidad si aparece un consumidor real.
 
 ## Plan
 
-- [ ] Extraer un módulo de domain model que parsee change/spec a objetos tipados, reutilizando lo que hoy hacen `src/change.mjs`/`src/spec.mjs`; verify: `node --test test/change.test.mjs test/spec.test.mjs` (support)
-- [ ] Reescribir `src/repo.mjs` (`loadRepo`/`resolveChange`) sobre el domain model sin cambiar su salida; verify: `node --test test/repo.test.mjs` (support)
-- [ ] Reescribir `src/viewer/domain.mjs` (`serialize`) para consumir el domain model; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs` (support)
-- [ ] Reescribir `src/check.mjs` para validar sobre el domain model en vez de re-recorrer frontmatter; verify: `node --test test/check.test.mjs` (support)
-- [ ] Verificar no-regresión global de la suite y el gate; verify: `pnpm verify` (support)
+- [ ] Extraer un módulo de domain model que parsee change/spec a objetos tipados, reutilizando lo que hoy hacen `src/change.mjs`/`src/spec.mjs`
+  - **Verify:** `node --test test/change.test.mjs test/spec.test.mjs`
+  - **Support:**
+- [ ] Reescribir `src/repo.mjs` (`loadRepo`/`resolveChange`) sobre el domain model sin cambiar su salida
+  - **Verify:** `node --test test/repo.test.mjs`
+  - **Support:**
+- [ ] Reescribir `src/viewer/domain.mjs` (`serialize`) para consumir el domain model
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
+  - **Support:**
+- [ ] Reescribir `src/check.mjs` para validar sobre el domain model en vez de re-recorrer frontmatter
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Support:**
+- [ ] Verificar no-regresión global de la suite y el gate
+  - **Verify:** `pnpm verify`
+  - **Support:**
 
 ## Log
 - **2026-06-28T00:47:48Z** `[status]` draft → discarded: diagnóstico incorrecto verificado contra el código: no hay tres parsers. check.mjs (checkRepo) y viewer/domain.mjs (serialize) consumen objetos YA parseados por repo.mjs vía change.mjs/spec.mjs; recorrer campos para validar/serializar no es parsear. El domain model funcional ya existe. Refactor transversal sin evidencia

@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-07-18T12:33:08Z
+updated: 2026-07-30T23:13:18Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -17,6 +17,7 @@ stateDiagram-v2
     in_progress --> blocked
     in_review --> in_validation: review pass
     in_review --> in_progress: fail --retry
+    in_review --> in_progress: retorno sin veredicto (causa local)
     in_review --> blocked: fail --block
     in_validation --> done: humano acepta (viewer o conversación)
     in_validation --> in_progress: agente o humano rechaza con motivo
@@ -48,22 +49,54 @@ auditoría profunda de seguridad/lint/SAST queda en herramientas dedicadas que e
 revisor puede invocar; ChangeLedger no las reimplementa. El *cómo* se lanza el
 subagente es del agente anfitrión — `changeledger context review` solo fija el qué.
 
-El estado revisado es el estado entregable: tras mover a `in-review`, el agente
-anfitrión aplica el formatter local y ejecuta los gates completos antes de
-delegar. Como el veredicto vuelve a mutar status y Log, antes del commit o del
-handoff reaplica el formatter y repite los checks afectados, incluido
-`changeledger check`. Los tipos sin review hacen lo mismo después de su
-transición directa a `in-validation`. El núcleo no ejecuta hooks, formatters ni
-comandos externos configurables como efecto lateral; esos gates pertenecen al
+Cada review tiene un **mandato declarado antes de delegar** — *spot check* del
+diff nombrado, la superficie que el change gobierna, o auditoría completa — que
+el orquestador registra como nota de Log del change (`changeledger log`) y
+entrega ya relleno en el prompt: el revisor inspecciona dentro del mandato y
+reporta lo que note fuera de él sin ampliar la inspección. La cápsula
+`agent-prompt review` porta el campo, y la checklist de la cápsula de contexto
+(`agent-context review`) es **condicional al mandato**: bajo auditoría completa
+—o sin mandato declarado, el default fail-safe— aplica la inspección completa;
+bajo mandato más estrecho, el alcance declarado es la inspección, con el mismo
+rigor.
+
+El estado revisado es el estado entregable, y **el gate local decide si existe un
+candidato revisable**: el agente anfitrión aplica el formatter y ejecuta los gates
+completos **antes** de `changeledger status <id> in-review`, nunca después. Los
+tipos sin review pasan el mismo gate antes de su transición directa a
+`in-validation`. Si el gate falla, el change no se movió, así que no hay historia
+de review que deshacer; y si hubiera que retornar desde `in-review` por una causa
+local, la vía es `changeledger status <id> in-progress` —el retorno **sin
+veredicto**—, nunca `review fail --retry`, que registraría un veredicto que ningún
+revisor emitió y contaminaría Log y métricas.
+
+La transición a `in-review` **rechaza un candidato cuya readiness es inválida**:
+valida el documento tal como está, antes del cambio de status, y nombra cada
+defecto encontrado sin dejar rastro en el documento. Validar el texto posterior al
+cambio exoneraría al propio candidato bajo juicio, porque los defectos de readiness
+solo son errores mientras el change es previo a la revisión. El alcance es la
+readiness del documento, no los invariantes de repositorio.
+
+Como el veredicto vuelve a mutar status y Log, antes del commit o del handoff se
+reaplica el formatter y se repiten los checks afectados, incluido
+`changeledger check`; si el candidato cambia otra vez antes de que el revisor lo
+vea, se repite toda verificación afectada. El núcleo no ejecuta hooks, formatters
+ni comandos externos configurables como efecto lateral; esos gates pertenecen al
 repositorio anfitrión.
 
-**Auditoría post-review.** Un change en `in-validation` admite una inspección
-delegada estrictamente read-only: `changeledger agent-context audit <id>` entrega
-una cápsula autocontenida con el change, sus criterios y una frontera explícita
-de no mutación (archivos, Git, ledger). El delegado devuelve hallazgos y
+**Inspección post-review.** Un change en `in-validation` admite una inspección
+delegada estrictamente read-only: `changeledger agent-context post-review <id>`
+entrega una cápsula autocontenida con el change, sus criterios y una frontera
+explícita de no mutación (archivos, Git, ledger). El delegado devuelve hallazgos y
 evidencia, nunca un veredicto que mueva el lifecycle, y la operación no cambia el
 status ni añade entradas al Log. El contexto `review` conserva su restricción a
 `in-review` y su receta de veredicto única.
+
+El rol se llama `post-review`, no `audit`, y sin alias de compatibilidad: `audit`
+es además un **tipo** de change configurado, y compartir la cadena en dos
+espacios de nombres sin relación hacía que el error de puerta del rol se leyera
+como un fallo del tipo. El nombre elegido es el que el propio contrato ya usaba
+para describir la actividad, y no colisiona con ningún tipo, rol ni status.
 
 El contrato canónico permite delegar cualquier etapa a subagentes cuando reduce
 presión de contexto, baja coste con un modelo suficiente, paraleliza trabajo
@@ -84,6 +117,19 @@ verificaciones acotadas.
 únicamente la revisión: van `in-progress → in-validation`. Todo tipo pasa por
 validación humana antes de `done`; así `done` siempre significa resultado
 aceptado.
+
+Exigir revisión y no poder contener nada verificable es una configuración
+incoherente, no una preferencia: `checkCoverage` sólo corre para tipos que
+activan `specification`, y los bloques `### CRn` sólo se parsean de esa stage, de
+modo que un tipo con `review_required: true` sin ella manda al revisor un encargo
+sin criterios que comprobar. `checkConfig` lo rechaza nombrando el tipo y las
+stages ausentes en orden canónico. Por eso `refactor` activa `specification`: es
+el tipo con más probabilidad de cambiar comportamiento en silencio, y sus
+criterios son la prueba de que se preservó; el trabajo mecánico pertenece a
+`chore` o `quick`. Queda pendiente una incoherencia menor y conocida: `chore`
+activa `plan` sin `specification`, así que sus tareas no reciben diagnósticos de
+trazabilidad — pérdida de trazabilidad, no revisor mal dirigido, porque `chore`
+no exige revisión.
 
 **Carril `quick`.** Tipo oficial para trabajo pequeño trazable que antes acababa
 en bypass silencioso: un solo concern, reversible, sin ampliar superficie
@@ -117,7 +163,20 @@ completo (no solo el gate) y `agent.status()` lo invoca antes de escribir, así 
 el CLI rechaza saltos, regresiones y no-ops
 (`change is already "X"`), y el gate (`in-progress → in-validation` bajo
 `review_required` → mensaje accionable). Entre statuses no canónicos degrada a
-validación por enum. `changeledger status done` se rechaza por separado porque solo el
+validación por enum.
+
+El gate es simétrico: además del salto, el grafo prohíbe la **entrada** a
+`in-review` a los tipos que no declaran `review_required`. Sin esa mitad, un tipo
+ligero podía entrar en revisión y la cápsula exigía al revisor comprobar `CRn` y
+tareas que su documento no puede contener — el origen mecánico de que los
+revisores acabaran opinando sobre diseño. Cerrarla en el grafo, y no filtrando en
+los consumidores del contexto, es lo que hace el estado inalcanzable en vez de
+tapado: sin `in-review` no hay estado desde el que pedir la cápsula. Cuando el
+tipo del documento no se conoce, la transición se rechaza nombrando esa causa
+(`cannot decide review entry: the change declares no type`) en vez de
+interpolar un hueco: lo que no se puede decidir aborta y se nombra. La validación
+de la secuencia registrada en el Log sigue siendo insensible al tipo, así que
+ninguna historia ya escrita se invalida retroactivamente. `changeledger status done` se rechaza por separado porque solo el
 veredicto humano puede cerrar. `discarded` es terminal. `done` puede volver a
 `in-progress` por acción humana o del agente con motivo mientras siga sin
 graduación/skip, sin archive y fuera de releases; `reviewed: true` también cierra
@@ -158,6 +217,25 @@ escritura de la reapertura.
 `fail --block` → `blocked` (excede el contrato, decide el humano). Exige estar en
 `in-review`, `fail` exige motivo, y cada veredicto deja un marker inglés en el Log
 (`review → …`). `in-review` e `in-validation` cuentan como WIP en métricas.
+Confirmar la corrección de un `fail --retry` exige **volver con
+`changeledger status <id> in-review` antes de delegar al revisor fresco**: la
+transición re-valida el candidato y el rol de review no carga en ningún otro
+status — el arco de vuelta es el mismo `in_progress --> in_review` del diagrama.
+**Una review de confirmación falla solo por el defecto nombrado sin cerrar o
+por una regresión que la corrección introdujo**; lo latente o adyacente que
+encuentre se reporta como follow-up y lo juzga el orquestador, sin tumbar la
+ronda.
+
+**Todo fallo diagnosticado se clasifica antes de corregirse** — el veredicto
+`fail` del revisor y el rechazo humano en `in-validation` por igual. La
+taxonomía la posee el contexto de blocked (sede única; review y validation
+apuntan): enumeración incompleta dentro de una estrategia ya verificada →
+corrección normal barriendo la clase, sin que el número de rondas cierre el
+camino mientras la clase se sostenga; clase nueva de defecto → parar y decidir
+con el humano entre salidas ilustradas como no exhaustivas (rediseño en el
+mismo alcance, extensión con re-aprobación, partición, descarte). No hay
+contador ni mecanismo: la clasificación es prosa del contrato y decisión
+registrada en el Log.
 
 **Parada de validación local.** `in-validation` detiene solo ese change: el
 humano decide, el agente nunca acepta en su nombre. No es una pausa global de
@@ -227,10 +305,24 @@ de huecos tempranos — solo un origen explícito `status:` puede adelantar la
 reconstrucción, solo hacia delante y solo entre `draft`/`approved`/`in-progress`;
 los orígenes implícitos de review/validation exigen siempre la secuencia exacta.
 Statuses no canónicos desactivan la validación del change (el grafo no modela
-esos estados). El `owner` se autoasigna al pasar a `in-progress` (cuando empieza
-el trabajo) vía `ownerHandle`: username de GitHub (`gh api user --jq .login`), con
-fallback a `git config user.name` si `gh` falta o no está autenticado; tolerante
-(vacío si ninguno). No pisa un owner fijado a mano (`changeledger owner`).
+esos estados). El `owner` nace en la creación (`changeledger new`): se resuelve
+la identidad git local vía `ownerHandle` salvo que se pase `--owner` explícito,
+que siempre prevalece. `ownerHandle` prueba primero el username de GitHub (`gh
+api user --jq .login`), con fallback a `git config user.name` si `gh` falta o
+no está autenticado; tolerante (vacío si ninguno, sin fallar la creación — el
+change simplemente nace sin `owner`). Si un change llega a `in-progress` sin
+owner —creado en CI o en un entorno sin identidad resoluble—, `changeledger
+status` lo autoasigna con la misma resolución como red de seguridad; nunca pisa
+un owner ya fijado, a mano (`changeledger owner`) o desde la creación, y la
+resolución es perezosa: con owner ya fijado no se lanza ningún subproceso. El
+runner por defecto de `gh` respeta el kill-switch `CHANGELEDGER_NO_GH` (retorno
+vacío antes de cualquier exec); los scripts `test` y `verify` lo fijan, así que
+la suite es hermética por construcción — ningún test alcanza la red por esta
+vía aunque no inyecte resolver. Los scripts usan una asignación de entorno
+inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
+kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. Un runner
+inyectado puentea el kill-switch, de
+modo que los tests de la propia resolución no cambian de comportamiento.
 
 ## Graduación
 

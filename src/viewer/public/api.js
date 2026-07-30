@@ -47,6 +47,14 @@ const jsonOrThrow = async (response) => {
   return body;
 };
 
+export const getLedgerTree = (project) =>
+  fetch(`/api/ledger-tree?project=${encodeURIComponent(project)}`).then(jsonOrThrow);
+
+export const getLedgerDocument = (project, category, path) =>
+  fetch(
+    `/api/ledger-document?project=${encodeURIComponent(project)}&category=${encodeURIComponent(category)}&path=${encodeURIComponent(path)}`,
+  ).then(jsonOrThrow);
+
 export const postProjectConfig = (project, content, revision) =>
   postProject('/api/project-config', { project, content, revision });
 

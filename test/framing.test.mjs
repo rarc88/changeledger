@@ -1,22 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { beginSentinel, contentRev, endSentinel } from '../src/framing.mjs';
+import { beginSentinel, endSentinel } from '../src/framing.mjs';
 
-test('CR1: contentRev is a stable 12-hex-char digest of the body', () => {
-  const body = 'Effective policy: language=en — tdd=on\n\nSome contract body.';
-  const first = contentRev(body);
-  const second = contentRev(body);
-  assert.equal(first, second);
-  assert.match(first, /^[0-9a-f]{12}$/);
+// 20260726-124833 CR3: `contentRev` served only the retired `--have` flag, so
+// the module's public surface is exactly the framing helpers plus the version.
+test('124833 CR3: framing exports only VERSION and the two sentinels', async () => {
+  const framing = await import('../src/framing.mjs');
+  assert.deepEqual(Object.keys(framing), ['VERSION', 'beginSentinel', 'endSentinel']);
 });
 
-test('CR2: contentRev changes when the body changes', () => {
-  const a = contentRev('Effective policy: language=en — tdd=on');
-  const b = contentRev('Effective policy: language=es — tdd=on');
-  assert.notEqual(a, b);
-});
-
-test('framing sentinels are unaffected by rev computation', () => {
+test('framing sentinels frame a payload without embedding a revision', () => {
   assert.match(beginSentinel('CONTEXT', 'mode: core'), /^===== CHANGELEDGER CONTEXT BEGIN/);
+  assert.doesNotMatch(beginSentinel('CONTEXT', 'mode: core'), /rev:/);
   assert.match(endSentinel('CONTEXT'), /if this line is missing, the output was truncated/);
 });

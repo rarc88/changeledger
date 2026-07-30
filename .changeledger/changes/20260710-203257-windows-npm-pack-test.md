@@ -42,13 +42,21 @@ ni en los assets del paquete.
 
 ## Plan
 
-- [x] Añadir en `test/agent-prompt.test.mjs` una regresión de plataforma para el empaquetado de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+- [x] Añadir en `test/agent-prompt.test.mjs` una regresión de plataforma para el empaquetado de `src/commands/agent-prompt.mjs`
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T15:54:36Z`
-- [x] Ajustar la invocación de `execFile` en `test/agent-prompt.test.mjs` para el artefacto de `src/commands/agent-prompt.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+- [x] Ajustar la invocación de `execFile` en `test/agent-prompt.test.mjs` para el artefacto de `src/commands/agent-prompt.mjs`
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T15:54:36Z`
-- [x] Conservar en `test/agent-prompt.test.mjs` las aserciones de los assets bajo `templates/contract/agent-prompts/` y `templates/contract/agent-contexts/`; verify: `node --test test/agent-prompt.test.mjs` (CR2)
+- [x] Conservar en `test/agent-prompt.test.mjs` las aserciones de los assets bajo `templates/contract/agent-prompts/` y `templates/contract/agent-contexts/`
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T15:54:36Z`
-- [x] Ejecutar el gate completo y confirmar la matriz Windows en CI; verify: `pnpm verify` (support)
+- [x] Ejecutar el gate completo y confirmar la matriz Windows en CI
+  - **Verify:** `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-11T15:54:36Z`
 
 ## Log

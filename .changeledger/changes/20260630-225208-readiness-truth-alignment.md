@@ -53,11 +53,17 @@ comportamiento antiguo y compiten con el código.
 
 ## Plan
 
-- [x] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades; verify: `node bin/changeledger.mjs check` (CR1, CR2)
+- [x] Corregir `.changeledger/specs/readiness.md` con la matriz exacta de estados y severidades
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-01T22:09:12Z`
-- [x] Alinear los comentarios de `src/check.mjs` sin modificar la semántica; verify: `node --test test/check.test.mjs` (CR2, CR3)
+- [x] Alinear los comentarios de `src/check.mjs` sin modificar la semántica
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-01T22:09:12Z`
-- [x] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate; verify: `pnpm test` (CR1, CR2, CR3)
+- [x] Completar en `test/check.test.mjs` la cobertura explícita de `src/check.mjs` y ejecutar el gate
+  - **Verify:** `pnpm test`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-01T22:09:12Z`
 
 ## Log

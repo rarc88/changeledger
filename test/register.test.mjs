@@ -21,15 +21,15 @@ function initializedRepo(agentsBody = '# Project rules\n') {
 
 function reflowBootstrap(text) {
   return text.replace(
-    '> Attempt to run **ChangeLedger** with `changeledger context` immediately after\n> reading this file — before planning, investigating, or acting.',
-    '>Attempt to run **ChangeLedger** with `changeledger context` immediately\n> after reading this file — before planning, investigating, or acting.',
+    '> **ChangeLedger governs this repo.** Before planning, investigating, answering\n> or editing anything, run exactly this — it is mandatory, not optional:',
+    '>**ChangeLedger governs this repo.** Before planning, investigating,\n> answering or editing anything, run exactly this — it is mandatory, not optional:',
   );
 }
 
 function prettierBootstrap(text) {
   return text
     .replace(/(<!-- CHANGELEDGER BOOTSTRAP BEGIN v\d+ -->)\n/, '$1\n\n')
-    .replace('> [mode] --have <rev>`', '[mode] --have <rev>`')
+    .replace('> to continue; do not treat', 'to continue; do not treat')
     .replace('\n<!-- CHANGELEDGER BOOTSTRAP END -->', '\n\n<!-- CHANGELEDGER BOOTSTRAP END -->');
 }
 
@@ -186,6 +186,65 @@ test('153633 CR2: register preserves the Prettier fixture in every contract file
   for (const name of files) {
     assert.equal(fs.readFileSync(path.join(dir, name), 'utf8'), reformatted.get(name));
   }
+});
+
+// 20260730-183807 CR2 — `replaceDelimited` computes `replaced` when the block
+// is already at BOOTSTRAP_VERSION but its content diverges from REFERENCE;
+// `ensureReference` rewrites the file for that state exactly like `updated`,
+// so `register` must warn there too — naming the file and the state — not
+// just for `updated`.
+test('183807 CR2: register warns when a same-version bootstrap block is replaced for drifted content', () => {
+  const before = '# Project\n\nprose.\n';
+  const driftedBlock = `<!-- CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION} -->\n> [!IMPORTANT]\n> This text is not the reference at all.\n<!-- CHANGELEDGER BOOTSTRAP END -->\n`;
+  const dir = initializedRepo(`${before}\n${driftedBlock}`);
+
+  const warnings = [];
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+
+  assert.ok(agents.includes(REFERENCE.trim()), 'file must be rewritten with the current reference');
+  assert.ok(
+    warnings.some((msg) => msg.includes('AGENTS.md') && msg.includes('replaced')),
+    `expected a warning naming the file and the "replaced" state, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
+// 20260730-183807 CR2 (amended) — `ensureReference` writes the file for
+// every state except `unchanged`/`equivalent`: `inserted` (no block at all,
+// e.g. a fresh CLAUDE.md) and `migrated` (the legacy `<!-- changeledger -->`
+// marker) both rewrite the file exactly like `updated`/`replaced`, and were
+// reproduced rewriting with zero warnings before this fix.
+test('183807 CR2: register warns on inserted (a contract file with no block at all)', () => {
+  const dir = initializedRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude rules, no block here\n');
+
+  const warnings = [];
+  const result = registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const claude = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+
+  assert.equal(result.path, dir);
+  assert.match(claude, new RegExp(`CHANGELEDGER BOOTSTRAP BEGIN v${BOOTSTRAP_VERSION}`));
+  assert.ok(
+    warnings.some((msg) => msg.includes('CLAUDE.md') && msg.includes('inserted')),
+    `expected a warning naming the file and the "inserted" state, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
+test('183807 CR2: register warns on migrated (the retired legacy marker)', () => {
+  const before = '# Project\n\nprose before.\n';
+  const legacyBlock =
+    '<!-- changeledger -->\n> Read `.changeledger/AGENTS.md`.\n> More legacy prose.\n';
+  const dir = initializedRepo(`${before}${legacyBlock}`);
+
+  const warnings = [];
+  registerRepo(dir, { warn: (msg) => warnings.push(msg), log: () => {} });
+  const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+
+  assert.doesNotMatch(agents, /<!-- changeledger -->/);
+  assert.ok(
+    warnings.some((msg) => msg.includes('AGENTS.md') && msg.includes('migrated')),
+    `expected a warning naming the file and the "migrated" state, got: ${JSON.stringify(warnings)}`,
+  );
 });
 
 test('150300 CR3: register repairs semantic changes and preserves surrounding bytes', () => {

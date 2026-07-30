@@ -70,15 +70,23 @@ Alternativas descartadas:
 
 ## Plan
 
-- [x] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`; verify: manual browser check con una config más alta que el viewport (CR1)
+- [x] Acotar altura y dar overflow por panel a `.projects-shell`/`.projects-list`/`.project-editor` en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check con una config más alta que el viewport
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:33:24Z`
-- [x] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`; verify: manual browser check a 1600 px (CR2)
+- [x] Retirar el `max-width` del shell y ajustar proporciones en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check a 1600 px
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T16:33:25Z`
-- [x] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`; verify: manual browser check a 680 px (CR3)
+- [x] Ajustar el breakpoint estrecho apilando paneles con scroll de página en `src/viewer/public/styles.css`
+  - **Verify:** manual browser check a 680 px
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T16:33:25Z`
-- [x] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde (support)
+- [x] Confirmar que `projectsViewTemplate` no requiere cambios y que su cobertura en `test/viewer-metadata.test.mjs` sigue verde
+  - **Support:**
   - **Resolved:** `2026-07-11T16:33:25Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T16:33:26Z`
 
 ## Log

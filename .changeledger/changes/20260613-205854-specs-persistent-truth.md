@@ -73,13 +73,16 @@ spec. El código refleja los specs.
   - **Resolved:** `2026-06-13T21:15:04Z`
 - [x] Exponer specs en el JSON del visor
   - **Resolved:** `2026-06-13T21:15:04Z`
-- [x] Sección Specs en el visor (lista + render + búsqueda) (CR2, CR3)
+- [x] Sección Specs en el visor (lista + render + búsqueda)
+  - **Criteria:** CR2, CR3
   - **Resolved:** `2026-06-13T21:15:04Z`
-- [x] Regla de graduación en `AGENTS.md` (CR4)
+- [x] Regla de graduación en `AGENTS.md`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-13T21:15:04Z`
 - [x] Primer spec: arquitectura de Spec Ledger (dogfood)
   - **Resolved:** `2026-06-13T21:15:04Z`
-- [x] Tests del parser de spec (CR1)
+- [x] Tests del parser de spec
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T21:15:04Z`
 
 ## Log

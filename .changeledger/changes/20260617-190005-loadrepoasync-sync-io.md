@@ -68,11 +68,14 @@ try {
 
 ## Plan
 
-- [x] Reemplazar los dos `fs.existsSync` en `src/repo.mjs` (`loadRepoAsync`) con `try/catch ENOENT` sobre `fs.promises.readdir`, verificar con `test/view.test.mjs` (CR1)
+- [x] Reemplazar los dos `fs.existsSync` en `src/repo.mjs` (`loadRepoAsync`) con `try/catch ENOENT` sobre `fs.promises.readdir`, verificar con `test/view.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-17T20:07:41Z`
-- [x] Agregar test en `test/view.test.mjs` que llama `loadRepoAsync` sobre repo con `changesDir` inexistente en `src/repo.mjs`, verifica retorno `{ changes: [], specs: [] }` (CR2)
+- [x] Agregar test en `test/view.test.mjs` que llama `loadRepoAsync` sobre repo con `changesDir` inexistente en `src/repo.mjs`, verifica retorno `{ changes: [], specs: [] }`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-17T20:07:41Z`
-- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/repo.mjs` sin regresiones (CR3)
+- [x] Correr `pnpm test -- test/view.test.mjs` para confirmar `src/repo.mjs` sin regresiones
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-17T20:07:41Z`
 
 ## Log

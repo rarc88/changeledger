@@ -7,11 +7,11 @@ import { contractTemplatesDir } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { transversalPolicy } from './context.mjs';
 
-const ROLES = ['investigation', 'implementation', 'review', 'audit'];
+const ROLES = ['investigation', 'implementation', 'review', 'post-review'];
 const ALLOWED_STATUSES = {
   implementation: ['approved', 'in-progress'],
   review: ['in-review'],
-  audit: ['in-validation'],
+  'post-review': ['in-validation'],
 };
 
 function requireRepo(cwd) {

@@ -132,19 +132,31 @@ core en los `AGENTS.md` de los repos consumidores:
 
 ## Plan
 
-- [x] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela; verify: `node --test test/contract.test.mjs` (CR1, CR2, CR3)
+- [x] Actualizar `REFERENCE` en `src/contract.mjs` con trigger inmediato, capability card y verificación por centinela
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-01T21:55:55Z`
-- [x] Añadir delimitadores BEGIN/END con modo, change id y versión en `src/commands/context.mjs`; verify: `node --test test/context.test.mjs` (CR4, CR5)
+- [x] Añadir delimitadores BEGIN/END con modo, change id y versión en `src/commands/context.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR4, CR5
   - **Resolved:** `2026-07-01T22:00:59Z`
-- [x] Acortar en `templates/contract/core.md` la regla anti-truncado remitiéndola al centinela END; verify: `node --test test/context.test.mjs` (CR6)
+- [x] Acortar en `templates/contract/core.md` la regla anti-truncado remitiéndola al centinela END
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-01T22:00:59Z`
-- [x] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos; verify: `node --test test/context.test.mjs` (CR6)
+- [x] Mantener la salida delimitada de `src/commands/context.mjs` dentro del presupuesto del core y cubrir BEGIN/END en todos los modos
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-01T22:00:59Z`
-- [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`; verify: `node --test test/contract.test.mjs` (CR7)
+- [x] Cubrir la detección de bloque desactualizado y el re-registro de `src/contract.mjs`
+  - **Verify:** `node --test test/contract.test.mjs`
+  - **Criteria:** CR7
   - **Resolved:** `2026-07-01T21:55:55Z`
-- [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check` (support)
+- [x] Re-registrar el bloque bootstrap del propio repo con `changeledger register` y validar con `node bin/changeledger.mjs check`
+  - **Support:**
   - **Resolved:** `2026-07-01T21:56:16Z`
-- [x] Ejecutar el gate completo tras la implementación (support)
+- [x] Ejecutar el gate completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-01T22:01:27Z`
 
 ## Log

@@ -39,9 +39,11 @@ Ejemplo: `20260613-205056-sl-new-colisiona-ids-creados-en-el-mismo-segundo.md`.
 
 ## Plan
 
-- [x] Cambiar firma a `sl new <type> <slug> "<title>"` (CR1)
+- [x] Cambiar firma a `sl new <type> <slug> "<title>"`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-13T20:57:00Z`
-- [x] Normalizar el slug (kebab ascii); el `title` ya no alimenta el nombre (CR2)
+- [x] Normalizar el slug (kebab ascii); el `title` ya no alimenta el nombre
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-13T20:57:30Z`
 - [x] Actualizar `AGENTS.md` §7 (slug inglés explícito) y README/USAGE
   - **Resolved:** `2026-06-13T20:58:00Z`

@@ -27,6 +27,7 @@ import {
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { readLedgerDocument } from '../src/viewer/domain.mjs';
 
 const TOKEN = 'test-token';
 
@@ -88,6 +89,7 @@ function draftChange(root) {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { current } = resolveProjects(root, true);
@@ -265,6 +267,7 @@ test('174429: /api/repo returns serialized data through the async loader path', 
   const file = newChange(
     { type: 'bug', slug: 'async-api', title: 'Async API', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const specsDir = path.join(root, '.changeledger', 'specs');
@@ -297,6 +300,84 @@ The viewer serializes specs.
   assert.deepEqual(body.specs[0].graduated_from, [id]);
   assert.deepEqual(body.changes[0].related_to, []);
   assert.match(body.specs[0].body, /serializes specs/);
+});
+
+test('141643 CR3: /api/repo serializes canonical pending graduation for markers and scaffolds', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const writeChange = ({ slug, now, status = 'done', reviewed, graduationMarker = false }) => {
+    const file = newChange({ type: 'bug', slug, title: slug, now }, root, {
+      ownerHandle: () => '',
+    });
+    let text = fs
+      .readFileSync(file, 'utf8')
+      .replace(
+        'status: draft',
+        `status: ${status}${reviewed === undefined ? '' : `\nreviewed: ${reviewed}`}`,
+      );
+    if (graduationMarker) {
+      text = text.replace(
+        '## Log\n',
+        '## Log\n\n- **2026-06-13T12:00:00Z** `[graduation]` spec: `legacy.md`\n',
+      );
+    }
+    fs.writeFileSync(file, text);
+    return parseChange(text).frontmatter.id;
+  };
+
+  const scaffolded = writeChange({ slug: 'scaffolded', now: '2026-06-13T12:00:01Z' });
+  const marked = writeChange({
+    slug: 'marked',
+    now: '2026-06-13T12:00:02Z',
+    graduationMarker: true,
+  });
+  const explicitFalse = writeChange({
+    slug: 'explicit-false',
+    now: '2026-06-13T12:00:03Z',
+    reviewed: false,
+  });
+  const reviewed = writeChange({
+    slug: 'reviewed',
+    now: '2026-06-13T12:00:04Z',
+    reviewed: true,
+  });
+  const active = writeChange({
+    slug: 'active',
+    now: '2026-06-13T12:00:05Z',
+    status: 'in-validation',
+  });
+  const specsDir = path.join(root, '.changeledger', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(specsDir, 'scaffolded.md'),
+    `---
+title: scaffolded
+updated: 2026-06-13T12:00:00Z
+tags: [bug]
+graduated_from: []
+---
+
+# scaffolded
+
+<!-- changeledger:spec-scaffold -->
+
+> Scaffold from change ${scaffolded}.
+`,
+  );
+
+  const { current } = resolveProjects(root, true);
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  assert.equal(res.status, 200);
+  const pendingById = Object.fromEntries(
+    JSON.parse(res.body).changes.map((change) => [change.id, change.pending_graduation]),
+  );
+  assert.deepEqual(pendingById, {
+    [scaffolded]: true,
+    [marked]: true,
+    [explicitFalse]: true,
+    [reviewed]: false,
+    [active]: false,
+  });
 });
 
 test('190007 CR3: token with </script> is escaped in the token assignment line', async () => {
@@ -375,6 +456,55 @@ test('190009 CR3: getRepo rejects when server returns 410', async () => {
   }
 });
 
+test('141859 CR3: Ledger client GETs encode project, category and logical document path', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () =>
+        url.startsWith('/api/ledger-tree')
+          ? { categories: [] }
+          : { category: 'project-docs', path: 'A B.md', format: 'markdown', content: '# A' },
+    };
+  };
+  try {
+    const { getLedgerDocument, getLedgerTree } = await import('../src/viewer/public/api.js');
+    assert.deepEqual(await getLedgerTree('alpha & beta'), { categories: [] });
+    assert.equal(
+      (await getLedgerDocument('alpha & beta', 'project-docs', 'A B.md')).content,
+      '# A',
+    );
+    assert.deepEqual(calls, [
+      '/api/ledger-tree?project=alpha%20%26%20beta',
+      '/api/ledger-document?project=alpha%20%26%20beta&category=project-docs&path=A%20B.md',
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('141859 CR3/CR5: Ledger client GETs expose controlled server errors', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 410,
+    json: async () => ({ error: 'project path is gone' }),
+  });
+  try {
+    const { getLedgerDocument, getLedgerTree } = await import('../src/viewer/public/api.js');
+    await assert.rejects(() => getLedgerTree('gone'), /project path is gone/);
+    await assert.rejects(
+      () => getLedgerDocument('gone', 'contract', 'core.md'),
+      /project path is gone/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('113924 CR6: migration apply client rejects HTTP conflict with server message', async () => {
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
@@ -405,6 +535,269 @@ test('190005 CR2: loadRepoAsync on a repo with no changes/specs dir returns empt
   const result = await loadRepoAsync(root);
   assert.deepEqual(result.changes, []);
   assert.deepEqual(result.specs, []);
+});
+
+test('141859 CR3: ledger tree exposes only sorted logical documents from each allowlist', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Read me\n');
+  fs.writeFileSync(path.join(root, 'INTENT.md'), '# Intent\n');
+  fs.writeFileSync(path.join(root, 'NOTES.md'), '# Private notes\n');
+  fs.mkdirSync(path.join(root, 'docs'));
+  fs.writeFileSync(path.join(root, 'docs', 'README.md'), '# Nested\n');
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, {
+    path: `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+  });
+
+  assert.equal(response.status, 200);
+  const { categories } = JSON.parse(response.body);
+  assert.deepEqual(
+    categories.map(({ category }) => category),
+    ['project-docs', 'contract', 'templates'],
+  );
+  const byCategory = Object.fromEntries(
+    categories.map(({ category, documents }) => [category, documents]),
+  );
+  assert.deepEqual(byCategory['project-docs'], [
+    { path: 'AGENTS.md', format: 'markdown' },
+    { path: 'INTENT.md', format: 'markdown' },
+    { path: 'README.md', format: 'markdown' },
+  ]);
+  assert.ok(byCategory.contract.some(({ path: logical }) => logical === 'core.md'));
+  assert.ok(
+    byCategory.contract.some(({ path: logical }) => logical === 'agent-prompts/implementation.md'),
+  );
+  assert.ok(byCategory.templates.some(({ path: logical }) => logical === 'config.yml'));
+  assert.ok(byCategory.templates.every(({ path: logical }) => !logical.startsWith('contract/')));
+  for (const documents of Object.values(byCategory)) {
+    assert.deepEqual(
+      documents.map(({ path: logical }) => logical),
+      documents.map(({ path: logical }) => logical).toSorted(),
+    );
+    assert.ok(
+      documents.every(
+        ({ path: logical, format }) =>
+          !path.isAbsolute(logical) &&
+          !logical.includes(root) &&
+          (format === 'markdown' || format === 'source'),
+      ),
+    );
+  }
+});
+
+test('141859 CR3/CR4: ledger reads project, contract and template documents by logical path', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Project readme\n');
+  const { current } = resolveProjects(root, true);
+  const query = (category, logicalPath) =>
+    `/api/ledger-document?project=${encodeURIComponent(current)}&category=${encodeURIComponent(category)}&path=${encodeURIComponent(logicalPath)}`;
+
+  const project = await memoryRequest(root, { path: query('project-docs', 'README.md') });
+  assert.equal(project.status, 200);
+  assert.deepEqual(JSON.parse(project.body), {
+    category: 'project-docs',
+    path: 'README.md',
+    format: 'markdown',
+    content: '# Project readme\n',
+  });
+
+  const contract = await memoryRequest(root, { path: query('contract', 'budgets.yml') });
+  assert.equal(contract.status, 200);
+  assert.deepEqual(Object.keys(JSON.parse(contract.body)), [
+    'category',
+    'path',
+    'format',
+    'content',
+  ]);
+  assert.equal(JSON.parse(contract.body).format, 'source');
+
+  const template = await memoryRequest(root, { path: query('templates', 'config.yml') });
+  assert.equal(template.status, 200);
+  assert.equal(JSON.parse(template.body).category, 'templates');
+  assert.equal(JSON.parse(template.body).format, 'source');
+});
+
+test('141859 CR4: ledger document paths fail closed with one generic response', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), '# Read me\n');
+  const { current } = resolveProjects(root, true);
+  const cases = [
+    ['', 'README.md'],
+    ['unknown', 'README.md'],
+    ['project-docs', ''],
+    ['project-docs', '/README.md'],
+    ['project-docs', '\0README.md'],
+    ['project-docs', 'dir\\README.md'],
+    ['contract', 'agent-prompts//implementation.md'],
+    ['contract', './core.md'],
+    ['contract', '../README.md'],
+    ['contract', 'core.txt'],
+    ['project-docs', 'NOTES.md'],
+    ['templates', 'contract/core.md'],
+    ['contract', 'missing.md'],
+  ];
+
+  for (const [category, logicalPath] of cases) {
+    const response = await memoryRequest(root, {
+      path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=${encodeURIComponent(category)}&path=${encodeURIComponent(logicalPath)}`,
+    });
+    assert.equal(response.status, 404, `${category}:${JSON.stringify(logicalPath)}`);
+    assert.deepEqual(JSON.parse(response.body), { error: 'document not found' });
+    assert.ok(!response.body.includes(root));
+  }
+
+  const missingPath = await memoryRequest(root, {
+    path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs`,
+  });
+  assert.equal(missingPath.status, 404);
+  assert.deepEqual(JSON.parse(missingPath.body), { error: 'document not found' });
+});
+
+test('141859 CR3/CR4: escaping symlinks and non-regular files are never listed or read', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-secret-'));
+  fs.writeFileSync(path.join(outside, 'secret.md'), 'do not expose\n');
+  fs.symlinkSync(path.join(outside, 'secret.md'), path.join(root, 'README.md'));
+  fs.rmSync(path.join(root, 'AGENTS.md'));
+  fs.mkdirSync(path.join(root, 'AGENTS.md'));
+  const { current } = resolveProjects(root, true);
+
+  const tree = await memoryRequest(root, {
+    path: `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+  });
+  assert.equal(tree.status, 200);
+  assert.deepEqual(JSON.parse(tree.body).categories[0].documents, []);
+
+  for (const logicalPath of ['README.md', 'AGENTS.md']) {
+    const response = await memoryRequest(root, {
+      path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs&path=${logicalPath}`,
+    });
+    assert.equal(response.status, 404);
+    assert.deepEqual(JSON.parse(response.body), { error: 'document not found' });
+    assert.ok(!response.body.includes('secret'));
+  }
+});
+
+test('141859 CR4: ledger APIs require an exact live project even for installed documents', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+
+  for (const route of [
+    '/api/ledger-tree?project=unknown',
+    '/api/ledger-document?project=unknown&category=contract&path=core.md',
+  ]) {
+    const response = await memoryRequest(root, { path: route, localOnly: false });
+    assert.equal(response.status, 404);
+    assert.deepEqual(JSON.parse(response.body), { error: 'no project' });
+  }
+
+  fs.rmSync(path.join(root, '.changeledger'), { recursive: true });
+  for (const route of [
+    `/api/ledger-tree?project=${encodeURIComponent(current)}`,
+    `/api/ledger-document?project=${encodeURIComponent(current)}&category=contract&path=core.md`,
+  ]) {
+    const response = await memoryRequest(root, { path: route, localOnly: false });
+    assert.equal(response.status, 410);
+    assert.deepEqual(JSON.parse(response.body), { error: 'project path is gone' });
+  }
+});
+
+test('141859 CR4: ledger rejects documents over 1 MiB before returning content', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(path.join(root, 'README.md'), 'x'.repeat(1024 * 1024 + 1));
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, {
+    path: `/api/ledger-document?project=${encodeURIComponent(current)}&category=project-docs&path=README.md`,
+  });
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(JSON.parse(response.body), { error: 'document too large' });
+  assert.ok(response.body.length < 100);
+});
+
+test('141859 CR4: ledger descriptor rejects a final symlink swap after validation', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = path.join(root, 'README.md');
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-secret-'));
+  const secret = path.join(outside, 'secret.md');
+  fs.writeFileSync(file, '# Safe\n');
+  fs.writeFileSync(secret, '# Outside secret\n');
+  const validatedFile = fs.realpathSync(file);
+  const originalOpenSync = fs.openSync;
+  let swapped = false;
+
+  fs.openSync = function swapBeforeOpen(candidate, ...args) {
+    if (!swapped && path.resolve(candidate) === validatedFile) {
+      swapped = true;
+      fs.rmSync(file);
+      fs.symlinkSync(secret, file);
+    }
+    return originalOpenSync.call(this, candidate, ...args);
+  };
+  try {
+    const response = readLedgerDocument([{ id: 'alpha', path: root, alive: true }], {
+      project: 'alpha',
+      category: 'project-docs',
+      path: 'README.md',
+    });
+    assert.equal(swapped, true, 'the file was swapped after validation and before open');
+    assert.equal(response.code, 404);
+    assert.deepEqual(response.body, { error: 'document not found' });
+    assert.ok(!JSON.stringify(response.body).includes(outside));
+  } finally {
+    fs.openSync = originalOpenSync;
+  }
+});
+
+test('141859 CR4: ledger descriptor bounds a file that grows after fstat', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = path.join(root, 'README.md');
+  fs.writeFileSync(file, '# Initially small\n');
+  const originalFstatSync = fs.fstatSync;
+  let grown = false;
+
+  fs.fstatSync = function growAfterFstat(descriptor, ...args) {
+    const stat = originalFstatSync.call(this, descriptor, ...args);
+    if (!grown) {
+      grown = true;
+      fs.appendFileSync(file, 'x'.repeat(1024 * 1024 + 1));
+    }
+    return stat;
+  };
+  try {
+    const response = readLedgerDocument([{ id: 'alpha', path: root, alive: true }], {
+      project: 'alpha',
+      category: 'project-docs',
+      path: 'README.md',
+    });
+    assert.equal(grown, true, 'the descriptor file grew after its initial fstat');
+    assert.equal(response.code, 413);
+    assert.deepEqual(response.body, { error: 'document too large' });
+    assert.ok(JSON.stringify(response.body).length < 100);
+  } finally {
+    fs.fstatSync = originalFstatSync;
+  }
+});
+
+test('141859 CR4: ledger APIs reject non-GET methods and advertise GET', async () => {
+  isolatedHome();
+  const root = newRepo();
+
+  for (const route of ['/api/ledger-tree', '/api/ledger-document']) {
+    const response = await memoryRequest(root, { method: 'POST', path: route });
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.allow, 'GET');
+  }
 });
 
 function isolatedHome() {
@@ -482,6 +875,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
@@ -496,16 +890,18 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
   const acceptedFile = newChange(
     { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const rejectedFile = newChange(
     { type: 'feature', slug: 'rejected', title: 'Rejected', now: '2026-06-13T12:00:01Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
   const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
   for (const id of [acceptedId, rejectedId]) {
     status(id, 'approved', root);
-    status(id, 'in-progress', root);
+    status(id, 'in-progress', root, { ownerHandle: () => '' });
     status(id, 'in-review', root);
     review(id, 'pass', {}, root);
   }
@@ -539,14 +935,17 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   const file = newChange(
     { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   fs.writeFileSync(
     file,
-    fs.readFileSync(file, 'utf8').replace('## Plan\n', '## Plan\n\n- [ ] pending\n'),
+    fs
+      .readFileSync(file, 'utf8')
+      .replace('## Plan\n', '## Plan\n\n- [ ] pending\n  - **Support:**\n'),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   const before = fs.readFileSync(file, 'utf8');
@@ -565,10 +964,11 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
   const file = newChange(
     { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
@@ -586,10 +986,11 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
   const file = newChange(
     { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
-  status(id, 'in-progress', root);
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
   validation(id, 'pass', {}, root);
@@ -613,6 +1014,7 @@ test('171002 CR2: changeStatus rejects agent-owned or premature moves without wr
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
+    { ownerHandle: () => '' },
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
@@ -833,10 +1235,13 @@ test('111218 CR4: malformed readiness patterns return their validation cause', (
   const { projects, current } = resolveProjects(root, false);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const read = readProjectConfig(projects, current);
+  // The template ships `readiness` uncommented, so malform the block it already
+  // has instead of appending a second one (that would be a duplicate-key error).
   const candidate = read.body.content.replace(
-    'changes_dir:',
-    'readiness:\n  target_patterns:\n    source: true\n  verification_patterns: ["test/**"]\n\nchanges_dir:',
+    '  target_patterns: ["src/**"]',
+    '  target_patterns:\n    source: true',
   );
+  assert.notEqual(candidate, read.body.content, 'the malformed candidate must differ');
 
   const result = saveProjectConfig(projects, {
     project: current,
@@ -1107,7 +1512,7 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 3);
+  assert.equal(result.body.supported, 4);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -1284,7 +1689,7 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
 
   const result = previewConfigMigration(projects, current);
   assert.equal(result.code, 200);
-  assert.ok(result.body.yaml.includes('schema_version: 3'));
+  assert.ok(result.body.yaml.includes('schema_version: 4'));
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
 });
@@ -1312,7 +1717,7 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   const result = applyConfigMigration(projects, { project: current, revision: body.revision });
   assert.equal(result.code, 200);
   assert.ok(result.body.ok);
-  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 3'));
+  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 4'));
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
     project: current,
@@ -1348,7 +1753,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 4');
+    .replace(/schema_version: \d+/, 'schema_version: 5');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -1368,7 +1773,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 4');
+    .replace(/schema_version: \d+/, 'schema_version: 5');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -1379,7 +1784,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 4 is newer than supported schema 3/);
+  assert.match(direct.body.error, /config schema 5 is newer than supported schema 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1394,7 +1799,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 4 is newer than supported schema 3/);
+  assert.match(response.body, /config schema 5 is newer than supported schema 4/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -1438,14 +1843,14 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
 
   const structured = readProjectConfigStructured(projects, current);
   assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 3);
+  assert.equal(structured.body.supported, 4);
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 3/);
+  assert.match(preview.body.summary, /Config migration 1 → 4/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
   assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.match(preview.body.yaml, /^schema_version: 3$/m);
+  assert.match(preview.body.yaml, /^schema_version: 4$/m);
   assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
 
   // Apply lands the additions and becomes terminal
@@ -1455,7 +1860,7 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   });
   assert.equal(applied.code, 200);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 3$/m);
+  assert.match(after, /^schema_version: 4$/m);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
   const again = previewConfigMigration(projects, current);

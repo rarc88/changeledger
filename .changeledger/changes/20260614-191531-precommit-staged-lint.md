@@ -43,11 +43,14 @@ commit `feat(owner)` abortó y su código terminó mezclado en el commit de test
 
 ## Plan
 
-- [x] En `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (sin el `biome check` de árbol completo; el lint de staged lo hace lint-staged) (CR1)
+- [x] En `hooks/pre-commit`: tras `lint-staged`, correr solo `pnpm test` + `node bin/sl.mjs check` (sin el `biome check` de árbol completo; el lint de staged lo hace lint-staged)
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T19:17:11Z`
-- [x] `pnpm verify` en `package.json` intacto como gate completo CI/manual (CR2)
+- [x] `pnpm verify` en `package.json` intacto como gate completo CI/manual
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-14T19:17:11Z`
-- [x] Verificado a mano: staged limpio + no-staged sucio → hook exit 0, archivo sucio intacto (CR1)
+- [x] Verificado a mano: staged limpio + no-staged sucio → hook exit 0, archivo sucio intacto
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-14T19:17:11Z`
 
 ## Log

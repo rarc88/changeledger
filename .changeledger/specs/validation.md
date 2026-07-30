@@ -1,8 +1,8 @@
 ---
 title: Validación (changeledger check)
-updated: 2026-07-11T15:45:50Z
+updated: 2026-07-29T18:40:38Z
 tags: [ validation ]
-graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800"]
+graduated_from: ["20260616-151221", "20260616-162014", "20260616-162050", "20260616-162104", "20260703-150231", "20260711-103800", "20260726-194220", "20260729-162616"]
 ---
 
 ## Validación (`changeledger check`)
@@ -16,6 +16,38 @@ change→spec salen solo de los marcadores reales que `changeledger graduate` es
 enlaces reales. Para detectar specs stale, `updated` se compara contra la
 actividad de graduación enlazada, no contra entradas posteriores del Log como
 `archived`, porque esas no cambian la verdad persistente.
+
+La validación distingue el documento como **sujeto** de una regla del documento
+como **dato** de un invariante. Un documento congelado —`discarded`, o `done` con
+`archived: true`— no recibe ningún diagnóstico del bucle por documento, porque
+`archived` es irreversible y `discarded` no reabre: el defecto no se podría
+arreglar sin reescribir historia terminada, y como el hook `pre-commit` corre
+`check` repo-wide, una regla que evolucione dejaría el gate rojo bloqueando
+trabajo ajeno. Pero sigue alimentando sin filtrar los invariantes de repo: ids
+duplicados, el grafo de `depends_on` y su búsqueda de ciclos, la reconstrucción
+de graduaciones de `checkSpecs`, `checkReleases`, y tanto `knownIds` como los
+backlinks de `related_to`. El predicado vive en un único sitio exportado y la
+capa CLI lo consume en vez de re-derivarlo.
+
+Congelado no es lo mismo que cerrado. Un `done` sin archivar sí se valida:
+es trabajo vivo pendiente de graduación o archive, y sus defectos son
+arreglables. Un documento que declare `archived: true` con un status abierto
+también se valida, porque esa combinación sólo puede venir de una edición a mano
+y el gate la nombra en vez de esconderla; por la misma razón, un `archived` que
+no sea el booleano `true` no congela nada. `checkUnclassifiedMentions` conserva
+un predicado propio y más amplio, que exime también al `done` sin archivar.
+
+Lo omitido se publica en ambas ramas del resumen, para que un hallazgo nunca
+oculte lo que la corrida se saltó: `✓ N change(s) valid — M not validated
+(archived or discarded)` y `E error(s), W warning(s) — N change(s), M not
+validated (archived or discarded)`, con el sufijo ausente cuando no hay ninguno.
+`check <id>` sobre un congelado responde `not validated (archived)` o
+`not validated (discarded)` en vez de llamarlo válido. Un documento congelado
+nunca es sujeto emisor de los invariantes de repo —`depends_on` y `related_to`
+colgados, `related_to` a sí mismo y graduación a una spec inexistente— pero
+sigue siendo dato: un abierto que lo referencia resuelve, y un abierto con
+referencia colgada sigue en error. El predicado de congelado tiene una sola
+sede (`frozenReason`), consumida por identidad de función.
 
 La validación también fija invariantes del formato Markdown que el parser expone:
 headings de etapa con casing canónico, tareas `[x]` con timestamp ISO UTC,

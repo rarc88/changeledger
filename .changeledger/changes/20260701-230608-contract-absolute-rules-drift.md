@@ -63,11 +63,16 @@ contradicciones directas (clase A); tres hallazgos menores:
 
 ## Plan
 
-- [x] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios; verify: `node --test test/context.test.mjs` (CR1, CR2)
+- [x] Ajustar `templates/contract/core.md` (resumen de delegación y regla 8) con punteros mínimos a los packs propietarios
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2
   - **Resolved:** `2026-07-01T23:25:31Z`
-- [x] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR1, CR2, CR3)
+- [x] Cubrir los punteros y el presupuesto de `templates/contract/core.md` con aserciones y snapshot clasificado en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-01T23:25:31Z`
-- [x] Ejecutar el gate completo (support)
+- [x] Ejecutar el gate completo
+  - **Support:**
   - **Resolved:** `2026-07-01T23:25:31Z`
 
 ## Log

@@ -110,17 +110,28 @@ bidireccional y ofrecer una migración determinista para repositorios existentes
 
 ## Plan
 
-- [x] Escribir primero tests del writer y de graduación, añadir `graduated_from: []` al scaffold y actualizarlo idempotentemente en `src/commands/graduate.mjs` y `src/writer.mjs`; verify: `node --test test/graduate.test.mjs test/writer.test.mjs` (CR1, CR2, CR3)
+- [x] Escribir primero tests del writer y de graduación, añadir `graduated_from: []` al scaffold y actualizarlo idempotentemente en `src/commands/graduate.mjs` y `src/writer.mjs`
+  - **Verify:** `node --test test/graduate.test.mjs test/writer.test.mjs`
+  - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-07-18T11:22:49Z`
-- [x] Escribir primero tests bidireccionales y endurecer `checkSpecs()` en `src/check.mjs`; verify: `node --test test/check.test.mjs` (CR4)
+- [x] Escribir primero tests bidireccionales y endurecer `checkSpecs()` en `src/check.mjs`
+  - **Verify:** `node --test test/check.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-07-18T11:24:51Z`
-- [x] Escribir primero fixtures de migración y extender `src/commands/fix.mjs` y `bin/changeledger.mjs` con `fix --graduation-links [--dry-run]`; verify: `node --test test/fix.test.mjs test/cli-bin.test.mjs` (CR5, CR6, CR7)
+- [x] Escribir primero fixtures de migración y extender `src/commands/fix.mjs` y `bin/changeledger.mjs` con `fix --graduation-links [--dry-run]`
+  - **Verify:** `node --test test/fix.test.mjs test/cli-bin.test.mjs`
+  - **Criteria:** CR5, CR6, CR7
   - **Resolved:** `2026-07-18T11:33:22Z`
-- [x] Retirar el parser de frases en `src/viewer/public/view-parts.js`, exponer `graduated_from` desde `src/viewer/domain.mjs` y actualizar `templates/contract/close.md`; verify: `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/context.test.mjs` (CR8)
+- [x] Retirar el parser de frases en `src/viewer/public/view-parts.js`, exponer `graduated_from` desde `src/viewer/domain.mjs` y actualizar `templates/contract/close.md`
+  - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs test/context.test.mjs`
+  - **Criteria:** CR8
   - **Resolved:** `2026-07-18T11:35:39Z`
-- [x] Preservar el mapa curado de `cc1f4ca4`, actualizar los 35 destinos históricos y migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`; verify: `node bin/changeledger.mjs check` (CR5, CR8, CR9)
+- [x] Preservar el mapa curado de `cc1f4ca4`, actualizar los 35 destinos históricos y migrar `.changeledger/specs/**` con `changeledger fix --graduation-links`
+  - **Verify:** `node bin/changeledger.mjs check`
+  - **Criteria:** CR5, CR8, CR9
   - **Resolved:** `2026-07-18T12:04:28Z`
-- [x] Ejecutar el gate completo `pnpm verify` (support)
+- [x] Ejecutar el gate completo `pnpm verify`
+  - **Support:**
   - **Resolved:** `2026-07-18T11:37:13Z`
 
 ## Log

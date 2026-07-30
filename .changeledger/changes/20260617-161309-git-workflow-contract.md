@@ -83,11 +83,14 @@ obligatorio:
 - **Then** lo declara como excepción y explica qué changes comparten la superficie
 
 ## Plan
-- [x] Actualizar `templates/AGENTS.md` §6 y verificar con `test/cli.test.mjs` que atomic commits sean un workflow git obligatorio (CR1, CR2, CR3, CR4, CR5)
+- [x] Actualizar `templates/AGENTS.md` §6 y verificar con `test/cli.test.mjs` que atomic commits sean un workflow git obligatorio
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T16:25:29Z`
-- [x] Añadir assertions en `test/cli.test.mjs` sobre `templates/AGENTS.md` y verificar con `pnpm test -- test/cli.test.mjs` las frases clave del workflow instalado (CR1, CR2, CR3, CR4, CR5)
+- [x] Añadir assertions en `test/cli.test.mjs` sobre `templates/AGENTS.md` y verificar con `pnpm test -- test/cli.test.mjs` las frases clave del workflow instalado
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T16:25:29Z`
-- [x] Ejecutar `pnpm test -- test/cli.test.mjs` y `node bin/sl.mjs check` para validar `templates/AGENTS.md` y el ledger (CR1, CR2, CR3, CR4, CR5)
+- [x] Ejecutar `pnpm test -- test/cli.test.mjs` y `node bin/sl.mjs check` para validar `templates/AGENTS.md` y el ledger
+  - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-06-17T16:25:29Z`
 
 ## Log

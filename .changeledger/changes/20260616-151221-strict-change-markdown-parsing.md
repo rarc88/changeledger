@@ -56,15 +56,20 @@ tarde.
 
 ## Plan
 
-- [x] Añadir tests de casing canónico de stages en `test/change.test.mjs` o `test/check.test.mjs` y validación en `src/check.mjs` usando datos de `src/change.mjs` (CR1)
+- [x] Añadir tests de casing canónico de stages en `test/change.test.mjs` o `test/check.test.mjs` y validación en `src/check.mjs` usando datos de `src/change.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-06-16T15:17:37Z`
-- [x] Añadir tests de timestamp de tarea done en `test/check.test.mjs` y validación sobre `tasks.resolvedAt` en `src/check.mjs` (CR2)
+- [x] Añadir tests de timestamp de tarea done en `test/check.test.mjs` y validación sobre `tasks.resolvedAt` en `src/check.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-06-16T15:17:37Z`
-- [x] Añadir tests de razón de tarea bloqueada en `test/check.test.mjs` y validación sobre `tasks.reason` en `src/check.mjs` (CR3)
+- [x] Añadir tests de razón de tarea bloqueada en `test/check.test.mjs` y validación sobre `tasks.reason` en `src/check.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-06-16T15:17:38Z`
-- [x] Exponer o calcular duplicados de criterios en `src/change.mjs` y cubrirlos desde `test/check.test.mjs` (CR4)
+- [x] Exponer o calcular duplicados de criterios en `src/change.mjs` y cubrirlos desde `test/check.test.mjs`
+  - **Criteria:** CR4
   - **Resolved:** `2026-06-16T15:17:38Z`
-- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log` (CR1, CR2, CR3, CR4)
+- [x] Ejecutar `pnpm verify` y registrar el resultado en `## Log`
+  - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-06-16T15:17:38Z`
 
 ## Log

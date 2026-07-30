@@ -70,13 +70,20 @@ falla cerrado; añadir superficie duplicaría el detector.
 
 ## Plan
 
-- [x] Añadir la regla de parada al skeleton `templates/contract/agent-prompts/implementation.md` con aserción en `test/agent-prompt.test.mjs`; verify: `node --test test/agent-prompt.test.mjs` (CR1)
+- [x] Añadir la regla de parada al skeleton `templates/contract/agent-prompts/implementation.md` con aserción en `test/agent-prompt.test.mjs`
+  - **Verify:** `node --test test/agent-prompt.test.mjs`
+  - **Criteria:** CR1
   - **Resolved:** `2026-07-11T16:31:13Z`
-- [x] Añadir la base esperada al contrato de prompt en `templates/contract/delegation.md` con cobertura en `test/context.test.mjs`; verify: `node --test test/context.test.mjs` (CR2)
+- [x] Añadir la base esperada al contrato de prompt en `templates/contract/delegation.md` con cobertura en `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR2
   - **Resolved:** `2026-07-11T16:31:13Z`
-- [x] Reclasificar snapshots y matriz semántica de los fragmentos de `templates/contract/` en `test/context.test.mjs` y validar budgets; verify: `node --test test/context.test.mjs` (CR3)
+- [x] Reclasificar snapshots y matriz semántica de los fragmentos de `templates/contract/` en `test/context.test.mjs` y validar budgets
+  - **Verify:** `node --test test/context.test.mjs`
+  - **Criteria:** CR3
   - **Resolved:** `2026-07-11T16:31:13Z`
-- [x] Ejecutar `pnpm verify` completo tras la implementación (support)
+- [x] Ejecutar `pnpm verify` completo tras la implementación
+  - **Support:**
   - **Resolved:** `2026-07-11T16:31:13Z`
 
 ## Log
