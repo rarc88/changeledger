@@ -2,9 +2,11 @@
 id: "20260730-220857"
 title: Hacer portables los fixtures de tests en Windows
 type: quick
-status: in-validation
+status: done
 created: 2026-07-30T22:08:57Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: []
 owner: rarc88
 release_impact: none
@@ -28,3 +30,6 @@ dependencias ni cambios de producción.
 - **2026-07-30T22:18:23Z** `[status]` approved → in-progress
 - **2026-07-30T22:20:50Z** `[note]` TDD respaldado por la matriz Windows: antes falló con spawnSync /bin/sh ENOENT, D:\D:\... y ENOENT al crear nombres no representables en NTFS. Los fixtures ahora usan salida CLI acotada en proceso, fileURLToPath y dobles staged byte-exactos; tests focalizados 168/168 y pnpm verify 1044/1044.
 - **2026-07-30T22:20:58Z** `[status]` in-progress → in-validation
+- **2026-07-30T23:11:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T23:17:07Z** `[graduation]` skipped: Cambio exclusivo de fixtures de prueba para portabilidad Windows; no añadió comportamiento ni verdad persistente del producto.
+- **2026-07-30T23:17:14Z** `[archive]` archived
