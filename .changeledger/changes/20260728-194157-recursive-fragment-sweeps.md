@@ -2,7 +2,7 @@
 id: "20260728-194157"
 title: Las guardas del contrato barren todo subfragmento
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-28T19:41:57Z
 depends_on: []
 related_to: ["20260728-170429", "20260726-124837", "20260727-194234", "20260729-203257", "20260730-002730", "20260729-143656"]
@@ -177,3 +177,5 @@ legal desde el matching por campo.
 - **2026-07-30T12:42:30Z** `[note]` Precisión sobre la cláusula And de CR2, misma doctrina que la And de CR1 en 203257: dice que la copia local plantada 'su test de inyección la delata en rojo', y la polaridad observada es la contraria — bajo el mutante su inyección queda VERDE (no ve nada) y es el contraste con la guarda arreglada lo que delata. El mecanismo cumple la intención (la reintroducción se caza); el criterio aprobado no se enmienda y queda como punto de escrutinio del review. Residuo nombrado: 124837 CR8 sigue afirmando sobre el texto unido, así que nombra la redacción encontrada pero no el fragmento portador — asimetría con las otras cinco, fuera del mandato de enumeración.
 - **2026-07-30T12:42:30Z** `[note]` Mandato de review, registrado antes de delegar: revisor fresco top-tier sobre el rango cerrado. Escrutinio: (1) re-derivar al menos dos inyecciones por su cuenta (una por suite, subfragmento distinto al usado); (2) los dos mutantes (copia local y sede sin recursive); (3) las 5 decisiones no especificadas — en particular la raíz desde la URL del módulo y el cambio de forma de los barridos cli a fragmentsCarrying (¿estrictamente más fuerte?); (4) la precisión de la And de CR2 — ¿aceptable o blanqueo?; (5) CR3: inventarios de 143656 byte-idénticos en sus igualdades; (6) mis notas del Log al estándar del implementador.
 - **2026-07-30T12:42:30Z** `[status]` in-progress → in-review
+- **2026-07-30T12:54:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T12:54:40Z** `[note]` Hallazgos no bloqueantes del review, triados: F3 corregido antes de la validación (el comentario del helper afirmaba la independencia en absoluto — acotado a nombres, con el fallo ruidoso de divergencia nombrado; suites verdes tras el retoque); F1 (124837 CR8 conserva la forma de texto unido: no nombra portador y retiene la exposición al cruce artificial) y F2 (los inventarios de 143656 son ciegos a un tercer subdirectorio nuevo, aunque los barridos sí lo alcanzan) quedan nombrados para el barrido de verdad persistente; F4 (nada automatiza contra una décima copia ciega) es el trade decidido en el propio Proposal — grep, review y el mutante registrado son la contención.

@@ -12,7 +12,9 @@ import path from 'node:path';
 //
 // The directory is resolved from this module rather than from `src/paths.mjs` on
 // purpose: a guard that took its search root from the code under test could be
-// pointed somewhere else by that code and go on passing.
+// pointed somewhere else by that code and go on passing. The independence covers
+// the NAMES only — cli.test.mjs still reads contents via `contractTemplatesDir`;
+// if the two roots diverged, its `readFileSync` throws ENOENT, loud, not silent.
 const contractDir = new URL('../templates/contract/', import.meta.url);
 
 // Every `.md` fragment under `templates/contract/` at any depth, as paths
