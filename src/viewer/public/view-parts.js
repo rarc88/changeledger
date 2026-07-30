@@ -29,6 +29,37 @@ export function sortIndicator(direction) {
   </svg>`;
 }
 
+export function sortGlyph(descending) {
+  const head = descending ? 'M2.5 6 5 9l2.5-3' : 'M2.5 4 5 1l2.5 3';
+  return html`<svg
+    class="sort-glyph"
+    viewBox="0 0 10 10"
+    width="10"
+    height="10"
+    aria-hidden="true"
+  >
+    <path d="M5 1v8"></path>
+    <path d=${head}></path>
+  </svg>`;
+}
+
+export function boardColumnHeader(status, count, descending) {
+  const current = descending ? 'newest to oldest' : 'oldest to newest';
+  const next = descending ? 'oldest to newest' : 'newest to oldest';
+  const label = `${status}: sorted by code ${current}. Sort ${next}`;
+  return html`<div class="column-head">
+    <button
+      type="button"
+      class=${`column-sort-btn ${descending ? 'active' : ''}`.trim()}
+      data-sort-status=${status}
+      title=${`Sort ${next}`}
+      aria-label=${label}
+      aria-pressed=${String(descending)}
+    ><span>${status}</span>${sortGlyph(descending)}</button>
+    <span class="count">${count}</span>
+  </div>`;
+}
+
 export function closeButton(label = 'Close detail', extraClass = '') {
   return html`<button type="button" class=${`icon-button close ${extraClass}`.trim()} aria-label=${label} title=${label}>
     <svg viewBox="0 0 16 16" aria-hidden="true">

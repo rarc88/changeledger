@@ -2,7 +2,7 @@
 id: "20260730-202005"
 title: Ordenar las columnas del board por código
 type: feature
-status: approved
+status: in-review
 created: 2026-07-30T20:20:05Z
 depends_on: []
 related_to: ["20260627-111219", "20260728-141643"]
@@ -80,23 +80,31 @@ del cliente.
 
 ## Plan
 
-- [ ] Probar primero la ordenación pura, la alternancia, la persistencia y el control accesible
+- [x] Probar primero la ordenación pura, la alternancia, la persistencia y el control accesible
   - **Target:** `test/app-state.test.mjs`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Implementar el estado, la comparación por código y el encabezado interactivo del Board
+  - **Resolved:** `2026-07-30T20:30:58Z`
+- [x] Implementar el estado, la comparación por código y el encabezado interactivo del Board
   - **Target:** `src/viewer/public/app-state.js`, `src/viewer/public/app.js`, `src/viewer/public/view-parts.js`, `src/viewer/public/styles.css`
   - **Verify:** `node --test test/app-state.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Graduar el comportamiento durable en la spec del viewer
+  - **Resolved:** `2026-07-30T20:31:05Z`
+- [x] Graduar el comportamiento durable en la spec del viewer
   - **Target:** `.changeledger/specs/viewer.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Criteria:** CR5
-- [ ] Ejecutar la verificación completa
+  - **Resolved:** `2026-07-30T20:31:46Z`
+- [x] Ejecutar la verificación completa
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T20:33:00Z`
 
 ## Log
 
 - **2026-07-30T20:20:05Z** `[note]` Draft creado para gobernar y reforzar la contribución del PR #1.
 - **2026-07-30T20:24:56Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T20:26:14Z** `[status]` approved → in-progress
+- **2026-07-30T20:31:12Z** `[note]` TDD verificado: las pruebas fallaron inicialmente por ausencia de estado, comparación y controles; después pasaron 126/126. Mutantes de dirección, normalización, alternancia y nombre accesible fueron detectados y restaurados.
+- **2026-07-30T20:33:56Z** `[status]` in-progress → in-review
+- **2026-07-30T20:34:06Z** `[note]` La implementación parte de la contribución de Carlos Rodríguez Fernández en el PR #1; el commit de implementación conserva su autoría y añade la especificación, robustez, accesibilidad y cobertura exigidas por el proyecto.

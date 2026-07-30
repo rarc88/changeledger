@@ -19,6 +19,7 @@ const {
   applyDetailPresentation,
   bindApproveAction,
   bindBoardInteractions,
+  bindBoardSortControls,
   bindDetailPresentation,
   bindProjectViewActions,
   card,
@@ -64,9 +65,14 @@ const {
   taskList,
 } = await import('../src/viewer/public/app.js');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
-const { approvalPanel, closeButton, referenceDetails, specBody, validationPanel } = await import(
-  '../src/viewer/public/view-parts.js'
-);
+const {
+  approvalPanel,
+  boardColumnHeader,
+  closeButton,
+  referenceDetails,
+  specBody,
+  validationPanel,
+} = await import('../src/viewer/public/view-parts.js');
 const { graphSvg, metricsHtml, specsListHtml } = await import(
   '../src/viewer/public/view-renderers.js'
 );
@@ -1249,6 +1255,33 @@ test('125850 CR9: sort indicator is a bounded SVG icon', () => {
   assert.equal(icon.getAttribute('width'), '10');
   assert.equal(icon.getAttribute('height'), '10');
   assert.equal(icon.getAttribute('viewBox'), '0 0 10 10');
+});
+
+test('202005 CR2/CR4: board column sort control is independent and accessible', () => {
+  appState.boardSortColumns = new Set();
+  const ascending = parse(boardColumnHeader('draft', 3, false));
+  const ascendingButton = ascending.querySelector('.column-sort-btn');
+  assert.equal(ascendingButton.getAttribute('aria-pressed'), 'false');
+  assert.equal(
+    ascendingButton.getAttribute('aria-label'),
+    'draft: sorted by code oldest to newest. Sort newest to oldest',
+  );
+  assert.equal(ascendingButton.querySelector('svg').getAttribute('aria-hidden'), 'true');
+
+  let renders = 0;
+  bindBoardSortControls(ascending, () => renders++);
+  ascendingButton.click();
+  assert.deepEqual([...appState.boardSortColumns], ['draft']);
+  assert.equal(appState.boardSortColumns.has('approved'), false);
+  assert.equal(renders, 1);
+
+  const descending = parse(boardColumnHeader('draft', 3, true));
+  const descendingButton = descending.querySelector('.column-sort-btn');
+  assert.equal(descendingButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(
+    descendingButton.getAttribute('aria-label'),
+    'draft: sorted by code newest to oldest. Sort oldest to newest',
+  );
 });
 
 test('105456 CR6: spec history resolves metadata, navigation and unavailable ids', () => {

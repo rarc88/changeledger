@@ -46,6 +46,7 @@ test('231428: initial state has correct defaults', async () => {
   assert.equal(state.ledgerCategory, 'specs');
   assert.equal(state.sortKey, 'id');
   assert.equal(state.sortDir, 1);
+  assert.deepEqual([...state.boardSortColumns], []);
   assert.equal(state.currentProject, null);
   assert.deepEqual(state.projectsList, []);
   assert.equal(state.globalMode, false);
@@ -178,6 +179,57 @@ test('231428: setSortKey resets direction when key changes', async () => {
   setSortKey('status'); // new key → dir resets to 1
   assert.equal(state.sortKey, 'status');
   assert.equal(state.sortDir, 1);
+});
+
+test('202005 CR1: board columns sort explicitly by code without mutating input', async () => {
+  const { sortBoardColumnChanges } = await freshState();
+  const changes = [{ id: '20260730-120000' }, { id: '20260728-090000' }, { id: '20260729-150000' }];
+
+  assert.deepEqual(
+    sortBoardColumnChanges(changes).map((change) => change.id),
+    ['20260728-090000', '20260729-150000', '20260730-120000'],
+  );
+  assert.deepEqual(
+    sortBoardColumnChanges(changes, true).map((change) => change.id),
+    ['20260730-120000', '20260729-150000', '20260728-090000'],
+  );
+  assert.deepEqual(
+    changes.map((change) => change.id),
+    ['20260730-120000', '20260728-090000', '20260729-150000'],
+  );
+});
+
+test('202005 CR2: board column directions toggle independently', async () => {
+  const { state, toggleBoardColumnSort } = await freshState();
+
+  assert.equal(toggleBoardColumnSort('draft'), true);
+  assert.deepEqual([...state.boardSortColumns], ['draft']);
+  assert.equal(state.boardSortColumns.has('approved'), false);
+
+  assert.equal(toggleBoardColumnSort('draft'), false);
+  assert.deepEqual([...state.boardSortColumns], []);
+});
+
+test('202005 CR3: board column directions round-trip and normalize stale values', async () => {
+  const mod = await freshState();
+  const store = memoryStorage({
+    [mod.VIEWER_STATE_KEY]: JSON.stringify({
+      version: 1,
+      boardSortColumns: ['draft', 'removed', 7],
+      projects: {},
+    }),
+  });
+
+  assert.equal(mod.restoreViewerState(store), true);
+  assert.deepEqual([...mod.state.boardSortColumns], ['draft', 'removed']);
+
+  mod.normalizeRepoState({
+    types: [],
+    statuses: ['draft', 'done'],
+    changes: [],
+  });
+  assert.deepEqual([...mod.state.boardSortColumns], ['draft']);
+  assert.deepEqual(JSON.parse(store.value(mod.VIEWER_STATE_KEY)).boardSortColumns, ['draft']);
 });
 
 test('231428: toggleStatusFilter adds and removes a status', async () => {

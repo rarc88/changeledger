@@ -519,6 +519,15 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.sort-glyph {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .grid tbody tr {
   cursor: pointer;
 }
@@ -618,6 +627,27 @@ body {
 .column-head .count {
   color: var(--muted);
   font-weight: 500;
+}
+.column-sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.column-sort-btn:hover {
+  background: var(--panel-2);
+}
+.column-sort-btn.active {
+  color: var(--accent);
 }
 .column-body {
   flex: 1 0 auto;
