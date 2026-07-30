@@ -2,7 +2,7 @@
 id: "20260730-202005"
 title: Ordenar las columnas del board por código
 type: feature
-status: draft
+status: approved
 created: 2026-07-30T20:20:05Z
 depends_on: []
 related_to: ["20260627-111219", "20260728-141643"]
@@ -99,3 +99,4 @@ del cliente.
 ## Log
 
 - **2026-07-30T20:20:05Z** `[note]` Draft creado para gobernar y reforzar la contribución del PR #1.
+- **2026-07-30T20:24:56Z** `[status]` draft → approved (human via conversation)
