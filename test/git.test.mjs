@@ -22,11 +22,18 @@ test('220545 CR2: gitPrefix removes only Git record terminator', () => {
   const calls = [];
   const run = (args, cwd) => {
     calls.push({ args, cwd });
+    if (args[1] === '--absolute-git-dir') return '/repo/.git\n';
     return 'dir with space/line\nbreak/\r\n';
   };
 
-  assert.equal(gitPrefix('/repo/subdir', run), 'dir with space/line\nbreak/');
-  assert.deepEqual(calls, [{ args: ['rev-parse', '--show-prefix'], cwd: '/repo/subdir' }]);
+  assert.equal(gitPrefix('/repo/subdir', '/repo', run), 'dir with space/line\nbreak/');
+  assert.deepEqual(calls, [
+    { args: ['rev-parse', '--absolute-git-dir'], cwd: '/repo' },
+    {
+      args: ['--git-dir=/repo/.git', '--work-tree=/repo', 'rev-parse', '--show-prefix'],
+      cwd: '/repo/subdir',
+    },
+  ]);
 });
 
 // Extracts the full text of every `<name>(` call in `source`, balancing

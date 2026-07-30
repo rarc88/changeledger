@@ -34,11 +34,12 @@ function realpathNearest(target) {
   }
 }
 
-// `absPath` expressed the way Git reports a staged path. Ask Git for the
-// existing ancestor's top-level prefix and append only the non-existent tail;
-// deriving the whole value with native path.relative() mixes Windows
-// filesystem coordinates with Git's slash-delimited index coordinates.
-function gitRelative(absPath, run) {
+// `absPath` expressed the way Git reports a staged path. Ask the same outer
+// repository that supplied the staged index for the existing ancestor's prefix
+// and append only the non-existent tail; deriving the whole value with native
+// path.relative() mixes Windows filesystem coordinates with Git's
+// slash-delimited index coordinates.
+function gitRelative(absPath, gitTop, run) {
   const tail = [];
   let current = path.resolve(absPath);
   while (!fs.existsSync(current)) {
@@ -47,7 +48,7 @@ function gitRelative(absPath, run) {
     tail.unshift(path.basename(current));
     current = parent;
   }
-  const prefix = gitPrefix(fs.realpathSync(current), run);
+  const prefix = gitPrefix(fs.realpathSync(current), gitTop, run);
   const relative = `${prefix}${tail.join('/')}`;
   return relative.endsWith('/') ? relative.slice(0, -1) : relative;
 }
@@ -136,6 +137,7 @@ export function commit(
   // rather than deciding it is safe to ignore; the error names it.
   const changesDirRel = gitRelative(
     resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'),
+    gitTopReal,
     run,
   );
   // A `changes_dir` that resolves to the repo root collapses the prefix this

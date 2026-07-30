@@ -122,9 +122,12 @@ function recordingRun(root, stagedOut) {
   const calls = [];
   const run = (args, cwd) => {
     calls.push({ args, cwd });
-    if (args[0] === 'rev-parse' && args[1] === '--show-prefix') {
+    if (args.includes('--show-prefix')) {
       const prefix = path.relative(fs.realpathSync(root), cwd).split(path.sep).join('/');
       return prefix ? `${prefix}/\n` : '\n';
+    }
+    if (args[0] === 'rev-parse' && args[1] === '--absolute-git-dir') {
+      return `${path.join(fs.realpathSync(root), '.git')}\n`;
     }
     if (args[0] === 'rev-parse') return `${fs.realpathSync(root)}\n`;
     if (args.includes('diff')) {
@@ -166,6 +169,28 @@ function gitRepoWithSymlinkedLedger() {
   fs.writeFileSync(path.join(root, 'ledger', 'config.yml'), 'changes_dir: .changeledger/changes\n');
   fs.symlinkSync('ledger', path.join(root, '.changeledger'));
   return root;
+}
+
+// A real nested Git repository can sit at either the ledger path itself or the
+// internal target of a symlinked ledger. The outer index can still carry an
+// entry below it (for example after a history operation), so the guard must
+// derive its boundary from the outer repository rather than rediscovering the
+// nested one from changes_dir.
+function gitRepoWithNestedGitLedger({ symlink = false } = {}) {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-commit-nested-git-')),
+  );
+  git(root, ['init', '-q']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  const ledgerName = symlink ? 'ledger' : '.changeledger';
+  const ledger = path.join(root, ledgerName);
+  fs.mkdirSync(path.join(ledger, 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(ledger, 'config.yml'), 'changes_dir: .changeledger/changes\n');
+  git(ledger, ['init', '-q']);
+  if (symlink) fs.symlinkSync(ledgerName, path.join(root, '.changeledger'));
+  return { root, ledgerName };
 }
 
 // The two Unicode forms of `añadir`. macOS stores what it is given but git
@@ -527,15 +552,46 @@ test('220545 CR2: changes_dir boundary comes from git prefix coordinates', () =>
       `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
   );
 
-  const prefixReads = calls.filter(
-    (call) => call.args[0] === 'rev-parse' && call.args[1] === '--show-prefix',
-  );
+  const prefixReads = calls.filter((call) => call.args.includes('--show-prefix'));
   assert.deepEqual(prefixReads, [
     {
-      args: ['rev-parse', '--show-prefix'],
+      args: [
+        `--git-dir=${path.join(fs.realpathSync(root), '.git')}`,
+        `--work-tree=${fs.realpathSync(root)}`,
+        'rev-parse',
+        '--show-prefix',
+      ],
       cwd: fs.realpathSync(path.join(root, '.changeledger', 'changes')),
     },
   ]);
+});
+
+test('220545 CR1/CR2: a real nested Git ledger cannot move the outer-index boundary', () => {
+  const { root, ledgerName } = gitRepoWithNestedGitLedger();
+  const staged = `${ledgerName}/changes/20260711-999999-x.md`;
+  stageViaIndex(root, staged, 'foreign');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('220545 CR2: an internal symlink to a nested Git ledger keeps outer-index coordinates', () => {
+  const { root, ledgerName } = gitRepoWithNestedGitLedger({ symlink: true });
+  const staged = `${ledgerName}/changes/20260711-999999-x.md`;
+  stageViaIndex(root, staged, 'foreign');
+
+  assert.throws(
+    () => commit({ message: 'fix(x): y', ids: ['20260711-000001'] }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      `Staged path(s) under the changes directory not declared for this commit: ${staged} (declared: 20260711-000001)`,
+  );
+  assert.equal(commitCount(root), 0);
 });
 
 test('CR11 (20260726-141124): a staged filename containing a newline stays one entry', () => {
