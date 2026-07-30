@@ -1,8 +1,8 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-28T19:33:08Z
+updated: 2026-07-30T21:11:53Z
 tags: [ viewer ]
-graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859"]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859", "20260730-202005"]
 ---
 
 ## Presentación
@@ -42,6 +42,11 @@ visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad de
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
+
+Cada columna del Board ordena sus cards explícitamente por código ascendente, sin
+depender del orden recibido ni mutar la colección de entrada. El encabezado permite
+invertir solo esa columna a descendente y volver a ascendente; el control expone la
+columna, la dirección actual y la acción siguiente mediante su nombre accesible.
 
 Los estados se filtran desde un menú compacto de selección múltiple. `Pending
 graduation` usa el booleano que el servidor deriva del mismo predicado canónico
@@ -200,9 +205,9 @@ desregistro y errores usan dialogs/toasts propios accesibles; no dependen de
 
 El viewer conserva en `localStorage` un snapshot versionado y mínimo de la
 sesión: proyecto seleccionado, vista, categoría Ledger, modo Global, búsqueda,
-orden, layout/ancho del detalle y filtros de
+orden, columnas del Board en dirección descendente, layout/ancho del detalle y filtros de
 cada proyecto. La restauración hidrata el shell antes de iniciar los fetches y
-normaliza proyectos o valores que ya no existen; cada proyecto mantiene sus
+normaliza proyectos, estados de columna o valores que ya no existen; cada proyecto mantiene sus
 propios filtros. Un storage ausente, corrupto, bloqueado o sin cuota nunca impide
 el arranque. El snapshot excluye tokens, rutas, YAML, contenido del repositorio,
 formularios, errores, paths documentales y contenido de documentos. Un snapshot

@@ -29,7 +29,9 @@ import {
   setSortKey,
   setTextFilter,
   setView,
+  sortBoardColumnChanges,
   state,
+  toggleBoardColumnSort,
   toggleGlobalMode,
   toggleOwnerFilter,
   togglePendingGraduation,
@@ -45,6 +47,7 @@ import { boardStatuses, isVisible, passesTombstones } from './state.js';
 import { html, render as litRender, nothing } from './templates.js';
 import {
   approvalPanel,
+  boardColumnHeader,
   card,
   detailToolbar,
   referenceDetails,
@@ -366,16 +369,31 @@ function renderBoard() {
   const board = $('#board');
   litRender(
     boardStatuses(state.repo.statuses, state.filters.showDiscarded).map((status) => {
-      const items = changes.filter((c) => c.status === status);
+      const descending = state.boardSortColumns.has(status);
+      const items = sortBoardColumnChanges(
+        changes.filter((change) => change.status === status),
+        descending,
+      );
       return html`
         <div class="column" data-status=${status}>
-          <div class="column-head"><span>${status}</span><span class="count">${items.length}</span></div>
+          ${boardColumnHeader(status, items.length, descending)}
           <div class="column-body">${items.map(card)}</div>
         </div>`;
     }),
     board,
   );
+  bindBoardSortControls(board);
   bindBoardInteractions(board, state.repo.changes);
+}
+
+export function bindBoardSortControls(board, rerender = renderBoard) {
+  board.querySelectorAll('.column-sort-btn').forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      toggleBoardColumnSort(button.dataset.sortStatus);
+      rerender();
+    };
+  });
 }
 
 const pendingApprovals = new Map();

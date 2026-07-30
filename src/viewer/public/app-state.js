@@ -37,6 +37,7 @@ export const state = {
   ledgerCategory: 'specs',
   sortKey: 'id',
   sortDir: 1,
+  boardSortColumns: new Set(),
   currentProject: null,
   projectsList: [],
   localOnly: false,
@@ -101,6 +102,7 @@ export function serializeViewerState() {
     text: state.filters.text,
     sortKey: state.sortKey,
     sortDir: state.sortDir,
+    boardSortColumns: [...state.boardSortColumns],
     projects: state.projectFilters,
     detailMode: state.detailMode,
     detailSize: state.detailSize,
@@ -140,6 +142,11 @@ export function restoreViewerState(storageLike) {
   if (typeof snapshot.text === 'string') state.filters.text = snapshot.text;
   if (typeof snapshot.sortKey === 'string') state.sortKey = snapshot.sortKey;
   if (snapshot.sortDir === 1 || snapshot.sortDir === -1) state.sortDir = snapshot.sortDir;
+  state.boardSortColumns = new Set(
+    Array.isArray(snapshot.boardSortColumns)
+      ? snapshot.boardSortColumns.filter((value) => typeof value === 'string')
+      : [],
+  );
   state.detailMode = VALID_DETAIL_MODES.has(snapshot.detailMode) ? snapshot.detailMode : 'side';
   state.detailSize = VALID_DETAIL_SIZES.has(snapshot.detailSize) ? snapshot.detailSize : 'wide';
   if (
@@ -193,6 +200,9 @@ export function normalizeRepoState(repo) {
   const statuses = new Set(repo.statuses);
   state.filters.statuses = new Set(
     [...state.filters.statuses].filter((status) => statuses.has(status)),
+  );
+  state.boardSortColumns = new Set(
+    [...state.boardSortColumns].filter((status) => statuses.has(status)),
   );
   persistViewerState();
 }
@@ -304,6 +314,24 @@ export function selectProject(id) {
   state.lastJson = '';
   applyProjectFilters(id);
   persistViewerState();
+}
+
+export function sortBoardColumnChanges(changes, descending = false) {
+  const direction = descending ? -1 : 1;
+  return [...changes].sort((left, right) => {
+    const leftId = String(left.id);
+    const rightId = String(right.id);
+    if (leftId < rightId) return -direction;
+    if (leftId > rightId) return direction;
+    return 0;
+  });
+}
+
+export function toggleBoardColumnSort(status) {
+  if (state.boardSortColumns.has(status)) state.boardSortColumns.delete(status);
+  else state.boardSortColumns.add(status);
+  persistViewerState();
+  return state.boardSortColumns.has(status);
 }
 
 export function setSortKey(key) {
