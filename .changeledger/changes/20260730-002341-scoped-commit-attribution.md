@@ -2,9 +2,10 @@
 id: "20260730-002341"
 title: La atribución de ids se acota a la declaración del commit
 type: bug
-status: in-validation
+status: done
 created: 2026-07-30T00:23:41Z
 depends_on: []
+reviewed: true
 related_to: ["20260728-151336"]
 owner: raruiz-hiberuscom
 release_impact: patch
@@ -146,3 +147,5 @@ que consume el viewer no cambia; solo se estrecha qué commits entran.
 - **2026-07-30T10:23:30Z** `[note]` Mandato de la ronda de confirmación, registrado antes de delegar: mandato mínimo — verificar que el diff sin commitear son solo los dos tests (+43 líneas, adiciones puras) más la ventana del ledger, re-derivar los dos rojos-bajo-mutante, y correr la suite y check. Nada más: el resto del rango tiene PASS técnico de la auditoría.
 - **2026-07-30T10:23:30Z** `[status]` in-progress → in-review
 - **2026-07-30T10:28:33Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T11:00:03Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T11:00:48Z** `[graduation]` spec: `git-traceability.md`
