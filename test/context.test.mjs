@@ -1405,6 +1405,20 @@ const DELEGATION_OBLIGATIONS = [
     ],
   ],
   [
+    'confirming a correction requires returning the change to in-review before the fresh reviewer is delegated',
+    'implement.md',
+    'implement',
+    [
+      // Both halves were run against the pre-edit fragment and were red there: the
+      // gate's own `in-review` step is fenced off by the `1.` and `3.` list numbering,
+      // whose periods close the `[^.;]` window before any of these words is reached.
+      /\b(confirm\w*)\b[^.;]{0,90}\bin-review\b|\bin-review\b[^.;]{0,90}\b(confirm\w*)\b/i,
+      // The return PRECEDES the delegation — the ordering is the obligation, so both
+      // directions keep it inside one sentence.
+      /\bin-review\b[^.;]{0,70}\bbefore\b[^.;]{0,60}\b(delegat\w+|reviewer)\b|\b(delegat\w+|reviewer)\b[^.;]{0,70}\bafter\b[^.;]{0,60}\bin-review\b/i,
+    ],
+  ],
+  [
     'the reviewer treats an unexecuted universal quantifier as a defect, not as style',
     'review.md',
     'review',

@@ -164,6 +164,48 @@ test('144327 CR8: delegated capsules expose no orchestrator mutation surface and
   );
 });
 
+// 183520 CR1/CR2: the capsule's checklist is conditional on the mandate the
+// prompt declares, so a narrow mandate is not handed a full-audit order. Two
+// tests, not one: CR2's fail-safe default is the half a rewrite is most likely
+// to drop, and it must fail naming the default rather than hiding inside CR1.
+//
+// Tolerant concept patterns over flattened text, never the capsule's sentence:
+// each is one half of the obligation and written in both directions, so
+// rewording is free. Every pattern below was run against the pre-edit capsule
+// and was red there, which is what proves none of them is satisfied by prose
+// that already existed.
+const mandateCapsule = (root, id) => {
+  addChange(root, 'in-review', id);
+  return buildAgentContext('review', id, root).split('\n# Selected change')[0].replace(/\s+/g, ' ');
+};
+
+test('183520 CR1: the review capsule bounds its checklist by the declared mandate', () => {
+  const flat = mandateCapsule(repo(), '20260705-120008');
+  for (const pattern of [
+    // The mandate arrives in the prompt; the capsule does not invent one.
+    /\b(prompt|delegation)\b[^.;]{0,70}\bmandate\b|\bmandate\b[^.;]{0,70}\b(prompt|declares?|declared)\b/i,
+    // A narrower mandate makes the declared scope the inspection.
+    /\b(narrow\w*|spot check|bounded)\b[^.;]{0,90}\b(inspect\w*|scope)\b|\b(inspect\w*|scope)\b[^.;]{0,90}\b(narrow\w*|spot check|bounded)\b/i,
+    // What is noticed outside it is reported without widening the inspection.
+    /\boutside\b[^.;]{0,70}\bwithout\b[^.;]{0,45}\bexpand|\bwithout\b[^.;]{0,45}\bexpand\w*[^.;]{0,70}\boutside\b/i,
+  ]) {
+    assert.match(
+      flat,
+      pattern,
+      `the review capsule no longer bounds its checklist by mandate: ${pattern}`,
+    );
+  }
+});
+
+test('183520 CR2: with no mandate declared the review capsule applies the full audit', () => {
+  const flat = mandateCapsule(repo(), '20260705-120009');
+  assert.match(
+    flat,
+    /\b(no|without|absent|unstated)\b[^.;]{0,45}\bmandate\b[^.;]{0,90}\b(full|complete|whole)\b|\b(full|complete|whole)\b[^.;]{0,90}\b(no|without|absent|unstated)\b[^.;]{0,45}\bmandate\b/i,
+    'the review capsule no longer defaults to the full audit when the prompt declares no mandate',
+  );
+});
+
 // 20260728-212043 CR6: `agent` is the one entry that bounds both capsule
 // classes. `144327 CR8` above only measures `buildAgentContext`'s capsules; the
 // four `changeledger agent-prompt <role>` capsules were never measured against

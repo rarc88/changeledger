@@ -2,7 +2,7 @@
 id: "20260730-183520"
 title: "La cápsula del revisor obedece el mandato y el retry nombra la vuelta a in-review"
 type: feature
-status: approved
+status: in-review
 created: 2026-07-30T18:35:20Z
 depends_on: []
 related_to:
@@ -170,19 +170,26 @@ cápsula aplica auditoría completa por construcción; (3) orquestador tras
 
 ## Plan
 
-- [ ] Reescribir la checklist de la cápsula del revisor condicionada al
+- [x] Reescribir la checklist de la cápsula del revisor condicionada al
   mandato, con el default fail-safe, y fijarla con asserts tolerantes
   - **Target:** `templates/contract/agent-contexts/review.md`
   - **Verify:** `node --test test/agent-context.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Añadir la frase de la vuelta a in-review en Correction isolation y su
+  - **Resolved:** `2026-07-30T18:56:31Z`
+- [x] Añadir la frase de la vuelta a in-review en Correction isolation y su
   guard de doble evidencia
   - **Target:** `templates/contract/implement.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR3
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T18:56:31Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T18:56:31Z`
 
 ## Log
 - **2026-07-30T18:42:59Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T18:44:37Z** `[status]` approved → in-progress
+- **2026-07-30T18:56:31Z** `[note]` Selección única resuelta. Rojo-verde literal por CR (los cuatro patrones de CR1 ejecutados individualmente contra la cápsula pre-edición: rojos los cuatro); 5 mutantes de uno en uno; la frase del retry costó 38 tokens (base.implement 2375/2500 medido como mide el gate). Decisiones no especificadas del implementador para escrutinio del review: sitio de la frase de CR3 (tras la cláusula del guard 9), la nota de re-validación y el 'loads nowhere else' incluidos (verificado contra ALLOWED_STATUSES), 'with that same rigour' en la rama de mandato estrecho, entrada nueva de DELEGATION_OBLIGATIONS en tercera posición, dos tests con helper compartido. Residual nombrado y no tocado: las tres formas del mandato viven ahora en cuatro sedes (cápsula de prompt, review.md, spec lifecycle, cápsula de contexto) — tensión de sede única para decisión posterior, la reutilización verbatim era instrucción del documento.
+- **2026-07-30T18:57:00Z** `[status]` in-progress → in-review
+- **2026-07-30T18:57:01Z** `[note]` Mandato del review, declarado antes de delegar: auditoría completa — primera review del change. Puntos de escrutinio: las 5 decisiones no especificadas de la nota anterior y el residual de las cuatro sedes.

@@ -94,9 +94,11 @@ commands; ChangeLedger mutations never run configurable hooks or external format
 ## Correction isolation
 
 After review `fail --retry`, keep the candidate correction uncommitted while a
-fresh clean-context reviewer checks it. If it fails again, iterate on that same
-diff. Do not start another task or change while a correction waits: the
-worktree is its isolation boundary. After `pass`, commit the confirmed correction,
+fresh clean-context reviewer checks it. Confirming it requires returning the
+change with `changeledger status <id> in-review` before that delegation: the
+transition re-validates the candidate and the review role loads nowhere else.
+If it fails again, iterate on that same diff. Do not start another task or
+change while a correction waits: the worktree is its isolation boundary. After `pass`, commit the confirmed correction,
 tests and ledger before human validation; this is meaningful correction evidence,
 not a status-only commit.
 
