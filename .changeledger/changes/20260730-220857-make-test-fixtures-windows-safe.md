@@ -2,7 +2,7 @@
 id: "20260730-220857"
 title: Hacer portables los fixtures de tests en Windows
 type: quick
-status: draft
+status: approved
 created: 2026-07-30T22:08:57Z
 depends_on: []
 related_to: []
@@ -24,3 +24,4 @@ dependencias ni cambios de producción.
 ## Log
 
 - **2026-07-30T22:08:57Z** `[note]` Borrador creado tras la matriz remota: cuatro casos intentaron `spawnSync /bin/sh`, el barrido resolvió `D:\D:\...` y tres fixtures intentaron crear nombres que NTFS no representa.
+- **2026-07-30T22:17:33Z** `[status]` draft → approved (human via conversation)
