@@ -2,7 +2,7 @@
 id: "20260730-213405"
 title: Hacer portable la prueba Unicode del índice
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-30T21:34:05Z
 depends_on: []
 related_to: ["20260726-141124"]
@@ -66,3 +66,5 @@ derivadas por la herramienta, nunca la entrada de Git.
 - **2026-07-30T21:42:59Z** `[status]` approved → in-progress
 - **2026-07-30T21:46:23Z** `[note]` TDD verificado: con Git raw-byte el test original falló al comparar NFC fija contra la ruta NFD staged; la expectativa derivada de PINNED_STAGED_ARGS pasó en raw-byte y macOS. El mutante que normalizó a NFC fue detectado; test focalizado 31/31 y gate combinado 1044/1044.
 - **2026-07-30T21:47:02Z** `[status]` in-progress → in-review
+- **2026-07-30T21:48:34Z** `[note]` Mandato de revisión: auditoría completa del baseline aprobado al HEAD, incluyendo CR1/CR2, semántica byte-exacta, invocación PINNED_STAGED_ARGS, TDD/mutante, gate 1044/1044, disciplina de commits y ausencia de cambios de producción o residuos.
+- **2026-07-30T21:56:02Z** `[review]` in-review → in-validation (delegated subagent, clean context)
