@@ -2,9 +2,10 @@
 id: "20260730-165310"
 title: Mandato de review declarado y cuantificadores en prosa entregable
 type: feature
-status: in-validation
+status: done
 created: 2026-07-30T16:53:10Z
 depends_on: []
+reviewed: true
 related_to:
   - "20260704-144327"
   - "20260728-195445"
@@ -223,3 +224,5 @@ límite → mismo tratamiento.
 - **2026-07-30T18:01:51Z** `[status]` in-progress → in-review
 - **2026-07-30T18:01:51Z** `[note]` Mandato del review de confirmación, declarado antes de delegar: spot check del diff nombrado — la corrección de F2 (un test nuevo en test/agent-prompt.test.mjs; la prosa de la cápsula debe estar byte-idéntica a 46294fda). Revisor fresco, modelo medio por alcance acotado.
 - **2026-07-30T18:08:36Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-30T18:09:04Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-30T18:10:41Z** `[graduation]` spec: `lifecycle.md`
