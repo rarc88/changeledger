@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-07-22T12:46:55Z
 depends_on: []
+archived: true
 reviewed: true
 related_to:
   - "20260726-124836"
@@ -199,3 +200,4 @@ clasificación: extensión con re-aprobación, el precedente exacto de `194220`.
 - **2026-07-30T21:39:34Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-30T21:42:41Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T21:43:16Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-30T21:43:38Z** `[archive]` archived
