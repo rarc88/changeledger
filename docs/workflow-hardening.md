@@ -1998,6 +1998,50 @@ Después, en solitario: barrido de verdad persistente. Cola final sin cambios.
   camino (2711 y 2467 medidos) — el mandato de parar antes de vaciar normativa
   funcionó. Primer change de la iniciativa con review limpio a la primera.
 
+## 17. Cierre de sesión — 2026-07-30
+
+**CH-19 (`20260728-194157`) done, graduación skip razonado (perímetro en
+`AGENTS.md` + sede auto-vigilada), archivado.** Su draft se reescribió entero
+contra HEAD sobre investigación fresca (el original quedó rancio por dos
+reescrituras de su fichero objetivo): el exploit seguía vivo en ambas suites,
+el alcance creció a `cli.test.mjs`, y la duplicación había empeorado a 12
+`readdirSync` — ahora **una sede** (`test/contract-support.mjs`), raíz
+independiente del código bajo test, auto-vigilada (sin `recursive` → 3 tests
+rojos en árbol limpio). Las seis guardas nombran al fragmento infractor.
+`bootstrapHeadCut` nombra la ausencia del corte. Review pass a la primera —
+segundo consecutivo. F1 (124837 CR8 en forma de texto unido) y F2 (inventarios
+ciegos a un tercer subdirectorio nuevo) triados al barrido de verdad
+persistente; F4 (nada automatiza contra una décima copia ciega) es el trade
+que el propio Proposal decidió.
+
+**Balance de la sesión (2026-07-29 noche → 2026-07-30): 6 cierres** — CH-1
+(gramática de tags + corpus migrado), CH-16 (atribución acotada, rama apilada
+e integrada), guards de frase retirados, refactor del pack (andamio fuera,
+2403/239), CH-19, y el techo 1250 muerto por investigación fresca (ya
+existía). Dos drafts nuevos aprobados y ejecutados el mismo día. Cero
+warnings salvo los 10 del draft 124655 (CH-3, pendiente de reescritura).
+
+**Fila restante**: CH-5a reducido (mandato en cápsula de review + la regla de
+prosa de Roberto: cuantificadores extendidos a comentarios de test y notas de
+Log como obligación pass/fail del contrato de evidencia) → barrido de verdad
+persistente (absorbe F1/F2 de CH-19, comentario rancio de `commit.mjs`,
+`CLAUDE.md`-opcional sin sede, invocaciones CLI en specs, aserciones vacuas)
+→ CH-7 (consumidor sintético + `loadRepoWithConfig` con `changes_dir: "."`)
+→ CH-3 (draft 124655: reescritura total + decisiones de producto de Roberto)
+→ CH-10 (Prettier). **Pendientes de Roberto**: integrar la rama a `dev`
+(push suyo) y la ruta de migración para consumidores (`fix --plan-tags`
+ausente del contrato servido — el follow-up más material antes del próximo
+release).
+
+**Método que se consolidó esta sesión**: investigación fresca delegada antes
+de cada draft (mató un change sin objeto y encogió/reescribió otros dos —
+nunca redactar desde el acta); SendMessage al implementador vivo para
+correcciones (retries baratos con contexto intacto); paradas honestas del
+implementador cuando el censo no cabe (funcionaron dos veces); paso de
+auto-falsación sobre la prosa del orquestador antes de cada in-review (tras
+los 3 retries de prosa de CH-1: cero retries de prosa en los 4 ciclos
+siguientes); ediciones operativas de una línea = `--no-change`, no un change.
+
 ### Método que sostuvo el día (para replicar, no re-derivar)
 
 Investigación fresca contra HEAD antes de todo draft (falsificó hechos del acta
