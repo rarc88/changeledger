@@ -2,7 +2,7 @@
 id: "20260730-220545"
 title: Mantener activo el guard de commit en Windows
 type: bug
-status: draft
+status: approved
 created: 2026-07-30T22:05:45Z
 depends_on: []
 owner: rarc88
@@ -64,3 +64,4 @@ la salida NUL-delimitada de la invocación ya fijada.
 ## Log
 
 - **2026-07-30T22:05:45Z** `[note]` Borrador creado a partir de 16 escenarios del guard que no abortaron en Windows Node 24/26 después de que el script portable permitió ejecutar la suite.
+- **2026-07-30T22:16:38Z** `[status]` draft → approved (human via conversation)
