@@ -2,7 +2,7 @@
 id: "20260722-124655"
 title: El fallo se clasifica por clase antes de corregirse
 type: feature
-status: approved
+status: in-review
 created: 2026-07-22T12:46:55Z
 depends_on: []
 related_to:
@@ -160,23 +160,31 @@ clasificación: extensión con re-aprobación, el precedente exacto de `194220`.
 
 ## Plan
 
-- [ ] Escribir la taxonomía en blocked.md y su guard de doble evidencia
+- [x] Escribir la taxonomía en blocked.md y su guard de doble evidencia
   - **Target:** `templates/contract/blocked.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR1
-- [ ] Añadir la obligación de clasificar junto a los veredictos de review.md,
+  - **Resolved:** `2026-07-30T21:00:30Z`
+- [x] Añadir la obligación de clasificar junto a los veredictos de review.md,
   sin solapar el regex del falso positivo documentado
   - **Target:** `templates/contract/review.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR2
-- [ ] Añadir la clasificación del rechazo humano en validation.md y su guard
+  - **Resolved:** `2026-07-30T21:00:30Z`
+- [x] Añadir la clasificación del rechazo humano en validation.md y su guard
   - **Target:** `templates/contract/validation.md`
   - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR3
-- [ ] Correr el gate completo tras la implementación
+  - **Resolved:** `2026-07-30T21:00:30Z`
+- [x] Correr el gate completo tras la implementación
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-30T21:00:30Z`
 
 ## Log
 - **2026-07-30T20:15:55Z** `[note]` Reescritura total sobre investigación fresca por decisión de Roberto (2026-07-30): muere el contador — congelaba el caso legítimo de 194234 — y entra la clasificación por clase con las cuatro decisiones registradas en el Request. El contenido anterior queda en la historia de git de este fichero.
 - **2026-07-30T20:45:37Z** `[status]` draft → approved (human via conversation)
+- **2026-07-30T20:45:58Z** `[status]` approved → in-progress
+- **2026-07-30T21:00:31Z** `[note]` Selección única resuelta. Los 15 patrones probados rojos individualmente contra los fragmentos sin editar (los 8 de blocked también contra handoff.md, que viaja en el mismo overlay y ya decía 'classify friction'); delete y reword-mutante por guard; la restricción del falso positivo de CR2 verificada por conteo de matches de los 10 patrones existentes que leen review.md, idénticos antes y después. Presupuestos tras el cierre: blocked 592/1250, in-validation 433/1250, base.review 1000/2500. Decisiones no especificadas del implementador para el review: colocación de la taxonomía entre diagnóstico y resolución con alcance explícito al fallo diagnosticado; 'The number of rounds does not close this path' en vez de 'no se cuentan rondas' (para no leer como prohibición de reviewRetryCount); review.md apunta sin nombrar las dos clases (sede única); el punto y coma de validation.md partido para ordenar clasificación antes de iteración; los cuatro exits NO pinneados como lista ordenada (declarados no exhaustivos — pinnearlos cobraría retarget a una reescritura legítima); tabla hermana CLASSIFICATION_OBLIGATIONS por fixtures de status. Observación del implementador, registrada sin actuar: el implementador de un barrido post-retry nunca ve la taxonomía en su propia cápsula (el pack de in-progress no compone blocked.md) — coherente porque la clasificación es del orquestador en el momento del veredicto; si muerde, es follow-up con coste medido.
+- **2026-07-30T21:01:02Z** `[status]` in-progress → in-review
+- **2026-07-30T21:01:02Z** `[note]` Mandato del review, declarado antes de delegar: la superficie que el change gobierna — los tres fragmentos tocados y su tabla de guards contra los 3 CR; los puntos de escrutinio son las 6 decisiones no especificadas y la deformación de las cuatro decisiones de Roberto del Request.

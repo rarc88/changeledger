@@ -1449,6 +1449,98 @@ for (const [label, owner, mode, patterns] of DELEGATION_OBLIGATIONS) {
   });
 }
 
+// 20260722-124655 CR1/CR2/CR3 — the post-failure classification, guarded by the
+// same double-evidence mechanism as the two tables above: the fragment that owns
+// the obligation, and the composed capture that must carry it to the role that
+// executes it.
+//
+// A third table rather than rows in `DELEGATION_OBLIGATIONS`: two of these three
+// seats are status overlays, and `blocked` and `in-validation` compose per change
+// id, not per mode, so the row carries a fixture status where that table carries a
+// mode string. The `review` row rides here too, with its two siblings, because the
+// three are one obligation split across three seats and a failure should read as
+// such.
+//
+// Tolerant concept matches over flattened text, never the sentence. A half that a
+// pre-existing sentence already satisfies guards nothing — the lesson the reviewer
+// quantifier entry above records, whose first draft matched the unrelated
+// `fail --retry` line — so each pattern below was run against the unedited fragment
+// before the prose existed and was red there. The blocked rows were also run
+// against `handoff.md`, which the blocked overlay composes alongside `blocked.md`
+// and which already read "classify friction": none of them matched it either, so no
+// half rests on the mere presence of `classif…`. A reword mutant of each obligation,
+// clause order and voice inverted, was then run against the kept patterns and stayed
+// green.
+const CLASSIFICATION_OBLIGATIONS = [
+  [
+    'a diagnosed failure is classified by class before correction starts',
+    'blocked.md',
+    { status: 'blocked' },
+    [
+      // The classification PRECEDES the correction: the ordering is the obligation.
+      /\bclassif\w+[^.;]{0,70}\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b|\bbefore\b[^.;]{0,50}\b(correct\w+|fix\w*|iterat\w+)\b[^.;]{0,70}\bclassif\w+/i,
+      // Both diagnosed failures enter the taxonomy, not the reviewer's verdict alone.
+      /\b(verdict|fail\w*)\b[^.;]{0,60}\b(rejection|reject\w+)\b|\b(rejection|reject\w+)\b[^.;]{0,60}\b(verdict|fail\w*)\b/i,
+      // First class: an incomplete enumeration inside a strategy already verified.
+      /\benumerat\w+[^.;]{0,80}\b(verified|strategy)\b|\b(verified|strategy)\b[^.;]{0,80}\benumerat\w+/i,
+      // Its correction sweeps the class, not the flagged instance.
+      /\b(sweep\w*|covers?|spans?)\b[^.;]{0,50}\bclass\b|\bclass\b[^.;]{0,60}\b(instead|not|rather)\b[^.;]{0,40}\binstance\b/i,
+      // And no round count closes it while the class holds — the retired counter's
+      // design is exactly what this half keeps out.
+      /\brounds?\b[^.;]{0,80}\b(class|holds?)\b|\b(class|holds?)\b[^.;]{0,80}\brounds?\b/i,
+      // Second class: a new class of defect goes to the human, not to another retry.
+      /\bnew\b[^.;]{0,30}\bclass\b|\bclass\b[^.;]{0,30}\bnew\b/i,
+      /\b(stop|halt|pause)\w*\b[^.;]{0,60}\bhuman\b|\bhuman\b[^.;]{0,60}\b(decid\w+|choos\w+|chooses?)\b/i,
+      // The exits stay an illustration instead of a closed enumeration.
+      /\b(illustrat\w+|examples?|non-?exhaustive)\b[^.;]{0,70}\b(clos\w+|exhaust\w+|enumerat\w+)\b|\b(clos\w+|exhaust\w+)\b[^.;]{0,70}\b(illustrat\w+|examples?)\b/i,
+    ],
+  ],
+  [
+    'the finding is classified before the fail verdict is chosen, with the taxonomy left in the blocked seat',
+    'review.md',
+    { mode: 'review' },
+    [
+      /\bclassif\w+[^.;]{0,90}(--retry|--block)|(--retry|--block)[^.;]{0,90}\bclassif\w+/i,
+      /\bclassif\w+[^.;]{0,60}\bbefore\b|\bbefore\b[^.;]{0,60}\bclassif\w+/i,
+      // Pointer, not a copy: the classes are attributed to the blocked seat.
+      /\bblocked\b[^.;]{0,80}\b(class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,80}\bblocked\b/i,
+    ],
+  ],
+  [
+    'a human rejection is classified the same way before the implementation iterates',
+    'validation.md',
+    { status: 'in-validation' },
+    [
+      /\b(rejection|reject\w+)\b[^.;]{0,80}\bclassif\w+|\bclassif\w+[^.;]{0,80}\b(rejection|reject\w+)\b/i,
+      /\bclassif\w+[^.;]{0,90}\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+|implement\w*)\b|\bbefore\b[^.;]{0,60}\b(iterat\w+|correct\w+)\b[^.;]{0,90}\bclassif\w+/i,
+      // The same classification as a review verdict, so the two paths cannot drift.
+      /\b(same|like|way)\b[^.;]{0,80}\bverdict\b[^.;]{0,40}\bclassif\w+|\bclassif\w+[^.;]{0,60}\b(same|like|way)\b[^.;]{0,60}\bverdict\b/i,
+      /\bblocked\b[^.;]{0,80}\b(class\w*|taxonom\w+)\b|\b(class\w*|taxonom\w+)\b[^.;]{0,80}\bblocked\b/i,
+    ],
+  ],
+];
+
+for (const [label, owner, seat, patterns] of CLASSIFICATION_OBLIGATIONS) {
+  const where = seat.mode ? `${seat.mode} pack` : `${seat.status} overlay`;
+  test(`124655: the ${where} obliges that ${label}`, () => {
+    const root = repo();
+    const fragment = flattened(fs.readFileSync(new URL(owner, contractFragments), 'utf8'));
+    const composed = flattened(
+      seat.mode
+        ? buildContext(seat.mode, root)
+        : buildContext(addChange(root, seat.status, '20260722-124655'), root),
+    );
+    for (const pattern of patterns) {
+      assert.match(fragment, pattern, `${owner} no longer states the obligation: ${pattern}`);
+      assert.match(
+        composed,
+        pattern,
+        `the composed ${where} capture no longer carries the obligation: ${pattern}`,
+      );
+    }
+  });
+}
+
 // Every entry of the budget file, labelled. A new top-level group must widen this
 // list, not slip past it: it is the single place the whole file is enumerated.
 function budgetEntries() {

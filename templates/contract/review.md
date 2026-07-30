@@ -33,6 +33,9 @@ finding but never runs the verdict command:
 - `changeledger review <id> fail --block "<reason>"` — correction requires scope
   or product judgment; move to `blocked` for the human.
 
+Classify the finding before choosing `--retry` or `--block`: the blocked context
+owns those classes and the exits each one allows.
+
 The candidate reaches review only after the host formatter and full gates pass; a
 failure there means no reviewable candidate exists yet. When a local gate — not a
 reviewer — fails once the candidate already reached `in-review`, return it with
