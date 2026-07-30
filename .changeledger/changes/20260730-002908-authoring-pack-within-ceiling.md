@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-07-30T00:29:08Z
 depends_on: ["20260730-002730"]
+archived: true
 reviewed: true
 related_to: ["20260729-162015", "20260728-212043"]
 owner: raruiz-hiberuscom
@@ -154,3 +155,4 @@ leyendo `changeledger context spec`; el head de modos (350) no cambia.
 - **2026-07-30T12:09:19Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-07-30T12:09:19Z** `[note]` Flecos del review cerrados antes de la aceptación, autorizados por Roberto ('hagámoslo de una vez'): el nit de dos puntos apilados en implement.md corregido (suites 196/196, techos intactos 239/250 y 198/250), y la spec contract-discovery actualizada en la graduación — afirmaba 'un test exige esa marca' cuando el barrido ahora exige su ausencia; la doctrina del andamio queda como procedimiento para excepciones futuras y la salida del último andamio queda fechada.
 - **2026-07-30T12:09:19Z** `[graduation]` spec: `contract-discovery.md`
+- **2026-07-30T12:09:53Z** `[archive]` archived
