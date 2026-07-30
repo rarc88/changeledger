@@ -85,6 +85,14 @@ prohíba literales largos en los tests: la ceremonia renacería como guard del
 guard, clase del hallazgo 43. (c) Mantener los mega-arrays "porque ya están
 escritos": son el coste, no el activo — cada edición de prosa los paga.
 
+**La regla se hace durable en `AGENTS.md`** (petición de Roberto al aprobar):
+las notas del proyecto declaran el perímetro de tests sobre prosa del contrato
+— presupuestos, composición estructural, barridos de frases retiradas y el set
+curado de conceptos, nunca pins de oraciones literales — de modo que un pin
+nuevo se rechaza en review con regla citable en vez de re-litigarse. Es la
+salida (b) sin su coste: prosa normativa con verificador humano, no guard del
+guard.
+
 ## Specification
 
 Interfaces externas: ninguna. Superficie enteramente en `test/**` — requiere
@@ -125,6 +133,15 @@ autorizado aparte) para que este documento sea aprobable.
   de prosa falla; hoy, medido: la misma edición rompe pins de frase en
   `context.test.mjs` y obliga a retargetearlos
 
+### CR5 — El perímetro de guards queda declarado en el contrato del repo
+- **Given** `AGENTS.md` tras el change
+- **When** se lee su sección de notas del proyecto
+- **Then** declara que los tests sobre `templates/contract/` se limitan a
+  presupuestos, composición estructural, barridos de frases retiradas y el set
+  curado de conceptos, y que un pin de oración literal nueva se rechaza en
+  review — verificación por grep registrada en el Log, sin test permanente que
+  fije su redacción (sería el pin que la propia regla prohíbe)
+
 ## Plan
 
 - [ ] Retirar los tests y asserts de frase nombrados en las cuatro suites, dejando intactos presupuestos, estructura y barridos
@@ -139,6 +156,10 @@ autorizado aparte) para que este documento sea aprobable.
   - **Target:** `test/context.test.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR4
+- [ ] Declarar el perímetro de tests sobre prosa del contrato en las notas de proyecto de `AGENTS.md`
+  - **Target:** `AGENTS.md`
+  - **Verify:** verify: grep de la regla sobre `AGENTS.md` registrado en el Log
+  - **Criteria:** CR5
 - [ ] Ejecutar el gate completo
   - **Verify:** `pnpm verify`
   - **Support:** cierre operativo
