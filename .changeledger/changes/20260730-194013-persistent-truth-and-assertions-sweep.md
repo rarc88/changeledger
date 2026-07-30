@@ -2,7 +2,7 @@
 id: "20260730-194013"
 title: Barrido de verdad persistente y aserciones frágiles
 type: refactor
-status: draft
+status: approved
 created: 2026-07-30T19:40:13Z
 depends_on: []
 related_to:
@@ -157,3 +157,4 @@ que el review de graduación ya caza.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-30T19:49:25Z** `[status]` draft → approved (human via conversation)
