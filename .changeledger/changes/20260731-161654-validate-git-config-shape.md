@@ -2,9 +2,11 @@
 id: "20260731-161654"
 title: Validar completamente la configuración Git
 type: bug
-status: in-validation
+status: done
 created: 2026-07-31T16:16:54Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
 owner: Roberto Ruiz
 release_impact: patch
@@ -85,3 +87,6 @@ viewer. Los tres están terminados y aportan contexto.
 - **2026-07-31T17:27:45Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR4 y dev..HEAD, con énfasis en autoridad diagnóstica compartida, ausencia de excepciones/mutaciones en check y extensibilidad de claves git.
 - **2026-07-31T17:31:23Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-31T18:58:45Z** `[note]` Handoff: revisión independiente aprobada; candidato listo para validación humana en esta rama autosuficiente.
+- **2026-07-31T21:27:45Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-31T21:28:02Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-31T21:28:02Z** `[archive]` archived

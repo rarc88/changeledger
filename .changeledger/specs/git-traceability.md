@@ -1,8 +1,8 @@
 ---
 title: Trazabilidad git
-updated: 2026-07-30T23:15:55Z
+updated: 2026-07-31T21:28:02Z
 tags: [ git ]
-graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336", "20260728-164620", "20260729-111349", "20260729-162616", "20260730-002341", "20260730-220545"]
+graduated_from: ["20260617-161309", "20260711-103757", "20260711-204419", "20260711-210115", "20260711-225637", "20260711-225638", "20260726-131603", "20260726-141124", "20260726-124837", "20260727-194234", "20260728-151336", "20260728-164620", "20260729-111349", "20260729-162616", "20260730-002341", "20260730-220545", "20260731-161654"]
 ---
 
 ## Trazabilidad git
@@ -88,6 +88,13 @@ ramas de change. Cuando existe, `check --commits` la usa como base por defecto
 la publica como `integration_branch=<rama>` en la política efectiva. Cuando no
 existe, se conserva la autodetección de base mediante `origin/HEAD`, `main` o
 `master`.
+
+`changeledger check` valida el mismo contrato que los consumidores Git: `git`
+debe ser un mapping y `integration_branch`, si no es ausente o `null`, debe ser
+un string no vacío. El accessor compartido produce el diagnóstico canónico, por
+lo que el check reporta configuraciones inválidas sin lanzar excepciones ni
+reescribirlas. Las claves Git desconocidas permanecen permitidas y se conservan
+como extensiones del repositorio.
 
 El schema 3 distribuye esta capacidad a configuraciones existentes y repos
 nuevos. La migración v2 → v3 y la plantilla crean un bloque Git separado y
