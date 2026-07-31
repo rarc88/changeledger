@@ -2,7 +2,7 @@
 id: "20260731-161652"
 title: Bloquear escrituras con schemas futuros
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-31T16:16:52Z
 depends_on: []
 related_to: ["20260613-205853", "20260628-113219", "20260628-113924", "20260730-183807"]
@@ -95,9 +95,10 @@ Son contexto terminado, no dependencias de ejecución.
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-07-31T16:45:29Z`
-- [ ] Ejecutar el gate completo después del ciclo red-green-refactor
+- [x] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-31T16:47:31Z`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
@@ -106,3 +107,5 @@ Son contexto terminado, no dependencias de ejecución.
 - **2026-07-31T16:42:30Z** `[note]` CR2 verde: la matriz de mutaciones de changes preserva bytes y no deja locks. Mutante sin guard en locate permitió status y el test falló con Missing expected exception; guard restaurado por edición.
 - **2026-07-31T16:43:44Z** `[note]` CR3/CR4 verde: new, fix de escritura, graduación y releases fallan antes de escribir; fix --dry-run permanece disponible. Mutante sin guard en new creó el change y la regresión falló con Missing expected exception; restaurado por edición.
 - **2026-07-31T16:45:29Z** `[note]` CR5 verde: preview, guardado, patch y migración comparten el diagnóstico y rechazan antes del lock. Mutante sin preflight en applyConfigMigration intentó adquirir el lock; la regresión lo detectó y fue restaurado por edición.
+- **2026-07-31T16:47:31Z** `[note]` Gate completo verde fuera del sandbox: Biome, 1057/1057 tests y changeledger check (5 válidos). La primera ejecución confinada tuvo sólo dos fallos ambientales: escritura de logs npm y listen EPERM en 127.0.0.1.
+- **2026-07-31T16:47:32Z** `[status]` in-progress → in-review
