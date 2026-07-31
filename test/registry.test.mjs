@@ -7,7 +7,14 @@ import { Worker } from 'node:worker_threads';
 import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
-import { readRegistry, register, registryDir, registryPath, update } from '../src/registry.mjs';
+import {
+  readRegistry,
+  register,
+  registryDir,
+  registryPath,
+  remove,
+  update,
+} from '../src/registry.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -85,6 +92,23 @@ test('111218 CR6: update rejects an unknown registry id without creating it', ()
   register({ id: 'aaa', name: 'alpha', path: '/repos/alpha' });
   assert.throws(() => update('missing', { path: '/tmp/x' }), /no registered project/);
   assert.deepEqual(Object.keys(readRegistry()), ['aaa']);
+});
+
+test('161656 CR3: update and remove preserve an entry rebound after its path was observed', () => {
+  isolatedHome();
+  register({ id: 'aaa', name: 'alpha rebound', path: '/new/alpha' });
+
+  assert.throws(
+    () => update('aaa', { path: '/replacement/alpha' }, { expectedPath: '/old/alpha' }),
+    /^Error: project registry changed; reload before writing$/,
+  );
+  assert.deepEqual(readRegistry().aaa, { name: 'alpha rebound', path: '/new/alpha' });
+
+  assert.throws(
+    () => remove('aaa', { expectedPath: '/old/alpha' }),
+    /^Error: project registry changed; reload before writing$/,
+  );
+  assert.deepEqual(readRegistry().aaa, { name: 'alpha rebound', path: '/new/alpha' });
 });
 
 test('init refuses an existing .changeledger and points to register', () => {

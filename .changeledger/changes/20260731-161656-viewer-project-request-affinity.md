@@ -2,7 +2,7 @@
 id: "20260731-161656"
 title: Completar la afinidad de proyecto en el viewer
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-31T16:16:56Z
 depends_on: []
 related_to: ["20260627-111218", "20260627-111219", "20260728-141643", "20260728-141859"]
@@ -83,13 +83,16 @@ no hay dependencia de ejecución.
   - **Target:** `src/viewer/public/app.js`, `src/viewer/public/api.js`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR4, CR5
-- [ ] Añadir compare-and-swap por ruta a update/remove del registry y propagar conflictos HTTP con procedencia
+- [x] Añadir compare-and-swap por ruta a update/remove del registry y propagar conflictos HTTP con procedencia
   - **Target:** `src/registry.mjs`, `src/viewer/domain.mjs`, `src/viewer/server/router.mjs`, `test/registry.test.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR3, CR4
+  - **Resolved:** `2026-07-31T18:19:03Z`
 - [ ] Ejecutar la matriz integrada de carreras del viewer y el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-07-31T16:30:56Z** `[status]` draft → approved (human via conversation)
+- **2026-07-31T18:08:50Z** `[status]` approved → in-progress
+- **2026-07-31T18:19:09Z** `[note]` CR3/CR4 servidor red→green: update y remove obsoletos mutaron o borraron la entrada reubicada antes del arreglo; CAS por repository_path y procedencia HTTP pasaron 104/104. Mutantes de ambos guards, mismatch del router y atribución de dominio fallaron por la razón esperada y se restauraron por edición.
