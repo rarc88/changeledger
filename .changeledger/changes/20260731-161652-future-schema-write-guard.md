@@ -2,7 +2,7 @@
 id: "20260731-161652"
 title: Bloquear escrituras con schemas futuros
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-31T16:16:52Z
 depends_on: []
 related_to: ["20260613-205853", "20260628-113219", "20260628-113924", "20260730-183807"]
@@ -109,3 +109,9 @@ Son contexto terminado, no dependencias de ejecución.
 - **2026-07-31T16:45:29Z** `[note]` CR5 verde: preview, guardado, patch y migración comparten el diagnóstico y rechazan antes del lock. Mutante sin preflight en applyConfigMigration intentó adquirir el lock; la regresión lo detectó y fue restaurado por edición.
 - **2026-07-31T16:47:31Z** `[note]` Gate completo verde fuera del sandbox: Biome, 1057/1057 tests y changeledger check (5 válidos). La primera ejecución confinada tuvo sólo dos fallos ambientales: escritura de logs npm y listen EPERM en 127.0.0.1.
 - **2026-07-31T16:47:32Z** `[status]` in-progress → in-review
+- **2026-07-31T16:50:02Z** `[note]` Mandato de revisión: auditoría completa del cambio y de dev..HEAD dentro del alcance autorizado, incluyendo criterios, ausencia de escrituras/locks y preservación de lecturas/previews.
+- **2026-07-31T16:55:59Z** `[review]` in-review → in-progress (retry): El rango dev..HEAD incluye los cuatro changes pendientes 20260731-161653..161656; aislar este candidato para que contenga únicamente 20260731-161652.
+- **2026-07-31T16:57:57Z** `[note]` Corrección de revisión: candidato aislado en codex/rescue-future-schema-guard desde dev; dev..HEAD contiene 7 commits y 15 rutas, todas pertenecientes a 20260731-161652. Los cuatro changes pendientes permanecen preservados en codex/rescue-proven-fixes.
+- **2026-07-31T16:57:57Z** `[note]` Mandato de revisión de confirmación: comprobar únicamente el defecto reportado de aislamiento del rango y cualquier regresión introducida al trasladar los commits.
+- **2026-07-31T16:57:57Z** `[status]` in-progress → in-review
+- **2026-07-31T17:01:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
