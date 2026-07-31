@@ -2,9 +2,11 @@
 id: "20260731-161652"
 title: Bloquear escrituras con schemas futuros
 type: bug
-status: in-validation
+status: done
 created: 2026-07-31T16:16:52Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260613-205853", "20260628-113219", "20260628-113924", "20260730-183807"]
 owner: Roberto Ruiz
 release_impact: patch
@@ -115,3 +117,6 @@ Son contexto terminado, no dependencias de ejecución.
 - **2026-07-31T16:57:57Z** `[note]` Mandato de revisión de confirmación: comprobar únicamente el defecto reportado de aislamiento del rango y cualquier regresión introducida al trasladar los commits.
 - **2026-07-31T16:57:57Z** `[status]` in-progress → in-review
 - **2026-07-31T17:01:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T21:24:42Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-31T21:25:28Z** `[graduation]` spec: `architecture.md`
+- **2026-07-31T21:25:28Z** `[archive]` archived
