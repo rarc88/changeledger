@@ -2,7 +2,7 @@
 id: "20260731-161655"
 title: Configurar el formato de las ramas de change
 type: feature
-status: draft
+status: approved
 created: 2026-07-31T16:16:55Z
 depends_on: []
 related_to: ["20260711-103757", "20260711-210115", "20260711-225637"]
@@ -114,3 +114,4 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
