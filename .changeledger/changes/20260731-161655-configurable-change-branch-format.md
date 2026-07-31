@@ -2,9 +2,11 @@
 id: "20260731-161655"
 title: Configurar el formato de las ramas de change
 type: feature
-status: in-validation
+status: done
 created: 2026-07-31T16:16:55Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260711-103757", "20260711-210115", "20260711-225637"]
 owner: Roberto Ruiz
 release_impact: minor
@@ -158,3 +160,6 @@ el operador puede coordinar el cambio de convención antes de iniciar otro chang
 - **2026-07-31T20:52:49Z** `[status]` in-progress → in-review
 - **2026-07-31T20:52:56Z** `[note]` Mandato de revisión de confirmación: comprobar únicamente el comando ejecutable en Proposal/CR2/CR7, las etiquetas CR7 de los tres tests de opt-out y regresiones introducidas por esas correcciones de trazabilidad.
 - **2026-07-31T20:55:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T21:23:13Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-31T21:23:45Z** `[graduation]` spec: `git-traceability.md`
+- **2026-07-31T21:23:49Z** `[archive]` archived
