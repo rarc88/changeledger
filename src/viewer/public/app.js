@@ -102,9 +102,10 @@ const hasProjectProvenance = (payload) =>
   Object.hasOwn(payload ?? {}, 'project_id') || Object.hasOwn(payload ?? {}, 'repository_path');
 
 const matchesProjectProvenance = (payload, target) =>
-  !hasProjectProvenance(payload) ||
-  (String(payload.project_id) === String(target.project) &&
-    payload.repository_path === target.repositoryPath);
+  Object.hasOwn(payload ?? {}, 'project_id') &&
+  Object.hasOwn(payload ?? {}, 'repository_path') &&
+  String(payload.project_id) === String(target.project) &&
+  payload.repository_path === target.repositoryPath;
 
 export function configureViewerNavigation(navigation) {
   viewerNavigation = navigation;
@@ -194,7 +195,8 @@ export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
       return true;
     } catch (e) {
       if (stale()) return supersedingLoad();
-      if (!matchesProjectProvenance(e.payload, target)) return false;
+      if (hasProjectProvenance(e.payload) && !matchesProjectProvenance(e.payload, target))
+        return false;
       if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
       else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
       return false;
@@ -526,7 +528,8 @@ export async function moveStatus(
   try {
     const res = await request(project, id, status, reason, target.repositoryPath);
     const out = await res.json();
-    if (!matchesProjectProvenance(out, target)) return false;
+    if ((res.ok || hasProjectProvenance(out)) && !matchesProjectProvenance(out, target))
+      return false;
     if (!res.ok) {
       onError(out.error || 'status change failed');
       return false;
@@ -590,13 +593,13 @@ export async function runValidationSubmission({
     if (stale()) return false;
     const out = await res.json();
     if (stale()) return false;
+    if ((res.ok || hasProjectProvenance(out)) && !acceptResponse(out)) {
+      resetValidationState(root);
+      return false;
+    }
     if (!res.ok) {
       showValidationError(root, out.error || 'Status change failed.');
       setValidationPending(root, false);
-      return false;
-    }
-    if (!acceptResponse(out)) {
-      resetValidationState(root);
       return false;
     }
   } catch (error) {
@@ -1690,7 +1693,11 @@ export async function openManagedProject(id, { reload = false } = {}) {
       configMode = 'form';
     }
   } catch (error) {
-    if (stale() || !matchesProjectProvenance(error.payload, target)) return;
+    if (
+      stale() ||
+      (hasProjectProvenance(error.payload) && !matchesProjectProvenance(error.payload, target))
+    )
+      return;
     managedConfig = {
       id,
       repositoryPath: target.repositoryPath,
@@ -1723,7 +1730,13 @@ export async function projectMutation(
     if (stale()) return false;
     const body = await response.json();
     const receiptTarget = response.ok ? target : errorTarget;
-    if (stale() || (receiptTarget && !matchesProjectProvenance(body, receiptTarget))) return false;
+    if (
+      stale() ||
+      (receiptTarget &&
+        (response.ok || hasProjectProvenance(body)) &&
+        !matchesProjectProvenance(body, receiptTarget))
+    )
+      return false;
     if (!response.ok) throw new Error(body.error || 'Project update failed.');
     await onSuccess(body);
     return true;
@@ -1968,7 +1981,11 @@ function renderProjects() {
         if (stale() || !matchesProjectProvenance(result, configTarget)) return;
         migrationPreview = result;
       } catch (e) {
-        if (stale() || !matchesProjectProvenance(e.payload, configTarget)) return;
+        if (
+          stale() ||
+          (hasProjectProvenance(e.payload) && !matchesProjectProvenance(e.payload, configTarget))
+        )
+          return;
         migrationPreview = { error: e.message };
       }
       renderProjects();
@@ -1988,7 +2005,11 @@ function renderProjects() {
         if (stale() || !matchesProjectProvenance(body, configTarget)) return;
         await openManagedProject(configTarget.project, { reload: true });
       } catch (e) {
-        if (stale() || !matchesProjectProvenance(e.payload, configTarget)) return;
+        if (
+          stale() ||
+          (hasProjectProvenance(e.payload) && !matchesProjectProvenance(e.payload, configTarget))
+        )
+          return;
         migrationPreview = { error: e.message };
         renderProjects();
       }

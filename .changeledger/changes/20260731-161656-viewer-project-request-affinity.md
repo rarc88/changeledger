@@ -2,7 +2,7 @@
 id: "20260731-161656"
 title: Completar la afinidad de proyecto en el viewer
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-31T16:16:56Z
 depends_on: []
 related_to: ["20260627-111218", "20260627-111219", "20260728-141643", "20260728-141859"]
@@ -103,3 +103,8 @@ no hay dependencia de ejecución.
 - **2026-07-31T18:34:39Z** `[note]` Gate integrado del candidato: Biome limpio, 1066/1066 tests y changeledger check válido.
 - **2026-07-31T18:34:50Z** `[status]` in-progress → in-review
 - **2026-07-31T18:35:52Z** `[note]` Mandato de revisión: auditoría completa del rango baseline..HEAD y de toda la superficie gobernada por CR1–CR5.
+- **2026-07-31T18:43:48Z** `[review]` in-review → in-progress (retry): CR4 permite aplicar receipts resueltos sin project_id/repository_path, validation/reopen muestra errores HTTP con procedencia ajena antes de validarla y los catches genéricos del router pierden procedencia en errores posteriores a resolver el proyecto; exigir procedencia completa en receipts resueltos, validarla antes de éxito/error y atribuir los 500 post-resolution con regresiones adversariales.
+- **2026-07-31T18:51:02Z** `[note]` Corrección de CR4: el error atribuido extranjero y el éxito sin procedencia fallaron antes del matcher estricto; los 500 de config/repo resolvidos carecieron de identidad antes del tracking por request. Cliente pasó 112/112, router 94/94 y gate completo Biome limpio, 1071/1071 tests y check válido.
+- **2026-07-31T18:51:07Z** `[note]` Mandato de revisión de confirmación: spot check de los tres defectos CR4 señalados — error extranjero, receipt resuelto sin procedencia y 500 post-resolution — y regresiones introducidas por su corrección.
+- **2026-07-31T18:51:22Z** `[status]` in-progress → in-review
+- **2026-07-31T18:53:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)

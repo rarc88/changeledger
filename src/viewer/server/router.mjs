@@ -86,6 +86,19 @@ const projectIdentity = (project) => ({
   repository_path: path.resolve(project.path),
 });
 
+function sendInternalError(res, error, project) {
+  process.stderr.write(`[changeledger-viewer] ${error.message}\n`);
+  send(
+    res,
+    500,
+    MIME['.json'],
+    JSON.stringify({
+      ...(project ? projectIdentity(project) : {}),
+      error: 'Internal server error',
+    }),
+  );
+}
+
 // Injects the per-process write token into the served page so same-origin JS can
 // read it; cross-origin pages cannot, by the same-origin policy.
 function serveIndex(res, token) {
@@ -100,6 +113,7 @@ function serveIndex(res, token) {
 // security boundary is testable over real HTTP without opening a browser.
 export function createRequestListener(cwd, localOnly, token) {
   return async (req, res) => {
+    let resolvedProject;
     try {
       if (!isLocalHost(req)) {
         send(res, 403, MIME['.json'], JSON.stringify({ error: 'non-local host rejected' }));
@@ -154,6 +168,7 @@ export function createRequestListener(cwd, localOnly, token) {
             }
             const { projects } = resolveProjects(cwd, localOnly);
             const project = projects.find((candidate) => candidate.id === payload.project);
+            resolvedProject = project;
             if (project) {
               if (typeof payload.repository_path !== 'string') {
                 send(
@@ -195,8 +210,7 @@ export function createRequestListener(cwd, localOnly, token) {
             const { code, body } = result;
             send(res, code, MIME['.json'], JSON.stringify(body));
           } catch (error) {
-            process.stderr.write(`[changeledger-viewer] ${error.message}\n`);
-            send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
+            sendInternalError(res, error, resolvedProject);
           }
         });
         return;
@@ -213,23 +227,25 @@ export function createRequestListener(cwd, localOnly, token) {
       }
       if (route === '/api/project-config') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const { code, body } = readProjectConfig(projects, params.get('project'));
+        const project = params.get('project');
+        resolvedProject = projects.find((candidate) => candidate.id === project);
+        const { code, body } = readProjectConfig(projects, project);
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
       if (route === '/api/project-config-structured') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const { code, body } = readProjectConfigStructured(projects, params.get('project'));
+        const project = params.get('project');
+        resolvedProject = projects.find((candidate) => candidate.id === project);
+        const { code, body } = readProjectConfigStructured(projects, project);
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
       if (route === '/api/project-config-migrate-preview') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const { code, body } = previewConfigMigration(
-          projects,
-          params.get('project'),
-          params.get('revision'),
-        );
+        const project = params.get('project');
+        resolvedProject = projects.find((candidate) => candidate.id === project);
+        const { code, body } = previewConfigMigration(projects, project, params.get('revision'));
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
@@ -241,6 +257,7 @@ export function createRequestListener(cwd, localOnly, token) {
         }
         const { projects } = resolveProjects(cwd, localOnly);
         const proj = projects.find((p) => p.id === params.get('project'));
+        resolvedProject = proj;
         if (!proj?.alive) {
           send(
             res,
@@ -269,14 +286,18 @@ export function createRequestListener(cwd, localOnly, token) {
       }
       if (route === '/api/ledger-tree') {
         const { projects } = resolveProjects(cwd, localOnly);
-        const { code, body } = listLedgerTree(projects, params.get('project'));
+        const project = params.get('project');
+        resolvedProject = projects.find((candidate) => candidate.id === project);
+        const { code, body } = listLedgerTree(projects, project);
         send(res, code, MIME['.json'], JSON.stringify(body));
         return;
       }
       if (route === '/api/ledger-document') {
         const { projects } = resolveProjects(cwd, localOnly);
+        const project = params.get('project');
+        resolvedProject = projects.find((candidate) => candidate.id === project);
         const { code, body } = readLedgerDocument(projects, {
-          project: params.get('project'),
+          project,
           category: params.get('category'),
           path: params.get('path'),
         });
@@ -286,6 +307,7 @@ export function createRequestListener(cwd, localOnly, token) {
       if (route === '/api/repo') {
         const { projects } = resolveProjects(cwd, localOnly);
         const proj = projects.find((p) => p.id === params.get('project'));
+        resolvedProject = proj;
         if (!proj) {
           send(res, 404, MIME['.json'], JSON.stringify({ error: 'no project' }));
           return;
@@ -336,8 +358,7 @@ export function createRequestListener(cwd, localOnly, token) {
         send(res, 404, 'text/plain', 'Not found');
       }
     } catch (e) {
-      process.stderr.write(`[changeledger-viewer] ${e.message}\n`);
-      send(res, 500, MIME['.json'], JSON.stringify({ error: 'Internal server error' }));
+      sendInternalError(res, e, resolvedProject);
     }
   };
 }

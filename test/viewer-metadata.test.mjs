@@ -712,6 +712,9 @@ test('141643 CR1: finishing one approval cannot enable a reused button owned by 
 
 test('141643 CR1: detail approval closes after reload success but stays open and re-enables on failure', async () => {
   appState.currentProject = 'project-alpha';
+  appState.projectsList = [
+    { id: 'project-alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+  ];
   const successChange = { ...baseChange(), id: 'success' };
   const success = parse(approvalDetail(successChange));
   const requests = [];
@@ -723,7 +726,14 @@ test('141643 CR1: detail approval closes after reload success but stays open and
       moveStatus(id, status, undefined, {
         request: async (...args) => {
           requests.push(args);
-          return { ok: true, json: async () => ({ ok: true }) };
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              project_id: 'project-alpha',
+              repository_path: '/repos/alpha',
+            }),
+          };
         },
         reload: async () => sequence.push('reload'),
         onError: (message) => errors.push(message),
@@ -732,7 +742,7 @@ test('141643 CR1: detail approval closes after reload success but stays open and
   });
   const successButton = success.querySelector('[data-approve]');
   assert.equal(await successButton.onclick(new window.Event('click')), true);
-  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined, null]]);
+  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined, '/repos/alpha']]);
   assert.deepEqual(sequence, ['reload', 'close']);
   assert.deepEqual(errors, []);
 
@@ -766,7 +776,14 @@ test('141643 CR1: detail approval closes after reload success but stays open and
     id: reloadFailureChange.id,
     move: (id, status) =>
       moveStatus(id, status, undefined, {
-        request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+        request: async () => ({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            project_id: 'project-alpha',
+            repository_path: '/repos/alpha',
+          }),
+        }),
         reload: async () => false,
         onError: (message) => errors.push(message),
       }),
@@ -786,6 +803,10 @@ test('141643 CR1: detail approval closes after reload success but stays open and
 
 test('141643 CR1: a status move cannot validate by reloading another project', async () => {
   appState.currentProject = 'alpha';
+  appState.projectsList = [
+    { id: 'alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+    { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true },
+  ];
   let resolveRequest;
   const requestProjects = [];
   const reloadProjects = [];
@@ -797,7 +818,14 @@ test('141643 CR1: a status move cannot validate by reloading another project', a
       await new Promise((resolve) => {
         resolveRequest = resolve;
       });
-      return { ok: true, json: async () => ({ ok: true }) };
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          project_id: 'alpha',
+          repository_path: '/repos/alpha',
+        }),
+      };
     },
     reload: async (project) => {
       reloadProjects.push(project);
@@ -1071,6 +1099,32 @@ test('125850 CR3: validation error re-enables controls and preserves the rejecti
   const error = host.querySelector('.validation-error');
   assert.equal(error.hidden, false);
   assert.equal(error.textContent, 'Transition rejected');
+});
+
+test('161656 CR4: validation checks attributed error provenance before displaying it', async () => {
+  const host = parse(validationPanel());
+  let provenanceChecks = 0;
+  const result = await runValidationSubmission({
+    root: host,
+    request: async () => ({
+      ok: false,
+      json: async () => ({
+        project_id: 'foreign-project',
+        repository_path: '/repos/foreign',
+        error: 'foreign error',
+      }),
+    }),
+    acceptResponse: () => {
+      provenanceChecks++;
+      return false;
+    },
+    onSuccess: async () => assert.fail('foreign error must not call onSuccess'),
+  });
+
+  assert.equal(result, false);
+  assert.equal(provenanceChecks, 1);
+  assert.equal(host.querySelector('.validation-error').hidden, true);
+  assert.equal(host.querySelector('.validation-error').textContent, '');
 });
 
 test('005437 CR1/CR2/CR3: a reused validation panel is enabled after a successful verdict', async () => {
@@ -2549,22 +2603,33 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
   };
   const previous = {
     project: appState.currentProject,
+    projects: appState.projectsList,
     repo: appState.repo,
     lastJson: appState.lastJson,
   };
+  const repoPayload = (project, marker) =>
+    JSON.stringify({
+      project_id: project,
+      repository_path: `/repos/${project}`,
+      marker,
+    });
 
   try {
     const alpha = deferred();
     const beta = deferred();
     const byProject = { alpha, beta };
+    appState.projectsList = [
+      { id: 'alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+      { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true },
+    ];
     appState.currentProject = 'alpha';
     appState.lastJson = '';
     const alphaLoad = load((project) => byProject[project].promise, apply);
     appState.currentProject = 'beta';
     const betaLoad = load((project) => byProject[project].promise, apply);
-    beta.resolve('{"marker":"beta"}');
+    beta.resolve(repoPayload('beta', 'beta'));
     assert.equal(await betaLoad, true);
-    alpha.resolve('{"marker":"alpha"}');
+    alpha.resolve(repoPayload('alpha', 'alpha'));
     assert.equal(await alphaLoad, false);
     assert.equal(appState.repo.marker, 'beta');
 
@@ -2575,9 +2640,9 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
     appState.lastJson = '';
     const olderLoad = load(() => requests.shift().promise, apply);
     const newerLoad = load(() => requests.shift().promise, apply);
-    newer.resolve('{"marker":"newer"}');
+    newer.resolve(repoPayload('alpha', 'newer'));
     assert.equal(await newerLoad, true);
-    older.resolve('{"marker":"older"}');
+    older.resolve(repoPayload('alpha', 'older'));
     assert.equal(await olderLoad, true);
     assert.equal(appState.repo.marker, 'newer');
 
@@ -2591,19 +2656,20 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
     supersededLoad.then(() => {
       supersededSettled = true;
     });
-    superseded.resolve('{"marker":"superseded"}');
+    superseded.resolve(repoPayload('alpha', 'superseded'));
     await Promise.resolve();
     assert.equal(
       supersededSettled,
       false,
       'a superseded reload waits for the active same-project load',
     );
-    polling.resolve('{"marker":"polling"}');
+    polling.resolve(repoPayload('alpha', 'polling'));
     assert.equal(await pollingLoad, true);
     assert.equal(await supersededLoad, true);
     assert.equal(appState.repo.marker, 'polling');
   } finally {
     appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
     appState.repo = previous.repo;
     appState.lastJson = previous.lastJson;
   }
@@ -2642,6 +2708,48 @@ test('161656 CR4/CR5: repo load captures path and rejects mismatched provenance'
 
     assert.deepEqual(requests, [['repo-affinity', '/repos/current']]);
     assert.equal(loaded, false);
+    assert.equal(applied, 0);
+  } finally {
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+  }
+});
+
+test('161656 CR4: repo load rejects success without complete provenance', async () => {
+  const { load } = await import('../src/viewer/public/app.js');
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+  };
+  const results = [];
+  let applied = 0;
+
+  try {
+    appState.currentProject = 'repo-provenance';
+    appState.projectsList = [
+      { id: 'repo-provenance', name: 'Repo', path: '/repos/provenance', alive: true },
+    ];
+    appState.lastJson = '';
+    for (const payload of [
+      { marker: 'missing-both' },
+      { project_id: 'repo-provenance', marker: 'missing-path' },
+      { repository_path: '/repos/provenance', marker: 'missing-id' },
+    ]) {
+      results.push(
+        await load(
+          async () => JSON.stringify(payload),
+          () => {
+            applied++;
+          },
+        ),
+      );
+    }
+
+    assert.deepEqual(results, [false, false, false]);
     assert.equal(applied, 0);
   } finally {
     appState.currentProject = previous.project;

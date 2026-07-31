@@ -25,7 +25,7 @@ import {
   view,
 } from '../src/commands/view.mjs';
 import { publicDir } from '../src/paths.mjs';
-import { readRegistry, register } from '../src/registry.mjs';
+import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
 
@@ -506,6 +506,65 @@ test('190008 CR1: router catch returns generic message, not e.message', async ()
   assert.equal(body.error, 'no project');
   // Verify there are no filesystem paths leaked in any error response
   assert.ok(!body.error.includes('/'), 'error must not contain path separators');
+});
+
+test('161656 CR4 correction: config-read 500 after project resolution carries provenance only', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+  const config = path.join(root, '.changeledger', 'config.yml');
+  fs.rmSync(config);
+  fs.mkdirSync(config);
+
+  const res = await memoryRequest(root, {
+    path: `/api/project-config?project=${encodeURIComponent(current)}`,
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: current,
+    repository_path: path.resolve(root),
+    error: 'Internal server error',
+  });
+});
+
+test('161656 CR4 correction: repo-load rejection after resolution is attributed without disclosure', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [');
+
+  const res = await memoryRequest(root, {
+    path: `/api/repo?project=${encodeURIComponent(current)}`,
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: current,
+    repository_path: path.resolve(root),
+    error: 'Internal server error',
+  });
+});
+
+test('161656 CR4 correction: pre-resolution 500 stays generic and anonymous', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  let res;
+  try {
+    res = await memoryRequest(root, {
+      path: '/api/repo?project=unresolved',
+      localOnly: false,
+    });
+  } finally {
+    fs.writeFileSync(registryPath(), '{}\n');
+  }
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), { error: 'Internal server error' });
 });
 
 test('190009 CR3: getRepo rejects when server returns 404', async () => {
