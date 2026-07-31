@@ -80,10 +80,11 @@ Son contexto terminado, no dependencias de ejecución.
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Criteria:** CR1
   - **Resolved:** `2026-07-31T16:40:55Z`
-- [ ] Escribir primero una matriz fallida de mutaciones de change y aplicar el guard en su frontera común
+- [x] Escribir primero una matriz fallida de mutaciones de change y aplicar el guard en su frontera común
   - **Target:** `src/commands/agent.mjs`, `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR2
+  - **Resolved:** `2026-07-31T16:42:30Z`
 - [ ] Escribir primero regresiones de creación, fix, graduación y releases y bloquear cada familia antes de escribir
   - **Target:** `src/commands/new.mjs`, `src/commands/fix.mjs`, `src/commands/graduate.mjs`, `src/commands/release.mjs`, `test/cli.test.mjs`, `test/fix.test.mjs`, `test/graduate.test.mjs`, `test/release.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/graduate.test.mjs test/release.test.mjs`
@@ -100,3 +101,4 @@ Son contexto terminado, no dependencias de ejecución.
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T16:33:41Z** `[status]` approved → in-progress
 - **2026-07-31T16:40:55Z** `[note]` CR1 red→green: el import inexistente de assertSupportedSchema falló antes de la implementación; tras extraer el guard, test/config-migration.test.mjs pasa. Mutante >= rechazó schema 4 y la regresión lo detectó; restaurado por edición.
+- **2026-07-31T16:42:30Z** `[note]` CR2 verde: la matriz de mutaciones de changes preserva bytes y no deja locks. Mutante sin guard en locate permitió status y el test falló con Missing expected exception; guard restaurado por edición.

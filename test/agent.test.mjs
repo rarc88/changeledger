@@ -57,6 +57,50 @@ function repoWithChange() {
   return { root, file, id };
 }
 
+function futureSchemaRepo() {
+  const fixture = repoWithChange();
+  const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+  );
+  return fixture;
+}
+
+test('161652 CR2: lifecycle mutations reject a future schema before writing', () => {
+  const mutators = [
+    ['status', ({ id, root }) => status(id, 'approved', root)],
+    ['approve', ({ id, root }) => approve(id, root)],
+    ['review', ({ id, root }) => review(id, 'pass', {}, root)],
+    ['validation', ({ id, root }) => validation(id, 'pass', {}, root)],
+    ['reopen', ({ id, root }) => reopen(id, 'reason', root)],
+    ['owner', ({ id, root }) => owner(id, 'ana', root)],
+    ['discard', ({ id, root }) => discard(id, 'reason', root)],
+    ['archive', ({ id, root }) => archive(id, root)],
+    ['archive --graduated', ({ root }) => archiveGraduated({}, root)],
+    ['log', ({ id, root }) => log(id, 'note', root)],
+    ['task', ({ id, root }) => task(id, 'done', 1, '', root)],
+  ];
+
+  for (const [name, mutate] of mutators) {
+    const fixture = futureSchemaRepo();
+    const before = fs.readFileSync(fixture.file, 'utf8');
+    assert.throws(
+      () => mutate(fixture),
+      /^Error: config schema 5 is newer than supported schema 4; update ChangeLedger before writing$/,
+      name,
+    );
+    assert.equal(fs.readFileSync(fixture.file, 'utf8'), before, name);
+    assert.deepEqual(
+      fs
+        .readdirSync(path.join(fixture.root, '.changeledger', 'changes'))
+        .filter((entry) => entry.endsWith('.lock')),
+      [],
+      name,
+    );
+  }
+});
+
 test('status moves the lifecycle and logs the transition', () => {
   const { root, file, id } = repoWithChange();
   status(id, 'approved', root);
