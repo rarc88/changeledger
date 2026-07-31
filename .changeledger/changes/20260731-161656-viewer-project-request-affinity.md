@@ -2,7 +2,7 @@
 id: "20260731-161656"
 title: Completar la afinidad de proyecto en el viewer
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-31T16:16:56Z
 depends_on: []
 related_to: ["20260627-111218", "20260627-111219", "20260728-141643", "20260728-141859"]
@@ -90,12 +90,15 @@ no hay dependencia de ejecución.
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
   - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-31T18:19:03Z`
-- [ ] Ejecutar la matriz integrada de carreras del viewer y el gate completo
+- [x] Ejecutar la matriz integrada de carreras del viewer y el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-31T18:34:33Z`
 
 ## Log
 - **2026-07-31T16:30:56Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T18:08:50Z** `[status]` approved → in-progress
 - **2026-07-31T18:19:09Z** `[note]` CR3/CR4 servidor red→green: update y remove obsoletos mutaron o borraron la entrada reubicada antes del arreglo; CAS por repository_path y procedencia HTTP pasaron 104/104. Mutantes de ambos guards, mismatch del router y atribución de dominio fallaron por la razón esperada y se restauraron por edición.
 - **2026-07-31T18:33:10Z** `[note]` CR1/CR2/CR4/CR5 cliente red→green: refs tardías sobrescribieron o limpiaron otro detalle; config tardía reemplazó el target; status y repo omitieron repository_path. Targets capturados, generaciones y receipts con procedencia pasaron 110/110. Mutantes de guardas de refs, latest-wins, procedencia y ruta de status fallaron por la razón esperada y se restauraron por edición.
+- **2026-07-31T18:34:39Z** `[note]` Gate integrado del candidato: Biome limpio, 1066/1066 tests y changeledger check válido.
+- **2026-07-31T18:34:50Z** `[status]` in-progress → in-review
