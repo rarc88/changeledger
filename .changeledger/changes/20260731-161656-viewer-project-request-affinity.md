@@ -2,9 +2,11 @@
 id: "20260731-161656"
 title: Completar la afinidad de proyecto en el viewer
 type: bug
-status: in-validation
+status: done
 created: 2026-07-31T16:16:56Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260627-111218", "20260627-111219", "20260728-141643", "20260728-141859"]
 owner: Roberto Ruiz
 release_impact: patch
@@ -108,3 +110,6 @@ no hay dependencia de ejecución.
 - **2026-07-31T18:51:07Z** `[note]` Mandato de revisión de confirmación: spot check de los tres defectos CR4 señalados — error extranjero, receipt resuelto sin procedencia y 500 post-resolution — y regresiones introducidas por su corrección.
 - **2026-07-31T18:51:22Z** `[status]` in-progress → in-review
 - **2026-07-31T18:53:58Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T21:28:45Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-31T21:29:42Z** `[graduation]` spec: `viewer.md`
+- **2026-07-31T21:29:42Z** `[archive]` archived
