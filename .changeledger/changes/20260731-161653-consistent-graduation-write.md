@@ -2,9 +2,11 @@
 id: "20260731-161653"
 title: Evitar graduaciones parcialmente registradas
 type: bug
-status: in-validation
+status: done
 created: 2026-07-31T16:16:53Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260613-205854", "20260718-111457"]
 owner: Roberto Ruiz
 release_impact: patch
@@ -102,3 +104,6 @@ bug no cambia el modelo de graduación ni su formato.
 - **2026-07-31T17:14:36Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR5, señal onCommit, lock de spec, compensación, AggregateError y ausencia de regresiones en consumidores de mutateFileAtomic.
 - **2026-07-31T17:20:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-07-31T18:57:39Z** `[note]` Handoff: revisión independiente aprobada; candidato listo para validación humana en esta rama autosuficiente.
+- **2026-07-31T21:26:38Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-07-31T21:27:05Z** `[graduation]` spec: `lifecycle.md`
+- **2026-07-31T21:27:06Z** `[archive]` archived
