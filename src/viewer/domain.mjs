@@ -13,6 +13,7 @@ import {
 } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
+  assertSupportedSchema,
   buildMigration,
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
@@ -376,6 +377,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
   }
   try {
+    assertSupportedSchema(repo.config);
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
+  }
+  try {
     resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
     resolveSpecsDir(repo.repoRoot, candidate);
   } catch (error) {
@@ -405,14 +411,9 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       : found.project.name;
   try {
     mutateConfig(file, (before) => {
+      assertSupportedSchema(parseYaml(before));
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
-      }
-      const currentSchema = getSchemaVersion(parseYaml(before));
-      if (currentSchema > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${currentSchema} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
       }
       return payload.content;
     });
@@ -420,7 +421,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
-    if (/^config schema \d+ is newer than supported schema \d+$/.test(error.message)) {
+    if (
+      /^config schema \d+ is newer than supported schema \d+; update ChangeLedger before writing$/.test(
+        error.message,
+      )
+    ) {
       return { code: 400, body: { error: error.message } };
     }
     return { code: 400, body: { error: 'unable to save project configuration' } };
@@ -516,6 +521,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
   let result;
   try {
+    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
@@ -523,14 +529,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
       const doc = parseDocument(before, { merge: false });
       const config = doc.toJS() ?? {};
-
-      // Fail closed for future schema
-      const schemaVersion = getSchemaVersion(config);
-      if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${schemaVersion} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
-      }
+      assertSupportedSchema(config);
 
       applyPatch(doc, payload.patch, config);
 
@@ -609,6 +608,7 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
 
   let result;
   try {
+    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');

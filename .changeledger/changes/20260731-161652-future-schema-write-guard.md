@@ -90,10 +90,11 @@ Son contexto terminado, no dependencias de ejecución.
   - **Verify:** `node --test test/cli.test.mjs test/fix.test.mjs test/graduate.test.mjs test/release.test.mjs`
   - **Criteria:** CR3, CR4
   - **Resolved:** `2026-07-31T16:43:44Z`
-- [ ] Sustituir los guards locales del viewer por la precondición compartida y preservar sus respuestas HTTP
+- [x] Sustituir los guards locales del viewer por la precondición compartida y preservar sus respuestas HTTP
   - **Target:** `src/viewer/domain.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-07-31T16:45:29Z`
 - [ ] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
@@ -104,3 +105,4 @@ Son contexto terminado, no dependencias de ejecución.
 - **2026-07-31T16:40:55Z** `[note]` CR1 red→green: el import inexistente de assertSupportedSchema falló antes de la implementación; tras extraer el guard, test/config-migration.test.mjs pasa. Mutante >= rechazó schema 4 y la regresión lo detectó; restaurado por edición.
 - **2026-07-31T16:42:30Z** `[note]` CR2 verde: la matriz de mutaciones de changes preserva bytes y no deja locks. Mutante sin guard en locate permitió status y el test falló con Missing expected exception; guard restaurado por edición.
 - **2026-07-31T16:43:44Z** `[note]` CR3/CR4 verde: new, fix de escritura, graduación y releases fallan antes de escribir; fix --dry-run permanece disponible. Mutante sin guard en new creó el change y la regresión falló con Missing expected exception; restaurado por edición.
+- **2026-07-31T16:45:29Z** `[note]` CR5 verde: preview, guardado, patch y migración comparten el diagnóstico y rechazan antes del lock. Mutante sin preflight en applyConfigMigration intentó adquirir el lock; la regresión lo detectó y fue restaurado por edición.
