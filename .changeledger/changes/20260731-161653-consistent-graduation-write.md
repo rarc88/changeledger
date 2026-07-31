@@ -2,7 +2,7 @@
 id: "20260731-161653"
 title: Evitar graduaciones parcialmente registradas
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-31T16:16:53Z
 depends_on: []
 related_to: ["20260613-205854", "20260718-111457"]
@@ -99,3 +99,6 @@ bug no cambia el modelo de graduación ni su formato.
 - **2026-07-31T17:12:18Z** `[note]` CR1–CR5 red→green: reproducción dejó change intacto y spec modificada; 6 fault-injection tests fallaron antes de la implementación y luego la selección pasó 36/36. Mutantes de rollback, onCommit, changeCommitted, lock de spec y orden de AggregateError fallaron por la razón esperada y fueron restaurados por edición.
 - **2026-07-31T17:13:50Z** `[note]` Gate completo verde fuera del sandbox: Biome, 1056/1056 tests y changeledger check (1 válido).
 - **2026-07-31T17:13:50Z** `[status]` in-progress → in-review
+- **2026-07-31T17:14:36Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR5, señal onCommit, lock de spec, compensación, AggregateError y ausencia de regresiones en consumidores de mutateFileAtomic.
+- **2026-07-31T17:20:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T18:57:39Z** `[note]` Handoff: revisión independiente aprobada; candidato listo para validación humana en esta rama autosuficiente.
