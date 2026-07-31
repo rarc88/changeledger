@@ -1596,6 +1596,47 @@ test('225637 CR5: clearing integration branch preserves sibling git keys', () =>
   assert.match(after, /git:\n {2}custom: keep/);
 });
 
+test('161655 CR6: changing or clearing git.change_branch_format preserves git siblings and comments', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(
+    configFile,
+    original.replace(
+      '  integration_branch:\n  change_branch_format:',
+      '  # release baseline\n  integration_branch: dev\n  change_branch_format: work/{id}\n  custom: keep',
+    ),
+  );
+
+  let { body } = readProjectConfigStructured(projects, current);
+  let result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { git: { change_branch_format: 'changes/{type}/{id}' } },
+  });
+  assert.equal(result.code, 200, result.body?.error);
+  let after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /# release baseline/);
+  assert.match(after, /integration_branch: dev/);
+  assert.match(after, /change_branch_format: changes\/\{type\}\/\{id\}/);
+  assert.match(after, /custom: keep/);
+
+  ({ body } = readProjectConfigStructured(projects, current));
+  result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { git: { change_branch_format: null } },
+  });
+  assert.equal(result.code, 200, result.body?.error);
+  after = fs.readFileSync(configFile, 'utf8');
+  assert.doesNotMatch(after, /change_branch_format:/);
+  assert.match(after, /# release baseline/);
+  assert.match(after, /integration_branch: dev/);
+  assert.match(after, /custom: keep/);
+});
+
 test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
   isolatedHome();
   const root = newRepo();

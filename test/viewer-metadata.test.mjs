@@ -1871,6 +1871,48 @@ test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
   assert.deepEqual(collectFormPatch(form, config), { git: { integration_branch: null } });
 });
 
+test('161655 CR6: form edits and clears git.change_branch_format without patching integration branch', () => {
+  const config = {
+    schema_version: 4,
+    project_id: 'aaa111',
+    project_name: 'alpha',
+    language: 'en',
+    tdd: true,
+    changes_dir: '.changeledger/changes',
+    specs_dir: '.changeledger/specs',
+    statuses: [
+      'draft',
+      'approved',
+      'in-progress',
+      'in-review',
+      'in-validation',
+      'blocked',
+      'done',
+      'discarded',
+    ],
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: {},
+    git: { integration_branch: 'dev', change_branch_format: 'work/{id}', custom: 'keep' },
+  };
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 4, supported: 4, config },
+      false,
+    ),
+  );
+  const form = root.querySelector('[data-config-form]');
+  assert.equal(form.elements.integration_branch.value, 'dev');
+  assert.equal(form.elements.change_branch_format.value, 'work/{id}');
+  form.elements.change_branch_format.value = 'changes/{type}/{id}';
+  assert.deepEqual(collectFormPatch(form, config), {
+    git: { change_branch_format: 'changes/{type}/{id}' },
+  });
+  form.elements.change_branch_format.value = '';
+  assert.deepEqual(collectFormPatch(form, config), { git: { change_branch_format: null } });
+});
+
 test('113924 CR3: custom type decisions can be configured without assumed defaults', () => {
   const config = {
     project_id: 'aaa111',

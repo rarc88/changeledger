@@ -108,10 +108,11 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR5
   - **Resolved:** `2026-07-31T17:43:26Z`
-- [ ] Extender la plantilla, el contrato y el editor del viewer preservando YAML ajeno
+- [x] Extender la plantilla, el contrato y el editor del viewer preservando YAML ajeno
   - **Target:** `templates/config.yml`, `templates/contract/implement.md`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `test/view.test.mjs`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR6
+  - **Resolved:** `2026-07-31T17:47:43Z`
 - [ ] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
@@ -120,3 +121,4 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T17:32:02Z** `[status]` approved → in-progress
 - **2026-07-31T17:43:26Z** `[note]` CR1–CR5 red→green: exports y validaciones ausentes fallaron primero; núcleo final pasó 367/367. Mutantes de id duplicado, nombre exacto, ancestry, publicación en contexto y opt-out fallaron por la razón esperada y fueron restaurados por edición.
+- **2026-07-31T17:47:48Z** `[note]` CR6 red→green: la plantilla y el formulario no exponían el formato; la suite del viewer pasó 188/188. Los mutantes que retiraban la persistencia en dominio o la recolección del control en UI fallaron por la razón esperada y se restauraron por edición. La aserción de init se actualizó para comprobar también la nueva clave opt-in y pasó 35/35.
