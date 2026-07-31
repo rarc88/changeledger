@@ -8,6 +8,7 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { integrationBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 
@@ -345,6 +346,53 @@ test('111218 CR4: malformed readiness patterns report errors without breaking co
         message.includes('config "readiness.target_patterns" must be a list'),
       ),
     );
+  }
+});
+
+test('20260731-161654 CR1: git must be a mapping without throwing or mutating config', () => {
+  for (const git of ['dev', [], true]) {
+    const candidate = { ...config, git };
+    const before = structuredClone(candidate);
+    let result;
+
+    assert.doesNotThrow(() => {
+      result = checkRepo({ config: candidate, changes: [] });
+    });
+    assert.deepEqual(msgs(result.errors), ['config "git" must be a mapping']);
+    assert.deepEqual(candidate, before);
+  }
+});
+
+test('20260731-161654 CR2: git.integration_branch errors match integrationBranch', () => {
+  for (const bad of [7, false, [], '']) {
+    const candidate = { ...config, git: { integration_branch: bad } };
+    let accessorMessage;
+
+    assert.throws(
+      () => integrationBranch(candidate),
+      (error) => {
+        accessorMessage = error.message;
+        return true;
+      },
+    );
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), [accessorMessage]);
+  }
+});
+
+test('20260731-161654 CR3/CR4: optional and unknown git configuration stays untouched', () => {
+  for (const candidate of [
+    { ...config },
+    { ...config, git: {} },
+    { ...config, git: { integration_branch: null } },
+    { ...config, git: { integration_branch: 'dev', provider_option: 'keep' } },
+  ]) {
+    const before = structuredClone(candidate);
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+
+    assert.deepEqual(errors, []);
+    assert.equal(integrationBranch(candidate), candidate.git?.integration_branch ?? undefined);
+    assert.deepEqual(candidate, before);
   }
 });
 

@@ -4,6 +4,7 @@
 // history. No IO — the `changeledger check` command does the IO and printing.
 
 import { parseChange } from './change.mjs';
+import { integrationBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
@@ -716,6 +717,13 @@ function checkConfig(config, err) {
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
+  if ('git' in c) {
+    try {
+      integrationBranch(c);
+    } catch (error) {
+      err(null, error.message);
+    }
+  }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const configuredTypes = isMapping(c.types) ? c.types : {};
   if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);

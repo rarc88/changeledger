@@ -12,7 +12,14 @@ test('210115 CR1: integrationBranch returns the configured branch', () => {
 test('210115 CR1: integrationBranch is undefined when the key is absent', () => {
   assert.equal(integrationBranch({}), undefined);
   assert.equal(integrationBranch({ git: {} }), undefined);
+  assert.equal(integrationBranch({ git: { integration_branch: null } }), undefined);
   assert.equal(integrationBranch(undefined), undefined);
+});
+
+test('20260731-161654 CR1: integrationBranch rejects a non-mapping git section', () => {
+  for (const git of ['dev', [], true]) {
+    assert.throws(() => integrationBranch({ git }), /config "git" must be a mapping/);
+  }
 });
 
 test('210115 CR1: integrationBranch fails fast on a non-string or empty value', () => {
