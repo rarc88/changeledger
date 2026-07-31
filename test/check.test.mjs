@@ -2736,7 +2736,7 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
 // --- frozen history (20260726-194220): archived/discarded documents are not
 // validated as subjects, but keep feeding every repo-wide invariant ---
 
-const FROZEN_FIXTURE_CONFIG = `schema_version: 4
+const FROZEN_FIXTURE_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes
@@ -3075,7 +3075,7 @@ Eliminación limpia, sin capa de compatibilidad.
 // --- 141119: review_required is only meaningful on a type that can hold
 // criteria (## Specification) and tasks that cite them (## Plan) ---
 
-const LIGHT_REVIEW_CONFIG = `schema_version: 4
+const LIGHT_REVIEW_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes

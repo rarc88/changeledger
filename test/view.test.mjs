@@ -811,6 +811,16 @@ function newRepo() {
   return root;
 }
 
+function disableChangeBranchFormat(root) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('  change_branch_format: "{type}/{id}"', '  change_branch_format:'),
+  );
+}
+
 test('global mode lists all registered projects', () => {
   isolatedHome();
   newRepo();
@@ -887,6 +897,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
 test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const acceptedFile = newChange(
     { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
     root,
@@ -932,6 +943,7 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
 test('150231 CR2: viewer reports an incomplete acceptance and preserves validation state', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
     root,
@@ -961,6 +973,7 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
 test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
     root,
@@ -983,6 +996,7 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
 test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
     root,
@@ -1512,7 +1526,7 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 4);
+  assert.equal(result.body.supported, 5);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -1605,7 +1619,7 @@ test('161655 CR6: changing or clearing git.change_branch_format preserves git si
   fs.writeFileSync(
     configFile,
     original.replace(
-      '  integration_branch:\n  change_branch_format:',
+      '  integration_branch:\n  change_branch_format: "{type}/{id}"',
       '  # release baseline\n  integration_branch: dev\n  change_branch_format: work/{id}\n  custom: keep',
     ),
   );
@@ -1730,7 +1744,8 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
 
   const result = previewConfigMigration(projects, current);
   assert.equal(result.code, 200);
-  assert.ok(result.body.yaml.includes('schema_version: 4'));
+  assert.ok(result.body.yaml.includes('schema_version: 5'));
+  assert.match(result.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
 });
@@ -1758,7 +1773,9 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
   const result = applyConfigMigration(projects, { project: current, revision: body.revision });
   assert.equal(result.code, 200);
   assert.ok(result.body.ok);
-  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 4'));
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.ok(migrated.includes('schema_version: 5'));
+  assert.match(migrated, /change_branch_format: "\{type\}\/\{id\}"/);
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
     project: current,
@@ -1794,7 +1811,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 5');
+    .replace(/schema_version: \d+/, 'schema_version: 6');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -1814,7 +1831,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 5');
+    .replace(/schema_version: \d+/, 'schema_version: 6');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -1825,7 +1842,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 5 is newer than supported schema 4/);
+  assert.match(direct.body.error, /config schema 6 is newer than supported schema 5/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1840,7 +1857,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 5 is newer than supported schema 4/);
+  assert.match(response.body, /config schema 6 is newer than supported schema 5/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -1884,14 +1901,15 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
 
   const structured = readProjectConfigStructured(projects, current);
   assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 4);
+  assert.equal(structured.body.supported, 5);
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 4/);
+  assert.match(preview.body.summary, /Config migration 1 → 5/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
   assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.match(preview.body.yaml, /^schema_version: 4$/m);
+  assert.match(preview.body.yaml, /^schema_version: 5$/m);
+  assert.match(preview.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
 
   // Apply lands the additions and becomes terminal
@@ -1901,7 +1919,8 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   });
   assert.equal(applied.code, 200);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 4$/m);
+  assert.match(after, /^schema_version: 5$/m);
+  assert.match(after, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
   const again = previewConfigMigration(projects, current);

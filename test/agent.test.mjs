@@ -24,13 +24,26 @@ import {
   task,
   validation,
 } from '../src/commands/agent.mjs';
-import { init } from '../src/commands/init.mjs';
+import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 
 const execFileAsync = promisify(execFile);
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+
+// Lifecycle fixtures that do not exercise branch naming opt out explicitly.
+// The 161655 cases below opt back in with the exact format they assert.
+function init(root) {
+  initializeRepo(root);
+  const file = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    file,
+    fs
+      .readFileSync(file, 'utf8')
+      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
+  );
+}
 
 function repoWithChange() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-'));
@@ -62,7 +75,7 @@ function configureChangeBranches(root, { integration = 'dev', format = 'work/{id
   const configured = fs
     .readFileSync(file, 'utf8')
     .replace(/^ {2}integration_branch:$/m, `  integration_branch: ${integration}`)
-    .replace(/^ {2}change_branch_format:$/m, `  change_branch_format: ${format}`);
+    .replace(/^ {2}change_branch_format:.*$/m, `  change_branch_format: ${format}`);
   fs.writeFileSync(file, configured);
 }
 
@@ -131,7 +144,7 @@ test('161655 CR5: exact branch descending from integration starts implementation
   );
 });
 
-test('161655 CR2: integration branch alone keeps lifecycle branch checks disabled', () => {
+test('161655 CR7: integration branch alone keeps lifecycle branch checks disabled', () => {
   const fixture = repoWithChange();
   const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
   fs.writeFileSync(

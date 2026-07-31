@@ -85,6 +85,7 @@ function repo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'context-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project\n');
   init(root);
+  setConfig(root, [[/^ {2}change_branch_format:.*$/m, '  change_branch_format: null']]);
   return root;
 }
 
@@ -652,7 +653,7 @@ test('161655 CR4: change context publishes its expected branch and integration b
   const root = repo();
   setConfig(root, [
     [/^ {2}integration_branch:$/m, '  integration_branch: dev'],
-    [/^ {2}change_branch_format:$/m, '  change_branch_format: work/{id}'],
+    [/^ {2}change_branch_format:.*$/m, '  change_branch_format: work/{id}'],
   ]);
   const id = writeRawChange(root, {
     id: '20260731-161655',
@@ -666,11 +667,13 @@ test('161655 CR4: change context publishes its expected branch and integration b
   assert.match(policyLine, /change_branch=work\/20260731-161655/);
 });
 
-test('161655 CR2: change context omits change_branch when the format is absent or null', () => {
+test('161655 CR7: change context omits change_branch when the format is absent or null', () => {
   for (const configured of [false, true]) {
     const root = repo();
     if (configured) {
-      setConfig(root, [[/^ {2}change_branch_format:$/m, '  change_branch_format: null']]);
+      setConfig(root, [[/^ {2}change_branch_format:.*$/m, '  change_branch_format: null']]);
+    } else {
+      setConfig(root, [[/^ {2}change_branch_format:.*\n/m, '']]);
     }
     const id = writeRawChange(root, {
       id: configured ? '20260731-161656' : '20260731-161657',

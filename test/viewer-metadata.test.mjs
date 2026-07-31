@@ -1873,7 +1873,7 @@ test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
 
 test('161655 CR6: form edits and clears git.change_branch_format without patching integration branch', () => {
   const config = {
-    schema_version: 4,
+    schema_version: 5,
     project_id: 'aaa111',
     project_name: 'alpha',
     language: 'en',
@@ -1898,7 +1898,7 @@ test('161655 CR6: form edits and clears git.change_branch_format without patchin
     projectsViewTemplate(
       [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
       'aaa111',
-      { content: '', revision: 'rev', schemaVersion: 4, supported: 4, config },
+      { content: '', revision: 'rev', schemaVersion: 5, supported: 5, config },
       false,
     ),
   );

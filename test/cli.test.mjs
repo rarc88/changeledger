@@ -983,6 +983,13 @@ test('194220 CR11: the summary names what it did not validate when it also repor
 test('124656 CR3: `status <id> in-review` exits non-zero and names every readiness defect', async () => {
   const root = tmp();
   init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
+  );
   const file = newChange(
     { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
     root,

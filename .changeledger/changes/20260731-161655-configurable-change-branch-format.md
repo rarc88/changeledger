@@ -27,7 +27,8 @@ función que renderice el nombre esperado ni una validación del branch actual e
 `approved → in-progress`. La rama histórica `codex/global-state-branch`
 implementó `{type}/{id}`, validación de placeholders y `git check-ref-format`,
 pero mezcló el campo con una migración de schema que también activaba el almacén
-global. Esa parte no debe recuperarse.
+global. La migración del formato sí debe recuperarse de forma aislada; el almacén
+global no forma parte de este change.
 
 `20260711-210115` y `20260711-225637` son la base terminada de configuración,
 migración y edición de `integration_branch`; `20260711-103757` define el lint y
@@ -36,11 +37,12 @@ prerrequisitos pendientes.
 
 ## Proposal
 
-Añadir la clave opcional `git.change_branch_format`. Su ausencia mantiene el
-comportamiento actual y no impone nombres retroactivamente. Cuando se declara,
-solo admite `{type}` y `{id}`, exige `{id}` exactamente una vez y permite texto
-literal, por ejemplo `changes/{type}/{id}`. No admite `owner`, `title` ni otros
-campos mutables que obligarían a renombrar una rama.
+Añadir la clave `git.change_branch_format`. Los repos nuevos y los repos legacy
+que ejecuten `changeledger config migrate` reciben el formato `{type}/{id}`; una ausencia o `null`
+explícitos siguen desactivando la convención en runtime. Cuando se declara, solo
+admite `{type}` y `{id}`, exige `{id}` exactamente una vez y permite texto literal,
+por ejemplo `changes/{type}/{id}`. No admite `owner`, `title` ni otros campos
+mutables que obligarían a renombrar una rama.
 
 El nombre renderizado debe pasar la validación nativa de refs de Git. El contexto
 de un change publica `change_branch=<nombre>` y el contrato ordena usarlo. La
@@ -49,9 +51,10 @@ nombre y descienda de `git.integration_branch` cuando ambas claves estén
 declaradas. No se crea ni cambia de rama automáticamente: esa mutación permanece
 explícita y bajo control del operador.
 
-Se descarta añadir un valor por defecto obligatorio. El repositorio ya contiene
-convenciones y ramas activas anteriores a esta capacidad; activarla sin una clave
-explícita convertiría una mejora opt-in en una ruptura del workflow existente.
+La migración incrementa el schema y añade únicamente este formato dentro de
+`git`, preservando el resto de la configuración y sin crear campos del almacén
+global. La actualización es explícita mediante `changeledger config migrate`, por lo que
+el operador puede coordinar el cambio de convención antes de iniciar otro change.
 
 ## Specification
 
@@ -61,11 +64,17 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - **Then** devuelve exactamente `changes/feature/20260731-161655`
 - **And** repetir el cálculo con la misma config y change devuelve el mismo resultado
 
-### CR2 — Ausencia conserva el comportamiento actual
-- **Given** una config sin `git.change_branch_format` o con el valor YAML `null`
+### CR2 — Repos nuevos y legacy reciben la convención
+- **Given** un repositorio nuevo o una config legacy en cualquier schema soportado
+- **When** se ejecuta `init` o `changeledger config migrate`
+- **Then** la config vigente declara `git.change_branch_format: "{type}/{id}"`
+- **And** la migración incrementa el schema, preserva las demás claves Git y no añade configuración de estado global
+
+### CR7 — Ausencia explícita conserva el opt-out de runtime
+- **Given** una config vigente sin `git.change_branch_format` o con el valor YAML `null`
 - **When** se resuelve la convención de rama
 - **Then** no se exige ni publica un nombre de rama de change
-- **And** las transiciones actuales no incorporan una validación nueva
+- **And** la config no se modifica implícitamente fuera de `init` o `changeledger config migrate`
 
 ### CR3 — Formatos ambiguos o inválidos fallan cerrados
 - **Given** cada formato `{type}`, `{id}/{id}`, `{owner}/{id}`, `{type/{id}` o `bad..{id}`
@@ -96,7 +105,7 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - [x] Escribir primero la matriz del formato y añadir resolución/renderizado con validación de Git
   - **Target:** `src/config.mjs`, `src/git.mjs`, `test/config.test.mjs`, `test/git.test.mjs`
   - **Verify:** `node --test test/config.test.mjs test/git.test.mjs`
-  - **Criteria:** CR1, CR2, CR3
+  - **Criteria:** CR1, CR3, CR7
   - **Resolved:** `2026-07-31T17:43:25Z`
 - [x] Validar la clave opcional desde `check` y publicar el nombre renderizado en el contexto del change
   - **Target:** `src/check.mjs`, `src/commands/context.mjs`, `test/check.test.mjs`, `test/context.test.mjs`
@@ -111,12 +120,21 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - [x] Extender la plantilla, el contrato y el editor del viewer preservando YAML ajeno
   - **Target:** `templates/config.yml`, `templates/contract/implement.md`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `test/view.test.mjs`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
-  - **Criteria:** CR2, CR6
+  - **Criteria:** CR6
   - **Resolved:** `2026-07-31T17:47:43Z`
+- [x] Escribir primero regresiones de migración y añadir el schema que publica `{type}/{id}` sin estado global
+  - **Target:** `src/config-migration.mjs`, `templates/config.yml`, `.changeledger/config.yml`, `test/config-migration.test.mjs`
+  - **Verify:** `node --test test/config-migration.test.mjs`
+  - **Criteria:** CR2, CR7
+  - **Resolved:** `2026-07-31T20:35:22Z`
 - [x] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
   - **Resolved:** `2026-07-31T17:49:04Z`
+- [x] Repetir el gate completo sobre la corrección solicitada en validación
+  - **Support:**
+  - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-31T20:45:40Z`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
@@ -131,3 +149,12 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - **2026-07-31T18:04:34Z** `[note]` Mandato de revisión de confirmación: spot check de la sustitución opaca señalada, sus dos regresiones y cualquier regresión introducida por esa corrección.
 - **2026-07-31T18:04:44Z** `[status]` in-progress → in-review
 - **2026-07-31T18:07:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T20:27:24Z** `[validation]` in-validation → in-progress (human rejected via conversation): Los repos legacy deben poder actualizar su config mediante migrate para recibir git.change_branch_format: '{type}/{id}'; sin esa migración el cambio está incompleto.
+- **2026-07-31T20:35:22Z** `[note]` CR2/CR7 red→green: init seguía en schema 4, schema 4 no migraba y schema 1 terminaba sin formato; la migración aislada v4→v5 publica {type}/{id}, preserva claves Git y no añade estado global. Suite de migración 38/38; mutante que conservaba null falló y fue restaurado.
+- **2026-07-31T20:45:40Z** `[note]` Gate completo de la corrección: Biome limpio, 1073/1073 tests y changeledger check válido; la config dogfood migró 4→5 y ya declara {type}/{id}.
+- **2026-07-31T20:45:41Z** `[status]` in-progress → in-review
+- **2026-07-31T20:45:48Z** `[note]` Mandato de revisión de la corrección: auditar CR2/CR7, migración v4→v5 y cadena legacy, default {type}/{id} en init/template, preservación de Git/YAML, ausencia de estado global y aislamiento semántico de fixtures afectados.
+- **2026-07-31T20:52:11Z** `[review]` in-review → in-progress (retry): El contrato nombra changeledger migrate en vez de changeledger config migrate y tres tests de opt-out conservan la etiqueta CR2 en vez de CR7.
+- **2026-07-31T20:52:49Z** `[status]` in-progress → in-review
+- **2026-07-31T20:52:56Z** `[note]` Mandato de revisión de confirmación: comprobar únicamente el comando ejecutable en Proposal/CR2/CR7, las etiquetas CR7 de los tres tests de opt-out y regresiones introducidas por esas correcciones de trazabilidad.
+- **2026-07-31T20:55:08Z** `[review]` in-review → in-validation (delegated subagent, clean context)

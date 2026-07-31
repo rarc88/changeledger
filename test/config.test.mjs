@@ -51,7 +51,7 @@ test('161655 CR1: replacement-pattern type text is inserted opaquely', () => {
   );
 });
 
-test('161655 CR2: absent and null branch formats preserve opt-out behavior', () => {
+test('161655 CR7: absent and null branch formats preserve opt-out behavior', () => {
   const change = { type: 'feature', id: '20260731-161655' };
   for (const config of [{}, { git: {} }, { git: { change_branch_format: null } }]) {
     assert.equal(changeBranchFormat(config), undefined);
