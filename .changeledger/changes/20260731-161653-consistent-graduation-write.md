@@ -2,7 +2,7 @@
 id: "20260731-161653"
 title: Evitar graduaciones parcialmente registradas
 type: bug
-status: draft
+status: approved
 created: 2026-07-31T16:16:53Z
 depends_on: []
 related_to: ["20260613-205854", "20260718-111457"]
@@ -90,3 +90,4 @@ bug no cambia el modelo de graduación ni su formato.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
