@@ -2,7 +2,7 @@
 id: "20260731-161654"
 title: Validar completamente la configuración Git
 type: bug
-status: draft
+status: approved
 created: 2026-07-31T16:16:54Z
 depends_on: []
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
@@ -74,3 +74,4 @@ viewer. Los tres están terminados y aportan contexto.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
