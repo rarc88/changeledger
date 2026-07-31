@@ -2,7 +2,7 @@
 id: "20260731-161654"
 title: Validar completamente la configuración Git
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-31T16:16:54Z
 depends_on: []
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
@@ -61,17 +61,21 @@ viewer. Los tres están terminados y aportan contexto.
 
 ## Plan
 
-- [ ] Escribir primero la matriz de formas Git válidas e inválidas en el validador puro
+- [x] Escribir primero la matriz de formas Git válidas e inválidas en el validador puro
   - **Target:** `src/check.mjs`, `test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Compartir o contrastar las reglas con `integrationBranch` para impedir deriva diagnóstica
+  - **Resolved:** `2026-07-31T17:25:51Z`
+- [x] Compartir o contrastar las reglas con `integrationBranch` para impedir deriva diagnóstica
   - **Target:** `src/config.mjs`, `src/check.mjs`, `test/config.test.mjs`, `test/check.test.mjs`
   - **Verify:** `node --test test/config.test.mjs test/check.test.mjs`
   - **Criteria:** CR2, CR3
+  - **Resolved:** `2026-07-31T17:25:52Z`
 - [ ] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
+- **2026-07-31T17:21:17Z** `[status]` approved → in-progress
+- **2026-07-31T17:25:52Z** `[note]` CR1–CR4 red→green: check devolvía [] para git escalar, lista, booleano e integration_branch numérico; 3 regresiones fallaron antes del fix y luego config+check pasaron 154/154. Mutantes del guard mapping, llamada compartida y aceptación de null fallaron por la razón esperada y fueron restaurados por edición.

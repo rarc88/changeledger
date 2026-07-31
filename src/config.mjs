@@ -74,12 +74,19 @@ function isInside(root, target) {
 // (`defaultBaseBranch`); a present but malformed value fails fast instead of
 // silently falling back.
 export function integrationBranch(config) {
-  const value = config?.git?.integration_branch;
+  const git = config?.git;
+  if (git === undefined || git === null) return undefined;
+  if (!isMapping(git)) throw new Error('config "git" must be a mapping');
+  const value = git.integration_branch;
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error('config "git.integration_branch" must be a non-empty string');
   }
   return value.trim();
+}
+
+function isMapping(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 // Single source of the specs directory: the configured `specs_dir` or the
