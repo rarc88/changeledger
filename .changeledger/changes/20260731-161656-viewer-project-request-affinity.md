@@ -102,3 +102,4 @@ no hay dependencia de ejecución.
 - **2026-07-31T18:33:10Z** `[note]` CR1/CR2/CR4/CR5 cliente red→green: refs tardías sobrescribieron o limpiaron otro detalle; config tardía reemplazó el target; status y repo omitieron repository_path. Targets capturados, generaciones y receipts con procedencia pasaron 110/110. Mutantes de guardas de refs, latest-wins, procedencia y ruta de status fallaron por la razón esperada y se restauraron por edición.
 - **2026-07-31T18:34:39Z** `[note]` Gate integrado del candidato: Biome limpio, 1066/1066 tests y changeledger check válido.
 - **2026-07-31T18:34:50Z** `[status]` in-progress → in-review
+- **2026-07-31T18:35:52Z** `[note]` Mandato de revisión: auditoría completa del rango baseline..HEAD y de toda la superficie gobernada por CR1–CR5.
