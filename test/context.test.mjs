@@ -648,6 +648,43 @@ test('210115 CR2: effective policy omits integration_branch when undeclared', ()
   assert.equal(policyLine, 'Effective policy: language=en — tdd=on');
 });
 
+test('161655 CR4: change context publishes its expected branch and integration branch', () => {
+  const root = repo();
+  setConfig(root, [
+    [/^ {2}integration_branch:$/m, '  integration_branch: dev'],
+    [/^ {2}change_branch_format:$/m, '  change_branch_format: work/{id}'],
+  ]);
+  const id = writeRawChange(root, {
+    id: '20260731-161655',
+    status: 'in-progress',
+    type: 'feature',
+  });
+
+  const output = buildContext(id, root);
+  const policyLine = output.split('\n').find((line) => line.startsWith('Effective policy:'));
+  assert.match(policyLine, /integration_branch=dev/);
+  assert.match(policyLine, /change_branch=work\/20260731-161655/);
+});
+
+test('161655 CR2: change context omits change_branch when the format is absent or null', () => {
+  for (const configured of [false, true]) {
+    const root = repo();
+    if (configured) {
+      setConfig(root, [[/^ {2}change_branch_format:$/m, '  change_branch_format: null']]);
+    }
+    const id = writeRawChange(root, {
+      id: configured ? '20260731-161656' : '20260731-161657',
+      status: 'in-progress',
+      type: 'feature',
+    });
+
+    const policyLine = buildContext(id, root)
+      .split('\n')
+      .find((line) => line.startsWith('Effective policy:'));
+    assert.doesNotMatch(policyLine, /change_branch=/);
+  }
+});
+
 test('225213 CR2: change-id context shows type-specific effective policy', () => {
   const root = repo();
   setConfig(root, [[/^language: en$/m, 'language: es']]);

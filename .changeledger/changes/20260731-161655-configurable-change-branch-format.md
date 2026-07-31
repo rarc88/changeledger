@@ -2,7 +2,7 @@
 id: "20260731-161655"
 title: Configurar el formato de las ramas de change
 type: feature
-status: approved
+status: in-progress
 created: 2026-07-31T16:16:55Z
 depends_on: []
 related_to: ["20260711-103757", "20260711-210115", "20260711-225637"]
@@ -93,18 +93,21 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 
 ## Plan
 
-- [ ] Escribir primero la matriz del formato y añadir resolución/renderizado con validación de Git
+- [x] Escribir primero la matriz del formato y añadir resolución/renderizado con validación de Git
   - **Target:** `src/config.mjs`, `src/git.mjs`, `test/config.test.mjs`, `test/git.test.mjs`
   - **Verify:** `node --test test/config.test.mjs test/git.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Validar la clave opcional desde `check` y publicar el nombre renderizado en el contexto del change
+  - **Resolved:** `2026-07-31T17:43:25Z`
+- [x] Validar la clave opcional desde `check` y publicar el nombre renderizado en el contexto del change
   - **Target:** `src/check.mjs`, `src/commands/context.mjs`, `test/check.test.mjs`, `test/context.test.mjs`
   - **Verify:** `node --test test/check.test.mjs test/context.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Escribir primero regresiones de rama/nombre/baseline y verificar el inicio de implementación antes de mutar lifecycle
+  - **Resolved:** `2026-07-31T17:43:26Z`
+- [x] Escribir primero regresiones de rama/nombre/baseline y verificar el inicio de implementación antes de mutar lifecycle
   - **Target:** `src/commands/agent.mjs`, `src/git.mjs`, `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-07-31T17:43:26Z`
 - [ ] Extender la plantilla, el contrato y el editor del viewer preservando YAML ajeno
   - **Target:** `templates/config.yml`, `templates/contract/implement.md`, `src/viewer/domain.mjs`, `src/viewer/public/app.js`, `test/view.test.mjs`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
@@ -115,3 +118,5 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
+- **2026-07-31T17:32:02Z** `[status]` approved → in-progress
+- **2026-07-31T17:43:26Z** `[note]` CR1–CR5 red→green: exports y validaciones ausentes fallaron primero; núcleo final pasó 367/367. Mutantes de id duplicado, nombre exacto, ancestry, publicación en contexto y opt-out fallaron por la razón esperada y fueron restaurados por edición.

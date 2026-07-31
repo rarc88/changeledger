@@ -6,10 +6,13 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  currentBranch,
   defaultGhRun,
   githubLogin,
   gitPrefix,
   gitRefs,
+  isAncestor,
+  isValidBranchName,
   mutatingRun,
   ownerHandle,
 } from '../src/git.mjs';
@@ -17,6 +20,49 @@ import {
 const SEP = String.fromCharCode(31);
 const RECORD_SEP = String.fromCharCode(30);
 const ID = '20260613-222918';
+
+test('161655 CR3: branch names are validated by git check-ref-format', () => {
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push({ args, cwd });
+    if (args.at(-1).includes('..')) throw new Error('invalid ref');
+    return '';
+  };
+
+  assert.equal(isValidBranchName('changes/feature/id', run, '/repo'), true);
+  assert.equal(isValidBranchName('bad..id', run, '/repo'), false);
+  assert.deepEqual(calls, [
+    { args: ['check-ref-format', '--branch', 'changes/feature/id'], cwd: '/repo' },
+    { args: ['check-ref-format', '--branch', 'bad..id'], cwd: '/repo' },
+  ]);
+});
+
+test('161655 CR3: the native git validator rejects an invalid rendered ref', () => {
+  assert.equal(isValidBranchName('bad..20260731-161655'), false);
+});
+
+test('161655 CR5: current branch and ancestry use explicit native git queries', () => {
+  const calls = [];
+  const run = (args, cwd) => {
+    calls.push({ args, cwd });
+    if (args[0] === 'branch') return 'work/20260731-161655\n';
+    return '';
+  };
+
+  assert.equal(currentBranch('/repo', run), 'work/20260731-161655');
+  assert.equal(isAncestor('/repo', 'dev', 'HEAD', run), true);
+  assert.deepEqual(calls, [
+    { args: ['branch', '--show-current'], cwd: '/repo' },
+    { args: ['merge-base', '--is-ancestor', 'dev', 'HEAD'], cwd: '/repo' },
+  ]);
+});
+
+test('161655 CR5: failed merge-base means the branch does not descend from baseline', () => {
+  const run = () => {
+    throw new Error('not an ancestor');
+  };
+  assert.equal(isAncestor('/repo', 'dev', 'HEAD', run), false);
+});
 
 test('220545 CR2: gitPrefix removes only Git record terminator', () => {
   const calls = [];

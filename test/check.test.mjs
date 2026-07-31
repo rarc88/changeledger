@@ -8,6 +8,7 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 
@@ -20,6 +21,37 @@ const config = {
     bug: { stages: ['request', 'plan'] },
   },
 };
+
+test('161655 CR3: check reports branch format defects without throwing', () => {
+  const subject = change();
+  const fields = subject.frontmatter;
+  const formats = ['{type}', '{id}/{id}', '{owner}/{id}', '{type/{id}', 'bad..{id}'];
+
+  for (const format of formats) {
+    let expected;
+    assert.throws(
+      () => renderChangeBranch({ git: { change_branch_format: format } }, fields),
+      (e) => {
+        expected = e.message;
+        return true;
+      },
+    );
+
+    let result;
+    assert.doesNotThrow(() => {
+      result = checkRepo({
+        config: { ...config, git: { change_branch_format: format } },
+        changes: [subject],
+      });
+    });
+    assert.ok(
+      msgs(result.errors).some(
+        (message) => message === expected || message.includes('renders an invalid Git branch'),
+      ),
+      `${format}: ${msgs(result.errors).join('\n')}`,
+    );
+  }
+});
 
 // Build a valid feature change; override pieces per test.
 function change(over = {}) {
@@ -2784,6 +2816,22 @@ function runCheck(root, args = []) {
   const code = check(args, root, out);
   return { code, out, text: [...out.diagnostics, ...out.calls].join('\n') };
 }
+
+test('161655 CR3: changeledger check reports an invalid rendered branch without throwing', () => {
+  const root = frozenFixture(
+    {},
+    {},
+    {},
+    `${FROZEN_FIXTURE_CONFIG}git:\n  change_branch_format: bad..{id}\n`,
+  );
+
+  let result;
+  assert.doesNotThrow(() => {
+    result = runCheck(root);
+  });
+  assert.equal(result.code, 1);
+  assert.match(result.text, /renders an invalid Git branch: bad\.\.id/);
+});
 
 test('194220 CR1: a done and archived change gets no diagnostics of its own', () => {
   const root = frozenFixture({

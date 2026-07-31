@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -56,6 +56,96 @@ function repoWithChange() {
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
 }
+
+function configureChangeBranches(root, { integration = 'dev', format = 'work/{id}' } = {}) {
+  const file = path.join(root, '.changeledger', 'config.yml');
+  const configured = fs
+    .readFileSync(file, 'utf8')
+    .replace(/^ {2}integration_branch:$/m, `  integration_branch: ${integration}`)
+    .replace(/^ {2}change_branch_format:$/m, `  change_branch_format: ${format}`);
+  fs.writeFileSync(file, configured);
+}
+
+function git(root, args) {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function gitBackedApprovedChange({ branch, unrelated = false }) {
+  const fixture = repoWithChange();
+  configureChangeBranches(fixture.root);
+  git(fixture.root, ['init', '-q', '-b', 'dev']);
+  git(fixture.root, ['config', 'user.email', 'test@example.com']);
+  git(fixture.root, ['config', 'user.name', 'Test']);
+  git(fixture.root, ['config', 'commit.gpgsign', 'false']);
+  git(fixture.root, ['add', '.']);
+  git(fixture.root, ['commit', '-q', '-m', 'chore: baseline']);
+  status(fixture.id, 'approved', fixture.root);
+
+  if (unrelated) {
+    git(fixture.root, ['checkout', '-q', '--orphan', branch]);
+    git(fixture.root, ['add', '.']);
+    git(fixture.root, ['commit', '-q', '-m', 'chore: unrelated history']);
+  } else {
+    git(fixture.root, ['checkout', '-q', '-b', branch]);
+  }
+  return fixture;
+}
+
+test('161655 CR5: approved work starts only on the exact configured branch', () => {
+  const fixture = gitBackedApprovedChange({ branch: 'wrong/branch' });
+  const before = fs.readFileSync(fixture.file, 'utf8');
+
+  assert.throws(
+    () => status(fixture.id, 'in-progress', fixture.root, { ownerHandle: () => '' }),
+    new RegExp(`must start on branch "work/${fixture.id}" \\(current: wrong/branch\\)`),
+  );
+  assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
+});
+
+test('161655 CR5: the expected branch must descend from the integration branch', () => {
+  const fixture = gitBackedApprovedChange({
+    branch: 'work/20260613-120000',
+    unrelated: true,
+  });
+  const before = fs.readFileSync(fixture.file, 'utf8');
+
+  assert.throws(
+    () => status(fixture.id, 'in-progress', fixture.root, { ownerHandle: () => '' }),
+    /branch "work\/20260613-120000" must descend from integration branch "dev"/,
+  );
+  assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
+});
+
+test('161655 CR5: exact branch descending from integration starts implementation', () => {
+  const fixture = gitBackedApprovedChange({ branch: 'work/20260613-120000' });
+
+  status(fixture.id, 'in-progress', fixture.root, { ownerHandle: () => '' });
+
+  assert.equal(
+    parseChange(fs.readFileSync(fixture.file, 'utf8')).frontmatter.status,
+    'in-progress',
+  );
+});
+
+test('161655 CR2: integration branch alone keeps lifecycle branch checks disabled', () => {
+  const fixture = repoWithChange();
+  const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}integration_branch:$/m, '  integration_branch: dev'),
+  );
+  status(fixture.id, 'approved', fixture.root);
+
+  assert.doesNotThrow(() =>
+    status(fixture.id, 'in-progress', fixture.root, { ownerHandle: () => '' }),
+  );
+});
 
 test('status moves the lifecycle and logs the transition', () => {
   const { root, file, id } = repoWithChange();
