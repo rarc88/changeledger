@@ -46,7 +46,7 @@ export function writeFileAtomic(file, data, options = {}) {
 }
 
 export function mutateFileAtomic(file, mutate, options = {}) {
-  const { encoding = 'utf8', fsImpl = fs } = options;
+  const { encoding = 'utf8', fsImpl = fs, onCommit } = options;
   return withFileLock(
     file,
     () => {
@@ -54,6 +54,7 @@ export function mutateFileAtomic(file, mutate, options = {}) {
       const after = mutate(before);
       if (after === undefined) return undefined;
       writeFileAtomic(file, after, { encoding, fsImpl });
+      onCommit?.();
       return after;
     },
     options,

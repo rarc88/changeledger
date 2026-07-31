@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
+import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
@@ -75,38 +75,67 @@ ${seed}
 
 // Finalizes graduation into an EXISTING, manually refined spec. The command
 // refreshes `updated` and links it back, but never overwrites the body.
-export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
+export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl = fs } = {}) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
   const { config, file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
   requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
 
-  if (!fs.existsSync(specFile)) {
+  if (!fsImpl.existsSync(specFile)) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
   }
 
-  mutateFileAtomic(changeFile, (changeText) => {
-    requireGraduationReady(config, changeFile, changeText);
-    const specText = fs.readFileSync(specFile, 'utf8');
-    if (specText.includes(SPEC_SCAFFOLD_MARKER)) {
-      throw new Error(
-        `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
-      );
-    }
-    const timestamp = nowUtc();
-    const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specText, timestamp), id);
-    writeFileAtomic(specFile, updatedSpec);
+  withFileLock(
+    specFile,
+    () => {
+      let originalSpec;
+      let wroteSpec = false;
+      let changeCommitted = false;
 
-    let text = appendLogEvent(changeText, {
-      at: timestamp,
-      type: 'graduation',
-      outcome: 'spec',
-      spec: specName,
-    });
-    text = setReviewed(text, true);
-    return text;
-  });
+      try {
+        mutateFileAtomic(
+          changeFile,
+          (changeText) => {
+            requireGraduationReady(config, changeFile, changeText);
+            originalSpec = fsImpl.readFileSync(specFile, 'utf8');
+            if (originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+              throw new Error(
+                `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
+              );
+            }
+            const timestamp = nowUtc();
+            const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
+            writeFileAtomic(specFile, updatedSpec, { fsImpl });
+            wroteSpec = true;
+
+            let text = appendLogEvent(changeText, {
+              at: timestamp,
+              type: 'graduation',
+              outcome: 'spec',
+              spec: specName,
+            });
+            text = setReviewed(text, true);
+            return text;
+          },
+          { fsImpl, onCommit: () => (changeCommitted = true) },
+        );
+      } catch (error) {
+        if (!wroteSpec || changeCommitted) throw error;
+        try {
+          writeFileAtomic(specFile, originalSpec, { fsImpl });
+        } catch (rollbackError) {
+          throw new AggregateError(
+            [error, rollbackError],
+            `graduation failed and spec rollback failed: ${specFile}`,
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+    },
+    { fsImpl },
+  );
   return specFile;
 }
 

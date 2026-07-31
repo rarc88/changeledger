@@ -2,7 +2,7 @@
 id: "20260731-161653"
 title: Evitar graduaciones parcialmente registradas
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-31T16:16:53Z
 depends_on: []
 related_to: ["20260613-205854", "20260718-111457"]
@@ -73,21 +73,26 @@ bug no cambia el modelo de graduación ni su formato.
 
 ## Plan
 
-- [ ] Escribir primero fault-injection tests para fallos de spec, change, cleanup y rollback
+- [x] Escribir primero fault-injection tests para fallos de spec, change, cleanup y rollback
   - **Target:** `test/graduate.test.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-- [ ] Añadir una señal posterior al reemplazo atómico sin cambiar el comportamiento de los demás consumidores
+  - **Resolved:** `2026-07-31T17:12:18Z`
+- [x] Añadir una señal posterior al reemplazo atómico sin cambiar el comportamiento de los demás consumidores
   - **Target:** `src/atomic-write.mjs`, `test/atomic-write.test.mjs`
   - **Verify:** `node --test test/atomic-write.test.mjs`
   - **Criteria:** CR3
-- [ ] Mantener bloqueada la spec y compensarla únicamente cuando el change no se confirmó
+  - **Resolved:** `2026-07-31T17:12:18Z`
+- [x] Mantener bloqueada la spec y compensarla únicamente cuando el change no se confirmó
   - **Target:** `src/commands/graduate.mjs`, `test/graduate.test.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
+  - **Resolved:** `2026-07-31T17:12:18Z`
 - [ ] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
+- **2026-07-31T17:02:37Z** `[status]` approved → in-progress
+- **2026-07-31T17:12:18Z** `[note]` CR1–CR5 red→green: reproducción dejó change intacto y spec modificada; 6 fault-injection tests fallaron antes de la implementación y luego la selección pasó 36/36. Mutantes de rollback, onCommit, changeCommitted, lock de spec y orden de AggregateError fallaron por la razón esperada y fueron restaurados por edición.
