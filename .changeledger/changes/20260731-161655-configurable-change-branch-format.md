@@ -2,7 +2,7 @@
 id: "20260731-161655"
 title: Configurar el formato de las ramas de change
 type: feature
-status: in-progress
+status: in-review
 created: 2026-07-31T16:16:55Z
 depends_on: []
 related_to: ["20260711-103757", "20260711-210115", "20260711-225637"]
@@ -113,12 +113,15 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR6
   - **Resolved:** `2026-07-31T17:47:43Z`
-- [ ] Ejecutar el gate completo después del ciclo red-green-refactor
+- [x] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-31T17:49:04Z`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T17:32:02Z** `[status]` approved → in-progress
 - **2026-07-31T17:43:26Z** `[note]` CR1–CR5 red→green: exports y validaciones ausentes fallaron primero; núcleo final pasó 367/367. Mutantes de id duplicado, nombre exacto, ancestry, publicación en contexto y opt-out fallaron por la razón esperada y fueron restaurados por edición.
 - **2026-07-31T17:47:48Z** `[note]` CR6 red→green: la plantilla y el formulario no exponían el formato; la suite del viewer pasó 188/188. Los mutantes que retiraban la persistencia en dominio o la recolección del control en UI fallaron por la razón esperada y se restauraron por edición. La aserción de init se actualizó para comprobar también la nueva clave opt-in y pasó 35/35.
+- **2026-07-31T17:49:07Z** `[note]` Gate completo del candidato: Biome limpio, 1068/1068 tests y changeledger check válido.
+- **2026-07-31T17:49:24Z** `[status]` in-progress → in-review
