@@ -75,12 +75,12 @@ test('161652 CR3: release writes reject a future schema before creating history'
     const configFile = path.join(root, '.changeledger', 'config.yml');
     fs.writeFileSync(
       configFile,
-      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+      fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
     );
     const releasesDir = path.join(root, '.changeledger', 'releases');
     assert.throws(
       () => record(root),
-      /^Error: config schema 5 is newer than supported schema 4; update ChangeLedger before writing$/,
+      /^Error: config schema 6 is newer than supported schema 5; update ChangeLedger before writing$/,
       name,
     );
     assert.equal(fs.existsSync(releasesDir), false, name);

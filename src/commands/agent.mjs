@@ -7,8 +7,14 @@ import path from 'node:path';
 import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
+import { integrationBranch, renderChangeBranch } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
-import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
+import {
+  currentBranch,
+  defaultRun as defaultGitRun,
+  ownerHandle as defaultOwnerHandle,
+  isAncestor,
+} from '../git.mjs';
 import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
@@ -21,13 +27,35 @@ function locate(cwd, id) {
   return { config, file, repoRoot };
 }
 
+function assertImplementationBranch(config, change, repoRoot, gitRun) {
+  const expected = renderChangeBranch(config, change);
+  if (expected === undefined) return;
+
+  const current = currentBranch(repoRoot, gitRun);
+  if (current !== expected) {
+    throw new Error(
+      `change #${change.id} must start on branch "${expected}" (current: ${current})`,
+    );
+  }
+
+  const baseline = integrationBranch(config);
+  if (baseline && !isAncestor(repoRoot, baseline, 'HEAD', gitRun)) {
+    throw new Error(`branch "${expected}" must descend from integration branch "${baseline}"`);
+  }
+}
+
 export function status(
   id,
   newStatus,
   cwd = process.cwd(),
-  { ownerHandle = defaultOwnerHandle, actor = 'human', channel = 'viewer' } = {},
+  {
+    ownerHandle = defaultOwnerHandle,
+    gitRun = defaultGitRun,
+    actor = 'human',
+    channel = 'viewer',
+  } = {},
 ) {
-  const { config, file } = locate(cwd, id);
+  const { config, file, repoRoot } = locate(cwd, id);
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
@@ -56,6 +84,9 @@ export function status(
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
+    if (fm.status === 'approved' && newStatus === 'in-progress') {
+      assertImplementationBranch(config, fm, repoRoot, gitRun);
+    }
     // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
     // Validate the document as it still stands, before the status flip: readiness
     // defects are errors only while the change is pre-review, so checking the

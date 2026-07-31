@@ -5,7 +5,7 @@ import { writeFileAtomic } from './atomic-write.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
 import { templatesDir } from './paths.mjs';
 
-export const SUPPORTED_SCHEMA_VERSION = 4;
+export const SUPPORTED_SCHEMA_VERSION = 5;
 
 const CANONICAL_STATUSES = [
   'draft',
@@ -84,6 +84,7 @@ export function buildMigration(originalText) {
   if (current < 2) migrateToV2(doc, config, changes);
   if (current < 3) migrateToV3(doc, config, changes);
   if (current < 4) migrateToV4(doc, changes);
+  if (current < 5) migrateToV5(doc, changes);
 
   relocateNullValueComments(doc);
 
@@ -241,6 +242,17 @@ function migrateToV4(doc, changes) {
   addReadinessSection(doc, changes);
   removeStaleReadinessComment(doc, changes);
   activateReviewableStages(doc, changes);
+}
+
+// 4 → 5: enable deterministic change branch names for repositories that have
+// not already chosen a format. An explicit migration upgrades the historical
+// blank value to the default; current schema 5 configs remain untouched by the
+// early return in buildMigration, so clearing the value still opts out.
+function migrateToV5(doc, changes) {
+  const current = doc.getIn(['git', 'change_branch_format']);
+  if (current !== undefined && current !== null) return;
+  doc.setIn(['git', 'change_branch_format'], '{type}/{id}');
+  changes.push('added git.change_branch_format: {type}/{id}');
 }
 
 // `readiness` shipped commented out, so every existing repo — however it is laid

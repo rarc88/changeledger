@@ -43,7 +43,7 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
   const configFile = path.join(root, '.changeledger', 'config.yml');
   fs.writeFileSync(
     configFile,
-    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 6'),
   );
   const changesDir = path.join(root, '.changeledger', 'changes');
   const before = fs.readdirSync(changesDir);
@@ -54,7 +54,7 @@ test('161652 CR3: new rejects a future schema before creating files or locks', (
         { type: 'feature', slug: 'future', title: 'Future', now: '2026-07-31T16:00:00Z' },
         root,
       ),
-    /^Error: config schema 5 is newer than supported schema 4; update ChangeLedger before writing$/,
+    /^Error: config schema 6 is newer than supported schema 5; update ChangeLedger before writing$/,
   );
   assert.deepEqual(fs.readdirSync(changesDir), before);
 });
@@ -1005,6 +1005,13 @@ test('194220 CR11: the summary names what it did not validate when it also repor
 test('124656 CR3: `status <id> in-review` exits non-zero and names every readiness defect', async () => {
   const root = tmp();
   init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace(/^ {2}change_branch_format:.*$/m, '  change_branch_format: null'),
+  );
   const file = newChange(
     { type: 'feature', slug: 'unready', title: 'Unready', now: '2026-06-13T12:00:00Z' },
     root,

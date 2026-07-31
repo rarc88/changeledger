@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isValidBranchName } from './git.mjs';
 import { parseYaml } from './yaml.mjs';
 
 // Walk up from `start` looking for a project `.changeledger/config.yml`. The
@@ -87,6 +88,41 @@ export function integrationBranch(config) {
 
 function isMapping(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Opt-in convention for implementation branches. Only immutable change fields
+// are accepted, and the id is the required one-to-one link back to the change.
+export function changeBranchFormat(config) {
+  const value = config?.git?.change_branch_format;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error('config "git.change_branch_format" must be a non-empty string');
+  }
+
+  const format = value.trim();
+  const placeholders = [...format.matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]);
+  const unknown = placeholders.find((name) => !['type', 'id'].includes(name));
+  if (unknown) {
+    throw new Error(`config "git.change_branch_format" has unknown placeholder "{${unknown}}"`);
+  }
+  if ((format.match(/\{id\}/g) ?? []).length !== 1) {
+    throw new Error('config "git.change_branch_format" must contain "{id}" exactly once');
+  }
+  if (/[{}]/.test(format.replaceAll('{type}', '').replaceAll('{id}', ''))) {
+    throw new Error('config "git.change_branch_format" contains malformed placeholders');
+  }
+  return format;
+}
+
+export function renderChangeBranch(config, { type, id }) {
+  const format = changeBranchFormat(config);
+  if (format === undefined) return undefined;
+  const values = { type: String(type), id: String(id) };
+  const branch = format.replace(/\{(type|id)\}/g, (_placeholder, name) => values[name]);
+  if (!isValidBranchName(branch)) {
+    throw new Error(`config "git.change_branch_format" renders an invalid Git branch: ${branch}`);
+  }
+  return branch;
 }
 
 // Single source of the specs directory: the configured `specs_dir` or the

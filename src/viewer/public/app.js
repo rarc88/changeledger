@@ -1440,6 +1440,10 @@ function formEditorTemplate(config) {
         <input name="integration_branch" .value=${cfg.git?.integration_branch ?? ''} placeholder="Auto-detect" />
       </label>
       <p class="config-note">Change branches start from and merge into this branch. Leave empty to auto-detect.</p>
+      <label>Change branch format
+        <input name="change_branch_format" .value=${cfg.git?.change_branch_format ?? ''} placeholder="work/{id}" />
+      </label>
+      <p class="config-note">Optional format for change branches. Use <code>{id}</code> exactly once; <code>{type}</code> is also available.</p>
     </fieldset>
 
     <fieldset class="config-group">
@@ -1691,7 +1695,14 @@ export function collectFormPatch(formEl, currentConfig) {
     const currentBranch = currentConfig.git?.integration_branch ?? '';
     const proposedBranch = els.integration_branch.value.trim();
     if (proposedBranch !== currentBranch) {
-      patch.git = { integration_branch: proposedBranch || null };
+      patch.git = { ...patch.git, integration_branch: proposedBranch || null };
+    }
+  }
+  if (els.change_branch_format) {
+    const currentFormat = currentConfig.git?.change_branch_format ?? '';
+    const proposedFormat = els.change_branch_format.value.trim();
+    if (proposedFormat !== currentFormat) {
+      patch.git = { ...patch.git, change_branch_format: proposedFormat || null };
     }
   }
 

@@ -748,4 +748,9 @@ function applyGitPatch(doc, gitPatch) {
   } else if (gitPatch.integration_branch === null) {
     doc.deleteIn(['git', 'integration_branch']);
   }
+  if (typeof gitPatch.change_branch_format === 'string' && gitPatch.change_branch_format.trim()) {
+    doc.setIn(['git', 'change_branch_format'], gitPatch.change_branch_format.trim());
+  } else if (gitPatch.change_branch_format === null) {
+    doc.deleteIn(['git', 'change_branch_format']);
+  }
 }
