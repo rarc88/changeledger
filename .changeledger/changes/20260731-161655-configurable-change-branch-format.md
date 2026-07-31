@@ -2,7 +2,7 @@
 id: "20260731-161655"
 title: Configurar el formato de las ramas de change
 type: feature
-status: in-review
+status: in-validation
 created: 2026-07-31T16:16:55Z
 depends_on: []
 related_to: ["20260711-103757", "20260711-210115", "20260711-225637"]
@@ -126,3 +126,8 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - **2026-07-31T17:49:07Z** `[note]` Gate completo del candidato: Biome limpio, 1068/1068 tests y changeledger check válido.
 - **2026-07-31T17:49:24Z** `[status]` in-progress → in-review
 - **2026-07-31T17:50:24Z** `[note]` Mandato de revisión: auditoría completa del rango baseline..HEAD y de toda la superficie gobernada por CR1–CR6.
+- **2026-07-31T18:00:06Z** `[review]` in-review → in-progress (retry): El renderer reinterpreta valores opacos de {type} al usar replaceAll secuencial: bug{id} y bug$& producen ramas distintas de la inserción literal; corregir con sustitución de una sola pasada y añadir ambas regresiones.
+- **2026-07-31T18:04:30Z** `[note]` Corrección del hallazgo: los casos bug{id} y bug$& fallaron con la sustitución secuencial y pasaron tras cambiar a una sustitución única con callback. Suite config/git 35/35; gate completo Biome limpio, 1070/1070 tests y check válido.
+- **2026-07-31T18:04:34Z** `[note]` Mandato de revisión de confirmación: spot check de la sustitución opaca señalada, sus dos regresiones y cualquier regresión introducida por esa corrección.
+- **2026-07-31T18:04:44Z** `[status]` in-progress → in-review
+- **2026-07-31T18:07:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)

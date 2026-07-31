@@ -33,6 +33,24 @@ test('161655 CR1: change branch rendering is deterministic from immutable fields
   assert.equal(renderChangeBranch(config, change), 'changes/feature/20260731-161655');
 });
 
+test('161655 CR1: placeholder-shaped type text is inserted opaquely', () => {
+  const config = { git: { change_branch_format: 'work/{type}/{id}' } };
+
+  assert.equal(
+    renderChangeBranch(config, { type: 'bug{id}', id: '20260731-161655' }),
+    'work/bug{id}/20260731-161655',
+  );
+});
+
+test('161655 CR1: replacement-pattern type text is inserted opaquely', () => {
+  const config = { git: { change_branch_format: 'work/{type}/{id}' } };
+
+  assert.equal(
+    renderChangeBranch(config, { type: 'bug$&', id: '20260731-161655' }),
+    'work/bug$&/20260731-161655',
+  );
+});
+
 test('161655 CR2: absent and null branch formats preserve opt-out behavior', () => {
   const change = { type: 'feature', id: '20260731-161655' };
   for (const config of [{}, { git: {} }, { git: { change_branch_format: null } }]) {

@@ -110,7 +110,8 @@ export function changeBranchFormat(config) {
 export function renderChangeBranch(config, { type, id }) {
   const format = changeBranchFormat(config);
   if (format === undefined) return undefined;
-  const branch = format.replaceAll('{type}', String(type)).replaceAll('{id}', String(id));
+  const values = { type: String(type), id: String(id) };
+  const branch = format.replace(/\{(type|id)\}/g, (_placeholder, name) => values[name]);
   if (!isValidBranchName(branch)) {
     throw new Error(`config "git.change_branch_format" renders an invalid Git branch: ${branch}`);
   }
