@@ -2,7 +2,7 @@
 id: "20260731-161652"
 title: Bloquear escrituras con schemas futuros
 type: bug
-status: draft
+status: approved
 created: 2026-07-31T16:16:52Z
 depends_on: []
 related_to: ["20260613-205853", "20260628-113219", "20260628-113924", "20260730-183807"]
@@ -96,3 +96,4 @@ Son contexto terminado, no dependencias de ejecución.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
