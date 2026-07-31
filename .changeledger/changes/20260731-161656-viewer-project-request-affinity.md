@@ -2,7 +2,7 @@
 id: "20260731-161656"
 title: Completar la afinidad de proyecto en el viewer
 type: bug
-status: draft
+status: approved
 created: 2026-07-31T16:16:56Z
 depends_on: []
 related_to: ["20260627-111218", "20260627-111219", "20260728-141643", "20260728-141859"]
@@ -92,3 +92,4 @@ no hay dependencia de ejecución.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-07-31T16:30:56Z** `[status]` draft → approved (human via conversation)
