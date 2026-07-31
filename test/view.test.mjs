@@ -1803,6 +1803,59 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
+test('161652 CR4/CR5: viewer preview reads and config writes share the future-schema guard', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const future = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/schema_version: \d+/, 'schema_version: 5');
+  fs.writeFileSync(configFile, future);
+  const read = readProjectConfig(projects, current);
+  let lockAttempts = 0;
+  const noLock = () => {
+    lockAttempts += 1;
+    throw new Error('lock must not be acquired');
+  };
+  const expected =
+    'config schema 5 is newer than supported schema 4; update ChangeLedger before writing';
+
+  const preview = previewConfigMigration(projects, current);
+  assert.equal(preview.code, 400);
+  assert.equal(preview.body.error, expected);
+
+  const saved = saveProjectConfig(
+    projects,
+    {
+      project: current,
+      content: future.replace('language: en', 'language: fr'),
+      revision: read.body.revision,
+    },
+    { mutateConfig: noLock },
+  );
+  assert.equal(saved.code, 400);
+  assert.equal(saved.body.error, expected);
+
+  const patched = patchProjectConfig(
+    projects,
+    { project: current, revision: read.body.revision, patch: { language: 'fr' } },
+    { mutateConfig: noLock },
+  );
+  assert.equal(patched.code, 400);
+  assert.equal(patched.body.error, expected);
+
+  const migrated = applyConfigMigration(
+    projects,
+    { project: current, revision: read.body.revision },
+    { mutateConfig: noLock },
+  );
+  assert.equal(migrated.code, 400);
+  assert.equal(migrated.body.error, expected);
+  assert.equal(lockAttempts, 0);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), future);
+});
+
 // 225212 CR4: view's grammar is explicit — '.', a port, both, or neither — and
 // anything else fails fast instead of being silently ignored.
 test('225212 CR4: view rejects an unknown argument instead of ignoring it', async () => {

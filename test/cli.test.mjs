@@ -37,6 +37,28 @@ function tmp() {
   return root;
 }
 
+test('161652 CR3: new rejects a future schema before creating files or locks', () => {
+  const root = tmp();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+  );
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const before = fs.readdirSync(changesDir);
+
+  assert.throws(
+    () =>
+      newChange(
+        { type: 'feature', slug: 'future', title: 'Future', now: '2026-07-31T16:00:00Z' },
+        root,
+      ),
+    /^Error: config schema 5 is newer than supported schema 4; update ChangeLedger before writing$/,
+  );
+  assert.deepEqual(fs.readdirSync(changesDir), before);
+});
+
 // The whole installed contract, at every depth. The sweeps below assert that a
 // retired rule appears NOWHERE in it, and the `agent-contexts/` and
 // `agent-prompts/` fragments are installed and shipped exactly like the top-level

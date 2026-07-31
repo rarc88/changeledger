@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
 import { slugify } from '../slug.mjs';
 import { serializeScalar } from '../yaml.mjs';
@@ -22,6 +23,7 @@ export function newChange(
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
 
   const config = loadConfig(changeledgerDir);
+  assertSupportedSchema(config);
   const typeDef = config.types?.[type];
   if (!typeDef) {
     throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
