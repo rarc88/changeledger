@@ -86,6 +86,25 @@ let viewerNavigation = null;
 let openedSpecName = null;
 let repoRequestRevision = 0;
 let latestRepoLoad = null;
+let gitRefsRequestRevision = 0;
+let openedChangeTarget = null;
+
+const captureProjectTarget = (project) =>
+  Object.freeze({
+    project,
+    repositoryPath: state.projectsList.find((candidate) => candidate.id === project)?.path ?? null,
+  });
+
+const sameProjectTarget = (left, right) =>
+  left?.project === right?.project && left?.repositoryPath === right?.repositoryPath;
+
+const hasProjectProvenance = (payload) =>
+  Object.hasOwn(payload ?? {}, 'project_id') || Object.hasOwn(payload ?? {}, 'repository_path');
+
+const matchesProjectProvenance = (payload, target) =>
+  !hasProjectProvenance(payload) ||
+  (String(payload.project_id) === String(target.project) &&
+    payload.repository_path === target.repositoryPath);
 
 export function configureViewerNavigation(navigation) {
   viewerNavigation = navigation;
@@ -144,6 +163,18 @@ async function loadProjects(initialRoute = { kind: 'absent' }) {
 export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
   const revision = ++repoRequestRevision;
   const project = state.currentProject;
+  const target = captureProjectTarget(project);
+  const stale = () =>
+    revision !== repoRequestRevision ||
+    !sameProjectTarget(target, captureProjectTarget(state.currentProject));
+  const supersedingLoad = () => {
+    const latest = latestRepoLoad;
+    return sameProjectTarget(target, captureProjectTarget(state.currentProject)) &&
+      sameProjectTarget(latest?.target, target) &&
+      latest.revision > revision
+      ? latest.promise
+      : false;
+  };
   const promise = (async () => {
     if (!project) {
       if (state.currentView === 'projects') {
@@ -154,33 +185,22 @@ export function load(requestRepo = getRepo, applyRepo = applyLoadedRepo) {
       return false;
     }
     try {
-      const text = await requestRepo(project);
-      if (revision !== repoRequestRevision || state.currentProject !== project) {
-        const latest = latestRepoLoad;
-        return state.currentProject === project &&
-          latest?.project === project &&
-          latest.revision > revision
-          ? latest.promise
-          : false;
-      }
+      const text = await requestRepo(target.project, target.repositoryPath);
+      if (stale()) return supersedingLoad();
+      const payload = JSON.parse(text);
+      if (!matchesProjectProvenance(payload, target)) return false;
       if (text === state.lastJson) return true;
       applyRepo(text);
       return true;
     } catch (e) {
-      if (revision !== repoRequestRevision || state.currentProject !== project) {
-        const latest = latestRepoLoad;
-        return state.currentProject === project &&
-          latest?.project === project &&
-          latest.revision > revision
-          ? latest.promise
-          : false;
-      }
+      if (stale()) return supersedingLoad();
+      if (!matchesProjectProvenance(e.payload, target)) return false;
       if (state.currentView === 'ledger') renderLedgerRouteError($('#ledger'), e.message);
       else litRender(html`<p style="color:var(--bug);padding:20px">${e.message}</p>`, $('#board'));
       return false;
     }
   })();
-  latestRepoLoad = { revision, project, promise };
+  latestRepoLoad = { revision, project, target, promise };
   return promise;
 }
 
@@ -501,24 +521,29 @@ export async function moveStatus(
     onError = showToast,
   } = {},
 ) {
+  const target = captureProjectTarget(project);
+  if (!sameProjectTarget(target, captureProjectTarget(state.currentProject))) return false;
   try {
-    const res = await request(project, id, status, reason);
+    const res = await request(project, id, status, reason, target.repositoryPath);
     const out = await res.json();
+    if (!matchesProjectProvenance(out, target)) return false;
     if (!res.ok) {
       onError(out.error || 'status change failed');
-      return;
+      return false;
     }
   } catch (e) {
     onError(e.message);
-    return;
+    return false;
   }
-  if (state.currentProject !== project) {
+  if (!sameProjectTarget(target, captureProjectTarget(state.currentProject))) {
+    if (state.currentProject === project) return false;
     onError('status changed but project changed before reload');
     return false;
   }
   invalidateCache();
   const reloaded = await reload(project);
-  if (state.currentProject !== project) {
+  if (!sameProjectTarget(target, captureProjectTarget(state.currentProject))) {
+    if (state.currentProject === project) return false;
     onError('status changed but project changed before reload');
     return false;
   }
@@ -550,18 +575,32 @@ export function resetValidationState(root) {
   showValidationError(root, '');
 }
 
-export async function runValidationSubmission({ root, request, onSuccess }) {
+export async function runValidationSubmission({
+  root,
+  request,
+  onSuccess,
+  stale = () => false,
+  acceptResponse = () => true,
+}) {
+  if (stale()) return false;
   setValidationPending(root, true);
   showValidationError(root, '');
   try {
     const res = await request();
+    if (stale()) return false;
     const out = await res.json();
+    if (stale()) return false;
     if (!res.ok) {
       showValidationError(root, out.error || 'Status change failed.');
       setValidationPending(root, false);
       return false;
     }
+    if (!acceptResponse(out)) {
+      resetValidationState(root);
+      return false;
+    }
   } catch (error) {
+    if (stale()) return false;
     showValidationError(root, error.message);
     setValidationPending(root, false);
     return false;
@@ -595,7 +634,13 @@ export function reopenPanel(status) {
   </section>`;
 }
 
-export function bindReopenAction({ root, request, onSuccess }) {
+export function bindReopenAction({
+  root,
+  request,
+  onSuccess,
+  stale = () => false,
+  acceptResponse = () => true,
+}) {
   const button = root.querySelector('[data-reopen]');
   if (!button) return;
   button.onclick = async () => {
@@ -610,6 +655,8 @@ export function bindReopenAction({ root, request, onSuccess }) {
       root,
       request: () => request(reason),
       onSuccess,
+      stale,
+      acceptResponse,
     });
   };
 }
@@ -638,11 +685,16 @@ export function bindDetailPresentation(root = document) {
   });
 }
 
-async function submitValidation(id, status, reason) {
+async function submitValidation(id, status, reason, target) {
   const root = $('#detail');
+  const stale = () =>
+    openedChangeTarget !== target ||
+    !sameProjectTarget(target, captureProjectTarget(state.currentProject));
   await runValidationSubmission({
     root,
-    request: () => postStatus(state.currentProject, id, status, reason),
+    request: () => postStatus(target.project, id, status, reason, target.repositoryPath),
+    stale,
+    acceptResponse: (body) => matchesProjectProvenance(body, target),
     onSuccess: async () => {
       closeDetail();
       invalidateCache();
@@ -676,6 +728,13 @@ function renderOpenedDetail(content) {
 function openDetail(id) {
   const c = state.repo.changes.find((x) => String(x.id) === String(id));
   if (!c) return;
+  const projectTarget = captureProjectTarget(state.currentProject);
+  const detailTarget = Object.freeze({
+    ...projectTarget,
+    changeId: String(c.id),
+    revision: ++gitRefsRequestRevision,
+  });
+  openedChangeTarget = detailTarget;
   const changes = state.repo.changes || [];
   const outgoing = (c.related_to || []).map((related) => ({ id: related, direction: 'outgoing' }));
   const incoming = changes
@@ -715,9 +774,9 @@ function openDetail(id) {
   applyDetailPresentation();
   bindDetailPresentation();
   $('#detail').querySelector('.close').onclick = closeDetail;
-  bindApproveAction($('#detail'), { id: c.id });
+  bindApproveAction($('#detail'), { id: c.id, project: detailTarget.project });
   const accept = $('#detail').querySelector('[data-validation="pass"]');
-  if (accept) accept.onclick = () => submitValidation(c.id, 'done');
+  if (accept) accept.onclick = () => submitValidation(c.id, 'done', undefined, detailTarget);
   const reject = $('#detail').querySelector('[data-validation="fail"]');
   if (reject) {
     reject.onclick = () => {
@@ -728,15 +787,21 @@ function openDetail(id) {
         input?.focus();
         return;
       }
-      submitValidation(c.id, 'in-progress', reason);
+      submitValidation(c.id, 'in-progress', reason, detailTarget);
     };
   }
   bindReopenAction({
     root: $('#detail'),
-    request: (reason) => postStatus(state.currentProject, c.id, 'in-progress', reason),
+    request: (reason) =>
+      postStatus(detailTarget.project, c.id, 'in-progress', reason, detailTarget.repositoryPath),
+    stale: () =>
+      openedChangeTarget !== detailTarget ||
+      !sameProjectTarget(detailTarget, captureProjectTarget(state.currentProject)),
+    acceptResponse: (body) => matchesProjectProvenance(body, detailTarget),
     onSuccess: async () => {
       invalidateCache();
       await load();
+      if (openedChangeTarget !== detailTarget) return;
       openDetail(c.id);
     },
   });
@@ -762,17 +827,23 @@ function openDetail(id) {
       };
     });
   renderExpandableMermaid($('#detail'));
-  loadGitRefs(c.id);
+  loadGitRefs(detailTarget);
 }
 
 // Fetch and render the git refs (commits/branches) that reference this change.
-async function loadGitRefs(id) {
+export async function loadGitRefs(target = openedChangeTarget) {
+  if (!target) return;
+  const stale = () =>
+    target.revision !== gitRefsRequestRevision ||
+    openedChangeTarget !== target ||
+    !sameProjectTarget(target, captureProjectTarget(state.currentProject));
   let refs;
   try {
-    refs = await getGitRefs(state.currentProject, id);
+    refs = await getGitRefs(target.project, target.changeId, target.repositoryPath);
   } catch {
     return;
   }
+  if (stale() || !matchesProjectProvenance(refs, target)) return;
   const sec = $('#git-section');
   if (!sec) return;
   if (!refs.commits.length && !refs.branches.length) {
@@ -801,6 +872,8 @@ async function loadGitRefs(id) {
 }
 
 function closeDetail() {
+  openedChangeTarget = null;
+  gitRefsRequestRevision += 1;
   $('#overlay')?.classList.add('hidden');
   document.documentElement?.classList.remove('detail-open');
 }
@@ -1058,6 +1131,8 @@ export async function restoreLedgerRouteSelection(
 }
 
 function openSpec(s, { historyMode = 'push' } = {}) {
+  openedChangeTarget = null;
+  gitRefsRequestRevision += 1;
   openedSpecName = s.name ?? null;
   if (historyMode) writeCurrentLedgerRoute(historyMode, openedSpecName);
   renderOpenedDetail(
@@ -1203,6 +1278,9 @@ let managedConfig = null;
 let configMode = 'form'; // 'form' | 'raw'
 let configDirty = false; // true when form/raw has unsaved edits
 let migrationPreview = null; // null | { summary, changes, yaml } | { already_current }
+let managedConfigRequestRevision = 0;
+let managedContextRevision = 0;
+let migrationPreviewRequestRevision = 0;
 
 // Confirm dialog — uses native <dialog> for proper focus-trap, ESC and backdrop.
 // _confirmImpl is replaceable in tests (JSDOM lacks showModal).
@@ -1573,7 +1651,8 @@ export function projectsViewTemplate(
   </div>`;
 }
 
-async function openManagedProject(id, { reload = false } = {}) {
+export async function openManagedProject(id, { reload = false } = {}) {
+  managedContextRevision += 1;
   managedProject = id;
   configDirty = false;
   const project = state.projectsList.find((item) => item.id === id);
@@ -1583,16 +1662,27 @@ async function openManagedProject(id, { reload = false } = {}) {
     renderProjects();
     return;
   }
-  if (!reload && managedConfig?.id === id && !managedConfig.error) {
+  if (
+    !reload &&
+    managedConfig?.id === id &&
+    managedConfig.repositoryPath === project.path &&
+    !managedConfig.error
+  ) {
     renderProjects();
     return;
   }
-  managedConfig = { id, loading: true };
+  const target = captureProjectTarget(id);
+  const revision = ++managedConfigRequestRevision;
+  const stale = () =>
+    revision !== managedConfigRequestRevision ||
+    !sameProjectTarget(target, captureProjectTarget(managedProject));
+  managedConfig = { id, repositoryPath: target.repositoryPath, loading: true };
   migrationPreview = null;
   renderProjects();
   try {
-    const structured = await getProjectConfigStructured(id);
-    managedConfig = { id, ...structured };
+    const structured = await getProjectConfigStructured(id, target.repositoryPath);
+    if (stale() || !matchesProjectProvenance(structured, target)) return;
+    managedConfig = { id, repositoryPath: target.repositoryPath, ...structured };
     // Default to form for current schema, raw for future schema
     if (structured.schemaVersion > structured.supported) {
       configMode = 'raw';
@@ -1600,7 +1690,14 @@ async function openManagedProject(id, { reload = false } = {}) {
       configMode = 'form';
     }
   } catch (error) {
-    managedConfig = { id, content: '', revision: '', error: error.message };
+    if (stale() || !matchesProjectProvenance(error.payload, target)) return;
+    managedConfig = {
+      id,
+      repositoryPath: target.repositoryPath,
+      content: '',
+      revision: '',
+      error: error.message,
+    };
   }
   renderProjects();
 }
@@ -1612,20 +1709,31 @@ export function setProjectFormPending(root, pending) {
   root.classList.toggle('is-pending', pending);
 }
 
-export async function projectMutation(root, request, onSuccess) {
+export async function projectMutation(
+  root,
+  request,
+  onSuccess,
+  { stale = () => false, target = null, errorTarget = target } = {},
+) {
   setProjectFormPending(root, true);
   const error = root.querySelector('.project-error');
   if (error) error.hidden = true;
   try {
     const response = await request();
+    if (stale()) return false;
     const body = await response.json();
+    const receiptTarget = response.ok ? target : errorTarget;
+    if (stale() || (receiptTarget && !matchesProjectProvenance(body, receiptTarget))) return false;
     if (!response.ok) throw new Error(body.error || 'Project update failed.');
     await onSuccess(body);
+    return true;
   } catch (failure) {
+    if (stale()) return false;
     if (error) {
       error.textContent = failure.message;
       error.hidden = false;
     } else showToast(failure.message);
+    return false;
   } finally {
     setProjectFormPending(root, false);
   }
@@ -1642,8 +1750,9 @@ export function requestUnregisterConfirmation(project, ask = null) {
   );
 }
 
-async function refreshProjectRegistry() {
+async function refreshProjectRegistry(stale = () => false) {
   const { projects, current, localOnly } = await getProjects();
+  if (stale()) return false;
   state.localOnly = localOnly;
   initializeProjects(projects, current);
   const select = $('#project');
@@ -1656,6 +1765,7 @@ async function refreshProjectRegistry() {
   );
   if (state.currentProject) select.value = state.currentProject;
   select.style.display = projects.length > 1 ? '' : 'none';
+  return true;
 }
 
 const listFromControl = (control) =>
@@ -1753,105 +1863,176 @@ export function collectFormPatch(formEl, currentConfig) {
 
 function renderProjects() {
   const root = $('#projects');
+  const liveTarget = captureProjectTarget(managedProject);
+  const configTarget = Object.freeze({
+    project: managedProject,
+    repositoryPath: managedConfig?.repositoryPath ?? liveTarget.repositoryPath,
+  });
+  const configSnapshot = managedConfig;
+  const captureConfigStale = () => {
+    const revision = managedContextRevision;
+    return () =>
+      revision !== managedContextRevision ||
+      !sameProjectTarget(configTarget, captureProjectTarget(managedProject));
+  };
   litRender(
     projectsViewTemplate(state.projectsList, managedProject, managedConfig, state.localOnly),
     root,
   );
   bindProjectViewActions(root, {
     select: async (id) => {
+      const stale = captureConfigStale();
       if (configDirty) {
         const ok = await showConfirm('You have unsaved changes. Switch project and discard them?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
-      openManagedProject(id);
+      return openManagedProject(id);
     },
     reload: async () => {
+      const stale = captureConfigStale();
       if (configDirty) {
         const ok = await showConfirm('Reload will discard your unsaved changes. Continue?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
-      openManagedProject(managedProject, { reload: true });
+      return openManagedProject(configTarget.project, { reload: true });
     },
     markDirty: () => {
+      managedContextRevision += 1;
       configDirty = true;
     },
     switchMode: async (mode) => {
+      const stale = captureConfigStale();
       if (configDirty && mode !== configMode) {
         const ok = await showConfirm('You have unsaved changes. Switch mode and discard them?');
-        if (!ok) return;
+        if (!ok || stale()) return;
       }
       configMode = mode;
+      managedContextRevision += 1;
       configDirty = false;
       renderProjects();
     },
-    saveRaw: (content, configForm) =>
-      projectMutation(
+    saveRaw: (content, configForm) => {
+      const stale = captureConfigStale();
+      return projectMutation(
         configForm,
-        () => postProjectConfig(managedProject, content, managedConfig.revision),
+        () =>
+          postProjectConfig(
+            configTarget.project,
+            content,
+            configSnapshot.revision,
+            configTarget.repositoryPath,
+          ),
         async (body) => {
+          if (stale()) return;
+          const nextConfig = { ...configSnapshot, content, revision: body.revision };
+          if (!(await refreshProjectRegistry(stale)) || stale()) return;
+          managedContextRevision += 1;
           configDirty = false;
-          managedConfig = { ...managedConfig, content, revision: body.revision };
-          await refreshProjectRegistry();
+          managedConfig = nextConfig;
           renderProjects();
         },
-      ),
-    saveForm: (formEl, configForm) =>
-      projectMutation(
+        { stale, target: configTarget },
+      );
+    },
+    saveForm: (formEl, configForm) => {
+      const stale = captureConfigStale();
+      return projectMutation(
         configForm,
         () => {
-          const patch = collectFormPatch(formEl, managedConfig.config ?? {});
-          return patchProjectConfigApi(managedProject, patch, managedConfig.revision);
+          const patch = collectFormPatch(formEl, configSnapshot.config ?? {});
+          return patchProjectConfigApi(
+            configTarget.project,
+            patch,
+            configSnapshot.revision,
+            configTarget.repositoryPath,
+          );
         },
         async (_body) => {
+          if (stale()) return;
           configDirty = false;
-          await openManagedProject(managedProject, { reload: true });
+          await openManagedProject(configTarget.project, { reload: true });
         },
-      ),
+        { stale, target: configTarget },
+      );
+    },
     previewMigration: async () => {
+      const staleContext = captureConfigStale();
+      const revision = ++migrationPreviewRequestRevision;
+      const stale = () => staleContext() || revision !== migrationPreviewRequestRevision;
       try {
-        const result = await getConfigMigrationPreview(managedProject, managedConfig.revision);
+        const result = await getConfigMigrationPreview(
+          configTarget.project,
+          configSnapshot.revision,
+          configTarget.repositoryPath,
+        );
+        if (stale() || !matchesProjectProvenance(result, configTarget)) return;
         migrationPreview = result;
       } catch (e) {
+        if (stale() || !matchesProjectProvenance(e.payload, configTarget)) return;
         migrationPreview = { error: e.message };
       }
       renderProjects();
     },
     applyMigration: async () => {
+      const stale = captureConfigStale();
       const ok = await showConfirm(
         'Apply the config migration? This will update .changeledger/config.yml.',
       );
-      if (!ok) return;
+      if (!ok || stale()) return;
       try {
-        await postConfigMigrationApply(managedProject, managedConfig.revision);
-        await openManagedProject(managedProject, { reload: true });
+        const body = await postConfigMigrationApply(
+          configTarget.project,
+          configSnapshot.revision,
+          configTarget.repositoryPath,
+        );
+        if (stale() || !matchesProjectProvenance(body, configTarget)) return;
+        await openManagedProject(configTarget.project, { reload: true });
       } catch (e) {
+        if (stale() || !matchesProjectProvenance(e.payload, configTarget)) return;
         migrationPreview = { error: e.message };
         renderProjects();
       }
     },
-    repair: (projectPath, pathForm) =>
-      projectMutation(
+    repair: (projectPath, pathForm) => {
+      const stale = captureConfigStale();
+      const repairedTarget = { project: configTarget.project, repositoryPath: projectPath };
+      const revision = managedContextRevision;
+      return projectMutation(
         pathForm,
-        () => postProjectPath(managedProject, projectPath),
+        () => postProjectPath(configTarget.project, projectPath, configTarget.repositoryPath),
         async () => {
-          await refreshProjectRegistry();
-          await openManagedProject(managedProject, { reload: true });
+          if (!(await refreshProjectRegistry(stale))) return;
+          if (
+            revision !== managedContextRevision ||
+            managedProject !== configTarget.project ||
+            !sameProjectTarget(repairedTarget, captureProjectTarget(managedProject))
+          )
+            return;
+          await openManagedProject(configTarget.project, { reload: true });
         },
-      ),
+        { stale, target: repairedTarget, errorTarget: configTarget },
+      );
+    },
     unregister: async (editor) => {
-      const project = state.projectsList.find((item) => item.id === managedProject);
+      const stale = captureConfigStale();
+      const revision = managedContextRevision;
+      const project = state.projectsList.find((item) => item.id === configTarget.project);
       const answer = await requestUnregisterConfirmation(project);
-      if (answer === null) return;
-      projectMutation(
+      if (answer === null || stale()) return;
+      return projectMutation(
         editor,
-        () => postProjectRemove(managedProject, answer),
+        () => postProjectRemove(configTarget.project, answer, configTarget.repositoryPath),
         async () => {
+          if (!(await refreshProjectRegistry(stale))) return;
+          if (revision !== managedContextRevision || managedProject !== configTarget.project)
+            return;
+          managedContextRevision += 1;
           managedProject = null;
           managedConfig = null;
-          await refreshProjectRegistry();
           if (state.currentProject) await load();
           renderProjects();
         },
+        { stale, target: configTarget },
       );
     },
   });

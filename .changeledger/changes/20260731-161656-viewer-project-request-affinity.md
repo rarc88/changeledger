@@ -75,14 +75,16 @@ no hay dependencia de ejecución.
 
 ## Plan
 
-- [ ] Escribir primero regresiones DOM de refs tardías y ligar cada petición al proyecto, change y generación capturados
+- [x] Escribir primero regresiones DOM de refs tardías y ligar cada petición al proyecto, change y generación capturados
   - **Target:** `src/viewer/public/app.js`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR1, CR5
-- [ ] Escribir primero regresiones de configuración administrada tardía y centralizar targets capturados en el cliente
+  - **Resolved:** `2026-07-31T18:33:01Z`
+- [x] Escribir primero regresiones de configuración administrada tardía y centralizar targets capturados en el cliente
   - **Target:** `src/viewer/public/app.js`, `src/viewer/public/api.js`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR4, CR5
+  - **Resolved:** `2026-07-31T18:33:05Z`
 - [x] Añadir compare-and-swap por ruta a update/remove del registry y propagar conflictos HTTP con procedencia
   - **Target:** `src/registry.mjs`, `src/viewer/domain.mjs`, `src/viewer/server/router.mjs`, `test/registry.test.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/registry.test.mjs test/view.test.mjs`
@@ -96,3 +98,4 @@ no hay dependencia de ejecución.
 - **2026-07-31T16:30:56Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T18:08:50Z** `[status]` approved → in-progress
 - **2026-07-31T18:19:09Z** `[note]` CR3/CR4 servidor red→green: update y remove obsoletos mutaron o borraron la entrada reubicada antes del arreglo; CAS por repository_path y procedencia HTTP pasaron 104/104. Mutantes de ambos guards, mismatch del router y atribución de dominio fallaron por la razón esperada y se restauraron por edición.
+- **2026-07-31T18:33:10Z** `[note]` CR1/CR2/CR4/CR5 cliente red→green: refs tardías sobrescribieron o limpiaron otro detalle; config tardía reemplazó el target; status y repo omitieron repository_path. Targets capturados, generaciones y receipts con procedencia pasaron 110/110. Mutantes de guardas de refs, latest-wins, procedencia y ruta de status fallaron por la razón esperada y se restauraron por edición.
