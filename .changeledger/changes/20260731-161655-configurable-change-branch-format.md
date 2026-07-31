@@ -125,3 +125,4 @@ explícita convertiría una mejora opt-in en una ruptura del workflow existente.
 - **2026-07-31T17:47:48Z** `[note]` CR6 red→green: la plantilla y el formulario no exponían el formato; la suite del viewer pasó 188/188. Los mutantes que retiraban la persistencia en dominio o la recolección del control en UI fallaron por la razón esperada y se restauraron por edición. La aserción de init se actualizó para comprobar también la nueva clave opt-in y pasó 35/35.
 - **2026-07-31T17:49:07Z** `[note]` Gate completo del candidato: Biome limpio, 1068/1068 tests y changeledger check válido.
 - **2026-07-31T17:49:24Z** `[status]` in-progress → in-review
+- **2026-07-31T17:50:24Z** `[note]` Mandato de revisión: auditoría completa del rango baseline..HEAD y de toda la superficie gobernada por CR1–CR6.
