@@ -2,7 +2,7 @@
 id: "20260731-161652"
 title: Bloquear escrituras con schemas futuros
 type: bug
-status: approved
+status: in-progress
 created: 2026-07-31T16:16:52Z
 depends_on: []
 related_to: ["20260613-205853", "20260628-113219", "20260628-113924", "20260730-183807"]
@@ -75,10 +75,11 @@ Son contexto terminado, no dependencias de ejecución.
 
 ## Plan
 
-- [ ] Escribir primero las regresiones del guard puro y extraer la precondición compartida de schema soportado
+- [x] Escribir primero las regresiones del guard puro y extraer la precondición compartida de schema soportado
   - **Target:** `src/config-migration.mjs`, `test/config-migration.test.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs`
   - **Criteria:** CR1
+  - **Resolved:** `2026-07-31T16:40:55Z`
 - [ ] Escribir primero una matriz fallida de mutaciones de change y aplicar el guard en su frontera común
   - **Target:** `src/commands/agent.mjs`, `test/agent.test.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
@@ -97,3 +98,5 @@ Son contexto terminado, no dependencias de ejecución.
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
+- **2026-07-31T16:33:41Z** `[status]` approved → in-progress
+- **2026-07-31T16:40:55Z** `[note]` CR1 red→green: el import inexistente de assertSupportedSchema falló antes de la implementación; tras extraer el guard, test/config-migration.test.mjs pasa. Mutante >= rechazó schema 4 y la regresión lo detectó; restaurado por edición.

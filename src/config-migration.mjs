@@ -33,6 +33,16 @@ export function getSchemaVersion(config) {
   return typeof v === 'number' ? v : 0;
 }
 
+export function assertSupportedSchema(config) {
+  const current = getSchemaVersion(config);
+  if (current > SUPPORTED_SCHEMA_VERSION) {
+    throw new Error(
+      `config schema ${current} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}; update ChangeLedger before writing`,
+    );
+  }
+  return current;
+}
+
 // Returns null when no migration needed; throws on invalid/future schema.
 // Otherwise returns { yaml: string, changes: string[] }.
 export function buildMigration(originalText) {
@@ -47,13 +57,7 @@ export function buildMigration(originalText) {
   }
 
   const config = doc.toJS() ?? {};
-  const current = getSchemaVersion(config);
-
-  if (current > SUPPORTED_SCHEMA_VERSION) {
-    throw new Error(
-      `config schema ${current} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-    );
-  }
+  const current = assertSupportedSchema(config);
   if (current === SUPPORTED_SCHEMA_VERSION) {
     return null;
   }
