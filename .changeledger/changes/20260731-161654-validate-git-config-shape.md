@@ -2,7 +2,7 @@
 id: "20260731-161654"
 title: Validar completamente la configuración Git
 type: bug
-status: in-progress
+status: in-review
 created: 2026-07-31T16:16:54Z
 depends_on: []
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
@@ -71,11 +71,14 @@ viewer. Los tres están terminados y aportan contexto.
   - **Verify:** `node --test test/config.test.mjs test/check.test.mjs`
   - **Criteria:** CR2, CR3
   - **Resolved:** `2026-07-31T17:25:52Z`
-- [ ] Ejecutar el gate completo después del ciclo red-green-refactor
+- [x] Ejecutar el gate completo después del ciclo red-green-refactor
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-07-31T17:27:03Z`
 
 ## Log
 - **2026-07-31T16:30:55Z** `[status]` draft → approved (human via conversation)
 - **2026-07-31T17:21:17Z** `[status]` approved → in-progress
 - **2026-07-31T17:25:52Z** `[note]` CR1–CR4 red→green: check devolvía [] para git escalar, lista, booleano e integration_branch numérico; 3 regresiones fallaron antes del fix y luego config+check pasaron 154/154. Mutantes del guard mapping, llamada compartida y aceptación de null fallaron por la razón esperada y fueron restaurados por edición.
+- **2026-07-31T17:27:04Z** `[note]` Gate completo verde fuera del sandbox: Biome, 1054/1054 tests y changeledger check (1 válido).
+- **2026-07-31T17:27:04Z** `[status]` in-progress → in-review
