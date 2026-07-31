@@ -2,7 +2,7 @@
 id: "20260731-161654"
 title: Validar completamente la configuración Git
 type: bug
-status: in-review
+status: in-validation
 created: 2026-07-31T16:16:54Z
 depends_on: []
 related_to: ["20260613-205853", "20260711-210115", "20260711-225637"]
@@ -82,3 +82,6 @@ viewer. Los tres están terminados y aportan contexto.
 - **2026-07-31T17:25:52Z** `[note]` CR1–CR4 red→green: check devolvía [] para git escalar, lista, booleano e integration_branch numérico; 3 regresiones fallaron antes del fix y luego config+check pasaron 154/154. Mutantes del guard mapping, llamada compartida y aceptación de null fallaron por la razón esperada y fueron restaurados por edición.
 - **2026-07-31T17:27:04Z** `[note]` Gate completo verde fuera del sandbox: Biome, 1054/1054 tests y changeledger check (1 válido).
 - **2026-07-31T17:27:04Z** `[status]` in-progress → in-review
+- **2026-07-31T17:27:45Z** `[note]` Mandato de revisión: auditoría completa de CR1–CR4 y dev..HEAD, con énfasis en autoridad diagnóstica compartida, ausencia de excepciones/mutaciones en check y extensibilidad de claves git.
+- **2026-07-31T17:31:23Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-07-31T18:58:45Z** `[note]` Handoff: revisión independiente aprobada; candidato listo para validación humana en esta rama autosuficiente.
