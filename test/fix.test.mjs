@@ -76,6 +76,28 @@ function output() {
   };
 }
 
+test('161652 CR3/CR4: fix writes fail closed while dry-run stays available', () => {
+  const fixture = repo('- [x] Update src/foo.mjs (CR1) - 2026-01-01T12:00:00Z');
+  const configFile = path.join(fixture.root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace(/^schema_version: \d+$/m, 'schema_version: 5'),
+  );
+  const before = fs.readFileSync(fixture.file, 'utf8');
+
+  const write = output();
+  assert.equal(fix([fixture.id], fixture.root, write), 1);
+  assert.deepEqual(write.lines, [
+    '  error  (repo): config schema 5 is newer than supported schema 4; update ChangeLedger before writing',
+  ]);
+  assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
+
+  const preview = output();
+  assert.equal(fix([fixture.id, '--dry-run'], fixture.root, preview), 0);
+  assert.equal(fs.readFileSync(fixture.file, 'utf8'), before);
+  assert.ok(preview.lines.some((line) => line.includes('dry run')));
+});
+
 function graduationRepo({ ambiguous = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-fix-graduation-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');

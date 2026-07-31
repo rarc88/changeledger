@@ -8,6 +8,7 @@ import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { assertChangeTextValid } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
@@ -18,6 +19,7 @@ const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
 
 function graduationTarget(id, slug, cwd) {
   const resolved = resolveChange(cwd, id);
+  assertSupportedSchema(resolved.config);
   const specsDir = resolveSpecsDir(resolved.repoRoot, resolved.config);
   const specName = `${slugify(slug)}.md`;
   return { ...resolved, specsDir, specName, specFile: path.join(specsDir, specName) };
@@ -114,6 +116,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
   const { config, file: changeFile } = resolveChange(cwd, id);
+  assertSupportedSchema(config);
   mutateFileAtomic(changeFile, (text) => {
     requireGraduationReady(config, changeFile, text);
 
