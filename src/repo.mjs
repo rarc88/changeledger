@@ -130,17 +130,39 @@ export async function loadRepoAsync(start = process.cwd()) {
   const config = loadConfig(changeledgerDir);
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
 
+  if (path.resolve(changesDir) === path.resolve(repoRoot)) {
+    throw new Error(
+      `changes_dir "${config.changes_dir}" resolves to the repo root; the commit guard cannot judge staged paths — configure changes_dir to a subdirectory`,
+    );
+  }
+
   const changes = [];
+  const changeErrors = [];
+  let changeNames = [];
   try {
-    const names = (await fs.promises.readdir(changesDir)).sort();
-    for (const name of names) {
-      if (!name.endsWith('.md')) continue;
-      const file = path.join(changesDir, name);
-      const text = await fs.promises.readFile(file, 'utf8');
-      changes.push({ file, name, text, ...parseChange(text) });
-    }
+    changeNames = (await fs.promises.readdir(changesDir)).sort();
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
+  }
+  for (const name of changeNames) {
+    if (!name.endsWith('.md')) continue;
+    const file = path.join(changesDir, name);
+    let text;
+    try {
+      text = await fs.promises.readFile(file, 'utf8');
+    } catch (e) {
+      const message =
+        e.code === 'EISDIR'
+          ? 'expected a change document but found a directory'
+          : `cannot read change document (${e.code ?? 'unknown error'})`;
+      changeErrors.push({ file, name, message });
+      continue;
+    }
+    try {
+      changes.push({ file, name, text, ...parseChange(text) });
+    } catch (e) {
+      changeErrors.push({ file, name, message: e.message });
+    }
   }
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
 
@@ -159,5 +181,5 @@ export async function loadRepoAsync(start = process.cwd()) {
 
   const releases = await loadReleasesAsync(repoRoot);
 
-  return { changeledgerDir, repoRoot, config, changes, specs, releases };
+  return { changeledgerDir, repoRoot, config, changes, changeErrors, specs, releases };
 }

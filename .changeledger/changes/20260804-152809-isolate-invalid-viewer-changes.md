@@ -2,7 +2,7 @@
 id: "20260804-152809"
 title: Aislar changes inválidos en el viewer
 type: bug
-status: approved
+status: in-review
 created: 2026-08-04T15:28:09Z
 depends_on: []
 related_to: ["20260617-190008", "20260731-161656"]
@@ -93,23 +93,30 @@ y su comportamiento ya forma parte de la base actual.
 
 ## Plan
 
-- [ ] Escribir los tests rojos del cargador asíncrono y aislar los fallos de lectura o parseo de cada change en `loadRepoAsync`
+- [x] Escribir los tests rojos del cargador asíncrono y aislar los fallos de lectura o parseo de cada change en `loadRepoAsync`
   - **Target:** `src/repo.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR1, CR4, CR6
-- [ ] Escribir los tests rojos de serialización y presentación, exponer los errores recuperables sin rutas absolutas y renderizar el aviso accesible sin interpretar markup
+  - **Resolved:** `2026-08-06T11:27:20Z`
+- [x] Escribir los tests rojos de serialización y presentación, exponer los errores recuperables sin rutas absolutas y renderizar el aviso accesible sin interpretar markup
   - **Target:** `src/viewer/domain.mjs`, `src/viewer/public/`, `test/viewer-metadata.test.mjs`
   - **Verify:** `node --test test/view.test.mjs test/viewer-metadata.test.mjs`
   - **Criteria:** CR2, CR3, CR4
-- [ ] Añadir la regresión del CLI que demuestra que `changeledger check` conserva su salida estricta ante el mismo frontmatter inválido
+  - **Resolved:** `2026-08-06T11:27:21Z`
+- [x] Añadir la regresión del CLI que demuestra que `changeledger check` conserva su salida estricta ante el mismo frontmatter inválido
   - **Target:** `test/cli.test.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR5
-- [ ] Ejecutar la puerta de calidad completa
+  - **Resolved:** `2026-08-06T11:27:21Z`
+- [x] Ejecutar la puerta de calidad completa
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-06T11:27:21Z`
 
 ## Log
 
 - **2026-08-04T15:28:09Z** `[note]` Draft creado a partir de un fallo real del viewer: un change con YAML inválido impedía cargar todos los documentos válidos del proyecto.
 - **2026-08-06T11:14:47Z** `[status]` draft → approved
+- **2026-08-06T11:16:18Z** `[status]` approved → in-progress
+- **2026-08-06T11:27:33Z** `[note]` Implementación verificada con 214 tests focalizados del viewer, 54 tests del CLI y pnpm verify (1124 tests); los mutantes confirmaron aislamiento, orden, redacción, render seguro, CLI estricto y fallos estructurales fatales.
+- **2026-08-06T11:27:42Z** `[status]` in-progress → in-review

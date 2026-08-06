@@ -32,6 +32,7 @@ const {
   cssIdent,
   esc,
   isVisible,
+  load,
   moveStatus,
   openChangeById,
   openManagedProject,
@@ -66,6 +67,7 @@ const {
   tableRow,
   taskList,
 } = await import('../src/viewer/public/app.js');
+const { serialize } = await import('../src/viewer/domain.mjs');
 const { state: appState } = await import('../src/viewer/public/app-state.js');
 const {
   approvalPanel,
@@ -82,12 +84,86 @@ const { graphSvg, metricsHtml, specsListHtml } = await import(
 const viewerShell = () => {
   const root = document.createElement('div');
   root.innerHTML = `<input id="search"><button id="toggle-global"></button><select id="project"></select>
+    <span id="lang"></span><div id="type-filter"></div><div id="owner-filter"></div><div id="status-filter"></div>
     ${['board', 'table', 'graph', 'ledger', 'metrics', 'projects']
       .map((name) => `<button id="view-${name}"></button><section id="${name}"></section>`)
       .join('')}
     <section id="global"></section>`;
   return root;
 };
+
+test('152809 CR2/CR3: repo load renders redacted errors beside valid content', async () => {
+  const privateRoot = '/Users/alice/private-project';
+  const payload = serialize({
+    repoRoot: privateRoot,
+    config: { language: 'en', statuses: ['done'], types: { bug: {} } },
+    changes: [
+      {
+        frontmatter: {
+          id: '20260804-120000',
+          title: 'Valid change',
+          type: 'bug',
+          status: 'done',
+          created: '2026-08-04T12:00:00Z',
+        },
+        stages: [],
+        tasks: [],
+        progress: { total: 0, done: 0, blocked: 0 },
+      },
+    ],
+    specs: [],
+    changeErrors: [
+      {
+        name: '20260804-120001-invalid.md',
+        file: `${privateRoot}/.changeledger/changes/20260804-120001-invalid.md`,
+        message: `Unexpected <img src=x onerror=alert(1)> at ${privateRoot}/.changeledger/changes/20260804-120001-invalid.md`,
+      },
+    ],
+  });
+  const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /\/Users\/alice\/private-project/);
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+    view: appState.currentView,
+  };
+  try {
+    appState.currentProject = 'private-project';
+    appState.projectsList = [
+      { id: 'private-project', name: 'Private', path: privateRoot, alive: true },
+    ];
+    appState.lastJson = '';
+    appState.currentView = 'board';
+
+    assert.equal(
+      await load(async () =>
+        JSON.stringify({
+          project_id: 'private-project',
+          repository_path: privateRoot,
+          ...payload,
+        }),
+      ),
+      true,
+    );
+
+    const warning = fixture.querySelector('[role="alert"]');
+    assert.ok(warning);
+    assert.match(warning.textContent, /20260804-120001-invalid\.md/);
+    assert.match(warning.textContent, /Unexpected <img src=x onerror=alert\(1\)>/);
+    assert.equal(warning.querySelector('img'), null);
+    assert.match(fixture.querySelector('#board').textContent, /Valid change/);
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+    appState.currentView = previous.view;
+  }
+});
 
 // 20260615-175732 — structured metadata (frontmatter, stage headings, tasks,
 // config) is untrusted in a cloned repo. The viewer interpolates it into

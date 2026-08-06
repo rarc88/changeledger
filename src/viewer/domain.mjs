@@ -46,6 +46,10 @@ export function serialize(repo) {
       tasks: c.tasks,
       progress: c.progress,
     })),
+    change_errors: (repo.changeErrors ?? []).map((error) => ({
+      name: path.basename(String(error.name ?? error.file ?? 'unknown')),
+      message: redactRepoRoot(error.message, repo.repoRoot),
+    })),
     specs: (repo.specs ?? []).map((s) => ({
       name: s.name,
       title: s.frontmatter.title,
@@ -55,6 +59,12 @@ export function serialize(repo) {
       body: s.body,
     })),
   };
+}
+
+function redactRepoRoot(message, repoRoot) {
+  const text = String(message ?? 'Unable to load change document');
+  if (!repoRoot) return text;
+  return text.replaceAll(path.resolve(repoRoot), '<repo>');
 }
 
 const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
