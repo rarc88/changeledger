@@ -94,6 +94,41 @@ const viewerShell = () => {
 
 test('152809 CR2/CR3: repo load renders redacted errors beside valid content', async () => {
   const privateRoot = '/Users/alice/private-project';
+  const url = 'https://example.com/docs/path';
+  const delimiters = [
+    ['comma', ','],
+    ['semicolon', ';'],
+    ['double quote', '"'],
+    ['single quote', "'"],
+    ['open parenthesis', '('],
+    ['close parenthesis', ')'],
+    ['open bracket', '['],
+    ['close bracket', ']'],
+    ['open curly', '{'],
+    ['close curly', '}'],
+    ['open angle', '<'],
+    ['close angle', '>'],
+    ['backslash', '\\'],
+  ];
+  const absolutePaths = [
+    ['POSIX', '/Users/Alice Smith/private/change.md'],
+    ['drive', String.raw`C:\Users\Alice Smith\private\change.md`],
+    ['UNC', String.raw`\\server\private share\change.md`],
+  ];
+  const delimiterMatrix = delimiters.flatMap(([delimiterLabel, delimiter]) =>
+    absolutePaths.map(([pathLabel, absolutePath]) => [
+      `${delimiterLabel} ${pathLabel}`,
+      delimiter,
+      absolutePath,
+    ]),
+  );
+  const delimiterMessage = delimiterMatrix
+    .map(([label, delimiter, absolutePath]) => `${label}: ${url}${delimiter}${absolutePath}`)
+    .join('\n');
+  const redactedDelimiterMessage = delimiterMatrix
+    .map(([label, delimiter]) => `${label}: ${url}${delimiter}<path>`)
+    .join('\n');
+  assert.equal(delimiterMatrix.length, 39);
   const payload = serialize({
     repoRoot: privateRoot,
     config: { language: 'en', statuses: ['done'], types: { bug: {} } },
@@ -118,10 +153,58 @@ test('152809 CR2/CR3: repo load renders redacted errors beside valid content', a
         file: `${privateRoot}/.changeledger/changes/20260804-120001-invalid.md`,
         message: `Unexpected <img src=x onerror=alert(1)> at ${privateRoot}/.changeledger/changes/20260804-120001-invalid.md`,
       },
+      {
+        name: '20260804-120002-paths.md',
+        message: String.raw`POSIX: /opt/other-private/secret
+Drive: C:\Users\alice\secret
+UNC: \\server\share\secret
+POSIX space: /Users/Alice Smith/private/change.md
+Drive space: C:\Users\Alice Smith\private\change.md
+UNC space: \\server\private share\change.md
+Parentheses: /Users/alice/Project (private)/change.md
+Delimiters: /Users/alice/"Private, docs; archive"/change.md
+URL: https://example.com/docs/path
+Prose: and/or and a / b`,
+      },
+      {
+        name: '20260804-120003-url-adjacent.md',
+        message: String.raw`URL POSIX: https://example.com/docs/path,/Users/Alice Smith/private/change.md
+URL drive: https://example.com/docs/path,C:\Users\Alice Smith\private\change.md
+URL UNC: https://example.com/docs/path,\\server\private share\change.md
+URL parentheses: https://example.com/docs/path,/Users/alice/Project (private)/change.md`,
+      },
+      {
+        name: '20260804-120004-url-delimiters.md',
+        message: delimiterMessage,
+      },
     ],
   });
   const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /\/opt\/other-private\/secret/);
   assert.doesNotMatch(serialized, /\/Users\/alice\/private-project/);
+  assert.doesNotMatch(serialized, /C:\\Users\\alice\\secret/);
+  assert.doesNotMatch(serialized, /\\\\server\\share\\secret/);
+  assert.equal(
+    payload.change_errors[1].message,
+    `POSIX: <path>
+Drive: <path>
+UNC: <path>
+POSIX space: <path>
+Drive space: <path>
+UNC space: <path>
+Parentheses: <path>
+Delimiters: <path>
+URL: https://example.com/docs/path
+Prose: and/or and a / b`,
+  );
+  assert.equal(
+    payload.change_errors[2].message,
+    `URL POSIX: https://example.com/docs/path,<path>
+URL drive: https://example.com/docs/path,<path>
+URL UNC: https://example.com/docs/path,<path>
+URL parentheses: https://example.com/docs/path,<path>`,
+  );
+  assert.equal(payload.change_errors[3].message, redactedDelimiterMessage);
   const fixture = installViewerFixture();
   const previous = {
     project: appState.currentProject,

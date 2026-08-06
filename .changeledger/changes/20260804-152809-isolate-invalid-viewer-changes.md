@@ -2,7 +2,7 @@
 id: "20260804-152809"
 title: Aislar changes inválidos en el viewer
 type: bug
-status: in-review
+status: in-validation
 created: 2026-08-04T15:28:09Z
 depends_on: []
 related_to: ["20260617-190008", "20260731-161656"]
@@ -120,3 +120,25 @@ y su comportamiento ya forma parte de la base actual.
 - **2026-08-06T11:16:18Z** `[status]` approved → in-progress
 - **2026-08-06T11:27:33Z** `[note]` Implementación verificada con 214 tests focalizados del viewer, 54 tests del CLI y pnpm verify (1124 tests); los mutantes confirmaron aislamiento, orden, redacción, render seguro, CLI estricto y fallos estructurales fatales.
 - **2026-08-06T11:27:42Z** `[status]` in-progress → in-review
+- **2026-08-06T11:28:39Z** `[note]` Mandato de revisión: auditoría completa de baseline 7523317882496049c0ac0970655bd1490b7e6d51..HEAD contra CR1–CR6, Plan, seguridad del diagnóstico y separación entre viewer tolerante y CLI estricto.
+- **2026-08-06T11:34:12Z** `[review]` in-review → in-progress (retry): serializer leaks absolute paths embedded in parser diagnostics
+- **2026-08-06T11:39:07Z** `[note]` Corrección del review: los diagnósticos recuperables redactan rutas absolutas POSIX, drive Windows y UNC con <path>; conservan URLs y barras ordinarias. Test focalizado 114/114 y pnpm verify 1124/1124.
+- **2026-08-06T11:39:07Z** `[status]` in-progress → in-review
+- **2026-08-06T11:39:13Z** `[note]` Mandato de revisión de confirmación: verificar únicamente que la corrección elimina rutas absolutas embebidas en diagnósticos recuperables sin alterar URLs, texto ordinario, render seguro ni semánticas ya aprobadas.
+- **2026-08-06T11:42:23Z** `[review]` in-review → in-progress (retry): absolute POSIX, Windows drive, and UNC paths containing spaces or delimiter characters are only partially redacted and leak their suffixes
+- **2026-08-06T11:47:19Z** `[note]` Segunda corrección del review: la redacción ya no intenta adivinar el final del path; elimina el resto del segmento no-URL desde el primer inicio absoluto, incluidos espacios y delimitadores. Test focalizado 114/114 y pnpm verify 1124/1124.
+- **2026-08-06T11:47:19Z** `[status]` in-progress → in-review
+- **2026-08-06T11:47:19Z** `[note]` Mandato de revisión de confirmación: verificar sólo el defecto de sufijos filtrados en paths con espacios o delimitadores y regresiones de la estrategia conservadora sobre URLs, texto ordinario y diagnóstico accionable.
+- **2026-08-06T11:49:45Z** `[review]` in-review → in-progress (retry): URL segmentation treats URL-adjacent absolute POSIX, Windows-drive, and UNC paths as part of the URL span, leaving private path text unredacted
+- **2026-08-06T11:52:27Z** `[note]` Tercera corrección del review: los spans URL terminan en delimitadores de prosa para que un path POSIX, drive o UNC adyacente vuelva al segmento redactable. Test focalizado 114/114 y pnpm verify 1124/1124.
+- **2026-08-06T11:52:27Z** `[status]` in-progress → in-review
+- **2026-08-06T11:52:27Z** `[note]` Mandato de revisión de confirmación: verificar sólo paths absolutos adyacentes a URLs y regresiones de la nueva frontera de delimitadores sobre URLs standalone, paths con espacios/delimitadores y texto ordinario.
+- **2026-08-06T11:55:23Z** `[review]` in-review → in-progress (retry): URL-terminating closing delimiters and backslash are missing from the path-prefix boundary set, allowing adjacent absolute path suffixes to leak
+- **2026-08-06T11:59:09Z** `[note]` Cuarta corrección del review: la frontera de inicio de path reconoce los 13 delimitadores que terminan los spans URL; la matriz POSIX, drive y UNC impide que sus rutas adyacentes queden visibles. Test focalizado 114/114 y pnpm verify 1124/1124.
+- **2026-08-06T11:59:11Z** `[status]` in-progress → in-review
+- **2026-08-06T11:59:24Z** `[note]` Mandato de revisión de confirmación: verificar sólo que los delimitadores de cierre y backslash que terminan una URL permiten detectar y redactar paths POSIX, drive y UNC adyacentes, más regresiones introducidas por esa frontera sobre URLs standalone, texto ordinario, markup como texto y diagnóstico accionable.
+- **2026-08-06T12:02:15Z** `[review]` in-review → in-progress (retry): backslash-delimited UNC adjacency drops the URL-terminating backslash instead of preserving it before <path>
+- **2026-08-06T12:05:22Z** `[note]` Quinta corrección del review: la redacción conserva el delimitador que corta el span URL antes de procesar el segmento restante; la matriz ejecutada de 13 delimitadores por 3 familias de path queda 39/39. Test focalizado 114/114 y pnpm verify 1124/1124.
+- **2026-08-06T12:05:25Z** `[status]` in-progress → in-review
+- **2026-08-06T12:05:37Z** `[note]` Mandato de revisión de confirmación: verificar sólo la preservación del delimitador URL y la redacción completa en la matriz ejecutada de 13 delimitadores por paths POSIX, drive y UNC, especialmente backslash más UNC; comprobar regresiones introducidas sobre URL standalone, texto ordinario, markup como texto y diagnóstico accionable.
+- **2026-08-06T12:07:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
