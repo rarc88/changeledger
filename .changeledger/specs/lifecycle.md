@@ -284,7 +284,7 @@ autoriza, sin permitir que el agente invente requisitos faltantes. El humano
 autoriza alcance, aprueba drafts y acepta resultados; el agente divide y ejecuta
 el trabajo dentro de ese alcance.
 
-## Log y owner
+## Log y owner/branch
 
 El `## Log` es el **ledger del ciclo de vida**, ortogonal a las etapas de
 contenido del tipo: registra cada transición de `status` con su timestamp y se
@@ -323,6 +323,19 @@ inline y el workspace de pnpm habilita `shellEmulator`, por lo que ese
 kill-switch se aplica también cuando pnpm ejecuta la suite en Windows. Un runner
 inyectado puentea el kill-switch, de
 modo que los tests de la propia resolución no cambian de comportamiento.
+
+El `branch` es opcional y, a diferencia de `owner`, no tiene equivalente en
+`changeledger new`: al crear el draft normalmente no existe todavía una rama de
+trabajo, así que solo se autoasigna al entrar en `in-progress`, capturando la
+rama real del checkout que ejecuta la transición (`currentBranch`, tolerante:
+vacío en detached HEAD o si el subproceso git falla, sin bloquear la
+transición). Mismo guard que `owner`: nunca pisa un `branch` ya fijado, a mano
+(`changeledger branch <id> <name>`, con `changeledger branch <id> -` para
+limpiarlo) o desde una transición previa a `in-progress`, y la resolución es
+perezosa. No hay detección automática de rename ni de un checkout distinto en
+una reentrada posterior; corregirlo tras uno es responsabilidad del comando
+explícito. `branch` no impone ningún formato de nombre: registra el nombre real
+de la rama tal cual está, sin normalizarlo ni validarlo contra un patrón.
 
 ## Graduación
 

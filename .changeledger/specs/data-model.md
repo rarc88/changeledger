@@ -9,8 +9,11 @@ graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `related_to` opcional, `owner`
-  opcional, `archived` opcional, `reviewed` opcional, `release_impact` opcional)
-  + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (ver
+  opcional, `branch` opcional, `archived` opcional, `reviewed` opcional,
+  `release_impact` opcional) + etapas (`## Request`…`## Log`) según el tipo.
+  `branch` es un dato **por change** — la rama de implementación de ese change
+  — y no debe confundirse con `config.git.integration_branch`, que es la rama
+  de integración del repositorio entero. Tiene ciclo de vida (ver
   **Ciclo de vida y gate de revisión**). Cada tarea de `## Plan` ocupa una línea
   checklist (`[ ]`/`[x]`/`[!]`); una tarea resuelta exige una única línea hija
   ``  - **Resolved:** `<timestamp ISO UTC>` ``, y una bloqueada una única línea
