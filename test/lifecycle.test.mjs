@@ -211,6 +211,22 @@ test('225210 CR2/CR5: parseLogEvent extracts explicit and implied origins', () =
     owner: 'ana',
     automatic: true,
   });
+  assert.deepEqual(parseLogEvent('- **2026-08-05T05:27:41Z** `[branch]` set: feature/x (auto)'), {
+    at: '2026-08-05T05:27:41Z',
+    type: 'branch',
+    branch: 'feature/x',
+    automatic: true,
+  });
+  assert.deepEqual(parseLogEvent('- **2026-08-05T05:27:41Z** `[branch]` set: hotfix/y'), {
+    at: '2026-08-05T05:27:41Z',
+    type: 'branch',
+    branch: 'hotfix/y',
+  });
+  assert.deepEqual(parseLogEvent('- **2026-08-05T05:27:41Z** `[branch]` cleared'), {
+    at: '2026-08-05T05:27:41Z',
+    type: 'branch',
+    branch: null,
+  });
   assert.deepEqual(parseLogEvent('- **2026-06-30T15:28:42Z** `[graduation]` spec: `x.md`'), {
     at: '2026-06-30T15:28:42Z',
     type: 'graduation',
