@@ -2,7 +2,7 @@
 id: "20260806-103551"
 title: Reconciliar la verdad durable durante la graduación
 type: bug
-status: draft
+status: approved
 created: 2026-08-06T10:35:51Z
 depends_on: []
 related_to: ["20260630-191857", "20260705-134704"]
@@ -90,3 +90,4 @@ CLI.
 
 ## Log
 - **2026-08-06T10:37:24Z** `[note]` Draft autorizado tras confirmar que el cierre debe reconciliar, no solo extender, toda spec afectada.
+- **2026-08-06T10:39:46Z** `[status]` draft → approved
