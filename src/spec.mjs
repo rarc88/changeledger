@@ -8,5 +8,5 @@ const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?/;
 export function parseSpec(text) {
   const fm = text.match(FRONTMATTER);
   if (!fm) throw new Error('Spec is missing its frontmatter block');
-  return { frontmatter: parseYaml(fm[1]), body: text.slice(fm[0].length).trim() };
+  return { frontmatter: parseYaml(fm[1]), body: text.slice(fm[0].length).trimEnd() };
 }

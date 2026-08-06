@@ -6,12 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { assertChangeTextValid } from '../check.mjs';
+import { assertChangeTextValid, specDurabilityIssue } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { parseSpec } from '../spec.mjs';
 import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
@@ -106,6 +107,8 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl =
                 `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
               );
             }
+            const durabilityIssue = specDurabilityIssue(parseSpec(originalSpec).body);
+            if (durabilityIssue) throw new Error(durabilityIssue);
             const timestamp = nowUtc();
             const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
             writeFileAtomic(specFile, updatedSpec, { fsImpl });
