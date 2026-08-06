@@ -2,7 +2,7 @@
 id: "20260806-103551"
 title: Reconciliar la verdad durable durante la graduación
 type: bug
-status: in-review
+status: in-validation
 created: 2026-08-06T10:35:51Z
 depends_on: []
 related_to: ["20260630-191857", "20260705-134704"]
@@ -96,3 +96,11 @@ CLI.
 - **2026-08-06T10:39:46Z** `[status]` draft → approved
 - **2026-08-06T10:41:07Z** `[status]` approved → in-progress
 - **2026-08-06T10:48:40Z** `[status]` in-progress → in-review
+- **2026-08-06T10:50:12Z** `[note]` Mandato de review: auditoría completa de CR1-CR4, del gate compartido check/graduate, de falsos positivos Markdown, del contrato de cierre y de sus pruebas en baseline..HEAD.
+- **2026-08-06T10:55:16Z** `[review]` in-review → in-progress (retry): CR2 incompleto: el detector ATX manual omite headings Markdown anidados y Setext, y produce falsos positivos en bloques de código y cierres de fence no válidos.
+- **2026-08-06T10:57:54Z** `[status]` in-progress → in-review
+- **2026-08-06T11:03:55Z** `[review]` in-review → in-progress (retry): CR2 aún admite una evasión en producción: parseSpec recorta la indentación inicial del cuerpo, cambia la semántica Markdown de un pseudo-fence y permite que check y graduate omitan un encabezado CR visible; se requiere preservar esa indentación y cubrir ambos flujos reales.
+- **2026-08-06T11:07:01Z** `[note]` Corrección del segundo review: parseSpec preserva la indentación inicial del cuerpo; regresiones reales prueban que check detecta el CR tras pseudo-fence y graduate falla sin modificar spec ni change.
+- **2026-08-06T11:07:01Z** `[status]` in-progress → in-review
+- **2026-08-06T11:07:19Z** `[note]` Mandato de review de confirmación: comprobar solo la evasión por trim de parseSpec y regresiones introducidas por la corrección; ejecutar check desde una spec cargada y graduate --into con pseudo-fence indentado, verificar cero escrituras y revisar el efecto de trimEnd en consumidores.
+- **2026-08-06T11:11:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)

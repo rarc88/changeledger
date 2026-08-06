@@ -5,6 +5,7 @@
 // read-only check-ref-format query. The `changeledger check` command owns
 // repository loading and printing.
 
+import { marked } from 'marked';
 import { parseChange } from './change.mjs';
 import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
@@ -237,9 +238,13 @@ function textOutsideFences(text) {
 }
 
 export function specDurabilityIssue(body) {
-  const heading = textOutsideFences(body).match(/^[ \t]{0,3}#{1,6}[ \t]+(CR\d+)\b/m);
-  if (!heading) return null;
-  return `spec contains change-local criterion heading "${heading[1]}"; rewrite it as durable current truth`;
+  let criterion;
+  marked.walkTokens(marked.lexer(String(body ?? '')), (token) => {
+    if (criterion || token.type !== 'heading') return;
+    criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+  });
+  if (!criterion) return null;
+  return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
 }
 
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
