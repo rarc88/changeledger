@@ -13,6 +13,7 @@ import {
 } from '../commands/agent.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import {
+  assertSupportedSchema,
   buildMigration,
   getSchemaVersion,
   SUPPORTED_SCHEMA_VERSION,
@@ -45,6 +46,10 @@ export function serialize(repo) {
       tasks: c.tasks,
       progress: c.progress,
     })),
+    change_errors: (repo.changeErrors ?? []).map((error) => ({
+      name: path.basename(String(error.name ?? error.file ?? 'unknown')),
+      message: redactAbsolutePaths(error.message),
+    })),
     specs: (repo.specs ?? []).map((s) => ({
       name: s.name,
       title: s.frontmatter.title,
@@ -54,6 +59,52 @@ export function serialize(repo) {
       body: s.body,
     })),
   };
+}
+
+const URL_SPAN = /[A-Za-z][A-Za-z\d+.-]*:\/\/[^\s,;"'()[\]{}<>\\]+/g;
+const URL_DELIMITER = /[,;"'()[\]{}<>\\]/;
+const PATH_PREFIX = '[\\s("\'=,:;<>{}()[\\]\\\\]';
+const UNC_PATH_START = new RegExp(`(^|${PATH_PREFIX})(\\\\\\\\(?=\\S))`);
+const DRIVE_PATH_START = new RegExp(`(^|${PATH_PREFIX})([A-Za-z]:[\\\\/](?=\\S))`);
+const POSIX_PATH_START = new RegExp(`(^|${PATH_PREFIX})(/(?=[^\\s/]))`);
+
+function absolutePathStart(segment) {
+  let earliest = -1;
+  for (const pattern of [UNC_PATH_START, DRIVE_PATH_START, POSIX_PATH_START]) {
+    const match = pattern.exec(segment);
+    if (!match) continue;
+    const start = match.index + match[1].length;
+    if (earliest === -1 || start < earliest) earliest = start;
+  }
+  return earliest;
+}
+
+function redactNonUrlSegment(segment) {
+  const start = absolutePathStart(segment);
+  return start === -1 ? segment : `${segment.slice(0, start)}<path>`;
+}
+
+function redactDiagnosticLine(line) {
+  let redacted = '';
+  let cursor = 0;
+  for (const match of line.matchAll(URL_SPAN)) {
+    redacted += redactNonUrlSegment(line.slice(cursor, match.index));
+    redacted += match[0];
+    cursor = match.index + match[0].length;
+    if (URL_DELIMITER.test(line[cursor])) {
+      redacted += line[cursor];
+      cursor++;
+    }
+  }
+  return redacted + redactNonUrlSegment(line.slice(cursor));
+}
+
+function redactAbsolutePaths(message) {
+  const text = String(message ?? 'Unable to load change document');
+  return text
+    .split(/(\r?\n)/)
+    .map((part) => (/^\r?\n$/.test(part) ? part : redactDiagnosticLine(part)))
+    .join('');
 }
 
 const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));
@@ -288,10 +339,24 @@ export function searchProjects(projects, q, load = loadRepo) {
   return groups;
 }
 
+const projectIdentity = (project) => ({
+  project_id: project.id,
+  repository_path: path.resolve(project.path),
+});
+
+function attributed(project, result) {
+  if (!project) return result;
+  return { ...result, body: { ...projectIdentity(project), ...result.body } };
+}
+
+function withProjectIdentity(selectProject, handler) {
+  return (...args) => attributed(selectProject(...args), handler(...args));
+}
+
 // Applies a status move requested from the viewer. Returns { code, body } so the
 // HTTP handler stays thin and the logic is testable. Reuses the `status` command
 // (enum validation + setStatus + appendLog).
-export function changeStatus(projects, { project, id, status, reason }) {
+function changeStatusImpl(projects, { project, id, status, reason }) {
   // A write must target an exact project; never silently fall back to the first
   // registered one.
   const proj = projects.find((p) => p.id === project);
@@ -335,6 +400,11 @@ export function changeStatus(projects, { project, id, status, reason }) {
   }
 }
 
+export const changeStatus = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  changeStatusImpl,
+);
+
 const revision = (text) => crypto.createHash('sha256').update(text).digest('hex');
 
 function projectFor(projects, id) {
@@ -344,7 +414,7 @@ function projectFor(projects, id) {
   return { project };
 }
 
-export function readProjectConfig(projects, id) {
+function readProjectConfigImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
@@ -352,7 +422,12 @@ export function readProjectConfig(projects, id) {
   return { code: 200, body: { content, revision: revision(content) } };
 }
 
-export function saveProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+export const readProjectConfig = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  readProjectConfigImpl,
+);
+
+function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
@@ -374,6 +449,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     repo = loadRepo(found.project.path);
   } catch {
     return { code: 400, body: { error: 'unable to load the current project configuration' } };
+  }
+  try {
+    assertSupportedSchema(repo.config);
+  } catch (error) {
+    return { code: 400, body: { error: error.message } };
   }
   try {
     resolveRepoPath(repo.repoRoot, candidate.changes_dir, 'changes_dir');
@@ -405,14 +485,9 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
       : found.project.name;
   try {
     mutateConfig(file, (before) => {
+      assertSupportedSchema(parseYaml(before));
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
-      }
-      const currentSchema = getSchemaVersion(parseYaml(before));
-      if (currentSchema > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${currentSchema} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
       }
       return payload.content;
     });
@@ -420,7 +495,11 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
-    if (/^config schema \d+ is newer than supported schema \d+$/.test(error.message)) {
+    if (
+      /^config schema \d+ is newer than supported schema \d+; update ChangeLedger before writing$/.test(
+        error.message,
+      )
+    ) {
       return { code: 400, body: { error: error.message } };
     }
     return { code: 400, body: { error: 'unable to save project configuration' } };
@@ -431,11 +510,19 @@ export function saveProjectConfig(projects, payload, { mutateConfig = mutateFile
   };
 }
 
-export function repairProjectPath(projects, payload, { localOnly = false } = {}) {
+export const saveProjectConfig = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  saveProjectConfigImpl,
+);
+
+function repairProjectPathImpl(projects, payload, { localOnly = false } = {}) {
   if (localOnly)
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
   if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (typeof payload.repository_path !== 'string') {
+    return { code: 400, body: { error: 'repository_path is required' } };
+  }
   if (typeof payload.path !== 'string' || !path.isAbsolute(payload.path)) {
     return { code: 400, body: { error: 'project path must be absolute' } };
   }
@@ -450,31 +537,57 @@ export function repairProjectPath(projects, payload, { localOnly = false } = {})
     return { code: 400, body: { error: 'project path belongs to a different project_id' } };
   }
   try {
-    update(project.id, { name: config.project_name ?? project.name, path: root });
-  } catch {
+    update(
+      project.id,
+      { name: config.project_name ?? project.name, path: root },
+      { expectedPath: payload.repository_path },
+    );
+  } catch (error) {
+    if (error.message === 'project registry changed; reload before writing') {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
-  return { code: 200, body: { ok: true } };
+  return {
+    code: 200,
+    body: { ...projectIdentity({ id: project.id, path: root }), ok: true },
+  };
 }
 
-export function unregisterProject(projects, payload, { localOnly = false } = {}) {
+export const repairProjectPath = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  repairProjectPathImpl,
+);
+
+function unregisterProjectImpl(projects, payload, { localOnly = false } = {}) {
   if (localOnly)
     return { code: 403, body: { error: 'registry management is unavailable in local mode' } };
   const project = projects.find((item) => item.id === payload.project);
   if (!project) return { code: 404, body: { error: `no project "${payload.project}"` } };
+  if (typeof payload.repository_path !== 'string') {
+    return { code: 400, body: { error: 'repository_path is required' } };
+  }
   if (payload.confirm !== project.name) {
     return { code: 400, body: { error: `type "${project.name}" to confirm` } };
   }
   try {
-    remove(project.id);
-  } catch {
+    remove(project.id, { expectedPath: payload.repository_path });
+  } catch (error) {
+    if (error.message === 'project registry changed; reload before writing') {
+      return { code: 409, body: { error: error.message } };
+    }
     return { code: 400, body: { error: 'unable to update project registry' } };
   }
   return { code: 200, body: { ok: true } };
 }
 
+export const unregisterProject = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  unregisterProjectImpl,
+);
+
 // Returns config content + schema metadata without mutating anything.
-export function readProjectConfigStructured(projects, id) {
+function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
@@ -493,9 +606,14 @@ export function readProjectConfigStructured(projects, id) {
   };
 }
 
+export const readProjectConfigStructured = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  readProjectConfigStructuredImpl,
+);
+
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-export function patchProjectConfig(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
@@ -516,6 +634,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
   let result;
   try {
+    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
@@ -523,14 +642,7 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
 
       const doc = parseDocument(before, { merge: false });
       const config = doc.toJS() ?? {};
-
-      // Fail closed for future schema
-      const schemaVersion = getSchemaVersion(config);
-      if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
-        throw new Error(
-          `config schema ${schemaVersion} is newer than supported schema ${SUPPORTED_SCHEMA_VERSION}`,
-        );
-      }
+      assertSupportedSchema(config);
 
       applyPatch(doc, payload.patch, config);
 
@@ -563,8 +675,13 @@ export function patchProjectConfig(projects, payload, { mutateConfig = mutateFil
   return { code: 200, body: { ok: true, revision: result.rev } };
 }
 
+export const patchProjectConfig = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  patchProjectConfigImpl,
+);
+
 // Preview the migration without writing. Returns summary + candidate YAML.
-export function previewConfigMigration(projects, id, rev) {
+function previewConfigMigrationImpl(projects, id, rev) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
   const file = path.join(found.project.path, '.changeledger', 'config.yml');
@@ -597,9 +714,14 @@ export function previewConfigMigration(projects, id, rev) {
   };
 }
 
+export const previewConfigMigration = withProjectIdentity(
+  (projects, id) => projects.find((item) => item.id === id),
+  previewConfigMigrationImpl,
+);
+
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
 // Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
-export function applyConfigMigration(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function applyConfigMigrationImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.revision !== 'string') {
@@ -609,6 +731,7 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
 
   let result;
   try {
+    assertSupportedSchema(parseYaml(fs.readFileSync(file, 'utf8')));
     mutateConfig(file, (before) => {
       if (revision(before) !== payload.revision) {
         throw new Error('configuration changed on disk; reload before saving');
@@ -638,6 +761,11 @@ export function applyConfigMigration(projects, payload, { mutateConfig = mutateF
   }
   return { code: 200, body: { ok: true, revision: result.rev } };
 }
+
+export const applyConfigMigration = withProjectIdentity(
+  (projects, payload) => projects.find((item) => item.id === payload.project),
+  applyConfigMigrationImpl,
+);
 
 // Allowlisted fields the form patch may update.
 const PATCH_ALLOWED = new Set([
@@ -747,5 +875,10 @@ function applyGitPatch(doc, gitPatch) {
     doc.setIn(['git', 'integration_branch'], gitPatch.integration_branch.trim());
   } else if (gitPatch.integration_branch === null) {
     doc.deleteIn(['git', 'integration_branch']);
+  }
+  if (typeof gitPatch.change_branch_format === 'string' && gitPatch.change_branch_format.trim()) {
+    doc.setIn(['git', 'change_branch_format'], gitPatch.change_branch_format.trim());
+  } else if (gitPatch.change_branch_format === null) {
+    doc.deleteIn(['git', 'change_branch_format']);
   }
 }

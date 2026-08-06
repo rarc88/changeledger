@@ -8,6 +8,7 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 
@@ -20,6 +21,37 @@ const config = {
     bug: { stages: ['request', 'plan'] },
   },
 };
+
+test('161655 CR3: check reports branch format defects without throwing', () => {
+  const subject = change();
+  const fields = subject.frontmatter;
+  const formats = ['{type}', '{id}/{id}', '{owner}/{id}', '{type/{id}', 'bad..{id}'];
+
+  for (const format of formats) {
+    let expected;
+    assert.throws(
+      () => renderChangeBranch({ git: { change_branch_format: format } }, fields),
+      (e) => {
+        expected = e.message;
+        return true;
+      },
+    );
+
+    let result;
+    assert.doesNotThrow(() => {
+      result = checkRepo({
+        config: { ...config, git: { change_branch_format: format } },
+        changes: [subject],
+      });
+    });
+    assert.ok(
+      msgs(result.errors).some(
+        (message) => message === expected || message.includes('renders an invalid Git branch'),
+      ),
+      `${format}: ${msgs(result.errors).join('\n')}`,
+    );
+  }
+});
 
 // Build a valid feature change; override pieces per test.
 function change(over = {}) {
@@ -348,6 +380,53 @@ test('111218 CR4: malformed readiness patterns report errors without breaking co
   }
 });
 
+test('20260731-161654 CR1: git must be a mapping without throwing or mutating config', () => {
+  for (const git of ['dev', [], true]) {
+    const candidate = { ...config, git };
+    const before = structuredClone(candidate);
+    let result;
+
+    assert.doesNotThrow(() => {
+      result = checkRepo({ config: candidate, changes: [] });
+    });
+    assert.deepEqual(msgs(result.errors), ['config "git" must be a mapping']);
+    assert.deepEqual(candidate, before);
+  }
+});
+
+test('20260731-161654 CR2: git.integration_branch errors match integrationBranch', () => {
+  for (const bad of [7, false, [], '']) {
+    const candidate = { ...config, git: { integration_branch: bad } };
+    let accessorMessage;
+
+    assert.throws(
+      () => integrationBranch(candidate),
+      (error) => {
+        accessorMessage = error.message;
+        return true;
+      },
+    );
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), [accessorMessage]);
+  }
+});
+
+test('20260731-161654 CR3/CR4: optional and unknown git configuration stays untouched', () => {
+  for (const candidate of [
+    { ...config },
+    { ...config, git: {} },
+    { ...config, git: { integration_branch: null } },
+    { ...config, git: { integration_branch: 'dev', provider_option: 'keep' } },
+  ]) {
+    const before = structuredClone(candidate);
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+
+    assert.deepEqual(errors, []);
+    assert.equal(integrationBranch(candidate), candidate.git?.integration_branch ?? undefined);
+    assert.deepEqual(candidate, before);
+  }
+});
+
 test('171002 CR1/CR5: every config with done requires in-validation before it', () => {
   const missing = {
     ...config,
@@ -494,6 +573,85 @@ const spec = (over = {}) => ({
   body: over.body ?? '',
 });
 const runS = (changes, specs) => checkRepo({ config, changes, specs });
+
+test('103551 CR2: specs reject ATX CR headings at levels 1 through 6', () => {
+  for (let level = 1; level <= 6; level += 1) {
+    const heading = `${'#'.repeat(level)} CR${level} — Copied scenario`;
+    const { errors } = runS([change()], [spec({ body: `# Arch\n\n${heading}\n` })]);
+    assert.ok(
+      msgs(errors).includes(
+        `spec contains change-local criterion heading "CR${level}"; rewrite it as durable current truth`,
+      ),
+      heading,
+    );
+  }
+});
+
+test('103551 CR2 correction: specs reject Setext and nested CR headings', () => {
+  const cases = [
+    ['CR7 — Setext heading\n---', 'CR7'],
+    ['> ### CR8 — Blockquoted heading', 'CR8'],
+    ['- ### CR9 — List heading', 'CR9'],
+    ['    ```\n### CR10 — Heading after indented code', 'CR10'],
+  ];
+
+  for (const [body, criterion] of cases) {
+    const { errors } = runS([change()], [spec({ body })]);
+    assert.ok(
+      msgs(errors).includes(
+        `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`,
+      ),
+      body,
+    );
+  }
+});
+
+test('103551 CR2 correction: prose and real code blocks remain valid', () => {
+  const bodies = [
+    'CR1 is mentioned as ordinary prose.',
+    ['```markdown', '### CR2 — Fenced example', '```'].join('\n'),
+    ['~~~markdown', '## CR3 — Tilde-fenced example', '~~~'].join('\n'),
+    '    ### CR4 — Space-indented code',
+    '\t### CR5 — Tab-indented code',
+    ['````markdown', '### CR6 — Unclosed fence', '```` trailing', '### CR7 — Still code'].join(
+      '\n',
+    ),
+  ];
+
+  for (const body of bodies) {
+    const { errors } = runS([change()], [spec({ body })]);
+    assert.deepEqual(
+      msgs(errors).filter((message) => /change-local criterion heading/.test(message)),
+      [],
+      body,
+    );
+  }
+});
+
+test('103551 CR2 correction: loaded specs preserve pseudo-fence indentation', () => {
+  const root = frozenFixture(
+    {},
+    {
+      'architecture.md': `---
+title: Architecture
+updated: 2026-08-06T00:00:00Z
+tags: [architecture]
+---
+    \`\`\`
+### CR33 — Visible after indented code
+`,
+    },
+  );
+
+  const { code, text } = runCheck(root);
+  assert.equal(code, 1);
+  assert.ok(
+    text.includes(
+      'spec contains change-local criterion heading "CR33"; rewrite it as durable current truth',
+    ),
+    text,
+  );
+});
 
 test('CR1: a change graduating to a missing spec is an error', () => {
   const c = change({
@@ -2704,7 +2862,7 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
 // --- frozen history (20260726-194220): archived/discarded documents are not
 // validated as subjects, but keep feeding every repo-wide invariant ---
 
-const FROZEN_FIXTURE_CONFIG = `schema_version: 4
+const FROZEN_FIXTURE_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes
@@ -2784,6 +2942,22 @@ function runCheck(root, args = []) {
   const code = check(args, root, out);
   return { code, out, text: [...out.diagnostics, ...out.calls].join('\n') };
 }
+
+test('161655 CR3: changeledger check reports an invalid rendered branch without throwing', () => {
+  const root = frozenFixture(
+    {},
+    {},
+    {},
+    `${FROZEN_FIXTURE_CONFIG}git:\n  change_branch_format: bad..{id}\n`,
+  );
+
+  let result;
+  assert.doesNotThrow(() => {
+    result = runCheck(root);
+  });
+  assert.equal(result.code, 1);
+  assert.match(result.text, /renders an invalid Git branch: bad\.\.id/);
+});
 
 test('194220 CR1: a done and archived change gets no diagnostics of its own', () => {
   const root = frozenFixture({
@@ -3027,7 +3201,7 @@ Eliminación limpia, sin capa de compatibilidad.
 // --- 141119: review_required is only meaningful on a type that can hold
 // criteria (## Specification) and tasks that cite them (## Plan) ---
 
-const LIGHT_REVIEW_CONFIG = `schema_version: 4
+const LIGHT_REVIEW_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes

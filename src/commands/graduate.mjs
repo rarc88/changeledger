@@ -4,13 +4,15 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { mutateFileAtomic, writeFileAtomic } from '../atomic-write.mjs';
+import { mutateFileAtomic, withFileLock, writeFileAtomic } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
-import { assertChangeTextValid } from '../check.mjs';
+import { assertChangeTextValid, specDurabilityIssue } from '../check.mjs';
 import { resolveSpecsDir } from '../config.mjs';
+import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveChange } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { parseSpec } from '../spec.mjs';
 import { appendLogEvent, setReviewed, setSpecGraduatedFrom, setSpecUpdated } from '../writer.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
@@ -18,6 +20,7 @@ const SPEC_SCAFFOLD_MARKER = '<!-- changeledger:spec-scaffold -->';
 
 function graduationTarget(id, slug, cwd) {
   const resolved = resolveChange(cwd, id);
+  assertSupportedSchema(resolved.config);
   const specsDir = resolveSpecsDir(resolved.repoRoot, resolved.config);
   const specName = `${slugify(slug)}.md`;
   return { ...resolved, specsDir, specName, specFile: path.join(specsDir, specName) };
@@ -75,38 +78,69 @@ ${seed}
 
 // Finalizes graduation into an EXISTING, manually refined spec. The command
 // refreshes `updated` and links it back, but never overwrites the body.
-export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
+export function graduate(id, slug, cwd = process.cwd(), { into = false, fsImpl = fs } = {}) {
   if (!into) {
     throw new Error('graduation mode required: use --new, --into, or --skip');
   }
   const { config, file: changeFile, specName, specFile } = graduationTarget(id, slug, cwd);
   requireGraduationReady(config, changeFile, fs.readFileSync(changeFile, 'utf8'));
 
-  if (!fs.existsSync(specFile)) {
+  if (!fsImpl.existsSync(specFile)) {
     throw new Error(`Spec "${specName}" does not exist — use --new to create a scaffold`);
   }
 
-  mutateFileAtomic(changeFile, (changeText) => {
-    requireGraduationReady(config, changeFile, changeText);
-    const specText = fs.readFileSync(specFile, 'utf8');
-    if (specText.includes(SPEC_SCAFFOLD_MARKER)) {
-      throw new Error(
-        `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
-      );
-    }
-    const timestamp = nowUtc();
-    const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(specText, timestamp), id);
-    writeFileAtomic(specFile, updatedSpec);
+  withFileLock(
+    specFile,
+    () => {
+      let originalSpec;
+      let wroteSpec = false;
+      let changeCommitted = false;
 
-    let text = appendLogEvent(changeText, {
-      at: timestamp,
-      type: 'graduation',
-      outcome: 'spec',
-      spec: specName,
-    });
-    text = setReviewed(text, true);
-    return text;
-  });
+      try {
+        mutateFileAtomic(
+          changeFile,
+          (changeText) => {
+            requireGraduationReady(config, changeFile, changeText);
+            originalSpec = fsImpl.readFileSync(specFile, 'utf8');
+            if (originalSpec.includes(SPEC_SCAFFOLD_MARKER)) {
+              throw new Error(
+                `Spec "${specName}" still contains the scaffold marker — refine it and remove the marker before --into`,
+              );
+            }
+            const durabilityIssue = specDurabilityIssue(parseSpec(originalSpec).body);
+            if (durabilityIssue) throw new Error(durabilityIssue);
+            const timestamp = nowUtc();
+            const updatedSpec = setSpecGraduatedFrom(setSpecUpdated(originalSpec, timestamp), id);
+            writeFileAtomic(specFile, updatedSpec, { fsImpl });
+            wroteSpec = true;
+
+            let text = appendLogEvent(changeText, {
+              at: timestamp,
+              type: 'graduation',
+              outcome: 'spec',
+              spec: specName,
+            });
+            text = setReviewed(text, true);
+            return text;
+          },
+          { fsImpl, onCommit: () => (changeCommitted = true) },
+        );
+      } catch (error) {
+        if (!wroteSpec || changeCommitted) throw error;
+        try {
+          writeFileAtomic(specFile, originalSpec, { fsImpl });
+        } catch (rollbackError) {
+          throw new AggregateError(
+            [error, rollbackError],
+            `graduation failed and spec rollback failed: ${specFile}`,
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+    },
+    { fsImpl },
+  );
   return specFile;
 }
 
@@ -114,6 +148,7 @@ export function graduate(id, slug, cwd = process.cwd(), { into = false } = {}) {
 // bug/chore with no persistent truth). Records the reason in the Log.
 export function skipGraduation(id, reason, cwd = process.cwd()) {
   const { config, file: changeFile } = resolveChange(cwd, id);
+  assertSupportedSchema(config);
   mutateFileAtomic(changeFile, (text) => {
     requireGraduationReady(config, changeFile, text);
 

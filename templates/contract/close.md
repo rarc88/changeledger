@@ -18,8 +18,24 @@ graduated_from: []
 ---
 ```
 
-Choose exactly one explicit graduation mode. A positional slug without a mode
-is an error, so words such as `skip` or `skip-*` can never silently become specs.
+First decide whether accepted work changed persistent truth:
+
+- If it did, identify and reconcile every affected spec. Inspect existing specs
+  before creating one; correct, replace or remove obsolete and contradictory
+  claims before extending them with new truth. A spec states one coherent current
+  capability, never a chronology of changes.
+- Use `--new` only when no existing spec owns that truth. One change may create,
+  correct or extend several specs; link each one individually with `--into` and
+  do not archive until every affected spec is linked.
+- Use `--skip` only when no persistent truth changed.
+
+CR identifiers and headings are local traceability for a change; they must not
+remain as structure in specs. Rewrite their substance as concise durable truth.
+Both `--into` and `changeledger check` reject CR headings outside code fences.
+
+The two outcomes — spec reconciliation or `--skip` — are exclusive. Every
+graduation command requires an explicit mode; a positional slug without one is
+an error, so words such as `skip` or `skip-*` can never silently become specs.
 
 For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 
@@ -31,9 +47,9 @@ For a new spec, follow this ordered recipe — `--new` alone does not finish it:
 3. `changeledger graduate <id> <spec-slug> --into` finalizes it; `--into`
    refuses an unrefined marked scaffold and sets `reviewed: true`.
 
-Alternatives to the two-step:
+Alternatives and multi-spec reconciliation:
 
-- For an existing spec, edit its body first, then run
+- For an existing spec affected by the change, reconcile its body first, then run
   `changeledger graduate <id> <spec-slug> --into`. It refreshes `updated`, records
   the link, does not overwrite the body and sets `reviewed: true`.
 - `changeledger graduate <id> --skip [reason]` records that no persistent truth
@@ -42,10 +58,11 @@ Alternatives to the two-step:
   unresolved.
 
 `reviewed: true` means the persistent-truth question was settled, not necessarily
-that a spec was created. `--into` records the same link in both directions: the
-change Log carries `graduado a spec`, and the target spec appends the change id to
-`graduated_from`. `changeledger check` requires both sides to agree. Repositories
-with legacy prose markers can migrate them deterministically with
+that a spec was created. It is not permission to stop a multi-spec reconciliation
+before every affected spec is linked. `--into` records the same link in both
+directions: the change Log carries `graduado a spec`, and the target spec appends
+the change id to `graduated_from`. `changeledger check` requires both sides to
+agree. Repositories with legacy prose markers can migrate them deterministically with
 `changeledger fix --graduation-links` (or preview with `--dry-run`).
 
 After `--into` or `--skip`, create one final closure commit that coalesces any

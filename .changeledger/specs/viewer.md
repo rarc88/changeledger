@@ -1,8 +1,8 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-30T21:11:53Z
+updated: 2026-08-06T16:38:23Z
 tags: [ viewer ]
-graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859", "20260730-202005"]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859", "20260730-202005", "20260731-161656", "20260804-152809"]
 ---
 
 ## Presentación
@@ -42,6 +42,17 @@ visibles, en vez de generar un SVG con dimensiones inválidas. La profundidad de
 grafo usa un set de visitados por rama para detectar ciclos solo en el camino
 actual: dependencias compartidas entre ramas no colapsan la capa del nodo
 dependiente, y los ciclos reales siguen terminando en un SVG finito.
+
+La carga HTTP del repositorio aísla por documento los fallos de lectura o parseo
+de `changes`: conserva los changes válidos, calcula filtros y métricas solo con
+ellos y devuelve los fallos recuperables ordenados por nombre de archivo. La UI
+mantiene el proyecto operable y presenta esos fallos en un aviso persistente y
+accesible. El nombre y la causa se insertan como texto, y el servidor redacta las
+rutas absolutas del diagnóstico antes de serializarlo. Esta tolerancia se limita
+a changes individuales; los fallos de configuración, specs, releases u otras
+estructuras del repositorio siguen siendo fatales. El cargador síncrono usado por
+`changeledger check` conserva su semántica estricta y rechaza el repositorio
+mientras exista un change inválido.
 
 Cada columna del Board ordena sus cards explícitamente por código ascendente, sin
 depender del orden recibido ni mutar la colección de entrada. El encabezado permite
@@ -184,6 +195,20 @@ inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
 normalizan para no revelar rutas locales. Los endpoints de config, reparación y
 desregistro comparten token efímero, límite de body y frontera loopback con las
 demás escrituras del viewer.
+
+Toda continuación asíncrona captura su target de proyecto antes del primer
+`await`. Las cargas de configuración y referencias Git conservan además la ruta,
+el change visible y una generación latest-wins; una respuesta tardía solo puede
+aplicarse si proyecto, detalle y generación siguen coincidiendo. Los receipts de
+una operación que ya resolvió un proyecto incluyen siempre `project_id` y
+`repository_path`, incluso en errores posteriores, y el cliente valida esa
+procedencia antes de mostrar éxito o error. Las respuestas anónimas quedan
+reservadas para fallos anteriores a resolver un proyecto.
+
+Reparar o desregistrar también envía la ruta que el cliente observó. El registry
+compara esa precondición bajo su lock y responde `409 project registry changed;
+reload before writing` si el mismo id ya apunta a otra ruta, sin reemplazar ni
+eliminar la entrada vigente.
 
 La configuración ofrece dos modos. **Form** es el predeterminado y representa
 General, Paths, statuses y stages del lifecycle, tipos y stages activos, política

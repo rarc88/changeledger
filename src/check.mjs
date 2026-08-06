@@ -1,9 +1,13 @@
-// Pure validator: takes a loaded repo ({ config, changes }) and returns
+// Validator: takes a loaded repo ({ config, changes }) and returns
 // { errors, warnings, validated, notValidated } — the counts say how many
 // documents were validated as subjects and how many were exempt as frozen
-// history. No IO — the `changeledger check` command does the IO and printing.
+// history. It never writes; branch-name syntax delegates to Git's native
+// read-only check-ref-format query. The `changeledger check` command owns
+// repository loading and printing.
 
+import { marked } from 'marked';
 import { parseChange } from './change.mjs';
+import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
 import { CANONICAL_STATUSES, canTransition, parseLogEvent } from './lifecycle.mjs';
 import { compareVersions, parseVersion, RELEASE_IMPACTS } from './release.mjs';
@@ -39,7 +43,9 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
   const err = (c, message) => errors.push({ file: c?.name ?? '(repo)', message });
   const warn = (c, message) => warnings.push({ file: c?.name ?? '(repo)', message });
 
-  checkConfig(config, (c, message) => err(c ?? { name: '.changeledger/config.yml' }, message));
+  const validChangeBranchFormat = checkConfig(config, (c, message) =>
+    err(c ?? { name: '.changeledger/config.yml' }, message),
+  );
 
   const statuses = Array.isArray(config.statuses) ? config.statuses : [];
   const types = isMapping(config.types) ? config.types : {};
@@ -70,6 +76,14 @@ export function checkRepo({ config, changes, specs = [], releases = [] }, opts =
 
   for (const c of targets) {
     const fm = c.frontmatter ?? {};
+
+    if (validChangeBranchFormat) {
+      try {
+        renderChangeBranch(config, fm);
+      } catch (error) {
+        err(c, error.message);
+      }
+    }
 
     checkConflictMarkers(c, err);
     checkAutoFixable(c, fm, warn);
@@ -221,6 +235,16 @@ function textOutsideFences(text) {
     if (!fence) visible.push(line);
   }
   return visible.join('\n');
+}
+
+export function specDurabilityIssue(body) {
+  let criterion;
+  marked.walkTokens(marked.lexer(String(body ?? '')), (token) => {
+    if (criterion || token.type !== 'heading') return;
+    criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+  });
+  if (!criterion) return null;
+  return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
 }
 
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
@@ -410,6 +434,8 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
 
   for (const s of specs) {
     const fm = s.frontmatter ?? {};
+    const durabilityIssue = specDurabilityIssue(s.body);
+    if (durabilityIssue) err(s, durabilityIssue);
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
     let graduatedFrom = [];
@@ -686,6 +712,14 @@ function escapeRegExp(text) {
 
 function checkConfig(config, err) {
   const c = config ?? {};
+  let validChangeBranchFormat = true;
+  try {
+    const format = changeBranchFormat(c);
+    if (format !== undefined) renderChangeBranch(c, { type: 'type', id: 'id' });
+  } catch (error) {
+    validChangeBranchFormat = false;
+    err(null, error.message);
+  }
   for (const k of ['changes_dir', 'statuses', 'stages', 'types']) {
     if (!(k in c)) err(null, `config missing "${k}"`);
   }
@@ -716,6 +750,13 @@ function checkConfig(config, err) {
   if ('statuses' in c && !Array.isArray(c.statuses)) err(null, 'config "statuses" must be a list');
   if ('stages' in c && !Array.isArray(c.stages)) err(null, 'config "stages" must be a list');
   if ('types' in c && !isMapping(c.types)) err(null, 'config "types" must be a mapping');
+  if ('git' in c) {
+    try {
+      integrationBranch(c);
+    } catch (error) {
+      err(null, error.message);
+    }
+  }
   if ('readiness' in c) checkReadinessConfig(c.readiness, err);
   const configuredTypes = isMapping(c.types) ? c.types : {};
   if ('release' in c) checkReleaseConfig(c.release, configuredTypes, err);
@@ -749,6 +790,7 @@ function checkConfig(config, err) {
       }
     }
   }
+  return validChangeBranchFormat;
 }
 
 function isMapping(value) {
