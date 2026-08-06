@@ -2,9 +2,11 @@
 id: "20260806-103551"
 title: Reconciliar la verdad durable durante la graduación
 type: bug
-status: in-validation
+status: done
 created: 2026-08-06T10:35:51Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260630-191857", "20260705-134704"]
 owner: Roberto Ruiz
 ---
@@ -104,3 +106,6 @@ CLI.
 - **2026-08-06T11:07:01Z** `[status]` in-progress → in-review
 - **2026-08-06T11:07:19Z** `[note]` Mandato de review de confirmación: comprobar solo la evasión por trim de parseSpec y regresiones introducidas por la corrección; ejecutar check desde una spec cargada y graduate --into con pseudo-fence indentado, verificar cero escrituras y revisar el efecto de trimEnd en consumidores.
 - **2026-08-06T11:11:51Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-06T16:36:08Z** `[validation]` in-validation → done (human accepted)
+- **2026-08-06T16:38:28Z** `[graduation]` spec: `lifecycle.md`
+- **2026-08-06T16:38:49Z** `[archive]` archived
