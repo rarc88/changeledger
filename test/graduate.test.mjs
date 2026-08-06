@@ -484,6 +484,26 @@ test('CR3: graduate --into rejects an unrefined scaffold without writing', () =>
   assert.equal(fs.readFileSync(specFile, 'utf8'), specBefore);
 });
 
+test('103551 CR1: graduate --into rejects change-local criterion headings without writing', () => {
+  const { root, file, id } = repo();
+  const specFile = seedSpec(
+    root,
+    'architecture.md',
+    '\n# Arch\n\n### CR1 — Copied scenario\n\n- **Then** copied output.\n',
+  );
+  const before = {
+    change: fs.readFileSync(file, 'utf8'),
+    spec: fs.readFileSync(specFile, 'utf8'),
+  };
+
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true }),
+    /^Error: spec contains change-local criterion heading "CR1"; rewrite it as durable current truth$/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), before.change);
+  assert.equal(fs.readFileSync(specFile, 'utf8'), before.spec);
+});
+
 test('skipGraduation marks reviewed, logs the reason, creates no spec (CR2)', () => {
   const { root, file, id } = repo();
   const out = skipGraduation(id, 'bug fix, sin verdad persistente', root);

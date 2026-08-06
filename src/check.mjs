@@ -236,6 +236,12 @@ function textOutsideFences(text) {
   return visible.join('\n');
 }
 
+export function specDurabilityIssue(body) {
+  const heading = textOutsideFences(body).match(/^[ \t]{0,3}#{1,6}[ \t]+(CR\d+)\b/m);
+  if (!heading) return null;
+  return `spec contains change-local criterion heading "${heading[1]}"; rewrite it as durable current truth`;
+}
+
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
   if (frozenReason(change) !== null) return;
@@ -423,6 +429,8 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
 
   for (const s of specs) {
     const fm = s.frontmatter ?? {};
+    const durabilityIssue = specDurabilityIssue(s.body);
+    if (durabilityIssue) err(s, durabilityIssue);
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
     let graduatedFrom = [];

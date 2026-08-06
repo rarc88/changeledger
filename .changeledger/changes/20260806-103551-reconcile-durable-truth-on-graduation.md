@@ -2,7 +2,7 @@
 id: "20260806-103551"
 title: Reconciliar la verdad durable durante la graduación
 type: bug
-status: approved
+status: in-review
 created: 2026-08-06T10:35:51Z
 depends_on: []
 related_to: ["20260630-191857", "20260705-134704"]
@@ -76,18 +76,23 @@ CLI.
 
 ## Plan
 
-- [ ] Añadir primero los casos rojos y centralizar la validación de encabezados CR persistentes para `check` y `graduate --into`
+- [x] Añadir primero los casos rojos y centralizar la validación de encabezados CR persistentes para `check` y `graduate --into`
   - **Target:** `test/check.test.mjs`, `test/graduate.test.mjs`, `src/check.mjs`, `src/commands/graduate.mjs`
   - **Verify:** `node --test test/check.test.mjs test/graduate.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Reescribir el contrato de cierre alrededor de reconciliación, creación y skip, y guardar sus obligaciones con patrones tolerantes a redacción
-  - **Target:** `templates/contract/close.md`, `test/contract.test.mjs`
-  - **Verify:** `node --test test/contract.test.mjs`
+  - **Resolved:** `2026-08-06T10:47:01Z`
+- [x] Reescribir el contrato de cierre alrededor de reconciliación, creación y skip, y guardar sus obligaciones con patrones tolerantes a redacción
+  - **Target:** `templates/contract/close.md`, `test/context.test.mjs`
+  - **Verify:** `node --test test/context.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Ejecutar el gate integral del repositorio
+  - **Resolved:** `2026-08-06T10:47:01Z`
+- [x] Ejecutar el gate integral del repositorio
   - **Support:** calidad integral
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-06T10:48:04Z`
 
 ## Log
 - **2026-08-06T10:37:24Z** `[note]` Draft autorizado tras confirmar que el cierre debe reconciliar, no solo extender, toda spec afectada.
 - **2026-08-06T10:39:46Z** `[status]` draft → approved
+- **2026-08-06T10:41:07Z** `[status]` approved → in-progress
+- **2026-08-06T10:48:40Z** `[status]` in-progress → in-review

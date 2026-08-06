@@ -574,6 +574,39 @@ const spec = (over = {}) => ({
 });
 const runS = (changes, specs) => checkRepo({ config, changes, specs });
 
+test('103551 CR2: specs reject CR headings at every Markdown level', () => {
+  for (let level = 1; level <= 6; level += 1) {
+    const heading = `${'#'.repeat(level)} CR${level} — Copied scenario`;
+    const { errors } = runS([change()], [spec({ body: `# Arch\n\n${heading}\n` })]);
+    assert.ok(
+      msgs(errors).includes(
+        `spec contains change-local criterion heading "CR${level}"; rewrite it as durable current truth`,
+      ),
+      heading,
+    );
+  }
+});
+
+test('103551 CR2: prose mentions and fenced CR heading examples remain valid', () => {
+  const body = `# Arch
+
+CR1 is mentioned as ordinary prose.
+
+\`\`\`markdown
+### CR2 — Example inside a code fence
+\`\`\`
+
+~~~markdown
+## CR3 — Example inside a tilde fence
+~~~
+`;
+  const { errors } = runS([change()], [spec({ body })]);
+  assert.deepEqual(
+    msgs(errors).filter((message) => /change-local criterion heading/.test(message)),
+    [],
+  );
+});
+
 test('CR1: a change graduating to a missing spec is an error', () => {
   const c = change({
     stages: [
