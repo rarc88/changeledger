@@ -36,6 +36,7 @@ export function serialize(repo) {
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
       pending_graduation: isPendingGraduation(c),
       created: c.frontmatter.created,
