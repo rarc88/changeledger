@@ -2,7 +2,7 @@
 id: "20260804-152809"
 title: Aislar changes inválidos en el viewer
 type: bug
-status: draft
+status: approved
 created: 2026-08-04T15:28:09Z
 depends_on: []
 related_to: ["20260617-190008", "20260731-161656"]
@@ -112,3 +112,4 @@ y su comportamiento ya forma parte de la base actual.
 ## Log
 
 - **2026-08-04T15:28:09Z** `[note]` Draft creado a partir de un fallo real del viewer: un change con YAML inválido impedía cargar todos los documentos válidos del proyecto.
+- **2026-08-06T11:14:47Z** `[status]` draft → approved
