@@ -2,9 +2,11 @@
 id: "20260804-152809"
 title: Aislar changes inválidos en el viewer
 type: bug
-status: in-validation
+status: done
 created: 2026-08-04T15:28:09Z
 depends_on: []
+archived: true
+reviewed: true
 related_to: ["20260617-190008", "20260731-161656"]
 owner: Roberto Ruiz
 ---
@@ -142,3 +144,6 @@ y su comportamiento ya forma parte de la base actual.
 - **2026-08-06T12:05:25Z** `[status]` in-progress → in-review
 - **2026-08-06T12:05:37Z** `[note]` Mandato de revisión de confirmación: verificar sólo la preservación del delimitador URL y la redacción completa en la matriz ejecutada de 13 delimitadores por paths POSIX, drive y UNC, especialmente backslash más UNC; comprobar regresiones introducidas sobre URL standalone, texto ordinario, markup como texto y diagnóstico accionable.
 - **2026-08-06T12:07:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-06T16:36:10Z** `[validation]` in-validation → done (human accepted)
+- **2026-08-06T16:38:23Z** `[graduation]` spec: `viewer.md`
+- **2026-08-06T16:38:45Z** `[archive]` archived
