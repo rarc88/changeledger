@@ -2,9 +2,10 @@
 id: "20260805-052741"
 title: Registrar la rama de desarrollo en el change
 type: feature
-status: in-progress
+status: in-review
 created: 2026-08-05T05:27:41Z
 depends_on: []
+branch: claude/changeledger-global-state-077d7e
 related_to: ["20260726-124836"]
 owner: Carlos Rodríguez
 ---
@@ -221,54 +222,64 @@ explícito para corregirlo — exactamente el modelo ya validado para `owner`.
 
 ## Plan
 
-- [ ] Añadir `currentBranch(cwd, run = defaultRun)` a `src/git.mjs` (tolerante a
+- [x] Añadir `currentBranch(cwd, run = defaultRun)` a `src/git.mjs` (tolerante a
       fallo y a detached HEAD) con tests unitarios
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/git.test.mjs`
   - **Criteria:** CR1, CR3
-- [ ] Añadir `setBranch` a `src/writer.mjs` sobre `patchOptionalPair`
+  - **Resolved:** `2026-08-06T07:05:24Z`
+- [x] Añadir `setBranch` a `src/writer.mjs` sobre `patchOptionalPair`
   - **Target:** `src/writer.mjs`
   - **Verify:** `node --test test/writer.test.mjs`
   - **Criteria:** CR1, CR2, CR4, CR5
-- [ ] Añadir tipo de evento `branch` a `LOG_EVENT_TYPES`, parse y serialize en
+  - **Resolved:** `2026-08-06T07:17:41Z`
+- [x] Añadir tipo de evento `branch` a `LOG_EVENT_TYPES`, parse y serialize en
       `src/lifecycle.mjs`, replicando la forma de `owner`
   - **Target:** `src/lifecycle.mjs`
   - **Verify:** `node --test test/lifecycle.test.mjs`
   - **Criteria:** CR1, CR4, CR5
-- [ ] Extender `status()` en `src/commands/agent.mjs` con el parámetro
+  - **Resolved:** `2026-08-06T07:26:50Z`
+- [x] Extender `status()` en `src/commands/agent.mjs` con el parámetro
       inyectable `currentBranch` y el bloque de autoasignación con guard
       `!fm.branch`
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Añadir `owner()`-equivalente `branch(id, name, cwd)` en
+  - **Resolved:** `2026-08-06T07:50:03Z`
+- [x] Añadir `owner()`-equivalente `branch(id, name, cwd)` en
       `src/commands/agent.mjs` y registrar el comando `branch <id> <name>` en
       `bin/changeledger.mjs`
   - **Target:** `bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Confirmar que `check` no exige `branch` ni falla en su ausencia
+  - **Resolved:** `2026-08-06T07:55:11Z`
+- [x] Confirmar que `check` no exige `branch` ni falla en su ausencia
   - **Target:** `test/check.test.mjs`
   - **Verify:** `node --test test/check.test.mjs`
   - **Criteria:** CR6
-- [ ] Añadir `branch: c.frontmatter.branch ?? null` a `serialize()` en
+  - **Resolved:** `2026-08-06T07:55:56Z`
+- [x] Añadir `branch: c.frontmatter.branch ?? null` a `serialize()` en
       `src/viewer/domain.mjs`
   - **Target:** `src/viewer/domain.mjs`
-  - **Verify:** `node --test test/viewer-metadata.test.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR7
-- [ ] Añadir pill `⎇ <branch>` en `src/viewer/public/app.js` junto al pill de
+  - **Resolved:** `2026-08-06T08:00:06Z`
+- [x] Añadir pill `⎇ <branch>` en `src/viewer/public/app.js` junto al pill de
       owner, sin filtro dedicado
   - **Target:** `src/viewer/public/app.js`
   - **Support:**
-- [ ] Actualizar `.changeledger/specs/data-model.md` y
+  - **Resolved:** `2026-08-06T08:03:31Z`
+- [x] Actualizar `.changeledger/specs/data-model.md` y
       `.changeledger/specs/lifecycle.md` con la sección de `branch`
   - **Target:** `.changeledger/specs/data-model.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Criteria:** CR8
-- [ ] Gate completo
+  - **Resolved:** `2026-08-06T08:59:33Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-06T10:07:07Z`
 
 ## Log
 
@@ -293,3 +304,5 @@ explícito para corregirlo — exactamente el modelo ya validado para `owner`.
   change, distinto de `config.git.integration_branch`.
 - **2026-08-05T09:26:14Z** `[status]` draft → approved (human via conversation)
 - **2026-08-06T06:16:57Z** `[status]` approved → in-progress
+- **2026-08-06T10:33:24Z** `[branch]` set: claude/changeledger-global-state-077d7e
+- **2026-08-06T10:45:48Z** `[status]` in-progress → in-review
