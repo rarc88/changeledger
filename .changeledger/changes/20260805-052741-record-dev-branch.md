@@ -2,9 +2,10 @@
 id: "20260805-052741"
 title: Registrar la rama de desarrollo en el change
 type: feature
-status: in-validation
+status: done
 created: 2026-08-05T05:27:41Z
 depends_on: []
+reviewed: true
 branch: claude/changeledger-global-state-077d7e
 related_to: ["20260726-124836"]
 owner: Carlos Rodríguez
@@ -308,3 +309,6 @@ explícito para corregirlo — exactamente el modelo ya validado para `owner`.
 - **2026-08-06T10:45:48Z** `[status]` in-progress → in-review
 - **2026-08-06T12:03:41Z** `[note]` Review mandate: full audit of the entire diff (10 commits, baseline 3da3639..5a03c81) implementing the branch frontmatter field per the approved Specification (CR1-CR8).
 - **2026-08-06T12:09:31Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-06T12:11:12Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-06T12:19:45Z** `[graduation]` spec: `data-model.md`
+- **2026-08-06T12:19:45Z** `[graduation]` spec: `lifecycle.md`
