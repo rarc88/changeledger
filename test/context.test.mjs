@@ -2808,7 +2808,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Twelve carrier obligations
+// sentence, and that cost is what the decision removes. Thirteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3050,6 +3050,38 @@ const CONCEPT_GUARDS = [
         pack('spec'),
         /\bchildren\b[^.;:]{0,50}\b(trace|traceability)\w*\b|\b(trace|traceability)\w*\b[^.;:]{0,50}\bchildren\b/i,
         'the spec pack no longer ties the structured children to traceability',
+      );
+    },
+  },
+  {
+    entry: 13,
+    obligation: 'closing reconciles every affected spec or skips when durable truth is unchanged',
+    verify: () => {
+      const close = flattened(contractFragment('close.md'));
+      assert.match(
+        close,
+        /\b(reconcile[sd]?|integrate[sd]?|update[sd]?)\b[^.;]{0,20}\b(every|all)\b[^.;]{0,20}\b(affected|relevant)\b[^.;]{0,15}\bspecs?\b|\b(every|all)\b[^.;]{0,20}\b(affected|relevant)\b[^.;]{0,15}\bspecs?\b[^.;]{0,25}\b(reconciled|integrated|updated)\b/i,
+        'the close fragment no longer requires reconciling every affected spec',
+      );
+      assert.match(
+        close,
+        /\b(correct\w*|remove\w*|replac\w*)\b[^.;]{0,70}\b(obsolete|outdated|contradict\w*)\b[^.;]{0,70}\b(extend\w*|add\w*|new)\b/i,
+        'the close fragment no longer corrects stale or contradictory truth before extending it',
+      );
+      assert.match(
+        close,
+        /`--new`[^.;]{0,100}\b(no|none|without)\b[^.;]{0,50}\b(existing|current)\b[^.;]{0,25}\bspec\b/i,
+        'the close fragment no longer reserves --new for truth without an existing spec',
+      );
+      assert.match(
+        close,
+        /`--skip`[^.;]{0,90}\b(no|not|unchanged)\b[^.;]{0,45}\b(persistent|durable|current)\b[^.;]{0,20}\btruth\b/i,
+        'the close fragment no longer reserves --skip for unchanged persistent truth',
+      );
+      assert.match(
+        close,
+        /\bCR\b.{0,50}\b(headings?|identifiers?)\b.{0,120}\b(never|not|must not|do not)\b.{0,50}\bspecs?\b|\b(never|not|must not|do not)\b.{0,50}\bCR\b.{0,50}\b(headings?|identifiers?)\b/i,
+        'the close fragment no longer excludes change-local CR structure from specs',
       );
     },
   },

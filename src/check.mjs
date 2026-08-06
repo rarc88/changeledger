@@ -5,6 +5,7 @@
 // read-only check-ref-format query. The `changeledger check` command owns
 // repository loading and printing.
 
+import { marked } from 'marked';
 import { parseChange } from './change.mjs';
 import { changeBranchFormat, integrationBranch, renderChangeBranch } from './config.mjs';
 import { hasFixableDefects } from './fix.mjs';
@@ -236,6 +237,16 @@ function textOutsideFences(text) {
   return visible.join('\n');
 }
 
+export function specDurabilityIssue(body) {
+  let criterion;
+  marked.walkTokens(marked.lexer(String(body ?? '')), (token) => {
+    if (criterion || token.type !== 'heading') return;
+    criterion = String(token.text).match(/^(CR\d+)\b/)?.[1];
+  });
+  if (!criterion) return null;
+  return `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`;
+}
+
 function checkUnclassifiedMentions(change, knownIds, incomingRelations, warn) {
   const fm = change.frontmatter ?? {};
   if (frozenReason(change) !== null) return;
@@ -423,6 +434,8 @@ function checkSpecs(changes, specs, changeIds, err, warn) {
 
   for (const s of specs) {
     const fm = s.frontmatter ?? {};
+    const durabilityIssue = specDurabilityIssue(s.body);
+    if (durabilityIssue) err(s, durabilityIssue);
     if (fm.updated && !ISO_UTC.test(fm.updated)) err(s, `updated not ISO 8601 UTC: ${fm.updated}`);
 
     let graduatedFrom = [];
