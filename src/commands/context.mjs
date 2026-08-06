@@ -1,7 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
-import { findChangeledgerDir, integrationBranch, loadConfig } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  integrationBranch,
+  loadConfig,
+  renderChangeBranch,
+} from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
@@ -128,12 +133,15 @@ function assertKnownType(config, type) {
 
 // Type-specific policy for change-id contexts: adds review requirement and the
 // active stages the type actually uses, so the agent does not infer them.
-function changePolicyBlock(config, type) {
+function changePolicyBlock(config, change) {
+  const { type } = change;
   const typeConfig = assertKnownType(config, type);
   const reviewRequired = typeConfig.review_required === true ? 'yes' : 'no';
   const servesReadiness = typeConfig.stages.includes('specification');
+  const changeBranch = renderChangeBranch(config, change);
+  const branch = changeBranch ? ` — change_branch=${changeBranch}` : '';
   const lines = [
-    `${transversalPolicy(config, { includeTdd: servesReadiness })} — review_required(${type})=${reviewRequired}`,
+    `${transversalPolicy(config, { includeTdd: servesReadiness })}${branch} — review_required(${type})=${reviewRequired}`,
     `Active stages(${type})=${typeConfig.stages.join(', ')}`,
   ];
   return lines.join('\n');
@@ -265,7 +273,7 @@ function composeInput(input, cwd, config) {
   return composeResult(selected.mode, fragmentsForType(selected.fragments, config, type), {
     changeText: text,
     changeId: id,
-    policy: changePolicyBlock(config, type),
+    policy: changePolicyBlock(config, { id, type }),
     dependencies: dependencyBlock(dependsOn, cwd),
     relations: relatedBlock(id, relatedTo, cwd),
   });

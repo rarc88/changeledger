@@ -10,6 +10,7 @@ import { marked } from 'marked';
 // browser, then import the module.
 const { window } = new JSDOM('<!DOCTYPE html><body></body>');
 globalThis.document = window.document;
+globalThis.window = window;
 globalThis.marked = marked;
 globalThis.DOMPurify = createDOMPurify(window);
 const { html, render } = await import('lit-html');
@@ -33,6 +34,7 @@ const {
   isVisible,
   moveStatus,
   openChangeById,
+  openManagedProject,
   passesTombstones,
   projectMutation,
   projectsViewTemplate,
@@ -102,6 +104,42 @@ const parse = (html) => {
 };
 const XSS = '"><img src=x onerror=alert(1)>';
 const HOUR = 3600000;
+
+const deferredJsonResponse = () => {
+  let resolve;
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
+  return {
+    promise,
+    resolve: (body, { ok = true, status = 200 } = {}) =>
+      resolve({ ok, status, json: async () => body, text: async () => JSON.stringify(body) }),
+  };
+};
+
+const nextTask = () => new Promise((resolve) => setImmediate(resolve));
+
+async function withMockedFetch(mock, run) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mock;
+  try {
+    return await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+const viewerChange = (id, title) => ({ ...baseChange(), id, title, status: 'done' });
+
+const installViewerFixture = () => {
+  const fixture = viewerShell();
+  fixture.insertAdjacentHTML(
+    'beforeend',
+    '<div id="overlay" class="hidden"><article id="detail"></article></div>',
+  );
+  document.body.append(fixture);
+  return fixture;
+};
 
 const baseChange = () => ({
   id: '20260613-120000',
@@ -213,6 +251,45 @@ test('111218 CR4/CR9: project mutation keeps the form and exposes a server error
   assert.equal(root.querySelector('textarea').value, 'candidate yaml');
   assert.equal(root.querySelector('.project-error').hidden, false);
   assert.match(root.querySelector('.project-error').textContent, /configuration changed on disk/);
+});
+
+test('161656 CR4: project mutation discards success and error payloads from another path', async () => {
+  const root = document.createElement('form');
+  root.innerHTML = '<button>Save</button><p class="project-error" hidden></p>';
+  let successes = 0;
+  const target = { project: 'config-a', repositoryPath: '/repos/a' };
+
+  const success = await projectMutation(
+    root,
+    async () => ({
+      ok: true,
+      json: async () => ({ project_id: 'config-a', repository_path: '/repos/other' }),
+    }),
+    async () => {
+      successes++;
+    },
+    { target },
+  );
+  const failure = await projectMutation(
+    root,
+    async () => ({
+      ok: false,
+      json: async () => ({
+        project_id: 'config-a',
+        repository_path: '/repos/other',
+        error: 'must not surface here',
+      }),
+    }),
+    async () => {
+      successes++;
+    },
+    { target },
+  );
+
+  assert.equal(success, false);
+  assert.equal(failure, false);
+  assert.equal(successes, 0);
+  assert.equal(root.querySelector('.project-error').hidden, true);
 });
 
 test('111218 CR7: unregister confirmation names the project and promises no deletion', () => {
@@ -635,6 +712,9 @@ test('141643 CR1: finishing one approval cannot enable a reused button owned by 
 
 test('141643 CR1: detail approval closes after reload success but stays open and re-enables on failure', async () => {
   appState.currentProject = 'project-alpha';
+  appState.projectsList = [
+    { id: 'project-alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+  ];
   const successChange = { ...baseChange(), id: 'success' };
   const success = parse(approvalDetail(successChange));
   const requests = [];
@@ -646,7 +726,14 @@ test('141643 CR1: detail approval closes after reload success but stays open and
       moveStatus(id, status, undefined, {
         request: async (...args) => {
           requests.push(args);
-          return { ok: true, json: async () => ({ ok: true }) };
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              project_id: 'project-alpha',
+              repository_path: '/repos/alpha',
+            }),
+          };
         },
         reload: async () => sequence.push('reload'),
         onError: (message) => errors.push(message),
@@ -655,7 +742,7 @@ test('141643 CR1: detail approval closes after reload success but stays open and
   });
   const successButton = success.querySelector('[data-approve]');
   assert.equal(await successButton.onclick(new window.Event('click')), true);
-  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined]]);
+  assert.deepEqual(requests, [['project-alpha', 'success', 'approved', undefined, '/repos/alpha']]);
   assert.deepEqual(sequence, ['reload', 'close']);
   assert.deepEqual(errors, []);
 
@@ -689,7 +776,14 @@ test('141643 CR1: detail approval closes after reload success but stays open and
     id: reloadFailureChange.id,
     move: (id, status) =>
       moveStatus(id, status, undefined, {
-        request: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+        request: async () => ({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            project_id: 'project-alpha',
+            repository_path: '/repos/alpha',
+          }),
+        }),
         reload: async () => false,
         onError: (message) => errors.push(message),
       }),
@@ -709,6 +803,10 @@ test('141643 CR1: detail approval closes after reload success but stays open and
 
 test('141643 CR1: a status move cannot validate by reloading another project', async () => {
   appState.currentProject = 'alpha';
+  appState.projectsList = [
+    { id: 'alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+    { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true },
+  ];
   let resolveRequest;
   const requestProjects = [];
   const reloadProjects = [];
@@ -720,7 +818,14 @@ test('141643 CR1: a status move cannot validate by reloading another project', a
       await new Promise((resolve) => {
         resolveRequest = resolve;
       });
-      return { ok: true, json: async () => ({ ok: true }) };
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          project_id: 'alpha',
+          repository_path: '/repos/alpha',
+        }),
+      };
     },
     reload: async (project) => {
       reloadProjects.push(project);
@@ -735,6 +840,48 @@ test('141643 CR1: a status move cannot validate by reloading another project', a
   assert.deepEqual(requestProjects, ['alpha']);
   assert.deepEqual(reloadProjects, []);
   assert.equal(errors.at(-1), 'status changed but project changed before reload');
+});
+
+test('161656 CR4/CR5: status captures its path and discards another-path receipt', async () => {
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+  };
+  const requests = [];
+  let reloads = 0;
+
+  try {
+    appState.currentProject = 'status-affinity';
+    appState.projectsList = [
+      { id: 'status-affinity', name: 'Status', path: '/repos/status', alive: true },
+    ];
+    const result = await moveStatus('change-id', 'approved', undefined, {
+      request: async (...args) => {
+        requests.push(args);
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            project_id: 'status-affinity',
+            repository_path: '/repos/other',
+          }),
+        };
+      },
+      reload: async () => {
+        reloads++;
+        return true;
+      },
+    });
+
+    assert.deepEqual(requests, [
+      ['status-affinity', 'change-id', 'approved', undefined, '/repos/status'],
+    ]);
+    assert.equal(result, false);
+    assert.equal(reloads, 0);
+  } finally {
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+  }
 });
 
 test('175732 CR1: a payload in a stage heading does not create active HTML', () => {
@@ -952,6 +1099,32 @@ test('125850 CR3: validation error re-enables controls and preserves the rejecti
   const error = host.querySelector('.validation-error');
   assert.equal(error.hidden, false);
   assert.equal(error.textContent, 'Transition rejected');
+});
+
+test('161656 CR4: validation checks attributed error provenance before displaying it', async () => {
+  const host = parse(validationPanel());
+  let provenanceChecks = 0;
+  const result = await runValidationSubmission({
+    root: host,
+    request: async () => ({
+      ok: false,
+      json: async () => ({
+        project_id: 'foreign-project',
+        repository_path: '/repos/foreign',
+        error: 'foreign error',
+      }),
+    }),
+    acceptResponse: () => {
+      provenanceChecks++;
+      return false;
+    },
+    onSuccess: async () => assert.fail('foreign error must not call onSuccess'),
+  });
+
+  assert.equal(result, false);
+  assert.equal(provenanceChecks, 1);
+  assert.equal(host.querySelector('.validation-error').hidden, true);
+  assert.equal(host.querySelector('.validation-error').textContent, '');
 });
 
 test('005437 CR1/CR2/CR3: a reused validation panel is enabled after a successful verdict', async () => {
@@ -1871,6 +2044,48 @@ test('225637 CR4/CR5: form edits and clears git.integration_branch', () => {
   assert.deepEqual(collectFormPatch(form, config), { git: { integration_branch: null } });
 });
 
+test('161655 CR6: form edits and clears git.change_branch_format without patching integration branch', () => {
+  const config = {
+    schema_version: 5,
+    project_id: 'aaa111',
+    project_name: 'alpha',
+    language: 'en',
+    tdd: true,
+    changes_dir: '.changeledger/changes',
+    specs_dir: '.changeledger/specs',
+    statuses: [
+      'draft',
+      'approved',
+      'in-progress',
+      'in-review',
+      'in-validation',
+      'blocked',
+      'done',
+      'discarded',
+    ],
+    stages: ['request', 'investigation', 'proposal', 'specification', 'plan', 'log'],
+    types: {},
+    git: { integration_branch: 'dev', change_branch_format: 'work/{id}', custom: 'keep' },
+  };
+  const root = parse(
+    projectsViewTemplate(
+      [{ id: 'aaa111', name: 'alpha', path: '/repos/alpha', alive: true }],
+      'aaa111',
+      { content: '', revision: 'rev', schemaVersion: 5, supported: 5, config },
+      false,
+    ),
+  );
+  const form = root.querySelector('[data-config-form]');
+  assert.equal(form.elements.integration_branch.value, 'dev');
+  assert.equal(form.elements.change_branch_format.value, 'work/{id}');
+  form.elements.change_branch_format.value = 'changes/{type}/{id}';
+  assert.deepEqual(collectFormPatch(form, config), {
+    git: { change_branch_format: 'changes/{type}/{id}' },
+  });
+  form.elements.change_branch_format.value = '';
+  assert.deepEqual(collectFormPatch(form, config), { git: { change_branch_format: null } });
+});
+
 test('113924 CR3: custom type decisions can be configured without assumed defaults', () => {
   const config = {
     project_id: 'aaa111',
@@ -2430,22 +2645,33 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
   };
   const previous = {
     project: appState.currentProject,
+    projects: appState.projectsList,
     repo: appState.repo,
     lastJson: appState.lastJson,
   };
+  const repoPayload = (project, marker) =>
+    JSON.stringify({
+      project_id: project,
+      repository_path: `/repos/${project}`,
+      marker,
+    });
 
   try {
     const alpha = deferred();
     const beta = deferred();
     const byProject = { alpha, beta };
+    appState.projectsList = [
+      { id: 'alpha', name: 'Alpha', path: '/repos/alpha', alive: true },
+      { id: 'beta', name: 'Beta', path: '/repos/beta', alive: true },
+    ];
     appState.currentProject = 'alpha';
     appState.lastJson = '';
     const alphaLoad = load((project) => byProject[project].promise, apply);
     appState.currentProject = 'beta';
     const betaLoad = load((project) => byProject[project].promise, apply);
-    beta.resolve('{"marker":"beta"}');
+    beta.resolve(repoPayload('beta', 'beta'));
     assert.equal(await betaLoad, true);
-    alpha.resolve('{"marker":"alpha"}');
+    alpha.resolve(repoPayload('alpha', 'alpha'));
     assert.equal(await alphaLoad, false);
     assert.equal(appState.repo.marker, 'beta');
 
@@ -2456,9 +2682,9 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
     appState.lastJson = '';
     const olderLoad = load(() => requests.shift().promise, apply);
     const newerLoad = load(() => requests.shift().promise, apply);
-    newer.resolve('{"marker":"newer"}');
+    newer.resolve(repoPayload('alpha', 'newer'));
     assert.equal(await newerLoad, true);
-    older.resolve('{"marker":"older"}');
+    older.resolve(repoPayload('alpha', 'older'));
     assert.equal(await olderLoad, true);
     assert.equal(appState.repo.marker, 'newer');
 
@@ -2472,21 +2698,571 @@ test('141859 CR6: stale repo responses cannot overwrite newer project or polling
     supersededLoad.then(() => {
       supersededSettled = true;
     });
-    superseded.resolve('{"marker":"superseded"}');
+    superseded.resolve(repoPayload('alpha', 'superseded'));
     await Promise.resolve();
     assert.equal(
       supersededSettled,
       false,
       'a superseded reload waits for the active same-project load',
     );
-    polling.resolve('{"marker":"polling"}');
+    polling.resolve(repoPayload('alpha', 'polling'));
     assert.equal(await pollingLoad, true);
     assert.equal(await supersededLoad, true);
     assert.equal(appState.repo.marker, 'polling');
   } finally {
     appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
     appState.repo = previous.repo;
     appState.lastJson = previous.lastJson;
+  }
+});
+
+test('161656 CR4/CR5: repo load captures path and rejects mismatched provenance', async () => {
+  const { load } = await import('../src/viewer/public/app.js');
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+  };
+  const requests = [];
+  let applied = 0;
+
+  try {
+    appState.currentProject = 'repo-affinity';
+    appState.projectsList = [
+      { id: 'repo-affinity', name: 'Repo', path: '/repos/current', alive: true },
+    ];
+    appState.lastJson = '';
+    const loaded = await load(
+      async (...args) => {
+        requests.push(args);
+        return JSON.stringify({
+          project_id: 'repo-affinity',
+          repository_path: '/repos/stale',
+          marker: 'must-not-apply',
+        });
+      },
+      () => {
+        applied++;
+      },
+    );
+
+    assert.deepEqual(requests, [['repo-affinity', '/repos/current']]);
+    assert.equal(loaded, false);
+    assert.equal(applied, 0);
+  } finally {
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+  }
+});
+
+test('161656 CR4: repo load rejects success without complete provenance', async () => {
+  const { load } = await import('../src/viewer/public/app.js');
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    lastJson: appState.lastJson,
+  };
+  const results = [];
+  let applied = 0;
+
+  try {
+    appState.currentProject = 'repo-provenance';
+    appState.projectsList = [
+      { id: 'repo-provenance', name: 'Repo', path: '/repos/provenance', alive: true },
+    ];
+    appState.lastJson = '';
+    for (const payload of [
+      { marker: 'missing-both' },
+      { project_id: 'repo-provenance', marker: 'missing-path' },
+      { repository_path: '/repos/provenance', marker: 'missing-id' },
+    ]) {
+      results.push(
+        await load(
+          async () => JSON.stringify(payload),
+          () => {
+            applied++;
+          },
+        ),
+      );
+    }
+
+    assert.deepEqual(results, [false, false, false]);
+    assert.equal(applied, 0);
+  } finally {
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.lastJson = previous.lastJson;
+  }
+});
+
+test('161656 CR4/CR5: resolved repo and status HTTP requests carry repository_path', async () => {
+  const calls = [];
+
+  await withMockedFetch(
+    async (url, init = {}) => {
+      calls.push({ url: String(url), body: init.body ? JSON.parse(init.body) : null });
+      if (String(url).startsWith('/api/repo')) {
+        return {
+          ok: true,
+          text: async () =>
+            JSON.stringify({ project_id: 'http-affinity', repository_path: '/repos/http' }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          project_id: 'http-affinity',
+          repository_path: '/repos/http',
+        }),
+      };
+    },
+    async () => {
+      const { getRepo, postStatus } = await import('../src/viewer/public/api.js');
+      await getRepo('http-affinity', '/repos/http');
+      await postStatus('http-affinity', 'change-id', 'approved', undefined, '/repos/http');
+    },
+  );
+
+  const repoUrl = new URL(calls[0].url, 'https://viewer.test');
+  assert.equal(repoUrl.searchParams.get('project'), 'http-affinity');
+  assert.equal(repoUrl.searchParams.get('repository_path'), '/repos/http');
+  assert.deepEqual(calls[1].body, {
+    project: 'http-affinity',
+    repository_path: '/repos/http',
+    id: 'change-id',
+    status: 'approved',
+  });
+});
+
+test('161656 CR4/CR5: validation and reopen use detail path and reject foreign receipts', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+  };
+  const statusBodies = [];
+
+  try {
+    appState.currentProject = 'detail-status';
+    appState.projectsList = [
+      { id: 'detail-status', name: 'Detail', path: '/repos/detail', alive: true },
+    ];
+    await withMockedFetch(
+      async (url, init = {}) => {
+        const parsed = new URL(String(url), 'https://viewer.test');
+        if (parsed.pathname === '/api/git') {
+          return {
+            ok: true,
+            json: async () => ({
+              project_id: 'detail-status',
+              repository_path: '/repos/detail',
+              commits: [],
+              branches: [],
+            }),
+          };
+        }
+        if (parsed.pathname === '/api/status') {
+          statusBodies.push(JSON.parse(init.body));
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              project_id: 'detail-status',
+              repository_path: '/repos/foreign',
+            }),
+          };
+        }
+        throw new Error(`unexpected request ${parsed.pathname}`);
+      },
+      async () => {
+        appState.repo = {
+          changes: [{ ...viewerChange('validation', 'Validation'), status: 'in-validation' }],
+          specs: [],
+        };
+        openChangeById('validation');
+        fixture.querySelector('[data-validation="pass"]').onclick();
+        await nextTask();
+        assert.equal(fixture.querySelector('#overlay').classList.contains('hidden'), false);
+
+        appState.repo = {
+          changes: [{ ...viewerChange('reopen', 'Reopen'), status: 'done' }],
+          specs: [],
+        };
+        openChangeById('reopen');
+        fixture.querySelector('[data-reopen-reason]').value = 'needs another pass';
+        await fixture.querySelector('[data-reopen]').onclick();
+        assert.equal(fixture.querySelector('#overlay').classList.contains('hidden'), false);
+      },
+    );
+
+    assert.deepEqual(statusBodies, [
+      {
+        project: 'detail-status',
+        repository_path: '/repos/detail',
+        id: 'validation',
+        status: 'done',
+      },
+      {
+        project: 'detail-status',
+        repository_path: '/repos/detail',
+        id: 'reopen',
+        status: 'in-progress',
+        reason: 'needs another pass',
+      },
+    ]);
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+  }
+});
+
+test('161656 CR1/CR4: late git refs cannot render or clear another project detail', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+  };
+  const requests = new Map();
+
+  try {
+    appState.projectsList = [
+      { id: 'refs-a', name: 'A', path: '/repos/a', alive: true },
+      { id: 'refs-b', name: 'B', path: '/repos/b', alive: true },
+    ];
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'https://viewer.test');
+        const key = `${parsed.searchParams.get('project')}:${parsed.searchParams.get('id')}`;
+        const response = deferredJsonResponse();
+        requests.set(key, { response, parsed });
+        return response.promise;
+      },
+      async () => {
+        appState.currentProject = 'refs-a';
+        appState.repo = { changes: [viewerChange('a1', 'Alpha')], specs: [] };
+        openChangeById('a1');
+
+        appState.currentProject = 'refs-b';
+        appState.repo = { changes: [viewerChange('b1', 'Beta')], specs: [] };
+        openChangeById('b1');
+
+        requests.get('refs-b:b1').response.resolve({
+          project_id: 'refs-b',
+          repository_path: '/repos/b',
+          commits: [],
+          branches: ['refs/b-current'],
+        });
+        await nextTask();
+        assert.match(fixture.querySelector('#git-section').textContent, /refs\/b-current/);
+
+        requests.get('refs-a:a1').response.resolve({
+          project_id: 'refs-a',
+          repository_path: '/repos/a',
+          commits: [],
+          branches: [],
+        });
+        await nextTask();
+
+        assert.equal(fixture.querySelector('#detail h1').textContent.trim(), 'Beta');
+        assert.match(fixture.querySelector('#git-section').textContent, /refs\/b-current/);
+        assert.equal(
+          requests.get('refs-a:a1').parsed.searchParams.get('repository_path'),
+          '/repos/a',
+        );
+      },
+    );
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+  }
+});
+
+test('161656 CR1: only the latest refs request for the visible change can apply', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+  };
+  const requests = new Map();
+
+  try {
+    appState.projectsList = [{ id: 'refs-one', name: 'One', path: '/repos/one', alive: true }];
+    appState.currentProject = 'refs-one';
+    appState.repo = {
+      changes: [viewerChange('old', 'Old detail'), viewerChange('new', 'New detail')],
+      specs: [],
+    };
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'https://viewer.test');
+        const id = parsed.searchParams.get('id');
+        const response = deferredJsonResponse();
+        requests.set(id, response);
+        return response.promise;
+      },
+      async () => {
+        openChangeById('old');
+        openChangeById('new');
+        requests.get('new').resolve({
+          project_id: 'refs-one',
+          repository_path: '/repos/one',
+          commits: [],
+          branches: ['newest-ref'],
+        });
+        await nextTask();
+        requests.get('old').resolve({
+          project_id: 'refs-one',
+          repository_path: '/repos/one',
+          commits: [],
+          branches: ['stale-ref'],
+        });
+        await nextTask();
+
+        assert.equal(fixture.querySelector('#detail h1').textContent.trim(), 'New detail');
+        assert.match(fixture.querySelector('#git-section').textContent, /newest-ref/);
+        assert.doesNotMatch(fixture.querySelector('#git-section').textContent, /stale-ref/);
+      },
+    );
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+  }
+});
+
+test('161656 CR2/CR4: managed config reads keep their captured id and path', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    view: appState.currentView,
+    localOnly: appState.localOnly,
+  };
+  const responses = new Map();
+  const requestedPaths = new Map();
+  const config = (project, path, projectName) => ({
+    project_id: project,
+    repository_path: path,
+    content: `project_name: ${projectName}`,
+    revision: `rev-${project}`,
+    schemaVersion: 2,
+    supported: 2,
+    config: { project_id: project, project_name: projectName, types: {}, statuses: [], stages: [] },
+  });
+
+  try {
+    appState.currentView = 'projects';
+    appState.localOnly = false;
+    appState.projectsList = [
+      { id: 'config-a', name: 'A', path: '/repos/a', alive: true },
+      { id: 'config-b', name: 'B', path: '/repos/b', alive: true },
+    ];
+    await withMockedFetch(
+      (url) => {
+        const parsed = new URL(String(url), 'https://viewer.test');
+        const project = parsed.searchParams.get('project');
+        const response = deferredJsonResponse();
+        responses.set(project, response);
+        requestedPaths.set(project, parsed.searchParams.get('repository_path'));
+        return response.promise;
+      },
+      async () => {
+        const pendingA = openManagedProject('config-a', { reload: true });
+        const pendingB = openManagedProject('config-b', { reload: true });
+        responses.get('config-b').resolve(config('config-b', '/repos/b', 'B current'));
+        await pendingB;
+        responses.get('config-a').resolve(config('config-a', '/repos/a', 'A stale'));
+        await pendingA;
+
+        assert.equal(fixture.querySelector('input[name="project_name"]')?.value, 'B current');
+        assert.deepEqual(Object.fromEntries(requestedPaths), {
+          'config-a': '/repos/a',
+          'config-b': '/repos/b',
+        });
+
+        appState.projectsList = [
+          { id: 'config-a', name: 'A', path: '/repos/a-new', alive: true },
+          { id: 'config-b', name: 'B', path: '/repos/b', alive: true },
+        ];
+        const rebound = openManagedProject('config-a', { reload: true });
+        responses.get('config-a').resolve(config('config-a', '/repos/a', 'Wrong path'));
+        await rebound;
+        assert.notEqual(fixture.querySelector('input[name="project_name"]')?.value, 'Wrong path');
+      },
+    );
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.currentView = previous.view;
+    appState.localOnly = previous.localOnly;
+  }
+});
+
+test('161656 CR2: the latest same-project config read wins', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    projects: appState.projectsList,
+    view: appState.currentView,
+    localOnly: appState.localOnly,
+  };
+  const older = deferredJsonResponse();
+  const newer = deferredJsonResponse();
+  const queue = [older, newer];
+  const config = (projectName) => ({
+    project_id: 'config-latest',
+    repository_path: '/repos/latest',
+    content: `project_name: ${projectName}`,
+    revision: `rev-${projectName}`,
+    schemaVersion: 2,
+    supported: 2,
+    config: {
+      project_id: 'config-latest',
+      project_name: projectName,
+      types: {},
+      statuses: [],
+      stages: [],
+    },
+  });
+
+  try {
+    appState.currentView = 'projects';
+    appState.localOnly = false;
+    appState.projectsList = [
+      { id: 'config-latest', name: 'Latest', path: '/repos/latest', alive: true },
+    ];
+    await withMockedFetch(
+      () => queue.shift().promise,
+      async () => {
+        const pendingOlder = openManagedProject('config-latest', { reload: true });
+        const pendingNewer = openManagedProject('config-latest', { reload: true });
+        newer.resolve(config('newest'));
+        await pendingNewer;
+        older.resolve(config('stale'));
+        await pendingOlder;
+
+        assert.equal(fixture.querySelector('input[name="project_name"]')?.value, 'newest');
+      },
+    );
+  } finally {
+    fixture.remove();
+    appState.projectsList = previous.projects;
+    appState.currentView = previous.view;
+    appState.localOnly = previous.localOnly;
+  }
+});
+
+test('161656 CR2/CR4: a late raw save cannot replace the next managed config', async () => {
+  const fixture = installViewerFixture();
+  const previous = {
+    project: appState.currentProject,
+    projects: appState.projectsList,
+    repo: appState.repo,
+    view: appState.currentView,
+    localOnly: appState.localOnly,
+  };
+  const reads = new Map();
+  const saveA = deferredJsonResponse();
+  const sentBodies = [];
+  const config = (project, path, projectName) => ({
+    project_id: project,
+    repository_path: path,
+    content: `project_name: ${projectName}`,
+    revision: `rev-${project}`,
+    schemaVersion: 2,
+    supported: 2,
+    config: { project_id: project, project_name: projectName, types: {}, statuses: [], stages: [] },
+  });
+
+  try {
+    appState.currentView = 'projects';
+    appState.localOnly = false;
+    appState.projectsList = [
+      { id: 'save-a', name: 'A', path: '/repos/a', alive: true },
+      { id: 'save-b', name: 'B', path: '/repos/b', alive: true },
+    ];
+    await withMockedFetch(
+      (url, init = {}) => {
+        const parsed = new URL(String(url), 'https://viewer.test');
+        if (parsed.pathname === '/api/projects') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              projects: appState.projectsList,
+              current: null,
+              localOnly: false,
+            }),
+          });
+        }
+        if (parsed.pathname === '/api/project-config' && init.method === 'POST') {
+          sentBodies.push(JSON.parse(init.body));
+          return saveA.promise;
+        }
+        const project = parsed.searchParams.get('project');
+        const response = deferredJsonResponse();
+        reads.set(project, response);
+        return response.promise;
+      },
+      async () => {
+        const loadA = openManagedProject('save-a', { reload: true });
+        reads.get('save-a').resolve(config('save-a', '/repos/a', 'A'));
+        await loadA;
+
+        await fixture.querySelector('[data-config-mode="raw"]').onclick();
+        const rawForm = fixture.querySelector('.config-form:not([data-config-form])');
+        rawForm.querySelector('textarea').value = 'project_name: A edited';
+        const pendingSave = rawForm.onsubmit(new window.Event('submit', { cancelable: true }));
+
+        const loadB = openManagedProject('save-b', { reload: true });
+        reads.get('save-b').resolve(config('save-b', '/repos/b', 'B current'));
+        await loadB;
+        saveA.resolve({
+          project_id: 'save-a',
+          repository_path: '/repos/a',
+          revision: 'rev-save-a-next',
+        });
+        await pendingSave;
+
+        assert.deepEqual(sentBodies, [
+          {
+            project: 'save-a',
+            repository_path: '/repos/a',
+            content: 'project_name: A edited',
+            revision: 'rev-save-a',
+          },
+        ]);
+        assert.equal(fixture.querySelector('input[name="project_name"]')?.value, 'B current');
+        await fixture.querySelector('[data-config-mode="raw"]').onclick();
+        assert.equal(
+          fixture.querySelector('.config-form:not([data-config-form]) textarea').value,
+          'project_name: B current',
+        );
+      },
+    );
+  } finally {
+    fixture.remove();
+    appState.currentProject = previous.project;
+    appState.projectsList = previous.projects;
+    appState.repo = previous.repo;
+    appState.currentView = previous.view;
+    appState.localOnly = previous.localOnly;
   }
 });
 

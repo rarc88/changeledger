@@ -115,3 +115,22 @@ test('212314 CR4: mutateFileAtomic keeps the old file when atomic write fails', 
     [],
   );
 });
+
+test('161653 CR3: mutateFileAtomic signals commit after replacement and before lock cleanup', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-atomic-'));
+  const file = path.join(dir, 'doc.md');
+  const lock = path.join(dir, '.doc.md.lock');
+  fs.writeFileSync(file, 'old');
+  let signaled = false;
+
+  mutateFileAtomic(file, () => 'new', {
+    onCommit() {
+      signaled = true;
+      assert.equal(fs.readFileSync(file, 'utf8'), 'new');
+      assert.equal(fs.existsSync(lock), true);
+    },
+  });
+
+  assert.equal(signaled, true);
+  assert.equal(fs.existsSync(lock), false);
+});

@@ -62,6 +62,31 @@ export function mutatingRun(args, cwd) {
   }
 }
 
+// Git is the authority for ref syntax. Keeping this as a query (and injectable)
+// avoids maintaining an incomplete JavaScript copy of check-ref-format's rules.
+export function isValidBranchName(name, run = defaultRun, cwd = process.cwd()) {
+  if (typeof name !== 'string' || name === '') return false;
+  try {
+    run(['check-ref-format', '--branch', name], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function currentBranch(cwd, run = defaultRun) {
+  return run(['branch', '--show-current'], cwd).trim();
+}
+
+export function isAncestor(cwd, ancestor, descendant = 'HEAD', run = defaultRun) {
+  try {
+    run(['merge-base', '--is-ancestor', ancestor, descendant], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // git's default `diff --name-only` output is a *presentation* surface: the
 // surrounding repo's configuration changes its format, so parsing it unpinned
 // makes every config axis a hole in `commit()`'s guard. Two review rounds found
@@ -194,8 +219,11 @@ export function ownerHandle(cwd, run = defaultRun, ghRun = defaultGhRun) {
 
 // Current branch name of the checkout, or '' if unresolvable: detached HEAD
 // (git prints the literal `HEAD`), an unborn branch, or any subprocess
-// failure. Tolerant by design, same shape as `ownerHandle`.
-export function currentBranch(cwd, run = defaultRun) {
+// failure. Tolerant by design, same shape as `ownerHandle`. Distinct from
+// `currentBranch` (20260731-161655): that one asserts an exact match against
+// a required format and is allowed to throw; this one only records what the
+// checkout actually is and never blocks a transition on failure.
+export function checkoutBranch(cwd, run = defaultRun) {
   try {
     const name = run(['rev-parse', '--abbrev-ref', 'HEAD'], cwd).trim();
     return name === 'HEAD' ? '' : name;

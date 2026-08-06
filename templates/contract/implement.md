@@ -21,6 +21,11 @@ finished result into it; `main` stays reserved for releases. Inspect the worktre
 unrelated changes exist, do not include them silently; ask the human whether to
 stash, commit, ignore or include them before changing the worktree.
 
+When `git.change_branch_format` is declared, use the `change_branch` published
+by the change context exactly. The convention is opt-in: absent or null does
+not impose a change-branch name. Do not substitute mutable metadata for the
+configured `{type}` and `{id}` placeholders.
+
 Between `changeledger status <id> in-progress` and the implementation commits, the
 change document stays modified and uncommitted — its `status` field and every
 `[status]` line the window accumulated, at least the entry into `in-progress` and

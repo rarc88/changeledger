@@ -1,8 +1,8 @@
 ---
 title: Viewer y presentación
-updated: 2026-07-30T21:11:53Z
+updated: 2026-07-31T21:29:42Z
 tags: [ viewer ]
-graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859", "20260730-202005"]
+graduated_from: ["20260616-151234", "20260616-212309", "20260623-125850", "20260627-111219", "20260627-215619", "20260628-113924", "20260703-150228", "20260703-220013", "20260704-103715", "20260710-105206", "20260711-155720", "20260711-155721", "20260711-155722", "20260718-111457", "20260728-141643", "20260728-141859", "20260730-202005", "20260731-161656"]
 ---
 
 ## Presentación
@@ -184,6 +184,20 @@ inválidos devuelven un error 400 sin alterar bytes; errores inesperados se
 normalizan para no revelar rutas locales. Los endpoints de config, reparación y
 desregistro comparten token efímero, límite de body y frontera loopback con las
 demás escrituras del viewer.
+
+Toda continuación asíncrona captura su target de proyecto antes del primer
+`await`. Las cargas de configuración y referencias Git conservan además la ruta,
+el change visible y una generación latest-wins; una respuesta tardía solo puede
+aplicarse si proyecto, detalle y generación siguen coincidiendo. Los receipts de
+una operación que ya resolvió un proyecto incluyen siempre `project_id` y
+`repository_path`, incluso en errores posteriores, y el cliente valida esa
+procedencia antes de mostrar éxito o error. Las respuestas anónimas quedan
+reservadas para fallos anteriores a resolver un proyecto.
+
+Reparar o desregistrar también envía la ruta que el cliente observó. El registry
+compara esa precondición bajo su lock y responde `409 project registry changed;
+reload before writing` si el mismo id ya apunta a otra ruta, sin reemplazar ni
+eliminar la entrada vigente.
 
 La configuración ofrece dos modos. **Form** es el predeterminado y representa
 General, Paths, statuses y stages del lifecycle, tipos y stages activos, política

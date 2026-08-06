@@ -25,7 +25,7 @@ import {
   view,
 } from '../src/commands/view.mjs';
 import { publicDir } from '../src/paths.mjs';
-import { readRegistry } from '../src/registry.mjs';
+import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
@@ -156,10 +156,71 @@ test('CR2: an authorized write succeeds', async () => {
     method: 'POST',
     path: '/api/status',
     headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
-    body: JSON.stringify({ project, id, status: 'approved' }),
+    body: JSON.stringify({
+      project,
+      repository_path: path.resolve(root),
+      id,
+      status: 'approved',
+    }),
   });
   assert.equal(res.status, 200);
+  assert.deepEqual(
+    {
+      project_id: JSON.parse(res.body).project_id,
+      repository_path: JSON.parse(res.body).repository_path,
+    },
+    { project_id: project, repository_path: path.resolve(root) },
+  );
   assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'approved');
+});
+
+test('161656 CR3/CR4: stale write path returns the exact conflict with current provenance', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { file, id, project } = draftChange(root);
+  const before = fs.readFileSync(file, 'utf8');
+
+  const res = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({
+      project,
+      repository_path: path.join(root, 'stale'),
+      id,
+      status: 'approved',
+    }),
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: project,
+    repository_path: path.resolve(root),
+    error: 'project registry changed; reload before writing',
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('161656 CR4: a resolved write missing its path reports provenance', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { id, project } = draftChange(root);
+
+  const res = await memoryRequest(root, {
+    method: 'POST',
+    path: '/api/status',
+    headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
+    body: JSON.stringify({ project, id, status: 'approved' }),
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: project,
+    repository_path: path.resolve(root),
+    error: 'repository_path is required',
+  });
 });
 
 test('CR3: a write to an unknown project is a 404, not a fallback', async () => {
@@ -292,6 +353,8 @@ The viewer serializes specs.
   const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
   const body = JSON.parse(res.body);
   assert.equal(res.status, 200);
+  assert.equal(body.project_id, current);
+  assert.equal(body.repository_path, path.resolve(root));
   assert.equal(body.changes.length, 1);
   assert.equal(body.changes[0].id, id);
   assert.equal(body.changes[0].title, 'Async API');
@@ -435,6 +498,17 @@ test('190008 CR2: /api/git rejects invalid id with 400', async () => {
   assert.deepEqual(JSON.parse(res.body), { error: 'invalid id' });
 });
 
+test('161656 CR4: /api/git identifies the registered repository it resolved', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, true);
+
+  const res = await memoryRequest(root, { path: `/api/git?project=${current}` });
+  assert.equal(res.status, 200);
+  assert.equal(JSON.parse(res.body).project_id, current);
+  assert.equal(JSON.parse(res.body).repository_path, path.resolve(root));
+});
+
 test('190008 CR1: router catch returns generic message, not e.message', async () => {
   isolatedHome();
   const root = newRepo();
@@ -450,6 +524,65 @@ test('190008 CR1: router catch returns generic message, not e.message', async ()
   assert.equal(body.error, 'no project');
   // Verify there are no filesystem paths leaked in any error response
   assert.ok(!body.error.includes('/'), 'error must not contain path separators');
+});
+
+test('161656 CR4 correction: config-read 500 after project resolution carries provenance only', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+  const config = path.join(root, '.changeledger', 'config.yml');
+  fs.rmSync(config);
+  fs.mkdirSync(config);
+
+  const res = await memoryRequest(root, {
+    path: `/api/project-config?project=${encodeURIComponent(current)}`,
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: current,
+    repository_path: path.resolve(root),
+    error: 'Internal server error',
+  });
+});
+
+test('161656 CR4 correction: repo-load rejection after resolution is attributed without disclosure', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, false);
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [');
+
+  const res = await memoryRequest(root, {
+    path: `/api/repo?project=${encodeURIComponent(current)}`,
+    localOnly: false,
+  });
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), {
+    project_id: current,
+    repository_path: path.resolve(root),
+    error: 'Internal server error',
+  });
+});
+
+test('161656 CR4 correction: pre-resolution 500 stays generic and anonymous', async () => {
+  isolatedHome();
+  const root = newRepo();
+  fs.writeFileSync(registryPath(), 'not-json');
+
+  let res;
+  try {
+    res = await memoryRequest(root, {
+      path: '/api/repo?project=unresolved',
+      localOnly: false,
+    });
+  } finally {
+    fs.writeFileSync(registryPath(), '{}\n');
+  }
+
+  assert.equal(res.status, 500);
+  assert.deepEqual(JSON.parse(res.body), { error: 'Internal server error' });
 });
 
 test('190009 CR3: getRepo rejects when server returns 404', async () => {
@@ -829,6 +962,16 @@ function newRepo() {
   return root;
 }
 
+function disableChangeBranchFormat(root) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('  change_branch_format: "{type}/{id}"', '  change_branch_format:'),
+  );
+}
+
 test('global mode lists all registered projects', () => {
   isolatedHome();
   newRepo();
@@ -905,6 +1048,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
 test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const acceptedFile = newChange(
     { type: 'feature', slug: 'accepted', title: 'Accepted', now: '2026-06-13T12:00:00Z' },
     root,
@@ -950,6 +1094,7 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
 test('150231 CR2: viewer reports an incomplete acceptance and preserves validation state', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'incomplete', title: 'Incomplete', now: '2026-06-13T12:00:00Z' },
     root,
@@ -979,6 +1124,7 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
 test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'selected', title: 'Selected', now: '2026-06-13T12:00:00Z' },
     root,
@@ -1001,6 +1147,7 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
 test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () => {
   isolatedHome();
   const root = newRepo();
+  disableChangeBranchFormat(root);
   const file = newChange(
     { type: 'feature', slug: 'reopen', title: 'Reopen', now: '2026-06-13T12:00:00Z' },
     root,
@@ -1120,6 +1267,8 @@ test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed 
   const root = newRepo();
   const { projects, current } = resolveProjects(root, false);
   const read = readProjectConfig(projects, current);
+  assert.equal(read.body.project_id, current);
+  assert.equal(read.body.repository_path, path.resolve(root));
   const before = read.body.content;
   const content = before.replace(/^project_name:.*$/m, 'project_name: alpha-renamed');
 
@@ -1130,6 +1279,8 @@ test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed 
   });
 
   assert.equal(saved.code, 200);
+  assert.equal(saved.body.project_id, current);
+  assert.equal(saved.body.repository_path, path.resolve(root));
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), content);
   assert.equal(
     resolveProjects(root, false).projects.find((item) => item.id === current).name,
@@ -1215,7 +1366,12 @@ test('111218 CR4: wrong-shaped config returns validation error and preserves the
     method: 'POST',
     path: '/api/project-config',
     headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
-    body: JSON.stringify({ project: current, content: candidate, revision: read.body.revision }),
+    body: JSON.stringify({
+      project: current,
+      repository_path: path.resolve(root),
+      content: candidate,
+      revision: read.body.revision,
+    }),
     localOnly: false,
   });
   assert.equal(httpResult.status, 400);
@@ -1324,20 +1480,111 @@ test('111218 CR6/CR7: path repair verifies identity and unregister never deletes
     recursive: true,
   });
 
-  const repaired = repairProjectPath(projects, { project: current, path: moved });
+  const repaired = repairProjectPath(projects, {
+    project: current,
+    repository_path: path.resolve(original),
+    path: moved,
+  });
   assert.equal(repaired.code, 200);
+  assert.equal(repaired.body.project_id, current);
+  assert.equal(repaired.body.repository_path, path.resolve(moved));
   assert.equal(readRegistry()[current].path, moved);
-  assert.equal(repairProjectPath(projects, { project: current, path: 'relative' }).code, 400);
+  assert.equal(
+    repairProjectPath(projects, {
+      project: current,
+      repository_path: path.resolve(original),
+      path: 'relative',
+    }).code,
+    400,
+  );
 
   const renamedProjects = resolveProjects(moved, false).projects;
   const project = renamedProjects.find((item) => item.id === current);
   const removed = unregisterProject(renamedProjects, {
     project: current,
+    repository_path: path.resolve(moved),
     confirm: project.name,
   });
   assert.equal(removed.code, 200);
+  assert.equal(removed.body.project_id, current);
+  assert.equal(removed.body.repository_path, path.resolve(moved));
   assert.ok(fs.existsSync(path.join(moved, '.changeledger', 'config.yml')));
   assert.equal(readRegistry()[current], undefined);
+});
+
+test('161656 CR3: registry repair and remove preserve a concurrently rebound entry', () => {
+  isolatedHome();
+  const original = newRepo();
+  const { projects, current } = resolveProjects(original, false);
+  const moved = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-moved-'));
+  fs.cpSync(path.join(original, '.changeledger'), path.join(moved, '.changeledger'), {
+    recursive: true,
+  });
+  register({ id: current, name: 'Concurrent', path: '/concurrent' });
+
+  const repaired = repairProjectPath(projects, {
+    project: current,
+    repository_path: path.resolve(original),
+    path: moved,
+  });
+  assert.equal(repaired.code, 409);
+  assert.equal(repaired.body.error, 'project registry changed; reload before writing');
+  assert.equal(readRegistry()[current].path, '/concurrent');
+
+  const removed = unregisterProject(projects, {
+    project: current,
+    repository_path: path.resolve(original),
+    confirm: projects[0].name,
+  });
+  assert.equal(removed.code, 409);
+  assert.equal(removed.body.error, 'project registry changed; reload before writing');
+  assert.equal(readRegistry()[current].path, '/concurrent');
+});
+
+test('161656 CR4: every resolved project-domain error is attributed; unresolved errors are not', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const identity = { project_id: current, repository_path: path.resolve(root) };
+
+  const failures = [
+    ['changeStatus', changeStatus(projects, { project: current })],
+    ['saveProjectConfig', saveProjectConfig(projects, { project: current })],
+    ['repairProjectPath', repairProjectPath(projects, { project: current }, { localOnly: false })],
+    [
+      'unregisterProject',
+      unregisterProject(projects, {
+        project: current,
+        repository_path: root,
+        confirm: 'wrong',
+      }),
+    ],
+    ['patchProjectConfig', patchProjectConfig(projects, { project: current, patch: 'wrong' })],
+    ['previewConfigMigration', previewConfigMigration(projects, current, 'stale')],
+    ['applyConfigMigration', applyConfigMigration(projects, { project: current })],
+  ];
+
+  for (const [name, result] of failures) {
+    assert.ok(result.code >= 400, `${name}: expected an error result`);
+    assert.ok(result.body.error, `${name}: primary error must survive attribution`);
+    assert.equal(result.body.project_id, identity.project_id, name);
+    assert.equal(result.body.repository_path, identity.repository_path, name);
+  }
+
+  const gone = { ...projects[0], alive: false };
+  for (const [name, result] of [
+    ['readProjectConfig', readProjectConfig([gone], current)],
+    ['readProjectConfigStructured', readProjectConfigStructured([gone], current)],
+  ]) {
+    assert.equal(result.code, 410, name);
+    assert.equal(result.body.project_id, identity.project_id, name);
+    assert.equal(result.body.repository_path, identity.repository_path, name);
+  }
+
+  const unresolved = readProjectConfig(projects, 'missing-project');
+  assert.equal(unresolved.code, 404);
+  assert.equal(unresolved.body.project_id, undefined);
+  assert.equal(unresolved.body.repository_path, undefined);
 });
 
 test('111218 CR8: local mode rejects registry mutations but permits config save', () => {
@@ -1527,10 +1774,12 @@ test('113924 CR3: readProjectConfigStructured returns config object and schema m
 
   const result = readProjectConfigStructured(projects, current);
   assert.equal(result.code, 200);
+  assert.equal(result.body.project_id, current);
+  assert.equal(result.body.repository_path, path.resolve(root));
   assert.ok(typeof result.body.content === 'string');
   assert.ok(typeof result.body.revision === 'string');
   assert.equal(typeof result.body.schemaVersion, 'number');
-  assert.equal(result.body.supported, 4);
+  assert.equal(result.body.supported, 5);
   assert.ok(typeof result.body.config === 'object');
   assert.ok('language' in result.body.config);
   assert.ok('tdd' in result.body.config);
@@ -1557,6 +1806,8 @@ test('113924 CR4: patchProjectConfig only changes patched field, preserves comme
   });
 
   assert.equal(result.code, 200, result.body?.error);
+  assert.equal(result.body.project_id, current);
+  assert.equal(result.body.repository_path, path.resolve(root));
   const after = fs.readFileSync(configFile, 'utf8');
   assert.match(after, /language: fr/);
   assert.match(after, /custom_key: preserved/);
@@ -1612,6 +1863,47 @@ test('225637 CR5: clearing integration branch preserves sibling git keys', () =>
   const after = fs.readFileSync(configFile, 'utf8');
   assert.doesNotMatch(after, /integration_branch:/);
   assert.match(after, /git:\n {2}custom: keep/);
+});
+
+test('161655 CR6: changing or clearing git.change_branch_format preserves git siblings and comments', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  fs.writeFileSync(
+    configFile,
+    original.replace(
+      '  integration_branch:\n  change_branch_format: "{type}/{id}"',
+      '  # release baseline\n  integration_branch: dev\n  change_branch_format: work/{id}\n  custom: keep',
+    ),
+  );
+
+  let { body } = readProjectConfigStructured(projects, current);
+  let result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { git: { change_branch_format: 'changes/{type}/{id}' } },
+  });
+  assert.equal(result.code, 200, result.body?.error);
+  let after = fs.readFileSync(configFile, 'utf8');
+  assert.match(after, /# release baseline/);
+  assert.match(after, /integration_branch: dev/);
+  assert.match(after, /change_branch_format: changes\/\{type\}\/\{id\}/);
+  assert.match(after, /custom: keep/);
+
+  ({ body } = readProjectConfigStructured(projects, current));
+  result = patchProjectConfig(projects, {
+    project: current,
+    revision: body.revision,
+    patch: { git: { change_branch_format: null } },
+  });
+  assert.equal(result.code, 200, result.body?.error);
+  after = fs.readFileSync(configFile, 'utf8');
+  assert.doesNotMatch(after, /change_branch_format:/);
+  assert.match(after, /# release baseline/);
+  assert.match(after, /integration_branch: dev/);
+  assert.match(after, /custom: keep/);
 });
 
 test('113924 CR5: patch explicitly rejects project_id in patch payload', () => {
@@ -1707,7 +1999,10 @@ test('113924 CR7: previewConfigMigration does not write and returns candidate YA
 
   const result = previewConfigMigration(projects, current);
   assert.equal(result.code, 200);
-  assert.ok(result.body.yaml.includes('schema_version: 4'));
+  assert.equal(result.body.project_id, current);
+  assert.equal(result.body.repository_path, path.resolve(root));
+  assert.ok(result.body.yaml.includes('schema_version: 5'));
+  assert.match(result.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.ok(result.body.changes.length > 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'preview must not modify file');
 });
@@ -1734,8 +2029,12 @@ test('113924 CR8: applyConfigMigration uses buildMigration engine and writes ato
 
   const result = applyConfigMigration(projects, { project: current, revision: body.revision });
   assert.equal(result.code, 200);
+  assert.equal(result.body.project_id, current);
+  assert.equal(result.body.repository_path, path.resolve(root));
   assert.ok(result.body.ok);
-  assert.ok(fs.readFileSync(configFile, 'utf8').includes('schema_version: 4'));
+  const migrated = fs.readFileSync(configFile, 'utf8');
+  assert.ok(migrated.includes('schema_version: 5'));
+  assert.match(migrated, /change_branch_format: "\{type\}\/\{id\}"/);
   // Verify idempotent
   const result2 = applyConfigMigration(projects, {
     project: current,
@@ -1771,7 +2070,7 @@ test('113924 CR10: patchProjectConfig fails closed for future schema', () => {
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const text = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 5');
+    .replace(/schema_version: \d+/, 'schema_version: 6');
   fs.writeFileSync(configFile, text);
   const { body } = readProjectConfigStructured(projects, current);
 
@@ -1791,7 +2090,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const future = fs
     .readFileSync(configFile, 'utf8')
-    .replace(/schema_version: \d+/, 'schema_version: 5');
+    .replace(/schema_version: \d+/, 'schema_version: 6');
   fs.writeFileSync(configFile, future);
   const read = readProjectConfig(projects, current);
   const candidate = future.replace(/language: en/, 'language: fr');
@@ -1802,7 +2101,7 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     revision: read.body.revision,
   });
   assert.equal(direct.code, 400);
-  assert.match(direct.body.error, /config schema 5 is newer than supported schema 4/);
+  assert.match(direct.body.error, /config schema 6 is newer than supported schema 5/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 
   const response = await memoryRequest(root, {
@@ -1811,13 +2110,67 @@ test('113924 CR10: raw domain and HTTP writes fail closed for future schema', as
     headers: { 'Content-Type': 'application/json', 'x-changeledger-token': TOKEN },
     body: JSON.stringify({
       project: current,
+      repository_path: path.resolve(root),
       content: candidate,
       revision: read.body.revision,
     }),
     localOnly: false,
   });
   assert.equal(response.status, 400);
-  assert.match(response.body, /config schema 5 is newer than supported schema 4/);
+  assert.match(response.body, /config schema 6 is newer than supported schema 5/);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), future);
+});
+
+test('161652 CR4/CR5: viewer preview reads and config writes share the future-schema guard', () => {
+  isolatedHome();
+  const root = newRepo();
+  const { projects, current } = resolveProjects(root, false);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const future = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/schema_version: \d+/, 'schema_version: 6');
+  fs.writeFileSync(configFile, future);
+  const read = readProjectConfig(projects, current);
+  let lockAttempts = 0;
+  const noLock = () => {
+    lockAttempts += 1;
+    throw new Error('lock must not be acquired');
+  };
+  const expected =
+    'config schema 6 is newer than supported schema 5; update ChangeLedger before writing';
+
+  const preview = previewConfigMigration(projects, current);
+  assert.equal(preview.code, 400);
+  assert.equal(preview.body.error, expected);
+
+  const saved = saveProjectConfig(
+    projects,
+    {
+      project: current,
+      content: future.replace('language: en', 'language: fr'),
+      revision: read.body.revision,
+    },
+    { mutateConfig: noLock },
+  );
+  assert.equal(saved.code, 400);
+  assert.equal(saved.body.error, expected);
+
+  const patched = patchProjectConfig(
+    projects,
+    { project: current, revision: read.body.revision, patch: { language: 'fr' } },
+    { mutateConfig: noLock },
+  );
+  assert.equal(patched.code, 400);
+  assert.equal(patched.body.error, expected);
+
+  const migrated = applyConfigMigration(
+    projects,
+    { project: current, revision: read.body.revision },
+    { mutateConfig: noLock },
+  );
+  assert.equal(migrated.code, 400);
+  assert.equal(migrated.body.error, expected);
+  assert.equal(lockAttempts, 0);
   assert.equal(fs.readFileSync(configFile, 'utf8'), future);
 });
 
@@ -1861,14 +2214,15 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
 
   const structured = readProjectConfigStructured(projects, current);
   assert.equal(structured.body.schemaVersion, 1);
-  assert.equal(structured.body.supported, 4);
+  assert.equal(structured.body.supported, 5);
 
   const preview = previewConfigMigration(projects, current);
   assert.equal(preview.code, 200);
-  assert.match(preview.body.summary, /Config migration 1 → 4/);
+  assert.match(preview.body.summary, /Config migration 1 → 5/);
   assert.ok(preview.body.changes.some((c) => c.includes('types.quick')));
   assert.ok(preview.body.changes.some((c) => c.includes('release.impacts.quick: patch')));
-  assert.match(preview.body.yaml, /^schema_version: 4$/m);
+  assert.match(preview.body.yaml, /^schema_version: 5$/m);
+  assert.match(preview.body.yaml, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), schema1, 'preview must not write');
 
   // Apply lands the additions and becomes terminal
@@ -1878,7 +2232,8 @@ test('162556 CR4: previewConfigMigration offers the current schema with quick ad
   });
   assert.equal(applied.code, 200);
   const after = fs.readFileSync(configFile, 'utf8');
-  assert.match(after, /^schema_version: 4$/m);
+  assert.match(after, /^schema_version: 5$/m);
+  assert.match(after, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.match(after, /quick:\s*\n\s+stages: \[request, log\]/);
   assert.match(after, /quick: patch/);
   const again = previewConfigMigration(projects, current);

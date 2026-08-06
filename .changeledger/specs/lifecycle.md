@@ -2,7 +2,7 @@
 title: Ciclo de vida y gate de revisión
 updated: 2026-08-06T12:19:45Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260805-052741"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260731-161653", "20260805-052741"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -327,7 +327,7 @@ modo que los tests de la propia resolución no cambian de comportamiento.
 El `branch` es opcional y, a diferencia de `owner`, no tiene equivalente en
 `changeledger new`: al crear el draft normalmente no existe todavía una rama de
 trabajo, así que solo se autoasigna al entrar en `in-progress`, capturando la
-rama real del checkout que ejecuta la transición (`currentBranch`, tolerante:
+rama real del checkout que ejecuta la transición (`checkoutBranch`, tolerante:
 vacío en detached HEAD o si el subproceso git falla, sin bloquear la
 transición). Mismo guard que `owner`: nunca pisa un `branch` ya fijado, a mano
 (`changeledger branch <id> <name>`, con `changeledger branch <id> -` para
@@ -335,7 +335,9 @@ limpiarlo) o desde una transición previa a `in-progress`, y la resolución es
 perezosa. No hay detección automática de rename ni de un checkout distinto en
 una reentrada posterior; corregirlo tras uno es responsabilidad del comando
 explícito. `branch` no impone ningún formato de nombre: registra el nombre real
-de la rama tal cual está, sin normalizarlo ni validarlo contra un patrón.
+de la rama tal cual está, sin normalizarlo ni validarlo contra un patrón —
+distinto de `git.change_branch_format` (`20260731-161655`), que sí exige un
+formato exacto y bloquea `approved → in-progress` si no se cumple.
 
 ## Graduación
 
@@ -376,3 +378,11 @@ semilla por verdad actual durable y elimina el marcador. Después `--into`
 no esté, refresca `updated` (`writer.setSpecUpdated`), deja intacto el cuerpo y
 registra el vínculo más `reviewed: true`. Para una spec ya existente, el agente
 edita primero su cuerpo y usa directamente `--into`.
+
+La finalización `--into` mantiene bloqueada la spec desde su lectura hasta que
+termina la escritura del change o su compensación. Si el reemplazo atómico del
+change falla antes de confirmarse, restaura byte a byte la spec original bajo el
+mismo lock; si el change ya fue reemplazado y falla únicamente el cleanup, no
+deshace una graduación confirmada. Si también falla la restauración, propaga un
+`AggregateError` que conserva en orden tanto la causa original como la del
+rollback.

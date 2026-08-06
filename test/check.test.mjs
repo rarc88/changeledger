@@ -8,6 +8,7 @@ import { parse as parseYaml } from 'yaml';
 import { parseChange } from '../src/change.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { check } from '../src/commands/check.mjs';
+import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 
@@ -20,6 +21,37 @@ const config = {
     bug: { stages: ['request', 'plan'] },
   },
 };
+
+test('161655 CR3: check reports branch format defects without throwing', () => {
+  const subject = change();
+  const fields = subject.frontmatter;
+  const formats = ['{type}', '{id}/{id}', '{owner}/{id}', '{type/{id}', 'bad..{id}'];
+
+  for (const format of formats) {
+    let expected;
+    assert.throws(
+      () => renderChangeBranch({ git: { change_branch_format: format } }, fields),
+      (e) => {
+        expected = e.message;
+        return true;
+      },
+    );
+
+    let result;
+    assert.doesNotThrow(() => {
+      result = checkRepo({
+        config: { ...config, git: { change_branch_format: format } },
+        changes: [subject],
+      });
+    });
+    assert.ok(
+      msgs(result.errors).some(
+        (message) => message === expected || message.includes('renders an invalid Git branch'),
+      ),
+      `${format}: ${msgs(result.errors).join('\n')}`,
+    );
+  }
+});
 
 // Build a valid feature change; override pieces per test.
 function change(over = {}) {
@@ -358,6 +390,53 @@ test('111218 CR4: malformed readiness patterns report errors without breaking co
         message.includes('config "readiness.target_patterns" must be a list'),
       ),
     );
+  }
+});
+
+test('20260731-161654 CR1: git must be a mapping without throwing or mutating config', () => {
+  for (const git of ['dev', [], true]) {
+    const candidate = { ...config, git };
+    const before = structuredClone(candidate);
+    let result;
+
+    assert.doesNotThrow(() => {
+      result = checkRepo({ config: candidate, changes: [] });
+    });
+    assert.deepEqual(msgs(result.errors), ['config "git" must be a mapping']);
+    assert.deepEqual(candidate, before);
+  }
+});
+
+test('20260731-161654 CR2: git.integration_branch errors match integrationBranch', () => {
+  for (const bad of [7, false, [], '']) {
+    const candidate = { ...config, git: { integration_branch: bad } };
+    let accessorMessage;
+
+    assert.throws(
+      () => integrationBranch(candidate),
+      (error) => {
+        accessorMessage = error.message;
+        return true;
+      },
+    );
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+    assert.deepEqual(msgs(errors), [accessorMessage]);
+  }
+});
+
+test('20260731-161654 CR3/CR4: optional and unknown git configuration stays untouched', () => {
+  for (const candidate of [
+    { ...config },
+    { ...config, git: {} },
+    { ...config, git: { integration_branch: null } },
+    { ...config, git: { integration_branch: 'dev', provider_option: 'keep' } },
+  ]) {
+    const before = structuredClone(candidate);
+    const { errors } = checkRepo({ config: candidate, changes: [] });
+
+    assert.deepEqual(errors, []);
+    assert.equal(integrationBranch(candidate), candidate.git?.integration_branch ?? undefined);
+    assert.deepEqual(candidate, before);
   }
 });
 
@@ -2717,7 +2796,7 @@ test('210115 CR1: without the key the base stays the current auto-detection', ()
 // --- frozen history (20260726-194220): archived/discarded documents are not
 // validated as subjects, but keep feeding every repo-wide invariant ---
 
-const FROZEN_FIXTURE_CONFIG = `schema_version: 4
+const FROZEN_FIXTURE_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes
@@ -2797,6 +2876,22 @@ function runCheck(root, args = []) {
   const code = check(args, root, out);
   return { code, out, text: [...out.diagnostics, ...out.calls].join('\n') };
 }
+
+test('161655 CR3: changeledger check reports an invalid rendered branch without throwing', () => {
+  const root = frozenFixture(
+    {},
+    {},
+    {},
+    `${FROZEN_FIXTURE_CONFIG}git:\n  change_branch_format: bad..{id}\n`,
+  );
+
+  let result;
+  assert.doesNotThrow(() => {
+    result = runCheck(root);
+  });
+  assert.equal(result.code, 1);
+  assert.match(result.text, /renders an invalid Git branch: bad\.\.id/);
+});
 
 test('194220 CR1: a done and archived change gets no diagnostics of its own', () => {
   const root = frozenFixture({
@@ -3040,7 +3135,7 @@ Eliminación limpia, sin capa de compatibilidad.
 // --- 141119: review_required is only meaningful on a type that can hold
 // criteria (## Specification) and tasks that cite them (## Plan) ---
 
-const LIGHT_REVIEW_CONFIG = `schema_version: 4
+const LIGHT_REVIEW_CONFIG = `schema_version: 5
 language: en
 tdd: true
 changes_dir: .changeledger/changes

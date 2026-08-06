@@ -52,6 +52,16 @@ function runIn(cwd, env, ...args) {
   }
 }
 
+function disableChangeBranchFormat(root) {
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs
+      .readFileSync(configFile, 'utf8')
+      .replace('  change_branch_format: "{type}/{id}"', '  change_branch_format:'),
+  );
+}
+
 function doneRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
@@ -98,6 +108,7 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
   const env = { ...process.env, CHANGELEDGER_HOME: home };
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
+  disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
@@ -652,6 +663,7 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
+  disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
@@ -728,8 +740,9 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
 
   const { code, out } = runIn(root, env, 'config', 'migrate', '--dry-run');
   assert.equal(code, 0);
-  assert.match(out, /Config migration 0 → 4 \(dry run\)/);
-  assert.match(out, /schema_version: 4/);
+  assert.match(out, /Config migration 0 → 5 \(dry run\)/);
+  assert.match(out, /schema_version: 5/);
+  assert.match(out, /change_branch_format: "\{type\}\/\{id\}"/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), before, 'dry-run must not modify file');
 });
 
@@ -770,6 +783,7 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const env = { ...process.env, CHANGELEDGER_HOME: home };
 
   assert.equal(runIn(root, env, 'init').code, 0);
+  disableChangeBranchFormat(root);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
