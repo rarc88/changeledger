@@ -65,6 +65,7 @@ export function status(
   } = {},
 ) {
   const { config, file, repoRoot } = locate(cwd, id);
+  const warnings = [];
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
@@ -93,6 +94,24 @@ export function status(
       type: fm.type,
       reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
     });
+
+    // Enforceability guard (20260808-141944): the `branch` field is set once
+    // and never rewritten (20260805-052741), so a later move to another branch
+    // leaves it silently stale. Compare it against the real checkout on every
+    // transition and surface a non-blocking warning — never rewrite, never
+    // block: the move is legitimate, the invisibility is the defect. Only
+    // meaningful when both values are known; checkoutBranch() returns '' for
+    // detached HEAD, unborn branch or a failed subprocess, and there is
+    // nothing to compare against an unset field.
+    if (fm.branch) {
+      const actualBranch = checkoutBranch(path.dirname(file));
+      if (actualBranch && actualBranch !== fm.branch) {
+        warnings.push(
+          `change #${fm.id} records branch "${fm.branch}" but this checkout is on "${actualBranch}" — if the work moved, run: changeledger branch ${fm.id} ${actualBranch}`,
+        );
+      }
+    }
+
     if (fm.status === 'approved' && newStatus === 'in-progress') {
       assertImplementationBranch(config, fm, repoRoot, gitRun);
     }
@@ -160,7 +179,7 @@ export function status(
     }
     return text;
   });
-  return file;
+  return { file, warnings };
 }
 
 // Transmits an explicit human approval received through the host conversation.

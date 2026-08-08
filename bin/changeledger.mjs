@@ -360,7 +360,8 @@ program
   )
   .action(
     action((id, st) => {
-      status(id, st, process.cwd(), { actor: 'agent' });
+      const { warnings } = status(id, st, process.cwd(), { actor: 'agent' });
+      for (const warning of warnings) console.error(warning);
       console.log(`#${id} → ${st}`);
     }),
   );
