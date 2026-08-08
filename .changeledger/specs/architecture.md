@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-07-31T21:25:28Z
+updated: 2026-08-08T17:10:20Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -93,6 +93,26 @@ archivos, orienta a consultar trabajo autorizado con `changeledger list --status
 approved` y decisiones de cierre pendientes con `changeledger list --pending
 graduation`. La orientación es estática: no ejecuta esas consultas ni incorpora
 estado efímero al contexto determinista.
+
+## Store del estado global (núcleo local)
+
+`src/state-store.mjs` implementa el núcleo de almacenamiento de la capacidad
+acotada por `global-state-scope.md`: el ledger completo como árbol exclusivo
+(`.changeledger-state/{manifest.yml, config.yml, changes/, specs/, releases/}`)
+en la ref fija `refs/heads/changeledger/state`. Lectura por snapshot sin
+checkout (`readSnapshot`, sobre `src/git-batch.mjs`: un `ls-tree` + `cat-file
+--batch` por lotes con validación UTF-8 estricta), escritura por
+compare-and-swap (`mutateState`: árbol candidato en índice temporal,
+`update-ref` con old-value, `LedgerConflictError` en conflicto) e integridad
+padre-contra-candidato: ninguna identidad desaparece sin `remove` explícito.
+La activación es checkout-independiente — `refs/changeledger/activation`
+apunta a un commit cuya `authority.yml` nombra la ref de verdad
+(`readActivation`/`writeActivation`) — y toda lectura de refs es fail-closed:
+ausencia real devuelve `null`, cualquier fallo de lectura lanza con el stderr
+de git; los objetos se verifican por tipo (`assertCommitObject`), nunca por
+peel. El módulo es puro: ningún comando ni el viewer lo consumen todavía —
+esa integración es de los changes de enrutado de lectura y escritura de la
+etapa 1.
 
 ## API documental del visor
 

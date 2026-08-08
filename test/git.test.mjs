@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  assertCommitObject,
   checkoutBranch,
   currentBranch,
   defaultGhRun,
@@ -515,4 +516,42 @@ test('002341 CR2: a marker that does not close the subject does not attribute', 
     gitRefs(root, 'Q').commits.map((c) => c.subject),
     ['feat: proper close [#Q]'],
   );
+});
+
+// --- assertCommitObject (CR5: never accept a non-commit via a silent peel) --
+
+test('151640 CR5: assertCommitObject accepts a ref that resolves directly to a commit', () => {
+  const root = scratchGitRepo();
+  execFileSync('git', ['commit', '--allow-empty', '-qm', 'root'], { cwd: root });
+  assert.doesNotThrow(() => assertCommitObject(root, 'HEAD'));
+});
+
+test('151640 CR5: assertCommitObject rejects a ref resolving to an annotated tag, naming the real type', () => {
+  const root = scratchGitRepo();
+  execFileSync('git', ['commit', '--allow-empty', '-qm', 'root'], { cwd: root });
+  execFileSync('git', ['tag', '-a', '-m', 'tag', 'v1'], { cwd: root });
+
+  assert.throws(() => assertCommitObject(root, 'refs/tags/v1'), /resolves to a tag, not a commit/);
+});
+
+test('151640 CR5: assertCommitObject rejects a ref resolving to a blob, naming the real type', () => {
+  const root = scratchGitRepo();
+  const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: root,
+    input: 'not a commit',
+    encoding: 'utf8',
+  }).trim();
+  execFileSync('git', ['update-ref', 'refs/changeledger/blob-ref', blob], { cwd: root });
+
+  assert.throws(
+    () => assertCommitObject(root, 'refs/changeledger/blob-ref'),
+    /resolves to a blob, not a commit/,
+  );
+});
+
+test('151640 CR5: assertCommitObject never peels through ^{commit} (rejects a tree directly)', () => {
+  const root = scratchGitRepo();
+  const tree = execFileSync('git', ['write-tree'], { cwd: root, encoding: 'utf8' }).trim();
+
+  assert.throws(() => assertCommitObject(root, tree), /resolves to a tree, not a commit/);
 });
