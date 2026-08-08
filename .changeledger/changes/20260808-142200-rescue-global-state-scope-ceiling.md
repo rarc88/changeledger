@@ -2,7 +2,7 @@
 id: "20260808-142200"
 title: Rescatar el techo de alcance del estado global a una spec
 type: chore
-status: draft
+status: approved
 created: 2026-08-08T14:22:00Z
 depends_on: []
 related_to: ["20260627-205034"]
@@ -118,3 +118,4 @@ Y debe enmendar el original con lo decidido el 2026-08-08:
   esas ramas hasta que la etapa 1 rescate también el núcleo
   (`ledger-store`/`state-store`/`git-batch`) que reutilizará.
 - **2026-08-08T14:34:43Z** `[note]` Enmienda pre-aprobación (decisión humana 2026-08-08): el destino del techo deja de ser INTENT.md — pasa a la spec nueva global-state-scope.md siguiendo el precedente de product-principles.md, con un párrafo simple en INTENT.md y una línea temporal en AGENTS.md. Tres piezas confirmadas por Roberto.
+- **2026-08-08T14:55:32Z** `[status]` draft → approved (human via conversation)
