@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -921,4 +921,49 @@ test('151336 CR4: --no-change and --id are mutually exclusive and create no comm
   assert.match(conflict.err, /--no-change/);
   assert.match(conflict.err, /--id/);
   assert.equal(noChangeGit(root, ['rev-list', '--count', 'HEAD']).trim(), before);
+});
+
+test('20260808-141944 CR6: status warns on stderr when the checkout differs from the registered branch', () => {
+  const { root, env } = noChangeRepo();
+  disableChangeBranchFormat(root);
+  assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  const changeFile = fs
+    .readdirSync(path.join(root, '.changeledger', 'changes'))
+    .map((name) => path.join(root, '.changeledger', 'changes', name))
+    .find((candidate) => fs.readFileSync(candidate, 'utf8').includes(`id: "${id}"`));
+  // A minimal ready candidate (same shape as 124656 CR3's repaired fixture):
+  // the in-review readiness gate requires a testable CR and a Plan task that
+  // names both target and verification.
+  const ready = fs
+    .readFileSync(changeFile, 'utf8')
+    .replace(
+      '## Specification\n',
+      '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+    )
+    .replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
+    );
+  fs.writeFileSync(changeFile, ready);
+  noChangeGit(root, ['add', '-A']);
+  noChangeGit(root, ['commit', '-m', 'chore(x): ready candidate']);
+  assert.equal(runIn(root, env, 'approve', id).code, 0);
+  assert.equal(runIn(root, env, 'status', id, 'in-progress').code, 0);
+  assert.equal(runIn(root, env, 'branch', id, 'feature/x').code, 0);
+  noChangeGit(root, ['checkout', '-q', '-b', 'other-branch']);
+
+  // execFileSync discards stderr on a successful (exit 0) run, and this
+  // transition succeeds — spawnSync captures both streams regardless of exit
+  // code, which is what CR6 needs to assert.
+  const result = spawnSync('node', [bin, 'status', id, 'in-review'], {
+    cwd: root,
+    env,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, new RegExp(`#${id} → in-review`));
+  assert.match(result.stderr, /feature\/x/);
+  assert.match(result.stderr, /changeledger branch/);
 });

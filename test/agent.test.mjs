@@ -476,6 +476,63 @@ test('20260805-052741 CR3: status to in-progress tolerates a missing branch', ()
   assert.equal('branch' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
+test('20260808-141944 CR1: a branch mismatch on transition produces a non-blocking warning', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => 'feature/y' });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status, 'in-review');
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0], /feature\/x/);
+  assert.match(result.warnings[0], /feature\/y/);
+  assert.match(result.warnings[0], /changeledger branch/);
+});
+
+test('20260808-141944 CR2: no mismatch means no warning', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => 'feature/x' });
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR3: an unresolvable checkout produces no warning and does not throw', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const result = status(id, 'in-review', root, { checkoutBranch: () => '' });
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR4: no branch field means no comparison', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  const result = status(id, 'in-progress', root, {
+    ownerHandle: () => '',
+    checkoutBranch: () => 'feature/y',
+  });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.branch, 'feature/y');
+  assert.deepEqual(result.warnings, []);
+});
+
+test('20260808-141944 CR5: the warning does not mutate the document', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  status(id, 'in-review', root, { checkoutBranch: () => 'feature/y' });
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.branch, 'feature/x');
+  const logBody = c.stages.find((s) => s.key === 'log').body;
+  const statusEvents = logBody.split('\n').filter((l) => l.includes('[status]'));
+  const branchEvents = logBody.split('\n').filter((l) => l.includes('[branch]'));
+  assert.equal(statusEvents.length, 3);
+  assert.equal(branchEvents.length, 0);
+});
+
 test('144812 CR1: an assigned owner skips resolution entirely', () => {
   const { root, file, id } = repoWithChange();
   owner(id, 'ana', root);
