@@ -2,7 +2,7 @@
 id: "20260808-151640"
 title: "Store local del estado global: ref fija, snapshot y CAS"
 type: feature
-status: draft
+status: approved
 created: 2026-08-08T15:16:40Z
 depends_on: []
 related_to: ["20260808-142200"]
@@ -287,3 +287,4 @@ este).
   probados) y verificación en dev (`sanitizedEnv` ya cierra la clase de
   locale; `assertCommitObject` no existe y se porta). El catálogo de defectos
   de v2 entra como CRs, no como recuerdos.
+- **2026-08-08T16:02:55Z** `[status]` draft → approved (human via conversation)
