@@ -39,6 +39,28 @@ export function resolveChange(start, id) {
   );
 }
 
+// Read-only sibling of `resolveChange` for a caller that already holds a
+// loaded repo (`loadRepo`/`loadRepoAsync`): same exact frontmatter.id match,
+// but against `repo.changes` instead of a fresh disk read — so it inherits
+// whichever authority `repo` was loaded under (the worktree when inactive,
+// the state-ref snapshot when activated; see the routing in
+// `loadRepoWithConfig`/`loadRepoAsync` above) rather than resolveChange's
+// fixed worktree read. `context`/`agent-context` use this for their
+// dependency, related-change and change-id lookups (20260808-151641 CR7);
+// every caller of `resolveChange` that needs a real `file` path to write
+// (agent.mjs, the viewer's write paths) is a mutator and stays on
+// `resolveChange` — that routing is explicitly out of scope here and belongs
+// to the next change.
+export function resolveChangeInRepo(repo, id) {
+  const found = repo.changes.find((c) => String(c.frontmatter.id) === String(id));
+  if (!found) {
+    throw new Error(
+      `No change with id "${id}" (use the exact id; run \`changeledger check\` if a filename's id looks wrong)`,
+    );
+  }
+  return found;
+}
+
 // Reads and parses one change document, naming the offending path on any
 // failure instead of letting a raw fs or parse error surface unattributed. A
 // consumer repo can hand `changes_dir` a directory whose name happens to look
@@ -62,22 +84,37 @@ function readChangeFile(file) {
   }
 }
 
-// Whether `repoRoot` looks like a git repository at all, via a plain fs check
-// (never a subprocess). Gates every activation lookup below: a directory built
-// by `fs.mkdtempSync` with no `git init` — the shape `loadRepo`'s own tests use
-// for the non-git fixtures — must incur zero git subprocesses, which a call to
-// `readActivation` (itself a `git rev-parse`) cannot guarantee on its own.
-function hasGitDirectory(repoRoot) {
-  return fs.existsSync(path.join(repoRoot, '.git'));
+// Whether `repoRoot` is inside a git repository at all, via the same upward
+// discovery git itself does (a `.git` entry — file or directory, so a linked
+// worktree's gitdir-pointer file counts too — at `repoRoot` or any ancestor),
+// but fs-only: never a subprocess. `.changeledger/` need not sit at the git
+// top-level (`src/git.mjs`'s `gitTopLevel`/`commit()` already document that
+// gap between `repoRoot` and git's own root), so checking only the exact
+// directory `loadRepo` was handed — the previous, since-corrected heuristic —
+// silently missed a live activation whenever the ledger lived in a
+// subdirectory of the repo, degrading it to the legacy worktree path with
+// exit 0. Gates every activation lookup below: a directory built by
+// `fs.mkdtempSync` with no `git init` anywhere above it — the shape
+// `loadRepo`'s own non-git fixtures use — must incur zero git subprocesses,
+// which a call to `readActivation` cannot guarantee on its own (it throws,
+// rather than returning `null`, when run outside any git repo).
+function isInsideGitRepo(repoRoot) {
+  let dir = path.resolve(repoRoot);
+  for (;;) {
+    if (fs.existsSync(path.join(dir, '.git'))) return true;
+    const parent = path.dirname(dir);
+    if (parent === dir) return false;
+    dir = parent;
+  }
 }
 
 // Activation is consulted only after discovery, and only for a directory that
-// is actually a git repo — `null` otherwise, without ever invoking `run`. This
-// is the single gate the read-routing spec (20260808-151641) requires: no
-// caller of the `loadRepo*` family changes shape, but every one of them routes
-// through here.
+// is actually inside a git repo — `null` otherwise, without ever invoking
+// `run`. This is the single gate the read-routing spec (20260808-151641)
+// requires: no caller of the `loadRepo*` family changes shape, but every one
+// of them routes through here.
 function resolveActivation(repoRoot, run) {
-  return hasGitDirectory(repoRoot) ? readActivation(repoRoot, run) : null;
+  return isInsideGitRepo(repoRoot) ? readActivation(repoRoot, run) : null;
 }
 
 // Builds `{ config, changes, changeErrors, specs, releases, state }` from the

@@ -115,21 +115,42 @@ peel.
 El enrutado de lectura (`20260808-151641`) es un único resolver: la familia
 `loadRepo`/`loadRepoWithConfig`/`loadRepoAsync` de `src/repo.mjs`, compartida
 por el CLI y por el viewer (`router.mjs` no tiene camino de lectura propio).
-Tras descubrir el repo, consulta `readActivation` — solo si `repoRoot` es un
-repo git (`.git` existe; una comprobación de filesystem, nunca un subproceso),
-así el camino inactivo nunca invoca `git`. Sin activación, el comportamiento
-es el de siempre, byte a byte, con `state: null`. Con activación, `changes`,
-`specs`, `releases` y `config` salen de `readSnapshot` en lugar del working
-tree, y el resultado gana `state: { revision }` — la costura que el CAS de
-escritura usará como `expectedRevision`. Una activación presente cuya ref de
-estado es ilegible o ausente propaga el error fail-closed del store; nunca
-degrada al worktree. Frontera de config declarada a propósito: los callers
-que cargan config *antes* de invocar `loadRepo*` (`new`, `register`,
-`agent-context`, el bootstrap de `check`) siguen leyendo el config del
-worktree en esta etapa — ambos nacen idénticos hasta el cutover de escritura
-de la etapa 2, que resuelve la autoridad final. La escritura
-(`mutateState`) todavía no tiene caller: esa integración es del change de
-escritura de la etapa 1.
+Tras descubrir el repo, consulta `readActivation` — solo si `repoRoot` está
+dentro de un repo git, decidido subiendo por los ancestros en busca de un
+`.git` (archivo o directorio, el mismo descubrimiento que hace git; una
+comprobación de filesystem, nunca un subproceso), no solo el directorio exacto
+que recibió `loadRepo`: `.changeledger/` puede vivir por debajo del top-level
+de git (la misma brecha entre `repoRoot` y la raíz real que ya documentan
+`gitTopLevel`/`commit()` en `src/git.mjs`), y comprobar solo el directorio
+exacto ocultaba en silencio una activación viva ahí. Sin activación, el
+comportamiento es el de siempre, byte a byte, con `state: null` — y en un
+directorio que no está dentro de ningún repo git, cero subprocesos. Con
+activación, `changes`, `specs`, `releases` y `config` salen de `readSnapshot`
+en lugar del working tree, y el resultado gana `state: { revision }` — la
+costura que el CAS de escritura usará como `expectedRevision`. Una activación
+presente cuya ref de estado es ilegible o ausente propaga el error
+fail-closed del store; nunca degrada al worktree.
+
+Segunda vía de lectura, misma frontera: `resolveChange` (`src/repo.mjs`)
+sigue siendo un escaneo directo del working tree — lo necesitan los
+consumidores que mutan (`src/commands/agent.mjs`, `src/commands/graduate.mjs`
+y las escrituras del viewer),
+porque una mutación necesita una ruta de archivo real para escribir, y esa
+ruta pertenece por diseño a `20260808-151643` (el change de escritura).
+`resolveChangeInRepo`, en cambio, resuelve el mismo id por búsqueda exacta
+pero contra `repo.changes` de un `loadRepo*` ya cargado — hereda la autoridad
+bajo la que ese repo se cargó (snapshot si está activado) en lugar de leer
+disco de nuevo. `context`/`agent-context` (`src/commands/context.mjs`,
+`src/commands/agent-context.mjs`) la usan para sus lecturas por id de change,
+dependencia y relación; su captura sin id (modo core o palabra clave) no
+necesita ningún documento de change, así que no paga un `loadRepo` completo —
+sigue leyendo `config` directo del worktree, como antes de esta etapa. Con
+esto, la frontera de config es: los callers que cargan config sin pasar por
+`loadRepo*` en absoluto (`new`, `register`, el bootstrap de `check`, y las
+capturas sin id de `context`/`agent-context`) siguen leyendo el worktree en
+esta etapa — ambos nacen idénticos hasta el cutover de escritura de la etapa
+2, que resuelve la autoridad final. La escritura (`mutateState`) todavía no
+tiene caller: esa integración es del change de escritura de la etapa 1.
 
 ## API documental del visor
 

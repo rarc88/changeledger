@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,7 +10,9 @@ import { buildAgentContext } from '../src/commands/agent-context.mjs';
 import { buildAgentPrompt } from '../src/commands/agent-prompt.mjs';
 import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
 const execFileAsync = promisify(execFile);
@@ -67,6 +69,75 @@ Chosen approach.
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', `${id}-delegated-work.md`), text);
   return text;
 }
+
+// 20260808-151641 CR7 (correction round) — agent-context is a read-only
+// consumer of `resolveChange` too; on an activated repo it must resolve the
+// role's change from the state-ref snapshot, never a worktree phantom. Same
+// doc-only-in-ref-vs-only-in-worktree shape as context.test.mjs's CR7:
+// `worktreeId` only exists on disk, `refId` only in the seeded state ref, and
+// the snapshot config is the worktree's own (byte-identical) so `types` stays
+// resolvable.
+function activatedAgentContextFixture() {
+  const root = repo();
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+
+  const refId = '20260808-000005';
+  const worktreeId = '20260808-000006';
+  addChange(root, 'in-progress', worktreeId);
+
+  const refText = `---
+id: "${refId}"
+title: Delegated work
+type: feature
+status: approved
+created: 2026-07-05T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Do the delegated work.
+`;
+
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    '.changeledger-state/changes/delegated-work.md': refText,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, refId, worktreeId, refText };
+}
+
+test('20260808-151641 CR7: agent-context resolves the snapshot change, not a worktree phantom, in an activated repo', () => {
+  const { root, refId, worktreeId, refText } = activatedAgentContextFixture();
+
+  const out = buildAgentContext('implementation', refId, root);
+  assert.match(out, new RegExp(`change: #${refId}`));
+  assert.ok(out.includes(refText.trim()));
+
+  assert.throws(() => buildAgentContext('implementation', worktreeId, root), /No change with id/);
+});
+
+// 20260808-151641 R1 (correction round 2) — same regression as
+// context.test.mjs's R1: `investigation` with no change id never needed
+// `repo.changes` before this change, so a broken change document elsewhere in
+// the repo must not deny it. Only a change-id role load needs the full repo.
+test('20260808-151641 R1: a legacy repo with one unparseable change still serves the investigation capsule', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here, just prose\n',
+  );
+
+  assert.doesNotThrow(() => buildAgentContext('investigation', undefined, root));
+  assert.match(buildAgentContext('investigation', undefined, root), /role: investigation/);
+});
 
 test('144327 CR7: role context is framed, self-contained and carries effective policy', () => {
   const root = repo();

@@ -14,6 +14,7 @@ import {
 import { init } from '../src/commands/init.mjs';
 import { REFERENCE } from '../src/contract.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   assertWithinBudget,
   contextBudgets,
@@ -23,6 +24,7 @@ import {
   tokenCount,
 } from './budget-support.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
 
@@ -429,6 +431,82 @@ test('CR2: change id infers implement and includes complete actionable stages', 
   assert.match(output, /\*\*Then\*\* exact criterion text is present/);
   assert.match(output, /## Plan[\s\S]*src\/example\.mjs/);
   assert.match(output, /## Log[\s\S]*Decision retained/);
+});
+
+// 20260808-151641 CR7 (correction round) — context is a read-only consumer of
+// `resolveChange`; on an activated repo it must resolve the change-id capture
+// from the state-ref snapshot, never a worktree phantom. Turns `repo()` into
+// a real git repo, writes a worktree-only change (`worktreeId`, never in the
+// snapshot) and seeds the state ref with a different one (`refId`) — the same
+// doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2, reusing
+// the worktree's own `config.yml` (byte-identical) as the snapshot config so
+// `types.feature` stays resolvable.
+function activatedContextFixture() {
+  const root = repo();
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+
+  const refId = '20260808-000001';
+  const worktreeId = '20260808-000002';
+  addChange(root, 'draft', worktreeId);
+
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    '.changeledger-state/changes/context-fixture.md': `---
+id: "${refId}"
+title: Context fixture
+type: feature
+status: draft
+created: 2026-06-27T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+Need exact context.
+`,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, refId, worktreeId };
+}
+
+test('20260808-151641 CR7: context resolves the snapshot change, not a worktree phantom, in an activated repo', () => {
+  const { root, refId, worktreeId } = activatedContextFixture();
+
+  const output = buildContext(refId, root);
+  assert.match(output, new RegExp(`change: #${refId}`));
+  assert.match(output, /## Request[\s\S]*Need exact context/);
+
+  assert.throws(
+    () => buildContext(worktreeId, root),
+    new RegExp(`Unknown context "${worktreeId}"`),
+  );
+});
+
+// 20260808-151641 R1 (correction round 2) — a regression the confirmation
+// review found: routing the change-id path through `loadRepo` made the
+// changeless paths (no input, or a mode keyword) call it too, and the sync
+// loader throws on the first unparseable change document. Before this change
+// (ccbb1148), `context` with no input or a mode never touched the changes
+// directory at all — a broken change document could not deny the mandatory
+// AGENTS.md bootstrap. Only the change-id path needs `repo.changes`.
+test('20260808-151641 R1: a legacy repo with one unparseable change still serves core and mode captures', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here, just prose\n',
+  );
+
+  assert.doesNotThrow(() => buildContext(undefined, root));
+  assert.match(buildContext(undefined, root), /mode: core/);
+  assert.doesNotThrow(() => buildContext('implement', root));
+  assert.match(buildContext('implement', root), /mode: implement/);
 });
 
 test('20260629-210543 CR2: every supported status produces incremental change context', () => {

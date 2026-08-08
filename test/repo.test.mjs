@@ -237,12 +237,18 @@ function changeDoc(id, title) {
 // with its own change, `only-worktree`) whose activation points at a state ref
 // carrying a different document, `only-ref` — the exact CR2 shape (doc only in
 // ref vs only in worktree). `seedStateRef: false` leaves the state ref entirely
-// unwritten (CR3's "absent" case).
+// unwritten (CR3's "absent" case). `subdir` (CR8) nests `.changeledger/` below
+// the git top-level — the state ref and activation still live at the real git
+// root (refs are repo-wide, not tied to cwd depth); `root` is what `loadRepo`
+// is called with (the ChangeLedger discovery point), `gitRoot` is the actual
+// top-level.
 function activatedFixture({
   stateConfig = 'project_id: demo\nlanguage: en\n',
   seedStateRef = true,
+  subdir = '',
 } = {}) {
-  const root = initStateRepo();
+  const gitRoot = initStateRepo();
+  const root = subdir ? path.join(gitRoot, subdir) : gitRoot;
   fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
   fs.writeFileSync(
     path.join(root, '.changeledger', 'config.yml'),
@@ -255,17 +261,17 @@ function activatedFixture({
 
   let revision;
   if (seedStateRef) {
-    const tree = buildTree(root, {
+    const tree = buildTree(gitRoot, {
       '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
       '.changeledger-state/config.yml': stateConfig,
       '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'Only ref'),
     });
-    revision = commitTree(root, tree, { message: 'chore: state' });
-    updateRef(root, STATE_REF, revision);
+    revision = commitTree(gitRoot, tree, { message: 'chore: state' });
+    updateRef(gitRoot, STATE_REF, revision);
   }
 
-  writeActivation(root, { stateRef: STATE_REF });
-  return { root, revision };
+  writeActivation(gitRoot, { stateRef: STATE_REF });
+  return { root, gitRoot, revision };
 }
 
 // Activation present, but the state ref names a blob instead of a commit —
@@ -324,4 +330,23 @@ test('20260808-151641 CR4: active config comes from the snapshot, not the worktr
   const { root } = activatedFixture({ stateConfig: 'project_id: demo\nlanguage: en\n' });
   const repo = loadRepo(root);
   assert.equal(repo.config.language, 'en');
+});
+
+// Correction round (post-review) — CR8: a `.changeledger/` below the git
+// top-level must not hide a live activation. `fs.existsSync(repoRoot/.git)`
+// only checks the exact directory `loadRepo` was given, which is `root`
+// (the subdir) here, not `gitRoot` where `.git` actually lives — the defect
+// the reviewer confirmed.
+test('20260808-151641 CR8: an activated repo below the git top-level still serves the snapshot', () => {
+  const { root, revision } = activatedFixture({ subdir: 'apps/proj' });
+  const repo = loadRepo(root);
+  assert.equal(repo.state.revision, revision);
+  assert.deepEqual(
+    repo.changes.map((c) => c.frontmatter.id),
+    ['only-ref'],
+  );
+  assert.equal(
+    repo.changes.find((c) => c.frontmatter.id === 'only-worktree'),
+    undefined,
+  );
 });

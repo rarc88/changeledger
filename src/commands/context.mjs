@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseChange } from '../change.mjs';
 import {
   findChangeledgerDir,
   integrationBranch,
@@ -9,7 +8,7 @@ import {
 } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
-import { loadRepo, resolveChange } from '../repo.mjs';
+import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 
 const END_DELIMITER = endSentinel('CONTEXT');
 const MODES = ['implement', 'review', 'spec', 'release'];
@@ -160,15 +159,17 @@ function fragmentsForType(fragments, config, type) {
 }
 
 // One line per local dependency (id, title, status); external `project:id`
-// references stay references, never pretending local resolution.
-function dependencyBlock(dependsOn, cwd) {
+// references stay references, never pretending local resolution. Resolves
+// against the already-loaded `repo` (`resolveChangeInRepo`) rather than a
+// fresh disk read, so an activated repo's snapshot is what answers this, not
+// the worktree (20260808-151641 CR7).
+function dependencyBlock(dependsOn, repo) {
   if (!Array.isArray(dependsOn) || dependsOn.length === 0) return undefined;
   const lines = dependsOn.map((raw) => {
     const dep = String(raw);
     if (dep.includes(':')) return `- #${dep} — external reference (not resolved locally)`;
     try {
-      const resolved = resolveChange(cwd, dep);
-      const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+      const { frontmatter } = resolveChangeInRepo(repo, dep);
       return `- #${dep} — ${frontmatter.title} — ${frontmatter.status}`;
     } catch {
       return `- #${dep} — unresolved local dependency`;
@@ -177,24 +178,23 @@ function dependencyBlock(dependsOn, cwd) {
   return `## Dependencies\n\n${lines.join('\n')}`;
 }
 
-function relatedChangeLine(direction, raw, cwd) {
+function relatedChangeLine(direction, raw, repo) {
   const reference = String(raw);
   if (reference.includes(':')) {
     return `- ${direction} — #${reference} — external reference (not resolved locally)`;
   }
   try {
-    const resolved = resolveChange(cwd, reference);
-    const { frontmatter } = parseChange(fs.readFileSync(resolved.file, 'utf8'));
+    const { frontmatter } = resolveChangeInRepo(repo, reference);
     return `- ${direction} — #${reference} — ${frontmatter.title} — ${frontmatter.status}`;
   } catch {
     return `- ${direction} — #${reference} — unresolved local relation`;
   }
 }
 
-function relatedBlock(id, relatedTo, cwd) {
+function relatedBlock(id, relatedTo, repo) {
   const outgoing = Array.isArray(relatedTo) ? relatedTo : [];
-  const incoming = loadRepo(cwd)
-    .changes.filter(
+  const incoming = repo.changes
+    .filter(
       (change) =>
         String(change.frontmatter?.id) !== String(id) &&
         Array.isArray(change.frontmatter?.related_to) &&
@@ -203,8 +203,8 @@ function relatedBlock(id, relatedTo, cwd) {
     .map((change) => String(change.frontmatter.id));
   if (!outgoing.length && !incoming.length) return undefined;
   const lines = [
-    ...outgoing.map((target) => relatedChangeLine('outgoing', target, cwd)),
-    ...incoming.map((source) => relatedChangeLine('incoming', source, cwd)),
+    ...outgoing.map((target) => relatedChangeLine('outgoing', target, repo)),
+    ...incoming.map((source) => relatedChangeLine('incoming', source, repo)),
   ];
   return `## Related changes\n\n${lines.join('\n')}`;
 }
@@ -240,49 +240,53 @@ function requireRepo(cwd) {
   return dir;
 }
 
-function composeInput(input, cwd, config) {
-  if (!input) {
-    return composeResult('core', ['core'], {
-      incremental: false,
-      policy: transversalPolicy(config),
-    });
-  }
-  if (MODES.includes(input)) {
+// A changeless capture (no input, or a mode keyword) never needs a change
+// document — only `config`, read straight from the worktree exactly as before
+// 20260808-151641's read-routing correction. Loading the full `loadRepo(cwd)`
+// here regressed that: its sync loader throws on the first unparseable change
+// document anywhere in the repo, which used to have no bearing on a capture
+// that never looks at changes at all — denying the mandatory AGENTS.md
+// bootstrap on a repo with one bad file. Only the change-id branch below
+// needs `repo.changes` (and, on an activated repo, its snapshot routing), so
+// only that branch pays for a full `loadRepo`.
+function composeInput(input, cwd, changeledgerDir) {
+  if (!input || MODES.includes(input)) {
+    const config = loadConfig(changeledgerDir);
+    if (!input) {
+      return composeResult('core', ['core'], {
+        incremental: false,
+        policy: transversalPolicy(config),
+      });
+    }
     return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
   }
 
+  const repo = loadRepo(cwd);
   let resolved;
   try {
-    resolved = resolveChange(cwd, input);
+    resolved = resolveChangeInRepo(repo, input);
   } catch {
     throw new Error(
       `Unknown context "${input}" — valid modes: ${MODES.join(', ')} (or pass a change id)`,
     );
   }
 
-  const text = fs.readFileSync(resolved.file, 'utf8');
-  const {
-    id,
-    status,
-    type,
-    depends_on: dependsOn,
-    related_to: relatedTo,
-  } = parseChange(text).frontmatter;
+  const { text, frontmatter } = resolved;
+  const { id, status, type, depends_on: dependsOn, related_to: relatedTo } = frontmatter;
   const selected = STATUS_CONTEXT[status];
   if (!selected) throw new Error(`No context mapping for change status "${status}"`);
-  return composeResult(selected.mode, fragmentsForType(selected.fragments, config, type), {
+  return composeResult(selected.mode, fragmentsForType(selected.fragments, repo.config, type), {
     changeText: text,
     changeId: id,
-    policy: changePolicyBlock(config, { id, type }),
-    dependencies: dependencyBlock(dependsOn, cwd),
-    relations: relatedBlock(id, relatedTo, cwd),
+    policy: changePolicyBlock(repo.config, { id, type }),
+    dependencies: dependencyBlock(dependsOn, repo),
+    relations: relatedBlock(id, relatedTo, repo),
   });
 }
 
 export function buildContext(input, cwd = process.cwd()) {
   const changeledgerDir = requireRepo(cwd);
-  const config = loadConfig(changeledgerDir);
-  return composeInput(input, cwd, config);
+  return composeInput(input, cwd, changeledgerDir);
 }
 
 export function context(input, cwd = process.cwd(), output = console.log) {
