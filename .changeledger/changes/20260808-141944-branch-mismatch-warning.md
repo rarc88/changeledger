@@ -2,7 +2,7 @@
 id: "20260808-141944"
 title: Avisar la discrepancia entre el checkout y la rama registrada
 type: feature
-status: approved
+status: in-review
 created: 2026-08-08T14:19:44Z
 depends_on: []
 related_to: ["20260805-052741", "20260726-124836"]
@@ -141,25 +141,29 @@ Detección de discrepancia como dato retornado, emisión por stderr en el bin.
 
 ## Plan
 
-- [ ] Test primero y detección en `status()`: retorno `{ file, warnings }`,
+- [x] Test primero y detección en `status()`: retorno `{ file, warnings }`,
       comparación en toda transición con guard de valores vacíos
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-- [ ] Adaptar los call sites de `status()` en el bin y emitir avisos por
+  - **Resolved:** `2026-08-08T14:47:56Z`
+- [x] Adaptar los call sites de `status()` en el bin y emitir avisos por
       stderr
   - **Target:** `bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR6
-- [ ] Añadir la línea del aviso a la sección «Log y branch» de la spec de
+  - **Resolved:** `2026-08-08T14:47:56Z`
+- [x] Añadir la línea del aviso a la sección «Log y branch» de la spec de
       lifecycle
   - **Target:** `.changeledger/specs/lifecycle.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
-- [ ] Gate completo
+  - **Resolved:** `2026-08-08T14:47:56Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T14:48:40Z`
 
 ## Log
 
@@ -172,3 +176,6 @@ Detección de discrepancia como dato retornado, emisión por stderr en el bin.
   bloqueante en toda transición agent-owned, modelo owner + detección de
   discrepancia, con corrección por el comando explícito ya existente.
 - **2026-08-08T14:35:56Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T14:36:36Z** `[status]` approved → in-progress
+- **2026-08-08T14:48:41Z** `[note]` Implementación delegada completa con TDD (evidencia red-green por CR). Ajuste adicional dentro del propósito: la frase preexistente de lifecycle.md que negaba la detección de un checkout distinto quedaba contradicha por el aviso nuevo; se reescribió para que la sección no se contradiga.
+- **2026-08-08T14:48:41Z** `[status]` in-progress → in-review

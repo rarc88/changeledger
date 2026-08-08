@@ -332,12 +332,15 @@ vacío en detached HEAD o si el subproceso git falla, sin bloquear la
 transición). Mismo guard que `owner`: nunca pisa un `branch` ya fijado, a mano
 (`changeledger branch <id> <name>`, con `changeledger branch <id> -` para
 limpiarlo) o desde una transición previa a `in-progress`, y la resolución es
-perezosa. No hay detección automática de rename ni de un checkout distinto en
-una reentrada posterior; corregirlo tras uno es responsabilidad del comando
-explícito. `branch` no impone ningún formato de nombre: registra el nombre real
+perezosa. No hay detección automática de rename; corregir el campo tras una
+mudanza es responsabilidad del comando explícito, y la discrepancia se hace
+visible en las transiciones (ver abajo). `branch` no impone ningún formato de nombre: registra el nombre real
 de la rama tal cual está, sin normalizarlo ni validarlo contra un patrón —
 distinto de `git.change_branch_format` (`20260731-161655`), que sí exige un
 formato exacto y bloquea `approved → in-progress` si no se cumple.
+La discrepancia entre el checkout real y el `branch` registrado se reporta
+como un aviso no bloqueante en toda transición agent-owned (`20260808-141944`):
+nunca bloquea la transición ni reescribe el campo.
 
 ## Graduación
 
