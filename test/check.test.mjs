@@ -587,6 +587,85 @@ const spec = (over = {}) => ({
 });
 const runS = (changes, specs) => checkRepo({ config, changes, specs });
 
+test('103551 CR2: specs reject ATX CR headings at levels 1 through 6', () => {
+  for (let level = 1; level <= 6; level += 1) {
+    const heading = `${'#'.repeat(level)} CR${level} — Copied scenario`;
+    const { errors } = runS([change()], [spec({ body: `# Arch\n\n${heading}\n` })]);
+    assert.ok(
+      msgs(errors).includes(
+        `spec contains change-local criterion heading "CR${level}"; rewrite it as durable current truth`,
+      ),
+      heading,
+    );
+  }
+});
+
+test('103551 CR2 correction: specs reject Setext and nested CR headings', () => {
+  const cases = [
+    ['CR7 — Setext heading\n---', 'CR7'],
+    ['> ### CR8 — Blockquoted heading', 'CR8'],
+    ['- ### CR9 — List heading', 'CR9'],
+    ['    ```\n### CR10 — Heading after indented code', 'CR10'],
+  ];
+
+  for (const [body, criterion] of cases) {
+    const { errors } = runS([change()], [spec({ body })]);
+    assert.ok(
+      msgs(errors).includes(
+        `spec contains change-local criterion heading "${criterion}"; rewrite it as durable current truth`,
+      ),
+      body,
+    );
+  }
+});
+
+test('103551 CR2 correction: prose and real code blocks remain valid', () => {
+  const bodies = [
+    'CR1 is mentioned as ordinary prose.',
+    ['```markdown', '### CR2 — Fenced example', '```'].join('\n'),
+    ['~~~markdown', '## CR3 — Tilde-fenced example', '~~~'].join('\n'),
+    '    ### CR4 — Space-indented code',
+    '\t### CR5 — Tab-indented code',
+    ['````markdown', '### CR6 — Unclosed fence', '```` trailing', '### CR7 — Still code'].join(
+      '\n',
+    ),
+  ];
+
+  for (const body of bodies) {
+    const { errors } = runS([change()], [spec({ body })]);
+    assert.deepEqual(
+      msgs(errors).filter((message) => /change-local criterion heading/.test(message)),
+      [],
+      body,
+    );
+  }
+});
+
+test('103551 CR2 correction: loaded specs preserve pseudo-fence indentation', () => {
+  const root = frozenFixture(
+    {},
+    {
+      'architecture.md': `---
+title: Architecture
+updated: 2026-08-06T00:00:00Z
+tags: [architecture]
+---
+    \`\`\`
+### CR33 — Visible after indented code
+`,
+    },
+  );
+
+  const { code, text } = runCheck(root);
+  assert.equal(code, 1);
+  assert.ok(
+    text.includes(
+      'spec contains change-local criterion heading "CR33"; rewrite it as durable current truth',
+    ),
+    text,
+  );
+});
+
 test('CR1: a change graduating to a missing spec is an error', () => {
   const c = change({
     stages: [

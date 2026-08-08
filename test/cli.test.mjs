@@ -521,6 +521,40 @@ test('check surfaces discovery errors repo-wide (CR6)', () => {
   assert.equal(check([], root, silentOutput()), 1);
 });
 
+test('152809 CR5: check exits 1 and names an invalid change document', async () => {
+  const root = tmp();
+  init(root);
+  const name = '20260804-120001-invalid.md';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', name),
+    `---
+id: "20260804-120001"
+title: "Texto" fuera
+type: bug
+status: draft
+created: 2026-08-04T12:00:01Z
+depends_on: []
+related_to: []
+---
+`,
+  );
+  const bin = path.resolve('bin/changeledger.mjs');
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [bin, 'check'], {
+      cwd: root,
+      env: { ...process.env, CHANGELEDGER_HOME: process.env.CHANGELEDGER_HOME },
+    }),
+    (error) => {
+      assert.equal(error.code, 1);
+      const output = `${error.stdout}${error.stderr}`;
+      assert.match(output, new RegExp(name));
+      assert.doesNotMatch(output, /change\(s\) valid/);
+      return true;
+    },
+  );
+});
+
 test('init refuses to overwrite an existing .changeledger/', () => {
   const root = tmp();
   init(root);

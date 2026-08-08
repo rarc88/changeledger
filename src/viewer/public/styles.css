@@ -114,6 +114,28 @@ body {
   gap: 4px;
 }
 
+.change-errors {
+  margin: 12px 14px 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--bug) 65%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bug) 10%, var(--panel));
+}
+.change-errors strong {
+  color: var(--bug);
+}
+.change-errors ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.change-errors li span {
+  margin-left: 8px;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
 /* Project management */
 .projects-view {
   padding: 18px;

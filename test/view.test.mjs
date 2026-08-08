@@ -383,6 +383,108 @@ test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
   assert.equal(body.changes[0].branch, 'feature/x');
 });
 
+test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order', async () => {
+  isolatedHome();
+  const root = newRepo();
+  newChange(
+    {
+      type: 'bug',
+      slug: 'valid',
+      title: 'Valid change',
+      now: '2026-08-04T12:00:00Z',
+    },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const invalid = (id, title) => `---
+id: "${id}"
+title: ${title}
+type: bug
+status: in-progress
+created: 2026-08-04T12:00:01Z
+depends_on: []
+related_to: []
+---
+`;
+  fs.writeFileSync(
+    path.join(changesDir, 'b-invalid.md'),
+    invalid('20260804-120002', '"Segundo" fuera'),
+  );
+  fs.writeFileSync(
+    path.join(changesDir, 'a-invalid.md'),
+    invalid('20260804-120001', '"Texto" fuera'),
+  );
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    body.changes.map(({ id }) => id),
+    ['20260804-120000'],
+  );
+  assert.deepEqual(
+    body.change_errors.map(({ name }) => name),
+    ['a-invalid.md', 'b-invalid.md'],
+  );
+  assert.match(body.change_errors[0].message, /Unexpected scalar/);
+  assert.deepEqual(body.metrics.wip, {});
+});
+
+test('152809 CR1: loadRepoAsync isolates an individual change read failure', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-proj-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  isolatedHome();
+  init(root);
+  newChange({ type: 'bug', slug: 'valid', title: 'Valid', now: '2026-08-04T12:00:00Z' }, root, {
+    ownerHandle: () => '',
+  });
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes', 'unreadable.md'));
+
+  const repo = await loadRepoAsync(root);
+
+  assert.deepEqual(
+    repo.changes.map(({ name }) => name),
+    ['20260804-120000-valid.md'],
+  );
+  assert.deepEqual(repo.changeErrors, [
+    {
+      file: path.join(root, '.changeledger', 'changes', 'unreadable.md'),
+      name: 'unreadable.md',
+      message: 'expected a change document but found a directory',
+    },
+  ]);
+});
+
+test('152809 CR6: /api/repo keeps configuration failures fatal', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const { current } = resolveProjects(root, true);
+  const config = path.join(root, '.changeledger', 'config.yml');
+  fs.writeFileSync(config, 'statuses: [');
+
+  const response = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(JSON.parse(response.body), { error: 'Internal server error' });
+});
+
+test('152809 CR6: /api/repo does not tolerate an invalid spec', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const specsDir = path.join(root, '.changeledger', 'specs');
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(path.join(specsDir, 'invalid.md'), 'not frontmatter');
+  const { current } = resolveProjects(root, true);
+
+  const response = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+
+  assert.equal(response.status, 500);
+  assert.equal(JSON.parse(response.body).error, 'Internal server error');
+});
+
 test('141643 CR3: /api/repo serializes canonical pending graduation for markers and scaffolds', async () => {
   isolatedHome();
   const root = newRepo();

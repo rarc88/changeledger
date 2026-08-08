@@ -47,6 +47,10 @@ export function serialize(repo) {
       tasks: c.tasks,
       progress: c.progress,
     })),
+    change_errors: (repo.changeErrors ?? []).map((error) => ({
+      name: path.basename(String(error.name ?? error.file ?? 'unknown')),
+      message: redactAbsolutePaths(error.message),
+    })),
     specs: (repo.specs ?? []).map((s) => ({
       name: s.name,
       title: s.frontmatter.title,
@@ -56,6 +60,52 @@ export function serialize(repo) {
       body: s.body,
     })),
   };
+}
+
+const URL_SPAN = /[A-Za-z][A-Za-z\d+.-]*:\/\/[^\s,;"'()[\]{}<>\\]+/g;
+const URL_DELIMITER = /[,;"'()[\]{}<>\\]/;
+const PATH_PREFIX = '[\\s("\'=,:;<>{}()[\\]\\\\]';
+const UNC_PATH_START = new RegExp(`(^|${PATH_PREFIX})(\\\\\\\\(?=\\S))`);
+const DRIVE_PATH_START = new RegExp(`(^|${PATH_PREFIX})([A-Za-z]:[\\\\/](?=\\S))`);
+const POSIX_PATH_START = new RegExp(`(^|${PATH_PREFIX})(/(?=[^\\s/]))`);
+
+function absolutePathStart(segment) {
+  let earliest = -1;
+  for (const pattern of [UNC_PATH_START, DRIVE_PATH_START, POSIX_PATH_START]) {
+    const match = pattern.exec(segment);
+    if (!match) continue;
+    const start = match.index + match[1].length;
+    if (earliest === -1 || start < earliest) earliest = start;
+  }
+  return earliest;
+}
+
+function redactNonUrlSegment(segment) {
+  const start = absolutePathStart(segment);
+  return start === -1 ? segment : `${segment.slice(0, start)}<path>`;
+}
+
+function redactDiagnosticLine(line) {
+  let redacted = '';
+  let cursor = 0;
+  for (const match of line.matchAll(URL_SPAN)) {
+    redacted += redactNonUrlSegment(line.slice(cursor, match.index));
+    redacted += match[0];
+    cursor = match.index + match[0].length;
+    if (URL_DELIMITER.test(line[cursor])) {
+      redacted += line[cursor];
+      cursor++;
+    }
+  }
+  return redacted + redactNonUrlSegment(line.slice(cursor));
+}
+
+function redactAbsolutePaths(message) {
+  const text = String(message ?? 'Unable to load change document');
+  return text
+    .split(/(\r?\n)/)
+    .map((part) => (/^\r?\n$/.test(part) ? part : redactDiagnosticLine(part)))
+    .join('');
 }
 
 const isAlive = (p) => fs.existsSync(path.join(p, '.changeledger', 'config.yml'));

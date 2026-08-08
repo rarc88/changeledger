@@ -220,6 +220,33 @@ export function showNoProjects(root = document) {
     root.querySelector('#board'),
   );
   syncViewerShell(root, false);
+  renderChangeErrors([], root);
+}
+
+function renderChangeErrors(errors = [], root = document) {
+  let warning = root.querySelector('#change-errors');
+  if (!errors.length) {
+    warning?.remove();
+    return;
+  }
+  if (!warning) {
+    warning = (root.ownerDocument ?? root).createElement('aside');
+    warning.id = 'change-errors';
+    warning.className = 'change-errors';
+    warning.setAttribute('role', 'alert');
+    warning.setAttribute('aria-live', 'polite');
+    warning.setAttribute('aria-label', 'Invalid change documents');
+    root.querySelector('#board').before(warning);
+  }
+  litRender(
+    html`<strong>${errors.length} change document${errors.length === 1 ? '' : 's'} could not be loaded</strong>
+      <ul>
+        ${errors.map(
+          (error) => html`<li><code>${error.name}</code><span>${error.message}</span></li>`,
+        )}
+      </ul>`,
+    warning,
+  );
 }
 
 // Rebuilt on each project load (types/statuses can differ per project).
@@ -1237,6 +1264,7 @@ async function renderMetrics() {
 }
 
 export function syncViewerShell(root = document, renderContent = true) {
+  renderChangeErrors(state.repo?.change_errors ?? [], root);
   root.querySelector('#search').value = state.filters.text;
   root.querySelector('#toggle-global').classList.toggle('active', state.globalMode);
   for (const name of VIEWS) {

@@ -1,8 +1,8 @@
 ---
 title: Ciclo de vida y gate de revisión
-updated: 2026-08-06T12:19:45Z
+updated: 2026-08-06T16:38:28Z
 tags: [ lifecycle ]
-graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260731-161653", "20260805-052741"]
+graduated_from: ["20260614-165720", "20260614-182513", "20260615-150510", "20260615-170803", "20260615-210508", "20260616-212836", "20260616-212840", "20260616-212319", "20260616-212322", "20260626-160038", "20260628-104751", "20260630-191857", "20260630-225210", "20260703-150230", "20260703-150231", "20260703-150232", "20260703-220014", "20260710-105205", "20260705-134703", "20260711-103756", "20260710-201703", "20260711-160446", "20260715-125139", "20260716-131649", "20260718-105457", "20260726-141119", "20260726-141120", "20260726-141123", "20260726-124836", "20260722-124656", "20260729-144812", "20260730-165310", "20260730-183520", "20260722-124655", "20260730-214503", "20260730-213353", "20260731-161653", "20260805-052741", "20260806-103551"]
 ---
 
 ## Ciclo de vida y gate de revisión
@@ -340,6 +340,20 @@ distinto de `git.change_branch_format` (`20260731-161655`), que sí exige un
 formato exacto y bloquea `approved → in-progress` si no se cumple.
 
 ## Graduación
+
+El cierre de trabajo aceptado reconcilia la verdad durable antes de archivar. Si
+una o más specs existentes gobiernan la capacidad modificada, se revisan todas:
+primero se corrigen o eliminan afirmaciones obsoletas o contradictorias y después
+se integra la verdad actual. Una spec nueva se crea únicamente cuando ninguna
+existente posee esa verdad; `--skip` se reserva para cambios que no alteran verdad
+persistente. Cada spec creada o modificada se enlaza individualmente con
+`graduate --into` antes del archivo.
+
+Los identificadores de criterios pertenecen al change y no forman parte de la
+estructura durable. Tanto `changeledger check` como `graduate --into` rechazan
+headings Markdown, incluidos Setext y headings anidados, cuyo texto comienza con
+`CR` seguido de dígitos fuera de bloques de código. Las menciones en prosa y los
+ejemplos dentro de código permanecen permitidos.
 
 **Revisión de graduación.** Tras `done`, cada change se resuelve: gradúa a un spec
 o registra un skip (bug/chore sin verdad persistente). La finalización con

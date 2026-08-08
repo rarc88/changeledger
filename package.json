@@ -1,6 +1,6 @@
 {
   "name": "changeledger",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Turn conversations into buildable changes.",
   "type": "module",
   "bin": {
@@ -59,7 +59,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
     "gpt-tokenizer": "3.4.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "lint-staged": "^17.0.7"
   },
   "dependencies": {
