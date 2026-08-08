@@ -23,11 +23,14 @@ const GIT_LOCATION_ENV_VARS = [
 
 // Git localizes its diagnostics, but `mutatingRun` hands that stderr to an agent
 // that classifies failures by message. Pin the locale so the text a caller reads
-// never depends on the host's language.
-function sanitizedEnv() {
+// never depends on the host's language. `extra` merges in caller-specific
+// overrides on top (e.g. state-store.mjs's `GIT_INDEX_FILE` for a private temp
+// index) — exported so this env policy has exactly one definition instead of
+// drifting between this module and its consumers.
+export function sanitizedEnv(extra) {
   const env = { ...process.env, LC_ALL: 'C' };
   for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return env;
+  return extra ? { ...env, ...extra } : env;
 }
 
 // Exported so other commands (e.g. `changeledger commit`) share the same

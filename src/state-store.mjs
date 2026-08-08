@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertCommitObject, capturedRun } from './git.mjs';
+import { assertCommitObject, capturedRun, sanitizedEnv } from './git.mjs';
 import { assertRegularBlobEntry, batchBlobReader, treeEntries } from './git-batch.mjs';
 import { parseYaml, stringifyYaml } from './yaml.mjs';
 
@@ -54,22 +54,6 @@ export function statePathIsValid(file) {
 }
 
 // --- subprocess plumbing -----------------------------------------------
-
-const GIT_LOCATION_ENV_VARS = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-];
-
-function sanitizedEnv(extra) {
-  const env = { ...process.env, LC_ALL: 'C' };
-  for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return extra ? { ...env, ...extra } : env;
-}
 
 function stderrOf(e) {
   const raw = e?.stderr;
@@ -139,28 +123,25 @@ function commitTree(repoRoot, tree, { parents = [], message }, run) {
   return run(args, repoRoot).trim();
 }
 
-// The oid of an absent ref, or `null` on genuine absence: the ref itself does
-// not exist, or `repoRoot` is not a git repository at all. Any other
-// subprocess failure (a corrupt repo, a permissions error, an injected
-// failure) propagates with git's stderr in the message rather than being
-// folded into "absent" — the two are different classes and a caller must be
-// able to tell them apart (a CAS store served stale truth once by conflating
-// them: 20260723-235906).
+// The oid of an absent ref, or `null` on genuine absence. `--verify --quiet`
+// exits 1 with EMPTY stderr specifically for "this ref does not resolve" —
+// but a CORRUPT loose ref (garbage content) also exits 1, with a non-empty
+// "warning: ignoring broken ref ..." (probed directly against real git, not
+// assumed). Branching on `status === 1` alone conflated the two, silently
+// reading a corrupt ref back as "not initialized" instead of failing loudly
+// — the exact class this closes (a CAS store served stale truth once by
+// conflating absence with failure: 20260723-235906). No pre-check on
+// `repoRoot/.git` either: that misclassified a subdirectory of a repo (whose
+// `.git` is not a direct child, though git still discovers it upward) as "not
+// a repo"; a genuine non-repo directory exits 128 (non-empty stderr, status
+// != 1) and is already caught by the `throw` branch below.
 function optionalRefOid(repoRoot, ref, run) {
-  try {
-    fs.lstatSync(path.join(repoRoot, '.git'));
-  } catch (e) {
-    if (e.code === 'ENOENT') return null;
-    throw e;
-  }
   try {
     const out = run(['rev-parse', '--verify', '--quiet', ref], repoRoot);
     return out.trim() || null;
   } catch (e) {
-    // `--quiet` makes git exit 1 with empty stderr for "ref does not resolve"
-    // specifically; any other status (corrupt ref, permissions, an injected
-    // failure) is a real failure and must not be swallowed as absence.
-    if (e.cause?.status === 1) return null;
+    const stderr = stderrOf(e.cause);
+    if (e.cause?.status === 1 && stderr === '') return null;
     throw new Error(`cannot read Git ref ${ref}: ${e.message}`, { cause: e });
   }
 }
@@ -201,7 +182,15 @@ export function initState(repoRoot, { projectId, config = {} } = {}, run = captu
   try {
     run(['update-ref', STATE_REF, commit, zeroOid], repoRoot);
   } catch (e) {
-    throw new LedgerConflictError(`state is already initialized at ${STATE_REF}`, { cause: e });
+    // Only a genuine old-value mismatch — the ref now resolves to something,
+    // proving a concurrent initState won the race — is "already initialized".
+    // Any other failure (e.g. a stale `.lock`, where the ref never moved) is
+    // a real failure and must not be relabeled: it was never actually
+    // initialized, so reporting that would send a caller retrying nothing.
+    if (optionalRefOid(repoRoot, STATE_REF, run) !== null) {
+      throw new LedgerConflictError(`state is already initialized at ${STATE_REF}`, { cause: e });
+    }
+    throw e;
   }
   return { revision: commit };
 }
@@ -245,7 +234,15 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
     try {
       return readBlob(byPath.get(full).oid);
     } catch (e) {
-      throw new Error(`state path ${full} is not valid UTF-8`, { cause: e });
+      // Only the strict-UTF-8 check gets relabeled with the path (git-batch's
+      // own message names the oid, not the path a caller actually needs).
+      // Every other failure (a missing object, an over-budget blob, malformed
+      // batch framing) propagates with its own message unchanged — relabeling
+      // it as a UTF-8 problem would misdirect whoever reads the error.
+      if (/not valid UTF-8/.test(e.message)) {
+        throw new Error(`state path ${full} is not valid UTF-8`, { cause: e });
+      }
+      throw e;
     }
   };
 
@@ -312,11 +309,20 @@ export function mutateState(
     try {
       run(['update-ref', STATE_REF, newRevision, expectedRevision], repoRoot);
     } catch (e) {
-      const current = optionalRefOid(repoRoot, STATE_REF, run) ?? 'unknown';
-      throw new LedgerConflictError(
-        `state ref moved: expected ${expectedRevision}, found ${current} — reload and retry`,
-        { cause: e },
-      );
+      // Only a genuine old-value mismatch is a CAS conflict. Re-reading the
+      // tip tells the two apart: if it still equals `expectedRevision`, the
+      // ref never moved — the failure is something else entirely (a stale
+      // `.lock`, a permissions error) and relabeling it "state ref moved"
+      // would be self-contradicting (expected X, found X) and would hide the
+      // real cause from the caller.
+      const current = optionalRefOid(repoRoot, STATE_REF, run);
+      if (current !== expectedRevision) {
+        throw new LedgerConflictError(
+          `state ref moved: expected ${expectedRevision}, found ${current ?? 'no ref'} — reload and retry`,
+          { cause: e },
+        );
+      }
+      throw e;
     }
   };
 

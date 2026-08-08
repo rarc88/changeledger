@@ -300,3 +300,105 @@ test('readStateRef returns null when the ref does not exist', () => {
   const root = initStateRepo();
   assert.equal(readStateRef(root), null);
 });
+
+// --- correction round (independent review, fail-retry) ---------------------
+
+// Finding 1: `--verify --quiet` exits 1 with EMPTY stderr for a genuinely
+// absent ref, but ALSO exits 1 with a non-empty "warning: ignoring broken
+// ref ..." for a corrupt loose ref (probed directly against real git). The
+// pre-fix `optionalRefOid` classified both as absence purely from
+// `status === 1`, so a corrupt ref silently read back as "not initialized"
+// instead of failing loudly.
+test('CORRECTION 1: a broken loose state ref throws (real git exit path), never read back as absence', () => {
+  const root = initStateRepo();
+  // Garbage content, not a valid oid — this is what `git update-ref` itself
+  // refuses to write, so the fixture writes the loose ref file directly.
+  writeLooseRef(root, STATE_REF, 'not-a-valid-ref-target');
+
+  assert.throws(() => readStateRef(root), /cannot read Git ref|broken ref/);
+});
+
+function lockRefPath(root, ref) {
+  const gitDir = git(root, ['rev-parse', '--git-dir']);
+  return path.join(root, gitDir, `${ref}.lock`);
+}
+
+function withStaleLock(root, ref, fn) {
+  const lockPath = lockRefPath(root, ref);
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  fs.writeFileSync(lockPath, '');
+  try {
+    return fn();
+  } finally {
+    fs.rmSync(lockPath, { force: true });
+  }
+}
+
+// Finding 2a: `advanceOrConflict` relabeled EVERY `update-ref` failure as
+// LedgerConflictError. A stale `.lock` file makes `update-ref` fail for a
+// reason that has nothing to do with the ref's value (it never moved), so the
+// old code produced the self-contradicting "expected X, found X — reload and
+// retry".
+test('CORRECTION 2a: a stale .lock during mutateState is NOT relabeled LedgerConflictError', () => {
+  const { root, revision: s1 } = seedStateRepo();
+
+  withStaleLock(root, STATE_REF, () => {
+    assert.throws(
+      () =>
+        mutateState(root, { expectedRevision: s1, message: 'feat: x' }, (stage) =>
+          stage.write('changes/x.md', 'x\n'),
+        ),
+      (e) =>
+        !(e instanceof LedgerConflictError) && /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(git(root, ['rev-parse', STATE_REF]), s1);
+});
+
+// Finding 2b: same over-broad catch in `initState`, relabeling any
+// `update-ref` failure as "already initialized".
+test('CORRECTION 2b: a stale .lock during initState is NOT relabeled "already initialized"', () => {
+  const root = initStateRepo();
+
+  withStaleLock(root, STATE_REF, () => {
+    assert.throws(
+      () => initState(root, { projectId: 'demo' }),
+      (e) =>
+        !/already initialized/.test(e.message) &&
+        /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(readStateRef(root), null);
+});
+
+// Finding 3: the `fs.lstatSync(repoRoot/.git)` pre-check misclassifies a
+// SUBDIRECTORY of a repo (`.git` is not a direct child, but git still
+// discovers the repo upward) as "not a repo". Dropped entirely — git's own
+// exit 128 for a genuine non-repo is what the catch branch already handles.
+test('CORRECTION 3: readStateRef resolves from a subdirectory of the repo (no false "not a repo")', () => {
+  const { root, revision } = seedStateRepo();
+  const subdir = path.join(root, 'sub', 'dir');
+  fs.mkdirSync(subdir, { recursive: true });
+
+  assert.equal(readStateRef(subdir), revision);
+});
+
+// Finding 4: `readPath` in `readSnapshot` wrapped ANY exception from
+// `readBlob` as "is not valid UTF-8", including failures that have nothing
+// to do with UTF-8 (a missing object is the reachable case: git-batch throws
+// it before the UTF-8 check ever runs). It must propagate with its own
+// message instead of being mislabeled.
+test('CORRECTION 4: a missing-object read failure keeps its own message, never relabeled as UTF-8', () => {
+  const { root, revision } = seedStateRepo();
+  const oid = git(root, [
+    'rev-parse',
+    `${revision}:${STATE_ROOT}/changes/20260808-000001-change.md`,
+  ]);
+  const objectPath = path.join(root, '.git', 'objects', oid.slice(0, 2), oid.slice(2));
+  fs.rmSync(objectPath, { force: true });
+
+  assert.throws(
+    () => readSnapshot(root),
+    (e) => /is missing/.test(e.message) && !/not valid UTF-8/.test(e.message),
+  );
+});

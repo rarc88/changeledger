@@ -2,7 +2,7 @@
 id: "20260808-151640"
 title: "Store local del estado global: ref fija, snapshot y CAS"
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-08T15:16:40Z
 depends_on: []
 branch: feature/20260808-151640
@@ -300,3 +300,8 @@ este).
 - **2026-08-08T16:04:48Z** `[status]` approved → in-progress
 - **2026-08-08T16:04:48Z** `[branch]` set: feature/20260808-151640 (auto)
 - **2026-08-08T16:24:02Z** `[status]` in-progress → in-review
+- **2026-08-08T16:24:47Z** `[note]` Review mandate: auditoría completa del diff del change (baseline..HEAD, un commit de implementación) contra CR1-CR11 y el Plan, con foco declarado en la corrección del CAS (update-ref con old-value), la clasificación ausencia-vs-fallo de optionalRefOid, y las cuatro decisiones no especificadas que reportó el implementador.
+- **2026-08-08T16:31:39Z** `[review]` in-review → in-progress (retry): Finding 1: optionalRefOid clasifica una ref corrupta (exit 1 con stderr no vacío) como ausencia — el contrato fail-closed del Proposal exige null solo ante ausencia real; CR6 pasaba porque su test inyectaba un Error sin cause, nunca un exit code real. Finding 2: advanceOrConflict e initState reetiquetan cualquier fallo de update-ref (p.ej. lock rancio) como conflicto/ya-inicializado, con mensaje autocontradictorio. Fold-in: Finding 3 (lstat de .git mis-detecta subdirectorios y repos bare), Finding 4 (readPath etiqueta todo fallo de lectura de blob como UTF-8) y Finding 5 (sanitizedEnv duplicado que derivará en silencio).
+- **2026-08-08T16:39:37Z** `[status]` in-progress → in-review
+- **2026-08-08T16:44:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-08T16:44:14Z** `[note]` Follow-ups reportados por la review de confirmación, fuera del alcance de este change: (1) el test CORRECTION 4 no ejercita la línea que dice guardar (pasa también sobre el código pre-fix; CR7 y el argumento by-construction cubren el contrato); (2) si la lectura de desambiguación de optionalRefOid dentro de los catch de update-ref falla, su error reemplaza a la causa original; (3) la detección de ausencia es sensible a stderr benigno de git en exit 1 (dirección fail-closed, riesgo bajo).
