@@ -7,6 +7,15 @@ import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo } from '../src/repo.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import {
+  buildTree,
+  commitTree,
+  initStateRepo,
+  git as stateGit,
+  updateRef,
+  writeLooseRef,
+} from './helpers/state-repo.mjs';
 
 function fixture(changesDir = '.changeledger/changes') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-'));
@@ -213,4 +222,106 @@ test('183807 CR5: the realistic `commit` route reaches the collapse message, not
         'changes_dir "." resolves to the repo root; the commit guard cannot judge staged paths — configure changes_dir to a subdirectory' &&
       !e.message.includes('frontmatter'),
   );
+});
+
+// 20260808-151641 — read routing to the global-state snapshot. `loadRepo`
+// must produce byte-identical results with zero git subprocesses when a repo
+// is not activated, and must serve the state ref's snapshot (never the
+// worktree) when it is.
+
+function changeDoc(id, title) {
+  return `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+}
+
+// A real git repo discoverable as a ChangeLedger repo (worktree `.changeledger/`
+// with its own change, `only-worktree`) whose activation points at a state ref
+// carrying a different document, `only-ref` — the exact CR2 shape (doc only in
+// ref vs only in worktree). `seedStateRef: false` leaves the state ref entirely
+// unwritten (CR3's "absent" case).
+function activatedFixture({
+  stateConfig = 'project_id: demo\nlanguage: en\n',
+  seedStateRef = true,
+} = {}) {
+  const root = initStateRepo();
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'language: es\nchanges_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
+    changeDoc('only-worktree', 'Only worktree'),
+  );
+
+  let revision;
+  if (seedStateRef) {
+    const tree = buildTree(root, {
+      '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+      '.changeledger-state/config.yml': stateConfig,
+      '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'Only ref'),
+    });
+    revision = commitTree(root, tree, { message: 'chore: state' });
+    updateRef(root, STATE_REF, revision);
+  }
+
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, revision };
+}
+
+// Activation present, but the state ref names a blob instead of a commit —
+// CR3's "unreadable" variant (the other variant, "absent", is
+// `activatedFixture({ seedStateRef: false })`).
+function nonCommitStateRefFixture() {
+  const root = initStateRepo();
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'language: es\nchanges_dir: .changeledger/changes\ntypes:\n  feature:\n    stages: [request]\n',
+  );
+  const blob = stateGit(root, ['hash-object', '-w', '--stdin'], { input: 'not a commit' });
+  writeLooseRef(root, STATE_REF, blob);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root };
+}
+
+test('20260808-151641 CR1: no activation stays byte-identical with zero git subprocesses', () => {
+  const root = fixture();
+  const throwingRun = () => {
+    throw new Error('unexpected git subprocess invocation');
+  };
+  const repo = loadRepo(root, { run: throwingRun });
+  assert.equal(repo.config.language, 'en');
+  assert.equal(repo.changes.length, 1);
+  assert.equal(repo.changes[0].frontmatter.id, '0001');
+  assert.equal(repo.state, null);
+});
+
+test('20260808-151641 CR2: an activated repo serves the state-ref snapshot, not the worktree', () => {
+  const { root, revision } = activatedFixture();
+  const repo = loadRepo(root);
+  assert.equal(repo.state.revision, revision);
+  assert.deepEqual(
+    repo.changes.map((c) => c.frontmatter.id),
+    ['only-ref'],
+  );
+  assert.equal(
+    repo.changes.find((c) => c.frontmatter.id === 'only-worktree'),
+    undefined,
+  );
+});
+
+test('20260808-151641 CR3: activation with an absent state ref fails explicit, no fallback', () => {
+  const { root } = activatedFixture({ seedStateRef: false });
+  assert.throws(() => loadRepo(root), /state is not initialized/);
+});
+
+test('20260808-151641 CR3: activation with a non-commit state ref fails explicit, no fallback', () => {
+  const { root } = nonCommitStateRefFixture();
+  assert.throws(() => loadRepo(root), /not a commit/);
+});
+
+test('20260808-151641 CR4: active config comes from the snapshot, not the worktree', () => {
+  const { root } = activatedFixture({ stateConfig: 'project_id: demo\nlanguage: en\n' });
+  const repo = loadRepo(root);
+  assert.equal(repo.config.language, 'en');
 });

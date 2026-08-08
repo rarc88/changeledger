@@ -2,9 +2,10 @@
 id: "20260808-151641"
 title: Lectura del ledger enrutada al snapshot del store
 type: feature
-status: approved
+status: in-review
 created: 2026-08-08T15:16:41Z
 depends_on: ["20260808-151640"]
+branch: feature/20260808-151641
 related_to: ["20260808-142200"]
 owner: rarc88
 ---
@@ -154,30 +155,35 @@ caller cambia de firma.
 
 ## Plan
 
-- [ ] Test primero: fixture activado/no activado sobre el helper de
+- [x] Test primero: fixture activado/no activado sobre el helper de
       `20260808-151640`, y enrutado en `loadRepoWithConfig` con `state:
       { revision }` en el resultado
   - **Target:** `src/repo.mjs`
   - **Verify:** `node --test test/repo.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Test de integración del viewer sobre el router (misma verdad, mismo
+  - **Resolved:** `2026-08-08T17:27:13Z`
+- [x] Test de integración del viewer sobre el router (misma verdad, mismo
       resolver)
   - **Target:** `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR5
-- [ ] Test de integración CLI (`list`, `search`) sobre repo activado
+  - **Resolved:** `2026-08-08T17:27:13Z`
+- [x] Test de integración CLI (`list`, `search`) sobre repo activado
   - **Target:** `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR6
-- [ ] Documentar el resolver único y la frontera de config en
+  - **Resolved:** `2026-08-08T17:27:13Z`
+- [x] Documentar el resolver único y la frontera de config en
       `.changeledger/specs/architecture.md` (graduación al cierre)
   - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
-- [ ] Gate completo
+  - **Resolved:** `2026-08-08T17:27:13Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T17:27:14Z`
 
 ## Log
 
@@ -188,3 +194,6 @@ caller cambia de firma.
   pre-load siguen en worktree hasta el cutover de etapa 2) queda declarada en
   Investigation a propósito.
 - **2026-08-08T16:03:43Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T17:14:16Z** `[status]` approved → in-progress
+- **2026-08-08T17:14:16Z** `[branch]` set: feature/20260808-151641 (auto)
+- **2026-08-08T17:27:14Z** `[status]` in-progress → in-review

@@ -110,9 +110,26 @@ apunta a un commit cuya `authority.yml` nombra la ref de verdad
 (`readActivation`/`writeActivation`) — y toda lectura de refs es fail-closed:
 ausencia real devuelve `null`, cualquier fallo de lectura lanza con el stderr
 de git; los objetos se verifican por tipo (`assertCommitObject`), nunca por
-peel. El módulo es puro: ningún comando ni el viewer lo consumen todavía —
-esa integración es de los changes de enrutado de lectura y escritura de la
-etapa 1.
+peel.
+
+El enrutado de lectura (`20260808-151641`) es un único resolver: la familia
+`loadRepo`/`loadRepoWithConfig`/`loadRepoAsync` de `src/repo.mjs`, compartida
+por el CLI y por el viewer (`router.mjs` no tiene camino de lectura propio).
+Tras descubrir el repo, consulta `readActivation` — solo si `repoRoot` es un
+repo git (`.git` existe; una comprobación de filesystem, nunca un subproceso),
+así el camino inactivo nunca invoca `git`. Sin activación, el comportamiento
+es el de siempre, byte a byte, con `state: null`. Con activación, `changes`,
+`specs`, `releases` y `config` salen de `readSnapshot` en lugar del working
+tree, y el resultado gana `state: { revision }` — la costura que el CAS de
+escritura usará como `expectedRevision`. Una activación presente cuya ref de
+estado es ilegible o ausente propaga el error fail-closed del store; nunca
+degrada al worktree. Frontera de config declarada a propósito: los callers
+que cargan config *antes* de invocar `loadRepo*` (`new`, `register`,
+`agent-context`, el bootstrap de `check`) siguen leyendo el config del
+worktree en esta etapa — ambos nacen idénticos hasta el cutover de escritura
+de la etapa 2, que resuelve la autoridad final. La escritura
+(`mutateState`) todavía no tiene caller: esa integración es del change de
+escritura de la etapa 1.
 
 ## API documental del visor
 

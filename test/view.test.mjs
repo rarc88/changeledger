@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -27,8 +28,10 @@ import {
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const TOKEN = 'test-token';
 
@@ -381,6 +384,51 @@ test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
   const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
   const body = JSON.parse(res.body);
   assert.equal(body.changes[0].branch, 'feature/x');
+});
+
+// 20260808-151641 CR5 — the viewer has no read path of its own: `router.mjs`
+// calls the same `loadRepoAsync` the CLI uses, so an activated repo's snapshot
+// must reach `/api/repo` exactly as it reaches `loadRepo`. Builds a real git
+// repo (via `newRepo()` + `git init`) with a worktree-only change
+// (`only-worktree`) and a state ref carrying a different one (`only-ref`) —
+// the same doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2.
+function activatedViewerFixture() {
+  isolatedHome();
+  const root = newRepo();
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+
+  const changeDoc = (id, title) =>
+    `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
+    changeDoc('only-worktree', 'Only worktree'),
+  );
+
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\nlanguage: en\n',
+    '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'Only ref'),
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  const { current } = resolveProjects(root, true);
+  return { root, current };
+}
+
+test('20260808-151641 CR5: /api/repo serves the state-ref snapshot, not the worktree', async () => {
+  const { root, current } = activatedViewerFixture();
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(res.body);
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    body.changes.map((c) => c.id),
+    ['only-ref'],
+  );
 });
 
 test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order', async () => {
