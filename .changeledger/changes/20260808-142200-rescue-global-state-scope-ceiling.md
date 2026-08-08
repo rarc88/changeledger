@@ -2,9 +2,10 @@
 id: "20260808-142200"
 title: Rescatar el techo de alcance del estado global a una spec
 type: chore
-status: in-validation
+status: done
 created: 2026-08-08T14:22:00Z
 depends_on: []
+reviewed: true
 related_to: ["20260627-205034"]
 owner: rarc88
 ---
@@ -126,3 +127,5 @@ Y debe enmendar el original con lo decidido el 2026-08-08:
 - **2026-08-08T14:55:57Z** `[status]` approved → in-progress
 - **2026-08-08T14:58:56Z** `[note]` Implementación completa: spec global-state-scope.md creada (aviso 'orphan spec' esperado y autoresoluble — la graduación al cierre la reclama con --into), párrafo simple en INTENT.md remitiendo a la spec, y línea temporal en AGENTS.md. Gate completo en verde (check y verify exit 0).
 - **2026-08-08T14:58:56Z** `[status]` in-progress → in-validation
+- **2026-08-08T15:09:39Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-08T15:09:56Z** `[graduation]` spec: `global-state-scope.md`

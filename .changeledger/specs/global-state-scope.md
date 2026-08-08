@@ -1,8 +1,8 @@
 ---
 title: Alcance y techo del estado global
-updated: 2026-08-08T15:10:00Z
+updated: 2026-08-08T15:09:56Z
 tags: [ global-state, scope, product ]
-graduated_from: []
+graduated_from: ["20260808-142200"]
 ---
 
 # Alcance y techo del estado global
