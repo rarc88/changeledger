@@ -2,7 +2,7 @@
 id: "20260808-141944"
 title: Avisar la discrepancia entre el checkout y la rama registrada
 type: feature
-status: draft
+status: approved
 created: 2026-08-08T14:19:44Z
 depends_on: []
 related_to: ["20260805-052741", "20260726-124836"]
@@ -171,3 +171,4 @@ Detección de discrepancia como dato retornado, emisión por stderr en el bin.
   dan el enlace durable post-integración. El guard elegido: aviso no
   bloqueante en toda transición agent-owned, modelo owner + detección de
   discrepancia, con corrección por el comando explícito ya existente.
+- **2026-08-08T14:35:56Z** `[status]` draft → approved (human via conversation)
