@@ -2,7 +2,7 @@
 id: "20260808-142200"
 title: Rescatar el techo de alcance del estado global a una spec
 type: chore
-status: approved
+status: in-validation
 created: 2026-08-08T14:22:00Z
 depends_on: []
 related_to: ["20260627-205034"]
@@ -89,25 +89,29 @@ Y debe enmendar el original con lo decidido el 2026-08-08:
 
 ## Plan
 
-- [ ] Redactar la spec `global-state-scope.md` partiendo del texto de
+- [x] Redactar la spec `global-state-scope.md` partiendo del texto de
       `codex/state-replica-v2:INTENT.md` (sección «Alcance de la réplica de
       estado global», ~línea 112) y aplicando las seis enmiendas del Request;
       formato y frontmatter como las specs vecinas (graduación formal al
       cierre del change)
   - **Target:** `.changeledger/specs/global-state-scope.md`
   - **Verify:** verify: lectura humana de la spec contra la lista del Request
-- [ ] Añadir a `INTENT.md` un párrafo breve, en palabras simples, con la
+  - **Resolved:** `2026-08-08T14:57:39Z`
+- [x] Añadir a `INTENT.md` un párrafo breve, en palabras simples, con la
       expectativa del estado global; sin contenido normativo
   - **Target:** `INTENT.md`
   - **Verify:** verify: lectura humana — registro simple, remite a la spec
-- [ ] Añadir una línea a las notas de proyecto de `AGENTS.md` apuntando a la
+  - **Resolved:** `2026-08-08T14:57:40Z`
+- [x] Añadir una línea a las notas de proyecto de `AGENTS.md` apuntando a la
       spec y a la regla de detenerse ante crecimiento fuera del techo
   - **Target:** `AGENTS.md`
   - **Verify:** verify: lectura humana — una sola línea, retirable tras las etapas
-- [ ] Gate del repo
+  - **Resolved:** `2026-08-08T14:57:40Z`
+- [x] Gate del repo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T14:58:56Z`
 
 ## Log
 
@@ -119,3 +123,6 @@ Y debe enmendar el original con lo decidido el 2026-08-08:
   (`ledger-store`/`state-store`/`git-batch`) que reutilizará.
 - **2026-08-08T14:34:43Z** `[note]` Enmienda pre-aprobación (decisión humana 2026-08-08): el destino del techo deja de ser INTENT.md — pasa a la spec nueva global-state-scope.md siguiendo el precedente de product-principles.md, con un párrafo simple en INTENT.md y una línea temporal en AGENTS.md. Tres piezas confirmadas por Roberto.
 - **2026-08-08T14:55:32Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T14:55:57Z** `[status]` approved → in-progress
+- **2026-08-08T14:58:56Z** `[note]` Implementación completa: spec global-state-scope.md creada (aviso 'orphan spec' esperado y autoresoluble — la graduación al cierre la reclama con --into), párrafo simple en INTENT.md remitiendo a la spec, y línea temporal en AGENTS.md. Gate completo en verde (check y verify exit 0).
+- **2026-08-08T14:58:56Z** `[status]` in-progress → in-validation
