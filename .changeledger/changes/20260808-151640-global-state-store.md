@@ -2,9 +2,11 @@
 id: "20260808-151640"
 title: "Store local del estado global: ref fija, snapshot y CAS"
 type: feature
-status: approved
+status: done
 created: 2026-08-08T15:16:40Z
 depends_on: []
+reviewed: true
+branch: feature/20260808-151640
 related_to: ["20260808-142200"]
 owner: rarc88
 ---
@@ -239,44 +241,52 @@ este).
 
 ## Plan
 
-- [ ] Portar `git-batch.mjs` desde `codex/state-replica-v2` con sus tests de
+- [x] Portar `git-batch.mjs` desde `codex/state-replica-v2` con sus tests de
       lotes, tamaño límite y UTF-8 estricto
   - **Target:** `src/git-batch.mjs`
   - **Verify:** `node --test test/git-batch.test.mjs`
   - **Criteria:** CR2, CR7
-- [ ] Portar `assertCommitObject` a `src/git.mjs` (tipo por `cat-file -t`,
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] Portar `assertCommitObject` a `src/git.mjs` (tipo por `cat-file -t`,
       nunca peel) con tests de tag, blob y tree
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/git.test.mjs`
   - **Criteria:** CR5
-- [ ] Crear `test/helpers/state-repo.mjs` (fixture git real, SHA-1 y SHA-256,
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] Crear `test/helpers/state-repo.mjs` (fixture git real, SHA-1 y SHA-256,
       árbol de estado sembrado) adaptado del de v2
   - **Target:** `test/helpers/state-repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Support:**
-- [ ] `state-store.mjs`: `initState`, `readStateRef` y `readSnapshot` con
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `initState`, `readStateRef` y `readSnapshot` con
       validación de layout, modos y UTF-8
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR1, CR2, CR5, CR6, CR7, CR8
-- [ ] `state-store.mjs`: `mutateState` con CAS, `LedgerConflictError`, no-op
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `mutateState` con CAS, `LedgerConflictError`, no-op
       sin commit e integridad padre-contra-candidato
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR3, CR4, CR8, CR9
-- [ ] `state-store.mjs`: `readActivation`/`writeActivation`
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `readActivation`/`writeActivation`
       checkout-independientes y fail-closed
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR5, CR6, CR10
-- [ ] Matriz SHA-256 sobre CR1-CR4
+  - **Resolved:** `2026-08-08T16:23:46Z`
+- [x] Matriz SHA-256 sobre CR1-CR4
   - **Target:** `test/state-store.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR11
-- [ ] Gate completo
+  - **Resolved:** `2026-08-08T16:23:46Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T16:24:02Z`
 
 ## Log
 
@@ -288,3 +298,13 @@ este).
   locale; `assertCommitObject` no existe y se porta). El catálogo de defectos
   de v2 entra como CRs, no como recuerdos.
 - **2026-08-08T16:02:55Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T16:04:48Z** `[status]` approved → in-progress
+- **2026-08-08T16:04:48Z** `[branch]` set: feature/20260808-151640 (auto)
+- **2026-08-08T16:24:02Z** `[status]` in-progress → in-review
+- **2026-08-08T16:24:47Z** `[note]` Review mandate: auditoría completa del diff del change (baseline..HEAD, un commit de implementación) contra CR1-CR11 y el Plan, con foco declarado en la corrección del CAS (update-ref con old-value), la clasificación ausencia-vs-fallo de optionalRefOid, y las cuatro decisiones no especificadas que reportó el implementador.
+- **2026-08-08T16:31:39Z** `[review]` in-review → in-progress (retry): Finding 1: optionalRefOid clasifica una ref corrupta (exit 1 con stderr no vacío) como ausencia — el contrato fail-closed del Proposal exige null solo ante ausencia real; CR6 pasaba porque su test inyectaba un Error sin cause, nunca un exit code real. Finding 2: advanceOrConflict e initState reetiquetan cualquier fallo de update-ref (p.ej. lock rancio) como conflicto/ya-inicializado, con mensaje autocontradictorio. Fold-in: Finding 3 (lstat de .git mis-detecta subdirectorios y repos bare), Finding 4 (readPath etiqueta todo fallo de lectura de blob como UTF-8) y Finding 5 (sanitizedEnv duplicado que derivará en silencio).
+- **2026-08-08T16:39:37Z** `[status]` in-progress → in-review
+- **2026-08-08T16:44:14Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-08T16:44:14Z** `[note]` Follow-ups reportados por la review de confirmación, fuera del alcance de este change: (1) el test CORRECTION 4 no ejercita la línea que dice guardar (pasa también sobre el código pre-fix; CR7 y el argumento by-construction cubren el contrato); (2) si la lectura de desambiguación de optionalRefOid dentro de los catch de update-ref falla, su error reemplaza a la causa original; (3) la detección de ausencia es sensible a stderr benigno de git en exit 1 (dirección fail-closed, riesgo bajo).
+- **2026-08-08T17:09:47Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-08T17:10:20Z** `[graduation]` spec: `architecture.md`
