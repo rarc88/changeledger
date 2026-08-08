@@ -4,6 +4,7 @@ import { parseChange } from '../src/change.mjs';
 import {
   appendLogEvent,
   setArchived,
+  setBranch,
   setOwner,
   setReviewed,
   setSpecGraduatedFrom,
@@ -199,6 +200,23 @@ test('setOwner updates an existing owner', () => {
 test('setOwner with falsy value removes the owner line', () => {
   const out = setOwner(setOwner(DOC, 'ana'), null);
   assert.equal('owner' in parseChange(out).frontmatter, false);
+});
+
+test('20260805-052741 CR1/CR2/CR4/CR5: setBranch adds the branch line after depends_on', () => {
+  const out = setBranch(DOC, 'feature/x');
+  assert.equal(parseChange(out).frontmatter.branch, 'feature/x');
+  assert.match(out, /depends_on: \[\]\nbranch: feature\/x\n/);
+});
+
+test('20260805-052741: setBranch updates an existing branch', () => {
+  const out = setBranch(setBranch(DOC, 'feature/x'), 'hotfix/y');
+  assert.equal(parseChange(out).frontmatter.branch, 'hotfix/y');
+  assert.equal((out.match(/^branch:/gm) || []).length, 1);
+});
+
+test('20260805-052741 CR5: setBranch with a falsy value removes the branch line', () => {
+  const out = setBranch(setBranch(DOC, 'feature/x'), null);
+  assert.equal('branch' in parseChange(out).frontmatter, false);
 });
 
 test('122950 CR2: optional fields patch only their root pair', () => {

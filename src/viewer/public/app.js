@@ -785,6 +785,7 @@ function openDetail(id) {
       <span class="pill" style=${`color:var(--${cssIdent(c.type)})`}>${c.type}</span>
       <span class="pill">${c.status}</span>
       ${c.owner ? html`<span class="pill owner">@${c.owner}</span>` : nothing}
+      ${c.branch ? html`<span class="pill branch">⎇ ${c.branch}</span>` : nothing}
       <span class="pill" title=${c.created || ''}>${fmtDateTime(c.created)}</span>
     </div>
     ${referenceDetails('Dependencies', c.depends_on || [], changes, '↓')}

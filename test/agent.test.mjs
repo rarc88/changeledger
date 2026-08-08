@@ -26,6 +26,7 @@ import {
 } from '../src/commands/agent.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import { setBranch } from '../src/writer.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -449,6 +450,30 @@ test('status to in-progress tolerates a missing owner handle', () => {
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   assert.equal('owner' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
+});
+
+test('20260805-052741 CR1: status to in-progress auto-assigns the current branch when empty', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'feature/x' });
+  const c = parseChange(fs.readFileSync(file, 'utf8'));
+  assert.equal(c.frontmatter.branch, 'feature/x');
+  assert.match(c.stages.find((s) => s.key === 'log').body, /`\[branch\]` set: feature\/x \(auto\)/);
+});
+
+test('20260805-052741 CR2: status to in-progress does not overwrite an explicit branch', () => {
+  const { root, file, id } = repoWithChange();
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'manual-branch'));
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => 'otra-rama' });
+  assert.equal(parseChange(fs.readFileSync(file, 'utf8')).frontmatter.branch, 'manual-branch');
+});
+
+test('20260805-052741 CR3: status to in-progress tolerates a missing branch', () => {
+  const { root, file, id } = repoWithChange();
+  status(id, 'approved', root, { ownerHandle: () => '' });
+  status(id, 'in-progress', root, { ownerHandle: () => '', checkoutBranch: () => '' });
+  assert.equal('branch' in parseChange(fs.readFileSync(file, 'utf8')).frontmatter, false);
 });
 
 test('144812 CR1: an assigned owner skips resolution entirely', () => {

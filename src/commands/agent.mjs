@@ -11,6 +11,7 @@ import { integrationBranch, renderChangeBranch } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
   currentBranch,
+  checkoutBranch as defaultCheckoutBranch,
   defaultRun as defaultGitRun,
   ownerHandle as defaultOwnerHandle,
   isAncestor,
@@ -19,7 +20,14 @@ import { assertTransition, parseLogEvent } from '../lifecycle.mjs';
 import { nowUtc } from '../paths.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { loadRepo, resolveChange } from '../repo.mjs';
-import { appendLogEvent, setArchived, setOwner, setStatus, setTask } from '../writer.mjs';
+import {
+  appendLogEvent,
+  setArchived,
+  setBranch,
+  setOwner,
+  setStatus,
+  setTask,
+} from '../writer.mjs';
 
 function locate(cwd, id) {
   const { config, file, repoRoot } = resolveChange(cwd, id);
@@ -50,6 +58,7 @@ export function status(
   cwd = process.cwd(),
   {
     ownerHandle = defaultOwnerHandle,
+    checkoutBranch = defaultCheckoutBranch,
     gitRun = defaultGitRun,
     actor = 'human',
     channel = 'viewer',
@@ -129,6 +138,22 @@ export function status(
           at: nowUtc(),
           type: 'owner',
           owner: autoOwner,
+          automatic: true,
+        });
+      }
+    }
+
+    // Same pattern as owner above (20260805-052741): record the real branch of
+    // the checkout that starts the work, unless one is already set — manually
+    // or from a previous in-progress entry. Resolution runs only when needed.
+    if (newStatus === 'in-progress' && !fm.branch) {
+      const autoBranch = checkoutBranch(path.dirname(file));
+      if (autoBranch) {
+        text = setBranch(text, autoBranch);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'branch',
+          branch: autoBranch,
           automatic: true,
         });
       }
@@ -316,6 +341,19 @@ export function owner(id, name, cwd = process.cwd()) {
   return file;
 }
 
+// Explicit correction for the branch auto-assigned at in-progress (20260805-052741):
+// covers a rename or a cherry-pick to another branch, which the auto-assignment
+// never detects on its own. name '-' clears the branch.
+export function branch(id, name, cwd = process.cwd()) {
+  const { file } = locate(cwd, id);
+  const next = name === '-' ? null : name;
+  mutateFileAtomic(file, (text) => {
+    text = setBranch(text, next);
+    return appendLogEvent(text, { at: nowUtc(), type: 'branch', branch: next });
+  });
+  return file;
+}
+
 // Discards a change: a terminal lifecycle move that keeps the file and its
 // reasoning instead of deleting it. The reason is mandatory and recorded in the
 // Log; the transition graph rejects discarding a done or in-review change.
@@ -462,6 +500,7 @@ export function list(
       type: c.frontmatter.type,
       status: c.frontmatter.status,
       owner: c.frontmatter.owner ?? null,
+      branch: c.frontmatter.branch ?? null,
       archived: c.frontmatter.archived === true,
       progress: c.progress,
     }));

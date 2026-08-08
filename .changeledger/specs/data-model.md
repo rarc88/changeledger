@@ -1,16 +1,19 @@
 ---
 title: Modelo de datos e identidad
-updated: 2026-07-20T22:30:15Z
+updated: 2026-08-06T12:19:45Z
 tags: [ data-model ]
-graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457", "20260718-105456", "20260720-125007"]
+graduated_from: ["20260613-205854", "20260616-151230", "20260616-162020", "20260616-162017", "20260616-212314", "20260715-122950", "20260718-111457", "20260718-105456", "20260720-125007", "20260805-052741"]
 ---
 
 ## Modelo de datos
 
 - **change**: un archivo markdown. Frontmatter estructurado (`id`, `title`,
   `type`, `status`, `created`, `depends_on`, `related_to` opcional, `owner`
-  opcional, `archived` opcional, `reviewed` opcional, `release_impact` opcional)
-  + etapas (`## Request`…`## Log`) según el tipo. Tiene ciclo de vida (ver
+  opcional, `branch` opcional, `archived` opcional, `reviewed` opcional,
+  `release_impact` opcional) + etapas (`## Request`…`## Log`) según el tipo.
+  `branch` es un dato **por change** — la rama de implementación de ese change
+  — y no debe confundirse con `config.git.integration_branch`, que es la rama
+  de integración del repositorio entero. Tiene ciclo de vida (ver
   **Ciclo de vida y gate de revisión**). Cada tarea de `## Plan` ocupa una línea
   checklist (`[ ]`/`[x]`/`[!]`); una tarea resuelta exige una única línea hija
   ``  - **Resolved:** `<timestamp ISO UTC>` ``, y una bloqueada una única línea
@@ -71,10 +74,11 @@ Antes de mutar una tarea, el parser valida el bloque completo y falla sin
 escribir ante metadatos ausentes, duplicados, desconocidos o huérfanos. Completar
 una tarea ya resuelta es idempotente y conserva el timestamp original. El Log
 usa eventos tipados con timestamp y uno de los tipos `status`, `review`,
-`validation`, `owner`, `graduation`, `archive` o `note`. Un único parser y
-serializador alimenta lifecycle, métricas, graduación y archivado; el payload es
-opaco salvo por el esquema del tipo declarado. `changeledger log` siempre crea
-un evento `note`, por lo que su texto no puede simular una transición operativa.
+`validation`, `owner`, `branch`, `graduation`, `archive` o `note`. Un único
+parser y serializador alimenta lifecycle, métricas, graduación y archivado; el
+payload es opaco salvo por el esquema del tipo declarado. `changeledger log`
+siempre crea un evento `note`, por lo que su texto no puede simular una
+transición operativa.
 La migración desde la gramática anterior es explícita mediante
 `changeledger fix --structured-sections`, admite `--dry-run`, escribe de forma
 atómica por archivo y deja intacto cualquier documento que requiera una decisión

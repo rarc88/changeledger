@@ -110,6 +110,19 @@ test('20260726-124836 CR5: a change with no owner in frontmatter reports no erro
   );
 });
 
+// Confirm-only (20260805-052741 CR6): src/check.mjs never validates `branch`,
+// so a change without it already passes cleanly — no production change needed.
+test('20260805-052741 CR6: a change with no branch in frontmatter reports no error or warning', () => {
+  const c = change();
+  assert.equal('branch' in c.frontmatter, false);
+  const { errors, warnings } = run([c]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    [...msgs(errors), ...msgs(warnings)].filter((m) => /\bbranch\b/i.test(m)),
+    [],
+  );
+});
+
 test('CR1: missing frontmatter key is an error', () => {
   const c = change();
   delete c.frontmatter.title;

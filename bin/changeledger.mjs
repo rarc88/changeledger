@@ -5,6 +5,7 @@ import {
   approve,
   archive,
   archiveGraduated,
+  branch,
   discard,
   list,
   log,
@@ -496,6 +497,27 @@ program
     action((id, name) => {
       owner(id, name);
       console.log(`#${id} owner → ${name === '-' ? '(cleared)' : name}`);
+    }),
+  );
+
+program
+  .command('branch')
+  .description("set or clear a change's branch")
+  .argument('<id>')
+  .argument('<name>', 'branch name, or "-" to clear it')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Examples:',
+      '  changeledger branch <id> feature/x',
+      '  changeledger branch <id> -   # clears the branch',
+    ].join('\n'),
+  )
+  .action(
+    action((id, name) => {
+      branch(id, name);
+      console.log(`#${id} branch → ${name === '-' ? '(cleared)' : name}`);
     }),
   );
 

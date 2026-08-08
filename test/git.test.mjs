@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  checkoutBranch,
   currentBranch,
   defaultGhRun,
   githubLogin,
@@ -334,6 +335,23 @@ test('CR4: ownerHandle is empty when neither is available', () => {
     throw new Error('nope');
   };
   assert.equal(ownerHandle('/x', boom, boom), '');
+});
+
+test('20260805-052741 CR1: checkoutBranch returns the trimmed branch name', () => {
+  const git = () => 'feature/x\n';
+  assert.equal(checkoutBranch('/x', git), 'feature/x');
+});
+
+test('20260805-052741 CR3: checkoutBranch is empty on detached HEAD', () => {
+  const git = () => 'HEAD\n';
+  assert.equal(checkoutBranch('/x', git), '');
+});
+
+test('20260805-052741 CR3: checkoutBranch is empty when the subprocess fails', () => {
+  const boom = () => {
+    throw new Error('not a git repository');
+  };
+  assert.equal(checkoutBranch('/x', boom), '');
 });
 
 // --- mutatingRun (git run variant that surfaces stderr on failure) ---

@@ -885,7 +885,8 @@ body {
   background: rgba(248, 81, 73, 0.08);
   color: #ff8d86;
 }
-.owner {
+.owner,
+.branch {
   font-weight: 600;
   overflow-wrap: anywhere;
 }

@@ -28,6 +28,7 @@ import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
+import { setBranch } from '../src/writer.mjs';
 
 const TOKEN = 'test-token';
 
@@ -363,6 +364,23 @@ The viewer serializes specs.
   assert.deepEqual(body.specs[0].graduated_from, [id]);
   assert.deepEqual(body.changes[0].related_to, []);
   assert.match(body.specs[0].body, /serializes specs/);
+  // 20260805-052741 CR7: branch is exposed alongside owner, null when unset.
+  assert.equal(body.changes[0].branch, null);
+});
+
+test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'bug', slug: 'branch-api', title: 'Branch API', now: '2026-06-13T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  fs.writeFileSync(file, setBranch(fs.readFileSync(file, 'utf8'), 'feature/x'));
+  const { current } = resolveProjects(root, true);
+  const res = await memoryRequest(root, { path: `/api/repo?project=${current}` });
+  const body = JSON.parse(res.body);
+  assert.equal(body.changes[0].branch, 'feature/x');
 });
 
 test('152809 CR1/CR4: /api/repo isolates invalid changes in deterministic order', async () => {

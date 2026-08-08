@@ -217,6 +217,21 @@ export function ownerHandle(cwd, run = defaultRun, ghRun = defaultGhRun) {
   return githubLogin(ghRun) || gitUser(cwd, run);
 }
 
+// Current branch name of the checkout, or '' if unresolvable: detached HEAD
+// (git prints the literal `HEAD`), an unborn branch, or any subprocess
+// failure. Tolerant by design, same shape as `ownerHandle`. Distinct from
+// `currentBranch` (20260731-161655): that one asserts an exact match against
+// a required format and is allowed to throw; this one only records what the
+// checkout actually is and never blocks a transition on failure.
+export function checkoutBranch(cwd, run = defaultRun) {
+  try {
+    const name = run(['rev-parse', '--abbrev-ref', 'HEAD'], cwd).trim();
+    return name === 'HEAD' ? '' : name;
+  } catch {
+    return '';
+  }
+}
+
 // Detects the branch `changeledger check --commits` should diff against when
 // no base is given: the remote's HEAD if configured, else a local `main` or
 // `master`. Throws with actionable guidance if neither is resolvable.

@@ -297,6 +297,41 @@ test('225212 CR3: changeledger owner -h documents that "-" clears the owner', ()
   assert.match(out, /-.*clears?/i);
 });
 
+test('20260805-052741 CR4/CR5: changeledger branch -h documents that "-" clears the branch', () => {
+  const { code, out } = run('branch', '-h');
+  assert.equal(code, 0);
+  assert.match(out, /-.*clears?/i);
+});
+
+test('20260805-052741 CR4: changeledger branch <id> <name> sets the branch explicitly', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  const { code, out } = runIn(root, env, 'branch', item.id, 'hotfix/y');
+  assert.equal(code, 0);
+  assert.match(out, /hotfix\/y/);
+  const changed = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  assert.equal(changed.branch, 'hotfix/y');
+});
+
+test('20260805-052741 CR5: changeledger branch <id> - clears the branch', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
+  const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  assert.equal(runIn(root, env, 'branch', item.id, 'hotfix/y').code, 0);
+  assert.equal(runIn(root, env, 'branch', item.id, '-').code, 0);
+  const changed = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
+  assert.equal(changed.branch, null);
+});
+
 test('131649 CR9: archive help keeps the action and points preview to list', () => {
   const { code, out } = run('archive', '-h');
   assert.equal(code, 0);
