@@ -6,6 +6,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, validation } from '../src/commands/agent.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -83,6 +85,57 @@ function doneRepo() {
   );
   return { root, env, id: item.id, changeFile };
 }
+
+// 20260808-151641 CR6 — the read-routing spec's "same resolver" claim only
+// holds if the CLI's own subprocess entry point (not just the in-process
+// `loadRepo` calls in repo.test.mjs) reaches the snapshot. Builds a repo via
+// the real `changeledger init`, then turns it into a git repo with a
+// worktree-only change (`only-worktree`) and an activated state ref carrying
+// a different one (`only-ref`) — same shape as repo.test.mjs's CR2/view.test.mjs's CR5.
+function activatedCliRepo() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+
+  const changeDoc = (id, title) =>
+    `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
+
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'only-worktree.md'),
+    changeDoc('only-worktree', 'only-worktree'),
+  );
+
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\nlanguage: en\n',
+    '.changeledger-state/changes/only-ref.md': changeDoc('only-ref', 'only-ref'),
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, env };
+}
+
+test('20260808-151641 CR6: `list` and `search` read the state-ref snapshot, not the worktree', () => {
+  const { root, env } = activatedCliRepo();
+
+  const listed = JSON.parse(runIn(root, env, 'list', '--json').out);
+  assert.deepEqual(
+    listed.map((c) => c.id),
+    ['only-ref'],
+  );
+
+  const { out: searchOut } = runIn(root, env, 'search', 'only-ref');
+  assert.match(searchOut, /only-ref/);
+  assert.doesNotMatch(searchOut, /only-worktree/);
+});
 
 test('131649 CR8: graduate help contains only mutation modes and points to list', () => {
   const { code, out } = run('graduate', '--help');
