@@ -92,8 +92,9 @@ texto, no como relación.
 ## Proposal
 
 Dos módulos nuevos y un helper de tests; ningún cambio de comportamiento
-observable fuera de ellos (CLI, viewer y `loadRepo` intactos hasta
-`20260808-151641` y `20260808-151643`).
+observable fuera de ellos (CLI, viewer y `loadRepo` intactos hasta los
+changes de lectura y escritura que completan la etapa 1, que dependen de
+este).
 
 - **`src/git-batch.mjs`**: port del de v2 (treeEntries, batchBlobReader,
   assertRegularBlobEntry) con sus tests de lotes, tamaño y UTF-8.
