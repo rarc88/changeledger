@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +11,8 @@ import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
+import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -66,6 +69,48 @@ function seedSpec(root, name, body) {
     `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n${body}`,
   );
   return file;
+}
+
+// Activated variant: the change document (from `repo()`) and, optionally, a
+// pre-existing spec both live only in the state ref's snapshot — nothing on
+// disk backs either, so a fallback to the worktree would fail outright.
+function activatedRepo({ specName, specBody } = {}) {
+  const { root, file, id } = repo();
+  const changeName = path.basename(file);
+  const changeText = fs.readFileSync(file, 'utf8');
+  fs.rmSync(file);
+
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+    [`.changeledger-state/changes/${changeName}`]: changeText,
+  };
+  if (specName) {
+    files[`.changeledger-state/specs/${specName}`] =
+      `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n${specBody}`;
+  }
+
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, files);
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, id, changeName };
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+}
+
+function stateDocText(root, revision, relPath) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
+    encoding: 'utf8',
+    cwd: root,
+  });
 }
 
 function fsWithRenameFailures({
@@ -608,4 +653,90 @@ test('CR2: a scaffolded change remains pending graduation', () => {
     loadRepo(root).changes.find((change) => change.frontmatter.id === id).frontmatter.reviewed,
     undefined,
   );
+});
+
+// 20260808-151643 — active-mode routing.
+
+test('CR5: graduate --into on an active repo lands spec + change in exactly one commit', () => {
+  const { root, id, changeName } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '\n# Arch\n\nCuerpo intacto.\n',
+  });
+  const before = stateRefTip(root);
+
+  const result = graduate(id, 'architecture', root, { into: true });
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+    }).trim(),
+    '1',
+  );
+  assert.equal(result, 'specs/architecture.md');
+
+  const changeFm = parseChange(stateDocText(root, tip, `changes/${changeName}`)).frontmatter;
+  assert.equal(changeFm.reviewed, true);
+  const specText = stateDocText(root, tip, 'specs/architecture.md');
+  assert.match(specText, /graduated_from:.*20260613-120000/);
+  assert.match(specText, /Cuerpo intacto\./);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR5: graduate --into on an active repo without the spec throws, no write', () => {
+  const { root, id } = activatedRepo();
+  const before = stateRefTip(root);
+
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true }),
+    /does not exist — use --new/,
+  );
+  assert.equal(stateRefTip(root), before);
+});
+
+test('CR5: graduate --into on an active repo rejects an unrefined scaffold, no write', () => {
+  const { root, id } = activatedRepo({
+    specName: 'architecture.md',
+    specBody: '<!-- changeledger:spec-scaffold -->\n\n# Arch\n',
+  });
+  const before = stateRefTip(root);
+
+  assert.throws(
+    () => graduate(id, 'architecture', root, { into: true }),
+    /still contains the scaffold marker/,
+  );
+  assert.equal(stateRefTip(root), before);
+});
+
+test('CR3: scaffoldSpec on an active repo writes only the spec, one commit', () => {
+  const { root, id, changeName } = activatedRepo();
+  const before = stateRefTip(root);
+
+  const result = scaffoldSpec(id, 'architecture', root);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.equal(result, 'specs/architecture.md');
+  assert.match(stateDocText(root, tip, 'specs/architecture.md'), /changeledger:spec-scaffold/);
+  // The change itself is untouched by scaffolding.
+  assert.equal(
+    stateDocText(root, tip, `changes/${changeName}`),
+    stateDocText(root, before, `changes/${changeName}`),
+  );
+});
+
+test('skipGraduation on an active repo marks reviewed and logs the reason, one commit', () => {
+  const { root, id, changeName } = activatedRepo();
+  const before = stateRefTip(root);
+
+  skipGraduation(id, 'no durable truth', root);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  const fm = parseChange(stateDocText(root, tip, `changes/${changeName}`)).frontmatter;
+  assert.equal(fm.reviewed, true);
+  assert.match(stateDocText(root, tip, `changes/${changeName}`), /no durable truth/);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });

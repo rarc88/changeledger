@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
+import { loadRepo } from '../repo.mjs';
 import { slugify } from '../slug.mjs';
+import { LedgerConflictError } from '../state-store.mjs';
 import { serializeScalar } from '../yaml.mjs';
 
 // Applied only when JSON parse fails — governs mtime-based staleness fallback.
@@ -21,6 +24,11 @@ export function newChange(
 ) {
   const changeledgerDir = findChangeledgerDir(cwd);
   if (!changeledgerDir) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
+  const repoRoot = path.dirname(changeledgerDir);
+
+  if (repoIsActivated(repoRoot)) {
+    return newChangeActive({ type, slug, title, owner, now, cwd, ownerHandle });
+  }
 
   const config = loadConfig(changeledgerDir);
   assertSupportedSchema(config);
@@ -29,7 +37,6 @@ export function newChange(
     throw new Error(`Unknown type "${type}". Valid: ${Object.keys(config.types ?? {}).join(', ')}`);
   }
 
-  const repoRoot = path.dirname(changeledgerDir);
   // Born with an owner: an explicit --owner always wins; otherwise resolve the
   // local git identity. Tolerant — an unresolvable identity (ownerHandle
   // returns '') falls through to render()'s existing falsy-owner gate, so no
@@ -84,6 +91,56 @@ export function newChange(
       id = idFromTimestamp(created);
     } finally {
       releaseIdLock(lock);
+    }
+  }
+}
+
+// Active-mode creation: id uniqueness is the CAS itself, not a worktree
+// lock. Each attempt loads the current snapshot fresh (so its id-taken check
+// and its `expectedRevision` are always consistent with each other), and a
+// CAS conflict on the write retries exactly once with a fresh id — the
+// bounded exception to "never auto-retry a CAS conflict" (`change-store.mjs`
+// callers otherwise propagate it): the document here is new by construction,
+// so there is no prior decision a silent retry could invalidate.
+function newChangeActive({ type, slug, title, owner, now, cwd, ownerHandle }) {
+  let created = now;
+  let id = idFromTimestamp(created);
+  for (let attempt = 0; ; attempt++) {
+    const repo = loadRepo(cwd);
+    assertSupportedSchema(repo.config);
+    const typeDef = repo.config.types?.[type];
+    if (!typeDef) {
+      throw new Error(
+        `Unknown type "${type}". Valid: ${Object.keys(repo.config.types ?? {}).join(', ')}`,
+      );
+    }
+    const normalizedSlug = slugify(slug);
+    const resolvedOwner = owner !== undefined ? owner : ownerHandle(repo.repoRoot);
+
+    while (repo.changes.some((c) => c.name.startsWith(`${id}-`))) {
+      created = bumpSecond(created);
+      id = idFromTimestamp(created);
+    }
+
+    const relPath = `changes/${id}-${normalizedSlug}.md`;
+    const text = render({
+      id,
+      title,
+      type,
+      owner: resolvedOwner,
+      stages: typeDef.stages,
+      now: created,
+    });
+    try {
+      writeLedgerFiles(repo, [{ relPath, text }], { message: `new: ${id}` });
+      return relPath;
+    } catch (e) {
+      if (e instanceof LedgerConflictError && attempt < 1) {
+        created = bumpSecond(created);
+        id = idFromTimestamp(created);
+        continue;
+      }
+      throw e;
     }
   }
 }

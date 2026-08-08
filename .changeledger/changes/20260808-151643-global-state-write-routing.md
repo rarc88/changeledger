@@ -2,9 +2,10 @@
 id: "20260808-151643"
 title: Mutaciones del ledger enrutadas al store por CAS
 type: feature
-status: approved
+status: in-review
 created: 2026-08-08T15:16:43Z
 depends_on: ["20260808-151641", "20260808-151640"]
+branch: feature/20260808-151643
 related_to: ["20260808-142200"]
 owner: rarc88
 ---
@@ -172,45 +173,53 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
 
 ## Plan
 
-- [ ] Test primero: `change-store.mjs` con `mutateLedgerFile`/
+- [x] Test primero: `change-store.mjs` con `mutateLedgerFile`/
       `writeLedgerFiles` decidiendo por `repo.state`, y mapeo de rutas
       worktree↔árbol
   - **Target:** `src/change-store.mjs`
   - **Verify:** `node --test test/change-store.test.mjs`
   - **Criteria:** CR1, CR2, CR7
-- [ ] Convertir los mutadores de `agent.mjs` a la costura
+  - **Resolved:** `2026-08-08T23:18:43Z`
+- [x] Convertir los mutadores de `agent.mjs` a la costura
   - **Target:** `src/commands/agent.mjs`
   - **Verify:** `node --test test/agent.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Convertir `graduate.mjs` (un commit atómico en activo; rollback manual
+  - **Resolved:** `2026-08-08T23:18:43Z`
+- [x] Convertir `graduate.mjs` (un commit atómico en activo; rollback manual
       solo en inactivo) y `fix.mjs` (una invocación, un commit)
   - **Target:** `src/commands/graduate.mjs`
   - **Verify:** `node --test test/graduate.test.mjs`
   - **Criteria:** CR3, CR5, CR7
-- [ ] Convertir `new.mjs` (CAS como unicidad de id en activo, reintento de id
+  - **Resolved:** `2026-08-08T23:18:43Z`
+- [x] Convertir `new.mjs` (CAS como unicidad de id en activo, reintento de id
       fresco) y `release.mjs`
   - **Target:** `src/commands/new.mjs`
   - **Verify:** `node --test test/cli.test.mjs`
   - **Criteria:** CR3, CR4
-- [ ] Convertir las escrituras de config del viewer
+  - **Resolved:** `2026-08-08T23:18:43Z`
+- [x] Convertir las escrituras de config del viewer
       (`saveProjectConfigImpl`, `patchProjectConfigImpl`,
       `applyConfigMigrationImpl`)
   - **Target:** `src/viewer/domain.mjs`
   - **Verify:** `node --test test/viewer-metadata.test.mjs`
   - **Criteria:** CR6
-- [ ] Presentación del conflicto CAS en el bin (mensaje accionable, exit ≠ 0)
+  - **Resolved:** `2026-08-08T23:18:43Z`
+- [x] Presentación del conflicto CAS en el bin (mensaje accionable, exit ≠ 0)
   - **Target:** `bin/changeledger.mjs`
   - **Verify:** `node --test test/cli-bin.test.mjs`
   - **Criteria:** CR2
-- [ ] Sección de la costura de escritura en
+  - **Resolved:** `2026-08-08T23:18:44Z`
+- [x] Sección de la costura de escritura en
       `.changeledger/specs/architecture.md` (graduación al cierre)
   - **Target:** `.changeledger/specs/architecture.md`
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
-- [ ] Gate completo
+  - **Resolved:** `2026-08-08T23:18:44Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T23:18:44Z`
 
 ## Log
 
@@ -222,3 +231,7 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
   la lectura del snapshot. Cierra el gate de la etapa 1: repo activado
   operando entero contra la ref en local.
 - **2026-08-08T16:04:16Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T22:13:38Z** `[status]` approved → in-progress
+- **2026-08-08T22:13:38Z** `[branch]` set: feature/20260808-151643 (auto)
+- **2026-08-08T23:18:43Z** `[note]` Nota de transparencia: la sesión del implementador se interrumpió (suspensión del equipo) y su informe de evidencia red-green se perdió; el diff quedó completo en el working tree. Mitigación: un segundo delegado cerró el hueco de cobertura detectado (CR4 sin tests) con evidencia de mutantes (un mutante aislado por test, archivo restaurado byte-idéntico), mapeó CR1-CR7 a tests ejecutados (377/377) y escaneó conformidad del diff (modo inactivo intacto, catches estrechos, spec coherente). La review se delega como auditoría completa sin confiar en ningún claim del implementador. Observación registrada: los mutadores convertidos devuelven target.file (undefined en modo activo) — ningún caller lo consume hoy; queda para el change de hardening o etapa 2.
+- **2026-08-08T23:19:03Z** `[status]` in-progress → in-review

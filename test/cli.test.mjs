@@ -17,7 +17,9 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
+import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,6 +37,26 @@ function tmp() {
   const root = bare();
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Project rules\nOwn project contract.\n');
   return root;
+}
+
+// Activates an already-`init()`ed repo: a real git repo whose state ref holds
+// the worktree's own config.yml (no changes yet) plus an activation record —
+// the minimal fixture for CR4 (`new` on an activated repo). Mirrors
+// `agent.test.mjs`'s `activatedRepoWithChange()`, without the pre-existing
+// change document `new` itself is responsible for creating.
+function activate(root) {
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return revision;
 }
 
 test('161652 CR3: new rejects a future schema before creating files or locks', () => {
@@ -900,6 +922,83 @@ test('new reserves ids atomically across concurrent processes', async () => {
   );
 
   assert.equal(check([], root, silentOutput()), 0);
+});
+
+test('CR4: new on an activated repo writes the document to the state ref, not the worktree', () => {
+  const root = tmp();
+  init(root);
+  const revision = activate(root);
+  const changesDirWorktree = path.join(root, '.changeledger', 'changes');
+  const worktreeBefore = fs.existsSync(changesDirWorktree)
+    ? fs.readdirSync(changesDirWorktree)
+    : [];
+
+  const relPath = newChange(
+    { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+
+  assert.equal(relPath, 'changes/20260808-150000-active-new.md');
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  assert.notEqual(tip, revision, 'the state ref advanced a commit');
+  const snapshot = readSnapshot(root, { revision: tip });
+  assert.match(snapshot.documents[relPath], /id: "20260808-150000"/);
+  assert.match(snapshot.documents[relPath], /## Plan/);
+  // The working tree never sees the new document.
+  assert.equal(fs.existsSync(path.join(root, '.changeledger', relPath)), false);
+  assert.deepEqual(
+    fs.existsSync(changesDirWorktree) ? fs.readdirSync(changesDirWorktree) : [],
+    worktreeBefore,
+    'the worktree changes/ directory is untouched',
+  );
+});
+
+test('CR4: two concurrent new on an activated repo both succeed with distinct ids (stale-revision retry)', async () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+  const readyOne = path.join(root, 'ready-one');
+  const readyTwo = path.join(root, 'ready-two');
+  const go = path.join(root, 'go');
+  const code = `
+    import fs from 'node:fs';
+    import { setTimeout as delay } from 'node:timers/promises';
+    import { newChange } from ${JSON.stringify(pathToFileURL(path.resolve('src/commands/new.mjs')).href)};
+    fs.writeFileSync(process.argv[3], 'ready');
+    while (!fs.existsSync(process.argv[4])) {
+      await delay(5);
+    }
+    const relPath = newChange(
+      { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-08-08T15:00:00Z' },
+      process.argv[2],
+      { ownerHandle: () => '' },
+    );
+    console.log(relPath);
+  `;
+  const child = (slug, readyPath) =>
+    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root, readyPath, go]);
+
+  const one = child('one', readyOne);
+  const two = child('two', readyTwo);
+  const deadline = Date.now() + 3000;
+  while ((!fs.existsSync(readyOne) || !fs.existsSync(readyTwo)) && Date.now() < deadline) {
+    await delay(5);
+  }
+  assert.ok(fs.existsSync(readyOne), 'first child reached the barrier');
+  assert.ok(fs.existsSync(readyTwo), 'second child reached the barrier');
+  fs.writeFileSync(go, 'go');
+
+  const relPaths = (await Promise.all([one, two])).map((r) => r.stdout.trim());
+  const ids = relPaths.map((p) => p.match(/^changes\/(\d{8}-\d{6})-/)[1]);
+  assert.equal(new Set(ids).size, 2, 'both `new` calls succeeded with distinct ids');
+  assert.deepEqual(ids.sort(), ['20260808-150000', '20260808-150001']);
+
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const snapshot = readSnapshot(root, { revision: tip });
+  for (const relPath of relPaths) {
+    assert.ok(snapshot.documents[relPath], `${relPath} present in the final snapshot`);
+  }
 });
 
 test('new rejects an unknown type', () => {

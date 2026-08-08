@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1019,4 +1019,45 @@ test('20260808-141944 CR6: status warns on stderr when the checkout differs from
   assert.match(result.stdout, new RegExp(`#${id} → in-review`));
   assert.match(result.stderr, /feature\/x/);
   assert.match(result.stderr, /changeledger branch/);
+});
+
+// 20260808-151643 CR2 — the bin presents a CAS conflict as an actionable,
+// non-zero-exit error, never the store's own "state ref moved" wording.
+// Two real subprocesses mutate the same activated snapshot at once: which one
+// wins the race is not deterministic, but that exactly one wins and the other
+// gets this exact message and no partial write is guaranteed by the CAS
+// itself, not by timing — spawning both together (no artificial delay) gives
+// them every chance to overlap in practice.
+test('CR2: two concurrent CLI writes — exactly one succeeds, the loser gets the actionable message', async () => {
+  const { root, env } = activatedCliRepo();
+  const spawnAsync = (args) =>
+    new Promise((resolve) => {
+      const child = spawn('node', [bin, ...args], { cwd: root, env });
+      let stderr = '';
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk;
+      });
+      child.on('close', (code) => resolve({ code, stderr }));
+    });
+
+  const [a, b] = await Promise.all([
+    spawnAsync(['log', 'only-ref', 'note A']),
+    spawnAsync(['log', 'only-ref', 'note B']),
+  ]);
+
+  const outcomes = [a, b];
+  const succeeded = outcomes.filter((o) => o.code === 0);
+  const failed = outcomes.filter((o) => o.code !== 0);
+  assert.equal(succeeded.length, 1, JSON.stringify(outcomes));
+  assert.equal(failed.length, 1, JSON.stringify(outcomes));
+  assert.equal(failed[0].code, 1);
+  assert.match(failed[0].stderr, /state changed since load — re-run the command/);
+  assert.doesNotMatch(failed[0].stderr, /state ref moved/);
+
+  // No partial write: the surviving snapshot has exactly one of the two
+  // notes, never both, never neither.
+  const listed = runIn(root, env, 'show', 'only-ref', '--json').out;
+  const noteACount = (listed.match(/note A/g) ?? []).length;
+  const noteBCount = (listed.match(/note B/g) ?? []).length;
+  assert.equal(noteACount + noteBCount, 1);
 });

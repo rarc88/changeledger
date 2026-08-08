@@ -149,8 +149,49 @@ esto, la frontera de config es: los callers que cargan config sin pasar por
 `loadRepo*` en absoluto (`new`, `register`, el bootstrap de `check`, y las
 capturas sin id de `context`/`agent-context`) siguen leyendo el worktree en
 esta etapa — ambos nacen idénticos hasta el cutover de escritura de la etapa
-2, que resuelve la autoridad final. La escritura (`mutateState`) todavía no
-tiene caller: esa integración es del change de escritura de la etapa 1.
+2, que resuelve la autoridad final.
+
+## Costura de escritura del estado global
+
+`src/change-store.mjs` (`20260808-151643`) es el único punto que decide, por
+`repo.state`, si una mutación de `.changeledger/**` aterriza en el worktree
+(`mutateFileAtomic`/`writeFileAtomic` de siempre) o como commit CAS en la ref
+de estado (`mutateState`, con `expectedRevision: repo.state.revision`).
+`mutateLedgerFile(repo, target, mutate, { message })` cubre un documento —
+`target` es `{ file }` (ruta de worktree) en modo inactivo o `{ relPath,
+text }` (ruta relativa al árbol de estado más el texto ya leído a
+`repo.state.revision`) en modo activo; `mutate` recibe ese texto y devuelve
+el siguiente, o `undefined` para no escribir, el mismo contrato de
+`mutateFileAtomic`. `writeLedgerFiles(repo, entries, { message })` cubre
+varios documentos como una sola unidad: inactivo, cada entrada se escribe a
+su `file` de forma independiente (sin atomicidad cruzada, como siempre);
+activo, todas las entradas aterrizan en **un** commit CAS — la costura que
+permite a `graduate` en modo activo retirar el rollback manual de dos
+escrituras que el modo inactivo todavía conserva.
+
+Cada mutador decide su rama sin depender de un `loadRepo` completo cuando
+está inactivo: `repoIsActivated(repoRoot)` es la puerta barata (el mismo
+descubrimiento fs-only de `.git` que usa `resolveActivation` en
+`src/repo.mjs`, duplicado aquí porque este otro punto de llamada necesita la
+respuesta *antes* de decidir cómo localizar el documento — vía
+`resolveChange` tolerante a hermanos rotos si está inactivo, vía
+`resolveChangeInRepo` sobre el repo ya cargado si está activo, ya que el
+documento puede no existir en disco en absoluto). Los once mutadores de
+`src/commands/agent.mjs`, `graduate`/`skipGraduation`
+(`src/commands/graduate.mjs`, spec+change en un solo commit en modo activo),
+`fix` (`src/commands/fix.mjs`, una invocación = un commit), `release.mjs` y
+las tres escrituras de config del visor (`src/viewer/domain.mjs`) enrutan por
+esta costura; `new.mjs` es la única excepción de mecánica propia — en modo
+activo la unicidad del id la garantiza el propio CAS, con un reintento
+acotado a uno ante conflicto (el documento es nuevo por construcción, así
+que no hay una decisión previa que un reintento silencioso pueda invalidar;
+todo otro caller de la costura propaga el conflicto sin reintentar). El
+conflicto CAS se presenta en `bin/changeledger.mjs` como
+`state changed since load — re-run the command`, exit distinto de cero, sin
+relabeling del mensaje interno del store (`state ref moved: ...`) — el bin
+solo presenta, el store ya garantiza que no hay escritura parcial. Con esto
+cierra el gate de la etapa 1: un repo activado opera enteramente contra la
+ref en local, tanto en lectura como en escritura.
 
 ## API documental del visor
 

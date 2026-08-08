@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { writeLedgerFiles } from '../src/change-store.mjs';
 import { checkRepo } from '../src/check.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { bumpVersion } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
+import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -52,6 +56,45 @@ X
   const file = path.join(root, '.changeledger', 'changes', `${id}-x.md`);
   fs.writeFileSync(file, text);
   return file;
+}
+
+// Moves every worktree change built by `writeChange` into the state ref's
+// snapshot and activates the repo; the worktree copies are removed, so a
+// fallback read/write would fail outright.
+function activate(root) {
+  const changesDir = path.join(root, '.changeledger', 'changes');
+  const files = {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': fs.readFileSync(
+      path.join(root, '.changeledger', 'config.yml'),
+      'utf8',
+    ),
+  };
+  if (fs.existsSync(changesDir)) {
+    for (const name of fs.readdirSync(changesDir)) {
+      files[`.changeledger-state/changes/${name}`] = fs.readFileSync(
+        path.join(changesDir, name),
+        'utf8',
+      );
+    }
+    fs.rmSync(changesDir, { recursive: true, force: true });
+  }
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, files);
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+}
+
+function stateDocText(root, revision, relPath) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
+    encoding: 'utf8',
+    cwd: root,
+  });
 }
 
 test('CR1: release init creates one baseline with all current done changes', () => {
@@ -213,4 +256,67 @@ test('CR9: check rejects repeated baselines and non-done released changes', () =
   const messages = checkRepo(repo).errors.map((error) => error.message);
   assert.ok(messages.some((message) => /status is not done/.test(message)));
   assert.ok(messages.some((message) => /multiple baselines/.test(message)));
+});
+
+// 20260808-151643 — active-mode routing.
+
+test('CR1: release init on an active repo writes the manifest to the ref, one commit', () => {
+  const root = fixture();
+  writeChange(root, '20260624-000001');
+  writeChange(root, '20260624-000002', { status: 'draft' });
+  activate(root);
+  const before = stateRefTip(root);
+
+  const result = initReleaseHistory('0.1.0', root, '2026-06-24T01:00:00Z');
+
+  assert.equal(result.file, 'releases/0.1.0.yml');
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+    }).trim(),
+    '1',
+  );
+  assert.match(stateDocText(root, tip, 'releases/0.1.0.yml'), /20260624-000001/);
+  assert.throws(() => initReleaseHistory('0.1.0', root), /already initialized/);
+  assert.equal(loadRepo(root).releases.length, 1);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR7/CR8 (active): recordRelease on an active repo is exact and lands in one commit', () => {
+  const root = fixture();
+  writeChange(root, '20260624-000001', { impact: 'minor' });
+  activate(root);
+  initReleaseHistory('0.1.0', root, '2026-06-24T00:00:00Z');
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  writeChange(root, '20260624-000002', { impact: 'patch' });
+  // writeChange writes to a worktree the active repo no longer reads; move
+  // the new change into the ref the same way `activate` did.
+  const text = fs.readFileSync(
+    path.join(root, '.changeledger', 'changes', '20260624-000002-x.md'),
+    'utf8',
+  );
+  fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true, force: true });
+  const before = stateRefTip(root);
+  // seed via the real store seam so the tree bases on the current tip
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: before } },
+    [{ relPath: 'changes/20260624-000002-x.md', text }],
+    { message: 'chore: seed change' },
+  );
+
+  const beforeRecord = stateRefTip(root);
+  const result = recordRelease('0.1.1', root, '2026-06-24T02:00:00Z');
+  assert.deepEqual(result.manifest.changes, ['20260624-000002']);
+  const tip = stateRefTip(root);
+  assert.equal(
+    execFileSync('git', ['rev-list', '--count', `${beforeRecord}..${tip}`], {
+      encoding: 'utf8',
+      cwd: root,
+    }).trim(),
+    '1',
+  );
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
