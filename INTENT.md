@@ -88,6 +88,18 @@ Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano
 
 ---
 
+## Estado global
+
+Cuando el ledger vive en las ramas, cada checkout ve solo lo que su rama
+conoce y en equipo cada persona ve una foto distinta. Espero poder ver todos
+los changes en su estado más actualizado sin saltar de rama: el ledger
+completo en una rama propia dedicada solo a eso. Debe funcionar igual sin
+remoto — la sincronización es git puro, opcional, y cuando hay conflicto se
+avisa y se decide, no se resuelve solo. Los límites duros de esta capacidad
+viven en la spec `global-state-scope` (`.changeledger/specs/`).
+
+---
+
 ## Filtros de evolución del producto
 
 La complejidad del core es un presupuesto limitado. Una capacidad nueva debe

@@ -35,6 +35,10 @@ bootstrap above, not a linked or copied contract.
   [`INTENT.md`](INTENT.md): prefer observed problems and a small deterministic,
   local-first core; AI orchestration, memory and cloud services belong only in
   optional integrations.
+- Global-state work is bounded by the spec `global-state-scope`
+  (`.changeledger/specs/`): a change on that surface that needs to grow past
+  the ceiling stops and returns to the human. (Line removable once the staged
+  build completes.)
 - Managed with **pnpm**; lint/format via **Biome**. Runtime dependencies are
   allowed only when they are mature and justified: the CLI uses `yaml` for
   config/frontmatter parsing and `commander` for argument/option/subcommand
