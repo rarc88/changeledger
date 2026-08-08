@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { writeFileAtomic } from '../atomic-write.mjs';
 import { writeLedgerFiles } from '../change-store.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { computeFixes, migratePlanTags, migrateStructuredSections } from '../fix.mjs';
@@ -8,15 +7,16 @@ import { loadRepo } from '../repo.mjs';
 import { readSnapshot } from '../state-store.mjs';
 import { setSpecGraduatedFromList } from '../writer.mjs';
 
-// Writes every entry as one CAS commit when active (one invocation = one
-// commit); inactive keeps the original per-file `writeFileAtomic` loop,
-// unchanged.
+// Delegates unconditionally to `writeLedgerFiles` — the single seam decides
+// the worktree-vs-ref branch by `repo.state` (one invocation = one CAS
+// commit when active; the original per-file loop, unchanged, when
+// inactive). The empty-entries guard stays: a no-op call must not force a
+// CAS check against a possibly-stale `repo.state.revision` when there is
+// truly nothing to write, mirroring `mutateLedgerFile`'s own
+// skip-on-`undefined` contract.
 function writeFixedFiles(repo, entries, message) {
-  if (!repo.state) {
-    for (const entry of entries) writeFileAtomic(entry.file, entry.text);
-    return;
-  }
-  if (entries.length) writeLedgerFiles(repo, entries, { message });
+  if (!entries.length) return;
+  writeLedgerFiles(repo, entries, { message });
 }
 
 // Repairs mechanical, unambiguous format defects (`changeledger fix [id] [--dry-run]`).

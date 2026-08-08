@@ -954,7 +954,15 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
   );
 });
 
-test('CR4: two concurrent new on an activated repo both succeed with distinct ids (stale-revision retry)', async () => {
+// Smoke test only, not CR4 proof: two real child processes racing through a
+// ready/go barrier tend to serialize on this machine (the second child's
+// `loadRepo` already observes the first child's committed file before ever
+// attempting a write), so the retry branch is not reliably exercised here —
+// both outcomes (a real CAS conflict-then-retry, or a clean id bump before
+// any write) land on the same two ids, which is why this assertion holds
+// either way. The deterministic proof of the stale-revision retry itself is
+// the test below.
+test('new on an activated repo tolerates two concurrent processes, no crash, distinct ids', async () => {
   const root = tmp();
   init(root);
   activate(root);
@@ -999,6 +1007,54 @@ test('CR4: two concurrent new on an activated repo both succeed with distinct id
   for (const relPath of relPaths) {
     assert.ok(snapshot.documents[relPath], `${relPath} present in the final snapshot`);
   }
+});
+
+// Deterministic CR4 proof for the stale-revision retry: no subprocess, no
+// timing. `ownerHandle` is called by `newChangeActive` strictly after
+// `loadRepo` has already captured `repo.state.revision` and strictly before
+// this call's own write — exactly like `agent.test.mjs`'s CR2 test uses the
+// same hook to fire a real, unrelated write in that window. Here the
+// "unrelated write" is itself a `newChange` (through the same seam), so the
+// ref genuinely advances out from under the primary call's captured
+// revision, forcing a real `LedgerConflictError` on its first write attempt.
+// `onceRacer` fires exactly once so the retry's own reload (which also
+// re-invokes `ownerHandle`) cannot cascade into a second conflict.
+function onceRacer(action) {
+  let fired = false;
+  return () => {
+    if (!fired) {
+      fired = true;
+      action();
+    }
+    return '';
+  };
+}
+
+test('CR4: new on an activated repo retries once with a fresh id after a genuine stale-revision conflict', () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+
+  const racer = onceRacer(() => {
+    newChange({ type: 'chore', slug: 'racer', title: 'Racer', now: '2026-08-08T15:00:00Z' }, root, {
+      ownerHandle: () => '',
+    });
+  });
+
+  const relPath = newChange(
+    { type: 'chore', slug: 'primary', title: 'Primary', now: '2026-08-08T15:00:00Z' },
+    root,
+    { ownerHandle: racer },
+  );
+
+  // The racer took 20260808-150000; the primary call's first write attempt
+  // was rejected as stale against it and retried once with a bumped id.
+  assert.equal(relPath, 'changes/20260808-150001-primary.md');
+
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const snapshot = readSnapshot(root, { revision: tip });
+  assert.ok(snapshot.documents['changes/20260808-150000-racer.md'], 'the racer document landed');
+  assert.ok(snapshot.documents[relPath], 'the retried primary document landed');
 });
 
 test('new rejects an unknown type', () => {
