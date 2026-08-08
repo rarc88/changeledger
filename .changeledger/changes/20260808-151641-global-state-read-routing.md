@@ -83,9 +83,9 @@ caller cambia de firma.
   - **Con activación**: `readSnapshot` de la ref declarada; `changes`,
     `specs`, `releases` y `config` se construyen desde los documentos del
     snapshot (mismos parsers `parseChange`/`parseSpec` actuales); el objeto
-    resultado gana `state: { revision }` — la costura que `20260808-151643`
-    usará como `expectedRevision` del CAS. En modo inactivo `state` es
-    `null`.
+    resultado gana `state: { revision }` — la costura que el change de
+    escritura de esta etapa usará como `expectedRevision` del CAS. En modo
+    inactivo `state` es `null`.
   - **Activación presente pero ref ilegible/ausente**: se propaga el error
     del store (`readStateRef`/`readSnapshot` son fail-closed por
     `20260808-151640`); explícitamente no hay fallback al worktree.
