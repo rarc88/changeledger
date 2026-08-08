@@ -62,6 +62,45 @@ export function mutatingRun(args, cwd) {
   }
 }
 
+// Read/subprocess variant of `mutatingRun` for callers (state-store.mjs,
+// git-batch.mjs) that need stdin input, a custom maxBuffer or a raw Buffer
+// (`encoding: null`) — shapes `mutatingRun`'s fixed utf8/no-stdin signature
+// cannot express. Same fail-closed contract: git's stderr is captured and
+// folded into the thrown error instead of discarded, so a fail-closed reader
+// built on top of this can tell "the object does not exist" apart from "the
+// subprocess failed" by inspecting the thrown error rather than losing the
+// diagnostic.
+export function capturedRun(args, cwd, { encoding = 'utf8', input, maxBuffer } = {}) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      env: sanitizedEnv(),
+      encoding,
+      input,
+      maxBuffer,
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    const raw = e.stderr;
+    const text = typeof raw === 'string' ? raw : Buffer.isBuffer(raw) ? raw.toString('utf8') : '';
+    const detail = text.trim();
+    throw new Error(detail ? `${e.message}\n${detail}` : e.message, { cause: e });
+  }
+}
+
+// Resolves `ref` and asserts it names a commit object — via `cat-file -t`,
+// never a `^{commit}` peel. A peel silently accepts an annotated tag pointing
+// at a commit as if the ref itself were a commit, which is exactly the defect
+// class this closes (a state/activation ref must itself be a commit, not
+// merely resolve to one through a tag). Message names the real type so a
+// caller reading it can tell a tag from a blob from a tree.
+export function assertCommitObject(repoRoot, ref, run = capturedRun) {
+  const type = run(['cat-file', '-t', ref], repoRoot).trim();
+  if (type !== 'commit') {
+    throw new Error(`${ref} resolves to a ${type}, not a commit`);
+  }
+}
+
 // Git is the authority for ref syntax. Keeping this as a query (and injectable)
 // avoids maintaining an incomplete JavaScript copy of check-ref-format's rules.
 export function isValidBranchName(name, run = defaultRun, cwd = process.cwd()) {

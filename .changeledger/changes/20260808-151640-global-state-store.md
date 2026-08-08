@@ -2,9 +2,10 @@
 id: "20260808-151640"
 title: "Store local del estado global: ref fija, snapshot y CAS"
 type: feature
-status: approved
+status: in-review
 created: 2026-08-08T15:16:40Z
 depends_on: []
+branch: feature/20260808-151640
 related_to: ["20260808-142200"]
 owner: rarc88
 ---
@@ -239,44 +240,52 @@ este).
 
 ## Plan
 
-- [ ] Portar `git-batch.mjs` desde `codex/state-replica-v2` con sus tests de
+- [x] Portar `git-batch.mjs` desde `codex/state-replica-v2` con sus tests de
       lotes, tamaño límite y UTF-8 estricto
   - **Target:** `src/git-batch.mjs`
   - **Verify:** `node --test test/git-batch.test.mjs`
   - **Criteria:** CR2, CR7
-- [ ] Portar `assertCommitObject` a `src/git.mjs` (tipo por `cat-file -t`,
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] Portar `assertCommitObject` a `src/git.mjs` (tipo por `cat-file -t`,
       nunca peel) con tests de tag, blob y tree
   - **Target:** `src/git.mjs`
   - **Verify:** `node --test test/git.test.mjs`
   - **Criteria:** CR5
-- [ ] Crear `test/helpers/state-repo.mjs` (fixture git real, SHA-1 y SHA-256,
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] Crear `test/helpers/state-repo.mjs` (fixture git real, SHA-1 y SHA-256,
       árbol de estado sembrado) adaptado del de v2
   - **Target:** `test/helpers/state-repo.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Support:**
-- [ ] `state-store.mjs`: `initState`, `readStateRef` y `readSnapshot` con
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `initState`, `readStateRef` y `readSnapshot` con
       validación de layout, modos y UTF-8
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR1, CR2, CR5, CR6, CR7, CR8
-- [ ] `state-store.mjs`: `mutateState` con CAS, `LedgerConflictError`, no-op
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `mutateState` con CAS, `LedgerConflictError`, no-op
       sin commit e integridad padre-contra-candidato
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR3, CR4, CR8, CR9
-- [ ] `state-store.mjs`: `readActivation`/`writeActivation`
+  - **Resolved:** `2026-08-08T16:23:45Z`
+- [x] `state-store.mjs`: `readActivation`/`writeActivation`
       checkout-independientes y fail-closed
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR5, CR6, CR10
-- [ ] Matriz SHA-256 sobre CR1-CR4
+  - **Resolved:** `2026-08-08T16:23:46Z`
+- [x] Matriz SHA-256 sobre CR1-CR4
   - **Target:** `test/state-store.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR11
-- [ ] Gate completo
+  - **Resolved:** `2026-08-08T16:23:46Z`
+- [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
   - **Support:**
+  - **Resolved:** `2026-08-08T16:24:02Z`
 
 ## Log
 
@@ -288,3 +297,6 @@ este).
   locale; `assertCommitObject` no existe y se porta). El catálogo de defectos
   de v2 entra como CRs, no como recuerdos.
 - **2026-08-08T16:02:55Z** `[status]` draft → approved (human via conversation)
+- **2026-08-08T16:04:48Z** `[status]` approved → in-progress
+- **2026-08-08T16:04:48Z** `[branch]` set: feature/20260808-151640 (auto)
+- **2026-08-08T16:24:02Z** `[status]` in-progress → in-review
