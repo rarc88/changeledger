@@ -2,7 +2,7 @@
 id: "20260808-151643"
 title: Mutaciones del ledger enrutadas al store por CAS
 type: feature
-status: draft
+status: approved
 created: 2026-08-08T15:16:43Z
 depends_on: ["20260808-151641", "20260808-151640"]
 related_to: ["20260808-142200"]
@@ -221,3 +221,4 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
   activo) y las escrituras de config del viewer incluidas para no divergir de
   la lectura del snapshot. Cierra el gate de la etapa 1: repo activado
   operando entero contra la ref en local.
+- **2026-08-08T16:04:16Z** `[status]` draft → approved (human via conversation)
