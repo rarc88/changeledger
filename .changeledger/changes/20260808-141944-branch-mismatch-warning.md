@@ -2,7 +2,7 @@
 id: "20260808-141944"
 title: Avisar la discrepancia entre el checkout y la rama registrada
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-08T14:19:44Z
 depends_on: []
 related_to: ["20260805-052741", "20260726-124836"]
@@ -179,3 +179,5 @@ Detección de discrepancia como dato retornado, emisión por stderr en el bin.
 - **2026-08-08T14:36:36Z** `[status]` approved → in-progress
 - **2026-08-08T14:48:41Z** `[note]` Implementación delegada completa con TDD (evidencia red-green por CR). Ajuste adicional dentro del propósito: la frase preexistente de lifecycle.md que negaba la detección de un checkout distinto quedaba contradicha por el aviso nuevo; se reescribió para que la sección no se contradiga.
 - **2026-08-08T14:48:41Z** `[status]` in-progress → in-review
+- **2026-08-08T14:49:42Z** `[note]` Review mandate: auditoría completa del diff del change (baseline docs(change):approve..HEAD, un commit de implementación) contra CR1-CR6 y el Plan, incluyendo la edición del orquestador en lifecycle.md, que se somete al mismo estándar que el resto del diff.
+- **2026-08-08T14:54:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
