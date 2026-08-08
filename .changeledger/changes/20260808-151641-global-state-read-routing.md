@@ -2,7 +2,7 @@
 id: "20260808-151641"
 title: Lectura del ledger enrutada al snapshot del store
 type: feature
-status: draft
+status: approved
 created: 2026-08-08T15:16:41Z
 depends_on: ["20260808-151640"]
 related_to: ["20260808-142200"]
@@ -187,3 +187,4 @@ caller cambia de firma.
   de la spec se implementa en un solo punto. La frontera de config (callers
   pre-load siguen en worktree hasta el cutover de etapa 2) queda declarada en
   Investigation a propósito.
+- **2026-08-08T16:03:43Z** `[status]` draft → approved (human via conversation)
