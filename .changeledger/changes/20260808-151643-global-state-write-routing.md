@@ -4,7 +4,7 @@ title: Mutaciones del ledger enrutadas al store por CAS
 type: feature
 status: draft
 created: 2026-08-08T15:16:43Z
-depends_on: ["20260808-151641"]
+depends_on: ["20260808-151641", "20260808-151640"]
 related_to: ["20260808-142200"]
 owner: rarc88
 ---
