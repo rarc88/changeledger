@@ -2,7 +2,7 @@
 id: "20260808-151641"
 title: Lectura del ledger enrutada al snapshot del store
 type: feature
-status: in-review
+status: blocked
 created: 2026-08-08T15:16:41Z
 depends_on: ["20260808-151640"]
 branch: feature/20260808-151641
@@ -197,3 +197,5 @@ caller cambia de firma.
 - **2026-08-08T17:14:16Z** `[status]` approved → in-progress
 - **2026-08-08T17:14:16Z** `[branch]` set: feature/20260808-151641 (auto)
 - **2026-08-08T17:27:14Z** `[status]` in-progress → in-review
+- **2026-08-08T17:27:54Z** `[note]` Review mandate: auditoría completa del diff del change (baseline..HEAD) contra CR1-CR6 y el Plan, con foco declarado en (1) hasGitDirectory por fs.existsSync — riesgo de reintroducir la heurística de filesystem purgada del store y de degradación silenciosa a legacy si repoRoot no es el top-level de git; (2) que el modo activo no tenga ningún camino de fallback al worktree; (3) las tres decisiones no especificadas del implementador (file:null, config-preview inútil en repos activos, topologías de worktree).
+- **2026-08-08T17:35:51Z** `[review]` in-review → blocked: Defecto confirmado corregible: hasGitDirectory (fs.existsSync) degrada en silencio a legacy un repo con .changeledger por debajo del git root — topología ya soportada por commit() en src/git.mjs — reintroduciendo la heurística purgada del store; la premisa de la Investigation (readActivation devuelve null en dirs no-git) es falsa: lanza. Y hallazgo material fuera de mandato que exige decisión humana de alcance: resolveChange (src/repo.mjs) es una segunda vía de lectura no enrutada — context/agent-context sirven fantasmas del worktree en repos activados y mezclan config del snapshot con documento del worktree, la lectura de autoridad cruzada de v1. Decidir si esos consumidores de solo lectura entran en la corrección de este change o quedan como frontera declarada de la etapa/change de escritura.
