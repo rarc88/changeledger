@@ -2,9 +2,10 @@
 id: "20260809-113241"
 title: Import idempotente por ref
 type: feature
-status: in-validation
+status: done
 created: 2026-08-09T11:32:41Z
 depends_on: ["20260808-151643"]
+reviewed: true
 branch: feature/20260809-113241
 related_to: ["20260809-113240"]
 owner: rarc88
@@ -192,3 +193,5 @@ anotado; documento inválido en la fuente; repo sin activar.
 - **2026-08-09T13:48:11Z** `[status]` in-progress → in-review
 - **2026-08-09T13:48:12Z** `[note]` Mandato del review de confirmación: acotado al diff sin commitear de la corrección (src/commands/import.mjs +14, test/import.test.mjs +61/-2) — verificar que el defecto nombrado quedó cerrado (mensaje de cero documentos visibles distinguible de 'ya absorbido', exit 0 intacto) y el test del renombre que mata al mutante superviviente; sin regresiones; lo latente se reporta como follow-up.
 - **2026-08-09T13:54:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T14:00:20Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T14:00:51Z** `[graduation]` spec: `architecture.md`

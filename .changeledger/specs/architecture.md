@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-09T13:07:13Z
+updated: 2026-08-09T14:00:51Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -244,6 +244,30 @@ conflicto de revert (un commit posterior tocó las rutas retiradas) aborta
 limpio y devuelve la decisión al humano. Un corte deshecho no deja tombstone:
 sin ninguna de las dos refs el repo vuelve a ser cortable, y la detección de
 medio-corte es "exactamente una ref presente".
+
+`changeledger import --from <ref>` (`src/commands/import.mjs`,
+`20260809-113241`) absorbe exactamente una ref por invocación hacia la ref de
+estado de un repo activado: la fuente es una rama con layout de worktree
+(ramas en vuelo del momento de la migración y rezagados posteriores; nunca
+refs en formato de estado). La ref debe resolver a un commit
+(`assertCommitObject`, nunca peel) y todos sus documentos se validan con las
+reglas de `checkRepo` antes de clasificar nada. La clasificación es por
+identidad de contenido (change=id, spec=nombre, release=versión) contra el
+snapshot: ausente → alta; byte-idéntico → no-op; para changes, la relación de
+prefijo propio entre las entradas del `## Log` ordena las versiones — el
+snapshot que extiende al importado es no-op, el importado que extiende al
+snapshot es actualización (escrita en el path existente del snapshot aunque
+la fuente renombrara el archivo: la identidad es el id, honrar el nombre
+publicaría el change dos veces); todo lo demás (mismo Log con cuerpo
+distinto, Logs divergentes, specs/releases con contenido distinto) es
+conflicto para el humano. Un conflicto cualquiera aborta el import entero sin
+escribir (todo-o-nada); sin conflictos, altas y actualizaciones aterrizan en
+una única `mutateState` cuyo mensaje registra ref y commit importados, y
+re-ejecutar el mismo import es no-op con exit 0. El `config.yml` de la fuente
+se ignora — el layout y las reglas los dicta siempre el config del snapshot
+(consecuencia asumida: un source que recolocó `changes_dir` no expone sus
+documentos al import) — y el reporte distingue "la ref no expone documentos
+ChangeLedger" de "todo lo de la fuente ya está publicado".
 
 ## API documental del visor
 
