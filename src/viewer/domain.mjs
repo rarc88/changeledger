@@ -29,14 +29,14 @@ import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
-import { LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
 // `state-store.mjs`) — never the store's own internal "state ref moved:
 // expected X, found Y" wording, and never folded into a generic 400. Mirrors
 // `bin/changeledger.mjs`'s own CLI presentation of the same error class.
-const CAS_CONFLICT_MESSAGE = 'state changed since load — reload and save again';
+const VIEWER_CAS_CONFLICT_MESSAGE = `${CAS_CONFLICT_MESSAGE} — reload and save again`;
 
 // Locates the config document for a project's write path: inactive, the
 // worktree `file` `mutateConfig` already operates on (unchanged); active,
@@ -548,7 +548,7 @@ function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAto
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -736,7 +736,7 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -834,7 +834,7 @@ function applyConfigMigrationImpl(
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };

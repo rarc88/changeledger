@@ -551,6 +551,47 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
   );
 });
 
+test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors without emitting BEGIN', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here\n',
+  );
+
+  const context = runIn(root, env, 'context', '20990101-000000');
+  assert.equal(context.code, 1);
+  assert.match(context.err, /Unknown context "20990101-000000"/);
+  assert.doesNotMatch(context.out, /CHANGELEDGER CONTEXT BEGIN/);
+
+  const agent = runIn(root, env, 'agent-context', 'implementation', '20990101-000000');
+  assert.equal(agent.code, 1);
+  assert.match(agent.err, /No change with id "20990101-000000"/);
+  assert.doesNotMatch(agent.out, /CHANGELEDGER AGENT CONTEXT BEGIN/);
+
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 1);
+  assert.match(checked.err, /broken\.md/);
+});
+
+test('20260808-171107 CR4: CLI and viewer conflict text use one shared literal base', () => {
+  const files = [
+    new URL('../src/state-store.mjs', import.meta.url),
+    new URL('../bin/changeledger.mjs', import.meta.url),
+    new URL('../src/viewer/domain.mjs', import.meta.url),
+  ];
+  const literals = files.flatMap((file) =>
+    [...fs.readFileSync(file, 'utf8').matchAll(/(['"])(state changed since load[^'"\n]*)\1/g)].map(
+      (match) => match[2],
+    ),
+  );
+
+  assert.deepEqual(literals, ['state changed since load']);
+});
+
 // 20260729-162616 CR1: `context <id>` used to degrade silently on an
 // undecidable type — an empty `Active stages(undefined)=` line, exit 0 — for
 // three distinct causes. The contract requires it to abort naming the cause

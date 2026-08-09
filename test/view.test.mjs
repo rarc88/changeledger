@@ -2641,7 +2641,7 @@ test('CR8: saveProjectConfig on an activated project surfaces a stale write as 4
   );
 
   assert.equal(result.code, 409);
-  assert.match(result.body.error, /state changed since load/);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
   assert.doesNotMatch(result.body.error, /state ref moved/);
 
   const tip = stateRefTip(root);
@@ -2661,7 +2661,7 @@ test('CR8: patchProjectConfig on an activated project surfaces a stale write as 
   );
 
   assert.equal(result.code, 409);
-  assert.match(result.body.error, /state changed since load/);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
   assert.doesNotMatch(result.body.error, /state ref moved/);
 
   const tip = stateRefTip(root);
@@ -2687,7 +2687,7 @@ test('CR8: applyConfigMigration on an activated project surfaces a stale write a
   );
 
   assert.equal(result.code, 409);
-  assert.match(result.body.error, /state changed since load/);
+  assert.equal(result.body.error, 'state changed since load — reload and save again');
   assert.doesNotMatch(result.body.error, /state ref moved/);
 
   const tip = stateRefTip(root);

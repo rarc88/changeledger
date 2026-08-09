@@ -36,7 +36,7 @@ import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
-import { LedgerConflictError } from '../src/state-store.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -65,7 +65,7 @@ function action(fn) {
       // job is to tell the caller to reload and re-run, not to relay the
       // store's own "state ref moved: expected X, found Y" internals.
       if (e instanceof LedgerConflictError) {
-        console.error('state changed since load — re-run the command');
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
       } else {
         console.error(`Error: ${e.message}`);
       }
@@ -201,7 +201,7 @@ program
       process.exit(fix(args));
     } catch (e) {
       if (e instanceof LedgerConflictError) {
-        console.error('state changed since load — re-run the command');
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
       } else {
         console.error(`Error: ${e.message}`);
       }
