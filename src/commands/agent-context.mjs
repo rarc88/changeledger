@@ -54,7 +54,7 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
     throw new Error(`Unknown role "${role}" — valid roles: ${ROLES.join(', ')}`);
   }
   const changeledgerDir = requireRepo(cwd);
-  const repo = changeId ? loadRepo(cwd) : null;
+  const repo = changeId ? loadRepo(cwd, { isolateChangeErrors: true }) : null;
   const selected = selectedChange(role, changeId, repo);
   const config = repo
     ? repo.config

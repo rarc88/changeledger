@@ -128,9 +128,11 @@ function resolveActivation(repoRoot, run) {
 // read-routing spec. Fail-closed by construction: `readSnapshot` (and the
 // `readStateRef`/`assertCommitObject` it calls) throws on an absent or
 // non-commit ref, and nothing here catches that to fall back to disk.
-// `isolateChangeErrors` mirrors the worktree loaders' own split: the sync
-// loader dies on the first bad change document (named with its virtual
-// snapshot path), the async loader collects `changeErrors` instead. Specs and
+// `isolateChangeErrors` mirrors the worktree loaders' own split: the default
+// sync loader dies on the first bad change document (named with its virtual
+// snapshot path), while the async loader and the explicit sync opt-in collect
+// `changeErrors`. The sync opt-in exists for read-only id resolution in
+// context commands; normal `loadRepo` and `check` remain fail-fast. Specs and
 // releases are never isolated in either loader, so neither is here.
 function loadActiveContent(repoRoot, run, { isolateChangeErrors }) {
   const snapshot = readSnapshot(repoRoot, {}, run);
@@ -215,10 +217,14 @@ export function loadRepo(start = process.cwd(), options = {}) {
 export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = {}) {
   const run = options.run ?? capturedRun;
   if (resolveActivation(repoRoot, run)) {
-    const { changeErrors: _unused, ...active } = loadActiveContent(repoRoot, run, {
-      isolateChangeErrors: false,
+    const active = loadActiveContent(repoRoot, run, {
+      isolateChangeErrors: options.isolateChangeErrors === true,
     });
-    return { changeledgerDir, repoRoot, ...active };
+    if (options.isolateChangeErrors === true) {
+      return { changeledgerDir, repoRoot, ...active };
+    }
+    const { changeErrors: _unused, ...content } = active;
+    return { changeledgerDir, repoRoot, ...content };
   }
 
   const changesDir = resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir');
@@ -236,11 +242,17 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
   }
 
   const changes = [];
+  const changeErrors = [];
   if (fs.existsSync(changesDir)) {
     for (const name of fs.readdirSync(changesDir).sort()) {
       if (!name.endsWith('.md')) continue;
       const file = path.join(changesDir, name);
-      changes.push({ name, ...readChangeFile(file) });
+      try {
+        changes.push({ name, ...readChangeFile(file) });
+      } catch (error) {
+        if (options.isolateChangeErrors !== true) throw error;
+        changeErrors.push({ file, name, message: error.message });
+      }
     }
   }
   changes.sort((a, b) => String(a.frontmatter.id).localeCompare(String(b.frontmatter.id)));
@@ -257,7 +269,16 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
 
   const releases = loadReleases(repoRoot);
 
-  return { changeledgerDir, repoRoot, config, changes, specs, releases, state: null };
+  return {
+    changeledgerDir,
+    repoRoot,
+    config,
+    changes,
+    ...(options.isolateChangeErrors === true ? { changeErrors } : {}),
+    specs,
+    releases,
+    state: null,
+  };
 }
 
 // Async equivalent for HTTP paths that should not monopolize the Node event
