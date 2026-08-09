@@ -1,0 +1,382 @@
+// `changeledger cutover` — the one-shot stage-2 adoption tool, and its undo.
+//
+// It moves a repo whose ledger lives in the worktree to the shared state ref:
+// it reads the ledger from ONE explicit source (the integration branch's HEAD
+// commit), validates the whole snapshot with the repo's own `checkRepo` rules
+// BEFORE constructing anything, publishes the state ref, takes the activation
+// decision, and finally commits the worktree cleanup that removes `changes/`,
+// `specs/` and `releases/` while keeping `config.yml` (the discovery marker
+// `findChangeledgerDir` needs; the authority over config CONTENT once activated
+// is the copy inside the ref).
+//
+// The v2 migrator this replaces is a reference, not a port: no two-phase
+// protocol, no editable plan file, no multi-source resolution. What is kept is
+// its validation ORDER (validate everything, then build, then publish), its
+// idempotency by content equality rather than by re-running the pipeline, and
+// two of its bugs promoted to criteria — a ref must be asserted to BE a commit
+// (never peeled from an annotated tag), and the undo must be a first-class path
+// rather than a manual procedure.
+
+import path from 'node:path';
+import { parseChange } from '../change.mjs';
+import { checkRepo } from '../check.mjs';
+import {
+  findChangeledgerDir,
+  integrationBranch,
+  loadConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+} from '../config.mjs';
+import { capturedRun, defaultBaseBranch, gitTopLevel, mutatingRun } from '../git.mjs';
+import { assertRegularBlobEntry, batchBlobReader, treeEntries } from '../git-batch.mjs';
+import { resolveReleasesDir } from '../release.mjs';
+import { parseSpec } from '../spec.mjs';
+import {
+  ACTIVATION_REF,
+  initState,
+  mutateState,
+  readActivation,
+  readSnapshot,
+  readStateRef,
+  STATE_REF,
+  STATE_ROOT,
+  writeActivation,
+} from '../state-store.mjs';
+import { parseYaml } from '../yaml.mjs';
+
+// The cleanup commit is the repo-visible record of the cut, and the only place
+// the published baseline is written down. `--undo` and the re-run detection
+// both read it back from here, so the subject is matched exactly and the
+// baseline travels as a trailer. The body's first line is the canonical
+// operational-commit declaration (`src/git.mjs`), so this commit is exempt from
+// the `[#id]` marker lint in the consuming repo without any special case.
+const CUTOVER_SUBJECT = 'chore(state): cut the ledger over to the state ref';
+const CUTOVER_BODY = `ChangeLedger: none — the ledger now lives in ${STATE_REF}`;
+const BASELINE_TRAILER = 'Changeledger-Cutover-Baseline';
+const BASELINE_RE = new RegExp(`^${BASELINE_TRAILER}: ([0-9a-f]{40,64})$`, 'm');
+
+const UNDO_SUBJECT = 'chore(state): undo the ledger cutover';
+const UNDO_BODY = 'ChangeLedger: none — restores the ledger to the worktree';
+
+const BASELINE_MESSAGE = 'chore: publish the cutover baseline';
+
+function toPosix(relPath) {
+  return relPath.split(path.sep).join('/');
+}
+
+// Where each state collection is read from, as paths inside the git tree. The
+// configured directories go through `resolveRepoPath`'s containment guard first
+// (a cloned repo's config is untrusted input), then are expressed relative to
+// git's own top-level — which is not necessarily the ChangeLedger repo root.
+function ledgerLayout(repoRoot, changeledgerDir, config, run) {
+  const topLevel = gitTopLevel(repoRoot, run);
+  const rel = (absolute) => toPosix(path.relative(topLevel, absolute));
+  return {
+    topLevel,
+    configPath: rel(path.join(changeledgerDir, 'config.yml')),
+    collections: [
+      {
+        name: 'changes',
+        extension: '.md',
+        prefix: `${rel(resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir'))}/`,
+      },
+      {
+        name: 'specs',
+        extension: '.md',
+        prefix: `${rel(resolveSpecsDir(repoRoot, config))}/`,
+      },
+      {
+        name: 'releases',
+        extension: '.yml',
+        prefix: `${rel(resolveReleasesDir(repoRoot))}/`,
+      },
+    ],
+  };
+}
+
+// The ledger as committed at `revision`, read with no checkout: `config.yml`
+// byte for byte plus every collection document keyed by its future state path
+// (`changes/x.md`). A nested path under a collection is refused rather than
+// flattened — the state layout has exactly one level and silently colliding two
+// documents onto one name would lose one of them.
+function readLedgerAt(repoRoot, revision, layout, run) {
+  const entries = treeEntries(repoRoot, revision, run);
+  const wanted = [];
+  const documents = new Map();
+  let configEntry = null;
+
+  for (const entry of entries) {
+    if (entry.path === layout.configPath) {
+      configEntry = entry;
+      wanted.push(entry);
+      continue;
+    }
+    const collection = layout.collections.find((c) => entry.path.startsWith(c.prefix));
+    if (!collection) continue;
+    const name = entry.path.slice(collection.prefix.length);
+    if (!name.endsWith(collection.extension)) continue;
+    if (name.includes('/')) {
+      throw new Error(
+        `the ledger has a nested document the state layout cannot hold: ${entry.path}`,
+      );
+    }
+    assertRegularBlobEntry(entry.mode, entry.path, entry.type);
+    wanted.push(entry);
+    documents.set(`${collection.name}/${name}`, entry);
+  }
+
+  if (!configEntry) {
+    throw new Error(`the integration commit ${revision} has no ${layout.configPath}`);
+  }
+  assertRegularBlobEntry(configEntry.mode, configEntry.path, configEntry.type);
+
+  const readBlob = batchBlobReader(repoRoot, wanted, run);
+  const texts = new Map();
+  for (const [name, entry] of documents) texts.set(name, readBlob(entry.oid));
+  return { configText: readBlob(configEntry.oid), documents: texts };
+}
+
+// Parses the snapshot into the shape `checkRepo` consumes — the same shape
+// `loadRepo` builds for an activated repo — and runs the repo's full validation
+// over it. Nothing has been written at this point and nothing may be: a single
+// error aborts the whole cutover.
+function validateLedger(source) {
+  const config = parseYaml(source.configText);
+  const changes = [];
+  const specs = [];
+  const releases = [];
+
+  for (const [name, text] of source.documents) {
+    const base = name.slice(name.indexOf('/') + 1);
+    try {
+      if (name.startsWith('changes/')) changes.push({ name: base, text, ...parseChange(text) });
+      else if (name.startsWith('specs/')) specs.push({ name: base, ...parseSpec(text) });
+      else releases.push({ name: base, ...parseYaml(text) });
+    } catch (e) {
+      throw new Error(`the ledger cannot be cut over — ${name}: ${e.message}`);
+    }
+  }
+  changes.sort((a, b) => String(a.frontmatter?.id).localeCompare(String(b.frontmatter?.id)));
+
+  const { errors } = checkRepo({ config, changes, specs, releases });
+  if (errors.length) {
+    const detail = errors.map((e) => `  ${e.file}: ${e.message}`).join('\n');
+    throw new Error(
+      `the ledger cannot be cut over — ${errors.length} validation error(s), nothing was written:\n${detail}`,
+    );
+  }
+  return config;
+}
+
+// Content equality against what is already published. `readSnapshot` exposes
+// documents as text and the manifest parsed, so the config blob is read
+// directly to compare the bytes the cutover would publish. Over this exclusive
+// layout (every entry a 100644 blob at a layout-valid path) identical paths and
+// identical contents mean an identical tree.
+function publishedMatches(repoRoot, tip, source, projectId, run) {
+  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  if (String(snapshot.manifest.project_id) !== String(projectId)) return false;
+  if (
+    run(['cat-file', 'blob', `${tip}:${STATE_ROOT}/config.yml`], repoRoot) !== source.configText
+  ) {
+    return false;
+  }
+  const published = Object.keys(snapshot.documents).sort();
+  const candidate = [...source.documents.keys()].sort();
+  if (published.length !== candidate.length) return false;
+  return published.every(
+    (name, i) => name === candidate[i] && snapshot.documents[name] === source.documents.get(name),
+  );
+}
+
+// The baseline recorded by the cleanup commit at `revision`, or null when that
+// commit is not a cutover at all. A cutover subject without the trailer is a
+// corrupted record, not an absence: it must not read back as "never cut over".
+function cutoverBaselineAt(repoRoot, revision, run) {
+  const message = run(['log', '-1', '--format=%B', revision], repoRoot);
+  if (message.split('\n')[0].trim() !== CUTOVER_SUBJECT) return null;
+  const match = message.match(BASELINE_RE);
+  if (!match) {
+    throw new Error(
+      `the cutover commit ${revision} carries no ${BASELINE_TRAILER} trailer — its baseline cannot be verified; resolve it by hand`,
+    );
+  }
+  return match[1];
+}
+
+// Both directions rewrite tracked files on the integration branch and commit
+// them, so both demand the same two guarantees: nothing already staged (a
+// commit here must contain exactly what this command produced, never someone
+// else's staged work) and a ledger with no uncommitted edit (the source of
+// truth being published is the COMMIT, so an unstaged edit would be silently
+// dropped by the cut and destroyed by the cleanup).
+function assertCleanLedger(repoRoot, changeledgerDir, operation, run) {
+  const staged = run(['diff', '--cached', '--name-only'], repoRoot).trim();
+  if (staged !== '') {
+    throw new Error(
+      `${operation} requires an empty index; commit or reset the staged changes first:\n${staged}`,
+    );
+  }
+  const dirty = run(['status', '--porcelain', '--', changeledgerDir], repoRoot).trim();
+  if (dirty !== '') {
+    throw new Error(
+      `${operation} requires a clean ledger under ${path.basename(changeledgerDir)}/; commit or discard these first:\n${dirty}`,
+    );
+  }
+}
+
+function resolveContext(cwd, operation, run) {
+  const changeledgerDir = findChangeledgerDir(cwd);
+  if (!changeledgerDir) {
+    throw new Error(
+      'Not a ChangeLedger repo (no .changeledger/ found). Run `changeledger init` first.',
+    );
+  }
+  const repoRoot = path.dirname(changeledgerDir);
+  const config = loadConfig(changeledgerDir);
+  const branch = integrationBranch(config) ?? defaultBaseBranch(repoRoot, run);
+  const checkout = run(['rev-parse', '--abbrev-ref', 'HEAD'], repoRoot).trim();
+  if (checkout !== branch) {
+    throw new Error(
+      `${operation} rewrites the integration branch "${branch}" and its worktree, so it must run with that branch checked out (currently on "${checkout}")`,
+    );
+  }
+  const head = run(['rev-parse', 'HEAD'], repoRoot).trim();
+  return { changeledgerDir, repoRoot, config, branch, head };
+}
+
+export function cutover({ undo = false } = {}, cwd = process.cwd(), output = console) {
+  const run = capturedRun;
+  const ctx = resolveContext(cwd, undo ? 'cutover --undo' : 'cutover', run);
+  return undo ? undoCutover(ctx, output, run) : runCutover(ctx, output, run);
+}
+
+function runCutover(ctx, output, run) {
+  const { changeledgerDir, repoRoot, config, head } = ctx;
+
+  // Already cut: the re-run is a no-op by identity, not by re-deriving a
+  // snapshot from a worktree the previous run deliberately emptied.
+  const recorded = cutoverBaselineAt(repoRoot, head, run);
+  if (recorded !== null) {
+    const tip = readStateRef(repoRoot, run);
+    const activation = readActivation(repoRoot, run);
+    if (tip === null || activation === null) {
+      throw new Error(
+        `HEAD is the cutover commit but ${tip === null ? STATE_REF : ACTIVATION_REF} is missing — this repo is half cut over; resolve it by hand`,
+      );
+    }
+    output.log(`Already cut over — ${STATE_REF} at ${tip} (baseline ${recorded}); nothing to do`);
+    return 0;
+  }
+
+  if (readActivation(repoRoot, run) !== null) {
+    throw new Error(
+      `this repo is already activated (${ACTIVATION_REF}) — cutover only runs on a repo that is not yet activated`,
+    );
+  }
+  assertCleanLedger(repoRoot, changeledgerDir, 'cutover', run);
+
+  const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
+  const source = readLedgerAt(repoRoot, head, layout, run);
+  const ledgerConfig = validateLedger(source);
+  const projectId = ledgerConfig.project_id;
+  if (typeof projectId !== 'string' || projectId === '') {
+    throw new Error(
+      'the ledger cannot be cut over — config.yml has no project_id; run `changeledger register` first',
+    );
+  }
+
+  // Everything above this line is a read. Everything below writes.
+  let tip = readStateRef(repoRoot, run);
+  if (tip === null) {
+    tip = initState(repoRoot, { projectId, config: ledgerConfig }, run).revision;
+  } else if (!publishedMatches(repoRoot, tip, source, projectId, run)) {
+    throw new Error(
+      `${STATE_REF} already exists at ${tip} and does not hold the ledger this cutover would publish — refusing to touch refs, worktree or history`,
+    );
+  }
+
+  const baseline = mutateState(
+    repoRoot,
+    { expectedRevision: tip, message: BASELINE_MESSAGE },
+    (stage) => {
+      // The config is republished byte for byte: `initState` serializes a
+      // parsed mapping, which would silently drop the file's comments and key
+      // order the moment the ref becomes the authority for config content.
+      stage.write('config.yml', source.configText);
+      for (const [name, text] of source.documents) stage.write(name, text);
+    },
+    run,
+  ).revision;
+
+  writeActivation(repoRoot, { stateRef: STATE_REF }, run);
+  commitCleanup(ctx, layout, baseline);
+
+  output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${baseline}`);
+  output.log(`Activated ${ACTIVATION_REF}; the worktree keeps only ${layout.configPath}`);
+  return 0;
+}
+
+function commitCleanup({ repoRoot }, layout, baseline) {
+  const paths = layout.collections.map((c) => c.prefix.slice(0, -1));
+  mutatingRun(['rm', '-r', '-q', '--ignore-unmatch', '--', ...paths], layout.topLevel);
+  mutatingRun(
+    [
+      'commit',
+      '--no-verify',
+      '--allow-empty',
+      '-q',
+      '-m',
+      CUTOVER_SUBJECT,
+      '-m',
+      `${CUTOVER_BODY}\n\n${BASELINE_TRAILER}: ${baseline}`,
+    ],
+    repoRoot,
+  );
+}
+
+function undoCutover(ctx, output, run) {
+  const { changeledgerDir, repoRoot, head } = ctx;
+
+  const baseline = cutoverBaselineAt(repoRoot, head, run);
+  if (baseline === null) {
+    throw new Error(
+      `nothing to undo — HEAD is not a cutover commit (expected the subject "${CUTOVER_SUBJECT}")`,
+    );
+  }
+  const tip = readStateRef(repoRoot, run);
+  if (tip === null) {
+    throw new Error(`nothing to undo — ${STATE_REF} does not exist`);
+  }
+  // The whole reversibility question, decided by one commit comparison: the
+  // undo restores the worktree to what the baseline published, so any state the
+  // ledger gained after it would be dropped. That is not a call a tool makes.
+  if (tip !== baseline) {
+    throw new Error(
+      `the cutover is no longer reversible — ${STATE_REF} is at ${tip}, past the published baseline ${baseline}, so undoing would discard the ledger history written since the cut; the decision is yours`,
+    );
+  }
+  assertCleanLedger(repoRoot, changeledgerDir, 'cutover --undo', run);
+
+  // Worktree first, refs after: an interrupted undo that has restored the
+  // documents but not yet dropped the refs is still a consistent activated
+  // repo, while the reverse order would leave a deactivated repo with no
+  // documents anywhere.
+  mutatingRun(['revert', '-n', head], repoRoot);
+  mutatingRun(['commit', '--no-verify', '-q', '-m', UNDO_SUBJECT, '-m', UNDO_BODY], repoRoot);
+
+  // Deleted with its observed oid as the CAS old-value, never bare: a `-d` with
+  // no old-value would also delete an activation someone else re-pointed
+  // between this read and the write.
+  let activation = '';
+  try {
+    activation = run(['rev-parse', '--verify', '--quiet', ACTIVATION_REF], repoRoot).trim();
+  } catch {
+    activation = ''; // no activation ref — nothing to delete
+  }
+  if (activation) mutatingRun(['update-ref', '-d', ACTIVATION_REF, activation], repoRoot);
+  mutatingRun(['update-ref', '-d', STATE_REF, baseline], repoRoot);
+
+  output.log(`Undid the cutover — the ledger is back in the worktree, ${STATE_REF} deleted`);
+  return 0;
+}

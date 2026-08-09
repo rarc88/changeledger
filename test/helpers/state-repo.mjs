@@ -114,6 +114,82 @@ export function updateRef(root, ref, oid, oldValue) {
   git(root, args);
 }
 
+// --- worktree ledger fixtures (cutover / activate) -------------------------
+//
+// The fixtures above seed the STATE ref directly. `cutover` and `activate`
+// instead need the opposite starting point: an ordinary ChangeLedger repo whose
+// ledger still lives in the worktree, committed on an integration branch. Both
+// suites need the same one, so it lives here with the rest of the git fixture
+// plumbing rather than being copied into each.
+
+// Deliberately carries a comment and a non-alphabetical key order: the cutover
+// must publish this file byte for byte, and a YAML round-trip would silently
+// drop both.
+export const ledgerConfigText = `# Fixture config — the comments must survive the cutover byte for byte.
+schema_version: 5
+language: es
+tdd: true
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+git:
+  integration_branch: main
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+stages: [request, investigation, proposal, specification, plan, log]
+types:
+  quick:
+    stages: [request, log]
+release:
+  impacts:
+    quick: patch
+readiness:
+  target_patterns: ["src/**"]
+  verification_patterns: ["test/**"]
+project_id: "fixture01"
+project_name: fixture
+`;
+
+export const ledgerChangeText = ({ id = '20260808-000001', withLog = true } = {}) =>
+  `---\nid: "${id}"\ntitle: Añadir soporté ☂\ntype: quick\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nDemo multibyte: café, mañana, 東京.\n${withLog ? '\n## Log\n' : ''}`;
+
+export const ledgerSpecText = ({ title = 'Demo spec' } = {}) =>
+  `---\ntitle: ${title}\nupdated: 2026-08-08T00:00:00Z\ntags: [ demo ]\n---\n\n# ${title}\n\nContrato de ejemplo.\n`;
+
+export const ledgerReleaseText = ({ version = '0.1.0' } = {}) =>
+  `version: ${version}\ncreated: 2026-08-08T00:00:00Z\nbaseline: true\nchanges: []\n`;
+
+// The default worktree layout a cutover consumes: `.changeledger/config.yml`
+// plus one document in each of the three collections.
+export function defaultLedgerFiles({ changeText: change = ledgerChangeText() } = {}) {
+  return {
+    '.changeledger/config.yml': ledgerConfigText,
+    '.changeledger/changes/20260808-000001-demo.md': change,
+    '.changeledger/specs/demo-spec.md': ledgerSpecText(),
+    '.changeledger/releases/0.1.0.yml': ledgerReleaseText(),
+  };
+}
+
+// A real git repo checked out on `branch`, with `files` written to the worktree
+// and committed. Unlike `seedStateRepo` this writes actual files and uses the
+// repo's own index, because the commands under test read the worktree, judge
+// its cleanliness and rewrite it.
+export function seedLedgerRepo({ branch = 'main', files = defaultLedgerFiles() } = {}) {
+  const root = initStateRepo();
+  git(root, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+  git(root, ['config', 'commit.gpgsign', 'false']);
+  writeLedgerFiles(root, files);
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-q', '-m', 'chore: seed ledger']);
+  return { root, branch };
+}
+
+export function writeLedgerFiles(root, files) {
+  for (const [rel, text] of Object.entries(files)) {
+    const file = path.join(root, rel);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+  }
+}
+
 export const manifestText = ({ projectId = 'demo' } = {}) =>
   `format_version: 1\nproject_id: ${projectId}\n`;
 

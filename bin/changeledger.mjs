@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import { Command } from 'commander';
+import { activate } from '../src/commands/activate.mjs';
 import {
   approve,
   archive,
@@ -22,6 +23,7 @@ import { agentPrompt } from '../src/commands/agent-prompt.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
+import { cutover } from '../src/commands/cutover.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -45,6 +47,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
   changeledger init | register | new | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
+  changeledger cutover | activate
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -258,6 +261,48 @@ program
       console.log(`Committed: ${subject}`);
     }),
   );
+
+program
+  .command('cutover')
+  .description("publish this repo's ledger to the state ref and activate it (one shot)")
+  .option('--undo', 'revert the cutover while the state ref still points at the published baseline')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Runs on the integration branch of a repo that is not yet activated and whose',
+      'ledger is clean: it validates the whole ledger, publishes it to the state ref,',
+      'activates the repo and commits the worktree cleanup that keeps only config.yml.',
+      'A re-run over an identical cut is a no-op; a divergent state ref is refused.',
+      '',
+      '--undo reverses all of it while the state ref still points at the published',
+      'baseline. Once the ledger has moved past it, the undo refuses: dropping that',
+      'history is a human decision, not a tool default.',
+      '',
+      'Examples:',
+      '  changeledger cutover',
+      '  changeledger cutover --undo',
+    ].join('\n'),
+  )
+  .action(action((options) => cutover({ undo: Boolean(options.undo) })));
+
+program
+  .command('activate')
+  .description('activate this checkout against an already published state ref')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'For a clone or worktree of a repo that was already cut over: it takes the',
+      'local activation decision against the existing state ref and nothing else.',
+      'Re-running over the same state is a no-op; an activation that already names',
+      'a different state ref is refused, never overwritten.',
+      '',
+      'Example:',
+      '  changeledger activate',
+    ].join('\n'),
+  )
+  .action(action(() => activate()));
 
 program
   .command('context')

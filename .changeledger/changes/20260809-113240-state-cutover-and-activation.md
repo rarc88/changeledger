@@ -2,9 +2,10 @@
 id: "20260809-113240"
 title: Cutover one-shot y activación con undo
 type: feature
-status: approved
+status: in-review
 created: 2026-08-09T11:32:40Z
 depends_on: ["20260808-151640"]
+branch: feature/20260809-113240
 related_to: ["20260808-151643", "20260809-113242"]
 owner: rarc88
 release_impact: minor
@@ -39,9 +40,10 @@ Estado actual (verificado en dev):
 - `writeActivation` es un `update-ref` sin old-value: force-update deliberado
   sin CLI, documentado en `20260808-151640` como pendiente para la UX de
   adopción de la etapa 2. Este change le pone la semántica CAS encima.
-- Superficie del ledger en el worktree hoy: `changes/` (260 documentos),
-  `specs/` (14), `releases/` (24) y `config.yml` (schema 5). No hay más
-  contenido de ledger bajo `.changeledger/`.
+- Superficie del ledger en el worktree hoy: `changes/` (272 documentos),
+  `specs/` (14), `releases/` (21) y `config.yml` (schema 5). No hay más
+  contenido de ledger bajo `.changeledger/`. (Conteos re-medidos el
+  2026-08-09 durante la implementación; la captura inicial traía 260/24.)
 - Qué queda en el worktree tras el corte (decisión confirmada por el humano):
   solo `.changeledger/config.yml`, que es el marcador de descubrimiento de
   `findChangeledgerDir`; la autoridad sobre el contenido de config en activo es
@@ -156,32 +158,43 @@ undo bloqueado tras mutaciones; ref que resuelve a tag anotado.
 
 ## Plan
 
-- [ ] Semántica CAS de `writeActivation`: create con old-value cero, no-op
+- [x] Semántica CAS de `writeActivation`: create con old-value cero, no-op
   sobre commit idéntico y rechazo explícito ante activación divergente
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR6
-- [ ] Construcción y validación del snapshot de cutover desde el commit de la
+  - **Resolved:** `2026-08-09T12:19:11Z`
+- [x] Construcción y validación del snapshot de cutover desde el commit de la
   rama de integración, con precondiciones de repo no activado y ledger limpio
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Idempotencia por igualdad de tree y rechazo de divergencia en cutover
+  - **Resolved:** `2026-08-09T12:19:11Z`
+- [x] Idempotencia por igualdad de tree y rechazo de divergencia en cutover
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Comando `activate` sobre la nueva semántica, con aserción de commit
+  - **Resolved:** `2026-08-09T12:19:11Z`
+- [x] Comando `activate` sobre la nueva semántica, con aserción de commit
   - **Target:** `src/commands/activate.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/activate.test.mjs`
   - **Criteria:** CR6, CR9
-- [ ] `cutover --undo`: reversión integral guardada por CAS y bloqueo tras
+  - **Resolved:** `2026-08-09T12:19:11Z`
+- [x] `cutover --undo`: reversión integral guardada por CAS y bloqueo tras
   mutaciones
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR7, CR8
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-09T12:19:11Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T12:19:12Z`
 
 ## Log
 - **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T11:57:59Z** `[status]` approved → in-progress
+- **2026-08-09T11:57:59Z** `[branch]` set: feature/20260809-113240 (auto)
+- **2026-08-09T12:19:37Z** `[note]` Investigation corregida con conteos re-medidos (272 changes, 21 releases; la captura inicial del explorador traía 260/24 — cifras verificadas antes de escribirlas en el Log).
+- **2026-08-09T12:19:37Z** `[status]` in-progress → in-review
+- **2026-08-09T12:19:37Z** `[note]` Mandato del review: auditoría completa del diff cerrado baseline..HEAD (superficie de refs/CAS y dos comandos nuevos), con la lista de 13 decisiones no especificadas del implementador como puntos de escrutinio explícito, en particular: divergencia de activación keyed en state_ref declarado y no en el oid del commit; config.yml republicado byte a byte vía mutateState tras initState; orden del undo worktree-first; igualdad de tree implementada como igualdad de contenido.
