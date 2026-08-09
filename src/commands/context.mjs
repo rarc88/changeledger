@@ -260,7 +260,7 @@ function composeInput(input, cwd, changeledgerDir) {
     return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
   }
 
-  const repo = loadRepo(cwd);
+  const repo = loadRepo(cwd, { isolateChangeErrors: true });
   let resolved;
   try {
     resolved = resolveChangeInRepo(repo, input);
