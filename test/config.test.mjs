@@ -10,7 +10,14 @@ import {
   renderChangeBranch,
 } from '../src/config.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
-import { buildTree, commitTree, initStateRepo, updateRef } from './helpers/state-repo.mjs';
+import {
+  buildTree,
+  buildTreeEntries,
+  commitTree,
+  git,
+  initStateRepo,
+  updateRef,
+} from './helpers/state-repo.mjs';
 
 test('20260809-113242 CR8: loadEffectiveConfig keeps the worktree authority when inactive', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'config-inactive-'));
@@ -38,6 +45,80 @@ test('20260809-113242 config authority: loadEffectiveConfig reads the activated 
   assert.equal(
     loadEffectiveConfig(root, changeledgerDir, { raw: true }),
     '# retained\nproject_name: ref-name\n',
+  );
+});
+
+function activatedConfigEntries(entries) {
+  const root = initStateRepo();
+  const changeledgerDir = path.join(root, '.changeledger');
+  fs.mkdirSync(changeledgerDir);
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), 'project_name: worktree-fallback\n');
+  const tree = buildTreeEntries(root, entries);
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, changeledgerDir };
+}
+
+test('20260809-113242 CR9: active config rejects a symlink entry without worktree fallback', () => {
+  const { root, changeledgerDir } = activatedConfigEntries([
+    {
+      path: '.changeledger-state/manifest.yml',
+      text: 'format_version: 1\nproject_id: demo\n',
+    },
+    {
+      path: '.changeledger-state/config.yml',
+      mode: '120000',
+      text: 'project_name: ref-name\n',
+    },
+  ]);
+
+  assert.throws(
+    () => loadEffectiveConfig(root, changeledgerDir),
+    (error) =>
+      error.message ===
+      'tree contains unsupported Git entry 120000 blob at .changeledger-state/config.yml',
+  );
+});
+
+test('20260809-113242 CR9: active raw config rejects invalid UTF-8 without worktree fallback', () => {
+  const root = initStateRepo();
+  const badOid = git(root, ['hash-object', '-w', '--stdin'], {
+    input: Buffer.from([0xff, 0xfe]),
+  });
+  const changeledgerDir = path.join(root, '.changeledger');
+  fs.mkdirSync(changeledgerDir);
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), 'project_name: worktree-fallback\n');
+  const tree = buildTreeEntries(root, [
+    {
+      path: '.changeledger-state/manifest.yml',
+      text: 'format_version: 1\nproject_id: demo\n',
+    },
+    { path: '.changeledger-state/config.yml', oid: badOid },
+  ]);
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  assert.throws(
+    () => loadEffectiveConfig(root, changeledgerDir, { raw: true }),
+    (error) => error.message === 'state path .changeledger-state/config.yml is not valid UTF-8',
+  );
+});
+
+test('20260809-113242 CR9: active config rejects a foreign state path without worktree fallback', () => {
+  const { root, changeledgerDir } = activatedConfigEntries([
+    {
+      path: '.changeledger-state/manifest.yml',
+      text: 'format_version: 1\nproject_id: demo\n',
+    },
+    { path: '.changeledger-state/config.yml', text: 'project_name: ref-name\n' },
+    { path: 'foreign.txt', text: 'foreign\n' },
+  ]);
+
+  assert.throws(
+    () => loadEffectiveConfig(root, changeledgerDir),
+    (error) => error.message === 'invalid state path: foreign.txt',
   );
 });
 

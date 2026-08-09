@@ -1415,6 +1415,47 @@ test('local mode returns only the current repo', () => {
   assert.equal(path.resolve(projects[0].path), path.resolve(here));
 });
 
+test('20260809-113242 CR11: local mode and path repair use active ref identity', () => {
+  isolatedHome();
+  const root = newRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const refConfig = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^project_name:.*$/m, 'project_name: ref-name');
+  const projectId = /^project_id:\s*["']?([^\n"']+)/m.exec(refConfig)[1];
+  fs.writeFileSync(
+    configFile,
+    refConfig
+      .replace(/^project_id:.*$/m, 'project_id: stale-id')
+      .replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': refConfig,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  const local = resolveProjects(root, true);
+  assert.equal(local.current, projectId);
+  assert.equal(local.projects[0].name, 'ref-name');
+
+  const oldPath = path.join(root, '..', 'old-location');
+  register({ id: projectId, name: 'cached-name', path: oldPath });
+  const repaired = repairProjectPath(
+    [{ id: projectId, name: 'cached-name', path: oldPath, alive: false }],
+    {
+      project: projectId,
+      repository_path: path.resolve(oldPath),
+      path: root,
+    },
+  );
+  assert.equal(repaired.code, 200, repaired.body.error);
+  assert.deepEqual(readRegistry()[projectId], { name: 'ref-name', path: root });
+});
+
 test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed config', () => {
   isolatedHome();
   const root = newRepo();
@@ -2520,7 +2561,7 @@ test('20260809-113242 CR4: activated raw and structured config reads serve state
   assert.doesNotMatch(structured.body.content, /stale-name/);
 });
 
-test('20260809-113242 CR6: viewer status transition resolves a ref-only activated change', () => {
+test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed stale marker', () => {
   isolatedHome();
   const root = newRepo();
   const file = newChange(
@@ -2542,6 +2583,7 @@ test('20260809-113242 CR6: viewer status transition resolves a ref-only activate
   updateRef(root, STATE_REF, revision);
   writeActivation(root, { stateRef: STATE_REF });
   fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
   const { projects, current } = resolveProjects(root, false);
 
   const result = changeStatus(projects, { project: current, id, status: 'approved' });

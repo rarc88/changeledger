@@ -101,6 +101,50 @@ test('20260809-113242 CR5: listProjects uses project_name from an activated stat
   assert.equal(listProjects().find((project) => project.id === id).name, 'ref-name');
 });
 
+test('20260809-113242 CR12: listProjects fails closed when an activated state ref is missing', () => {
+  isolatedHome();
+  const root = newRepo();
+  init(root);
+  const id = loadConfig(path.join(root, '.changeledger')).project_id;
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${id}\n`,
+    '.changeledger-state/config.yml': `project_id: ${id}\nproject_name: ref-name\n`,
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: root });
+
+  assert.throws(() => listProjects(), /state is not initialized/);
+});
+
+test('20260809-113242 CR12: missing and inactive project paths retain their cached names', () => {
+  isolatedHome();
+  register({ id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' });
+  const inactive = newRepo();
+  fs.mkdirSync(path.join(inactive, '.changeledger'));
+  fs.writeFileSync(path.join(inactive, '.changeledger', 'config.yml'), 'statuses: [\n');
+  register({ id: 'inactive', name: 'inactive-cache', path: inactive });
+
+  assert.deepEqual(listProjects(), [
+    { id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' },
+    { id: 'inactive', name: 'inactive-cache', path: inactive },
+  ]);
+});
+
+test('20260809-113242 CR12 correction: a deleted path below a Git worktree retains its cached name', () => {
+  isolatedHome();
+  const gitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-parent-'));
+  execFileSync('git', ['init', '-q'], { cwd: gitRoot });
+  const deleted = path.join(gitRoot, 'projects', 'deleted');
+  fs.mkdirSync(deleted, { recursive: true });
+  register({ id: 'deleted', name: 'deleted-cache', path: deleted });
+  fs.rmSync(path.join(gitRoot, 'projects'), { recursive: true });
+
+  assert.deepEqual(listProjects(), [{ id: 'deleted', name: 'deleted-cache', path: deleted }]);
+});
+
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {
   isolatedHome();
   register({ id: 'aaa', name: 'alpha', path: '/old/alpha' });

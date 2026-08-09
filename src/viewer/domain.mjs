@@ -14,7 +14,6 @@ import {
 } from '../commands/agent.mjs';
 import {
   findChangeledgerDir,
-  loadConfig,
   loadEffectiveConfig,
   resolveRepoPath,
   resolveSpecsDir,
@@ -343,7 +342,7 @@ export function resolveProjects(cwd, localOnly) {
 
   if (localOnly) {
     if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-    const config = loadConfig(changeledgerDir);
+    const config = loadEffectiveConfig(repoRoot, changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
     return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
@@ -588,7 +587,7 @@ function repairProjectPathImpl(projects, payload, { localOnly = false } = {}) {
   const root = path.resolve(payload.path);
   let config;
   try {
-    config = loadConfig(path.join(root, '.changeledger'));
+    config = loadEffectiveConfig(root, path.join(root, '.changeledger'));
   } catch {
     return { code: 400, body: { error: 'project path is not a ChangeLedger repository' } };
   }

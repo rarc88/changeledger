@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
+import { repoIsActivated } from './change-store.mjs';
 import { loadEffectiveConfig } from './config.mjs';
 
 export function registryDir() {
@@ -45,12 +46,15 @@ export function register({ id, name, path: repoPath }) {
 export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
+    if (!fs.existsSync(value.path)) return { id, name, path: value.path };
+    const activated = repoIsActivated(value.path);
     try {
       const config = loadEffectiveConfig(value.path, path.join(value.path, '.changeledger'));
       if (String(config.project_id) === id && typeof config.project_name === 'string') {
         name = config.project_name;
       }
-    } catch {
+    } catch (error) {
+      if (activated) throw error;
       // Missing projects keep their last registered display name.
     }
     return { id, name, path: value.path };

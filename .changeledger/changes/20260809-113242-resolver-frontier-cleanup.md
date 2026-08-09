@@ -2,7 +2,7 @@
 id: "20260809-113242"
 title: Resolver las fronteras de resolución en repos activados
 type: feature
-status: blocked
+status: in-validation
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
 branch: feature/20260809-113242
@@ -72,28 +72,44 @@ Contexto de diseño: la escritura del viewer resuelve esto con el patrón
 un único camino compartido en vez de repetir el gate caller a caller, que es
 exactamente cómo la frontera se reabrió silenciosamente hasta ahora.
 
+La review del primer candidato (`73aef1ab`) ejecutó cinco bordes que la
+investigación inicial no enumeró: la lectura directa aceptaba un config symlink
+y evitaba la validación UTF-8/layout del snapshot; `loadRepo` seguía parseando
+primero el marcador stale; el modo local y la reparación de ruta del viewer
+seguían leyendo su identidad; `listProjects` ocultaba una activación rota tras
+el nombre cacheado; y el commit activo admitía un change legacy extraño staged.
+La estrategia de autoridad única sigue siendo válida, pero el barrido y su
+primitiva de lectura estaban incompletos.
+
 ## Proposal
 
 Un único helper de autoridad de config — `loadEffectiveConfig(repoRoot,
 changeledgerDir)` en `src/config.mjs` — que devuelve el config de la ref cuando
-el repo está activado y el del worktree cuando no, sin cargar el repo completo
-(lectura del blob `config.yml` del snapshot, patrón ya existente en
-`configTarget` del viewer). Todos los callers frontera migran a él; `loadConfig`
-queda como primitiva interna del camino inactivo y del propio helper.
+el repo está activado y el del worktree cuando no. En activo consume una
+primitiva focalizada de `state-store` que enumera y valida el layout completo
+con las mismas garantías de blob regular y UTF-8 que `readSnapshot`, pero lee
+solo el contenido de config; no carga todos los documentos. Todos los callers
+frontera migran a él, incluido el bootstrap de `loadRepo`; `loadConfig` queda
+como primitiva interna del camino inactivo y del propio helper.
 
 Para los dos huecos no-config:
 
 - `changeStatusImpl` decide por activación igual que los mutadores del CLI:
   snapshot vía el repo cargado en activo, `resolveChange` solo en inactivo.
-- `changeledger commit` en activo omite la expectativa de staged bajo
-  `changes_dir` y compone el marker desde el change `in-progress` del snapshot;
-  en inactivo su comportamiento no cambia.
+- `changeledger commit` en activo compone el marker desde el change
+  `in-progress` del snapshot y no exige su documento staged, pero conserva el
+  guard fail-closed: cualquier documento extraño staged bajo el `changes_dir`
+  efectivo se rechaza; en inactivo su comportamiento no cambia.
 
 Alternativas descartadas:
 
 - Repetir el gate `repoIsActivated` en cada caller: es el estado actual de la
   escritura del viewer y no impide que el siguiente caller vuelva a abrir la
   frontera; el helper único deja un solo sitio que auditar.
+- Reutilizar `readSnapshot` para obtener config: preserva integridad, pero carga
+  el contenido de todos los documentos en cada consulta de config. La decisión
+  humana tras la review fue mantener una lectura focalizada con las mismas
+  validaciones.
 - Mover `config.yml` fuera del worktree: rompería el descubrimiento
   (`findChangeledgerDir` necesita el marcador) y contradice la decisión de la
   etapa 2.
@@ -149,40 +165,64 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **When** se ejecutan `register`, el bootstrap de `check`, las capturas sin id de `context`/`agent-context`, la lectura de config del viewer, `listProjects`, la transición de estado del viewer y `changeledger commit`
 - **Then** cada superficie produce el mismo resultado observable que antes del change (los tests existentes de cada superficie siguen pasando sin modificación)
 
+### CR9 — El config activo conserva la integridad del snapshot
+- **Given** tres repos activados cuyas refs contienen respectivamente un config symlink, un config no UTF-8 y una ruta ajena al layout
+- **When** `loadEffectiveConfig` intenta leer config parsed o raw
+- **Then** rechaza respectivamente con `tree contains unsupported Git entry 120000 blob at .changeledger-state/config.yml`, `state path .changeledger-state/config.yml is not valid UTF-8` e `invalid state path: <ruta>`
+- **And** nunca cae al config del worktree
+
+### CR10 — El marcador stale no gobierna el bootstrap activo
+- **Given** un repo activado con config válido en la ref y YAML inválido en `.changeledger/config.yml`
+- **When** se ejecutan `loadRepo` y una transición de estado CLI/viewer sobre un change presente solo en la ref
+- **Then** ambos cargan y mutan desde el snapshot sin intentar parsear el YAML del marcador
+
+### CR11 — El viewer local y la reparación usan identidad activa
+- **Given** un repo activado cuyo `project_id`/`project_name` difiere entre marcador y ref
+- **When** el viewer resuelve el proyecto en modo local y repara su ruta registrada
+- **Then** ambas operaciones usan el id y nombre de la ref y nunca los valores stale
+
+### CR12 — El registry no oculta una activación rota
+- **Given** una entrada registrada cuyo repo conserva activación pero perdió la ref de estado
+- **When** se ejecuta `listProjects`
+- **Then** falla con `state is not initialized` en vez de devolver el nombre cacheado o stale
+
+### CR13 — El commit activo sigue rechazando changes staged extraños
+- **Given** un repo activado con un único change `in-progress` en la ref, un archivo de código staged y `.changeledger/changes/foreign.md` staged
+- **When** se ejecuta `changeledger commit -m "feat(core): x"`
+- **Then** falla sin crear commit con `Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/foreign.md`
+
 ## Plan
 
-- [!] Helper único de autoridad de config (`loadEffectiveConfig`) leyendo el
-  blob del snapshot en activo y el worktree en inactivo
-  - **Target:** `src/config.mjs`
-  - **Verify:** `node --test test/config.test.mjs`
-  - **Criteria:** CR8
-  - **Blocked:** Decisión humana requerida: conservar lectura focalizada exige una primitiva validada en state-store; reutilizar readSnapshot carga el snapshot completo y contradice la estrategia aprobada.
+- [x] Primitiva focalizada e íntegra de config para `loadEffectiveConfig`
+  - **Target:** `src/state-store.mjs`, `src/config.mjs`
+  - **Verify:** `node --test test/state-store.test.mjs test/config.test.mjs`
+  - **Criteria:** CR8, CR9
+  - **Resolved:** `2026-08-09T15:08:44Z`
 - [x] Migrar los callers de CLI: `register`, bootstrap de `check` y capturas
   sin id de `context`/`agent-context`
   - **Target:** `src/commands/register.mjs`, `src/commands/check.mjs`, `src/commands/context.mjs`, `src/commands/agent-context.mjs`
   - **Verify:** `node --test test/register.test.mjs test/check.test.mjs test/context.test.mjs test/agent-context.test.mjs`
   - **Criteria:** CR1, CR2, CR3
   - **Resolved:** `2026-08-09T14:19:47Z`
-- [x] Migrar la lectura de config del viewer y el listado del registry
+- [x] Completar el barrido de lectura del viewer y el listado del registry
   - **Target:** `src/viewer/domain.mjs`, `src/registry.mjs`
   - **Verify:** `node --test test/view.test.mjs test/registry.test.mjs`
-  - **Criteria:** CR4, CR5
-  - **Resolved:** `2026-08-09T14:19:47Z`
-- [x] Enrutar `changeStatusImpl` por activación como los mutadores del CLI
-  - **Target:** `src/viewer/domain.mjs`
-  - **Verify:** `node --test test/view.test.mjs`
-  - **Criteria:** CR6
-  - **Resolved:** `2026-08-09T14:19:47Z`
-- [x] Adaptar el guard de staged y la composición del marker de `commit` al
-  repo activado
+  - **Criteria:** CR4, CR5, CR11, CR12
+  - **Resolved:** `2026-08-09T15:08:44Z`
+- [x] Enrutar el bootstrap de `loadRepo` y las transiciones por la autoridad activa
+  - **Target:** `src/repo.mjs`, `src/viewer/domain.mjs`, `src/commands/agent.mjs`
+  - **Verify:** `node --test test/repo.test.mjs test/view.test.mjs test/agent.test.mjs`
+  - **Criteria:** CR6, CR10
+  - **Resolved:** `2026-08-09T15:08:44Z`
+- [x] Preservar el guard fail-closed de staged al componer el marker activo
   - **Target:** `src/commands/commit.mjs`
   - **Verify:** `node --test test/commit.test.mjs`
-  - **Criteria:** CR7
-  - **Resolved:** `2026-08-09T14:19:47Z`
+  - **Criteria:** CR7, CR13
+  - **Resolved:** `2026-08-09T15:08:44Z`
 - [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
-  - **Resolved:** `2026-08-09T14:19:47Z`
+  - **Resolved:** `2026-08-09T15:08:44Z`
 
 ## Log
 - **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
@@ -192,3 +232,11 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **2026-08-09T14:23:14Z** `[note]` Mandato de review: auditoría completa de la superficie gobernada por el change, incluidos CR1-CR8, regresión inactiva, autoridad raw/estructurada, transición del viewer y guard de commit activado; candidato fijo 73aef1ab sobre d9503195.
 - **2026-08-09T14:32:12Z** `[review]` in-review → blocked: La review confirma una nueva clase no especificada: loadEffectiveConfig lee directamente el blob activo y elude las garantías de layout, blob regular y UTF-8 de readSnapshot; decidir la corrección exige elegir entre cargar el snapshot completo o ampliar state-store con una lectura validada. También quedan barridos de callers y del guard staged dentro de la corrección.
 - **2026-08-09T14:32:38Z** `[note]` Handoff bloqueado: implementación 73aef1ab conservada; review adversarial reproducida; pendiente decisión entre reutilizar readSnapshot o añadir una primitiva focalizada y validada en state-store. Tras decidir, barrer también loadRepo, viewer local/reparación, registry fail-closed y staged legacy extraño.
+- **2026-08-09T14:53:00Z** `[note]` Decisión humana: mantener lectura focalizada y añadir la primitiva validada en state-store; el contrato incorpora los cinco bordes ejecutados por la review antes de reintentar.
+- **2026-08-09T14:55:18Z** `[status]` blocked → in-progress
+- **2026-08-09T15:09:31Z** `[status]` in-progress → in-review
+- **2026-08-09T15:09:31Z** `[note]` Mandato de review de confirmación: verificar exclusivamente los cinco defectos del fallo anterior y regresiones introducidas por la corrección focalizada; candidato sin commit sobre 4f850a6f.
+- **2026-08-09T15:14:06Z** `[review]` in-review → in-progress (retry): Defecto 4 aún incompleto: listProjects vuelve a consultar activación sobre una ruta registrada inexistente bajo un ancestro Git y propaga spawnSync git ENOENT en vez de conservar el nombre cacheado.
+- **2026-08-09T15:17:20Z** `[status]` in-progress → in-review
+- **2026-08-09T15:17:20Z** `[note]` Mandato de segunda confirmación: verificar únicamente el fallback de ruta registrada borrada bajo ancestro Git y que su ajuste no reabra el fail-closed de activación rota; candidato sin commit sobre 4f850a6f.
+- **2026-08-09T15:20:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)

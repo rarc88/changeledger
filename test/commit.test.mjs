@@ -242,9 +242,36 @@ test('20260809-113242 CR7: activated commit resolves the marker without a worktr
   assert.equal(lastSubject(root), subject);
   assert.equal(
     calls.some((args) => args.includes('--show-prefix')),
-    false,
-    'activated commits must not derive a staged boundary from worktree changes_dir',
+    true,
+    'activated commits still derive the effective changes_dir boundary for the staged guard',
   );
+});
+
+test('20260809-113242 CR13: activated commit rejects a foreign staged change document', () => {
+  const { root } = activatedGitRepo();
+  stageFile(root, 'a.txt', 'x');
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  stageFile(root, '.changeledger/changes/foreign.md', 'foreign');
+
+  assert.throws(
+    () => commit({ message: 'feat(core): x' }, root, undefined, noop),
+    (error) =>
+      error.message ===
+      'Staged path(s) under the changes directory not declared for this commit: .changeledger/changes/foreign.md',
+  );
+  assert.equal(commitCount(root), 0);
+});
+
+test('20260809-113242 CR13: activated commit retains the .gitkeep exception', () => {
+  const { root, id } = activatedGitRepo();
+  stageFile(root, 'a.txt', 'x');
+  fs.mkdirSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  stageFile(root, '.changeledger/changes/.gitkeep', '');
+
+  const subject = commit({ message: 'feat(core): x' }, root, undefined, noop);
+
+  assert.equal(subject, `feat(core): x [#${id}]`);
+  assert.equal(commitCount(root), 1);
 });
 
 test('CR2: ambiguity without --id creates no commit and lists candidates', () => {
