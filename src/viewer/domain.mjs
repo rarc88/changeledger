@@ -24,8 +24,14 @@ import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
 import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
-import { STATE_ROOT } from '../state-store.mjs';
+import { LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
+
+// Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
+// `state-store.mjs`) — never the store's own internal "state ref moved:
+// expected X, found Y" wording, and never folded into a generic 400. Mirrors
+// `bin/changeledger.mjs`'s own CLI presentation of the same error class.
+const CAS_CONFLICT_MESSAGE = 'state changed since load — reload and save again';
 
 // Locates the config document for a project's write path: inactive, the
 // worktree `file` `mutateConfig` already operates on (unchanged); active,
@@ -463,7 +469,7 @@ export const readProjectConfig = withProjectIdentity(
   readProjectConfigImpl,
 );
 
-function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.content !== 'string' || typeof payload.revision !== 'string') {
@@ -527,11 +533,14 @@ function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAto
       return payload.content;
     };
     if (repo.state) {
-      mutateLedgerFile(repo, configTarget(repo), write, { message: 'config: save' });
+      mutateLedgerFile(repo, configTarget(repo), write, { message: 'config: save', run });
     } else {
       mutateConfig(path.join(repo.changeledgerDir, 'config.yml'), write);
     }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
@@ -653,7 +662,7 @@ export const readProjectConfigStructured = withProjectIdentity(
 
 // Applies a semantic patch (allowlisted fields only) to the YAML AST, preserving
 // comments, unknown keys and fields the form does not represent.
-function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAtomic, run } = {}) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (!payload.patch || typeof payload.patch !== 'object' || Array.isArray(payload.patch)) {
@@ -712,11 +721,14 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
       return patched;
     };
     if (repo.state) {
-      mutateLedgerFile(repo, target, patchFn, { message: 'config: patch' });
+      mutateLedgerFile(repo, target, patchFn, { message: 'config: patch', run });
     } else {
       mutateConfig(target.file, patchFn);
     }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }
@@ -772,7 +784,11 @@ export const previewConfigMigration = withProjectIdentity(
 
 // Apply the migration atomically. Uses the same engine as `changeledger config migrate`.
 // Revision check and write are inside mutateFileAtomic to avoid TOCTOU races.
-function applyConfigMigrationImpl(projects, payload, { mutateConfig = mutateFileAtomic } = {}) {
+function applyConfigMigrationImpl(
+  projects,
+  payload,
+  { mutateConfig = mutateFileAtomic, run } = {},
+) {
   const found = projectFor(projects, payload.project);
   if (!found.project) return found;
   if (typeof payload.revision !== 'string') {
@@ -803,11 +819,14 @@ function applyConfigMigrationImpl(projects, payload, { mutateConfig = mutateFile
       return migrationResult.yaml;
     };
     if (repo.state) {
-      mutateLedgerFile(repo, target, migrateFn, { message: 'config: migrate' });
+      mutateLedgerFile(repo, target, migrateFn, { message: 'config: migrate', run });
     } else {
       mutateConfig(target.file, migrateFn);
     }
   } catch (error) {
+    if (error instanceof LedgerConflictError) {
+      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+    }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
     }

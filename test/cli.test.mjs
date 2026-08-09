@@ -17,7 +17,12 @@ import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
-import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
+import {
+  LedgerConflictError,
+  readSnapshot,
+  STATE_REF,
+  writeActivation,
+} from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -1055,6 +1060,54 @@ test('CR4: new on an activated repo retries once with a fresh id after a genuine
   const snapshot = readSnapshot(root, { revision: tip });
   assert.ok(snapshot.documents['changes/20260808-150000-racer.md'], 'the racer document landed');
   assert.ok(snapshot.documents[relPath], 'the retried primary document landed');
+});
+
+// CR10 (post-validation fold-in): a SECOND consecutive stale-revision
+// conflict propagates instead of looping. Unlike `onceRacer` above, this
+// racer fires on every `ownerHandle` invocation — the primary's initial
+// attempt AND its one retry — so both of the primary's own write attempts
+// land against an already-stale `repo.state.revision`. `attempt < 1` bounds
+// the retry to exactly one, so the second conflict must propagate.
+test('CR10: a second consecutive stale-revision conflict in new propagates after exactly one retry, no partial document', () => {
+  const root = tmp();
+  init(root);
+  activate(root);
+
+  let racerCount = 0;
+  const alwaysRacer = () => {
+    racerCount += 1;
+    newChange(
+      { type: 'chore', slug: `racer-${racerCount}`, title: 'Racer', now: '2026-08-08T15:00:00Z' },
+      root,
+      { ownerHandle: () => '' },
+    );
+    return '';
+  };
+
+  assert.throws(
+    () =>
+      newChange(
+        { type: 'chore', slug: 'primary', title: 'Primary', now: '2026-08-08T15:00:00Z' },
+        root,
+        { ownerHandle: alwaysRacer },
+      ),
+    (err) => err instanceof LedgerConflictError && /state ref moved/.test(err.message),
+  );
+  assert.equal(racerCount, 2, 'ownerHandle ran for the initial attempt and the one retry, no more');
+
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const snapshot = readSnapshot(root, { revision: tip });
+  for (const relPath of Object.keys(snapshot.documents)) {
+    assert.doesNotMatch(relPath, /-primary\.md$/, 'no partial primary document in the snapshot');
+  }
+  assert.ok(
+    snapshot.documents['changes/20260808-150000-racer-1.md'],
+    'first racer document landed',
+  );
+  assert.ok(
+    snapshot.documents['changes/20260808-150001-racer-2.md'],
+    'second racer document landed',
+  );
 });
 
 test('new rejects an unknown type', () => {

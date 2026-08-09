@@ -27,6 +27,7 @@ import {
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
+import { capturedRun } from '../src/git.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
 import { loadRepoAsync } from '../src/repo.mjs';
@@ -2494,4 +2495,103 @@ test('CR6: applyConfigMigration on an activated project writes the ref, worktree
   assert.notEqual(tip, before);
   assert.match(stateConfigText(root, tip), /^schema_version: 5$/m);
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
+});
+
+// 20260808-151643 CR8 (post-validation fold-in) — a CAS conflict on a
+// viewer config write must surface as an actionable 409, never a generic
+// 400 and never the store's own raw "state ref moved" wording. `racingRun`
+// fires a genuine, unrelated write against the *real* ref on the first
+// subprocess call the injected `run` sees — which is always the first call
+// `writeLedgerFiles`'s own `mutateState` makes, strictly after this call's
+// `repo.state.revision` was already captured by its own (unracing) initial
+// `loadRepo` — so the actual CAS `update-ref` this call attempts genuinely
+// fails against the ref the racer already moved. No timing, no subprocess
+// race: the conflict is real, not simulated.
+function racingRun(root, revision, configText) {
+  let fired = false;
+  return (args, cwd, options) => {
+    if (!fired) {
+      fired = true;
+      const tree = buildTree(root, {
+        '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+        '.changeledger-state/config.yml': configText.replace(
+          /^project_name:.*$/m,
+          'project_name: Concurrent',
+        ),
+      });
+      const concurrent = commitTree(root, tree, {
+        parents: [revision],
+        message: 'concurrent write',
+      });
+      updateRef(root, STATE_REF, concurrent, revision);
+    }
+    return capturedRun(args, cwd, options);
+  };
+}
+
+test('CR8: saveProjectConfig on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+  const candidate = configText.replace(/^project_name:.*$/m, 'project_name: Renamed');
+
+  const result = saveProjectConfig(
+    projects,
+    { project: current, content: candidate, revision: revisionOf(configText) },
+    { run: racingRun(root, before, configText) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.match(result.body.error, /state changed since load/);
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.doesNotMatch(stateConfigText(root, tip), /Renamed/);
+});
+
+test('CR8: patchProjectConfig on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const before = stateRefTip(root);
+
+  const result = patchProjectConfig(
+    projects,
+    { project: current, revision: revisionOf(configText), patch: { language: 'fr' } },
+    { run: racingRun(root, before, configText) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.match(result.body.error, /state changed since load/);
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.doesNotMatch(stateConfigText(root, tip), /language: fr/);
+});
+
+test('CR8: applyConfigMigration on an activated project surfaces a stale write as 409, ref and snapshot untouched by the loser', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: downgraded }],
+    { message: 'chore: downgrade' },
+  );
+  const before = stateRefTip(root);
+
+  const result = applyConfigMigration(
+    projects,
+    { project: current, revision: revisionOf(downgraded) },
+    { run: racingRun(root, before, downgraded) },
+  );
+
+  assert.equal(result.code, 409);
+  assert.match(result.body.error, /state changed since load/);
+  assert.doesNotMatch(result.body.error, /state ref moved/);
+
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before, 'only the racer advanced the ref');
+  assert.match(stateConfigText(root, tip), /project_name: Concurrent/);
+  assert.match(stateConfigText(root, tip), /^schema_version: 1$/m);
 });

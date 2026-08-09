@@ -1605,6 +1605,27 @@ test('CR1: status advances the ref and records the transition, worktree untouche
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
 
+// 20260808-151643 CR9 (post-validation fold-in) — the converted mutators
+// return the written path in both modes: inactive unchanged (the worktree
+// file, byte-identical to before this change), active the state-tree path
+// (`changes/<file>`), never `undefined`. `status` is CR9's named example;
+// one representative assertion per mode is the criterion's own scope.
+test('CR9: status returns the worktree path when inactive and the state-tree path when active', () => {
+  const inactive = repoWithChange();
+  const inactiveResult = status(inactive.id, 'approved', inactive.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(inactiveResult.file, inactive.file);
+
+  const active = activatedRepoWithChange();
+  const activeResult = status(active.id, 'approved', active.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(activeResult.file, `changes/${active.name}`);
+});
+
 test('CR1: full lifecycle through review/validation/reopen/discard stays on the ref', () => {
   const { root, id, name } = activatedRepoWithChange();
   const relPath = `changes/${name}`;
@@ -1701,6 +1722,12 @@ test('CR1: archiveGraduated commits every archived change in one commit, active 
   const result = archiveGraduated({}, root);
 
   assert.deepEqual(result.map((c) => c.id).sort(), ['20260613-120001', '20260613-120002']);
+  // CR9 fold-in: archiveGraduated's own return also names the written path
+  // in active mode, never the `null` `repo.changes` carries there.
+  assert.deepEqual(result.map((c) => c.file).sort(), [
+    'changes/20260613-120001-candidate.md',
+    'changes/20260613-120002-candidate.md',
+  ]);
   const tip = stateRefTip(root);
   assert.equal(git(root, ['rev-list', '--count', `${before}..${tip}`]).trim(), '1');
   for (const relPath of [

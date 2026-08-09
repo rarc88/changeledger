@@ -45,11 +45,16 @@ function locate(cwd, id) {
     const repo = loadRepo(cwd);
     assertSupportedSchema(repo.config);
     const change = resolveChangeInRepo(repo, id);
+    const relPath = `changes/${change.name}`;
     return {
       config: repo.config,
       repoRoot: repo.repoRoot,
       repo,
-      target: { relPath: `changes/${change.name}`, text: change.text },
+      // `file` here is the written path callers return (CR9), not a
+      // worktree location — `mutateLedgerFile`'s active branch never reads
+      // it, only `target.relPath`/`target.text`; it decides its branch by
+      // `repo.state`, not by this field's shape.
+      target: { relPath, text: change.text, file: relPath },
       gitCwd: repo.repoRoot,
       name: change.name,
     };
@@ -559,7 +564,10 @@ export function archiveGraduated(filters = {}, cwd = process.cwd()) {
   return selected.map((c) => ({
     id: c.frontmatter.id,
     title: c.frontmatter.title,
-    file: c.file,
+    // `c.file` is `null` in active mode (`repo.changes` never carries a
+    // worktree path there, per `repo.mjs`'s `loadActiveContent`) — CR9
+    // wants the written path in both modes, never `null`/`undefined`.
+    file: c.file ?? `changes/${c.name}`,
   }));
 }
 

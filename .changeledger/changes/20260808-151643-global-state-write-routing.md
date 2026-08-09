@@ -171,6 +171,32 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
   costura, verificado con un test que intenta un candidato que perdería un
   documento y falla)
 
+### CR8 — El viewer presenta el conflicto CAS de forma accionable
+- **Given** un repo activado servido por el viewer y una escritura de config
+  del viewer cuya revisión cargada quedó rancia (la ref avanzó entre carga y
+  guardado)
+- **When** la ruta del viewer intenta escribir
+- **Then** la respuesta es un error de conflicto (HTTP 409) cuyo cuerpo
+  contiene `state changed since load` — nunca un 400 genérico ni el mensaje
+  interno crudo `state ref moved`
+- **And** la ref y su snapshot quedan intactos
+
+### CR9 — Los mutadores devuelven la ruta escrita en ambos modos
+- **Given** un change en un repo activado y el mismo change en un fixture
+  inactivo
+- **When** se ejecuta `status(id, 'in-progress', …)` en cada uno
+- **Then** en el inactivo el retorno incluye la ruta del archivo del working
+  tree, como hoy
+- **And** en el activado el retorno incluye la ruta del árbol de estado
+  (`changes/<archivo>`), nunca `undefined`
+
+### CR10 — Un segundo conflicto consecutivo en `new` propaga, no loopea
+- **Given** un repo activado donde la ref avanza entre carga y escritura en
+  **ambos** intentos de `newChange`
+- **When** se ejecuta `newChange`
+- **Then** lanza `LedgerConflictError` tras exactamente un reintento
+- **And** ningún documento parcial queda en el snapshot
+
 ## Plan
 
 - [x] Test primero: `change-store.mjs` con `mutateLedgerFile`/
@@ -215,6 +241,22 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
   - **Resolved:** `2026-08-08T23:18:44Z`
+- [ ] Post-validación (decisión humana 2026-08-08): presentar el conflicto
+      CAS del viewer como 409 accionable en las tres escrituras de config
+  - **Target:** `src/viewer/domain.mjs`
+  - **Verify:** `node --test test/view.test.mjs`
+  - **Criteria:** CR8
+- [x] Post-validación: retorno consistente de los mutadores convertidos
+      (ruta del worktree en inactivo, ruta del árbol en activo)
+  - **Target:** `src/commands/agent.mjs`
+  - **Verify:** `node --test test/agent.test.mjs`
+  - **Criteria:** CR9
+  - **Resolved:** `2026-08-09T00:04:10Z`
+- [x] Post-validación: test del segundo conflicto consecutivo en `new`
+  - **Target:** `test/cli.test.mjs`
+  - **Verify:** `node --test test/cli.test.mjs`
+  - **Criteria:** CR10
+  - **Resolved:** `2026-08-09T00:04:10Z`
 - [x] Gate completo
   - **Target:** `test/**`
   - **Verify:** `pnpm verify`
@@ -240,3 +282,7 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
 - **2026-08-08T23:38:05Z** `[status]` in-progress → in-review
 - **2026-08-08T23:42:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-08T23:42:12Z** `[note]` Follow-ups registrados sin acción, fuera del alcance: (C) config migrate escribe config.yml del worktree sin gate de activación — en repo activado muta un archivo que nadie lee (la Investigation lo excluyó explícitamente, pero abolla el gate de etapa); (D) el viewer reetiqueta LedgerConflictError como 400 genérico en save y expone el mensaje interno crudo en patch/migrate — el mensaje accionable de CR2 no llega al viewer; (E) ningún test commiteado cubre la propagación de un segundo conflicto consecutivo en new (verificado por sonda del reviewer); (F) los mutadores convertidos devuelven target.file, undefined en modo activo, sin consumidores hoy.
+- **2026-08-08T23:48:33Z** `[validation]` in-validation → in-progress (agent rejected): Decisión humana (Roberto, conversación): incorporar a este change los follow-ups que pertenecen a su superficie antes de aceptar — (D) el viewer debe presentar el conflicto CAS de forma accionable (este change introdujo la clase en esas rutas), (E) test commiteado de la propagación del segundo conflicto consecutivo en new, (F) los mutadores convertidos devuelven la ruta escrita en ambos modos en vez de undefined en activo. (C) config migrate va a change dedicado.
+- **2026-08-09T00:04:10Z** `[status]` in-progress → in-review
+- **2026-08-09T00:04:10Z** `[note]` Review mandate: auditoría del diff sin commitear de la ampliación post-validación (CR8-CR10) contra sus criterios y regresión sobre CR1-CR7; los tres puntos de inyección de carrera de los tests nuevos como puntos de escrutinio (¿producen conflicto real o teatro de test?), y la constante de mensaje del viewer contra el texto exigido por CR8.
+- **2026-08-09T00:12:01Z** `[review]` in-review → in-validation (delegated subagent, clean context)
