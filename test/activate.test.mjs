@@ -130,5 +130,8 @@ test('20260809-113240 CR6: activate outside a ChangeLedger repo fails without wr
   const { code, err } = cli(outside, 'activate');
 
   assert.notEqual(code, 0);
-  assert.match(err, /ChangeLedger/);
+  assert.match(
+    err,
+    /Not a ChangeLedger repo \(no \.changeledger\/ found\)\. Run `changeledger init` first\./,
+  );
 });

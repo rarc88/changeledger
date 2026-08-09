@@ -34,15 +34,11 @@ import { parseChange } from '../change.mjs';
 import { checkRepo } from '../check.mjs';
 import { findChangeledgerDir, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
 import { assertCommitObject, capturedRun, gitTopLevel } from '../git.mjs';
-import { assertRegularBlobEntry, batchBlobReader, treeEntries } from '../git-batch.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { parseSpec } from '../spec.mjs';
 import { mutateState, readActivation, readSnapshot, STATE_REF } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
-
-function toPosix(relPath) {
-  return relPath.split(path.sep).join('/');
-}
+import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 
 // Where each collection lives inside the SOURCE tree, as git paths. Identical in
 // spirit to the cutover's layout — the configured directories go through
@@ -53,44 +49,18 @@ function toPosix(relPath) {
 function sourceLayout(repoRoot, config, run) {
   const topLevel = gitTopLevel(repoRoot, run);
   const rel = (absolute) => toPosix(path.relative(topLevel, absolute));
-  return [
-    {
-      name: 'changes',
-      extension: '.md',
-      prefix: `${rel(resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir'))}/`,
-    },
-    { name: 'specs', extension: '.md', prefix: `${rel(resolveSpecsDir(repoRoot, config))}/` },
-    { name: 'releases', extension: '.yml', prefix: `${rel(resolveReleasesDir(repoRoot))}/` },
-  ];
-}
-
-// The source ledger as committed at `revision`, read with no checkout and keyed
-// by its future state path (`changes/x.md`). A nested path under a collection is
-// refused rather than flattened: the state layout has exactly one level, and
-// silently collapsing two documents onto one name would lose one of them.
-function readLedgerAt(repoRoot, revision, layout, run) {
-  const wanted = [];
-  const entries = new Map();
-
-  for (const entry of treeEntries(repoRoot, revision, run)) {
-    const collection = layout.find((c) => entry.path.startsWith(c.prefix));
-    if (!collection) continue;
-    const name = entry.path.slice(collection.prefix.length);
-    if (!name.endsWith(collection.extension)) continue;
-    if (name.includes('/')) {
-      throw new Error(
-        `the source has a nested document the state layout cannot hold: ${entry.path}`,
-      );
-    }
-    assertRegularBlobEntry(entry.mode, entry.path, entry.type);
-    wanted.push(entry);
-    entries.set(`${collection.name}/${name}`, entry);
-  }
-
-  const readBlob = batchBlobReader(repoRoot, wanted, run);
-  const documents = new Map();
-  for (const [name, entry] of entries) documents.set(name, readBlob(entry.oid));
-  return documents;
+  return {
+    nestedSubject: 'the source',
+    collections: [
+      {
+        name: 'changes',
+        extension: '.md',
+        prefix: `${rel(resolveRepoPath(repoRoot, config.changes_dir, 'changes_dir'))}/`,
+      },
+      { name: 'specs', extension: '.md', prefix: `${rel(resolveSpecsDir(repoRoot, config))}/` },
+      { name: 'releases', extension: '.yml', prefix: `${rel(resolveReleasesDir(repoRoot))}/` },
+    ],
+  };
 }
 
 // A document's identity, derived from its CONTENT and never from its filename: a
@@ -274,7 +244,7 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
   const revision = run(['rev-parse', from], repoRoot).trim();
 
   const snapshot = readSnapshot(repoRoot, {}, run);
-  const documents = readLedgerAt(
+  const { documents } = readLedgerAt(
     repoRoot,
     revision,
     sourceLayout(repoRoot, snapshot.config, run),

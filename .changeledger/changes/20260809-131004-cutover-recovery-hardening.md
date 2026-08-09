@@ -2,9 +2,10 @@
 id: "20260809-131004"
 title: Recuperar el cutover ante señuelos e interrupciones
 type: bug
-status: approved
+status: in-review
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
+branch: bug/20260809-131004
 related_to: []
 owner: rarc88
 ---
@@ -116,35 +117,45 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 
 ## Plan
 
-- [ ] `findCutover` trata el subject sin trailer como no-match con aviso, y
+- [x] `findCutover` trata el subject sin trailer como no-match con aviso, y
   ordena la búsqueda con `--topo-order`
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Detección y mensaje de la media publicación con la salida manual literal
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Detección y mensaje de la media publicación con la salida manual literal
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR3
-- [ ] Reanudación determinista de las ventanas S3 (cutover) y S1 (undo)
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Reanudación determinista de las ventanas S3 (cutover) y S1 (undo)
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Extraer el lector compartido del árbol del ledger y consumirlo desde
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Extraer el lector compartido del árbol del ledger y consumirlo desde
   `cutover.mjs` e `import.mjs`
   - **Target:** `src/commands/cutover.mjs`, `src/commands/import.mjs`
   - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs`
   - **Criteria:** CR6
-- [ ] Endurecer la aserción del test "activate outside a ChangeLedger repo"
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Endurecer la aserción del test "activate outside a ChangeLedger repo"
   para que fije el mensaje real en vez de `/ChangeLedger/`
   - **Support:**
   - **Verify:** `node --test test/activate.test.mjs`
-- [ ] Devolver el fail-fast al fixture de `test/import.test.mjs`: el
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Devolver el fail-fast al fixture de `test/import.test.mjs`: el
   `--allow-empty` del source pasa a ser opt-in por escenario
   - **Support:**
   - **Verify:** `node --test test/import.test.mjs`
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T15:21:36Z`
 
 ## Log
 - **2026-08-09T14:52:37Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T14:55:26Z** `[status]` approved → in-progress
+- **2026-08-09T14:55:26Z** `[branch]` set: bug/20260809-131004 (auto)
+- **2026-08-09T15:22:20Z** `[status]` in-progress → in-review

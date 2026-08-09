@@ -85,15 +85,17 @@ function activatedRepo({
   mainFiles = defaultLedgerFiles(),
   sourceFiles = {},
   removeFromSource = [],
+  allowEmptySource = false,
 } = {}) {
   const { root } = seedLedgerRepo({ files: mainFiles });
   git(root, ['checkout', '-q', '-b', SOURCE]);
   writeLedgerFiles(root, sourceFiles);
   for (const rel of removeFromSource) git(root, ['rm', '-q', '-f', '--', rel]);
   git(root, ['add', '-A']);
-  // `--allow-empty`: a scenario may need the branch to exist without carrying any
-  // work of its own (the ref whose ledger is elsewhere, or nowhere).
-  git(root, ['commit', '-q', '--allow-empty', '-m', 'feat: work on the branch']);
+  const commitArgs = ['commit', '-q'];
+  if (allowEmptySource) commitArgs.push('--allow-empty');
+  commitArgs.push('-m', 'feat: work on the branch');
+  git(root, commitArgs);
   git(root, ['checkout', '-q', 'main']);
   const cut = cli(root, 'cutover');
   assert.equal(cut.code, 0, cut.err);
@@ -377,7 +379,7 @@ test('20260809-113241 CR11: a source change with no ## Log aborts naming the doc
 // 0 in both cases (CR2's approved wording fixes that); only the text separates
 // them.
 test('20260809-113241 CR2: a ref with no ChangeLedger documents says so, never "already absorbed"', () => {
-  const root = activatedRepo();
+  const root = activatedRepo({ allowEmptySource: true });
   git(root, ['checkout', '-q', '--orphan', 'no-ledger']);
   git(root, ['rm', '-r', '-q', '-f', '.']);
   writeLedgerFiles(root, { 'README.md': '# unrelated branch\n' });
