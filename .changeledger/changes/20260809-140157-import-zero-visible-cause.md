@@ -1,0 +1,27 @@
+---
+id: "20260809-140157"
+title: Avisar la causa cuando el import no ve documentos
+type: quick
+status: draft
+created: 2026-08-09T14:01:57Z
+depends_on: ["20260809-113241"]
+related_to: []
+owner: rarc88
+---
+
+## Request
+
+Follow-up del review de `20260809-113241`, decisión de política tomada con el
+humano el 2026-08-09: cuando `import --from <ref>` no ve documentos porque el
+`config.yml` del propio source declara un layout distinto al del snapshot
+(p. ej. `changes_dir` recolocado), avisar por stderr nombrando la causa —
+"el source declara `changes_dir: <X>`; este repo lee `<Y>` — esos documentos
+no se importan" — manteniendo el exit 0 y el mensaje honesto actual (la
+scriptabilidad idempotente de CR2 no cambia; un error rompería al rezagado
+legítimo que solo absorbe lo visible). En la misma pasada, alinear el texto de
+help del comando en `bin/changeledger.mjs`: hoy promete que "valida el source
+entero" y la autoridad real de layout y reglas es el config del snapshot.
+Superficie: `src/commands/import.mjs`, `bin/changeledger.mjs` (solo help) y
+`test/import.test.mjs`.
+
+## Log
