@@ -386,8 +386,8 @@ function assetFile(root, route) {
   return file;
 }
 
-export function staticFile(route) {
-  return assetFile(publicDir, route);
+export function staticFile(route, root = publicDir) {
+  return assetFile(root, route);
 }
 
 // Serves only the whitelisted shared modules — never arbitrary files under
