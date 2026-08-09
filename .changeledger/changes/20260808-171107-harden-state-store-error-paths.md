@@ -5,7 +5,7 @@ type: bug
 status: draft
 created: 2026-08-08T17:11:07Z
 depends_on: ["20260808-151640"]
-related_to: []
+related_to: ["20260808-151641", "20260808-151643"]
 owner: rarc88
 ---
 
@@ -36,8 +36,25 @@ menores, fuera del alcance de aquel change y aparcados por decisión humana
    riesgo bajo, pero conviene o filtrar clases de stderr conocidas-benignas o
    documentar la sensibilidad como decisión.
 
-Los tres viven en `src/state-store.mjs` y su test — una sola superficie, un
-solo change. La Investigation, Specification y Plan se completan cuando el
+Ampliación (2026-08-09, cierre de etapa 1): se suman tres restos menores de
+la misma familia error/presentación/higiene de la pila del estado global,
+para que ningún hallazgo quede solo en conversación:
+
+4. **El prefijo del mensaje de conflicto es convención, no constante.** El bin
+   dice `state changed since load — re-run the command` y el viewer
+   `state changed since load — reload and save again`; CR8 de
+   `20260808-151643` exige el prefijo común, pero nada lo hace estructural.
+   Exportar una base compartida con colas por superficie.
+5. **Borde de diagnóstico**: un id desconocido en un repo que además contiene
+   un documento malformado reporta hoy el error de parseo del documento roto
+   en lugar de «change desconocido» (ambos exit ≠ 0; solo empeora el
+   diagnóstico). Detectado por la confirmación de `20260808-151641`.
+6. **Higiene de tests**: el smoke test de concurrencia degradado de
+   `test/cli.test.mjs` (renombrado en `20260808-151643`) ya no aporta prueba —
+   el test determinista lleva el criterio; puede eliminarse.
+
+Todo vive en la pila del estado global (`state-store`, `repo`,
+`change-store`, presentación) — una sola superficie, un solo change. La Investigation, Specification y Plan se completan cuando el
 change se retome; la evidencia de origen queda en el Log de
 `20260808-151640` (nota de follow-ups del 2026-08-08) y en el informe de su
 review de confirmación.
