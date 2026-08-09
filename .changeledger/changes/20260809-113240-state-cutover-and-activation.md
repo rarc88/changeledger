@@ -2,7 +2,7 @@
 id: "20260809-113240"
 title: Cutover one-shot y activación con undo
 type: feature
-status: draft
+status: approved
 created: 2026-08-09T11:32:40Z
 depends_on: ["20260808-151640"]
 related_to: ["20260808-151643", "20260809-113242"]
@@ -184,3 +184,4 @@ undo bloqueado tras mutaciones; ref que resuelve a tag anotado.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
