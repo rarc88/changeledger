@@ -2,7 +2,7 @@
 id: "20260809-113242"
 title: Resolver las fronteras de resolución en repos activados
 type: feature
-status: draft
+status: approved
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
 related_to: ["20260809-113240", "20260808-234920"]
@@ -178,3 +178,4 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
