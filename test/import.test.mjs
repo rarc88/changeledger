@@ -81,12 +81,19 @@ function changeText({
 // worktree-layout ledger — the real "branch in flight at the moment of the
 // migration" the import exists for. The branch is committed BEFORE the cutover,
 // exactly as it would have been in a real adoption.
-function activatedRepo({ mainFiles = defaultLedgerFiles(), sourceFiles = {} } = {}) {
+function activatedRepo({
+  mainFiles = defaultLedgerFiles(),
+  sourceFiles = {},
+  removeFromSource = [],
+} = {}) {
   const { root } = seedLedgerRepo({ files: mainFiles });
   git(root, ['checkout', '-q', '-b', SOURCE]);
   writeLedgerFiles(root, sourceFiles);
+  for (const rel of removeFromSource) git(root, ['rm', '-q', '-f', '--', rel]);
   git(root, ['add', '-A']);
-  git(root, ['commit', '-q', '-m', 'feat: work on the branch']);
+  // `--allow-empty`: a scenario may need the branch to exist without carrying any
+  // work of its own (the ref whose ledger is elsewhere, or nowhere).
+  git(root, ['commit', '-q', '--allow-empty', '-m', 'feat: work on the branch']);
   git(root, ['checkout', '-q', 'main']);
   const cut = cli(root, 'cutover');
   assert.equal(cut.code, 0, cut.err);
@@ -359,4 +366,54 @@ test('20260809-113241 CR11: a source change with no ## Log aborts naming the doc
   assert.match(err, /log/i);
   assert.equal(stateRevision(root), before);
   assert.equal(NEW_DOC in readSnapshot(root).documents, false);
+});
+
+// --- a source ref with no ChangeLedger documents at all ----------------------
+//
+// "Nothing to import" and "nothing was found to import" are different facts and
+// must not share a sentence. Reporting an unreadable ref as "0 document(s)
+// already absorbed" claims an absorption that never happened — an operator who
+// believes it deletes a branch whose ledger was never read. The exit code stays
+// 0 in both cases (CR2's approved wording fixes that); only the text separates
+// them.
+test('20260809-113241 CR2: a ref with no ChangeLedger documents says so, never "already absorbed"', () => {
+  const root = activatedRepo();
+  git(root, ['checkout', '-q', '--orphan', 'no-ledger']);
+  git(root, ['rm', '-r', '-q', '-f', '.']);
+  writeLedgerFiles(root, { 'README.md': '# unrelated branch\n' });
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-q', '-m', 'chore: a branch with no ledger']);
+  git(root, ['checkout', '-q', 'main']);
+  const before = stateRevision(root);
+
+  const { code, out, err } = cli(root, 'import', '--from', 'no-ledger');
+
+  assert.equal(code, 0, err || out);
+  assert.match(out, /no ChangeLedger documents/i);
+  assert.doesNotMatch(out, /already absorbed/);
+  assert.equal(stateRevision(root), before);
+});
+
+// --- identity survives a rename ----------------------------------------------
+//
+// A change is its id, not its filename. When the source both renames a change
+// and extends its Log, the update must land at the path the snapshot already
+// publishes: writing it at the source's new name would leave the same change
+// published twice, under two names, with no way for either to win next time.
+test('20260809-113241 CR4: a renamed change updates in place, never as a second document', () => {
+  const RENAMED = `.changeledger/changes/${DEMO_ID}-renombrado.md`;
+  const incoming = changeText({ logs: [E1, E2] });
+  const root = activatedRepo({
+    mainFiles: defaultLedgerFiles({ changeText: changeText({ logs: [E1] }) }),
+    sourceFiles: { [RENAMED]: incoming },
+    removeFromSource: [DEMO_FILE],
+  });
+
+  const { code, out, err } = cli(root, 'import', '--from', SOURCE);
+
+  assert.equal(code, 0, err || out);
+  const snapshot = readSnapshot(root);
+  assert.equal(snapshot.documents[DEMO_DOC], incoming);
+  assert.equal(`changes/${DEMO_ID}-renombrado.md` in snapshot.documents, false);
+  assert.deepEqual(Object.keys(snapshot.documents).sort(), [DEMO_DOC, RELEASE_DOC, SPEC_DOC]);
 });

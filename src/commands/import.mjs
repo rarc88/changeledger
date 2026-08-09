@@ -290,6 +290,20 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
     );
   }
 
+  // "Nothing to import" and "nothing was FOUND to import" are different facts and
+  // must not share a sentence. A ref with no ledger visible at all — no
+  // `.changeledger/` on it, or documents that live somewhere this repo's
+  // configured layout does not look — absorbed nothing, and reporting it as
+  // "0 document(s) already absorbed" claims an absorption that never happened.
+  // An operator who believes it deletes a branch whose ledger was never read.
+  // The exit code is 0 either way; only the sentence separates them.
+  if (documents.size === 0) {
+    output.log(
+      `No ChangeLedger documents found at ${from} (${revision}) — nothing was read, so nothing was imported`,
+    );
+    return 0;
+  }
+
   const applied = [...adds, ...updates];
   if (applied.length === 0) {
     output.log(

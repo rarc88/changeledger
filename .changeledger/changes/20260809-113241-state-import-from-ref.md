@@ -2,7 +2,7 @@
 id: "20260809-113241"
 title: Import idempotente por ref
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-09T11:32:41Z
 depends_on: ["20260808-151643"]
 branch: feature/20260809-113241
@@ -188,3 +188,7 @@ anotado; documento inválido en la fuente; repo sin activar.
 - **2026-08-09T13:12:34Z** `[branch]` set: feature/20260809-113241 (auto)
 - **2026-08-09T13:31:17Z** `[status]` in-progress → in-review
 - **2026-08-09T13:31:17Z** `[note]` Mandato del review: auditoría completa del diff cerrado baseline..HEAD (comando nuevo import.mjs + wiring), con las decisiones no especificadas del implementador como puntos de escrutinio, en particular: config del snapshot como autoridad de layout y reglas (un source con changes_dir recolocado queda invisible al import); update escrito en el path del snapshot ante renombres (sin CR que lo cubra); duplicación deliberada de readLedgerAt/toPosix respecto a cutover.mjs por veto de archivo; identidad duplicada dentro del source como fail-fast; documento del snapshot que no parsea reportado como corrupción.
+- **2026-08-09T13:40:54Z** `[review]` in-review → in-progress (retry): Con cero documentos visibles en el source (ref sin .changeledger/ o con changes_dir recolocado), el reporte dice '0 document(s) already absorbed' con exit 0: la cláusula es falsa — nada fue absorbido porque nada fue visto — y llevaría a un operador a borrar la rama creyéndola importada. Corrección: distinguir 'el source no tiene documentos ChangeLedger en esta ref' de 'todo lo del source ya está publicado', con test. El exit 0 no cambia (CR2 lo fija); la política sobre changes_dir recolocado y la deduplicación de readLedgerAt van al humano, no a este retry.
+- **2026-08-09T13:48:11Z** `[status]` in-progress → in-review
+- **2026-08-09T13:48:12Z** `[note]` Mandato del review de confirmación: acotado al diff sin commitear de la corrección (src/commands/import.mjs +14, test/import.test.mjs +61/-2) — verificar que el defecto nombrado quedó cerrado (mensaje de cero documentos visibles distinguible de 'ya absorbido', exit 0 intacto) y el test del renombre que mata al mutante superviviente; sin regresiones; lo latente se reporta como follow-up.
+- **2026-08-09T13:54:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
