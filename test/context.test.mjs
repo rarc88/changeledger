@@ -14,6 +14,7 @@ import {
 import { init } from '../src/commands/init.mjs';
 import { REFERENCE } from '../src/contract.mjs';
 import { assertTransition, CANONICAL_STATUSES, canTransition } from '../src/lifecycle.mjs';
+import { loadRepo } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   assertWithinBudget,
@@ -441,7 +442,7 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 // doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2, reusing
 // the worktree's own `config.yml` (byte-identical) as the snapshot config so
 // `types.feature` stays resolvable.
-function activatedContextFixture() {
+function activatedContextFixture({ broken = false } = {}) {
   const root = repo();
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
@@ -454,7 +455,7 @@ function activatedContextFixture() {
   const configText = fs
     .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
     .replace(/^language: en$/m, 'language: es');
-  const tree = buildTree(root, {
+  const files = {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
     '.changeledger-state/changes/context-fixture.md': `---
@@ -470,7 +471,9 @@ depends_on: []
 
 Need exact context.
 `,
-  });
+  };
+  if (broken) files['.changeledger-state/changes/broken.md'] = 'no frontmatter here\n';
+  const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
   writeActivation(root, { stateRef: STATE_REF });
@@ -496,6 +499,16 @@ test('20260809-113242 CR3: changeless context captures use activated config poli
 
   assert.match(buildContext(undefined, root), /Effective policy: language=es/);
   assert.match(buildContext('implement', root), /Effective policy: language=es/);
+});
+
+test('20260808-171107 CR5: activated context resolves an unknown id before an unrelated malformed change', () => {
+  const { root } = activatedContextFixture({ broken: true });
+
+  assert.throws(
+    () => buildContext('20990101-000000', root),
+    /Unknown context "20990101-000000" — valid modes: implement, review, spec, release \(or pass a change id\)/,
+  );
+  assert.throws(() => loadRepo(root), /broken\.md/);
 });
 
 // 20260808-151641 R1 (correction round 2) — a regression the confirmation

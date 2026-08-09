@@ -155,7 +155,9 @@ test('CR7: a non-UTF-8 blob is rejected naming its path, never as U+FFFD', () =>
   const revision = commitTree(root, tree);
   updateRef(root, STATE_REF, revision);
 
-  assert.throws(() => readSnapshot(root), /changes\/legacy\.md/);
+  assert.throws(() => readSnapshot(root), {
+    message: `state path ${STATE_ROOT}/changes/legacy.md is not valid UTF-8`,
+  });
   try {
     readSnapshot(root);
     assert.fail('expected readSnapshot to throw');
@@ -439,22 +441,83 @@ test('CORRECTION 3: readStateRef resolves from a subdirectory of the repo (no fa
   assert.equal(readStateRef(subdir), revision);
 });
 
-// Finding 4: `readPath` in `readSnapshot` wrapped ANY exception from
-// `readBlob` as "is not valid UTF-8", including failures that have nothing
-// to do with UTF-8 (a missing object is the reachable case: git-batch throws
-// it before the UTF-8 check ever runs). It must propagate with its own
-// message instead of being mislabeled.
-test('CORRECTION 4: a missing-object read failure keeps its own message, never relabeled as UTF-8', () => {
+function doubleFailureRun(ref, primary, secondary) {
+  let updateFailed = false;
+  return (args, cwd, options) => {
+    if (args[0] === 'update-ref' && args[1] === ref) {
+      updateFailed = true;
+      throw primary;
+    }
+    if (updateFailed && args[0] === 'rev-parse' && args.at(-1) === ref) throw secondary;
+    return capturedRun(args, cwd, options);
+  };
+}
+
+function assertPrimaryCause(run, primary) {
+  assert.throws(run, (error) => {
+    assert.equal(error instanceof LedgerConflictError, false);
+    assert.equal(error.message, `cannot read Git ref ${STATE_REF}: secondary ref read`);
+    assert.equal(error.cause, primary);
+    return true;
+  });
+}
+
+test('20260808-171107 CR2: initState preserves update-ref as the cause when conflict disambiguation also fails', () => {
+  const root = initStateRepo();
+  const primary = new Error('primary update-ref');
+  const run = doubleFailureRun(STATE_REF, primary, new Error('secondary ref read'));
+
+  assertPrimaryCause(() => initState(root, { projectId: 'demo' }, run), primary);
+  assert.equal(readStateRef(root), null);
+});
+
+test('20260808-171107 CR2: mutateState preserves update-ref as the cause when conflict disambiguation also fails', () => {
   const { root, revision } = seedStateRepo();
-  const oid = git(root, [
-    'rev-parse',
-    `${revision}:${STATE_ROOT}/changes/20260808-000001-change.md`,
-  ]);
-  const objectPath = path.join(root, '.git', 'objects', oid.slice(0, 2), oid.slice(2));
-  fs.rmSync(objectPath, { force: true });
+  const primary = new Error('primary update-ref');
+  const run = doubleFailureRun(STATE_REF, primary, new Error('secondary ref read'));
+
+  assertPrimaryCause(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'feat: losing write' },
+        (stage) => stage.write('changes/loser.md', 'loser\n'),
+        run,
+      ),
+    primary,
+  );
+  assert.equal(readStateRef(root), revision);
+});
+
+test('20260808-171107 CR2: writeActivation preserves update-ref as the cause when conflict disambiguation also fails', () => {
+  const root = initStateRepo();
+  const primary = new Error('primary update-ref');
+  const secondary = new Error('secondary ref read');
+  const run = doubleFailureRun(ACTIVATION_REF, primary, secondary);
 
   assert.throws(
-    () => readSnapshot(root),
-    (e) => /is missing/.test(e.message) && !/not valid UTF-8/.test(e.message),
+    () => writeActivation(root, { stateRef: STATE_REF }, run),
+    (error) => {
+      assert.equal(error instanceof LedgerConflictError, false);
+      assert.equal(error.message, `cannot read Git ref ${ACTIVATION_REF}: secondary ref read`);
+      assert.equal(error.cause, primary);
+      return true;
+    },
   );
+  assert.equal(readActivation(root), null);
+});
+
+test('20260808-171107 CR3: stderr on an absent-ref exit fails closed', () => {
+  const root = initStateRepo();
+  const run = () => {
+    const error = new Error(
+      `Command failed: git rev-parse --verify --quiet ${STATE_REF}\nwarning: benign advice`,
+    );
+    error.cause = { status: 1, stderr: 'warning: benign advice' };
+    throw error;
+  };
+
+  assert.throws(() => readStateRef(root, run), {
+    message: `cannot read Git ref ${STATE_REF}: warning: benign advice`,
+  });
 });
