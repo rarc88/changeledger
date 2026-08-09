@@ -2,9 +2,10 @@
 id: "20260808-171107"
 title: Robustecer los caminos de error del store de estado
 type: bug
-status: approved
+status: in-review
 created: 2026-08-08T17:11:07Z
 depends_on: ["20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
+branch: bug/20260808-171107
 related_to: ["20260809-113242"]
 owner: rarc88
 ---
@@ -133,21 +134,25 @@ taxonomía de warnings, red ni resolución automática de conflictos.
 
 ## Plan
 
-- [ ] Escribir primero las regresiones de doble fallo, mensajes CAS y resolución aislada
+- [x] Escribir primero las regresiones de doble fallo, mensajes CAS y resolución aislada
   - **Target:** `test/state-store.test.mjs`, `test/context.test.mjs`, `test/agent-context.test.mjs`, `test/cli-bin.test.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/context.test.mjs test/agent-context.test.mjs test/cli-bin.test.mjs test/view.test.mjs`
   - **Criteria:** CR2, CR3, CR4, CR5
-- [ ] Preservar la causa primaria, compartir el prefijo CAS y aislar solo la resolución por id
+  - **Resolved:** `2026-08-09T16:30:17Z`
+- [x] Preservar la causa primaria, compartir el prefijo CAS y aislar solo la resolución por id
   - **Target:** `src/state-store.mjs`, `src/repo.mjs`, `src/commands/context.mjs`, `src/commands/agent-context.mjs`, `bin/changeledger.mjs`, `src/viewer/domain.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/context.test.mjs test/agent-context.test.mjs test/cli-bin.test.mjs test/view.test.mjs`
   - **Criteria:** CR2, CR3, CR4, CR5
-- [ ] Retirar los dos tests sin valor y conservar las coberturas deterministas
+  - **Resolved:** `2026-08-09T16:30:17Z`
+- [x] Retirar los dos tests sin valor y conservar las coberturas deterministas
   - **Target:** `test/state-store.test.mjs`, `test/cli.test.mjs`
   - **Verify:** `node --test test/git-batch.test.mjs test/state-store.test.mjs test/cli.test.mjs`
   - **Criteria:** CR1, CR6
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-08-09T16:30:17Z`
+- [x] Ejecutar el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T16:30:17Z`
 
 ## Log
 
@@ -156,3 +161,7 @@ taxonomía de warnings, red ni resolución automática de conflictos.
   confirmación mientras la evidencia está fresca, y resolverlos en su debido
   momento. No es trabajo autorizado a implementar: queda en draft.
 - **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T16:22:39Z** `[status]` approved → in-progress
+- **2026-08-09T16:22:39Z** `[branch]` set: bug/20260808-171107 (auto)
+- **2026-08-09T16:30:17Z** `[note]` Implementación TDD completada: 7 regresiones rojas, suites focalizadas 345/345 y 107/107, y pnpm verify 1319/1319.
+- **2026-08-09T16:31:12Z** `[status]` in-progress → in-review

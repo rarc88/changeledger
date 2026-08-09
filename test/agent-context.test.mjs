@@ -77,7 +77,7 @@ Chosen approach.
 // `worktreeId` only exists on disk, `refId` only in the seeded state ref, and
 // the snapshot config is the worktree's own (byte-identical) so `types` stays
 // resolvable.
-function activatedAgentContextFixture() {
+function activatedAgentContextFixture({ broken = false } = {}) {
   const root = repo();
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
@@ -104,11 +104,13 @@ Do the delegated work.
   const configText = fs
     .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
     .replace(/^language: en$/m, 'language: es');
-  const tree = buildTree(root, {
+  const files = {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
     '.changeledger-state/changes/delegated-work.md': refText,
-  });
+  };
+  if (broken) files['.changeledger-state/changes/broken.md'] = 'no frontmatter here\n';
+  const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
   writeActivation(root, { stateRef: STATE_REF });
@@ -132,6 +134,15 @@ test('20260809-113242 CR3: changeless agent-context uses activated config policy
   assert.match(
     buildAgentContext('investigation', undefined, root),
     /Effective policy: language=es/,
+  );
+});
+
+test('20260808-171107 CR5: activated agent-context resolves an unknown id before an unrelated malformed change', () => {
+  const { root } = activatedAgentContextFixture({ broken: true });
+
+  assert.throws(
+    () => buildAgentContext('implementation', '20990101-000000', root),
+    /No change with id "20990101-000000"/,
   );
 });
 
