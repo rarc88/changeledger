@@ -4,7 +4,7 @@ title: Recuperar el cutover ante señuelos e interrupciones
 type: bug
 status: draft
 created: 2026-08-09T13:10:04Z
-depends_on: ["20260809-113240"]
+depends_on: ["20260809-113240", "20260809-113241"]
 related_to: []
 owner: rarc88
 ---
@@ -17,6 +17,12 @@ ventanas de interrupción del cutover fallan cerrado pero sin recuperación por
 re-ejecución ni mensaje que diga cómo salir. Incluye dos remates de calidad
 del mismo review: orden de búsqueda explícito por descendencia y una aserción
 casi vacua en los tests de `activate`.
+
+Ampliado el 2026-08-09 por decisión del humano con dos absorciones del review
+de `20260809-113241`: extraer el lector compartido del árbol del ledger que
+`import.mjs` duplicó de `cutover.mjs` porque este archivo estaba vetado
+durante su implementación, y devolver el fail-fast al fixture compartido de
+tests que la corrección de B relajó con `--allow-empty` global.
 
 Fuera de alcance: cualquier resolución automática de conflictos de contenido
 (el conflicto de revert sigue siendo del humano) y cualquier cambio en la
@@ -59,6 +65,17 @@ todos ejecutados en fixtures por los revisores, no razonados:
 - **Aserción casi vacua.** El test "activate outside a ChangeLedger repo" de
   `test/activate.test.mjs` asierta `/ChangeLedger/`, que matchea casi
   cualquier error del comando.
+- **Duplicación deliberada (review de `20260809-113241`).** `readLedgerAt` y
+  `toPosix` en `src/commands/import.mjs` son casi-duplicados de los de
+  `src/commands/cutover.mjs` (~85-90% compartido según el diff del revisor;
+  la divergencia real es que el import no exige `config.yml`). Fue la opción
+  correcta bajo el veto de archivo, pero el hogar de esa lectura es un módulo
+  compartido.
+- **Fail-fast del fixture relajado (confirmación de `20260809-113241`).** El
+  helper `activatedRepo` de `test/import.test.mjs` pasó a commitear el source
+  con `--allow-empty` porque un escenario nuevo no escribe archivos; con ello
+  todos los escenarios pierden el fallo ruidoso "nothing to commit" que
+  delataba un fixture que no escribió nada. Debe ser opt-in por escenario.
 
 Clasificación de changes relacionados: `20260809-113240` (done, graduado a
 `architecture.md`) es prerrequisito de ejecución — este change edita el código
@@ -92,6 +109,11 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 - **When** se ejecuta `changeledger cutover --undo`
 - **Then** exit 0: se borran ambas refs con old-value observado y el repo queda desactivado, indistinguible de un undo no interrumpido
 
+### CR6 — La extracción del lector compartido no cambia comportamiento
+- **Given** el lector del árbol del ledger extraído a un módulo compartido y `cutover.mjs` e `import.mjs` consumiéndolo
+- **When** se ejecutan las suites existentes `test/cutover.test.mjs` y `test/import.test.mjs`
+- **Then** pasan sin modificar ninguna aserción (hoy pasan: 14/14 y 10+ de cutover en verde en dev), y la única divergencia funcional entre ambos consumidores sigue siendo que el import no exige `config.yml` en la fuente
+
 ## Plan
 
 - [ ] `findCutover` trata el subject sin trailer como no-match con aviso, y
@@ -107,10 +129,19 @@ documenta el comportamiento vigente y se reconciliará al graduar.
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR4, CR5
+- [ ] Extraer el lector compartido del árbol del ledger y consumirlo desde
+  `cutover.mjs` e `import.mjs`
+  - **Target:** `src/commands/cutover.mjs`, `src/commands/import.mjs`
+  - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs`
+  - **Criteria:** CR6
 - [ ] Endurecer la aserción del test "activate outside a ChangeLedger repo"
   para que fije el mensaje real en vez de `/ChangeLedger/`
   - **Support:**
   - **Verify:** `node --test test/activate.test.mjs`
+- [ ] Devolver el fail-fast al fixture de `test/import.test.mjs`: el
+  `--allow-empty` del source pasa a ser opt-in por escenario
+  - **Support:**
+  - **Verify:** `node --test test/import.test.mjs`
 - [ ] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
