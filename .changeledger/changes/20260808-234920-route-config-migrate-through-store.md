@@ -2,7 +2,7 @@
 id: "20260808-234920"
 title: Enrutar config migrate por el store en repos activados
 type: bug
-status: blocked
+status: in-validation
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
 branch: bug/20260808-234920
@@ -49,6 +49,9 @@ recalcula sobre la autoridad vigente y publica un único commit CAS con mensaje
 `config: migrate`. Un conflicto no hace retry y conserva al ganador. Un schema
 vigente no crea commit; un snapshot inválido, futuro o ilegible falla sin
 fallback. El modo inactivo conserva su ruta filesystem byte a byte.
+La única operación del state store permitida para clasificar esa ruta es la
+consulta read-only de `refs/changeledger/activation`; una vez confirmada su
+ausencia no se lee ni se escribe ninguna otra ref o snapshot del store.
 
 No cambian comandos, opciones, output normal, schemas, endpoints ni payloads.
 El único cambio observable es que un repo activado migra la autoridad real y
@@ -88,7 +91,8 @@ nueva copia mutable.
 - **Given** un repo no activado con config antiguo, vigente, inválido o futuro
 - **When** se ejecutan dry-run y apply
 - **Then** se mantienen las expectativas existentes de `test/config-migration.test.mjs` y `test/cli-bin.test.mjs`
-- **And** no se ejecuta ninguna operación del state store
+- **And** la única operación del state store es consultar read-only `refs/changeledger/activation`
+- **And** tras confirmar su ausencia no se lee ni escribe ninguna otra ref o snapshot del store
 
 ### CR6 — El preview del viewer comparte autoridad
 - **Given** un repo activado divergente y la revisión devuelta por `readProjectConfigStructured`
@@ -104,11 +108,11 @@ nueva copia mutable.
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-08-09T16:54:20Z`
-- [!] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
+- [x] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
   - **Target:** `src/config-migration.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-  - **Blocked:** CR5 requiere decisión humana: exceptuar la consulta de activación o rediseñar cómo se detecta un repo activo sin tocar el state store.
+  - **Resolved:** `2026-08-09T17:43:56Z`
 - [x] Enrutar el preview del viewer por el mismo target efectivo
   - **Target:** `src/viewer/domain.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
@@ -133,3 +137,9 @@ nueva copia mutable.
 - **2026-08-09T16:55:14Z** `[status]` in-progress → in-review
 - **2026-08-09T16:56:15Z** `[note]` Mandato de review: auditoría completa de CR1-CR6 sobre eed0275e..HEAD, verificando autoridad activa, byte-identidad del marcador, commit único CAS, conflicto real, fallos sin fallback, cero state-store en modo inactivo y preview del viewer.
 - **2026-08-09T17:02:52Z** `[review]` in-review → blocked: CR5 exige cero operaciones del state store en repos Git inactivos, pero detectar activación consulta refs/changeledger/activation; hace falta decidir si esa consulta queda exceptuada o si se rediseña la detección.
+- **2026-08-09T17:40:39Z** `[note]` Decisión humana: CR5 exceptúa únicamente el probe read-only de refs/changeledger/activation; tras confirmar ausencia, la ruta inactiva no puede tocar ninguna otra ref o snapshot del store.
+- **2026-08-09T17:40:39Z** `[status]` blocked → in-progress
+- **2026-08-09T17:43:57Z** `[note]` Corrección CR5: fixture Git inactivo real prueba 8/8 combinaciones con exactamente el probe read-only de activación y ninguna otra operación del store; pnpm verify 1326/1326.
+- **2026-08-09T17:44:36Z** `[status]` in-progress → in-review
+- **2026-08-09T17:44:36Z** `[note]` Mandato de confirmación: verificar solo CR5 aclarado y regresiones de la corrección sin commit; cada ruta inactiva Git permite exactamente el probe read-only de refs/changeledger/activation y ninguna otra operación del store, conservando outputs y escrituras filesystem.
+- **2026-08-09T17:47:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)

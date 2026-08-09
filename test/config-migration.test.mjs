@@ -757,22 +757,54 @@ test('234920 CR3: active no-op and invalid or future configs never fall back to 
   }
 });
 
-test('234920 CR5: inactive dry-run and apply execute zero state-store subprocesses', () => {
-  const root = tmp();
-  const configFile = path.join(root, 'config.yml');
-  let calls = 0;
-  const forbiddenRun = () => {
-    calls++;
-    throw new Error('inactive migration consulted the state store');
-  };
-  fs.writeFileSync(configFile, SCHEMA1_CONFIG);
+test('234920 CR5: inactive Git repos only probe activation across every config and mode', () => {
+  const migrated = buildMigration(SCHEMA1_CONFIG).yaml;
+  const cases = [
+    { name: 'old', text: SCHEMA1_CONFIG, summary: /Config migration 1 → 5/ },
+    {
+      name: 'current',
+      text: migrated,
+      summary: 'Config is already at schema 5. No changes needed.',
+    },
+    { name: 'invalid', text: 'statuses: [\n', error: /Invalid YAML/ },
+    {
+      name: 'future',
+      text: 'schema_version: 6\nproject_id: abc123\n',
+      error: /config schema 6 is newer than supported schema 5/,
+    },
+  ];
+  const activationProbe = [['rev-parse', '--verify', '--quiet', 'refs/changeledger/activation']];
 
-  const preview = applyMigration(configFile, { dryRun: true, repoRoot: root, run: forbiddenRun });
-  assert.match(preview, /Config migration 1 → 5 \(dry run\)/);
-  assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG);
-  applyMigration(configFile, { repoRoot: root, run: forbiddenRun });
-  assert.equal(fs.readFileSync(configFile, 'utf8'), buildMigration(SCHEMA1_CONFIG).yaml);
-  assert.equal(calls, 0);
+  for (const dryRun of [true, false]) {
+    for (const fixture of cases) {
+      const root = initStateRepo();
+      const configFile = path.join(root, '.changeledger', 'config.yml');
+      fs.mkdirSync(path.dirname(configFile), { recursive: true });
+      fs.writeFileSync(configFile, fixture.text);
+      const calls = [];
+      const run = (args, cwd, options) => {
+        calls.push([...args]);
+        return capturedRun(args, cwd, options);
+      };
+      const label = `${fixture.name}/${dryRun ? 'dry-run' : 'apply'}`;
+
+      if (fixture.error) {
+        assert.throws(
+          () => applyMigration(configFile, { dryRun, repoRoot: root, run }),
+          fixture.error,
+          label,
+        );
+      } else {
+        const summary = applyMigration(configFile, { dryRun, repoRoot: root, run });
+        if (fixture.summary instanceof RegExp) assert.match(summary, fixture.summary, label);
+        else assert.equal(summary, fixture.summary, label);
+      }
+
+      const expectedText = fixture.name === 'old' && !dryRun ? migrated : fixture.text;
+      assert.equal(fs.readFileSync(configFile, 'utf8'), expectedText, label);
+      assert.deepEqual(calls, activationProbe, label);
+    }
+  }
 });
 
 // CR2 — custom quick type, its impact and its comment survive migration. Since
