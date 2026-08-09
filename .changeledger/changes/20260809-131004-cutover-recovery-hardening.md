@@ -2,7 +2,7 @@
 id: "20260809-131004"
 title: Recuperar el cutover ante señuelos e interrupciones
 type: bug
-status: draft
+status: approved
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
 related_to: []
@@ -147,3 +147,4 @@ documenta el comportamiento vigente y se reconciliará al graduar.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-09T14:52:37Z** `[status]` draft → approved (human via conversation)
