@@ -2,7 +2,7 @@
 id: "20260809-113242"
 title: Resolver las fronteras de resolución en repos activados
 type: feature
-status: in-review
+status: blocked
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
 branch: feature/20260809-113242
@@ -151,12 +151,12 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 
 ## Plan
 
-- [x] Helper único de autoridad de config (`loadEffectiveConfig`) leyendo el
+- [!] Helper único de autoridad de config (`loadEffectiveConfig`) leyendo el
   blob del snapshot en activo y el worktree en inactivo
   - **Target:** `src/config.mjs`
   - **Verify:** `node --test test/config.test.mjs`
   - **Criteria:** CR8
-  - **Resolved:** `2026-08-09T14:19:47Z`
+  - **Blocked:** Decisión humana requerida: conservar lectura focalizada exige una primitiva validada en state-store; reutilizar readSnapshot carga el snapshot completo y contradice la estrategia aprobada.
 - [x] Migrar los callers de CLI: `register`, bootstrap de `check` y capturas
   sin id de `context`/`agent-context`
   - **Target:** `src/commands/register.mjs`, `src/commands/check.mjs`, `src/commands/context.mjs`, `src/commands/agent-context.mjs`
@@ -189,3 +189,6 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **2026-08-09T14:07:52Z** `[status]` approved → in-progress
 - **2026-08-09T14:07:52Z** `[branch]` set: feature/20260809-113242 (auto)
 - **2026-08-09T14:20:39Z** `[status]` in-progress → in-review
+- **2026-08-09T14:23:14Z** `[note]` Mandato de review: auditoría completa de la superficie gobernada por el change, incluidos CR1-CR8, regresión inactiva, autoridad raw/estructurada, transición del viewer y guard de commit activado; candidato fijo 73aef1ab sobre d9503195.
+- **2026-08-09T14:32:12Z** `[review]` in-review → blocked: La review confirma una nueva clase no especificada: loadEffectiveConfig lee directamente el blob activo y elude las garantías de layout, blob regular y UTF-8 de readSnapshot; decidir la corrección exige elegir entre cargar el snapshot completo o ampliar state-store con una lectura validada. También quedan barridos de callers y del guard staged dentro de la corrección.
+- **2026-08-09T14:32:38Z** `[note]` Handoff bloqueado: implementación 73aef1ab conservada; review adversarial reproducida; pendiente decisión entre reutilizar readSnapshot o añadir una primitiva focalizada y validada en state-store. Tras decidir, barrer también loadRepo, viewer local/reparación, registry fail-closed y staged legacy extraño.
