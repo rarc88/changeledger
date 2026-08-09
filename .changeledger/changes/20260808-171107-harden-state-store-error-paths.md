@@ -2,10 +2,10 @@
 id: "20260808-171107"
 title: Robustecer los caminos de error del store de estado
 type: bug
-status: draft
+status: approved
 created: 2026-08-08T17:11:07Z
-depends_on: ["20260808-151640"]
-related_to: ["20260808-151641", "20260808-151643"]
+depends_on: ["20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
+related_to: ["20260809-113242"]
 owner: rarc88
 ---
 
@@ -54,26 +54,100 @@ para que ningún hallazgo quede solo en conversación:
    el test determinista lleva el criterio; puede eliminarse.
 
 Todo vive en la pila del estado global (`state-store`, `repo`,
-`change-store`, presentación) — una sola superficie, un solo change. La Investigation, Specification y Plan se completan cuando el
-change se retome; la evidencia de origen queda en el Log de
-`20260808-151640` (nota de follow-ups del 2026-08-08) y en el informe de su
-review de confirmación.
+`change-store`, presentación) — una sola superficie, un solo change.
 
 ## Investigation
 
-Pendiente — se completa al retomar el change. Punto de partida: la nota de
-follow-ups en el Log de `20260808-151640` y los comentarios existentes en
-`optionalRefOid`, `advanceOrConflict` y el test `CORRECTION 4`.
+Los seis hallazgos siguen presentes sobre el baseline combinado. El test
+`CORRECTION 4` elimina un objeto que `batchBlobReader` intenta dimensionar al
+construirse, antes del `try` del lector lazy que afirma cubrir; el rechazo de
+UTF-8 inválido ya está probado por CR7 y por `test/git-batch.test.mjs`, por lo
+que corresponde retirar el test vacuo sin inventar otra costura.
+
+Los catches de `initState`, `advanceOrConflict` y `writeActivation` vuelven a
+leer la ref para distinguir un conflicto de otro fallo de `update-ref`. Si esa
+lectura también falla, su error reemplaza hoy al fallo primario. La corrección
+debe conservar el mensaje exterior de lectura y enlazar como `cause` directo
+el error primario, sin convertirlo en `LedgerConflictError`.
+
+`optionalRefOid` solo clasifica ausencia con exit 1 y stderr vacío. Se conserva
+esa política fail-closed: filtrar `warning:` ocultaría también una ref corrupta
+real. La sensibilidad a cualquier stderr queda declarada y fijada por test.
+
+El prefijo de conflicto CAS está duplicado entre el bin y el viewer. Se
+centraliza junto a `LedgerConflictError`, conservando byte a byte las colas de
+cada superficie. Por otra parte, `context` y `agent-context` cargan y parsean
+todos los changes antes de resolver un id: un documento roto no relacionado
+enmascara el diagnóstico de id desconocido. El aislamiento será opt-in solo
+para esas dos resoluciones; `loadRepo` y `check` mantienen su fail-fast normal.
+
+El smoke concurrente de `test/cli.test.mjs` no fuerza una lectura rancia y
+acepta tanto conflicto como serialización. Los tests deterministas adyacentes
+ya cubren el retry único y su límite; se elimina únicamente el smoke.
+
+No cambian comandos, payloads HTTP, refs, layouts ni mensajes públicos CAS. El
+nuevo prefijo exportado es interno; el doble fallo solo gana una cadena `cause`
+y la resolución de id desconocido cambia deliberadamente la precedencia de su
+diagnóstico. El alcance cabe bajo `global-state-scope`: no añade locks, retries,
+taxonomía de warnings, red ni resolución automática de conflictos.
 
 ## Specification
 
-Pendiente — se redacta con la Investigation al retomar el change.
+### CR1 — La cobertura UTF-8 no atribuye un fallo imposible
+- **Given** un blob de change con bytes `0xff 0xfe`
+- **When** `readSnapshot` lo materializa mediante el lector lazy
+- **Then** lanza `state path .changeledger-state/changes/legacy.md is not valid UTF-8` sin U+FFFD
+- **And** no existe el test `CORRECTION 4` que atribuía al lector lazy un fallo ocurrido al construir `batchBlobReader`
+
+### CR2 — El doble fallo conserva la causa primaria
+- **Given** que `update-ref` lanza un error primario y la relectura de desambiguación lanza uno secundario
+- **When** ocurre en `initState`, `mutateState` o `writeActivation`
+- **Then** se lanza un `Error` ordinario cuyo mensaje es `cannot read Git ref <ref>: <error secundario>`
+- **And** su `cause` es exactamente el error primario de `update-ref`
+- **And** ninguna ref incorpora la mutación perdedora
+
+### CR3 — Stderr durante ausencia falla cerrado
+- **Given** que `rev-parse --verify --quiet` termina con status 1 y stderr `warning: benign advice`
+- **When** `readStateRef` clasifica el resultado
+- **Then** no devuelve `null` y lanza `cannot read Git ref refs/heads/changeledger/state: warning: benign advice`
+- **And** `optionalRefOid` declara esta sensibilidad como una decisión fail-closed
+
+### CR4 — CLI y viewer comparten la base del conflicto
+- **Given** un conflicto CAS real
+- **When** lo presenta el CLI o cualquiera de las tres escrituras de config del viewer
+- **Then** el CLI emite `state changed since load — re-run the command`
+- **And** el viewer responde 409 con `state changed since load — reload and save again`
+- **And** ambos mensajes se componen desde una única base `state changed since load`
+
+### CR5 — El id desconocido precede al documento roto no relacionado
+- **Given** un repo activo o inactivo con `broken.md` malformado y sin el id `20990101-000000`
+- **When** se ejecutan `context 20990101-000000` y `agent-context implementation 20990101-000000`
+- **Then** cada comando informa su diagnóstico actual de id desconocido sin emitir el sentinel `BEGIN`
+- **And** `loadRepo` y `check` sin aislamiento opt-in siguen fallando por `broken.md`
+
+### CR6 — Solo quedan pruebas deterministas del retry
+- **Given** los tests que fuerzan un conflicto real y un segundo conflicto consecutivo
+- **When** se ejecuta `test/cli.test.mjs`
+- **Then** prueban respectivamente retry exitoso y propagación tras un único retry
+- **And** ya no existe el smoke que aceptaba indistintamente conflicto o serialización
 
 ## Plan
 
-- [ ] Completar Investigation, Specification y este Plan al retomar el change,
-      partiendo de la nota de follow-ups del Log de `20260808-151640`
+- [ ] Escribir primero las regresiones de doble fallo, mensajes CAS y resolución aislada
+  - **Target:** `test/state-store.test.mjs`, `test/context.test.mjs`, `test/agent-context.test.mjs`, `test/cli-bin.test.mjs`, `test/view.test.mjs`
+  - **Verify:** `node --test test/state-store.test.mjs test/context.test.mjs test/agent-context.test.mjs test/cli-bin.test.mjs test/view.test.mjs`
+  - **Criteria:** CR2, CR3, CR4, CR5
+- [ ] Preservar la causa primaria, compartir el prefijo CAS y aislar solo la resolución por id
+  - **Target:** `src/state-store.mjs`, `src/repo.mjs`, `src/commands/context.mjs`, `src/commands/agent-context.mjs`, `bin/changeledger.mjs`, `src/viewer/domain.mjs`
+  - **Verify:** `node --test test/state-store.test.mjs test/context.test.mjs test/agent-context.test.mjs test/cli-bin.test.mjs test/view.test.mjs`
+  - **Criteria:** CR2, CR3, CR4, CR5
+- [ ] Retirar los dos tests sin valor y conservar las coberturas deterministas
+  - **Target:** `test/state-store.test.mjs`, `test/cli.test.mjs`
+  - **Verify:** `node --test test/git-batch.test.mjs test/state-store.test.mjs test/cli.test.mjs`
+  - **Criteria:** CR1, CR6
+- [ ] Ejecutar el gate completo
   - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
 
@@ -81,3 +155,4 @@ Pendiente — se redacta con la Investigation al retomar el change.
   aceptar `20260808-151640`: capturar los tres follow-ups de la review de
   confirmación mientras la evidencia está fresca, y resolverlos en su debido
   momento. No es trabajo autorizado a implementar: queda en draft.
+- **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
