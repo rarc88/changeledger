@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command } from 'commander';
 import { activate } from '../src/commands/activate.mjs';
 import {
@@ -829,7 +830,10 @@ configCommand
       const changeledgerDir = findChangeledgerDir();
       if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
       const configFile = `${changeledgerDir}/config.yml`;
-      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      const result = applyMigration(configFile, {
+        dryRun: options.dryRun ?? false,
+        repoRoot: path.dirname(changeledgerDir),
+      });
       console.log(result);
     }),
   );

@@ -2,8 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
+import { repoIsActivated } from './change-store.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
 import { templatesDir } from './paths.mjs';
+import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
 export const SUPPORTED_SCHEMA_VERSION = 5;
 
@@ -364,13 +366,24 @@ function setBlankGitSection(doc) {
     ' Git integration: change branches start from and merge into this branch';
 }
 
-// Apply migration to a file (or dry-run). Returns summary string.
-export function applyMigration(configFile, { dryRun = false } = {}) {
+// Apply migration to the effective config authority (or dry-run). Returns summary string.
+export function applyMigration(
+  configFile,
+  { dryRun = false, repoRoot = path.dirname(path.dirname(configFile)), run } = {},
+) {
   let original;
-  try {
-    original = fs.readFileSync(configFile, 'utf8');
-  } catch (e) {
-    throw new Error(`Cannot read config: ${e.message}`);
+  let stateRevision;
+  const active = repoIsActivated(repoRoot, run);
+  if (active) {
+    stateRevision = readStateRef(repoRoot, run);
+    if (stateRevision === null) throw new Error('state is not initialized');
+    original = readStateConfigText(repoRoot, { revision: stateRevision }, run);
+  } else {
+    try {
+      original = fs.readFileSync(configFile, 'utf8');
+    } catch (e) {
+      throw new Error(`Cannot read config: ${e.message}`);
+    }
   }
 
   const result = buildMigration(original);
@@ -386,7 +399,16 @@ export function applyMigration(configFile, { dryRun = false } = {}) {
   const summary = [header, ...result.changes.map((c) => `  - ${c}`)].join('\n');
 
   if (!dryRun) {
-    writeFileAtomic(configFile, result.yaml);
+    if (active) {
+      mutateState(
+        repoRoot,
+        { expectedRevision: stateRevision, message: 'config: migrate' },
+        (stage) => stage.write('config.yml', result.yaml),
+        run,
+      );
+    } else {
+      writeFileAtomic(configFile, result.yaml);
+    }
     return summary;
   }
 

@@ -28,6 +28,7 @@ import {
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
+import { buildMigration } from '../src/config-migration.mjs';
 import { capturedRun } from '../src/git.mjs';
 import { publicDir } from '../src/paths.mjs';
 import { readRegistry, register, registryPath } from '../src/registry.mjs';
@@ -2578,6 +2579,30 @@ test('20260809-113242 CR4: activated raw and structured config reads serve state
   assert.equal(structured.body.config.project_name, 'ref-name');
   assert.match(structured.body.content, /project_name: ref-name/);
   assert.doesNotMatch(structured.body.content, /stale-name/);
+});
+
+test('234920 CR6: activated migration preview uses the structured-read revision and ref content, not the malformed marker', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  const downgraded = configText.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: downgraded }],
+    { message: 'chore: downgrade' },
+  );
+  const markerFile = path.join(root, '.changeledger', 'config.yml');
+  const marker = 'statuses: [\n';
+  fs.writeFileSync(markerFile, marker);
+  const before = stateRefTip(root);
+  const structured = readProjectConfigStructured(projects, current);
+
+  const result = previewConfigMigration(projects, current, structured.body.revision);
+
+  assert.equal(result.code, 200, result.body.error);
+  assert.match(result.body.summary, /Config migration 1 → 5 \(dry run\)/);
+  assert.equal(result.body.yaml, buildMigration(downgraded).yaml);
+  assert.equal(stateRefTip(root), before);
+  assert.equal(stateConfigText(root, before), downgraded);
+  assert.equal(fs.readFileSync(markerFile, 'utf8'), marker);
 });
 
 test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed stale marker', () => {
