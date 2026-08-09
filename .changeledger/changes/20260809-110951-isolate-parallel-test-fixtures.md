@@ -2,9 +2,10 @@
 id: "20260809-110951"
 title: Aislar los fixtures de tests que corren en paralelo
 type: bug
-status: approved
+status: in-review
 created: 2026-08-09T11:09:51Z
 depends_on: []
+branch: bug/20260809-110951
 related_to: ["20260729-203257", "20260808-151641"]
 owner: rarc88
 ---
@@ -79,17 +80,20 @@ parámetro no está exportado por el paquete.
 
 ## Plan
 
-- [ ] Escribir primero los fixtures temporales y demostrar que el resolver actual ignora el root inyectado
+- [x] Escribir primero los fixtures temporales y demostrar que el resolver actual ignora el root inyectado
   - **Target:** `test/view.test.mjs`
   - **Verify:** `node --test --test-name-pattern="151234 CR1|151234 CR2|151234 CR3" test/view.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
-- [ ] Añadir el root opcional a `staticFile` y mantener estricto el barrido
+  - **Resolved:** `2026-08-09T17:17:26Z`
+- [x] Añadir el root opcional a `staticFile` y mantener estricto el barrido
   - **Target:** `src/viewer/server/router.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test --test-name-pattern="151234 CR1|151234 CR2|151234 CR3" test/view.test.mjs && CHANGELEDGER_NO_GH=1 node --test --test-name-pattern="203257 correction: no raw control bytes in source files" test/cli.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-08-09T17:17:26Z`
+- [x] Ejecutar el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T17:17:26Z`
 
 ## Log
 
@@ -98,3 +102,7 @@ parámetro no está exportado por el paquete.
   capacidad, observada una sola vez por un delegado y anotada solo en
   conversación hasta ahora. Queda en draft hasta su debido momento.
 - **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T16:22:39Z** `[status]` approved → in-progress
+- **2026-08-09T16:22:39Z** `[branch]` set: bug/20260809-110951 (auto)
+- **2026-08-09T17:17:26Z** `[note]` Implementación TDD completada: rojo 1/3 con dos fallos esperados, focales 3/3, 1/1 y 1/1, y pnpm verify 1320/1320.
+- **2026-08-09T17:18:10Z** `[status]` in-progress → in-review
