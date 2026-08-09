@@ -214,6 +214,57 @@ test('20260809-113240 CR7: undo restores the worktree byte for byte and drops bo
   assert.equal(loadRepo(root).state, null);
 });
 
+// The reversibility condition the Proposal states is the state ref still
+// pointing at the published baseline — nothing about where HEAD happens to be.
+// Requiring HEAD to BE the cutover commit killed the escape hatch on the first
+// ordinary commit or merge that landed after the cut.
+test('20260809-113240 CR7: undo still works after ordinary commits land on the integration branch', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  writeLedgerFiles(root, { 'README.md': '# ordinary work\n' });
+  git(root, ['add', 'README.md']);
+  git(root, ['commit', '-q', '-m', 'docs: ordinary commit']);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+
+  const { code, out, err } = cli(root, 'cutover', '--undo');
+
+  assert.equal(code, 0, err || out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  // The unrelated commit that landed in between is preserved, not rewound.
+  assert.equal(fs.readFileSync(path.join(root, 'README.md'), 'utf8'), '# ordinary work\n');
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).state, null);
+});
+
+test('20260809-113240 CR7: a commit that re-touched the removed paths blocks the undo, fail-closed', () => {
+  const { root } = seedLedgerRepo();
+  assert.equal(cli(root, 'cutover').code, 0);
+  const stateRevision = git(root, ['rev-parse', STATE_REF]);
+  // A later commit re-adds one of the very paths the cleanup removed, so
+  // reverting that cleanup can no longer apply cleanly.
+  writeLedgerFiles(root, { '.changeledger/changes/20260808-000001-demo.md': 'conflicting\n' });
+  git(root, ['add', '-A']);
+  git(root, ['commit', '-q', '-m', 'docs: re-add a ledger document']);
+  const before = head(root);
+
+  const { code, err } = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /cannot be reverted automatically/);
+  assert.equal(head(root), before);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), stateRevision);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  // No half-applied revert left behind for the human to clean up.
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(fs.existsSync(path.join(root, '.git', 'REVERT_HEAD')), false);
+});
+
 test('20260809-113240 CR7: a second undo fails, there is no cutover left to undo', () => {
   const { root } = seedLedgerRepo();
   assert.equal(cli(root, 'cutover').code, 0);
@@ -225,6 +276,29 @@ test('20260809-113240 CR7: a second undo fails, there is no cutover left to undo
   assert.notEqual(code, 0);
   assert.match(err, /nothing to undo/);
   assert.equal(head(root), before);
+});
+
+// Locating the cutover commit by history rather than by HEAD means an undone
+// cut leaves its commit behind as a decoy. Neither ref surviving is what tells
+// the two apart, so the repo stays cuttable — and the SECOND cut is the one the
+// next undo must find.
+test('20260809-113240 CR7: a repo can be cut over again after an undo, and undone again', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  assert.equal(cli(root, 'cutover').code, 0);
+  assert.equal(cli(root, 'cutover', '--undo').code, 0);
+
+  const recut = cli(root, 'cutover');
+  assert.equal(recut.code, 0, recut.err);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+
+  const { code, err } = cli(root, 'cutover', '--undo');
+  assert.equal(code, 0, err);
+  assert.equal(refExists(root, STATE_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
 });
 
 // --- CR8: past the baseline the undo refuses and returns the decision -------

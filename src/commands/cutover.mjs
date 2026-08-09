@@ -204,6 +204,30 @@ function cutoverBaselineAt(repoRoot, revision, run) {
   return match[1];
 }
 
+// THE definition of "this repo's cutover commit", shared by the re-run
+// detection and by the undo: the most recent commit reachable from HEAD whose
+// SUBJECT is exactly CUTOVER_SUBJECT. Deliberately not "HEAD is the cutover
+// commit" — the reversibility condition the Proposal states is the state ref
+// still pointing at the published baseline, and nothing about where HEAD
+// happens to be; tying it to HEAD killed the escape hatch on the first ordinary
+// commit or merge that landed after the cut.
+//
+// `--grep` only prefilters (it matches anywhere in a message, so a commit that
+// merely quotes the subject would match); `cutoverBaselineAt` is what decides,
+// on the subject line alone. Most recent wins: after an undo-and-re-cut the
+// live cut is the newest one. A cutover that was already undone does not need
+// its own marker — its baseline no longer exists, so the state-ref check below
+// rejects it.
+function findCutover(repoRoot, run) {
+  const out = run(['log', '--format=%H', '-F', `--grep=${CUTOVER_SUBJECT}`, 'HEAD'], repoRoot);
+  for (const oid of out.split('\n').map((line) => line.trim())) {
+    if (oid === '') continue;
+    const baseline = cutoverBaselineAt(repoRoot, oid, run);
+    if (baseline !== null) return { oid, baseline };
+  }
+  return null;
+}
+
 // Both directions rewrite tracked files on the integration branch and commit
 // them, so both demand the same two guarantees: nothing already staged (a
 // commit here must contain exactly what this command produced, never someone
@@ -255,18 +279,26 @@ function runCutover(ctx, output, run) {
   const { changeledgerDir, repoRoot, config, head } = ctx;
 
   // Already cut: the re-run is a no-op by identity, not by re-deriving a
-  // snapshot from a worktree the previous run deliberately emptied.
-  const recorded = cutoverBaselineAt(repoRoot, head, run);
+  // snapshot from a worktree the previous run deliberately emptied. Found
+  // anywhere in the history, not only at HEAD, so ordinary commits landing
+  // after the cut do not turn the re-run into a spurious failure.
+  const recorded = findCutover(repoRoot, run);
   if (recorded !== null) {
     const tip = readStateRef(repoRoot, run);
     const activation = readActivation(repoRoot, run);
-    if (tip === null || activation === null) {
+    if (tip !== null && activation !== null) {
+      output.log(
+        `Already cut over — ${STATE_REF} at ${tip} (baseline ${recorded.baseline}); nothing to do`,
+      );
+      return 0;
+    }
+    // Exactly one of the two present is a half-finished cut. Neither present
+    // means that cut was already undone, and this repo can be cut over again.
+    if (tip !== null || activation !== null) {
       throw new Error(
-        `HEAD is the cutover commit but ${tip === null ? STATE_REF : ACTIVATION_REF} is missing — this repo is half cut over; resolve it by hand`,
+        `the cutover commit ${recorded.oid} is in this history but ${tip === null ? STATE_REF : ACTIVATION_REF} is missing — this repo is half cut over; resolve it by hand`,
       );
     }
-    output.log(`Already cut over — ${STATE_REF} at ${tip} (baseline ${recorded}); nothing to do`);
-    return 0;
   }
 
   if (readActivation(repoRoot, run) !== null) {
@@ -335,15 +367,29 @@ function commitCleanup({ repoRoot }, layout, baseline) {
   );
 }
 
-function undoCutover(ctx, output, run) {
-  const { changeledgerDir, repoRoot, head } = ctx;
+// Undoes a `git revert -n` that could not apply. `--abort` is git's own name
+// for exactly this and restores index and worktree; it is guarded because a
+// revert that failed before touching anything leaves nothing in progress for it
+// to abort, and that must not mask the real conflict error being raised.
+function abortRevert(repoRoot) {
+  try {
+    mutatingRun(['revert', '--abort'], repoRoot);
+  } catch {
+    // nothing in progress to abort — the conflict error is still the one to
+    // report, so this is deliberately swallowed
+  }
+}
 
-  const baseline = cutoverBaselineAt(repoRoot, head, run);
-  if (baseline === null) {
+function undoCutover(ctx, output, run) {
+  const { changeledgerDir, repoRoot } = ctx;
+
+  const found = findCutover(repoRoot, run);
+  if (found === null) {
     throw new Error(
-      `nothing to undo — HEAD is not a cutover commit (expected the subject "${CUTOVER_SUBJECT}")`,
+      `nothing to undo — no commit with the subject "${CUTOVER_SUBJECT}" is reachable from HEAD`,
     );
   }
+  const { oid: cutoverCommit, baseline } = found;
   const tip = readStateRef(repoRoot, run);
   if (tip === null) {
     throw new Error(`nothing to undo — ${STATE_REF} does not exist`);
@@ -362,7 +408,22 @@ function undoCutover(ctx, output, run) {
   // documents but not yet dropped the refs is still a consistent activated
   // repo, while the reverse order would leave a deactivated repo with no
   // documents anywhere.
-  mutatingRun(['revert', '-n', head], repoRoot);
+  //
+  // The revert is applied as a new commit on top of HEAD, never by rewinding
+  // the branch: commits that landed after the cut are other people's work and
+  // are not this command's to discard. When one of them touched a path the
+  // cleanup removed, the revert cannot apply and there is no safe automatic
+  // resolution — abort it so no half-applied merge is left behind, and hand the
+  // conflict back with the paths named.
+  try {
+    mutatingRun(['revert', '-n', cutoverCommit], repoRoot);
+  } catch (e) {
+    abortRevert(repoRoot);
+    throw new Error(
+      `the cutover ${cutoverCommit} cannot be reverted automatically — a commit after the cut touched the paths it removed, so restoring them conflicts; resolve it by hand:\n${e.message}`,
+      { cause: e },
+    );
+  }
   mutatingRun(['commit', '--no-verify', '-q', '-m', UNDO_SUBJECT, '-m', UNDO_BODY], repoRoot);
 
   // Deleted with its observed oid as the CAS old-value, never bare: a `-d` with

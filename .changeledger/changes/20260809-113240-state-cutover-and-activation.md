@@ -2,7 +2,7 @@
 id: "20260809-113240"
 title: Cutover one-shot y activación con undo
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-09T11:32:40Z
 depends_on: ["20260808-151640"]
 branch: feature/20260809-113240
@@ -198,3 +198,7 @@ undo bloqueado tras mutaciones; ref que resuelve a tag anotado.
 - **2026-08-09T12:19:37Z** `[note]` Investigation corregida con conteos re-medidos (272 changes, 21 releases; la captura inicial del explorador traía 260/24 — cifras verificadas antes de escribirlas en el Log).
 - **2026-08-09T12:19:37Z** `[status]` in-progress → in-review
 - **2026-08-09T12:19:37Z** `[note]` Mandato del review: auditoría completa del diff cerrado baseline..HEAD (superficie de refs/CAS y dos comandos nuevos), con la lista de 13 decisiones no especificadas del implementador como puntos de escrutinio explícito, en particular: divergencia de activación keyed en state_ref declarado y no en el oid del commit; config.yml republicado byte a byte vía mutateState tras initState; orden del undo worktree-first; igualdad de tree implementada como igualdad de contenido.
+- **2026-08-09T12:30:54Z** `[review]` in-review → in-progress (retry): El undo añade una precondición no documentada: exige que HEAD sea el commit de cutover, cuando la Proposal promete reversibilidad mientras la ref de estado siga en el baseline. Borde ejecutado por el revisor: un commit ordinario en la rama de integración tras el corte, con la ref intacta, y --undo rechaza con 'nothing to undo — HEAD is not a cutover commit'. Corrección: honrar la condición documentada localizando el commit de limpieza por subject + trailer Changeledger-Cutover-Baseline en la historia de la rama y revertir ese oid, con test que fije el borde.
+- **2026-08-09T12:37:39Z** `[status]` in-progress → in-review
+- **2026-08-09T12:37:39Z** `[note]` Mandato del review de confirmación: acotado al diff sin commitear de la corrección F1 (src/commands/cutover.mjs, test/cutover.test.mjs) — verificar que el defecto nombrado quedó cerrado (undo tras commits ordinarios con la ref en el baseline) y que no introduce regresión; hallazgos latentes o adyacentes se reportan como follow-up, no como fail.
+- **2026-08-09T12:45:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
