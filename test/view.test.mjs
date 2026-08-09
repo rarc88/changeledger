@@ -1415,6 +1415,47 @@ test('local mode returns only the current repo', () => {
   assert.equal(path.resolve(projects[0].path), path.resolve(here));
 });
 
+test('20260809-113242 CR11: local mode and path repair use active ref identity', () => {
+  isolatedHome();
+  const root = newRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const refConfig = fs
+    .readFileSync(configFile, 'utf8')
+    .replace(/^project_name:.*$/m, 'project_name: ref-name');
+  const projectId = /^project_id:\s*["']?([^\n"']+)/m.exec(refConfig)[1];
+  fs.writeFileSync(
+    configFile,
+    refConfig
+      .replace(/^project_id:.*$/m, 'project_id: stale-id')
+      .replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': refConfig,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  const local = resolveProjects(root, true);
+  assert.equal(local.current, projectId);
+  assert.equal(local.projects[0].name, 'ref-name');
+
+  const oldPath = path.join(root, '..', 'old-location');
+  register({ id: projectId, name: 'cached-name', path: oldPath });
+  const repaired = repairProjectPath(
+    [{ id: projectId, name: 'cached-name', path: oldPath, alive: false }],
+    {
+      project: projectId,
+      repository_path: path.resolve(oldPath),
+      path: root,
+    },
+  );
+  assert.equal(repaired.code, 200, repaired.body.error);
+  assert.deepEqual(readRegistry()[projectId], { name: 'ref-name', path: root });
+});
+
 test('111218 CR2/CR3: project config reads exact YAML and saves a valid renamed config', () => {
   isolatedHome();
   const root = newRepo();
@@ -2495,6 +2536,65 @@ test('CR6: applyConfigMigration on an activated project writes the ref, worktree
   assert.notEqual(tip, before);
   assert.match(stateConfigText(root, tip), /^schema_version: 5$/m);
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
+});
+
+test('20260809-113242 CR4: activated raw and structured config reads serve state-ref content', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    configText.replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  const refConfig = configText.replace(/^project_name:.*$/m, 'project_name: ref-name');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: refConfig }],
+    { message: 'config: diverge fixture' },
+  );
+
+  const raw = readProjectConfig(projects, current);
+  const structured = readProjectConfigStructured(projects, current);
+
+  assert.match(raw.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(raw.body.content, /stale-name/);
+  assert.equal(structured.body.config.project_name, 'ref-name');
+  assert.match(structured.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(structured.body.content, /stale-name/);
+});
+
+test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed stale marker', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'ref-only', title: 'Ref only', now: '2026-08-09T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(file, 'utf8');
+  const id = parseChange(text).frontmatter.id;
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const projectId = resolveProjects(root, false).current;
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${path.basename(file)}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
+
+  assert.equal(result.code, 200, result.body.error);
+  const updated = execFileSync(
+    'git',
+    ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${path.basename(file)}`],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(parseChange(updated).frontmatter.status, 'approved');
 });
 
 // 20260808-151643 CR8 (post-validation fold-in) — a CAS conflict on a

@@ -125,16 +125,10 @@ export function commit(
   const staged = stagedFiles(gitTopReal, run);
   log(`Staged: ${staged.join(', ')}`);
 
-  // An exact allowlist, not a classifier. Three earlier strategies tried to
-  // decide what an arbitrary staged path *is* — a `*.md` document? a collapsed
-  // rename? an escaped form? which case? — and every axis one of them closed
-  // opened a hole on another, because classifying strings the surrounding repo
-  // controls is permeable by construction. So the question is inverted: for each
-  // declared id, compute the exact string git would report for that change's own
-  // document, and abort on every staged entry under the changes directory that
-  // is not one of those strings byte for byte. This deliberately aborts on an
-  // unexpected-but-harmless entry (a `.DS_Store`, an atomic-write leftover)
-  // rather than deciding it is safe to ignore; the error names it.
+  // An exact allowlist, not a classifier. Inactive repos allow each declared
+  // change document plus .gitkeep. Activated repos allow only .gitkeep: their
+  // selected documents live in the state ref and must never be staged from a
+  // stale worktree, but the same fail-closed directory boundary still applies.
   const changesDirRel = gitRelative(
     resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'),
     gitTopReal,
@@ -151,31 +145,22 @@ export function commit(
     );
   }
   const expected = new Set(unicodeForms(`${changesDirRel}/${GITKEEP}`));
-  for (const change of repo.changes) {
-    if (!resolvedIds.includes(String(change.frontmatter.id))) continue;
-    for (const form of unicodeForms(`${changesDirRel}/${change.name}`)) expected.add(form);
+  if (!repo.state) {
+    for (const change of repo.changes) {
+      if (!resolvedIds.includes(String(change.frontmatter.id))) continue;
+      for (const form of unicodeForms(`${changesDirRel}/${change.name}`)) expected.add(form);
+    }
   }
   const prefixes = unicodeForms(`${changesDirRel}/`);
-  // Case-insensitive always: a normal `git add` cannot fabricate a mis-cased
-  // changes-directory path on a case-folding filesystem (git folds it), so the
-  // only real vector is an index write that bypasses the worktree entirely
-  // (`update-index --cacheinfo`, or a rebase/cherry-pick carrying a mis-cased
-  // tree entry) — same on every platform. Normalizing unconditionally judges
-  // that path exactly like its canonically-cased twin, on case-sensitive
-  // filesystems too, instead of trusting a host-detection that the index
-  // write already sidesteps (CR8).
   const caseKey = (value) => value.toLowerCase();
-  // Lowercasing widens only the judged scope (fail-closed): a mis-cased path
-  // under the changes directory is still judged. The whitelist stays exact —
-  // folding `expected` too would accept a mis-cased twin of a declared
-  // document on case-sensitive filesystems, trading one bypass for another.
   const prefixKeys = prefixes.map(caseKey);
   const undeclared = staged.filter(
     (file) => prefixKeys.some((prefix) => caseKey(file).startsWith(prefix)) && !expected.has(file),
   );
   if (undeclared.length) {
+    const declared = repo.state ? '' : ` (declared: ${resolvedIds.join(', ')})`;
     throw new Error(
-      `Staged path(s) under the changes directory not declared for this commit: ${undeclared.join(', ')} (declared: ${resolvedIds.join(', ')})`,
+      `Staged path(s) under the changes directory not declared for this commit: ${undeclared.join(', ')}${declared}`,
     );
   }
 

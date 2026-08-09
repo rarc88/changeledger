@@ -202,13 +202,7 @@ export function readStateRef(repoRoot, run = capturedRun) {
   return oid;
 }
 
-// Reads `revision` (defaulting to the current state ref tip) via git-batch,
-// with no checkout: enumerates the tree once, validates every entry is a
-// regular blob at a layout-valid path, and returns manifest/config parsed
-// plus every other document as `{ [relPathUnderStateRoot]: text }`, byte
-// identical to what is stored (a non-UTF-8 blob throws naming its path,
-// never silently transcoding to U+FFFD).
-export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
+function inspectStateTree(repoRoot, { revision } = {}, run = capturedRun) {
   const rev = revision ?? readStateRef(repoRoot, run);
   if (rev === null) throw new Error('state is not initialized');
   assertCommitObject(repoRoot, rev, run);
@@ -228,9 +222,17 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
   if (!names.includes(MANIFEST)) throw new Error(`state revision ${rev} is missing ${MANIFEST}`);
   if (!names.includes(CONFIG)) throw new Error(`state revision ${rev} is missing ${CONFIG}`);
 
-  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  return {
+    revision: rev,
+    entries,
+    names,
+    byPath: new Map(entries.map((entry) => [entry.path, entry])),
+  };
+}
+
+function statePathReader(repoRoot, entries, byPath, run) {
   const readBlob = batchBlobReader(repoRoot, entries, run);
-  const readPath = (full) => {
+  return (full) => {
     try {
       return readBlob(byPath.get(full).oid);
     } catch (e) {
@@ -245,10 +247,31 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
       throw e;
     }
   };
+}
+
+// Enumerates and validates the complete state layout, but materializes only
+// config.yml. Config-only callers retain the snapshot path's regular-blob and
+// strict UTF-8 guarantees without loading every ledger document body.
+export function readStateConfigText(repoRoot, { revision } = {}, run = capturedRun) {
+  const tree = inspectStateTree(repoRoot, { revision }, run);
+  const entry = tree.byPath.get(CONFIG);
+  return statePathReader(repoRoot, [entry], tree.byPath, run)(CONFIG);
+}
+
+// Reads `revision` (defaulting to the current state ref tip) via git-batch,
+// with no checkout: enumerates the tree once, validates every entry is a
+// regular blob at a layout-valid path, and returns manifest/config parsed
+// plus every other document as `{ [relPathUnderStateRoot]: text }`, byte
+// identical to what is stored (a non-UTF-8 blob throws naming its path,
+// never silently transcoding to U+FFFD).
+export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
+  const tree = inspectStateTree(repoRoot, { revision }, run);
+  const { entries, names, byPath } = tree;
+  const readPath = statePathReader(repoRoot, entries, byPath, run);
 
   const manifest = parseYaml(readPath(MANIFEST));
   if (manifest?.format_version !== STATE_SCHEMA_VERSION) {
-    throw new Error(`state revision ${rev} has unsupported manifest format_version`);
+    throw new Error(`state revision ${tree.revision} has unsupported manifest format_version`);
   }
   const config = parseYaml(readPath(CONFIG));
 
@@ -258,7 +281,7 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
     documents[name.slice(STATE_ROOT.length + 1)] = readPath(name);
   }
 
-  return { revision: rev, manifest, config, documents };
+  return { revision: tree.revision, manifest, config, documents };
 }
 
 // Compare-and-swap mutation over `expectedRevision`. `mutator({ write, remove

@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
+import {
+  findChangeledgerDir,
+  loadConfig,
+  loadEffectiveConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+} from './config.mjs';
 import { capturedRun } from './git.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
@@ -193,7 +199,9 @@ export function loadRepo(start = process.cwd(), options = {}) {
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
-  const config = loadConfig(changeledgerDir);
+  const config = loadEffectiveConfig(repoRoot, changeledgerDir, {
+    run: options.run ?? capturedRun,
+  });
   return loadRepoWithConfig(repoRoot, changeledgerDir, config, options);
 }
 
@@ -263,8 +271,8 @@ export async function loadRepoAsync(start = process.cwd(), options = {}) {
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
-  const config = loadConfig(changeledgerDir);
   const run = options.run ?? capturedRun;
+  const config = loadEffectiveConfig(repoRoot, changeledgerDir, { run });
   if (resolveActivation(repoRoot, run)) {
     const active = loadActiveContent(repoRoot, run, { isolateChangeErrors: true });
     return { changeledgerDir, repoRoot, ...active };

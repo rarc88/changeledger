@@ -1590,9 +1590,10 @@ test('CR1: task/owner/branch/log mutate the state ref, never the worktree, one c
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
 
-test('CR1: status advances the ref and records the transition, worktree untouched', () => {
+test('20260809-113242 CR10: active status ignores a malformed stale marker', () => {
   const { root, id, name } = activatedRepoWithChange();
   const before = stateRefTip(root);
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
 
   const { warnings } = status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
 

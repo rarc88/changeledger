@@ -11,6 +11,7 @@ import {
   mutateState,
   readActivation,
   readSnapshot,
+  readStateConfigText,
   readStateRef,
   STATE_REF,
   STATE_ROOT,
@@ -161,6 +162,19 @@ test('CR7: a non-UTF-8 blob is rejected naming its path, never as U+FFFD', () =>
   } catch (e) {
     assert.equal(e.message.includes('�'), false);
   }
+});
+
+test('20260809-113242 CR9: focused config read validates layout without reading document bodies', () => {
+  const root = initStateRepo();
+  const badOid = git(root, ['hash-object', '-w', '--stdin'], { input: Buffer.from([0xff, 0xfe]) });
+  const entries = Object.entries(defaultStateFiles()).map(([p, text]) => ({ path: p, text }));
+  entries.find((entry) => entry.path.endsWith('/changes/20260808-000001-change.md')).oid = badOid;
+  delete entries.find((entry) => entry.path.endsWith('/changes/20260808-000001-change.md')).text;
+  const tree = buildTreeEntries(root, entries);
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+
+  assert.equal(readStateConfigText(root), 'project_id: demo\n');
 });
 
 // --- CR8: non-regular entries and out-of-layout paths reject both ways ----

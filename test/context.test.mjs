@@ -451,7 +451,9 @@ function activatedContextFixture() {
   const worktreeId = '20260808-000002';
   addChange(root, 'draft', worktreeId);
 
-  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const configText = fs
+    .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
+    .replace(/^language: en$/m, 'language: es');
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -487,6 +489,13 @@ test('20260808-151641 CR7: context resolves the snapshot change, not a worktree 
     () => buildContext(worktreeId, root),
     new RegExp(`Unknown context "${worktreeId}"`),
   );
+});
+
+test('20260809-113242 CR3: changeless context captures use activated config policy', () => {
+  const { root } = activatedContextFixture();
+
+  assert.match(buildContext(undefined, root), /Effective policy: language=es/);
+  assert.match(buildContext('implement', root), /Effective policy: language=es/);
 });
 
 // 20260808-151641 R1 (correction round 2) — a regression the confirmation
