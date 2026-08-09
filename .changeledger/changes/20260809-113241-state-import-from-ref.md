@@ -2,7 +2,7 @@
 id: "20260809-113241"
 title: Import idempotente por ref
 type: feature
-status: draft
+status: approved
 created: 2026-08-09T11:32:41Z
 depends_on: ["20260808-151643"]
 related_to: ["20260809-113240"]
@@ -178,3 +178,4 @@ anotado; documento inválido en la fuente; repo sin activar.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
