@@ -264,6 +264,48 @@ test('CR10: activation survives a checkout change and touches no working-tree fi
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });
 
+// --- 20260809-113240 CR6: writeActivation is compare-and-swap ---------------
+
+// Stage 1 shipped `writeActivation` as a bare `update-ref` with no old-value: a
+// deliberate force-update, left as the declared pending of 20260808-151640
+// until an adoption UX existed. These three cases are that semantics.
+
+test('20260809-113240 CR6: writeActivation creates the activation ref when absent', () => {
+  const root = initStateRepo();
+
+  const { revision, created } = writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(created, true);
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
+  assert.deepEqual(readActivation(root), {
+    format_version: STATE_SCHEMA_VERSION,
+    state_ref: STATE_REF,
+  });
+});
+
+test('20260809-113240 CR6: writeActivation over an identical activation is a no-op that does not move the ref', () => {
+  const root = initStateRepo();
+  const { revision } = writeActivation(root, { stateRef: STATE_REF });
+
+  const again = writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(again.created, false);
+  assert.equal(again.revision, revision);
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
+});
+
+test('20260809-113240 CR6: writeActivation refuses a divergent activation instead of forcing it', () => {
+  const root = initStateRepo();
+  const { revision } = writeActivation(root, { stateRef: 'refs/heads/other/state' });
+
+  assert.throws(
+    () => writeActivation(root, { stateRef: STATE_REF }),
+    (e) => /refs\/heads\/other\/state/.test(e.message) && /refus/i.test(e.message),
+  );
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
+  assert.equal(readActivation(root).state_ref, 'refs/heads/other/state');
+});
+
 // --- CR11: the core works on SHA-256 repositories ---------------------------
 
 test('CR11: CR1-CR4 scenarios pass on a sha256 repository with 64-char oids', () => {

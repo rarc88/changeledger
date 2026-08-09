@@ -377,9 +377,34 @@ export function readActivation(repoRoot, run = capturedRun) {
   return { format_version: authority.format_version, state_ref: authority.state_ref };
 }
 
+// Compare-and-swap activation write. Stage 1 shipped this as a bare
+// `update-ref` with no old-value — a deliberate force-update with no CLI on top
+// of it, left as the declared pending of 20260808-151640 until an adoption UX
+// existed. It now has three outcomes and no fourth:
+//
+// - absent: created with a zero old-value, so a concurrent writer that won the
+//   race is detected instead of being silently overwritten;
+// - present and declaring the SAME state_ref: the same decision already taken —
+//   a no-op that does not move the ref (the commit object cannot be compared
+//   directly: `commit-tree` stamps a timestamp, so re-deriving it would produce
+//   a different oid for identical content and force-update every re-run);
+// - present and declaring a DIFFERENT state_ref: a divergence a tool must never
+//   resolve on its own. Explicit error, ref untouched, decision to the human.
+//
+// A plain Error (not LedgerConflictError) for divergence on purpose: the bin
+// collapses LedgerConflictError to "state changed since load — re-run", which
+// is exactly the wrong advice for a divergence that a re-run cannot fix.
 export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) {
   if (typeof stateRef !== 'string' || stateRef === '') {
     throw new Error('writeActivation requires a stateRef');
+  }
+  const existing = optionalRefOid(repoRoot, ACTIVATION_REF, run);
+  if (existing !== null) {
+    const current = readActivation(repoRoot, run);
+    if (current.state_ref === stateRef) return { revision: existing, created: false };
+    throw new Error(
+      `${ACTIVATION_REF} already activates "${current.state_ref}", not "${stateRef}" — refusing to overwrite an existing activation`,
+    );
   }
   const authorityText = stringifyYaml({
     format_version: STATE_SCHEMA_VERSION,
@@ -391,6 +416,17 @@ export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) 
     removals: new Set(),
   });
   const commit = commitTree(repoRoot, tree, { parents: [], message: 'chore: activation' }, run);
-  run(['update-ref', ACTIVATION_REF, commit], repoRoot);
-  return { revision: commit };
+  const zeroOid = '0'.repeat(commit.length);
+  try {
+    run(['update-ref', ACTIVATION_REF, commit, zeroOid], repoRoot);
+  } catch (e) {
+    // Same discipline as `initState`: only a ref that now resolves proves a
+    // concurrent writer won. Any other failure (a stale `.lock`) never moved
+    // the ref and must not be relabeled as a race the caller could retry away.
+    if (optionalRefOid(repoRoot, ACTIVATION_REF, run) !== null) {
+      throw new LedgerConflictError(`${ACTIVATION_REF} was created concurrently`, { cause: e });
+    }
+    throw e;
+  }
+  return { revision: commit, created: true };
 }
