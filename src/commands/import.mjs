@@ -6,8 +6,8 @@
 //
 // It is a single pass with no intermediate state: resolve the ref (asserting it
 // IS a commit, never peeling an annotated tag — MIG-04), read the ledger out of
-// its tree with no checkout, validate ALL of it with the repo's own `checkRepo`
-// rules BEFORE classifying anything, classify every document by CONTENT
+// its tree with no checkout, validate every visible document with the repo's own
+// `checkRepo` rules BEFORE classifying anything, classify every document by CONTENT
 // IDENTITY against the current snapshot, and then either report every conflict
 // and write nothing, or apply adds and updates as one `mutateState`.
 //
@@ -44,13 +44,14 @@ import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 // spirit to the cutover's layout — the configured directories go through
 // `resolveRepoPath`'s containment guard, then are expressed relative to git's
 // own top-level, which is not necessarily the ChangeLedger repo root — except
-// that `config.yml` has no entry at all: it is not a document this command can
-// see, so it cannot be imported or reported by accident.
+// that `config.yml` is not a collection entry: it cannot be imported or reported
+// as a conflict. Its path is retained only for the zero-visible layout warning.
 function sourceLayout(repoRoot, config, run) {
   const topLevel = gitTopLevel(repoRoot, run);
   const rel = (absolute) => toPosix(path.relative(topLevel, absolute));
   return {
     nestedSubject: 'the source',
+    sourceConfigPath: rel(path.join(repoRoot, '.changeledger', 'config.yml')),
     collections: [
       {
         name: 'changes',
@@ -61,6 +62,20 @@ function sourceLayout(repoRoot, config, run) {
       { name: 'releases', extension: '.yml', prefix: `${rel(resolveReleasesDir(repoRoot))}/` },
     ],
   };
+}
+
+// Source config never becomes authority and malformed/absent source config keeps
+// its historical ignored behavior. This narrow read exists only to explain an
+// otherwise opaque zero-visible result when the source declares another layout.
+function sourceChangesDirAt(repoRoot, revision, configPath, run) {
+  try {
+    const config = parseYaml(run(['cat-file', 'blob', `${revision}:${configPath}`], repoRoot));
+    return typeof config?.changes_dir === 'string' && config.changes_dir !== ''
+      ? config.changes_dir
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 // A document's identity, derived from its CONTENT and never from its filename: a
@@ -244,12 +259,8 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
   const revision = run(['rev-parse', from], repoRoot).trim();
 
   const snapshot = readSnapshot(repoRoot, {}, run);
-  const { documents } = readLedgerAt(
-    repoRoot,
-    revision,
-    sourceLayout(repoRoot, snapshot.config, run),
-    run,
-  );
+  const layout = sourceLayout(repoRoot, snapshot.config, run);
+  const { documents } = readLedgerAt(repoRoot, revision, layout, run);
   validateSource(documents, snapshot.config);
 
   const { adds, updates, conflicts } = classify(documents, indexSnapshot(snapshot));
@@ -268,6 +279,12 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
   // An operator who believes it deletes a branch whose ledger was never read.
   // The exit code is 0 either way; only the sentence separates them.
   if (documents.size === 0) {
+    const sourceChangesDir = sourceChangesDirAt(repoRoot, revision, layout.sourceConfigPath, run);
+    if (sourceChangesDir && sourceChangesDir !== snapshot.config.changes_dir) {
+      output.warn(
+        `Warning: the source declares \`changes_dir: ${sourceChangesDir}\`; this repo reads \`${snapshot.config.changes_dir}\` — documents under the source layout are not imported`,
+      );
+    }
     output.log(
       `No ChangeLedger documents found at ${from} (${revision}) — nothing was read, so nothing was imported`,
     );
