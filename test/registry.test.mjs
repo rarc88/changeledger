@@ -145,6 +145,19 @@ test('20260809-113242 CR12 correction: a deleted path below a Git worktree retai
   assert.deepEqual(listProjects(), [{ id: 'deleted', name: 'deleted-cache', path: deleted }]);
 });
 
+test('20260809-113242 CR12 correction: a path replaced by a file below a Git worktree retains its cached name', () => {
+  isolatedHome();
+  const gitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-file-'));
+  execFileSync('git', ['init', '-q'], { cwd: gitRoot });
+  const replaced = path.join(gitRoot, 'projects', 'replaced');
+  fs.mkdirSync(replaced, { recursive: true });
+  register({ id: 'replaced', name: 'replaced-cache', path: replaced });
+  fs.rmSync(replaced, { recursive: true });
+  fs.writeFileSync(replaced, 'not a directory\n');
+
+  assert.deepEqual(listProjects(), [{ id: 'replaced', name: 'replaced-cache', path: replaced }]);
+});
+
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {
   isolatedHome();
   register({ id: 'aaa', name: 'alpha', path: '/old/alpha' });

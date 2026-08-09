@@ -46,7 +46,8 @@ export function register({ id, name, path: repoPath }) {
 export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
-    if (!fs.existsSync(value.path)) return { id, name, path: value.path };
+    const stats = fs.statSync(value.path, { throwIfNoEntry: false });
+    if (!stats?.isDirectory()) return { id, name, path: value.path };
     const activated = repoIsActivated(value.path);
     try {
       const config = loadEffectiveConfig(value.path, path.join(value.path, '.changeledger'));

@@ -5,7 +5,7 @@ type: feature
 status: in-validation
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
-branch: feature/20260809-113242
+branch: integration/in-validation
 related_to: ["20260809-113240", "20260808-234920"]
 owner: rarc88
 release_impact: minor
@@ -240,3 +240,9 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **2026-08-09T15:17:20Z** `[status]` in-progress → in-review
 - **2026-08-09T15:17:20Z** `[note]` Mandato de segunda confirmación: verificar únicamente el fallback de ruta registrada borrada bajo ancestro Git y que su ajuste no reabra el fail-closed de activación rota; candidato sin commit sobre 4f850a6f.
 - **2026-08-09T15:20:12Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T18:11:50Z** `[validation]` in-validation → in-progress (human rejected via conversation): Post-review con borde ejecutado: la clase del retry no quedó cerrada — ruta registrada reemplazada por un ARCHIVO bajo ancestro git revienta listProjects con spawnSync ENOTDIR porque el probe repoIsActivated quedó fuera del try (registry.mjs); el código pre-change conservaba el nombre cacheado.
+- **2026-08-09T18:14:46Z** `[status]` in-progress → in-review
+- **2026-08-09T18:14:46Z** `[note]` Mandato de confirmación (corrección del rechazo humano): diff sin commitear en src/registry.mjs (guard de directorio en listProjects) y test/registry.test.mjs — verificar cerrado el borde ENOTDIR (ruta registrada reemplazada por archivo bajo ancestro git conserva el nombre cacheado), que CR12 fail-closed (activación con ref borrada sigue lanzando) no se reabre, y sin regresiones; lo latente es follow-up.
+- **2026-08-09T18:14:57Z** `[branch]` set: integration/in-validation
+- **2026-08-09T18:19:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T18:19:40Z** `[note]` Follow-up del confirmador (no bloqueante): con un ancestro chmod 000, statSync lanza EACCES y listProjects aborta el listado entero donde el existsSync pre-change degradaba al nombre cacheado; fix durable sugerido: mover el probe repoIsActivated dentro del try para que cualquier fallo de probe en ruta no activada degrade al cache. Sin CR que lo cubra; queda para follow-up.
