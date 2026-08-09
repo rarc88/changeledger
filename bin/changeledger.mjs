@@ -26,6 +26,7 @@ import { context } from '../src/commands/context.mjs';
 import { cutover } from '../src/commands/cutover.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
+import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
@@ -47,7 +48,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
   changeledger init | register | new | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
-  changeledger cutover | activate
+  changeledger cutover | activate | import
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -303,6 +304,29 @@ program
     ].join('\n'),
   )
   .action(action(() => activate()));
+
+program
+  .command('import')
+  .description('absorb one worktree-layout ref into this activated repo, all or nothing')
+  .requiredOption('--from <ref>', 'the ref whose tree holds the ledger to absorb')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'For the branches that were in flight when the repo was cut over, and for the',
+      'documents that land on them afterwards: it validates the whole source, then',
+      'adds what is missing and updates every change whose Log strictly extends the',
+      'published one. Re-running the same ref is a no-op.',
+      '',
+      'The ref must BE a commit (an annotated tag is refused, never peeled), and the',
+      "source's config.yml is ignored — once activated, the state ref is the config",
+      'authority. Any conflict aborts the whole import and is yours to resolve.',
+      '',
+      'Example:',
+      '  changeledger import --from feature/in-flight',
+    ].join('\n'),
+  )
+  .action(action((options) => importFromRef({ from: options.from })));
 
 program
   .command('context')
