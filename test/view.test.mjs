@@ -24,6 +24,7 @@ import {
   resolveProjects,
   saveProjectConfig,
   searchProjects,
+  staticFile,
   unregisterProject,
   view,
 } from '../src/commands/view.mjs';
@@ -294,35 +295,53 @@ test('222618: lit-html vendor modules are served for browser import maps', async
   assert.match(unsafe.body, /unsafeHTML/);
 });
 
-test('151234 CR1: encoded traversal does not read outside public assets', async () => {
-  isolatedHome();
-  const secret = path.join(publicDir, '..', 'public-sibling-secret.txt');
-  fs.writeFileSync(secret, 'outside-public');
-  const root = newRepo();
+function temporaryStaticFixture() {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-static-'));
+  const root = path.join(temporaryRoot, 'public');
+  const asset = path.join(root, 'asset.txt');
+  const sibling = path.join(temporaryRoot, 'public-sibling-secret.txt');
+  fs.mkdirSync(root);
+  fs.writeFileSync(asset, 'inside-public');
+  fs.writeFileSync(sibling, 'outside-public');
+  return { temporaryRoot, root, asset, sibling };
+}
+
+test('151234 CR1: encoded traversal stays inside an injected temporary root', () => {
+  const fixture = temporaryStaticFixture();
   try {
-    const res = await memoryRequest(root, { path: '/..%2Fpublic-sibling-secret.txt' });
-    assert.equal(res.status, 404);
-    assert.ok(!res.body.includes('outside-public'));
+    assert.equal(staticFile('/asset.txt', fixture.root), fixture.asset);
+    assert.equal(staticFile('/..%2Fpublic-sibling-secret.txt', fixture.root), null);
   } finally {
-    fs.rmSync(secret, { force: true });
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
   }
 });
 
-test('151234 CR2: sibling paths with a shared prefix are not served', async () => {
-  isolatedHome();
-  const sibling = path.join(publicDir, '..', 'public-sibling-secret.txt');
-  fs.writeFileSync(sibling, 'prefix escape');
-  const root = newRepo();
+test('151234 CR2: sibling paths with a shared prefix stay outside an injected root', () => {
+  const fixture = temporaryStaticFixture();
   try {
-    const res = await memoryRequest(root, { path: '/../public-sibling-secret.txt' });
-    assert.equal(res.status, 404);
-    assert.ok(!res.body.includes('prefix escape'));
+    assert.equal(staticFile('/asset.txt', fixture.root), fixture.asset);
+    assert.equal(staticFile('/../public-sibling-secret.txt', fixture.root), null);
   } finally {
-    fs.rmSync(sibling, { force: true });
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
   }
 });
 
-test('151234 CR3: valid static assets are still served with MIME', async () => {
+test('151234 CR3: static resolver fixtures mutate only temporary paths', () => {
+  const fixture = temporaryStaticFixture();
+  const checkoutSrc = path.resolve(publicDir, '..', '..');
+  try {
+    for (const mutatedPath of [fixture.root, fixture.asset, fixture.sibling]) {
+      const fromTemporaryRoot = path.relative(fixture.temporaryRoot, mutatedPath);
+      assert.ok(!fromTemporaryRoot.startsWith('..') && !path.isAbsolute(fromTemporaryRoot));
+      const fromCheckoutSrc = path.relative(checkoutSrc, mutatedPath);
+      assert.ok(fromCheckoutSrc.startsWith('..') || path.isAbsolute(fromCheckoutSrc));
+    }
+  } finally {
+    fs.rmSync(fixture.temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('151234 CR4: production listener serves the real app.js with MIME', async () => {
   isolatedHome();
   const res = await memoryRequest(newRepo(), { path: '/app.js' });
   assert.equal(res.status, 200);
