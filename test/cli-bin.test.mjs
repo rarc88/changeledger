@@ -35,6 +35,39 @@ function run(...args) {
   }
 }
 
+const HELP_COMMAND_EXCLUSIONS = new Set(['help']);
+
+function registeredChildCommands(help) {
+  const lines = help.split('\n');
+  const start = lines.indexOf('Commands:');
+  if (start === -1) return [];
+
+  const commands = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line === '') break;
+    const match = line.match(/^ {2}(\S+)/);
+    if (match && !HELP_COMMAND_EXCLUSIONS.has(match[1])) commands.push(match[1]);
+  }
+  return commands;
+}
+
+function registeredCommandHelp() {
+  const rootHelp = run('--help');
+  assert.equal(rootHelp.code, 0, 'root --help should exit 0');
+  const queue = [{ command: [], out: rootHelp.out }];
+  const results = [];
+
+  for (const parent of queue) {
+    for (const child of registeredChildCommands(parent.out)) {
+      const command = [...parent.command, child];
+      const help = run(...command, '-h');
+      results.push({ command, ...help });
+      queue.push({ command, out: help.out });
+    }
+  }
+  return results;
+}
+
 function runDirect(...args) {
   try {
     const out = execFileSync(bin, args, { encoding: 'utf8' });
@@ -476,39 +509,28 @@ test('225212 CR5: root --help offers a concise index without a divergent manual 
   assert.match(out, /context.*unless.*delegation prompt.*agent-context/is);
 });
 
-// CR6: every public command and subcommand's help exits 0, shows Usage, matrix.
+// CR6: every registered command and subcommand's help exits 0 and shows Usage.
 test('225212 CR6: help matrix — every command and subcommand documents Usage on exit 0', () => {
-  const commands = [
-    ['init'],
-    ['register'],
-    ['new'],
-    ['view'],
-    ['check'],
-    ['context'],
-    ['agent-prompt'],
-    ['agent-context'],
-    ['status'],
-    ['approve'],
-    ['discard'],
-    ['review'],
-    ['owner'],
-    ['archive'],
-    ['log'],
-    ['task'],
-    ['list'],
-    ['show'],
-    ['graduate'],
-    ['config'],
-    ['config', 'migrate'],
-    ['release'],
-    ['release', 'init'],
-    ['release', 'plan'],
-    ['release', 'record'],
+  const commandHelp = registeredCommandHelp();
+  const topLevelCommands = new Set(
+    commandHelp.filter(({ command }) => command.length === 1).map(({ command }) => command[0]),
+  );
+  const formerlyOmitted = [
+    'import',
+    'cutover',
+    'activate',
+    'commit',
+    'fix',
+    'search',
+    'validation',
   ];
-  for (const cmd of commands) {
-    const { code, out } = run(...cmd, '-h');
-    assert.equal(code, 0, `${cmd.join(' ')} -h should exit 0`);
-    assert.match(out, /Usage: changeledger/, `${cmd.join(' ')} -h should show Usage`);
+  assert.deepEqual(
+    formerlyOmitted.filter((name) => !topLevelCommands.has(name)),
+    [],
+  );
+  for (const { command, code, out } of commandHelp) {
+    assert.equal(code, 0, `${command.join(' ')} -h should exit 0`);
+    assert.match(out, /Usage: changeledger/, `${command.join(' ')} -h should show Usage`);
   }
 });
 
