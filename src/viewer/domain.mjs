@@ -12,7 +12,13 @@ import {
   validation as applyValidation,
   isPendingGraduation,
 } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadConfig,
+  loadEffectiveConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+} from '../config.mjs';
 import {
   assertSupportedSchema,
   buildMigration,
@@ -23,7 +29,7 @@ import { capturedRun } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
-import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
+import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
 import { LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
 
@@ -410,8 +416,12 @@ function changeStatusImpl(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const { file } = resolveChange(proj.path, id);
-    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    if (repoIsActivated(proj.path)) {
+      current = resolveChangeInRepo(loadRepo(proj.path), id).frontmatter.status;
+    } else {
+      const { file } = resolveChange(proj.path, id);
+      current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    }
   } catch (e) {
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
@@ -459,8 +469,8 @@ function projectFor(projects, id) {
 function readProjectConfigImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   return { code: 200, body: { content, revision: revision(content) } };
 }
 
@@ -639,8 +649,8 @@ export const unregisterProject = withProjectIdentity(
 function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   const config = parseYaml(content);
   const schemaVersion = getSchemaVersion(config);
   return {

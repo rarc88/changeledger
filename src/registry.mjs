@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from './atomic-write.mjs';
-import { loadConfig } from './config.mjs';
+import { loadEffectiveConfig } from './config.mjs';
 
 export function registryDir() {
   return path.join(process.env.CHANGELEDGER_HOME || os.homedir(), '.changeledger');
@@ -46,7 +46,7 @@ export function listProjects() {
   return Object.entries(readRegistry()).map(([id, value]) => {
     let name = value.name;
     try {
-      const config = loadConfig(path.join(value.path, '.changeledger'));
+      const config = loadEffectiveConfig(value.path, path.join(value.path, '.changeledger'));
       if (String(config.project_id) === id && typeof config.project_name === 'string') {
         name = config.project_name;
       }

@@ -2,9 +2,10 @@
 id: "20260809-113242"
 title: Resolver las fronteras de resolución en repos activados
 type: feature
-status: approved
+status: in-review
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
+branch: feature/20260809-113242
 related_to: ["20260809-113240", "20260808-234920"]
 owner: rarc88
 release_impact: minor
@@ -150,32 +151,41 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 
 ## Plan
 
-- [ ] Helper único de autoridad de config (`loadEffectiveConfig`) leyendo el
+- [x] Helper único de autoridad de config (`loadEffectiveConfig`) leyendo el
   blob del snapshot en activo y el worktree en inactivo
   - **Target:** `src/config.mjs`
   - **Verify:** `node --test test/config.test.mjs`
   - **Criteria:** CR8
-- [ ] Migrar los callers de CLI: `register`, bootstrap de `check` y capturas
+  - **Resolved:** `2026-08-09T14:19:47Z`
+- [x] Migrar los callers de CLI: `register`, bootstrap de `check` y capturas
   sin id de `context`/`agent-context`
   - **Target:** `src/commands/register.mjs`, `src/commands/check.mjs`, `src/commands/context.mjs`, `src/commands/agent-context.mjs`
   - **Verify:** `node --test test/register.test.mjs test/check.test.mjs test/context.test.mjs test/agent-context.test.mjs`
   - **Criteria:** CR1, CR2, CR3
-- [ ] Migrar la lectura de config del viewer y el listado del registry
+  - **Resolved:** `2026-08-09T14:19:47Z`
+- [x] Migrar la lectura de config del viewer y el listado del registry
   - **Target:** `src/viewer/domain.mjs`, `src/registry.mjs`
   - **Verify:** `node --test test/view.test.mjs test/registry.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Enrutar `changeStatusImpl` por activación como los mutadores del CLI
+  - **Resolved:** `2026-08-09T14:19:47Z`
+- [x] Enrutar `changeStatusImpl` por activación como los mutadores del CLI
   - **Target:** `src/viewer/domain.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR6
-- [ ] Adaptar el guard de staged y la composición del marker de `commit` al
+  - **Resolved:** `2026-08-09T14:19:47Z`
+- [x] Adaptar el guard de staged y la composición del marker de `commit` al
   repo activado
   - **Target:** `src/commands/commit.mjs`
   - **Verify:** `node --test test/commit.test.mjs`
   - **Criteria:** CR7
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-09T14:19:47Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T14:19:47Z`
 
 ## Log
 - **2026-08-09T11:55:07Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T14:07:52Z** `[status]` approved → in-progress
+- **2026-08-09T14:07:52Z** `[branch]` set: feature/20260809-113242 (auto)
+- **2026-08-09T14:20:39Z** `[status]` in-progress → in-review

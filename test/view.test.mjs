@@ -2497,6 +2497,64 @@ test('CR6: applyConfigMigration on an activated project writes the ref, worktree
   assert.equal(fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8'), configText);
 });
 
+test('20260809-113242 CR4: activated raw and structured config reads serve state-ref content', () => {
+  const { root, projects, current, configText } = activatedConfigFixture();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    configText.replace(/^project_name:.*$/m, 'project_name: stale-name'),
+  );
+  const refConfig = configText.replace(/^project_name:.*$/m, 'project_name: ref-name');
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [{ relPath: 'config.yml', text: refConfig }],
+    { message: 'config: diverge fixture' },
+  );
+
+  const raw = readProjectConfig(projects, current);
+  const structured = readProjectConfigStructured(projects, current);
+
+  assert.match(raw.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(raw.body.content, /stale-name/);
+  assert.equal(structured.body.config.project_name, 'ref-name');
+  assert.match(structured.body.content, /project_name: ref-name/);
+  assert.doesNotMatch(structured.body.content, /stale-name/);
+});
+
+test('20260809-113242 CR6: viewer status transition resolves a ref-only activated change', () => {
+  isolatedHome();
+  const root = newRepo();
+  const file = newChange(
+    { type: 'feature', slug: 'ref-only', title: 'Ref only', now: '2026-08-09T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const text = fs.readFileSync(file, 'utf8');
+  const id = parseChange(text).frontmatter.id;
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const projectId = resolveProjects(root, false).current;
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${path.basename(file)}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  fs.rmSync(path.join(root, '.changeledger', 'changes'), { recursive: true });
+  const { projects, current } = resolveProjects(root, false);
+
+  const result = changeStatus(projects, { project: current, id, status: 'approved' });
+
+  assert.equal(result.code, 200, result.body.error);
+  const updated = execFileSync(
+    'git',
+    ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${path.basename(file)}`],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(parseChange(updated).frontmatter.status, 'approved');
+});
+
 // 20260808-151643 CR8 (post-validation fold-in) — a CAS conflict on a
 // viewer config write must surface as an actionable 409, never a generic
 // 400 and never the store's own raw "state ref moved" wording. `racingRun`

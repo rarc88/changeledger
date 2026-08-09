@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import {
+  listProjects,
   readRegistry,
   register,
   registryDir,
@@ -15,6 +17,8 @@ import {
   remove,
   update,
 } from '../src/registry.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -72,6 +76,29 @@ test('register relinks the path for the same project_id without duplicating', ()
   const reg = readRegistry();
   assert.equal(Object.keys(reg).length, 1);
   assert.equal(reg[id].path, path.resolve(moved));
+});
+
+test('20260809-113242 CR5: listProjects uses project_name from an activated state ref', () => {
+  isolatedHome();
+  const root = newRepo();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  const id = loadConfig(path.join(root, '.changeledger')).project_id;
+  fs.writeFileSync(configFile, original.replace(/^project_name:.*$/m, 'project_name: stale-name'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${id}\n`,
+    '.changeledger-state/config.yml': original.replace(
+      /^project_name:.*$/m,
+      'project_name: ref-name',
+    ),
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(listProjects().find((project) => project.id === id).name, 'ref-name');
 });
 
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {

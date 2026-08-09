@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { isValidBranchName } from './git.mjs';
+import { repoIsActivated } from './change-store.mjs';
+import { capturedRun, isValidBranchName } from './git.mjs';
+import { readStateRef, STATE_ROOT } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 // Walk up from `start` looking for a project `.changeledger/config.yml`. The
@@ -23,6 +25,23 @@ export function loadConfig(changeledgerDir) {
   const file = path.join(changeledgerDir, 'config.yml');
   if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
   return parseYaml(fs.readFileSync(file, 'utf8'));
+}
+
+// The discovery marker remains in the worktree, but an activated repository's
+// config content belongs to the state ref. `raw` keeps schema-preserving viewer
+// reads on this same authority seam without loading the rest of the snapshot.
+export function loadEffectiveConfig(repoRoot, changeledgerDir, { raw = false } = {}) {
+  if (!repoIsActivated(repoRoot)) {
+    if (!raw) return loadConfig(changeledgerDir);
+    const file = path.join(changeledgerDir, 'config.yml');
+    if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
+    return fs.readFileSync(file, 'utf8');
+  }
+
+  const revision = readStateRef(repoRoot);
+  if (revision === null) throw new Error('state is not initialized');
+  const text = capturedRun(['cat-file', 'blob', `${revision}:${STATE_ROOT}/config.yml`], repoRoot);
+  return raw ? text : parseYaml(text);
 }
 
 // Resolves a configured directory (changes_dir/specs_dir) against the repo root,

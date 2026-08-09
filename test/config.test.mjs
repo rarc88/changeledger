@@ -1,6 +1,45 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
-import { changeBranchFormat, integrationBranch, renderChangeBranch } from '../src/config.mjs';
+import {
+  changeBranchFormat,
+  integrationBranch,
+  loadEffectiveConfig,
+  renderChangeBranch,
+} from '../src/config.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, initStateRepo, updateRef } from './helpers/state-repo.mjs';
+
+test('20260809-113242 CR8: loadEffectiveConfig keeps the worktree authority when inactive', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'config-inactive-'));
+  const changeledgerDir = path.join(root, '.changeledger');
+  fs.mkdirSync(changeledgerDir);
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), 'project_name: worktree-name\n');
+
+  assert.equal(loadEffectiveConfig(root, changeledgerDir).project_name, 'worktree-name');
+});
+
+test('20260809-113242 config authority: loadEffectiveConfig reads the activated state-ref blob', () => {
+  const root = initStateRepo();
+  const changeledgerDir = path.join(root, '.changeledger');
+  fs.mkdirSync(changeledgerDir);
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), 'project_name: stale-name\n');
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': '# retained\nproject_name: ref-name\n',
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(loadEffectiveConfig(root, changeledgerDir).project_name, 'ref-name');
+  assert.equal(
+    loadEffectiveConfig(root, changeledgerDir, { raw: true }),
+    '# retained\nproject_name: ref-name\n',
+  );
+});
 
 // 20260711-210115 CR1: optional `git.integration_branch` resolves from config.
 

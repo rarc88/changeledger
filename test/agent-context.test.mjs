@@ -101,7 +101,9 @@ depends_on: []
 Do the delegated work.
 `;
 
-  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const configText = fs
+    .readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8')
+    .replace(/^language: en$/m, 'language: es');
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -122,6 +124,15 @@ test('20260808-151641 CR7: agent-context resolves the snapshot change, not a wor
   assert.ok(out.includes(refText.trim()));
 
   assert.throws(() => buildAgentContext('implementation', worktreeId, root), /No change with id/);
+});
+
+test('20260809-113242 CR3: changeless agent-context uses activated config policy', () => {
+  const { root } = activatedAgentContextFixture();
+
+  assert.match(
+    buildAgentContext('investigation', undefined, root),
+    /Effective policy: language=es/,
+  );
 });
 
 // 20260808-151641 R1 (correction round 2) — same regression as
