@@ -2,9 +2,10 @@
 id: "20260809-140157"
 title: Avisar la causa cuando el import no ve documentos
 type: quick
-status: draft
+status: in-validation
 created: 2026-08-09T14:01:57Z
 depends_on: ["20260809-113241"]
+branch: quick/20260809-140157
 related_to: []
 owner: rarc88
 ---
@@ -25,3 +26,8 @@ Superficie: `src/commands/import.mjs`, `bin/changeledger.mjs` (solo help) y
 `test/import.test.mjs`.
 
 ## Log
+- **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T16:22:39Z** `[status]` approved → in-progress
+- **2026-08-09T16:22:39Z** `[branch]` set: quick/20260809-140157 (auto)
+- **2026-08-09T17:28:02Z** `[note]` Implementación TDD completada: import 18/18, help 9/9 y pnpm verify 1323/1323; el mismatch avisa por stderr sin mover la ref ni cambiar exit 0.
+- **2026-08-09T17:28:39Z** `[status]` in-progress → in-validation
