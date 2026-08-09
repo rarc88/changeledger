@@ -2,9 +2,10 @@
 id: "20260809-140158"
 title: Derivar la matriz de help de program.commands
 type: quick
-status: in-validation
+status: done
 created: 2026-08-09T14:01:58Z
 depends_on: []
+reviewed: true
 branch: quick/20260809-140158
 related_to: ["20260809-113241"]
 owner: rarc88
@@ -28,3 +29,5 @@ excluirlo por nombre, visible en review. Superficie: `test/cli-bin.test.mjs`
 - **2026-08-09T16:22:39Z** `[branch]` set: quick/20260809-140158 (auto)
 - **2026-08-09T17:36:16Z** `[note]` Implementación TDD completada: matriz derivada recursivamente del help de Commander, 34 rutas cubiertas, exclusión explícita de help, cli-bin 60/60 y pnpm verify 1324/1324.
 - **2026-08-09T17:36:53Z** `[status]` in-progress → in-validation
+- **2026-08-09T19:37:00Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:45Z** `[graduation]` skipped: matriz de help derivada en tests: sin verdad persistente

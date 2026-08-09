@@ -2,9 +2,10 @@
 id: "20260808-171107"
 title: Robustecer los caminos de error del store de estado
 type: bug
-status: in-validation
+status: done
 created: 2026-08-08T17:11:07Z
 depends_on: ["20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
+reviewed: true
 branch: bug/20260808-171107
 related_to: ["20260809-113242"]
 owner: rarc88
@@ -170,3 +171,6 @@ taxonomía de warnings, red ni resolución automática de conflictos.
 - **2026-08-09T16:41:59Z** `[status]` in-progress → in-review
 - **2026-08-09T16:41:59Z** `[note]` Mandato de confirmación: verificar únicamente CR3 con error de forma capturedRun, el diagnóstico exacto basado en stderr y ausencia de regresión en ref corrupta, ausencia genuina y los demás status de fallo; corrección sin commit sobre f0cd2510.
 - **2026-08-09T16:44:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:44Z** `[graduation]` spec: `architecture.md`
+- **2026-08-09T19:40:09Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.

@@ -2,9 +2,10 @@
 id: "20260809-131004"
 title: Recuperar el cutover ante señuelos e interrupciones
 type: bug
-status: in-validation
+status: done
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
+reviewed: true
 branch: integration/in-validation
 related_to: []
 owner: rarc88
@@ -176,3 +177,6 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 - **2026-08-09T19:15:01Z** `[note]` Mandato de segunda confirmación: verificar únicamente los dos huecos del retry anterior — test del decoy en repo nunca cortado matando al mutante del gate, y --first-parent restaurado en findCompletedUndo (forma del undo descartado -s ours vuelve a funcionar) sin romper D1/D2 ni CR1/CR2/CR8; candidato sin commit sobre f6295f56.
 - **2026-08-09T19:22:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T19:22:28Z** `[note]` Follow-ups acumulados de las dos confirmaciones (no bloqueantes): fail-closed cuando varios registros llevan el baseline de la ref (solo alcanzable forjando el trailer a mano; un cherry-pick real conflictúa); el --first-parent de findCompletedUndo queda guardado solo por su comentario (mutante sobrevive a la suite; el escenario -s ours lo cubre fuera de suite); el brazo activated-only del gate del decoy sin escenario dedicado; asimetría advisory del contenido ignorado S3/S1.
+- **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:45Z** `[graduation]` spec: `architecture.md`
+- **2026-08-09T19:40:10Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.

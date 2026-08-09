@@ -2,9 +2,10 @@
 id: "20260809-113242"
 title: Resolver las fronteras de resolución en repos activados
 type: feature
-status: in-validation
+status: done
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
+reviewed: true
 branch: integration/in-validation
 related_to: ["20260809-113240", "20260808-234920"]
 owner: rarc88
@@ -246,3 +247,6 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **2026-08-09T18:14:57Z** `[branch]` set: integration/in-validation
 - **2026-08-09T18:19:40Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T18:19:40Z** `[note]` Follow-up del confirmador (no bloqueante): con un ancestro chmod 000, statSync lanza EACCES y listProjects aborta el listado entero donde el existsSync pre-change degradaba al nombre cacheado; fix durable sugerido: mover el probe repoIsActivated dentro del try para que cualquier fallo de probe en ruta no activada degrade al cache. Sin CR que lo cubra; queda para follow-up.
+- **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:45Z** `[graduation]` spec: `architecture.md`
+- **2026-08-09T19:40:09Z** `[note]` Cierre: commit combinado de graduación con 171107/234920/131004/140157 (architecture.md es superficie compartida de los cinco). Incluye la restauración autorizada por el humano del rationale que la implementación borró en src/commands/commit.mjs (bloques allowlist-no-clasificador y case-folding incondicional); el test renombrado de 151643 se deja como está: aserciones superconjunto, sin pérdida de cobertura.

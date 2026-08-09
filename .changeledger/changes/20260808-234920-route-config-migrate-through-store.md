@@ -2,9 +2,10 @@
 id: "20260808-234920"
 title: Enrutar config migrate por el store en repos activados
 type: bug
-status: in-validation
+status: done
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
+reviewed: true
 branch: integration/in-validation
 related_to: ["20260628-113219", "20260628-113924", "20260809-113242"]
 owner: rarc88
@@ -150,3 +151,6 @@ nueva copia mutable.
 - **2026-08-09T18:31:32Z** `[note]` Mandato de confirmación (corrección del rechazo humano): diff sin commitear en src/config-migration.mjs y test/config-migration.test.mjs — verificar cerrado el enrutado anidado en ambas direcciones (el proyecto interior migra su archivo y la ref exterior no se mueve; la migración del propio repo activado sigue por la ref con marker divergente o malformado), sin regresión de CR1-CR5 vigentes; los residuales nombrados (marker sin project_id o inparseable en anidado; ref exterior rota bloquea al anidado) son follow-up, no fallo.
 - **2026-08-09T18:38:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T18:38:21Z** `[note]` Follow-ups del confirmador (no bloqueantes, ejecutados): un anidado cuyo marker no tiene project_id o es inparseable sigue enrutando al ref del host; un anidado bajo host con ref de estado rota falla con state is not initialized en vez de migrar el archivo interior (fail-closed, el binario pre-change lo migraba). Ambos acotados y documentados; la costura equivalente de LECTURA en loadEffectiveConfig sigue siendo follow-up aparte.
+- **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:44Z** `[graduation]` spec: `architecture.md`
+- **2026-08-09T19:40:10Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.

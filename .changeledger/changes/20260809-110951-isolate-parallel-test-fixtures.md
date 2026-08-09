@@ -2,9 +2,10 @@
 id: "20260809-110951"
 title: Aislar los fixtures de tests que corren en paralelo
 type: bug
-status: in-validation
+status: done
 created: 2026-08-09T11:09:51Z
 depends_on: []
+reviewed: true
 branch: bug/20260809-110951
 related_to: ["20260729-203257", "20260808-151641"]
 owner: rarc88
@@ -108,3 +109,5 @@ parámetro no está exportado por el paquete.
 - **2026-08-09T17:18:10Z** `[status]` in-progress → in-review
 - **2026-08-09T17:19:05Z** `[note]` Mandato de review: auditoría completa de CR1-CR5 sobre 54a22b11..HEAD, verificando fixtures solo temporales, traversal y prefijo falsificados contra root inyectado, root de producción intacto y guard de control bytes sin tolerancia a ENOENT.
 - **2026-08-09T17:26:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T19:39:45Z** `[graduation]` skipped: aislamiento de fixtures de tests: sin verdad persistente
