@@ -33,6 +33,7 @@ import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
+import { LedgerConflictError } from '../src/state-store.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -54,7 +55,16 @@ function action(fn) {
     try {
       await fn(...args);
     } catch (e) {
-      console.error(`Error: ${e.message}`);
+      // A CAS conflict from the state store (`change-store.mjs`/
+      // `state-store.mjs`) is presented with its own actionable message —
+      // the store already guarantees no partial write, so the bin's only
+      // job is to tell the caller to reload and re-run, not to relay the
+      // store's own "state ref moved: expected X, found Y" internals.
+      if (e instanceof LedgerConflictError) {
+        console.error('state changed since load — re-run the command');
+      } else {
+        console.error(`Error: ${e.message}`);
+      }
       process.exit(1);
     }
   };
@@ -186,7 +196,11 @@ program
       ];
       process.exit(fix(args));
     } catch (e) {
-      console.error(`Error: ${e.message}`);
+      if (e instanceof LedgerConflictError) {
+        console.error('state changed since load — re-run the command');
+      } else {
+        console.error(`Error: ${e.message}`);
+      }
       process.exit(1);
     }
   });

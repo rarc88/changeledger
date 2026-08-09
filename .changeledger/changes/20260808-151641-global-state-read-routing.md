@@ -7,7 +7,7 @@ created: 2026-08-08T15:16:41Z
 depends_on: ["20260808-151640"]
 reviewed: true
 branch: feature/20260808-151641
-related_to: ["20260808-142200"]
+related_to: ["20260808-142200", "20260808-151643"]
 owner: rarc88
 ---
 

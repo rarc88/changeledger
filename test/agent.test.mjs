@@ -8,10 +8,12 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
+import { writeLedgerFiles } from '../src/change-store.mjs';
 import {
   approve,
   archive,
   archiveGraduated,
+  branch,
   discard,
   isPendingGraduation,
   list,
@@ -26,7 +28,14 @@ import {
 } from '../src/commands/agent.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
+import {
+  LedgerConflictError,
+  STATE_REF,
+  STATE_ROOT,
+  writeActivation,
+} from '../src/state-store.mjs';
 import { setBranch } from '../src/writer.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -69,6 +78,49 @@ function repoWithChange() {
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   return { root, file, id };
+}
+
+// Activated variant of `repoWithChange()`: the same document, but living
+// only in the state ref's snapshot — the worktree copy used to build its
+// text is removed before activation, so any mutator that fell back to a
+// worktree read would fail outright rather than silently succeed against
+// stale content.
+function activatedRepoWithChange() {
+  const { root, file, id } = repoWithChange();
+  const name = path.basename(file);
+  const text = fs.readFileSync(file, 'utf8');
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  fs.rmSync(file);
+
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  return { root, id, name, revision };
+}
+
+function stateRefTip(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+}
+
+function stateDocText(root, revision, relPath) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
+    encoding: 'utf8',
+    cwd: root,
+  });
+}
+
+function lastCommitMessage(root) {
+  return execFileSync('git', ['log', '-1', '--format=%s', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+  }).trim();
 }
 
 function configureChangeBranches(root, { integration = 'dev', format = 'work/{id}' } = {}) {
@@ -1502,4 +1554,241 @@ test('212314 CR2: a lock on one change does not block mutating another change', 
   } finally {
     fs.rmSync(heldLock, { force: true });
   }
+});
+
+// 20260808-151643 — active-mode routing: a mutation on an activated repo
+// writes a CAS commit on the state ref instead of the worktree, and every
+// mutator in the battery still recognizes a document that only exists there.
+
+test('CR1: task/owner/branch/log mutate the state ref, never the worktree, one commit each', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+
+  task(id, 'done', 1, '', root);
+  assert.equal(parseChange(stateDocText(root, stateRefTip(root), relPath)).tasks[0].state, 'done');
+  assert.equal(lastCommitMessage(root), `task: ${id} 1 done`);
+
+  owner(id, 'octocat', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.owner,
+    'octocat',
+  );
+  assert.equal(lastCommitMessage(root), `owner: ${id} octocat`);
+
+  branch(id, 'work/x', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.branch,
+    'work/x',
+  );
+  assert.equal(lastCommitMessage(root), `branch: ${id} work/x`);
+
+  log(id, 'a note', root);
+  assert.match(stateDocText(root, stateRefTip(root), relPath), /a note/);
+  assert.equal(lastCommitMessage(root), `log: ${id}`);
+
+  // Never a worktree write: the whole state tree root never existed on disk.
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR1: status advances the ref and records the transition, worktree untouched', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const before = stateRefTip(root);
+
+  const { warnings } = status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+
+  assert.deepEqual(warnings, []);
+  const tip = stateRefTip(root);
+  assert.notEqual(tip, before);
+  const fm = parseChange(stateDocText(root, tip, `changes/${name}`)).frontmatter;
+  assert.equal(fm.status, 'approved');
+  assert.equal(lastCommitMessage(root), `status: ${id} → approved`);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+// 20260808-151643 CR9 (post-validation fold-in) — the converted mutators
+// return the written path in both modes: inactive unchanged (the worktree
+// file, byte-identical to before this change), active the state-tree path
+// (`changes/<file>`), never `undefined`. `status` is CR9's named example;
+// one representative assertion per mode is the criterion's own scope.
+test('CR9: status returns the worktree path when inactive and the state-tree path when active', () => {
+  const inactive = repoWithChange();
+  const inactiveResult = status(inactive.id, 'approved', inactive.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(inactiveResult.file, inactive.file);
+
+  const active = activatedRepoWithChange();
+  const activeResult = status(active.id, 'approved', active.root, {
+    actor: 'human',
+    channel: 'conversation',
+  });
+  assert.equal(activeResult.file, `changes/${active.name}`);
+});
+
+test('CR1: full lifecycle through review/validation/reopen/discard stays on the ref', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  status(id, 'in-review', root);
+
+  review(id, 'pass', {}, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-validation',
+  );
+
+  validation(id, 'pass', {}, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'done',
+  );
+
+  reopen(id, 'needs a fix', root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-progress',
+  );
+  assert.equal(lastCommitMessage(root), `reopen: ${id}`);
+
+  status(id, 'in-review', root);
+  review(id, 'fail', { mode: 'retry', reason: 'oops' }, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.status,
+    'in-progress',
+  );
+
+  discard(id, 'not needed', root);
+  const fm = parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter;
+  assert.equal(fm.status, 'discarded');
+  assert.equal(lastCommitMessage(root), `discard: ${id}`);
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
+});
+
+test('CR1: archive and archiveGraduated commit through the ref', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+  status(id, 'in-progress', root, { ownerHandle: () => '' });
+  status(id, 'in-review', root);
+  review(id, 'pass', {}, root);
+  validation(id, 'pass', {}, root);
+
+  archive(id, root);
+  assert.equal(
+    parseChange(stateDocText(root, stateRefTip(root), relPath)).frontmatter.archived,
+    true,
+  );
+});
+
+function archiveCandidateText(id, log) {
+  const fm = [
+    '---',
+    `id: "${id}"`,
+    'title: Candidate',
+    'type: feature',
+    'status: done',
+    'created: 2026-06-13T12:00:00Z',
+    'reviewed: true',
+    'depends_on: []',
+    '---',
+  ].join('\n');
+  return `${fm}\n\n## Request\n\nR\n\n## Investigation\n\nI\n\n## Proposal\n\nP\n\n## Specification\n\n### CR1 — C\n- **Given** x\n- **When** y\n- **Then** z\n\n## Plan\n\n- [x] do it (CR1) — 2026-06-13T12:00:00Z\n\n## Log\n${log}\n`;
+}
+
+test('CR1: archiveGraduated commits every archived change in one commit, active mode', () => {
+  const { root } = activatedRepoWithChange();
+  const graduatedText = archiveCandidateText(
+    '20260613-120001',
+    '- **2026-06-13T12:00:00Z** `[graduation]` spec: `arch.md`',
+  );
+  const skippedText = archiveCandidateText(
+    '20260613-120002',
+    '- **2026-06-13T12:00:00Z** `[graduation]` skipped: no durable truth',
+  );
+  writeLedgerFiles(
+    { repoRoot: root, state: { revision: stateRefTip(root) } },
+    [
+      { relPath: 'changes/20260613-120001-candidate.md', text: graduatedText },
+      { relPath: 'changes/20260613-120002-candidate.md', text: skippedText },
+    ],
+    { message: 'chore: seed candidates' },
+  );
+
+  const before = stateRefTip(root);
+  const result = archiveGraduated({}, root);
+
+  assert.deepEqual(result.map((c) => c.id).sort(), ['20260613-120001', '20260613-120002']);
+  // CR9 fold-in: archiveGraduated's own return also names the written path
+  // in active mode, never the `null` `repo.changes` carries there.
+  assert.deepEqual(result.map((c) => c.file).sort(), [
+    'changes/20260613-120001-candidate.md',
+    'changes/20260613-120002-candidate.md',
+  ]);
+  const tip = stateRefTip(root);
+  assert.equal(git(root, ['rev-list', '--count', `${before}..${tip}`]).trim(), '1');
+  for (const relPath of [
+    'changes/20260613-120001-candidate.md',
+    'changes/20260613-120002-candidate.md',
+  ]) {
+    const fm = parseChange(stateDocText(root, tip, relPath)).frontmatter;
+    assert.equal(fm.archived, true);
+  }
+});
+
+test('CR7: an active mutation preserves every other document identity in the child snapshot', () => {
+  const { root, id, revision } = activatedRepoWithChange();
+  const before = execFileSync('git', ['ls-tree', '-r', '--name-only', revision], {
+    encoding: 'utf8',
+    cwd: root,
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+
+  log(id, 'a note', root);
+
+  const after = execFileSync('git', ['ls-tree', '-r', '--name-only', stateRefTip(root)], {
+    encoding: 'utf8',
+    cwd: root,
+  })
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+
+  for (const p of before) assert.ok(after.includes(p), `${p} disappeared from the child snapshot`);
+});
+
+test('CR2: a concurrent write between load and write surfaces LedgerConflictError, no partial write', () => {
+  const { root, id, name } = activatedRepoWithChange();
+  const relPath = `changes/${name}`;
+  task(id, 'done', 1, '', root);
+  status(id, 'approved', root, { actor: 'human', channel: 'conversation' });
+
+  // `status(..., 'in-progress')` calls `ownerHandle` (owner is unset here)
+  // strictly after `locate()` already captured `repo.state.revision`, and
+  // strictly before this call's own write — the exact window CR2 describes.
+  // The racer performs a real, unrelated write through the same seam
+  // (`log`) to advance the ref out from under the in-flight call, entirely
+  // deterministically (no timing, no subprocess race).
+  const racer = () => {
+    log(id, 'concurrent note', root);
+    return '';
+  };
+
+  assert.throws(
+    () => status(id, 'in-progress', root, { ownerHandle: racer }),
+    (err) => err instanceof LedgerConflictError && /state ref moved/.test(err.message),
+  );
+
+  const tip = stateRefTip(root);
+  const fm = parseChange(stateDocText(root, tip, relPath)).frontmatter;
+  // The ref sits exactly where the racer left it: the racer's write is
+  // there, the failed call's write is not.
+  assert.match(stateDocText(root, tip, relPath), /concurrent note/);
+  assert.equal(fm.status, 'approved');
+  assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
 });

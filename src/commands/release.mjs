@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { withFileLock, writeFileAtomic } from '../atomic-write.mjs';
+import { writeLedgerFiles } from '../change-store.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { nowUtc } from '../paths.mjs';
 import {
@@ -60,6 +61,26 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+
+  // Active: the true concurrency guard is the CAS write below (a stale
+  // `expectedRevision` fails outright), so no worktree lock file is created —
+  // one would be a write to a repo this path must leave untouched. Inactive:
+  // the file lock is unchanged, guarding the check-then-write race a plain
+  // filesystem otherwise allows.
+  if (initial.state) {
+    if (initial.releases.length) throw new Error('Release history is already initialized.');
+    const manifest = {
+      version,
+      created: now,
+      baseline: true,
+      changes: initial.changes
+        .filter((change) => change.frontmatter.status === 'done')
+        .map((change) => String(change.frontmatter.id)),
+    };
+    writeNewManifest(initial, version, manifest);
+    return { file: `releases/${version}.yml`, manifest };
+  }
+
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   fs.mkdirSync(releasesDir, { recursive: true });
   const historyLock = path.join(releasesDir, '.history');
@@ -76,7 +97,7 @@ export function initReleaseHistory(version, cwd = process.cwd(), now = nowUtc())
         .map((change) => String(change.frontmatter.id)),
     };
     const file = path.join(releasesDir, `${version}.yml`);
-    writeNewManifest(file, manifest);
+    writeNewManifest(repo, version, manifest, file);
     return { file, manifest };
   });
 }
@@ -86,6 +107,22 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
   assertTimestamp(now);
   const initial = loadRepo(cwd);
   assertSupportedSchema(initial.config);
+
+  if (initial.state) {
+    const plan = releasePlan(cwd);
+    if (!plan.releasable) throw new Error('No releasable changes (highest impact is none).');
+    if (version !== plan.nextVersion) {
+      throw new Error(`Version "${version}" does not match the calculated ${plan.nextVersion}.`);
+    }
+    const manifest = {
+      version,
+      created: now,
+      changes: plan.changes.map((change) => change.id),
+    };
+    writeNewManifest(initial, version, manifest);
+    return { file: `releases/${version}.yml`, manifest, plan };
+  }
+
   const releasesDir = resolveReleasesDir(initial.repoRoot);
   const historyLock = path.join(releasesDir, '.history');
 
@@ -101,7 +138,7 @@ export function recordRelease(version, cwd = process.cwd(), now = nowUtc()) {
       changes: plan.changes.map((change) => change.id),
     };
     const file = path.join(releasesDir, `${version}.yml`);
-    writeNewManifest(file, manifest);
+    writeNewManifest(null, version, manifest, file);
     return { file, manifest, plan };
   });
 }
@@ -130,10 +167,21 @@ function effectiveImpact(change, config) {
   return impact;
 }
 
-function writeNewManifest(file, manifest) {
+// `repo` present (its `.state` truthy) routes through the store as one CAS
+// commit; `repo` null/inactive keeps the original worktree write at `file`.
+function writeNewManifest(repo, version, manifest, file) {
+  const text = stringifyYaml(manifest);
+  if (repo?.state) {
+    const relPath = `releases/${version}.yml`;
+    if (repo.releases.some((release) => release.name === `${version}.yml`)) {
+      throw new Error(`Release manifest already exists: ${version}.yml`);
+    }
+    writeLedgerFiles(repo, [{ relPath, text }], { message: `release: ${version}` });
+    return;
+  }
   if (fs.existsSync(file))
     throw new Error(`Release manifest already exists: ${path.basename(file)}`);
-  writeFileAtomic(file, stringifyYaml(manifest));
+  writeFileAtomic(file, text);
 }
 
 function assertTimestamp(value) {
