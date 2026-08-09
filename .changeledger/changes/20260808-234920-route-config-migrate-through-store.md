@@ -2,9 +2,10 @@
 id: "20260808-234920"
 title: Enrutar config migrate por el store en repos activados
 type: bug
-status: approved
+status: in-review
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
+branch: bug/20260808-234920
 related_to: ["20260628-113219", "20260628-113924", "20260809-113242"]
 owner: rarc88
 ---
@@ -98,21 +99,25 @@ nueva copia mutable.
 
 ## Plan
 
-- [ ] Escribir primero los fixtures activos de CLI para preview, apply, no-op, fallo y conflicto
+- [x] Escribir primero los fixtures activos de CLI para preview, apply, no-op, fallo y conflicto
   - **Target:** `test/config-migration.test.mjs`, `test/cli-bin.test.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-- [ ] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
+  - **Resolved:** `2026-08-09T16:54:20Z`
+- [x] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
   - **Target:** `src/config-migration.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-- [ ] Enrutar el preview del viewer por el mismo target efectivo
+  - **Resolved:** `2026-08-09T16:54:20Z`
+- [x] Enrutar el preview del viewer por el mismo target efectivo
   - **Target:** `src/viewer/domain.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR6
-- [ ] Ejecutar el gate completo
+  - **Resolved:** `2026-08-09T16:54:21Z`
+- [x] Ejecutar el gate completo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T16:54:21Z`
 
 ## Log
 
@@ -122,3 +127,7 @@ nueva copia mutable.
   la vía CLI de config migrate, excluida explícitamente de su alcance. Queda
   en draft hasta su debido momento.
 - **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T16:22:39Z** `[status]` approved → in-progress
+- **2026-08-09T16:22:39Z** `[branch]` set: bug/20260808-234920 (auto)
+- **2026-08-09T16:54:21Z** `[note]` Implementación TDD completada: matriz seleccionada 7/7, suites focalizadas 105/105 y 112/112, y pnpm verify 1326/1326.
+- **2026-08-09T16:55:14Z** `[status]` in-progress → in-review

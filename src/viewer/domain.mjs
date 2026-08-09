@@ -756,8 +756,8 @@ export const patchProjectConfig = withProjectIdentity(
 function previewConfigMigrationImpl(projects, id, rev) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   if (rev && revision(content) !== rev) {
     return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
   }
