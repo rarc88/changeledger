@@ -146,64 +146,83 @@ function publishedMatches(repoRoot, tip, source, projectId, run) {
   );
 }
 
-// The baseline recorded by the cleanup commit at `revision`, or null when that
-// commit is not a complete cutover record. A hand-written exact-subject commit
-// is a decoy: warn with its identity, then keep searching for the real record.
-function cutoverBaselineAt(repoRoot, revision, output, run) {
-  const message = run(['log', '-1', '--format=%B', revision], repoRoot);
-  if (message.split('\n')[0].trim() !== CUTOVER_SUBJECT) return null;
-  const match = message.match(BASELINE_RE);
-  if (!match) {
+// Every commit reachable from HEAD whose SUBJECT is exactly CUTOVER_SUBJECT,
+// newest first, split into complete records (subject plus baseline trailer) and
+// the exact-subject commits that carry no trailer.
+//
+// `--grep` only prefilters (it matches anywhere in a message, so a commit that
+// merely quotes the subject would match); the subject line alone decides.
+// Traversal follows ALL parents on purpose: a topic branch that merges the
+// integration branch, with the integration branch then fast-forwarding onto
+// that merge, is an ordinary workflow, and it leaves the cut reachable only as
+// the merge's SECOND parent. Ignoring those parents made the undo report that
+// nothing is reachable while the repo stayed activated with no ledger in the
+// worktree.
+function scanCutovers(repoRoot, output, run) {
+  const out = run(
+    ['log', '--topo-order', '--format=%H', '-F', `--grep=${CUTOVER_SUBJECT}`, 'HEAD'],
+    repoRoot,
+  );
+  const records = [];
+  const trailerless = [];
+  for (const oid of out.split('\n').map((line) => line.trim())) {
+    if (oid === '') continue;
+    const message = run(['log', '-1', '--format=%B', oid], repoRoot);
+    if (message.split('\n')[0].trim() !== CUTOVER_SUBJECT) continue;
+    const match = message.match(BASELINE_RE);
+    if (match) {
+      records.push({ oid, baseline: match[1] });
+      continue;
+    }
+    // A hand-written exact-subject commit is a decoy: warn with its identity
+    // and keep searching for the real record. A genuine cut whose trailer a
+    // message rewrite dropped looks identical here, so it is remembered rather
+    // than forgotten — see `findCutover`.
     output.warn(
-      `Ignoring exact-subject cutover commit ${revision}: it has no ${BASELINE_TRAILER} trailer`,
+      `Ignoring exact-subject cutover commit ${oid}: it has no ${BASELINE_TRAILER} trailer`,
     );
-    return null;
+    trailerless.push(oid);
   }
-  return match[1];
+  return { records, trailerless };
 }
 
 // THE definition of "this repo's cutover commit", shared by the re-run
-// detection and by the undo: the most recent commit reachable from HEAD whose
-// SUBJECT is exactly CUTOVER_SUBJECT. Deliberately not "HEAD is the cutover
-// commit" — the reversibility condition the Proposal states is the state ref
-// still pointing at the published baseline, and nothing about where HEAD
-// happens to be; tying it to HEAD killed the escape hatch on the first ordinary
-// commit or merge that landed after the cut.
+// detection and by the undo. Deliberately not "HEAD is the cutover commit" —
+// the reversibility condition the Proposal states is the state ref still
+// pointing at the published baseline, and nothing about where HEAD happens to
+// be; tying it to HEAD killed the escape hatch on the first ordinary commit or
+// merge that landed after the cut.
 //
-// `--grep` only prefilters (it matches anywhere in a message, so a commit that
-// merely quotes the subject would match); `cutoverBaselineAt` is what decides,
-// on the subject line alone. Most recent wins: after an undo-and-re-cut the
-// live cut is the newest one. A cutover that was already undone does not need
-// its own marker — its baseline no longer exists, so the state-ref check below
-// rejects it.
-function findCutover(repoRoot, output, run) {
-  const out = run(
-    [
-      'log',
-      '--topo-order',
-      '--first-parent',
-      '--format=%H',
-      '-F',
-      `--grep=${CUTOVER_SUBJECT}`,
-      'HEAD',
-    ],
-    repoRoot,
-  );
-  let found = null;
-  for (const oid of out.split('\n').map((line) => line.trim())) {
-    if (oid === '') continue;
-    const baseline = cutoverBaselineAt(repoRoot, oid, output, run);
-    if (baseline !== null && found === null) found = { oid, baseline };
+// The state ref is what tells the live cut from a retired one: the cut this
+// repo is standing on is the record whose baseline the ref still holds, whether
+// it was reached through a merge or along the branch. Only when no record
+// agrees with the ref does the newest by descendancy stand in, so the
+// past-the-baseline and half-cut diagnostics below still name a commit.
+//
+// `state` is the repo's own cutover evidence — the state ref (`tip`) and the
+// activation. With evidence present and no record at all, exact-subject commits
+// that lost their trailer are the only explanation left, and the operator gets
+// them by oid instead of a false "nothing is reachable".
+function findCutover(repoRoot, { tip = null, activated = false }, output, run) {
+  const { records, trailerless } = scanCutovers(repoRoot, output, run);
+  const live = tip === null ? undefined : records.find((record) => record.baseline === tip);
+  const found = live ?? records[0] ?? null;
+  if (found === null && trailerless.length > 0 && (tip !== null || activated)) {
+    throw new Error(
+      `no verifiable cutover commit is reachable from HEAD — ${trailerless.join(', ')} has the cutover subject but carries no ${BASELINE_TRAILER} trailer, so its baseline cannot be verified; resolve it by hand`,
+    );
   }
   return found;
 }
 
-// Both directions rewrite tracked files on the integration branch and commit
-// them, so both demand the same two guarantees: nothing already staged (a
-// commit here must contain exactly what this command produced, never someone
-// else's staged work) and a ledger with no uncommitted edit (the source of
-// truth being published is the COMMIT, so an unstaged edit would be silently
-// dropped by the cut and destroyed by the cleanup).
+// The precondition both directions share whenever they are about to produce a
+// commit of their own: nothing already staged (the commit must contain exactly
+// what this command produced, never someone else's staged work) and a ledger
+// with no uncommitted edit (the source of truth being published is the COMMIT,
+// so an unstaged edit would be silently dropped by the cut and destroyed by the
+// cleanup). Resuming an interrupted cut is the one path that skips it: there the
+// index already holds exactly the pending cleanup, verified entry by entry by
+// `exactStagedCleanup`, and the commit to produce is that very cleanup.
 function ledgerPathspecs(changeledgerDir, layout) {
   return [
     toPosix(path.relative(layout.topLevel, changeledgerDir)),
@@ -305,9 +324,9 @@ function runCutover(ctx, output, run) {
   // snapshot from a worktree the previous run deliberately emptied. Found
   // anywhere in the history, not only at HEAD, so ordinary commits landing
   // after the cut do not turn the re-run into a spurious failure.
-  const recorded = findCutover(repoRoot, output, run);
   let tip = readStateRef(repoRoot, run);
   const activation = readActivation(repoRoot, run);
+  const recorded = findCutover(repoRoot, { tip, activated: activation !== null }, output, run);
   if (recorded !== null) {
     if (tip !== null && activation !== null) {
       output.log(
@@ -470,6 +489,13 @@ function isInverseCommit(repoRoot, cutoverCommit, candidate, run) {
   return true;
 }
 
+// Unlike the cutover search above, this one stays on the first-parent line, and
+// the asymmetry is the point. Finding the cut is about REACHABILITY: a cut on a
+// second parent is still this repo's cut, and its content is in the tree. An
+// undo is only "interrupted" when its restored ledger is what the branch is
+// standing on — an undo commit that a merge reached but discarded (`-s ours`,
+// or any merge that kept the cut's tree) restored nothing here, and treating it
+// as interrupted would refuse a plain undo that can still run.
 function findCompletedUndo(repoRoot, cutoverCommit, run) {
   const out = run(
     [
@@ -521,14 +547,19 @@ function deleteCutoverRefs(repoRoot, stateOid, activationOid, run) {
 function undoCutover(ctx, output, run) {
   const { changeledgerDir, config, repoRoot } = ctx;
 
-  const found = findCutover(repoRoot, output, run);
+  const tip = readStateRef(repoRoot, run);
+  const found = findCutover(
+    repoRoot,
+    { tip, activated: readActivation(repoRoot, run) !== null },
+    output,
+    run,
+  );
   if (found === null) {
     throw new Error(
       `nothing to undo — no commit with the subject "${CUTOVER_SUBJECT}" is reachable from HEAD`,
     );
   }
   const { oid: cutoverCommit, baseline } = found;
-  const tip = readStateRef(repoRoot, run);
   if (tip === null) {
     throw new Error(`nothing to undo — ${STATE_REF} does not exist`);
   }

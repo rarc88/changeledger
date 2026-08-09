@@ -5,7 +5,7 @@ type: bug
 status: in-validation
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
-branch: bug/20260809-131004
+branch: integration/in-validation
 related_to: []
 owner: rarc88
 ---
@@ -167,3 +167,12 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 - **2026-08-09T15:46:01Z** `[status]` in-progress → in-review
 - **2026-08-09T15:46:01Z** `[note]` Mandato de segunda confirmación: verificar únicamente contenido ledger ignorado/no trackeado durante S3, el aislamiento por pathspec y que no reabra los guards S3/S1 ya confirmados; candidato sin commit sobre 420d8945.
 - **2026-08-09T15:50:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T18:11:50Z** `[validation]` in-validation → in-progress (human rejected via conversation): Post-review con borde ejecutado: findCutover ganó --first-parent sin declararlo en CRs, Plan ni mandatos, y mata el undo cuando el commit de corte es alcanzable solo vía segundo padre (workflow ordinario de merge) con mensaje factualmente falso, dejando el repo activado sin ledger. Además un corte genuino con trailer perdido (--amend/squash) se reclasifica en silencio como señuelo, perdiendo el error accionable previo.
+- **2026-08-09T18:39:11Z** `[branch]` set: integration/in-validation
+- **2026-08-09T18:52:21Z** `[status]` in-progress → in-review
+- **2026-08-09T18:52:21Z** `[note]` Mandato de confirmación (corrección del rechazo humano): diff sin commitear en src/commands/cutover.mjs y test/cutover.test.mjs — verificar D1 cerrado (corte alcanzable solo vía segundo padre se encuentra y el undo restaura) y D2 cerrado (trailer perdido falla nombrando el oid, nunca 'nothing is reachable'), CR1/CR2/CR8 sin regresión, y escrutar la DESVIACIÓN de diseño reportada: selección por baseline-concuerda-con-la-ref en vez de first-parent/más-reciente (el corrector probó que la regla prescrita rompía CR2). Residual advisory S3/S1 intacto por mandato.
+- **2026-08-09T19:09:07Z** `[review]` in-review → in-progress (retry): Confirmación: D1 y D2 cerrados y la desviación de selección por baseline validada como sólida, pero (1) el gate del fallo por trailer ((tip!==null||activated)) no tiene test — el mutante que lo elimina sobrevive 29/29 y sin gate un decoy brickea repos nunca cortados; (2) quitar --first-parent de findCompletedUndo es no declarado, sin test (mutante sobrevive) y regresiona una forma ejecutada: un undo manual en rama lateral mergeado -s ours antes funcionaba (undo real exit 0) y ahora falla llamándolo 'interrupted'. Corrección: test del decoy en repo nunca cortado, y restaurar --first-parent en findCompletedUndo.
+- **2026-08-09T19:15:01Z** `[status]` in-progress → in-review
+- **2026-08-09T19:15:01Z** `[note]` Mandato de segunda confirmación: verificar únicamente los dos huecos del retry anterior — test del decoy en repo nunca cortado matando al mutante del gate, y --first-parent restaurado en findCompletedUndo (forma del undo descartado -s ours vuelve a funcionar) sin romper D1/D2 ni CR1/CR2/CR8; candidato sin commit sobre f6295f56.
+- **2026-08-09T19:22:28Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T19:22:28Z** `[note]` Follow-ups acumulados de las dos confirmaciones (no bloqueantes): fail-closed cuando varios registros llevan el baseline de la ref (solo alcanzable forjando el trailer a mano; un cherry-pick real conflictúa); el --first-parent de findCompletedUndo queda guardado solo por su comentario (mutante sobrevive a la suite; el escenario -s ours lo cubre fuera de suite); el brazo activated-only del gate del decoy sin escenario dedicado; asimetría advisory del contenido ignorado S3/S1.

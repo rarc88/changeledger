@@ -268,7 +268,80 @@ test('20260809-131004 CR1: a trailerless exact-subject decoy warns but cannot bl
   }
 });
 
-test('20260809-131004 CR2: undo selects the live first-parent cutover over a later-dated undone lateral cut', () => {
+// The original brick: the decoy seeded BEFORE any cut. Naming trailerless
+// commits when the baseline cannot be verified must stay gated on the repo's
+// own cutover evidence — a repo with no state ref and no activation has nothing
+// to verify, so the decoy is only a decoy and the first cut must still run.
+test('20260809-131004 CR1: a decoy on a never-cut repo does not block the first cutover', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  writeLedgerFiles(root, { 'README.md': '# decoy\n' });
+  git(root, ['add', 'README.md']);
+  git(root, ['commit', '-q', '-m', 'chore(state): cut the ledger over to the state ref']);
+  const decoy = head(root);
+
+  const first = cliCaptured(root, 'cutover');
+
+  assert.equal(first.code, 0, first.err || first.out);
+  assert.match(first.err, new RegExp(decoy));
+  assert.match(first.err, /ignoring.*trailer/i);
+  assert.doesNotMatch(first.err, /baseline cannot be verified/);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(git(root, ['rev-parse', 'HEAD^']), decoy);
+  assert.equal(
+    git(root, ['log', '-1', '--format=%s', 'HEAD']),
+    'chore(state): cut the ledger over to the state ref',
+  );
+  assert.equal(exists(root, '.changeledger/changes'), false);
+
+  const undone = cliCaptured(root, 'cutover', '--undo');
+
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+});
+
+// A genuine cut can lose its trailer to a message rewrite (`git commit --amend
+// -m`, a squash merge). Skipping it as if it were a hand-written decoy would
+// tell the operator that nothing is reachable while the warning above names the
+// very commit that is — the failure has to name it and say what cannot be
+// verified.
+test('20260809-131004 CR1: a genuine cut whose trailer was rewritten away fails naming the commit', () => {
+  const { root } = seedLedgerRepo();
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  git(root, [
+    'commit',
+    '--amend',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+  ]);
+  const rewritten = head(root);
+
+  const undone = cliCaptured(root, 'cutover', '--undo');
+
+  assert.notEqual(undone.code, 0);
+  assert.match(undone.err, new RegExp(rewritten));
+  assert.match(undone.err, /baseline cannot be verified/);
+  assert.doesNotMatch(undone.err, /nothing to undo/);
+
+  const rerun = cliCaptured(root, 'cutover');
+
+  assert.notEqual(rerun.code, 0);
+  assert.match(rerun.err, new RegExp(rewritten));
+  assert.match(rerun.err, /baseline cannot be verified/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), rewritten);
+});
+
+test('20260809-131004 CR2: undo selects the live cutover over a later-dated undone lateral cut', () => {
   const { root } = seedLedgerRepo();
   const files = defaultLedgerFiles();
   const seed = head(root);
@@ -296,6 +369,40 @@ test('20260809-131004 CR2: undo selects the live first-parent cutover over a lat
   const liveBaseline = git(root, ['rev-parse', STATE_REF]);
   assert.notEqual(liveBaseline, retiredBaseline);
   git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'retired-cut', '-m', 'merge retired cut']);
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+});
+
+// The falsifying edge of a first-parent-only search, and an ordinary workflow:
+// a topic branch merges the integration branch and the integration branch then
+// fast-forwards onto that merge, so the cut is reachable only as the merge's
+// SECOND parent. Missing it strands the repo activated with no ledger anywhere
+// in the worktree — the stuck state this change exists to remove.
+test('20260809-131004 CR2: a cut reachable only through a merge second parent is still found', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const cut = head(root);
+  git(root, ['checkout', '-q', '-b', 'topic', seed]);
+  writeLedgerFiles(root, { 'topic.txt': 'topic\n' });
+  git(root, ['add', 'topic.txt']);
+  git(root, ['commit', '-q', '-m', 'chore: topic work']);
+  git(root, ['merge', '-q', '--no-ff', 'main', '-m', 'merge main into topic']);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--ff-only', 'topic']);
+  assert.equal(git(root, ['log', '-1', '--format=%P', 'HEAD']).split(' ')[1], cut);
+
+  const rerun = cli(root, 'cutover');
+  assert.equal(rerun.code, 0, rerun.err || rerun.out);
+  assert.match(rerun.out, /already cut over/i);
 
   const undone = cli(root, 'cutover', '--undo');
 
