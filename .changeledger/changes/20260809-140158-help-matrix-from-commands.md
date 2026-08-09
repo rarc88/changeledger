@@ -2,7 +2,7 @@
 id: "20260809-140158"
 title: Derivar la matriz de help de program.commands
 type: quick
-status: draft
+status: approved
 created: 2026-08-09T14:01:58Z
 depends_on: []
 related_to: ["20260809-113241"]
@@ -22,3 +22,4 @@ excluirlo por nombre, visible en review. Superficie: `test/cli-bin.test.mjs`
 (y `bin/changeledger.mjs` solo si hace falta exponer la lista).
 
 ## Log
+- **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
