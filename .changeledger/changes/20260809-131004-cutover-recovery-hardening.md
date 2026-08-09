@@ -2,9 +2,10 @@
 id: "20260809-131004"
 title: Recuperar el cutover ante señuelos e interrupciones
 type: bug
-status: draft
+status: in-validation
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
+branch: bug/20260809-131004
 related_to: []
 owner: rarc88
 ---
@@ -116,34 +117,53 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 
 ## Plan
 
-- [ ] `findCutover` trata el subject sin trailer como no-match con aviso, y
+- [x] `findCutover` trata el subject sin trailer como no-match con aviso, y
   ordena la búsqueda con `--topo-order`
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Detección y mensaje de la media publicación con la salida manual literal
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Detección y mensaje de la media publicación con la salida manual literal
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR3
-- [ ] Reanudación determinista de las ventanas S3 (cutover) y S1 (undo)
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Reanudación determinista de las ventanas S3 (cutover) y S1 (undo)
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR4, CR5
-- [ ] Extraer el lector compartido del árbol del ledger y consumirlo desde
+  - **Resolved:** `2026-08-09T15:21:35Z`
+- [x] Extraer el lector compartido del árbol del ledger y consumirlo desde
   `cutover.mjs` e `import.mjs`
   - **Target:** `src/commands/cutover.mjs`, `src/commands/import.mjs`
   - **Verify:** `node --test test/cutover.test.mjs test/import.test.mjs`
   - **Criteria:** CR6
-- [ ] Endurecer la aserción del test "activate outside a ChangeLedger repo"
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Endurecer la aserción del test "activate outside a ChangeLedger repo"
   para que fije el mensaje real en vez de `/ChangeLedger/`
   - **Support:**
   - **Verify:** `node --test test/activate.test.mjs`
-- [ ] Devolver el fail-fast al fixture de `test/import.test.mjs`: el
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Devolver el fail-fast al fixture de `test/import.test.mjs`: el
   `--allow-empty` del source pasa a ser opt-in por escenario
   - **Support:**
   - **Verify:** `node --test test/import.test.mjs`
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-09T15:21:36Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-09T15:21:36Z`
 
 ## Log
+- **2026-08-09T14:52:37Z** `[status]` draft → approved (human via conversation)
+- **2026-08-09T14:55:26Z** `[status]` approved → in-progress
+- **2026-08-09T14:55:26Z** `[branch]` set: bug/20260809-131004 (auto)
+- **2026-08-09T15:22:20Z** `[status]` in-progress → in-review
+- **2026-08-09T15:23:34Z** `[note]` Mandato de review: auditoría completa de CR1-CR6, ventanas S1-S3, selección topológica, CAS de borrado de refs, extracción compartida y regresiones de cutover/import/activate; candidato fijo 420d8945 sobre baseline c44d987f.
+- **2026-08-09T15:31:30Z** `[review]` in-review → in-progress (retry): CR4 no reanuda S3 cuando la limpieza exacta ya quedó staged entre git rm y git commit; CR5 puede borrar refs con cambios no confirmados en colecciones configuradas fuera de .changeledger/.
+- **2026-08-09T15:37:37Z** `[status]` in-progress → in-review
+- **2026-08-09T15:37:37Z** `[note]` Mandato de review de confirmación: verificar exclusivamente S3 con limpieza exacta ya staged, rechazo de staging parcial/extra y S1 con cambios no confirmados en colecciones configuradas externas; candidato sin commit sobre 420d8945.
+- **2026-08-09T15:41:37Z** `[review]` in-review → in-progress (retry): CR4 aún permite completar S3 con contenido ledger ignorado y no trackeado porque exactStagedCleanup usa ls-files --others --exclude-standard.
+- **2026-08-09T15:46:01Z** `[status]` in-progress → in-review
+- **2026-08-09T15:46:01Z** `[note]` Mandato de segunda confirmación: verificar únicamente contenido ledger ignorado/no trackeado durante S3, el aislamiento por pathspec y que no reabra los guards S3/S1 ya confirmados; candidato sin commit sobre 420d8945.
+- **2026-08-09T15:50:41Z** `[review]` in-review → in-validation (delegated subagent, clean context)
