@@ -2,7 +2,7 @@
 id: "20260808-234920"
 title: Enrutar config migrate por el store en repos activados
 type: bug
-status: in-review
+status: blocked
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
 branch: bug/20260808-234920
@@ -104,11 +104,11 @@ nueva copia mutable.
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
   - **Resolved:** `2026-08-09T16:54:20Z`
-- [x] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
+- [!] Enrutar la migración CLI por la autoridad efectiva y publicar por CAS
   - **Target:** `src/config-migration.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/config-migration.test.mjs test/cli-bin.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4, CR5
-  - **Resolved:** `2026-08-09T16:54:20Z`
+  - **Blocked:** CR5 requiere decisión humana: exceptuar la consulta de activación o rediseñar cómo se detecta un repo activo sin tocar el state store.
 - [x] Enrutar el preview del viewer por el mismo target efectivo
   - **Target:** `src/viewer/domain.mjs`, `test/view.test.mjs`
   - **Verify:** `node --test test/view.test.mjs`
@@ -131,3 +131,5 @@ nueva copia mutable.
 - **2026-08-09T16:22:39Z** `[branch]` set: bug/20260808-234920 (auto)
 - **2026-08-09T16:54:21Z** `[note]` Implementación TDD completada: matriz seleccionada 7/7, suites focalizadas 105/105 y 112/112, y pnpm verify 1326/1326.
 - **2026-08-09T16:55:14Z** `[status]` in-progress → in-review
+- **2026-08-09T16:56:15Z** `[note]` Mandato de review: auditoría completa de CR1-CR6 sobre eed0275e..HEAD, verificando autoridad activa, byte-identidad del marcador, commit único CAS, conflicto real, fallos sin fallback, cero state-store en modo inactivo y preview del viewer.
+- **2026-08-09T17:02:52Z** `[review]` in-review → blocked: CR5 exige cero operaciones del state store en repos Git inactivos, pero detectar activación consulta refs/changeledger/activation; hace falta decidir si esa consulta queda exceptuada o si se rediseña la detección.
