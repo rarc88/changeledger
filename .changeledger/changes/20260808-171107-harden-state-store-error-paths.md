@@ -2,7 +2,7 @@
 id: "20260808-171107"
 title: Robustecer los caminos de error del store de estado
 type: bug
-status: in-review
+status: in-validation
 created: 2026-08-08T17:11:07Z
 depends_on: ["20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
 branch: bug/20260808-171107
@@ -165,3 +165,8 @@ taxonomía de warnings, red ni resolución automática de conflictos.
 - **2026-08-09T16:22:39Z** `[branch]` set: bug/20260808-171107 (auto)
 - **2026-08-09T16:30:17Z** `[note]` Implementación TDD completada: 7 regresiones rojas, suites focalizadas 345/345 y 107/107, y pnpm verify 1319/1319.
 - **2026-08-09T16:31:12Z** `[status]` in-progress → in-review
+- **2026-08-09T16:32:26Z** `[note]` Mandato de review: auditoría completa de CR1-CR6 sobre f906c412..HEAD, con énfasis en los tres catches update-ref, aislamiento opt-in de resolución, mensajes CAS byte-idénticos y que solo se retiraron los dos tests sin valor.
+- **2026-08-09T16:39:35Z** `[review]` in-review → in-progress (retry): CR3 no produce el diagnóstico exacto con capturedRun: usa el mensaje wrapper y duplica stderr; el test inyectado enmascara esa forma de producción.
+- **2026-08-09T16:41:59Z** `[status]` in-progress → in-review
+- **2026-08-09T16:41:59Z** `[note]` Mandato de confirmación: verificar únicamente CR3 con error de forma capturedRun, el diagnóstico exacto basado en stderr y ausencia de regresión en ref corrupta, ausencia genuina y los demás status de fallo; corrección sin commit sobre f0cd2510.
+- **2026-08-09T16:44:37Z** `[review]` in-review → in-validation (delegated subagent, clean context)

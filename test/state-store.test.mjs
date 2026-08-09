@@ -510,7 +510,9 @@ test('20260808-171107 CR2: writeActivation preserves update-ref as the cause whe
 test('20260808-171107 CR3: stderr on an absent-ref exit fails closed', () => {
   const root = initStateRepo();
   const run = () => {
-    const error = new Error('warning: benign advice');
+    const error = new Error(
+      `Command failed: git rev-parse --verify --quiet ${STATE_REF}\nwarning: benign advice`,
+    );
     error.cause = { status: 1, stderr: 'warning: benign advice' };
     throw error;
   };

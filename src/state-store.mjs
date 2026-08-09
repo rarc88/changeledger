@@ -145,7 +145,10 @@ function optionalRefOid(repoRoot, ref, run) {
     return out.trim() || null;
   } catch (e) {
     const stderr = stderrOf(e.cause);
-    if (e.cause?.status === 1 && stderr === '') return null;
+    if (e.cause?.status === 1) {
+      if (stderr === '') return null;
+      throw new Error(`cannot read Git ref ${ref}: ${stderr}`, { cause: e });
+    }
     throw new Error(`cannot read Git ref ${ref}: ${e.message}`, { cause: e });
   }
 }
