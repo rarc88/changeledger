@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-09T11:01:04Z
+updated: 2026-08-09T13:07:13Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -192,6 +192,58 @@ relabeling del mensaje interno del store (`state ref moved: ...`) — el bin
 solo presenta, el store ya garantiza que no hay escritura parcial. Con esto
 cierra el gate de la etapa 1: un repo activado opera enteramente contra la
 ref en local, tanto en lectura como en escritura.
+
+## Adopción del estado global
+
+La adopción (`20260809-113240`) entra por dos comandos sobre las primitivas del
+store, sin protocolo de dos fases ni plan intermedio:
+
+`changeledger cutover` (`src/commands/cutover.mjs`) corta de un solo tiro desde
+una fuente única y explícita: el commit HEAD de la rama de integración, con el
+repo sin activar y el ledger limpio (ni cambios sin commitear bajo
+`.changeledger/` ni índice con staged). Valida el snapshot completo con las
+reglas de `checkRepo` antes de escribir nada, publica la ref con `initState`,
+activa y crea en la rama de integración el commit de limpieza que elimina
+`changes/`, `specs/` y `releases/` conservando `config.yml` como marcador de
+descubrimiento. El `config.yml` del snapshot se republica byte a byte vía
+`mutateState` tras `initState`, porque `initState` serializa el mapping
+parseado y perdería comentarios y orden de claves justo cuando la copia de la
+ref pasa a ser la autoridad. El commit de limpieza es el marcador del corte:
+subject fijo `chore(state): cut the ledger over to the state ref`, trailer
+`Changeledger-Cutover-Baseline: <oid>` y cuerpo `ChangeLedger: none — …` (por
+eso el lint de markers lo exime sin caso especial); se crea con `--no-verify`.
+La idempotencia es por igualdad de contenido (project_id, bytes del config y
+mapa path→texto de documentos, equivalente a igualdad de tree sobre este
+layout exclusivo de blobs `100644`): re-ejecutar sobre un corte idéntico es
+no-op con exit 0 aunque hayan aterrizado commits ordinarios después;
+divergencia o media publicación (solo una de las dos refs presente) falla
+explícito y fail-closed, sin recuperación automática.
+
+`changeledger activate` (`src/commands/activate.mjs`) activa clones y
+worktrees que ya tienen la ref de estado, sin depender del checkout.
+`writeActivation` es CAS desde este change: create con old-value cero, no-op
+sobre un estado idéntico y rechazo explícito ante una activación divergente,
+nunca force-update; devuelve `{ revision, created }`. La identidad comparada
+es el `state_ref` declarado en `authority.yml`, no el oid del commit de
+activación — `commit-tree` sella timestamp, así que contenido idéntico
+re-deriva a oids distintos y compararlos convertiría cada re-activación en
+divergencia. La divergencia lanza `Error` plano, no `LedgerConflictError`: el
+consejo "re-run" del bin no arregla una divergencia.
+
+`changeledger cutover --undo` es la única vuelta atrás (no hay `deactivate`
+suelto: dejaría un repo activado a medias sirviendo un worktree sin
+documentos). Es válido mientras la ref de estado siga apuntando al baseline
+registrado en el trailer, no mientras HEAD sea el commit de corte: `findCutover`
+localiza el corte en la historia de HEAD por subject exacto más trailer (el
+`--grep -F` solo prefiltra; decide la línea de subject), gana el más reciente
+alcanzable, y el undo revierte ese oid como commit nuevo encima de HEAD — los
+commits posteriores al corte no son suyos para descartar. Las refs se borran
+con old-value observado, worktree primero y refs después: una interrupción
+deja un repo activado consistente, nunca uno desactivado sin documentos. Un
+conflicto de revert (un commit posterior tocó las rutas retiradas) aborta
+limpio y devuelve la decisión al humano. Un corte deshecho no deja tombstone:
+sin ninguna de las dos refs el repo vuelve a ser cortable, y la detección de
+medio-corte es "exactamente una ref presente".
 
 ## API documental del visor
 

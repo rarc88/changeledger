@@ -2,9 +2,10 @@
 id: "20260809-113240"
 title: Cutover one-shot y activación con undo
 type: feature
-status: in-validation
+status: done
 created: 2026-08-09T11:32:40Z
 depends_on: ["20260808-151640"]
+reviewed: true
 branch: feature/20260809-113240
 related_to: ["20260808-151643", "20260809-113242"]
 owner: rarc88
@@ -202,3 +203,6 @@ undo bloqueado tras mutaciones; ref que resuelve a tag anotado.
 - **2026-08-09T12:37:39Z** `[status]` in-progress → in-review
 - **2026-08-09T12:37:39Z** `[note]` Mandato del review de confirmación: acotado al diff sin commitear de la corrección F1 (src/commands/cutover.mjs, test/cutover.test.mjs) — verificar que el defecto nombrado quedó cerrado (undo tras commits ordinarios con la ref en el baseline) y que no introduce regresión; hallazgos latentes o adyacentes se reportan como follow-up, no como fail.
 - **2026-08-09T12:45:13Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T13:05:49Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T13:07:12Z** `[note]` Nota de cierre sobre CR6: la frase 'apuntando a otro commit' se lee como el state_ref declarado en authority.yml, que es lo que la implementación compara y los tests fijan; el modelo de datos no tiene oid de commit que comparar (F3 del review, documentado aquí en vez de enmendar el criterio aprobado).
+- **2026-08-09T13:07:13Z** `[graduation]` spec: `architecture.md`
