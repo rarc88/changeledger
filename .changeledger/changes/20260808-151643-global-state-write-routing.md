@@ -2,9 +2,10 @@
 id: "20260808-151643"
 title: Mutaciones del ledger enrutadas al store por CAS
 type: feature
-status: in-validation
+status: done
 created: 2026-08-08T15:16:43Z
 depends_on: ["20260808-151641", "20260808-151640"]
+reviewed: true
 branch: feature/20260808-151643
 related_to: ["20260808-142200"]
 owner: rarc88
@@ -241,11 +242,12 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
   - **Verify:** `node bin/changeledger.mjs check`
   - **Support:**
   - **Resolved:** `2026-08-08T23:18:44Z`
-- [ ] Post-validación (decisión humana 2026-08-08): presentar el conflicto
+- [x] Post-validación (decisión humana 2026-08-08): presentar el conflicto
       CAS del viewer como 409 accionable en las tres escrituras de config
   - **Target:** `src/viewer/domain.mjs`
   - **Verify:** `node --test test/view.test.mjs`
   - **Criteria:** CR8
+  - **Resolved:** `2026-08-09T11:00:50Z`
 - [x] Post-validación: retorno consistente de los mutadores convertidos
       (ruta del worktree en inactivo, ruta del árbol en activo)
   - **Target:** `src/commands/agent.mjs`
@@ -286,3 +288,5 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
 - **2026-08-09T00:04:10Z** `[status]` in-progress → in-review
 - **2026-08-09T00:04:10Z** `[note]` Review mandate: auditoría del diff sin commitear de la ampliación post-validación (CR8-CR10) contra sus criterios y regresión sobre CR1-CR7; los tres puntos de inyección de carrera de los tests nuevos como puntos de escrutinio (¿producen conflicto real o teatro de test?), y la constante de mensaje del viewer contra el texto exigido por CR8.
 - **2026-08-09T00:12:01Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T11:01:04Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-09T11:01:04Z** `[graduation]` spec: `architecture.md`
