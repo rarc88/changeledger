@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-09T14:00:51Z
+updated: 2026-08-09T19:39:45Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -78,7 +78,16 @@ incluso malformado: esa clave es del usuario y su diagnóstico pertenece a
 `check`. El resumen
 de la migración expone la versión de origen real detectada, y CLI y visor
 comparten el mismo motor; el cliente del visor lee la versión soportada del
-payload del servidor en vez de duplicar la constante.
+payload del servidor en vez de duplicar la constante. En repos activados
+(`20260808-234920`) el candidato de migración se deriva del blob de config de
+la ref — nunca del marcador del worktree, que queda byte a byte intacto — y
+se aplica como un único commit CAS (`config: migrate`); el preview del visor
+lee por la misma costura de autoridad. La ruta inactiva ejecuta exactamente
+una operación del store: el probe read-only de la activación, y ninguna otra.
+La autoridad se enruta por identidad, no solo por ascendencia git: un
+`.changeledger` anidado cuyo marker parseable declara otro `project_id` que
+el snapshot no es el ledger activado y migra su propio archivo del worktree,
+dejando la ref del host intacta.
 
 Toda frontera que escribe en el ledger valida el schema con una precondición
 compartida antes de adquirir locks, crear directorios o modificar archivos. Esto
@@ -110,7 +119,12 @@ apunta a un commit cuya `authority.yml` nombra la ref de verdad
 (`readActivation`/`writeActivation`) — y toda lectura de refs es fail-closed:
 ausencia real devuelve `null`, cualquier fallo de lectura lanza con el stderr
 de git; los objetos se verifican por tipo (`assertCommitObject`), nunca por
-peel.
+peel. Los diagnósticos de error son exactos (`20260808-171107`): una ref
+ilegible lanza con una sola copia del stderr real de git, nunca el mensaje
+wrapper duplicado; un fallo de `update-ref` reporta el fallo primario como
+`cause` conservando el estado observado de la ref; y el literal CAS
+`state changed since load` tiene una única fuente de producción
+(`src/state-store.mjs`) de la que componen bin y visor.
 
 El enrutado de lectura (`20260808-151641`) es un único resolver: la familia
 `loadRepo`/`loadRepoWithConfig`/`loadRepoAsync` de `src/repo.mjs`, compartida
@@ -143,13 +157,21 @@ bajo la que ese repo se cargó (snapshot si está activado) en lugar de leer
 disco de nuevo. `context`/`agent-context` (`src/commands/context.mjs`,
 `src/commands/agent-context.mjs`) la usan para sus lecturas por id de change,
 dependencia y relación; su captura sin id (modo core o palabra clave) no
-necesita ningún documento de change, así que no paga un `loadRepo` completo —
-sigue leyendo `config` directo del worktree, como antes de esta etapa. Con
-esto, la frontera de config es: los callers que cargan config sin pasar por
-`loadRepo*` en absoluto (`new`, `register`, el bootstrap de `check`, y las
-capturas sin id de `context`/`agent-context`) siguen leyendo el worktree en
-esta etapa — ambos nacen idénticos hasta el cutover de escritura de la etapa
-2, que resuelve la autoridad final.
+necesita ningún documento de change, así que no paga un `loadRepo` completo.
+La frontera de config quedó cerrada en `20260809-113242` con un único camino
+de autoridad: `loadEffectiveConfig(repoRoot, changeledgerDir)`
+(`src/config.mjs`) devuelve el config de la ref cuando el repo está activado
+— vía una primitiva focalizada del store (`readStateConfigText`) que valida
+el layout completo con las mismas garantías de blob regular y UTF-8 que
+`readSnapshot` sin cargar los documentos — y el del worktree cuando no. Todos
+los antiguos callers frontera enrutan por él: `register`, el bootstrap de
+`check`, las capturas sin id de `context`/`agent-context`, el propio
+bootstrap de `loadRepo*`, las lecturas de config del visor y el listado del
+registry (que además conserva el nombre cacheado cuando la ruta registrada no
+es un directorio utilizable, sin propagar fallos del probe). `loadConfig`
+queda como primitiva interna del camino inactivo; `new.mjs` mantiene su gate
+propio y `resolveChange` sigue siendo por diseño el camino de mutación sobre
+worktree en modo inactivo.
 
 ## Costura de escritura del estado global
 
@@ -215,9 +237,17 @@ eso el lint de markers lo exime sin caso especial); se crea con `--no-verify`.
 La idempotencia es por igualdad de contenido (project_id, bytes del config y
 mapa path→texto de documentos, equivalente a igualdad de tree sobre este
 layout exclusivo de blobs `100644`): re-ejecutar sobre un corte idéntico es
-no-op con exit 0 aunque hayan aterrizado commits ordinarios después;
-divergencia o media publicación (solo una de las dos refs presente) falla
-explícito y fail-closed, sin recuperación automática.
+no-op con exit 0 aunque hayan aterrizado commits ordinarios después, y las
+dos ventanas de interrupción deterministas se completan re-ejecutando
+(`20260809-131004`): un corte publicado y activado al que solo le falta el
+commit de limpieza lo crea y termina indistinguible de un corte no
+interrumpido — la única exención del requisito de índice vacío, verificada
+entrada a entrada por `exactStagedCleanup`, incluyendo contenido ignorado o
+sin trackear bajo las colecciones —, y un undo interrumpido entre el commit
+de revert y el borrado de refs completa el borrado. La divergencia real y la
+media publicación (solo una de las dos refs presente) siguen fallando
+explícito y fail-closed, con el mensaje nombrando la ref presente, la ausente
+y la salida manual literal.
 
 `changeledger activate` (`src/commands/activate.mjs`) activa clones y
 worktrees que ya tienen la ref de estado, sin depender del checkout.
@@ -233,17 +263,30 @@ consejo "re-run" del bin no arregla una divergencia.
 `changeledger cutover --undo` es la única vuelta atrás (no hay `deactivate`
 suelto: dejaría un repo activado a medias sirviendo un worktree sin
 documentos). Es válido mientras la ref de estado siga apuntando al baseline
-registrado en el trailer, no mientras HEAD sea el commit de corte: `findCutover`
-localiza el corte en la historia de HEAD por subject exacto más trailer (el
-`--grep -F` solo prefiltra; decide la línea de subject), gana el más reciente
-alcanzable, y el undo revierte ese oid como commit nuevo encima de HEAD — los
-commits posteriores al corte no son suyos para descartar. Las refs se borran
-con old-value observado, worktree primero y refs después: una interrupción
-deja un repo activado consistente, nunca uno desactivado sin documentos. Un
-conflicto de revert (un commit posterior tocó las rutas retiradas) aborta
-limpio y devuelve la decisión al humano. Un corte deshecho no deja tombstone:
-sin ninguna de las dos refs el repo vuelve a ser cortable, y la detección de
-medio-corte es "exactamente una ref presente".
+registrado en el trailer, no mientras HEAD sea el commit de corte:
+`scanCutovers` recorre TODOS los commits alcanzables con el subject exacto
+(`--topo-order`, todos los padres — un corte en segundo padre de un merge
+sigue siendo el corte de este repo; el `--grep -F` solo prefiltra y decide la
+línea de subject), y el corte vivo es el registro cuyo baseline aún sostiene
+la ref de estado, con el más reciente por descendencia solo como sustituto de
+diagnóstico cuando ninguno concuerda. Un commit con el subject pero sin
+trailer se salta con un aviso que nombra su oid (un señuelo escrito a mano no
+brickea nada, tampoco el primer corte de un repo nunca cortado); si la
+búsqueda se agota sin registro verificable y el repo muestra evidencia de
+corte, el error nombra los oids saltados y pide resolverlo a mano — nunca
+afirma que nada es alcanzable. El undo revierte ese oid como commit nuevo
+encima de HEAD — los commits posteriores al corte no son suyos para
+descartar. `findCompletedUndo`, en cambio, busca solo por primer padre —
+asimetría deliberada: encontrar el corte es una pregunta de alcanzabilidad,
+pero un undo solo está "interrumpido" cuando la rama está parada sobre su
+ledger restaurado; un merge que lo descartó (`-s ours`) no restauró nada. Las
+refs se borran con old-value observado, worktree primero y refs después: una
+interrupción deja un repo activado consistente, nunca uno desactivado sin
+documentos, y se completa re-ejecutando. Un conflicto de revert (un commit
+posterior tocó las rutas retiradas) aborta limpio y devuelve la decisión al
+humano. Un corte deshecho no deja tombstone: sin ninguna de las dos refs el
+repo vuelve a ser cortable, y la detección de medio-corte es "exactamente una
+ref presente".
 
 `changeledger import --from <ref>` (`src/commands/import.mjs`,
 `20260809-113241`) absorbe exactamente una ref por invocación hacia la ref de
@@ -267,7 +310,12 @@ re-ejecutar el mismo import es no-op con exit 0. El `config.yml` de la fuente
 se ignora — el layout y las reglas los dicta siempre el config del snapshot
 (consecuencia asumida: un source que recolocó `changes_dir` no expone sus
 documentos al import) — y el reporte distingue "la ref no expone documentos
-ChangeLedger" de "todo lo de la fuente ya está publicado".
+ChangeLedger" de "todo lo de la fuente ya está publicado". Cuando el propio
+`config.yml` del source declara un layout distinto al del snapshot, el
+comando avisa por stderr nombrando ambos layouts (`20260809-140157`) sin
+tocar el exit 0 ni la ref; un source sin config o con config inparseable no
+produce aviso falso, y el help del comando declara que la validación cubre lo
+visible bajo el layout del snapshot, no "el source entero".
 
 ## API documental del visor
 

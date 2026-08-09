@@ -3,7 +3,7 @@ import path from 'node:path';
 import {
   findChangeledgerDir,
   integrationBranch,
-  loadConfig,
+  loadEffectiveConfig,
   renderChangeBranch,
 } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
@@ -241,8 +241,7 @@ function requireRepo(cwd) {
 }
 
 // A changeless capture (no input, or a mode keyword) never needs a change
-// document — only `config`, read straight from the worktree exactly as before
-// 20260808-151641's read-routing correction. Loading the full `loadRepo(cwd)`
+// document — only effective `config`. Loading the full `loadRepo(cwd)`
 // here regressed that: its sync loader throws on the first unparseable change
 // document anywhere in the repo, which used to have no bearing on a capture
 // that never looks at changes at all — denying the mandatory AGENTS.md
@@ -251,7 +250,7 @@ function requireRepo(cwd) {
 // only that branch pays for a full `loadRepo`.
 function composeInput(input, cwd, changeledgerDir) {
   if (!input || MODES.includes(input)) {
-    const config = loadConfig(changeledgerDir);
+    const config = loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
     if (!input) {
       return composeResult('core', ['core'], {
         incremental: false,
@@ -261,7 +260,7 @@ function composeInput(input, cwd, changeledgerDir) {
     return composeResult(input, MODE_CONTEXT[input], { policy: transversalPolicy(config) });
   }
 
-  const repo = loadRepo(cwd);
+  const repo = loadRepo(cwd, { isolateChangeErrors: true });
   let resolved;
   try {
     resolved = resolveChangeInRepo(repo, input);

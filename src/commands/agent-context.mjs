@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { findChangeledgerDir, loadConfig } from '../config.mjs';
+import { findChangeledgerDir, loadEffectiveConfig } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
@@ -54,9 +54,11 @@ export function buildAgentContext(role, changeId, cwd = process.cwd()) {
     throw new Error(`Unknown role "${role}" — valid roles: ${ROLES.join(', ')}`);
   }
   const changeledgerDir = requireRepo(cwd);
-  const repo = changeId ? loadRepo(cwd) : null;
+  const repo = changeId ? loadRepo(cwd, { isolateChangeErrors: true }) : null;
   const selected = selectedChange(role, changeId, repo);
-  const config = repo ? repo.config : loadConfig(changeledgerDir);
+  const config = repo
+    ? repo.config
+    : loadEffectiveConfig(path.dirname(changeledgerDir), changeledgerDir);
   const change = selected ? ` — change: #${selected.id}` : '';
   const sections = [
     beginSentinel('AGENT CONTEXT', `role: ${role}${change} — v${VERSION}`),

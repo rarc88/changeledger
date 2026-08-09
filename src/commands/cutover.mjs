@@ -18,6 +18,7 @@
 // rather than a manual procedure.
 
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { parseChange } from '../change.mjs';
 import { checkRepo } from '../check.mjs';
 import {
@@ -27,8 +28,7 @@ import {
   resolveRepoPath,
   resolveSpecsDir,
 } from '../config.mjs';
-import { capturedRun, defaultBaseBranch, gitTopLevel, mutatingRun } from '../git.mjs';
-import { assertRegularBlobEntry, batchBlobReader, treeEntries } from '../git-batch.mjs';
+import { capturedRun, defaultBaseBranch, gitTopLevel, isAncestor, mutatingRun } from '../git.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { parseSpec } from '../spec.mjs';
 import {
@@ -43,6 +43,7 @@ import {
   writeActivation,
 } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
+import { readLedgerAt, toPosix } from './ledger-tree.mjs';
 
 // The cleanup commit is the repo-visible record of the cut, and the only place
 // the published baseline is written down. `--undo` and the re-run detection
@@ -60,10 +61,6 @@ const UNDO_BODY = 'ChangeLedger: none — restores the ledger to the worktree';
 
 const BASELINE_MESSAGE = 'chore: publish the cutover baseline';
 
-function toPosix(relPath) {
-  return relPath.split(path.sep).join('/');
-}
-
 // Where each state collection is read from, as paths inside the git tree. The
 // configured directories go through `resolveRepoPath`'s containment guard first
 // (a cloned repo's config is untrusted input), then are expressed relative to
@@ -74,6 +71,8 @@ function ledgerLayout(repoRoot, changeledgerDir, config, run) {
   return {
     topLevel,
     configPath: rel(path.join(changeledgerDir, 'config.yml')),
+    nestedSubject: 'the ledger',
+    missingConfigSubject: 'the integration commit',
     collections: [
       {
         name: 'changes',
@@ -92,48 +91,6 @@ function ledgerLayout(repoRoot, changeledgerDir, config, run) {
       },
     ],
   };
-}
-
-// The ledger as committed at `revision`, read with no checkout: `config.yml`
-// byte for byte plus every collection document keyed by its future state path
-// (`changes/x.md`). A nested path under a collection is refused rather than
-// flattened — the state layout has exactly one level and silently colliding two
-// documents onto one name would lose one of them.
-function readLedgerAt(repoRoot, revision, layout, run) {
-  const entries = treeEntries(repoRoot, revision, run);
-  const wanted = [];
-  const documents = new Map();
-  let configEntry = null;
-
-  for (const entry of entries) {
-    if (entry.path === layout.configPath) {
-      configEntry = entry;
-      wanted.push(entry);
-      continue;
-    }
-    const collection = layout.collections.find((c) => entry.path.startsWith(c.prefix));
-    if (!collection) continue;
-    const name = entry.path.slice(collection.prefix.length);
-    if (!name.endsWith(collection.extension)) continue;
-    if (name.includes('/')) {
-      throw new Error(
-        `the ledger has a nested document the state layout cannot hold: ${entry.path}`,
-      );
-    }
-    assertRegularBlobEntry(entry.mode, entry.path, entry.type);
-    wanted.push(entry);
-    documents.set(`${collection.name}/${name}`, entry);
-  }
-
-  if (!configEntry) {
-    throw new Error(`the integration commit ${revision} has no ${layout.configPath}`);
-  }
-  assertRegularBlobEntry(configEntry.mode, configEntry.path, configEntry.type);
-
-  const readBlob = batchBlobReader(repoRoot, wanted, run);
-  const texts = new Map();
-  for (const [name, entry] of documents) texts.set(name, readBlob(entry.oid));
-  return { configText: readBlob(configEntry.oid), documents: texts };
 }
 
 // Parses the snapshot into the shape `checkRepo` consumes — the same shape
@@ -189,64 +146,149 @@ function publishedMatches(repoRoot, tip, source, projectId, run) {
   );
 }
 
-// The baseline recorded by the cleanup commit at `revision`, or null when that
-// commit is not a cutover at all. A cutover subject without the trailer is a
-// corrupted record, not an absence: it must not read back as "never cut over".
-function cutoverBaselineAt(repoRoot, revision, run) {
-  const message = run(['log', '-1', '--format=%B', revision], repoRoot);
-  if (message.split('\n')[0].trim() !== CUTOVER_SUBJECT) return null;
-  const match = message.match(BASELINE_RE);
-  if (!match) {
-    throw new Error(
-      `the cutover commit ${revision} carries no ${BASELINE_TRAILER} trailer — its baseline cannot be verified; resolve it by hand`,
+// Every commit reachable from HEAD whose SUBJECT is exactly CUTOVER_SUBJECT,
+// newest first, split into complete records (subject plus baseline trailer) and
+// the exact-subject commits that carry no trailer.
+//
+// `--grep` only prefilters (it matches anywhere in a message, so a commit that
+// merely quotes the subject would match); the subject line alone decides.
+// Traversal follows ALL parents on purpose: a topic branch that merges the
+// integration branch, with the integration branch then fast-forwarding onto
+// that merge, is an ordinary workflow, and it leaves the cut reachable only as
+// the merge's SECOND parent. Ignoring those parents made the undo report that
+// nothing is reachable while the repo stayed activated with no ledger in the
+// worktree.
+function scanCutovers(repoRoot, output, run) {
+  const out = run(
+    ['log', '--topo-order', '--format=%H', '-F', `--grep=${CUTOVER_SUBJECT}`, 'HEAD'],
+    repoRoot,
+  );
+  const records = [];
+  const trailerless = [];
+  for (const oid of out.split('\n').map((line) => line.trim())) {
+    if (oid === '') continue;
+    const message = run(['log', '-1', '--format=%B', oid], repoRoot);
+    if (message.split('\n')[0].trim() !== CUTOVER_SUBJECT) continue;
+    const match = message.match(BASELINE_RE);
+    if (match) {
+      records.push({ oid, baseline: match[1] });
+      continue;
+    }
+    // A hand-written exact-subject commit is a decoy: warn with its identity
+    // and keep searching for the real record. A genuine cut whose trailer a
+    // message rewrite dropped looks identical here, so it is remembered rather
+    // than forgotten — see `findCutover`.
+    output.warn(
+      `Ignoring exact-subject cutover commit ${oid}: it has no ${BASELINE_TRAILER} trailer`,
     );
+    trailerless.push(oid);
   }
-  return match[1];
+  return { records, trailerless };
 }
 
 // THE definition of "this repo's cutover commit", shared by the re-run
-// detection and by the undo: the most recent commit reachable from HEAD whose
-// SUBJECT is exactly CUTOVER_SUBJECT. Deliberately not "HEAD is the cutover
-// commit" — the reversibility condition the Proposal states is the state ref
-// still pointing at the published baseline, and nothing about where HEAD
-// happens to be; tying it to HEAD killed the escape hatch on the first ordinary
-// commit or merge that landed after the cut.
+// detection and by the undo. Deliberately not "HEAD is the cutover commit" —
+// the reversibility condition the Proposal states is the state ref still
+// pointing at the published baseline, and nothing about where HEAD happens to
+// be; tying it to HEAD killed the escape hatch on the first ordinary commit or
+// merge that landed after the cut.
 //
-// `--grep` only prefilters (it matches anywhere in a message, so a commit that
-// merely quotes the subject would match); `cutoverBaselineAt` is what decides,
-// on the subject line alone. Most recent wins: after an undo-and-re-cut the
-// live cut is the newest one. A cutover that was already undone does not need
-// its own marker — its baseline no longer exists, so the state-ref check below
-// rejects it.
-function findCutover(repoRoot, run) {
-  const out = run(['log', '--format=%H', '-F', `--grep=${CUTOVER_SUBJECT}`, 'HEAD'], repoRoot);
-  for (const oid of out.split('\n').map((line) => line.trim())) {
-    if (oid === '') continue;
-    const baseline = cutoverBaselineAt(repoRoot, oid, run);
-    if (baseline !== null) return { oid, baseline };
+// The state ref is what tells the live cut from a retired one: the cut this
+// repo is standing on is the record whose baseline the ref still holds, whether
+// it was reached through a merge or along the branch. Only when no record
+// agrees with the ref does the newest by descendancy stand in, so the
+// past-the-baseline and half-cut diagnostics below still name a commit.
+//
+// `state` is the repo's own cutover evidence — the state ref (`tip`) and the
+// activation. With evidence present and no record at all, exact-subject commits
+// that lost their trailer are the only explanation left, and the operator gets
+// them by oid instead of a false "nothing is reachable".
+function findCutover(repoRoot, { tip = null, activated = false }, output, run) {
+  const { records, trailerless } = scanCutovers(repoRoot, output, run);
+  const live = tip === null ? undefined : records.find((record) => record.baseline === tip);
+  const found = live ?? records[0] ?? null;
+  if (found === null && trailerless.length > 0 && (tip !== null || activated)) {
+    throw new Error(
+      `no verifiable cutover commit is reachable from HEAD — ${trailerless.join(', ')} has the cutover subject but carries no ${BASELINE_TRAILER} trailer, so its baseline cannot be verified; resolve it by hand`,
+    );
   }
-  return null;
+  return found;
 }
 
-// Both directions rewrite tracked files on the integration branch and commit
-// them, so both demand the same two guarantees: nothing already staged (a
-// commit here must contain exactly what this command produced, never someone
-// else's staged work) and a ledger with no uncommitted edit (the source of
-// truth being published is the COMMIT, so an unstaged edit would be silently
-// dropped by the cut and destroyed by the cleanup).
-function assertCleanLedger(repoRoot, changeledgerDir, operation, run) {
+// The precondition both directions share whenever they are about to produce a
+// commit of their own: nothing already staged (the commit must contain exactly
+// what this command produced, never someone else's staged work) and a ledger
+// with no uncommitted edit (the source of truth being published is the COMMIT,
+// so an unstaged edit would be silently dropped by the cut and destroyed by the
+// cleanup). Resuming an interrupted cut is the one path that skips it: there the
+// index already holds exactly the pending cleanup, verified entry by entry by
+// `exactStagedCleanup`, and the commit to produce is that very cleanup.
+function ledgerPathspecs(changeledgerDir, layout) {
+  return [
+    toPosix(path.relative(layout.topLevel, changeledgerDir)),
+    ...layout.collections.map((collection) => collection.prefix.slice(0, -1)),
+  ].filter((value, index, paths) => value !== '' && paths.indexOf(value) === index);
+}
+
+function assertCleanLedger(repoRoot, changeledgerDir, layout, operation, run) {
   const staged = run(['diff', '--cached', '--name-only'], repoRoot).trim();
   if (staged !== '') {
     throw new Error(
       `${operation} requires an empty index; commit or reset the staged changes first:\n${staged}`,
     );
   }
-  const dirty = run(['status', '--porcelain', '--', changeledgerDir], repoRoot).trim();
+  const dirty = run(
+    ['status', '--porcelain', '--', ...ledgerPathspecs(changeledgerDir, layout)],
+    layout.topLevel,
+  ).trim();
   if (dirty !== '') {
     throw new Error(
-      `${operation} requires a clean ledger under ${path.basename(changeledgerDir)}/; commit or discard these first:\n${dirty}`,
+      `${operation} requires a clean ledger in the configured paths; commit or discard these first:\n${dirty}`,
     );
   }
+}
+
+function nulNames(text) {
+  return text.split('\0').filter(Boolean).sort();
+}
+
+function sameNames(left, right) {
+  return left.length === right.length && left.every((name, index) => name === right[index]);
+}
+
+function exactStagedCleanup(repoRoot, changeledgerDir, layout, run) {
+  const cleanupPaths = layout.collections.map((collection) => collection.prefix.slice(0, -1));
+  const staged = nulNames(
+    run(['diff', '--cached', '--name-only', '-z'], repoRoot, { encoding: 'utf8' }),
+  );
+  if (staged.length === 0) return false;
+  const stagedDeletions = nulNames(
+    run(['diff', '--cached', '--name-only', '-z', '--diff-filter=D'], repoRoot, {
+      encoding: 'utf8',
+    }),
+  );
+  const expected = nulNames(
+    run(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...cleanupPaths], layout.topLevel, {
+      encoding: 'utf8',
+    }),
+  );
+  if (!sameNames(staged, expected) || !sameNames(staged, stagedDeletions)) return false;
+
+  const ledgerPaths = ledgerPathspecs(changeledgerDir, layout);
+  const unstaged = run(['diff', '--name-only', '-z', '--', ...ledgerPaths], layout.topLevel, {
+    encoding: 'utf8',
+  });
+  const untracked = run(
+    ['ls-files', '--others', '--exclude-standard', '-z', '--', ...ledgerPaths],
+    layout.topLevel,
+    { encoding: 'utf8' },
+  );
+  const ignored = run(
+    ['ls-files', '--others', '--ignored', '--exclude-standard', '-z', '--', ...ledgerPaths],
+    layout.topLevel,
+    { encoding: 'utf8' },
+  );
+  return unstaged === '' && untracked === '' && ignored === '';
 }
 
 function resolveContext(cwd, operation, run) {
@@ -282,10 +324,10 @@ function runCutover(ctx, output, run) {
   // snapshot from a worktree the previous run deliberately emptied. Found
   // anywhere in the history, not only at HEAD, so ordinary commits landing
   // after the cut do not turn the re-run into a spurious failure.
-  const recorded = findCutover(repoRoot, run);
+  let tip = readStateRef(repoRoot, run);
+  const activation = readActivation(repoRoot, run);
+  const recorded = findCutover(repoRoot, { tip, activated: activation !== null }, output, run);
   if (recorded !== null) {
-    const tip = readStateRef(repoRoot, run);
-    const activation = readActivation(repoRoot, run);
     if (tip !== null && activation !== null) {
       output.log(
         `Already cut over — ${STATE_REF} at ${tip} (baseline ${recorded.baseline}); nothing to do`,
@@ -301,14 +343,13 @@ function runCutover(ctx, output, run) {
     }
   }
 
-  if (readActivation(repoRoot, run) !== null) {
+  if (activation !== null && (tip === null || activation.state_ref !== STATE_REF)) {
     throw new Error(
       `this repo is already activated (${ACTIVATION_REF}) — cutover only runs on a repo that is not yet activated`,
     );
   }
-  assertCleanLedger(repoRoot, changeledgerDir, 'cutover', run);
-
   const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
+  if (activation === null) assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
   const source = readLedgerAt(repoRoot, head, layout, run);
   const ledgerConfig = validateLedger(source);
   const projectId = ledgerConfig.project_id;
@@ -318,10 +359,28 @@ function runCutover(ctx, output, run) {
     );
   }
 
+  if (activation !== null) {
+    if (!publishedMatches(repoRoot, tip, source, projectId, run)) {
+      throw new Error(
+        `this repo is already activated (${ACTIVATION_REF}) — cutover only resumes when ${STATE_REF} matches the integration commit`,
+      );
+    }
+    if (!exactStagedCleanup(repoRoot, changeledgerDir, layout, run)) {
+      assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
+    }
+    commitCleanup(ctx, layout, tip);
+    output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${tip}`);
+    output.log(`Activated ${ACTIVATION_REF}; the worktree keeps only ${layout.configPath}`);
+    return 0;
+  }
+
   // Everything above this line is a read. Everything below writes.
-  let tip = readStateRef(repoRoot, run);
   if (tip === null) {
     tip = initState(repoRoot, { projectId, config: ledgerConfig }, run).revision;
+  } else if (initializedPublicationMatches(repoRoot, tip, ledgerConfig, projectId, run)) {
+    throw new Error(
+      `half-published cutover: ${STATE_REF} is present at ${tip} but ${ACTIVATION_REF} is absent; run git update-ref -d refs/heads/changeledger/state, then re-run cutover`,
+    );
   } else if (!publishedMatches(repoRoot, tip, source, projectId, run)) {
     throw new Error(
       `${STATE_REF} already exists at ${tip} and does not hold the ledger this cutover would publish — refusing to touch refs, worktree or history`,
@@ -347,6 +406,15 @@ function runCutover(ctx, output, run) {
   output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${baseline}`);
   output.log(`Activated ${ACTIVATION_REF}; the worktree keeps only ${layout.configPath}`);
   return 0;
+}
+
+function initializedPublicationMatches(repoRoot, tip, config, projectId, run) {
+  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  return (
+    String(snapshot.manifest.project_id) === String(projectId) &&
+    Object.keys(snapshot.documents).length === 0 &&
+    isDeepStrictEqual(snapshot.config, config)
+  );
 }
 
 function commitCleanup({ repoRoot }, layout, baseline) {
@@ -380,17 +448,118 @@ function abortRevert(repoRoot) {
   }
 }
 
-function undoCutover(ctx, output, run) {
-  const { changeledgerDir, repoRoot } = ctx;
+function rawDiff(repoRoot, revision, run) {
+  const out = run(
+    ['diff-tree', '--no-commit-id', '--raw', '--no-abbrev', '-r', revision],
+    repoRoot,
+  );
+  const entries = new Map();
+  for (const line of out.split('\n')) {
+    if (line.trim() === '') continue;
+    const match = line.match(/^:(\d+) (\d+) ([0-9a-f]+) ([0-9a-f]+) ([A-Z])\t(.+)$/);
+    if (!match) return null;
+    entries.set(match[6], {
+      oldMode: match[1],
+      newMode: match[2],
+      oldOid: match[3],
+      newOid: match[4],
+      status: match[5],
+    });
+  }
+  return entries;
+}
 
-  const found = findCutover(repoRoot, run);
+function isInverseCommit(repoRoot, cutoverCommit, candidate, run) {
+  const cut = rawDiff(repoRoot, cutoverCommit, run);
+  const undo = rawDiff(repoRoot, candidate, run);
+  if (!cut || !undo || cut.size === 0 || cut.size !== undo.size) return false;
+  for (const [name, removed] of cut) {
+    const restored = undo.get(name);
+    if (
+      removed.status !== 'D' ||
+      restored?.status !== 'A' ||
+      removed.oldMode !== restored.newMode ||
+      removed.newMode !== restored.oldMode ||
+      removed.oldOid !== restored.newOid ||
+      removed.newOid !== restored.oldOid
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Unlike the cutover search above, this one stays on the first-parent line, and
+// the asymmetry is the point. Finding the cut is about REACHABILITY: a cut on a
+// second parent is still this repo's cut, and its content is in the tree. An
+// undo is only "interrupted" when its restored ledger is what the branch is
+// standing on — an undo commit that a merge reached but discarded (`-s ours`,
+// or any merge that kept the cut's tree) restored nothing here, and treating it
+// as interrupted would refuse a plain undo that can still run.
+function findCompletedUndo(repoRoot, cutoverCommit, run) {
+  const out = run(
+    [
+      'log',
+      '--topo-order',
+      '--first-parent',
+      '--format=%H',
+      '-F',
+      `--grep=${UNDO_SUBJECT}`,
+      'HEAD',
+    ],
+    repoRoot,
+  );
+  for (const oid of out.split('\n').map((line) => line.trim())) {
+    if (!oid) continue;
+    const subject = run(['log', '-1', '--format=%s', oid], repoRoot).trim();
+    if (
+      subject === UNDO_SUBJECT &&
+      isAncestor(repoRoot, cutoverCommit, oid, run) &&
+      isInverseCommit(repoRoot, cutoverCommit, oid, run)
+    ) {
+      return oid;
+    }
+  }
+  return null;
+}
+
+function cleanupPathsUnchanged(repoRoot, candidate, layout, run) {
+  const paths = layout.collections.map((collection) => collection.prefix.slice(0, -1));
+  return run(['diff', '--name-only', candidate, 'HEAD', '--', ...paths], repoRoot).trim() === '';
+}
+
+function observedActivation(repoRoot, run) {
+  const activation = readActivation(repoRoot, run);
+  if (activation === null) return null;
+  return {
+    authority: activation,
+    oid: run(['rev-parse', '--verify', ACTIVATION_REF], repoRoot).trim(),
+  };
+}
+
+function deleteCutoverRefs(repoRoot, stateOid, activationOid, run) {
+  const commands = [];
+  if (activationOid) commands.push(`delete ${ACTIVATION_REF} ${activationOid}`);
+  commands.push(`delete ${STATE_REF} ${stateOid}`);
+  run(['update-ref', '--stdin'], repoRoot, { input: `${commands.join('\n')}\n` });
+}
+
+function undoCutover(ctx, output, run) {
+  const { changeledgerDir, config, repoRoot } = ctx;
+
+  const tip = readStateRef(repoRoot, run);
+  const found = findCutover(
+    repoRoot,
+    { tip, activated: readActivation(repoRoot, run) !== null },
+    output,
+    run,
+  );
   if (found === null) {
     throw new Error(
       `nothing to undo — no commit with the subject "${CUTOVER_SUBJECT}" is reachable from HEAD`,
     );
   }
   const { oid: cutoverCommit, baseline } = found;
-  const tip = readStateRef(repoRoot, run);
   if (tip === null) {
     throw new Error(`nothing to undo — ${STATE_REF} does not exist`);
   }
@@ -402,7 +571,21 @@ function undoCutover(ctx, output, run) {
       `the cutover is no longer reversible — ${STATE_REF} is at ${tip}, past the published baseline ${baseline}, so undoing would discard the ledger history written since the cut; the decision is yours`,
     );
   }
-  assertCleanLedger(repoRoot, changeledgerDir, 'cutover --undo', run);
+  const activation = observedActivation(repoRoot, run);
+  const completedUndo = findCompletedUndo(repoRoot, cutoverCommit, run);
+  const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
+  if (activation?.authority.state_ref === STATE_REF && completedUndo !== null) {
+    if (!cleanupPathsUnchanged(repoRoot, completedUndo, layout, run)) {
+      throw new Error(
+        `the interrupted undo ${completedUndo} cannot be completed automatically — its restored ledger paths changed afterward; resolve that content by hand`,
+      );
+    }
+    assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
+    deleteCutoverRefs(repoRoot, tip, activation.oid, run);
+    output.log(`Undid the cutover — the ledger is back in the worktree, ${STATE_REF} deleted`);
+    return 0;
+  }
+  assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
 
   // Worktree first, refs after: an interrupted undo that has restored the
   // documents but not yet dropped the refs is still a consistent activated
@@ -429,14 +612,8 @@ function undoCutover(ctx, output, run) {
   // Deleted with its observed oid as the CAS old-value, never bare: a `-d` with
   // no old-value would also delete an activation someone else re-pointed
   // between this read and the write.
-  let activation = '';
-  try {
-    activation = run(['rev-parse', '--verify', '--quiet', ACTIVATION_REF], repoRoot).trim();
-  } catch {
-    activation = ''; // no activation ref — nothing to delete
-  }
-  if (activation) mutatingRun(['update-ref', '-d', ACTIVATION_REF, activation], repoRoot);
-  mutatingRun(['update-ref', '-d', STATE_REF, baseline], repoRoot);
+  const currentActivation = observedActivation(repoRoot, run);
+  deleteCutoverRefs(repoRoot, baseline, currentActivation?.oid, run);
 
   output.log(`Undid the cutover — the ledger is back in the worktree, ${STATE_REF} deleted`);
   return 0;

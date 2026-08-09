@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,14 @@ import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { applyMigration, assertSupportedSchema, buildMigration } from '../src/config-migration.mjs';
+import { capturedRun } from '../src/git.mjs';
+import {
+  LedgerConflictError,
+  mutateState,
+  STATE_REF,
+  writeActivation,
+} from '../src/state-store.mjs';
+import { buildTree, commitTree, initStateRepo, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
@@ -198,6 +207,49 @@ function silentOutput() {
     },
     messages,
   };
+}
+
+function activeMigrationFixture({
+  stateConfig = SCHEMA1_CONFIG,
+  marker = 'schema_version: 5\n',
+} = {}) {
+  const root = initStateRepo();
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, marker);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc123\n',
+    '.changeledger-state/config.yml': stateConfig,
+    '.changeledger-state/specs/keep.md': '# Keep\n',
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state fixture' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, configFile, marker, revision };
+}
+
+// A second ChangeLedger project nested inside an activated repo, owning a
+// different `project_id` and no `.git` of its own: the activation probe run
+// from here resolves the host repo's activation even though the host's state
+// ref is not this project's ledger.
+function nestedProject(root, { config = SCHEMA1_CONFIG, projectId = 'nested99' } = {}) {
+  const text = config.replace('project_id: "abc123"', `project_id: "${projectId}"`);
+  const repoRoot = path.join(root, 'nested');
+  const configFile = path.join(repoRoot, '.changeledger', 'config.yml');
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, text);
+  return { repoRoot, configFile, text };
+}
+
+function stateRefAt(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+}
+
+function stateConfigAt(root, revision = STATE_REF) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
+    cwd: root,
+    encoding: 'utf8',
+  });
 }
 
 // Minimal SpecLedger-era config (schema 0, five statuses, id_digits, .sl/* paths, no tdd/review)
@@ -652,6 +704,185 @@ test('162556 CR1: applyMigration summary reports 1 → current for schema 1 conf
   assert.match(summary, /Config migration 1 → 5/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG, 'dry run must not write');
   fs.rmSync(configFile, { force: true });
+});
+
+test('234920 CR4: active apply loses a deterministic real CAS race and preserves the winner', () => {
+  const { root, configFile, marker, revision } = activeMigrationFixture();
+  const winnerConfig = buildMigration(SCHEMA1_CONFIG).yaml.replace(
+    'project_name: myrepo',
+    'project_name: winner',
+  );
+  let raced = false;
+  const racingRun = (args, cwd, options) => {
+    if (!raced && args[0] === 'update-ref' && args[1] === STATE_REF) {
+      raced = true;
+      mutateState(
+        root,
+        { expectedRevision: revision, message: 'concurrent winner' },
+        (stage) => stage.write('config.yml', winnerConfig),
+        capturedRun,
+      );
+    }
+    return capturedRun(args, cwd, options);
+  };
+
+  assert.throws(
+    () => applyMigration(configFile, { repoRoot: root, run: racingRun }),
+    LedgerConflictError,
+  );
+  assert.equal(raced, true);
+  assert.equal(stateConfigAt(root), winnerConfig);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), marker);
+});
+
+test('234920 CR3: active no-op and invalid or future configs never fall back to the marker', () => {
+  const current = buildMigration(SCHEMA1_CONFIG).yaml;
+  const noOp = activeMigrationFixture({ stateConfig: current, marker: 'statuses: [\n' });
+  assert.equal(
+    applyMigration(noOp.configFile, { repoRoot: noOp.root }),
+    'Config is already at schema 5. No changes needed.',
+  );
+  assert.equal(
+    execFileSync('git', ['rev-parse', STATE_REF], { cwd: noOp.root, encoding: 'utf8' }).trim(),
+    noOp.revision,
+  );
+  assert.equal(fs.readFileSync(noOp.configFile, 'utf8'), 'statuses: [\n');
+
+  for (const [name, stateConfig, expected] of [
+    ['invalid', 'statuses: [\n', /Invalid YAML/],
+    [
+      'future',
+      'schema_version: 6\nproject_id: abc123\n',
+      /config schema 6 is newer than supported schema 5/,
+    ],
+  ]) {
+    const fixture = activeMigrationFixture({ stateConfig, marker: current });
+    assert.throws(
+      () => applyMigration(fixture.configFile, { dryRun: true, repoRoot: fixture.root }),
+      expected,
+      name,
+    );
+    assert.equal(
+      execFileSync('git', ['rev-parse', STATE_REF], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim(),
+      fixture.revision,
+      name,
+    );
+    assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), current, name);
+  }
+});
+
+test('234920 CR5: inactive Git repos only probe activation across every config and mode', () => {
+  const migrated = buildMigration(SCHEMA1_CONFIG).yaml;
+  const cases = [
+    { name: 'old', text: SCHEMA1_CONFIG, summary: /Config migration 1 → 5/ },
+    {
+      name: 'current',
+      text: migrated,
+      summary: 'Config is already at schema 5. No changes needed.',
+    },
+    { name: 'invalid', text: 'statuses: [\n', error: /Invalid YAML/ },
+    {
+      name: 'future',
+      text: 'schema_version: 6\nproject_id: abc123\n',
+      error: /config schema 6 is newer than supported schema 5/,
+    },
+  ];
+  const activationProbe = [['rev-parse', '--verify', '--quiet', 'refs/changeledger/activation']];
+
+  for (const dryRun of [true, false]) {
+    for (const fixture of cases) {
+      const root = initStateRepo();
+      const configFile = path.join(root, '.changeledger', 'config.yml');
+      fs.mkdirSync(path.dirname(configFile), { recursive: true });
+      fs.writeFileSync(configFile, fixture.text);
+      const calls = [];
+      const run = (args, cwd, options) => {
+        calls.push([...args]);
+        return capturedRun(args, cwd, options);
+      };
+      const label = `${fixture.name}/${dryRun ? 'dry-run' : 'apply'}`;
+
+      if (fixture.error) {
+        assert.throws(
+          () => applyMigration(configFile, { dryRun, repoRoot: root, run }),
+          fixture.error,
+          label,
+        );
+      } else {
+        const summary = applyMigration(configFile, { dryRun, repoRoot: root, run });
+        if (fixture.summary instanceof RegExp) assert.match(summary, fixture.summary, label);
+        else assert.equal(summary, fixture.summary, label);
+      }
+
+      const expectedText = fixture.name === 'old' && !dryRun ? migrated : fixture.text;
+      assert.equal(fs.readFileSync(configFile, 'utf8'), expectedText, label);
+      assert.deepEqual(calls, activationProbe, label);
+    }
+  }
+});
+
+// Activation is inherited by every directory under an activated repo, so a
+// nested project with its own ledger and no `.git` probes as "activated". The
+// host's state ref is another project's authority: migrating it there writes
+// the wrong ledger and leaves the nested config at its old schema.
+test('234920 CR5: a nested project migrates its own config and never the host state ref', () => {
+  const host = activeMigrationFixture();
+  const nested = nestedProject(host.root);
+
+  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.equal(stateRefAt(host.root), host.revision);
+  assert.equal(stateConfigAt(host.root), SCHEMA1_CONFIG);
+  assert.equal(fs.readFileSync(host.configFile, 'utf8'), host.marker);
+});
+
+test('234920 CR5: a nested project migrates even when the host authority is current', () => {
+  const host = activeMigrationFixture({ stateConfig: buildMigration(SCHEMA1_CONFIG).yaml });
+  const nested = nestedProject(host.root);
+
+  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.equal(stateRefAt(host.root), host.revision);
+});
+
+// The identity guard must not weaken CR1/CR2: on the activated repo's own
+// ledger the marker is discovery only, whether it diverges while claiming the
+// same project or cannot be parsed at all.
+test('234920 CR2: the activated repo keeps the ref route on a divergent or malformed marker', () => {
+  const expected = buildMigration(SCHEMA1_CONFIG).yaml;
+  for (const [name, marker] of [
+    ['divergent', 'schema_version: 5\nproject_id: "abc123"\nproject_name: divergent\n'],
+    ['malformed', 'statuses: [\n'],
+  ]) {
+    const fixture = activeMigrationFixture({ marker });
+
+    const summary = applyMigration(fixture.configFile, { repoRoot: fixture.root });
+
+    assert.match(summary, /^Config migration 1 → 5$/m, name);
+    const tip = stateRefAt(fixture.root);
+    assert.equal(
+      execFileSync('git', ['rev-parse', `${tip}^`], { cwd: fixture.root, encoding: 'utf8' }).trim(),
+      fixture.revision,
+      name,
+    );
+    assert.equal(
+      execFileSync('git', ['log', '-1', '--format=%s', tip], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim(),
+      'config: migrate',
+      name,
+    );
+    assert.equal(stateConfigAt(fixture.root, tip), expected, name);
+    assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), marker, name);
+  }
 });
 
 // CR2 — custom quick type, its impact and its comment survive migration. Since

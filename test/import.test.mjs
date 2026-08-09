@@ -5,7 +5,7 @@
 // over by the real `cutover` command — the starting point the import assumes.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readSnapshot, STATE_REF } from '../src/state-store.mjs';
@@ -35,17 +35,14 @@ for (const key of [
 }
 
 function cli(root, ...args) {
-  try {
-    const out = execFileSync(process.execPath, [BIN, ...args], {
-      cwd: root,
-      env: CLI_ENV,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { code: 0, out, err: '' };
-  } catch (e) {
-    return { code: e.status ?? 1, out: e.stdout ?? '', err: e.stderr ?? '' };
-  }
+  const result = spawnSync(process.execPath, [BIN, ...args], {
+    cwd: root,
+    env: CLI_ENV,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error) throw result.error;
+  return { code: result.status ?? 1, out: result.stdout ?? '', err: result.stderr ?? '' };
 }
 
 const SOURCE = 'feature-x';
@@ -55,7 +52,9 @@ const DEMO_DOC = `changes/${DEMO_ID}-demo.md`;
 const NEW_ID = '20260101-000001';
 const NEW_FILE = `.changeledger/changes/${NEW_ID}-new.md`;
 const NEW_DOC = `changes/${NEW_ID}-new.md`;
+const SPEC_FILE = '.changeledger/specs/demo-spec.md';
 const SPEC_DOC = 'specs/demo-spec.md';
+const RELEASE_FILE = '.changeledger/releases/0.1.0.yml';
 const RELEASE_DOC = 'releases/0.1.0.yml';
 
 // The two Log entries every ordering scenario is built from, plus a third that
@@ -85,15 +84,17 @@ function activatedRepo({
   mainFiles = defaultLedgerFiles(),
   sourceFiles = {},
   removeFromSource = [],
+  allowEmptySource = false,
 } = {}) {
   const { root } = seedLedgerRepo({ files: mainFiles });
   git(root, ['checkout', '-q', '-b', SOURCE]);
   writeLedgerFiles(root, sourceFiles);
   for (const rel of removeFromSource) git(root, ['rm', '-q', '-f', '--', rel]);
   git(root, ['add', '-A']);
-  // `--allow-empty`: a scenario may need the branch to exist without carrying any
-  // work of its own (the ref whose ledger is elsewhere, or nowhere).
-  git(root, ['commit', '-q', '--allow-empty', '-m', 'feat: work on the branch']);
+  const commitArgs = ['commit', '-q'];
+  if (allowEmptySource) commitArgs.push('--allow-empty');
+  commitArgs.push('-m', 'feat: work on the branch');
+  git(root, commitArgs);
   git(root, ['checkout', '-q', 'main']);
   const cut = cli(root, 'cutover');
   assert.equal(cut.code, 0, cut.err);
@@ -377,7 +378,7 @@ test('20260809-113241 CR11: a source change with no ## Log aborts naming the doc
 // 0 in both cases (CR2's approved wording fixes that); only the text separates
 // them.
 test('20260809-113241 CR2: a ref with no ChangeLedger documents says so, never "already absorbed"', () => {
-  const root = activatedRepo();
+  const root = activatedRepo({ allowEmptySource: true });
   git(root, ['checkout', '-q', '--orphan', 'no-ledger']);
   git(root, ['rm', '-r', '-q', '-f', '.']);
   writeLedgerFiles(root, { 'README.md': '# unrelated branch\n' });
@@ -392,6 +393,73 @@ test('20260809-113241 CR2: a ref with no ChangeLedger documents says so, never "
   assert.match(out, /no ChangeLedger documents/i);
   assert.doesNotMatch(out, /already absorbed/);
   assert.equal(stateRevision(root), before);
+});
+
+// --- a source layout that hides its changes from the snapshot authority -----
+
+test('20260809-140157: zero visible documents warns when the source declares another changes_dir', () => {
+  const movedDir = 'branch-ledger/changes';
+  const root = activatedRepo({
+    sourceFiles: {
+      '.changeledger/config.yml': ledgerConfigText.replace(
+        'changes_dir: .changeledger/changes',
+        `changes_dir: ${movedDir}`,
+      ),
+      [`${movedDir}/${NEW_ID}-new.md`]: changeText({ id: NEW_ID }),
+    },
+    removeFromSource: [DEMO_FILE, SPEC_FILE, RELEASE_FILE],
+  });
+  const before = stateRevision(root);
+
+  const { code, out, err } = cli(root, 'import', '--from', SOURCE);
+
+  assert.equal(code, 0, err || out);
+  assert.match(out, /no ChangeLedger documents/i);
+  assert.match(err, /source declares `changes_dir: branch-ledger\/changes`/i);
+  assert.match(err, /this repo reads `.changeledger\/changes`/i);
+  assert.match(err, /documents.*not imported/i);
+  assert.equal(stateRevision(root), before);
+  assert.equal(NEW_DOC in readSnapshot(root).documents, false);
+});
+
+test('20260809-140157: zero visible documents with matching changes_dir emits no warning', () => {
+  const root = activatedRepo({
+    removeFromSource: [DEMO_FILE, SPEC_FILE, RELEASE_FILE],
+  });
+
+  const { code, out, err } = cli(root, 'import', '--from', SOURCE);
+
+  assert.equal(code, 0, err || out);
+  assert.match(out, /no ChangeLedger documents/i);
+  assert.equal(err, '');
+});
+
+test('20260809-140157: a source-only specs_dir does not trigger the changes_dir warning', () => {
+  const movedSpecsDir = 'branch-ledger/specs';
+  const root = activatedRepo({
+    sourceFiles: {
+      '.changeledger/config.yml': ledgerConfigText.replace(
+        'specs_dir: .changeledger/specs',
+        `specs_dir: ${movedSpecsDir}`,
+      ),
+      [`${movedSpecsDir}/demo-spec.md`]: ledgerSpecText(),
+    },
+    removeFromSource: [DEMO_FILE, SPEC_FILE, RELEASE_FILE],
+  });
+
+  const { code, out, err } = cli(root, 'import', '--from', SOURCE);
+
+  assert.equal(code, 0, err || out);
+  assert.match(out, /no ChangeLedger documents/i);
+  assert.equal(err, '');
+});
+
+test('20260809-140157: import help scopes validation to the snapshot-authoritative layout', () => {
+  const { code, out, err } = cli(process.cwd(), 'import', '--help');
+
+  assert.equal(code, 0, err || out);
+  assert.doesNotMatch(out, /validates the whole source/i);
+  assert.match(out, /validates every document visible\s+under that layout/i);
 });
 
 // --- identity survives a rename ----------------------------------------------

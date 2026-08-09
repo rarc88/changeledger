@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { status, validation } from '../src/commands/agent.mjs';
+import { buildMigration } from '../src/config-migration.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -33,6 +34,39 @@ function run(...args) {
   } catch (e) {
     return { code: e.status ?? 1, out: e.stdout ?? '', err: e.stderr ?? '' };
   }
+}
+
+const HELP_COMMAND_EXCLUSIONS = new Set(['help']);
+
+function registeredChildCommands(help) {
+  const lines = help.split('\n');
+  const start = lines.indexOf('Commands:');
+  if (start === -1) return [];
+
+  const commands = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line === '') break;
+    const match = line.match(/^ {2}(\S+)/);
+    if (match && !HELP_COMMAND_EXCLUSIONS.has(match[1])) commands.push(match[1]);
+  }
+  return commands;
+}
+
+function registeredCommandHelp() {
+  const rootHelp = run('--help');
+  assert.equal(rootHelp.code, 0, 'root --help should exit 0');
+  const queue = [{ command: [], out: rootHelp.out }];
+  const results = [];
+
+  for (const parent of queue) {
+    for (const child of registeredChildCommands(parent.out)) {
+      const command = [...parent.command, child];
+      const help = run(...command, '-h');
+      results.push({ command, ...help });
+      queue.push({ command, out: help.out });
+    }
+  }
+  return results;
 }
 
 function runDirect(...args) {
@@ -121,6 +155,38 @@ function activatedCliRepo() {
   writeActivation(root, { stateRef: STATE_REF });
 
   return { root, env };
+}
+
+function activatedMigrationCliRepo({ marker = 'statuses: [\n', stateConfig } = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const initialized = fs.readFileSync(configFile, 'utf8');
+  const authority =
+    stateConfig ?? initialized.replace(/^schema_version: \d+$/m, 'schema_version: 1');
+  fs.writeFileSync(configFile, marker);
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': authority,
+    '.changeledger-state/specs/keep.md': '# Keep\n',
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state fixture' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, env, configFile, marker, authority, revision };
+}
+
+function cliStateConfig(root, revision = STATE_REF) {
+  return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
+    cwd: root,
+    encoding: 'utf8',
+  });
 }
 
 test('20260808-151641 CR6: `list` and `search` read the state-ref snapshot, not the worktree', () => {
@@ -476,39 +542,28 @@ test('225212 CR5: root --help offers a concise index without a divergent manual 
   assert.match(out, /context.*unless.*delegation prompt.*agent-context/is);
 });
 
-// CR6: every public command and subcommand's help exits 0, shows Usage, matrix.
+// CR6: every registered command and subcommand's help exits 0 and shows Usage.
 test('225212 CR6: help matrix — every command and subcommand documents Usage on exit 0', () => {
-  const commands = [
-    ['init'],
-    ['register'],
-    ['new'],
-    ['view'],
-    ['check'],
-    ['context'],
-    ['agent-prompt'],
-    ['agent-context'],
-    ['status'],
-    ['approve'],
-    ['discard'],
-    ['review'],
-    ['owner'],
-    ['archive'],
-    ['log'],
-    ['task'],
-    ['list'],
-    ['show'],
-    ['graduate'],
-    ['config'],
-    ['config', 'migrate'],
-    ['release'],
-    ['release', 'init'],
-    ['release', 'plan'],
-    ['release', 'record'],
+  const commandHelp = registeredCommandHelp();
+  const topLevelCommands = new Set(
+    commandHelp.filter(({ command }) => command.length === 1).map(({ command }) => command[0]),
+  );
+  const formerlyOmitted = [
+    'import',
+    'cutover',
+    'activate',
+    'commit',
+    'fix',
+    'search',
+    'validation',
   ];
-  for (const cmd of commands) {
-    const { code, out } = run(...cmd, '-h');
-    assert.equal(code, 0, `${cmd.join(' ')} -h should exit 0`);
-    assert.match(out, /Usage: changeledger/, `${cmd.join(' ')} -h should show Usage`);
+  assert.deepEqual(
+    formerlyOmitted.filter((name) => !topLevelCommands.has(name)),
+    [],
+  );
+  for (const { command, code, out } of commandHelp) {
+    assert.equal(code, 0, `${command.join(' ')} -h should exit 0`);
+    assert.match(out, /Usage: changeledger/, `${command.join(' ')} -h should show Usage`);
   }
 });
 
@@ -549,6 +604,47 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
     unknown.err,
     /Unknown context "bogus" — valid modes: implement, review, spec, release \(or pass a change id\)/,
   );
+});
+
+test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors without emitting BEGIN', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
+  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  assert.equal(runIn(root, env, 'init').code, 0);
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', 'broken.md'),
+    'no frontmatter here\n',
+  );
+
+  const context = runIn(root, env, 'context', '20990101-000000');
+  assert.equal(context.code, 1);
+  assert.match(context.err, /Unknown context "20990101-000000"/);
+  assert.doesNotMatch(context.out, /CHANGELEDGER CONTEXT BEGIN/);
+
+  const agent = runIn(root, env, 'agent-context', 'implementation', '20990101-000000');
+  assert.equal(agent.code, 1);
+  assert.match(agent.err, /No change with id "20990101-000000"/);
+  assert.doesNotMatch(agent.out, /CHANGELEDGER AGENT CONTEXT BEGIN/);
+
+  const checked = runIn(root, env, 'check');
+  assert.equal(checked.code, 1);
+  assert.match(checked.err, /broken\.md/);
+});
+
+test('20260808-171107 CR4: CLI and viewer conflict text use one shared literal base', () => {
+  const files = [
+    new URL('../src/state-store.mjs', import.meta.url),
+    new URL('../bin/changeledger.mjs', import.meta.url),
+    new URL('../src/viewer/domain.mjs', import.meta.url),
+  ];
+  const literals = files.flatMap((file) =>
+    [...fs.readFileSync(file, 'utf8').matchAll(/(['"])(state changed since load[^'"\n]*)\1/g)].map(
+      (match) => match[2],
+    ),
+  );
+
+  assert.deepEqual(literals, ['state changed since load']);
 });
 
 // 20260729-162616 CR1: `context <id>` used to degrade silently on an
@@ -825,6 +921,90 @@ test('113219 CLI CR8: config migrate on invalid YAML exits 1', () => {
   const { code, err } = runIn(root, env, 'config', 'migrate');
   assert.equal(code, 1);
   assert.match(err, /Error:/);
+});
+
+test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, and marker byte-identical', () => {
+  const { root, env, configFile, marker, authority, revision } = activatedMigrationCliRepo();
+  const expected = buildMigration(authority);
+
+  const { code, out, err } = runIn(root, env, 'config', 'migrate', '--dry-run');
+
+  assert.equal(code, 0, err);
+  assert.match(out, /^Config migration 1 → 5 \(dry run\)$/m);
+  assert.ok(out.includes(expected.yaml));
+  assert.equal(
+    execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim(),
+    revision,
+  );
+  assert.equal(cliStateConfig(root), authority);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), marker);
+});
+
+test('234920 CR2: active CLI apply publishes one config migration commit and preserves other state and marker bytes', () => {
+  const marker = 'schema_version: 5\nproject_name: divergent marker\n';
+  const { root, env, configFile, authority, revision } = activatedMigrationCliRepo({ marker });
+  const expected = buildMigration(authority).yaml;
+
+  const { code, out, err } = runIn(root, env, 'config', 'migrate');
+
+  assert.equal(code, 0, err);
+  assert.match(out, /^Config migration 1 → 5$/m);
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
+  assert.notEqual(tip, revision);
+  assert.equal(
+    execFileSync('git', ['rev-parse', `${tip}^`], { cwd: root, encoding: 'utf8' }).trim(),
+    revision,
+  );
+  assert.equal(
+    execFileSync('git', ['log', '-1', '--format=%s', tip], { cwd: root, encoding: 'utf8' }).trim(),
+    'config: migrate',
+  );
+  assert.equal(cliStateConfig(root, tip), expected);
+  assert.equal(
+    execFileSync('git', ['cat-file', 'blob', `${tip}:.changeledger-state/specs/keep.md`], {
+      cwd: root,
+      encoding: 'utf8',
+    }),
+    '# Keep\n',
+  );
+  assert.equal(fs.readFileSync(configFile, 'utf8'), marker);
+});
+
+test('234920 CR3: active CLI fails closed on an absent ref and an invalid state layout', () => {
+  const current = 'schema_version: 5\n';
+
+  const absent = activatedMigrationCliRepo({ marker: current });
+  execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root });
+  const absentResult = runIn(absent.root, absent.env, 'config', 'migrate', '--dry-run');
+  assert.equal(absentResult.code, 1);
+  assert.match(absentResult.err, /state is not initialized/);
+  assert.equal(fs.readFileSync(absent.configFile, 'utf8'), current);
+
+  const invalid = activatedMigrationCliRepo({ marker: current });
+  const badTree = buildTree(invalid.root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': invalid.authority,
+    '.changeledger-state/foreign.txt': 'forbidden\n',
+  });
+  const badRevision = commitTree(invalid.root, badTree, {
+    parents: [invalid.revision],
+    message: 'chore: invalid layout',
+  });
+  updateRef(invalid.root, STATE_REF, badRevision, invalid.revision);
+  const invalidResult = runIn(invalid.root, invalid.env, 'config', 'migrate');
+  assert.equal(invalidResult.code, 1);
+  assert.match(invalidResult.err, /invalid state path: \.changeledger-state\/foreign\.txt/);
+  assert.equal(
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: invalid.root,
+      encoding: 'utf8',
+    }).trim(),
+    badRevision,
+  );
+  assert.equal(fs.readFileSync(invalid.configFile, 'utf8'), current);
 });
 
 // End-to-end: `changeledger graduate <id> <slug> --into` links an existing spec (flag in

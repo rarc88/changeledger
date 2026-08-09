@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command } from 'commander';
 import { activate } from '../src/commands/activate.mjs';
 import {
@@ -36,7 +37,7 @@ import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
 import { nowUtc } from '../src/paths.mjs';
-import { LedgerConflictError } from '../src/state-store.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError } from '../src/state-store.mjs';
 
 const { version } = createRequire(import.meta.url)('../package.json');
 
@@ -65,7 +66,7 @@ function action(fn) {
       // job is to tell the caller to reload and re-run, not to relay the
       // store's own "state ref moved: expected X, found Y" internals.
       if (e instanceof LedgerConflictError) {
-        console.error('state changed since load — re-run the command');
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
       } else {
         console.error(`Error: ${e.message}`);
       }
@@ -201,7 +202,7 @@ program
       process.exit(fix(args));
     } catch (e) {
       if (e instanceof LedgerConflictError) {
-        console.error('state changed since load — re-run the command');
+        console.error(`${CAS_CONFLICT_MESSAGE} — re-run the command`);
       } else {
         console.error(`Error: ${e.message}`);
       }
@@ -314,13 +315,14 @@ program
     [
       '',
       'For the branches that were in flight when the repo was cut over, and for the',
-      'documents that land on them afterwards: it validates the whole source, then',
-      'adds what is missing and updates every change whose Log strictly extends the',
-      'published one. Re-running the same ref is a no-op.',
+      'documents that land on them afterwards: it validates every document visible',
+      'under that layout, then adds what is missing and updates every change whose',
+      'Log strictly extends the published one. Re-running the same ref is a no-op.',
       '',
       'The ref must BE a commit (an annotated tag is refused, never peeled), and the',
-      "source's config.yml is ignored — once activated, the state ref is the config",
-      'authority. Any conflict aborts the whole import and is yours to resolve.',
+      "state ref's config defines the layout and validation rules. The source's",
+      'config.yml is never imported. Any conflict aborts the whole import and is',
+      'yours to resolve.',
       '',
       'Example:',
       '  changeledger import --from feature/in-flight',
@@ -828,7 +830,10 @@ configCommand
       const changeledgerDir = findChangeledgerDir();
       if (!changeledgerDir) throw new Error('Not a ChangeLedger repo.');
       const configFile = `${changeledgerDir}/config.yml`;
-      const result = applyMigration(configFile, { dryRun: options.dryRun ?? false });
+      const result = applyMigration(configFile, {
+        dryRun: options.dryRun ?? false,
+        repoRoot: path.dirname(changeledgerDir),
+      });
       console.log(result);
     }),
   );

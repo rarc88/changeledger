@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { init } from '../src/commands/init.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { loadConfig } from '../src/config.mjs';
 import {
+  listProjects,
   readRegistry,
   register,
   registryDir,
@@ -15,6 +17,8 @@ import {
   remove,
   update,
 } from '../src/registry.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -72,6 +76,86 @@ test('register relinks the path for the same project_id without duplicating', ()
   const reg = readRegistry();
   assert.equal(Object.keys(reg).length, 1);
   assert.equal(reg[id].path, path.resolve(moved));
+});
+
+test('20260809-113242 CR5: listProjects uses project_name from an activated state ref', () => {
+  isolatedHome();
+  const root = newRepo();
+  init(root);
+  const configFile = path.join(root, '.changeledger', 'config.yml');
+  const original = fs.readFileSync(configFile, 'utf8');
+  const id = loadConfig(path.join(root, '.changeledger')).project_id;
+  fs.writeFileSync(configFile, original.replace(/^project_name:.*$/m, 'project_name: stale-name'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${id}\n`,
+    '.changeledger-state/config.yml': original.replace(
+      /^project_name:.*$/m,
+      'project_name: ref-name',
+    ),
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(listProjects().find((project) => project.id === id).name, 'ref-name');
+});
+
+test('20260809-113242 CR12: listProjects fails closed when an activated state ref is missing', () => {
+  isolatedHome();
+  const root = newRepo();
+  init(root);
+  const id = loadConfig(path.join(root, '.changeledger')).project_id;
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${id}\n`,
+    '.changeledger-state/config.yml': `project_id: ${id}\nproject_name: ref-name\n`,
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: root });
+
+  assert.throws(() => listProjects(), /state is not initialized/);
+});
+
+test('20260809-113242 CR12: missing and inactive project paths retain their cached names', () => {
+  isolatedHome();
+  register({ id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' });
+  const inactive = newRepo();
+  fs.mkdirSync(path.join(inactive, '.changeledger'));
+  fs.writeFileSync(path.join(inactive, '.changeledger', 'config.yml'), 'statuses: [\n');
+  register({ id: 'inactive', name: 'inactive-cache', path: inactive });
+
+  assert.deepEqual(listProjects(), [
+    { id: 'missing', name: 'missing-cache', path: '/path/that/does/not/exist' },
+    { id: 'inactive', name: 'inactive-cache', path: inactive },
+  ]);
+});
+
+test('20260809-113242 CR12 correction: a deleted path below a Git worktree retains its cached name', () => {
+  isolatedHome();
+  const gitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-parent-'));
+  execFileSync('git', ['init', '-q'], { cwd: gitRoot });
+  const deleted = path.join(gitRoot, 'projects', 'deleted');
+  fs.mkdirSync(deleted, { recursive: true });
+  register({ id: 'deleted', name: 'deleted-cache', path: deleted });
+  fs.rmSync(path.join(gitRoot, 'projects'), { recursive: true });
+
+  assert.deepEqual(listProjects(), [{ id: 'deleted', name: 'deleted-cache', path: deleted }]);
+});
+
+test('20260809-113242 CR12 correction: a path replaced by a file below a Git worktree retains its cached name', () => {
+  isolatedHome();
+  const gitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-file-'));
+  execFileSync('git', ['init', '-q'], { cwd: gitRoot });
+  const replaced = path.join(gitRoot, 'projects', 'replaced');
+  fs.mkdirSync(replaced, { recursive: true });
+  register({ id: 'replaced', name: 'replaced-cache', path: replaced });
+  fs.rmSync(replaced, { recursive: true });
+  fs.writeFileSync(replaced, 'not a directory\n');
+
+  assert.deepEqual(listProjects(), [{ id: 'replaced', name: 'replaced-cache', path: replaced }]);
 });
 
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {

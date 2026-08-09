@@ -12,7 +12,12 @@ import {
   validation as applyValidation,
   isPendingGraduation,
 } from '../commands/agent.mjs';
-import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from '../config.mjs';
+import {
+  findChangeledgerDir,
+  loadEffectiveConfig,
+  resolveRepoPath,
+  resolveSpecsDir,
+} from '../config.mjs';
 import {
   assertSupportedSchema,
   buildMigration,
@@ -23,15 +28,15 @@ import { capturedRun } from '../git.mjs';
 import { computeMetrics } from '../metrics.mjs';
 import { nowUtc, templatesDir } from '../paths.mjs';
 import { listProjects, remove, update } from '../registry.mjs';
-import { loadRepo, loadRepoWithConfig, resolveChange } from '../repo.mjs';
-import { LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
+import { loadRepo, loadRepoWithConfig, resolveChange, resolveChangeInRepo } from '../repo.mjs';
+import { CAS_CONFLICT_MESSAGE, LedgerConflictError, STATE_ROOT } from '../state-store.mjs';
 import { parseYaml } from '../yaml.mjs';
 
 // Presented for a real CAS conflict on the state ref (`LedgerConflictError`,
 // `state-store.mjs`) — never the store's own internal "state ref moved:
 // expected X, found Y" wording, and never folded into a generic 400. Mirrors
 // `bin/changeledger.mjs`'s own CLI presentation of the same error class.
-const CAS_CONFLICT_MESSAGE = 'state changed since load — reload and save again';
+const VIEWER_CAS_CONFLICT_MESSAGE = `${CAS_CONFLICT_MESSAGE} — reload and save again`;
 
 // Locates the config document for a project's write path: inactive, the
 // worktree `file` `mutateConfig` already operates on (unchanged); active,
@@ -337,7 +342,7 @@ export function resolveProjects(cwd, localOnly) {
 
   if (localOnly) {
     if (!repoRoot) throw new Error('Not a ChangeLedger repo. Run `changeledger init` first.');
-    const config = loadConfig(changeledgerDir);
+    const config = loadEffectiveConfig(repoRoot, changeledgerDir);
     const id = config.project_id ?? 'local';
     const name = config.project_name ?? path.basename(repoRoot);
     return { projects: [{ id, name, path: repoRoot, alive: true }], current: id };
@@ -410,8 +415,12 @@ function changeStatusImpl(projects, { project, id, status, reason }) {
   // the UI is bypassable.
   let current;
   try {
-    const { file } = resolveChange(proj.path, id);
-    current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    if (repoIsActivated(proj.path)) {
+      current = resolveChangeInRepo(loadRepo(proj.path), id).frontmatter.status;
+    } else {
+      const { file } = resolveChange(proj.path, id);
+      current = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.status;
+    }
   } catch (e) {
     if (/^No change with id /.test(e.message)) {
       return { code: 404, body: { error: `no change with id "${id}"` } };
@@ -459,8 +468,8 @@ function projectFor(projects, id) {
 function readProjectConfigImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   return { code: 200, body: { content, revision: revision(content) } };
 }
 
@@ -539,7 +548,7 @@ function saveProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAto
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -578,7 +587,7 @@ function repairProjectPathImpl(projects, payload, { localOnly = false } = {}) {
   const root = path.resolve(payload.path);
   let config;
   try {
-    config = loadConfig(path.join(root, '.changeledger'));
+    config = loadEffectiveConfig(root, path.join(root, '.changeledger'));
   } catch {
     return { code: 400, body: { error: 'project path is not a ChangeLedger repository' } };
   }
@@ -639,8 +648,8 @@ export const unregisterProject = withProjectIdentity(
 function readProjectConfigStructuredImpl(projects, id) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   const config = parseYaml(content);
   const schemaVersion = getSchemaVersion(config);
   return {
@@ -727,7 +736,7 @@ function patchProjectConfigImpl(projects, payload, { mutateConfig = mutateFileAt
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };
@@ -747,8 +756,8 @@ export const patchProjectConfig = withProjectIdentity(
 function previewConfigMigrationImpl(projects, id, rev) {
   const found = projectFor(projects, id);
   if (!found.project) return found;
-  const file = path.join(found.project.path, '.changeledger', 'config.yml');
-  const content = fs.readFileSync(file, 'utf8');
+  const changeledgerDir = path.join(found.project.path, '.changeledger');
+  const content = loadEffectiveConfig(found.project.path, changeledgerDir, { raw: true });
   if (rev && revision(content) !== rev) {
     return { code: 409, body: { error: 'configuration changed on disk; reload before saving' } };
   }
@@ -825,7 +834,7 @@ function applyConfigMigrationImpl(
     }
   } catch (error) {
     if (error instanceof LedgerConflictError) {
-      return { code: 409, body: { error: CAS_CONFLICT_MESSAGE } };
+      return { code: 409, body: { error: VIEWER_CAS_CONFLICT_MESSAGE } };
     }
     if (error.message === 'configuration changed on disk; reload before saving') {
       return { code: 409, body: { error: error.message } };

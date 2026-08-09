@@ -21,6 +21,7 @@ export const STATE_REF = 'refs/heads/changeledger/state';
 export const ACTIVATION_REF = 'refs/changeledger/activation';
 export const STATE_ROOT = '.changeledger-state';
 export const STATE_SCHEMA_VERSION = 1;
+export const CAS_CONFLICT_MESSAGE = 'state changed since load';
 
 const MANIFEST = `${STATE_ROOT}/manifest.yml`;
 const CONFIG = `${STATE_ROOT}/config.yml`;
@@ -134,15 +135,29 @@ function commitTree(repoRoot, tree, { parents = [], message }, run) {
 // `repoRoot/.git` either: that misclassified a subdirectory of a repo (whose
 // `.git` is not a direct child, though git still discovers it upward) as "not
 // a repo"; a genuine non-repo directory exits 128 (non-empty stderr, status
-// != 1) and is already caught by the `throw` branch below.
+// != 1) and is already caught by the `throw` branch below. Any stderr,
+// including advice that may be benign, deliberately fails closed: filtering
+// warning classes could hide the corrupt-ref diagnostic this distinction
+// exists to preserve.
 function optionalRefOid(repoRoot, ref, run) {
   try {
     const out = run(['rev-parse', '--verify', '--quiet', ref], repoRoot);
     return out.trim() || null;
   } catch (e) {
     const stderr = stderrOf(e.cause);
-    if (e.cause?.status === 1 && stderr === '') return null;
+    if (e.cause?.status === 1) {
+      if (stderr === '') return null;
+      throw new Error(`cannot read Git ref ${ref}: ${stderr}`, { cause: e });
+    }
     throw new Error(`cannot read Git ref ${ref}: ${e.message}`, { cause: e });
+  }
+}
+
+function refOidAfterUpdateFailure(repoRoot, ref, run, updateError) {
+  try {
+    return optionalRefOid(repoRoot, ref, run);
+  } catch (readError) {
+    throw new Error(readError.message, { cause: updateError });
   }
 }
 
@@ -187,7 +202,7 @@ export function initState(repoRoot, { projectId, config = {} } = {}, run = captu
     // Any other failure (e.g. a stale `.lock`, where the ref never moved) is
     // a real failure and must not be relabeled: it was never actually
     // initialized, so reporting that would send a caller retrying nothing.
-    if (optionalRefOid(repoRoot, STATE_REF, run) !== null) {
+    if (refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e) !== null) {
       throw new LedgerConflictError(`state is already initialized at ${STATE_REF}`, { cause: e });
     }
     throw e;
@@ -202,13 +217,7 @@ export function readStateRef(repoRoot, run = capturedRun) {
   return oid;
 }
 
-// Reads `revision` (defaulting to the current state ref tip) via git-batch,
-// with no checkout: enumerates the tree once, validates every entry is a
-// regular blob at a layout-valid path, and returns manifest/config parsed
-// plus every other document as `{ [relPathUnderStateRoot]: text }`, byte
-// identical to what is stored (a non-UTF-8 blob throws naming its path,
-// never silently transcoding to U+FFFD).
-export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
+function inspectStateTree(repoRoot, { revision } = {}, run = capturedRun) {
   const rev = revision ?? readStateRef(repoRoot, run);
   if (rev === null) throw new Error('state is not initialized');
   assertCommitObject(repoRoot, rev, run);
@@ -228,9 +237,17 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
   if (!names.includes(MANIFEST)) throw new Error(`state revision ${rev} is missing ${MANIFEST}`);
   if (!names.includes(CONFIG)) throw new Error(`state revision ${rev} is missing ${CONFIG}`);
 
-  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  return {
+    revision: rev,
+    entries,
+    names,
+    byPath: new Map(entries.map((entry) => [entry.path, entry])),
+  };
+}
+
+function statePathReader(repoRoot, entries, byPath, run) {
   const readBlob = batchBlobReader(repoRoot, entries, run);
-  const readPath = (full) => {
+  return (full) => {
     try {
       return readBlob(byPath.get(full).oid);
     } catch (e) {
@@ -245,10 +262,31 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
       throw e;
     }
   };
+}
+
+// Enumerates and validates the complete state layout, but materializes only
+// config.yml. Config-only callers retain the snapshot path's regular-blob and
+// strict UTF-8 guarantees without loading every ledger document body.
+export function readStateConfigText(repoRoot, { revision } = {}, run = capturedRun) {
+  const tree = inspectStateTree(repoRoot, { revision }, run);
+  const entry = tree.byPath.get(CONFIG);
+  return statePathReader(repoRoot, [entry], tree.byPath, run)(CONFIG);
+}
+
+// Reads `revision` (defaulting to the current state ref tip) via git-batch,
+// with no checkout: enumerates the tree once, validates every entry is a
+// regular blob at a layout-valid path, and returns manifest/config parsed
+// plus every other document as `{ [relPathUnderStateRoot]: text }`, byte
+// identical to what is stored (a non-UTF-8 blob throws naming its path,
+// never silently transcoding to U+FFFD).
+export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
+  const tree = inspectStateTree(repoRoot, { revision }, run);
+  const { entries, names, byPath } = tree;
+  const readPath = statePathReader(repoRoot, entries, byPath, run);
 
   const manifest = parseYaml(readPath(MANIFEST));
   if (manifest?.format_version !== STATE_SCHEMA_VERSION) {
-    throw new Error(`state revision ${rev} has unsupported manifest format_version`);
+    throw new Error(`state revision ${tree.revision} has unsupported manifest format_version`);
   }
   const config = parseYaml(readPath(CONFIG));
 
@@ -258,7 +296,7 @@ export function readSnapshot(repoRoot, { revision } = {}, run = capturedRun) {
     documents[name.slice(STATE_ROOT.length + 1)] = readPath(name);
   }
 
-  return { revision: rev, manifest, config, documents };
+  return { revision: tree.revision, manifest, config, documents };
 }
 
 // Compare-and-swap mutation over `expectedRevision`. `mutator({ write, remove
@@ -315,7 +353,7 @@ export function mutateState(
       // `.lock`, a permissions error) and relabeling it "state ref moved"
       // would be self-contradicting (expected X, found X) and would hide the
       // real cause from the caller.
-      const current = optionalRefOid(repoRoot, STATE_REF, run);
+      const current = refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e);
       if (current !== expectedRevision) {
         throw new LedgerConflictError(
           `state ref moved: expected ${expectedRevision}, found ${current ?? 'no ref'} — reload and retry`,
@@ -392,8 +430,8 @@ export function readActivation(repoRoot, run = capturedRun) {
 //   resolve on its own. Explicit error, ref untouched, decision to the human.
 //
 // A plain Error (not LedgerConflictError) for divergence on purpose: the bin
-// collapses LedgerConflictError to "state changed since load — re-run", which
-// is exactly the wrong advice for a divergence that a re-run cannot fix.
+// collapses LedgerConflictError to the actionable CAS message, which is exactly
+// the wrong advice for a divergence that a re-run cannot fix.
 export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) {
   if (typeof stateRef !== 'string' || stateRef === '') {
     throw new Error('writeActivation requires a stateRef');
@@ -423,7 +461,7 @@ export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) 
     // Same discipline as `initState`: only a ref that now resolves proves a
     // concurrent writer won. Any other failure (a stale `.lock`) never moved
     // the ref and must not be relabeled as a race the caller could retry away.
-    if (optionalRefOid(repoRoot, ACTIVATION_REF, run) !== null) {
+    if (refOidAfterUpdateFailure(repoRoot, ACTIVATION_REF, run, e) !== null) {
       throw new LedgerConflictError(`${ACTIVATION_REF} was created concurrently`, { cause: e });
     }
     throw e;

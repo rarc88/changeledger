@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
-import { loadRepo } from '../src/repo.mjs';
+import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   buildTree,
@@ -330,6 +330,25 @@ test('20260808-151641 CR4: active config comes from the snapshot, not the worktr
   const { root } = activatedFixture({ stateConfig: 'project_id: demo\nlanguage: en\n' });
   const repo = loadRepo(root);
   assert.equal(repo.config.language, 'en');
+});
+
+test('20260809-113242 CR10: active repo loaders never parse a malformed stale marker', async () => {
+  const { root, revision } = activatedFixture();
+  fs.writeFileSync(path.join(root, '.changeledger', 'config.yml'), 'statuses: [\n');
+
+  const syncRepo = loadRepo(root);
+  const asyncRepo = await loadRepoAsync(root);
+
+  assert.equal(syncRepo.state.revision, revision);
+  assert.equal(asyncRepo.state.revision, revision);
+  assert.deepEqual(
+    syncRepo.changes.map((change) => change.frontmatter.id),
+    ['only-ref'],
+  );
+  assert.deepEqual(
+    asyncRepo.changes.map((change) => change.frontmatter.id),
+    ['only-ref'],
+  );
 });
 
 // Correction round (post-review) — CR8: a `.changeledger/` below the git

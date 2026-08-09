@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { registerRepo } from '../src/commands/register.mjs';
 import { BOOTSTRAP_VERSION, REFERENCE } from '../src/contract.mjs';
+import { readRegistry } from '../src/registry.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'register-home-'));
 
@@ -34,6 +38,28 @@ function prettierBootstrap(text) {
 }
 
 const noopOutput = { warn: () => {}, log: () => {} };
+
+test('20260809-113242 CR1: register uses project_name from the activated state ref', () => {
+  const dir = initializedRepo();
+  const configFile = path.join(dir, '.changeledger', 'config.yml');
+  fs.writeFileSync(
+    configFile,
+    fs.readFileSync(configFile, 'utf8').replace('project_name: test', 'project_name: stale-name'),
+  );
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  const tree = buildTree(dir, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc1234567\n',
+    '.changeledger-state/config.yml':
+      'schema_version: 1\nproject_id: "abc1234567"\nproject_name: ref-name\n',
+  });
+  const revision = commitTree(dir, tree);
+  updateRef(dir, STATE_REF, revision);
+  writeActivation(dir, { stateRef: STATE_REF });
+
+  registerRepo(dir, noopOutput);
+
+  assert.equal(readRegistry().abc1234567.name, 'ref-name');
+});
 
 test('CR1: register inserts the bootstrap wrapped in versioned BEGIN/END delimiters', () => {
   const dir = initializedRepo('# Project rules\n\nSome existing content.\n');

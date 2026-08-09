@@ -11,6 +11,8 @@ import { check } from '../src/commands/check.mjs';
 import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
+import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const config = {
   changes_dir: '.changeledger/changes',
@@ -2850,6 +2852,34 @@ test('210115 CR1: configured git.integration_branch is the default lint base', (
   const parsed = JSON.parse(errOut.calls.at(-1));
   assert.equal(parsed.errors.length, 1);
   assert.match(parsed.errors[0].message, new RegExp(sha));
+});
+
+test('20260809-113242 CR2: activated config supplies the default commit-lint base', () => {
+  const { root, git } = gitFixture();
+  git(['branch', 'dev']);
+  fs.mkdirSync(path.join(root, '.changeledger'));
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'config.yml'),
+    'project_id: demo\ngit:\n  integration_branch: main\n',
+  );
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': 'project_id: demo\ngit:\n  integration_branch: dev\n',
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  git(['checkout', '-q', '-b', 'feature']);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '-m', 'feat(x): with marker [#20260809-113242]']);
+
+  const out = captureOutput();
+  assert.equal(check(['--commits'], root, out), 0);
+  assert.ok(
+    out.calls.some((line) => line.includes('commits dev..HEAD')),
+    out.calls.join('\n'),
+  );
 });
 
 test('210115 CR1: without the key the base stays the current auto-detection', () => {
