@@ -21,6 +21,7 @@ export const STATE_REF = 'refs/heads/changeledger/state';
 export const ACTIVATION_REF = 'refs/changeledger/activation';
 export const STATE_ROOT = '.changeledger-state';
 export const STATE_SCHEMA_VERSION = 1;
+export const CAS_CONFLICT_MESSAGE = 'state changed since load';
 
 const MANIFEST = `${STATE_ROOT}/manifest.yml`;
 const CONFIG = `${STATE_ROOT}/config.yml`;
@@ -134,15 +135,29 @@ function commitTree(repoRoot, tree, { parents = [], message }, run) {
 // `repoRoot/.git` either: that misclassified a subdirectory of a repo (whose
 // `.git` is not a direct child, though git still discovers it upward) as "not
 // a repo"; a genuine non-repo directory exits 128 (non-empty stderr, status
-// != 1) and is already caught by the `throw` branch below.
+// != 1) and is already caught by the `throw` branch below. Any stderr,
+// including advice that may be benign, deliberately fails closed: filtering
+// warning classes could hide the corrupt-ref diagnostic this distinction
+// exists to preserve.
 function optionalRefOid(repoRoot, ref, run) {
   try {
     const out = run(['rev-parse', '--verify', '--quiet', ref], repoRoot);
     return out.trim() || null;
   } catch (e) {
     const stderr = stderrOf(e.cause);
-    if (e.cause?.status === 1 && stderr === '') return null;
+    if (e.cause?.status === 1) {
+      if (stderr === '') return null;
+      throw new Error(`cannot read Git ref ${ref}: ${stderr}`, { cause: e });
+    }
     throw new Error(`cannot read Git ref ${ref}: ${e.message}`, { cause: e });
+  }
+}
+
+function refOidAfterUpdateFailure(repoRoot, ref, run, updateError) {
+  try {
+    return optionalRefOid(repoRoot, ref, run);
+  } catch (readError) {
+    throw new Error(readError.message, { cause: updateError });
   }
 }
 
@@ -187,7 +202,7 @@ export function initState(repoRoot, { projectId, config = {} } = {}, run = captu
     // Any other failure (e.g. a stale `.lock`, where the ref never moved) is
     // a real failure and must not be relabeled: it was never actually
     // initialized, so reporting that would send a caller retrying nothing.
-    if (optionalRefOid(repoRoot, STATE_REF, run) !== null) {
+    if (refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e) !== null) {
       throw new LedgerConflictError(`state is already initialized at ${STATE_REF}`, { cause: e });
     }
     throw e;
@@ -338,7 +353,7 @@ export function mutateState(
       // `.lock`, a permissions error) and relabeling it "state ref moved"
       // would be self-contradicting (expected X, found X) and would hide the
       // real cause from the caller.
-      const current = optionalRefOid(repoRoot, STATE_REF, run);
+      const current = refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e);
       if (current !== expectedRevision) {
         throw new LedgerConflictError(
           `state ref moved: expected ${expectedRevision}, found ${current ?? 'no ref'} — reload and retry`,
@@ -415,8 +430,8 @@ export function readActivation(repoRoot, run = capturedRun) {
 //   resolve on its own. Explicit error, ref untouched, decision to the human.
 //
 // A plain Error (not LedgerConflictError) for divergence on purpose: the bin
-// collapses LedgerConflictError to "state changed since load — re-run", which
-// is exactly the wrong advice for a divergence that a re-run cannot fix.
+// collapses LedgerConflictError to the actionable CAS message, which is exactly
+// the wrong advice for a divergence that a re-run cannot fix.
 export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) {
   if (typeof stateRef !== 'string' || stateRef === '') {
     throw new Error('writeActivation requires a stateRef');
@@ -446,7 +461,7 @@ export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) 
     // Same discipline as `initState`: only a ref that now resolves proves a
     // concurrent writer won. Any other failure (a stale `.lock`) never moved
     // the ref and must not be relabeled as a race the caller could retry away.
-    if (optionalRefOid(repoRoot, ACTIVATION_REF, run) !== null) {
+    if (refOidAfterUpdateFailure(repoRoot, ACTIVATION_REF, run, e) !== null) {
       throw new LedgerConflictError(`${ACTIVATION_REF} was created concurrently`, { cause: e });
     }
     throw e;

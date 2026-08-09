@@ -959,61 +959,6 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
   );
 });
 
-// Smoke test only, not CR4 proof: two real child processes racing through a
-// ready/go barrier tend to serialize on this machine (the second child's
-// `loadRepo` already observes the first child's committed file before ever
-// attempting a write), so the retry branch is not reliably exercised here —
-// both outcomes (a real CAS conflict-then-retry, or a clean id bump before
-// any write) land on the same two ids, which is why this assertion holds
-// either way. The deterministic proof of the stale-revision retry itself is
-// the test below.
-test('new on an activated repo tolerates two concurrent processes, no crash, distinct ids', async () => {
-  const root = tmp();
-  init(root);
-  activate(root);
-  const readyOne = path.join(root, 'ready-one');
-  const readyTwo = path.join(root, 'ready-two');
-  const go = path.join(root, 'go');
-  const code = `
-    import fs from 'node:fs';
-    import { setTimeout as delay } from 'node:timers/promises';
-    import { newChange } from ${JSON.stringify(pathToFileURL(path.resolve('src/commands/new.mjs')).href)};
-    fs.writeFileSync(process.argv[3], 'ready');
-    while (!fs.existsSync(process.argv[4])) {
-      await delay(5);
-    }
-    const relPath = newChange(
-      { type: 'chore', slug: process.argv[1], title: process.argv[1], now: '2026-08-08T15:00:00Z' },
-      process.argv[2],
-      { ownerHandle: () => '' },
-    );
-    console.log(relPath);
-  `;
-  const child = (slug, readyPath) =>
-    execFileAsync(process.execPath, ['--input-type=module', '-e', code, slug, root, readyPath, go]);
-
-  const one = child('one', readyOne);
-  const two = child('two', readyTwo);
-  const deadline = Date.now() + 3000;
-  while ((!fs.existsSync(readyOne) || !fs.existsSync(readyTwo)) && Date.now() < deadline) {
-    await delay(5);
-  }
-  assert.ok(fs.existsSync(readyOne), 'first child reached the barrier');
-  assert.ok(fs.existsSync(readyTwo), 'second child reached the barrier');
-  fs.writeFileSync(go, 'go');
-
-  const relPaths = (await Promise.all([one, two])).map((r) => r.stdout.trim());
-  const ids = relPaths.map((p) => p.match(/^changes\/(\d{8}-\d{6})-/)[1]);
-  assert.equal(new Set(ids).size, 2, 'both `new` calls succeeded with distinct ids');
-  assert.deepEqual(ids.sort(), ['20260808-150000', '20260808-150001']);
-
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
-  const snapshot = readSnapshot(root, { revision: tip });
-  for (const relPath of relPaths) {
-    assert.ok(snapshot.documents[relPath], `${relPath} present in the final snapshot`);
-  }
-});
-
 // Deterministic CR4 proof for the stale-revision retry: no subprocess, no
 // timing. `ownerHandle` is called by `newChangeActive` strictly after
 // `loadRepo` has already captured `repo.state.revision` and strictly before
