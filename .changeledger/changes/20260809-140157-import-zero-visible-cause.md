@@ -2,7 +2,7 @@
 id: "20260809-140157"
 title: Avisar la causa cuando el import no ve documentos
 type: quick
-status: draft
+status: approved
 created: 2026-08-09T14:01:57Z
 depends_on: ["20260809-113241"]
 related_to: []
@@ -25,3 +25,4 @@ Superficie: `src/commands/import.mjs`, `bin/changeledger.mjs` (solo help) y
 `test/import.test.mjs`.
 
 ## Log
+- **2026-08-09T16:18:33Z** `[status]` draft → approved (human via conversation)
