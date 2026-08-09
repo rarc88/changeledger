@@ -204,19 +204,72 @@ function findCutover(repoRoot, output, run) {
 // else's staged work) and a ledger with no uncommitted edit (the source of
 // truth being published is the COMMIT, so an unstaged edit would be silently
 // dropped by the cut and destroyed by the cleanup).
-function assertCleanLedger(repoRoot, changeledgerDir, operation, run) {
+function ledgerPathspecs(changeledgerDir, layout) {
+  return [
+    toPosix(path.relative(layout.topLevel, changeledgerDir)),
+    ...layout.collections.map((collection) => collection.prefix.slice(0, -1)),
+  ].filter((value, index, paths) => value !== '' && paths.indexOf(value) === index);
+}
+
+function assertCleanLedger(repoRoot, changeledgerDir, layout, operation, run) {
   const staged = run(['diff', '--cached', '--name-only'], repoRoot).trim();
   if (staged !== '') {
     throw new Error(
       `${operation} requires an empty index; commit or reset the staged changes first:\n${staged}`,
     );
   }
-  const dirty = run(['status', '--porcelain', '--', changeledgerDir], repoRoot).trim();
+  const dirty = run(
+    ['status', '--porcelain', '--', ...ledgerPathspecs(changeledgerDir, layout)],
+    layout.topLevel,
+  ).trim();
   if (dirty !== '') {
     throw new Error(
-      `${operation} requires a clean ledger under ${path.basename(changeledgerDir)}/; commit or discard these first:\n${dirty}`,
+      `${operation} requires a clean ledger in the configured paths; commit or discard these first:\n${dirty}`,
     );
   }
+}
+
+function nulNames(text) {
+  return text.split('\0').filter(Boolean).sort();
+}
+
+function sameNames(left, right) {
+  return left.length === right.length && left.every((name, index) => name === right[index]);
+}
+
+function exactStagedCleanup(repoRoot, changeledgerDir, layout, run) {
+  const cleanupPaths = layout.collections.map((collection) => collection.prefix.slice(0, -1));
+  const staged = nulNames(
+    run(['diff', '--cached', '--name-only', '-z'], repoRoot, { encoding: 'utf8' }),
+  );
+  if (staged.length === 0) return false;
+  const stagedDeletions = nulNames(
+    run(['diff', '--cached', '--name-only', '-z', '--diff-filter=D'], repoRoot, {
+      encoding: 'utf8',
+    }),
+  );
+  const expected = nulNames(
+    run(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...cleanupPaths], layout.topLevel, {
+      encoding: 'utf8',
+    }),
+  );
+  if (!sameNames(staged, expected) || !sameNames(staged, stagedDeletions)) return false;
+
+  const ledgerPaths = ledgerPathspecs(changeledgerDir, layout);
+  const unstaged = run(['diff', '--name-only', '-z', '--', ...ledgerPaths], layout.topLevel, {
+    encoding: 'utf8',
+  });
+  const untracked = run(
+    ['ls-files', '--others', '--exclude-standard', '-z', '--', ...ledgerPaths],
+    layout.topLevel,
+    { encoding: 'utf8' },
+  );
+  const ignored = run(
+    ['ls-files', '--others', '--ignored', '--exclude-standard', '-z', '--', ...ledgerPaths],
+    layout.topLevel,
+    { encoding: 'utf8' },
+  );
+  return unstaged === '' && untracked === '' && ignored === '';
 }
 
 function resolveContext(cwd, operation, run) {
@@ -276,9 +329,8 @@ function runCutover(ctx, output, run) {
       `this repo is already activated (${ACTIVATION_REF}) — cutover only runs on a repo that is not yet activated`,
     );
   }
-  assertCleanLedger(repoRoot, changeledgerDir, 'cutover', run);
-
   const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
+  if (activation === null) assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
   const source = readLedgerAt(repoRoot, head, layout, run);
   const ledgerConfig = validateLedger(source);
   const projectId = ledgerConfig.project_id;
@@ -293,6 +345,9 @@ function runCutover(ctx, output, run) {
       throw new Error(
         `this repo is already activated (${ACTIVATION_REF}) — cutover only resumes when ${STATE_REF} matches the integration commit`,
       );
+    }
+    if (!exactStagedCleanup(repoRoot, changeledgerDir, layout, run)) {
+      assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover', run);
     }
     commitCleanup(ctx, layout, tip);
     output.log(`Cut over ${source.documents.size} document(s) — ${STATE_REF} at ${tip}`);
@@ -487,25 +542,19 @@ function undoCutover(ctx, output, run) {
   }
   const activation = observedActivation(repoRoot, run);
   const completedUndo = findCompletedUndo(repoRoot, cutoverCommit, run);
+  const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
   if (activation?.authority.state_ref === STATE_REF && completedUndo !== null) {
-    if (
-      !cleanupPathsUnchanged(
-        repoRoot,
-        completedUndo,
-        ledgerLayout(repoRoot, changeledgerDir, config, run),
-        run,
-      )
-    ) {
+    if (!cleanupPathsUnchanged(repoRoot, completedUndo, layout, run)) {
       throw new Error(
         `the interrupted undo ${completedUndo} cannot be completed automatically — its restored ledger paths changed afterward; resolve that content by hand`,
       );
     }
-    assertCleanLedger(repoRoot, changeledgerDir, 'cutover --undo', run);
+    assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
     deleteCutoverRefs(repoRoot, tip, activation.oid, run);
     output.log(`Undid the cutover — the ledger is back in the worktree, ${STATE_REF} deleted`);
     return 0;
   }
-  assertCleanLedger(repoRoot, changeledgerDir, 'cutover --undo', run);
+  assertCleanLedger(repoRoot, changeledgerDir, layout, 'cutover --undo', run);
 
   // Worktree first, refs after: an interrupted undo that has restored the
   // documents but not yet dropped the refs is still a consistent activated

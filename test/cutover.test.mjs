@@ -130,6 +130,22 @@ function commitInterruptedUndo(root) {
   return head(root);
 }
 
+function externalChangesLedgerFiles() {
+  const files = defaultLedgerFiles();
+  files['.changeledger/config.yml'] = ledgerConfigText.replace(
+    'changes_dir: .changeledger/changes',
+    'changes_dir: ledger-changes',
+  );
+  files['ledger-changes/20260808-000001-demo.md'] =
+    files['.changeledger/changes/20260808-000001-demo.md'];
+  delete files['.changeledger/changes/20260808-000001-demo.md'];
+  return files;
+}
+
+function stageDefaultCleanup(root, paths = ['changes', 'specs', 'releases']) {
+  git(root, ['rm', '-r', '-q', '--', ...paths.map((name) => `.changeledger/${name}`)]);
+}
+
 // --- CR1: the happy path publishes, activates and cleans the worktree -------
 
 test('20260809-113240 CR1: cutover publishes the ledger, activates the repo and commits the cleanup', () => {
@@ -331,6 +347,119 @@ test('20260809-131004 CR4: re-running after publication and activation creates o
   assert.equal(git(root, ['status', '--porcelain']), '');
 });
 
+test('20260809-131004 CR4: re-running with the exact cleanup already staged commits it once', () => {
+  const { root } = seedLedgerRepo();
+  const before = head(root);
+  const baseline = publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root);
+  assert.deepEqual(git(root, ['diff', '--cached', '--name-only']).split('\n').sort(), [
+    '.changeledger/changes/20260808-000001-demo.md',
+    '.changeledger/releases/0.1.0.yml',
+    '.changeledger/specs/demo-spec.md',
+  ]);
+
+  const { code, out, err } = cli(root, 'cutover');
+
+  assert.equal(code, 0, err || out);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(git(root, ['rev-list', '--count', `${before}..HEAD`]), '1');
+  assert.equal(git(root, ['rev-parse', 'HEAD^']), before);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+});
+
+test('20260809-131004 CR4: a partial staged cleanup remains fail-closed', () => {
+  const { root } = seedLedgerRepo();
+  const before = head(root);
+  publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root, ['changes']);
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /requires an empty index/);
+  assert.equal(head(root), before);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(exists(root, '.changeledger/specs/demo-spec.md'), true);
+});
+
+test('20260809-131004 CR4: exact staged cleanup plus unrelated staged work remains fail-closed', () => {
+  const { root } = seedLedgerRepo();
+  const before = head(root);
+  publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root);
+  writeLedgerFiles(root, { 'README.md': '# unrelated staged work\n' });
+  git(root, ['add', 'README.md']);
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /requires an empty index/);
+  assert.equal(head(root), before);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.match(git(root, ['diff', '--cached', '--name-only']), /README\.md/);
+});
+
+test('20260809-131004 CR4: exact staged cleanup plus ordinary untracked ledger content remains fail-closed', () => {
+  const { root } = seedLedgerRepo();
+  const before = head(root);
+  publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root);
+  writeLedgerFiles(root, { '.changeledger/changes/untracked.md': 'untracked ledger content\n' });
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /requires an empty index/);
+  assert.equal(head(root), before);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(exists(root, '.changeledger/changes/untracked.md'), true);
+});
+
+test('20260809-131004 CR4: exact staged cleanup plus ignored ledger content remains fail-closed', () => {
+  const { root } = seedLedgerRepo({
+    files: {
+      ...defaultLedgerFiles(),
+      '.gitignore': '.changeledger/changes/ignored.md\n',
+    },
+  });
+  const before = head(root);
+  publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root);
+  writeLedgerFiles(root, { '.changeledger/changes/ignored.md': 'ignored ledger content\n' });
+  assert.equal(
+    git(root, ['check-ignore', '.changeledger/changes/ignored.md']),
+    '.changeledger/changes/ignored.md',
+  );
+
+  const { code, err } = cli(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /requires an empty index/);
+  assert.equal(head(root), before);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(exists(root, '.changeledger/changes/ignored.md'), true);
+});
+
+test('20260809-131004 CR4: ignored content outside ledger paths does not block exact staged cleanup', () => {
+  const { root } = seedLedgerRepo({
+    files: { ...defaultLedgerFiles(), '.gitignore': 'ignored-outside.txt\n' },
+  });
+  const before = head(root);
+  publishLedgerState(root, { activate: true });
+  stageDefaultCleanup(root);
+  writeLedgerFiles(root, { 'ignored-outside.txt': 'unrelated ignored content\n' });
+
+  const { code, out, err } = cli(root, 'cutover');
+
+  assert.equal(code, 0, err || out);
+  assert.equal(git(root, ['rev-list', '--count', `${before}..HEAD`]), '1');
+  assert.equal(exists(root, 'ignored-outside.txt'), true);
+});
+
 // --- CR5: a divergent state ref is refused without touching anything --------
 
 test('20260809-113240 CR5: an existing state ref holding different content is refused', () => {
@@ -387,6 +516,36 @@ test('20260809-131004 CR5: re-running an interrupted undo deletes both refs with
   }
   assert.equal(git(root, ['status', '--porcelain']), '');
   assert.equal(loadRepo(root).state, null);
+});
+
+test('20260809-131004 CR5: interrupted undo refuses an unstaged edit in an external configured collection', () => {
+  const { root } = seedLedgerRepo({ files: externalChangesLedgerFiles() });
+  assert.equal(cli(root, 'cutover').code, 0);
+  const interruptedHead = commitInterruptedUndo(root);
+  fs.appendFileSync(path.join(root, 'ledger-changes', '20260808-000001-demo.md'), 'dirty\n');
+
+  const { code, err } = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /clean ledger/);
+  assert.equal(head(root), interruptedHead);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+});
+
+test('20260809-131004 CR5: interrupted undo refuses an unstaged deletion in an external configured collection', () => {
+  const { root } = seedLedgerRepo({ files: externalChangesLedgerFiles() });
+  assert.equal(cli(root, 'cutover').code, 0);
+  const interruptedHead = commitInterruptedUndo(root);
+  fs.rmSync(path.join(root, 'ledger-changes', '20260808-000001-demo.md'));
+
+  const { code, err } = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(code, 0);
+  assert.match(err, /clean ledger/);
+  assert.equal(head(root), interruptedHead);
+  assert.equal(refExists(root, STATE_REF), true);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
 });
 
 test('20260809-131004 CR5: a post-undo ledger edit is not mistaken for the interrupted state', () => {
