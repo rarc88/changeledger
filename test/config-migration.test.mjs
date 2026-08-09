@@ -228,6 +228,23 @@ function activeMigrationFixture({
   return { root, configFile, marker, revision };
 }
 
+// A second ChangeLedger project nested inside an activated repo, owning a
+// different `project_id` and no `.git` of its own: the activation probe run
+// from here resolves the host repo's activation even though the host's state
+// ref is not this project's ledger.
+function nestedProject(root, { config = SCHEMA1_CONFIG, projectId = 'nested99' } = {}) {
+  const text = config.replace('project_id: "abc123"', `project_id: "${projectId}"`);
+  const repoRoot = path.join(root, 'nested');
+  const configFile = path.join(repoRoot, '.changeledger', 'config.yml');
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, text);
+  return { repoRoot, configFile, text };
+}
+
+function stateRefAt(root) {
+  return execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+}
+
 function stateConfigAt(root, revision = STATE_REF) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
     cwd: root,
@@ -804,6 +821,67 @@ test('234920 CR5: inactive Git repos only probe activation across every config a
       assert.equal(fs.readFileSync(configFile, 'utf8'), expectedText, label);
       assert.deepEqual(calls, activationProbe, label);
     }
+  }
+});
+
+// Activation is inherited by every directory under an activated repo, so a
+// nested project with its own ledger and no `.git` probes as "activated". The
+// host's state ref is another project's authority: migrating it there writes
+// the wrong ledger and leaves the nested config at its old schema.
+test('234920 CR5: a nested project migrates its own config and never the host state ref', () => {
+  const host = activeMigrationFixture();
+  const nested = nestedProject(host.root);
+
+  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.equal(stateRefAt(host.root), host.revision);
+  assert.equal(stateConfigAt(host.root), SCHEMA1_CONFIG);
+  assert.equal(fs.readFileSync(host.configFile, 'utf8'), host.marker);
+});
+
+test('234920 CR5: a nested project migrates even when the host authority is current', () => {
+  const host = activeMigrationFixture({ stateConfig: buildMigration(SCHEMA1_CONFIG).yaml });
+  const nested = nestedProject(host.root);
+
+  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.equal(stateRefAt(host.root), host.revision);
+});
+
+// The identity guard must not weaken CR1/CR2: on the activated repo's own
+// ledger the marker is discovery only, whether it diverges while claiming the
+// same project or cannot be parsed at all.
+test('234920 CR2: the activated repo keeps the ref route on a divergent or malformed marker', () => {
+  const expected = buildMigration(SCHEMA1_CONFIG).yaml;
+  for (const [name, marker] of [
+    ['divergent', 'schema_version: 5\nproject_id: "abc123"\nproject_name: divergent\n'],
+    ['malformed', 'statuses: [\n'],
+  ]) {
+    const fixture = activeMigrationFixture({ marker });
+
+    const summary = applyMigration(fixture.configFile, { repoRoot: fixture.root });
+
+    assert.match(summary, /^Config migration 1 → 5$/m, name);
+    const tip = stateRefAt(fixture.root);
+    assert.equal(
+      execFileSync('git', ['rev-parse', `${tip}^`], { cwd: fixture.root, encoding: 'utf8' }).trim(),
+      fixture.revision,
+      name,
+    );
+    assert.equal(
+      execFileSync('git', ['log', '-1', '--format=%s', tip], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim(),
+      'config: migrate',
+      name,
+    );
+    assert.equal(stateConfigAt(fixture.root, tip), expected, name);
+    assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), marker, name);
   }
 });
 

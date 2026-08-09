@@ -366,6 +366,42 @@ function setBlankGitSection(doc) {
     ' Git integration: change branches start from and merge into this branch';
 }
 
+// Activation lives on a git ref, so every directory under an activated repo —
+// including a nested ChangeLedger project that owns its own `config.yml` and
+// has no `.git` — probes as activated. Identity, not ancestry, decides whose
+// ledger the discovered marker belongs to: only a marker that names a
+// `project_id` different from the snapshot's is a foreign ledger, and it must
+// be migrated in place, never through the host's state ref. A marker that is
+// unreadable, malformed or names no project cannot claim a distinct identity,
+// so the activated repo's own ref route stands (the marker is discovery only).
+function claimsAnotherLedger(markerText, authorityText) {
+  const markerId = readProjectId(markerText);
+  const authorityId = readProjectId(authorityText);
+  if (markerId === undefined || authorityId === undefined) return false;
+  return markerId !== authorityId;
+}
+
+function readProjectId(text) {
+  let config;
+  try {
+    const doc = parseDocument(text, { merge: false });
+    if (doc.errors.length) return undefined;
+    config = doc.toJS();
+  } catch {
+    return undefined;
+  }
+  if (config === null || typeof config !== 'object') return undefined;
+  return Object.hasOwn(config, 'project_id') ? String(config.project_id) : undefined;
+}
+
+function readMarker(configFile) {
+  try {
+    return fs.readFileSync(configFile, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 // Apply migration to the effective config authority (or dry-run). Returns summary string.
 export function applyMigration(
   configFile,
@@ -373,17 +409,28 @@ export function applyMigration(
 ) {
   let original;
   let stateRevision;
-  const active = repoIsActivated(repoRoot, run);
+  let marker;
+  let active = repoIsActivated(repoRoot, run);
   if (active) {
     stateRevision = readStateRef(repoRoot, run);
     if (stateRevision === null) throw new Error('state is not initialized');
-    original = readStateConfigText(repoRoot, { revision: stateRevision }, run);
-  } else {
-    try {
-      original = fs.readFileSync(configFile, 'utf8');
-    } catch (e) {
-      throw new Error(`Cannot read config: ${e.message}`);
+    const authority = readStateConfigText(repoRoot, { revision: stateRevision }, run);
+    marker = readMarker(configFile);
+    if (marker !== null && claimsAnotherLedger(marker, authority)) {
+      active = false;
+    } else {
+      original = authority;
     }
+  }
+  if (!active) {
+    if (marker == null) {
+      try {
+        marker = fs.readFileSync(configFile, 'utf8');
+      } catch (e) {
+        throw new Error(`Cannot read config: ${e.message}`);
+      }
+    }
+    original = marker;
   }
 
   const result = buildMigration(original);

@@ -5,7 +5,7 @@ type: bug
 status: in-validation
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
-branch: bug/20260808-234920
+branch: integration/in-validation
 related_to: ["20260628-113219", "20260628-113924", "20260809-113242"]
 owner: rarc88
 ---
@@ -143,3 +143,10 @@ nueva copia mutable.
 - **2026-08-09T17:44:36Z** `[status]` in-progress → in-review
 - **2026-08-09T17:44:36Z** `[note]` Mandato de confirmación: verificar solo CR5 aclarado y regresiones de la corrección sin commit; cada ruta inactiva Git permite exactamente el probe read-only de refs/changeledger/activation y ninguna otra operación del store, conservando outputs y escrituras filesystem.
 - **2026-08-09T17:47:53Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T18:11:50Z** `[validation]` in-validation → in-progress (human rejected via conversation): Post-review con borde ejecutado: un proyecto ChangeLedger anidado sin .git propio bajo un repo activado hereda la activación del ancestro y config migrate desde el interior escribe en la ref de estado del repo EXTERIOR sin migrar el interior; el binario pre-change migraba el interior correctamente. Escritura mal enrutada a la autoridad de otro repo, sin CR ni test que cubra la forma.
+- **2026-08-09T18:12:39Z** `[note]` Decisión CR5 revisada por el humano en post-review (2026-08-09): la relajación registrada el 17:40 fue tomada por el agente externo, no por el humano; revisada en sustancia queda RATIFICADA — el CR5 original era inimplementable (el enrutado exige el probe de activación) y su test era vacuamente verde; la redacción vigente (exactamente el probe read-only y ninguna otra operación del store) es el mínimo necesario, verificado a nivel de proceso.
+- **2026-08-09T18:21:27Z** `[branch]` set: integration/in-validation
+- **2026-08-09T18:31:32Z** `[status]` in-progress → in-review
+- **2026-08-09T18:31:32Z** `[note]` Mandato de confirmación (corrección del rechazo humano): diff sin commitear en src/config-migration.mjs y test/config-migration.test.mjs — verificar cerrado el enrutado anidado en ambas direcciones (el proyecto interior migra su archivo y la ref exterior no se mueve; la migración del propio repo activado sigue por la ref con marker divergente o malformado), sin regresión de CR1-CR5 vigentes; los residuales nombrados (marker sin project_id o inparseable en anidado; ref exterior rota bloquea al anidado) son follow-up, no fallo.
+- **2026-08-09T18:38:21Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-09T18:38:21Z** `[note]` Follow-ups del confirmador (no bloqueantes, ejecutados): un anidado cuyo marker no tiene project_id o es inparseable sigue enrutando al ref del host; un anidado bajo host con ref de estado rota falla con state is not initialized en vez de migrar el archivo interior (fail-closed, el binario pre-change lo migraba). Ambos acotados y documentados; la costura equivalente de LECTURA en loadEffectiveConfig sigue siendo follow-up aparte.
