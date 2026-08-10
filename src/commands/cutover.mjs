@@ -29,7 +29,7 @@ import {
   resolveSpecsDir,
 } from '../config.mjs';
 import { capturedRun, defaultBaseBranch, gitTopLevel, isAncestor, mutatingRun } from '../git.mjs';
-import { assertRegularBlobEntry } from '../git-batch.mjs';
+import { assertRegularBlobEntry, treeEntries } from '../git-batch.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { parseSpec } from '../spec.mjs';
 import {
@@ -591,6 +591,7 @@ function assertRevertRestoresSnapshot(repoRoot, cutoverCommit, tip, layout, run)
   }
 
   const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  const published = new Map(treeEntries(repoRoot, tip, run).map((entry) => [entry.path, entry]));
   const names = [...new Set([...restored.keys(), ...Object.keys(snapshot.documents)])].sort();
   for (const name of names) {
     const candidate = restored.get(name);
@@ -598,21 +599,16 @@ function assertRevertRestoresSnapshot(repoRoot, cutoverCommit, tip, layout, run)
     if (!Object.hasOwn(snapshot.documents, name)) {
       refuse(`${name} would be restored but is not published`);
     }
-    const entry = run(['ls-tree', tip, '--', `${STATE_ROOT}/${name}`], repoRoot).trim();
-    const published = entry.match(/^(\d+) blob ([0-9a-f]+)\t/);
-    if (!published) refuse(`${name} cannot be read from the published snapshot`);
-    if (published[2] !== candidate.oid) {
-      refuse(`${name} would be restored as ${candidate.oid}, but ${published[2]} is published`);
+    const entry = published.get(`${STATE_ROOT}/${name}`);
+    if (entry === undefined) refuse(`${name} cannot be read from the published snapshot`);
+    if (entry.oid !== candidate.oid) {
+      refuse(`${name} would be restored as ${candidate.oid}, but ${entry.oid} is published`);
     }
-    let regular = true;
     try {
       assertRegularBlobEntry(candidate.mode, name);
     } catch {
-      regular = false;
-    }
-    if (!regular) {
       refuse(
-        `${name} would be restored at mode ${candidate.mode}, but ${STATE_REF} publishes regular files only (${published[1]})`,
+        `${name} would be restored at mode ${candidate.mode}, but ${STATE_REF} publishes regular files only (${entry.mode})`,
       );
     }
   }

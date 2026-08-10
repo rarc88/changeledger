@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -1369,4 +1370,88 @@ test('20260810-120457 CR1: cutover anchors a ledger that lives below the git top
 
   assert.equal(code, 0, err);
   assert.equal(readActivation(root).ledger_dir, 'packages/app/.changeledger');
+});
+
+// --- 20260810-181802 CR1: the undo verification's enumeration does not grow
+// with the number of published documents ------------------------------------
+//
+// The CLI runs as a child process, so the spawn count is observed via a PATH
+// shim wrapping the real `git`, mirroring `countGitSpawns` in
+// test/repo.test.mjs but across a real subprocess boundary instead of an
+// in-process `run`.
+
+function ledgerFilesWithChangeCount(n) {
+  const files = {
+    '.changeledger/config.yml': ledgerConfigText,
+    '.changeledger/specs/demo-spec.md': ledgerSpecText(),
+    '.changeledger/releases/0.1.0.yml': ledgerReleaseText(),
+  };
+  for (let i = 0; i < n; i += 1) {
+    const id = `20260808-00000${i}`;
+    files[`.changeledger/changes/${id}-demo.md`] = ledgerChangeText({ id });
+  }
+  return files;
+}
+
+function countGitSpawnsCli(root, args) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-cli-git-shim-'));
+  const log = path.join(dir, 'spawns.log');
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  fs.writeFileSync(log, '');
+  fs.writeFileSync(
+    path.join(dir, 'git'),
+    `#!/bin/sh\nprintf '%s ' "$@" >> ${JSON.stringify(log)}\nprintf '\\n' >> ${JSON.stringify(log)}\nexec ${realGit} "$@"\n`,
+    { mode: 0o755 },
+  );
+  const result = cliWithEnv(root, args, { PATH: `${dir}${path.delimiter}${CLI_ENV.PATH}` });
+  const spawns = fs
+    .readFileSync(log, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.trim());
+  return { result, spawns };
+}
+
+function lsTreeSpawnCount(spawns) {
+  return spawns.filter((line) => line.startsWith('ls-tree ')).length;
+}
+
+test('20260810-181802 CR1: the undo verification enumeration does not grow with document count', () => {
+  const small = seedLedgerRepo({ files: ledgerFilesWithChangeCount(2) });
+  const large = seedLedgerRepo({ files: ledgerFilesWithChangeCount(5) });
+  const smallBefore = fs.readFileSync(
+    path.join(small.root, '.changeledger', 'specs', 'demo-spec.md'),
+  );
+  const largeBefore = fs.readFileSync(
+    path.join(large.root, '.changeledger', 'specs', 'demo-spec.md'),
+  );
+  assert.equal(cli(small.root, 'cutover').code, 0);
+  assert.equal(cli(large.root, 'cutover').code, 0);
+
+  const smallUndo = countGitSpawnsCli(small.root, ['cutover', '--undo']);
+  const largeUndo = countGitSpawnsCli(large.root, ['cutover', '--undo']);
+
+  assert.equal(smallUndo.result.code, 0, smallUndo.result.err);
+  assert.equal(largeUndo.result.code, 0, largeUndo.result.err);
+
+  const smallCount = lsTreeSpawnCount(smallUndo.spawns);
+  const largeCount = lsTreeSpawnCount(largeUndo.spawns);
+  assert.equal(
+    smallCount,
+    largeCount,
+    `ls-tree spawn count grew with document count: 2 docs -> ${smallCount}, 5 docs -> ${largeCount}\n${smallUndo.spawns.join('\n')}\n---\n${largeUndo.spawns.join('\n')}`,
+  );
+
+  assert.equal(
+    fs
+      .readFileSync(path.join(small.root, '.changeledger', 'specs', 'demo-spec.md'))
+      .equals(smallBefore),
+    true,
+  );
+  assert.equal(
+    fs
+      .readFileSync(path.join(large.root, '.changeledger', 'specs', 'demo-spec.md'))
+      .equals(largeBefore),
+    true,
+  );
 });
