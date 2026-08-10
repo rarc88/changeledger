@@ -2,9 +2,10 @@
 id: "20260810-120457"
 title: Anclar la propiedad del ledger en authority.yml
 type: feature
-status: in-validation
+status: done
 created: 2026-08-10T12:04:57Z
 depends_on: ["20260809-194234"]
+reviewed: true
 branch: feature/20260810-120457
 related_to: ["20260808-234920", "20260809-113242"]
 owner: rarc88
@@ -154,3 +155,5 @@ ancla (error explícito con remedio); re-activate repara; los tests de
 - **2026-08-10T14:43:23Z** `[status]` in-progress → in-review
 - **2026-08-10T14:43:23Z** `[note]` Mandato de la confirmación: mínimo — F1 cerrado (pin CORRECTION 2c en ambos brazos, mutantes muertos) + ausencia de regresión en el diff sin commitear; la edición F3 del orquestador al Plan bajo el mismo escrutinio
 - **2026-08-10T14:47:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-10T17:27:05Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T17:29:40Z** `[graduation]` spec: `architecture.md`
