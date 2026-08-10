@@ -2,7 +2,7 @@
 id: "20260810-213635"
 title: "Regla de contrato: CR de primer uso end-to-end"
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T21:36:35Z
 depends_on: []
 related_to: ["20260810-182641"]
@@ -25,3 +25,4 @@ guarda la obligación, jamás el fraseo. Respetar el techo de `budgets.yml`
 con la misma disciplina: si no cabe, volver al humano.
 
 ## Log
+- **2026-08-10T21:38:11Z** `[status]` draft → approved (human via conversation)
