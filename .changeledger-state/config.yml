@@ -1,0 +1,91 @@
+project_id: 304c473ce5
+schema_version: 5
+language: es
+tdd: true
+release:
+  impacts:
+    feature: minor
+    bug: patch
+    audit: none
+    refactor: none
+    chore: none
+    quick: patch
+readiness:
+  target_patterns:
+    - src/**
+    - bin/**
+    - templates/**
+    - .changeledger/config.yml
+    - .changeledger/specs/**
+    - AGENTS.md
+    - hooks/**
+    - test/**
+  verification_patterns:
+    - test/**
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - pnpm test
+    - node --test
+    - node bin/changeledger.mjs check
+    - "verify:"
+changes_dir: .changeledger/changes
+specs_dir: .changeledger/specs
+statuses:
+  - draft
+  - approved
+  - in-progress
+  - in-review
+  - in-validation
+  - blocked
+  - done
+  - discarded
+stages:
+  - request
+  - investigation
+  - proposal
+  - specification
+  - plan
+  - log
+types:
+  feature:
+    stages:
+      - request
+      - investigation
+      - proposal
+      - specification
+      - plan
+      - log
+    review_required: true
+  bug:
+    stages:
+      - request
+      - investigation
+      - specification
+      - plan
+      - log
+    review_required: true
+  audit:
+    stages:
+      - request
+      - investigation
+      - log
+  refactor:
+    stages:
+      - request
+      - proposal
+      - specification
+      - plan
+      - log
+    review_required: true
+  chore:
+    stages:
+      - request
+      - plan
+  quick:
+    stages:
+      - request
+      - log
+project_name: changeledger
+git:
+  integration_branch: dev
+  change_branch_format: "{type}/{id}"
