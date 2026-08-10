@@ -35,6 +35,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { setBranch } from '../src/writer.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -92,7 +93,7 @@ function activatedRepoWithChange() {
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   fs.rmSync(file);
 
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -106,13 +107,18 @@ function activatedRepoWithChange() {
 }
 
 function stateRefTip(root) {
-  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
 }
 
 function stateDocText(root, revision, relPath) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   });
 }
 
@@ -120,6 +126,7 @@ function lastCommitMessage(root) {
   return execFileSync('git', ['log', '-1', '--format=%s', STATE_REF], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   }).trim();
 }
 
@@ -135,6 +142,7 @@ function configureChangeBranches(root, { integration = 'dev', format = 'work/{id
 function git(root, args) {
   return execFileSync('git', args, {
     cwd: root,
+    env: sanitizedEnv(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -1745,6 +1753,7 @@ test('CR7: an active mutation preserves every other document identity in the chi
   const before = execFileSync('git', ['ls-tree', '-r', '--name-only', revision], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   })
     .trim()
     .split('\n')
@@ -1755,6 +1764,7 @@ test('CR7: an active mutation preserves every other document identity in the chi
   const after = execFileSync('git', ['ls-tree', '-r', '--name-only', stateRefTip(root)], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   })
     .trim()
     .split('\n')

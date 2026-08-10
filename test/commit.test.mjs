@@ -6,24 +6,14 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // This suite may itself run inside this repo's own pre-commit hook, which
 // exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
 // inherited, every git call below would silently operate on the outer repo
 // instead of the scratch fixture — strip them so tests are hook-safe.
-const GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete GIT_ENV[key];
-}
+const GIT_ENV = sanitizedEnv();
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' });
 }

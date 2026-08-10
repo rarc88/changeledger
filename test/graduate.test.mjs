@@ -12,6 +12,7 @@ import { newChange } from '../src/commands/new.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { parseSpec } from '../src/spec.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 // Isolate the global registry so init() doesn't touch the real home.
@@ -93,7 +94,7 @@ function activatedRepo({ specName, specBody } = {}) {
       `---\ntitle: Arch\nupdated: 2020-01-01T00:00:00Z\ntags: [architecture]\n---\n${specBody}`;
   }
 
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
@@ -103,13 +104,18 @@ function activatedRepo({ specName, specBody } = {}) {
 }
 
 function stateRefTip(root) {
-  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
 }
 
 function stateDocText(root, revision, relPath) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   });
 }
 
@@ -672,6 +678,7 @@ test('CR5: graduate --into on an active repo lands spec + change in exactly one 
     execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
       encoding: 'utf8',
       cwd: root,
+      env: sanitizedEnv(),
     }).trim(),
     '1',
   );

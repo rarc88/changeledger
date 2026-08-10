@@ -25,6 +25,7 @@ import {
   tokenCount,
 } from './budget-support.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'context-home-'));
@@ -68,7 +69,11 @@ function headOutput(root, args, n) {
 }
 
 function cliContext(root, args) {
-  return execFileSync('node', [bin, 'context', ...args], { cwd: root, encoding: 'utf8' });
+  return execFileSync('node', [bin, 'context', ...args], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  });
 }
 
 // Asserts the published N is the exact size of the CLI output: `head -N` keeps
@@ -444,9 +449,12 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 // `types.feature` stays resolvable.
 function activatedContextFixture({ broken = false, malformedId } = {}) {
   const root = repo();
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 
   const refId = '20260808-000001';
   const worktreeId = '20260808-000002';

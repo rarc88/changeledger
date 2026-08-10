@@ -12,6 +12,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CAS_CONFLICT_MESSAGE, readSnapshot, STATE_REF } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   defaultLedgerFiles,
   git,
@@ -24,18 +25,7 @@ import {
 
 const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
 
-const CLI_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete CLI_ENV[key];
-}
+const CLI_ENV = sanitizedEnv();
 
 function cli(root, ...args) {
   return cliWithEnv(root, {}, ...args);

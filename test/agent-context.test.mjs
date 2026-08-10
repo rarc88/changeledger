@@ -12,6 +12,7 @@ import { init } from '../src/commands/init.mjs';
 import { VERSION } from '../src/framing.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { assertWithinBudget, contextBudgets } from './budget-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-context-home-'));
@@ -79,9 +80,12 @@ Chosen approach.
 // resolvable.
 function activatedAgentContextFixture({ broken = false } = {}) {
   const root = repo();
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 
   const refId = '20260808-000005';
   const worktreeId = '20260808-000006';

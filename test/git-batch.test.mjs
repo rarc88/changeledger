@@ -11,6 +11,7 @@ import {
   GIT_MAX_BUFFER,
   treeEntries,
 } from '../src/git-batch.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 
 const OID_A = 'a'.repeat(40);
 const OID_B = 'b'.repeat(40);
@@ -179,9 +180,12 @@ const MiB = 1024 * 1024;
 
 function initRepo(objectFormat) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-git-batch-'));
-  execFileSync('git', ['init', '-q', `--object-format=${objectFormat}`], { cwd: dir });
-  execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: dir });
-  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+  execFileSync('git', ['init', '-q', `--object-format=${objectFormat}`], {
+    cwd: dir,
+    env: sanitizedEnv(),
+  });
+  execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: dir, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, env: sanitizedEnv() });
   return dir;
 }
 
@@ -196,8 +200,8 @@ function seedLargeState(objectFormat, count, blobBytes) {
     fs.writeFileSync(path.join(dir, `blob-${i}.txt`), content);
     expected.set(`blob-${i}.txt`, content);
   }
-  execFileSync('git', ['add', '.'], { cwd: dir });
-  execFileSync('git', ['commit', '-qm', 'large state'], { cwd: dir });
+  execFileSync('git', ['add', '.'], { cwd: dir, env: sanitizedEnv() });
+  execFileSync('git', ['commit', '-qm', 'large state'], { cwd: dir, env: sanitizedEnv() });
   return { dir, tree: treeEntries(dir, 'HEAD', capturedRun), expected };
 }
 
@@ -288,8 +292,8 @@ test('CR7: rejects invalid UTF-8 content read from a real repository', () => {
   const dir = initRepo('sha1');
   try {
     fs.writeFileSync(path.join(dir, 'bad.bin'), Buffer.from([0x61, 0xff, 0xfe, 0x62]));
-    execFileSync('git', ['add', '.'], { cwd: dir });
-    execFileSync('git', ['commit', '-qm', 'bad'], { cwd: dir });
+    execFileSync('git', ['add', '.'], { cwd: dir, env: sanitizedEnv() });
+    execFileSync('git', ['commit', '-qm', 'bad'], { cwd: dir, env: sanitizedEnv() });
     const tree = treeEntries(dir, 'HEAD', capturedRun);
     const read = batchBlobReader(dir, tree, capturedRun);
     assert.throws(() => read(tree[0].oid), /not valid UTF-8/);
@@ -302,8 +306,8 @@ test('rejects a missing object against a real repository', () => {
   const dir = initRepo('sha1');
   try {
     fs.writeFileSync(path.join(dir, 'a.md'), 'hi');
-    execFileSync('git', ['add', '.'], { cwd: dir });
-    execFileSync('git', ['commit', '-qm', 'a'], { cwd: dir });
+    execFileSync('git', ['add', '.'], { cwd: dir, env: sanitizedEnv() });
+    execFileSync('git', ['commit', '-qm', 'a'], { cwd: dir, env: sanitizedEnv() });
     assert.throws(
       () => batchBlobReader(dir, [blobEntry(OID_A, 'a.md')], capturedRun),
       /is missing/,

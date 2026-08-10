@@ -24,6 +24,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -51,9 +52,12 @@ function tmp() {
 // change document `new` itself is responsible for creating.
 function activate(root) {
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -128,18 +132,7 @@ function fragmentsCarrying(pattern) {
 // exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
 // inherited, every git call below would silently operate on the outer repo
 // instead of the scratch fixture — strip them so tests are hook-safe.
-const COMMIT_GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete COMMIT_GIT_ENV[key];
-}
+const COMMIT_GIT_ENV = sanitizedEnv();
 function gitFor(root, args) {
   return execFileSync('git', args, { cwd: root, env: COMMIT_GIT_ENV, encoding: 'utf8' });
 }
@@ -945,7 +938,11 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
   );
 
   assert.equal(relPath, 'changes/20260808-150000-active-new.md');
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
   assert.notEqual(tip, revision, 'the state ref advanced a commit');
   const snapshot = readSnapshot(root, { revision: tip });
   assert.match(snapshot.documents[relPath], /id: "20260808-150000"/);
@@ -1001,7 +998,11 @@ test('CR4: new on an activated repo retries once with a fresh id after a genuine
   // was rejected as stale against it and retried once with a bumped id.
   assert.equal(relPath, 'changes/20260808-150001-primary.md');
 
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
   const snapshot = readSnapshot(root, { revision: tip });
   assert.ok(snapshot.documents['changes/20260808-150000-racer.md'], 'the racer document landed');
   assert.ok(snapshot.documents[relPath], 'the retried primary document landed');
@@ -1040,7 +1041,11 @@ test('CR10: a second consecutive stale-revision conflict in new propagates after
   );
   assert.equal(racerCount, 2, 'ownerHandle ran for the initial attempt and the one retry, no more');
 
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
   const snapshot = readSnapshot(root, { revision: tip });
   for (const relPath of Object.keys(snapshot.documents)) {
     assert.doesNotMatch(relPath, /-primary\.md$/, 'no partial primary document in the snapshot');
@@ -1456,7 +1461,11 @@ test('20260810-120457 CR2: list, show and new from a nested project use its own 
   assert.equal(path.dirname(file), nested.changesDir);
   assert.equal(fs.existsSync(file), true);
   assert.equal(
-    execFileSync('git', ['rev-parse', STATE_REF], { cwd: host, encoding: 'utf8' }).trim(),
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: host,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
     hostRevision,
   );
 });

@@ -9,22 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { STATE_REF } from '../../src/state-store.mjs';
-
-const GIT_LOCATION_ENV_VARS = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-];
-
-function sanitizedEnv(extra) {
-  const env = { ...process.env, LC_ALL: 'C' };
-  for (const key of GIT_LOCATION_ENV_VARS) delete env[key];
-  return extra ? { ...env, ...extra } : env;
-}
+import { sanitizedEnv } from './git-env.mjs';
 
 // Raw `git` invocation for fixture setup: trimmed utf8 stdout, stderr surfaced
 // on failure (a broken fixture must fail loudly, not silently).

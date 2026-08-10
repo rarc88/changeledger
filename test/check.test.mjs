@@ -12,6 +12,7 @@ import { integrationBranch, renderChangeBranch } from '../src/config.mjs';
 import { ensureReference } from '../src/contract.mjs';
 import { templatesDir } from '../src/paths.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const config = {
@@ -2312,18 +2313,7 @@ test('225210 CR3: bounded legacy closes stay readable, not errors', () => {
 // exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE for the outer repo. Left
 // inherited, every git call below would silently operate on the outer repo
 // instead of the scratch fixture — strip them so tests are hook-safe.
-const GIT_FIXTURE_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete GIT_FIXTURE_ENV[key];
-}
+const GIT_FIXTURE_ENV = sanitizedEnv();
 
 function gitFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-check-commits-'));
