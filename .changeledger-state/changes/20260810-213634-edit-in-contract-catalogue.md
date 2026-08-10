@@ -7,7 +7,7 @@ created: 2026-08-10T21:36:34Z
 depends_on: []
 branch: quick/20260810-213634
 related_to: []
-owner: rarc88
+owner: claude
 ---
 
 ## Request
@@ -23,3 +23,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-10T21:38:10Z** `[status]` draft → approved (human via conversation)
 - **2026-08-10T21:42:17Z** `[status]` approved → in-progress
 - **2026-08-10T21:42:17Z** `[branch]` set: quick/20260810-213634 (auto)
+- **2026-08-10T21:42:18Z** `[owner]` set: claude
