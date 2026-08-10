@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseDocument } from 'yaml';
 import { repoIsActivated } from './change-store.mjs';
 import { isValidBranchName } from './git.mjs';
 import { readStateConfigText } from './state-store.mjs';
@@ -31,15 +32,78 @@ export function loadConfig(changeledgerDir) {
 // config content belongs to the state ref. `raw` keeps schema-preserving viewer
 // reads on this same authority seam without loading the rest of the snapshot.
 export function loadEffectiveConfig(repoRoot, changeledgerDir, { raw = false, run } = {}) {
-  if (!repoIsActivated(repoRoot, run)) {
-    if (!raw) return loadConfig(changeledgerDir);
-    const file = path.join(changeledgerDir, 'config.yml');
-    if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
-    return fs.readFileSync(file, 'utf8');
+  if (repoIsActivated(repoRoot, run)) {
+    // The authority read comes first so a broken store of the activated repo
+    // still fails closed before identity is even considered.
+    const authority = readStateConfigText(repoRoot, {}, run);
+    const configFile = path.join(changeledgerDir, 'config.yml');
+    const marker = readMarkerText(configFile);
+    if (marker === null || !claimsAnotherLedger(configFile, marker, authority)) {
+      return raw ? authority : parseYaml(authority);
+    }
   }
+  if (!raw) return loadConfig(changeledgerDir);
+  const file = path.join(changeledgerDir, 'config.yml');
+  if (!fs.existsSync(file)) throw new Error(`Missing config: ${file}`);
+  return fs.readFileSync(file, 'utf8');
+}
 
-  const text = readStateConfigText(repoRoot, {}, run);
-  return raw ? text : parseYaml(text);
+// Activation lives on a git ref, so every directory under an activated repo —
+// including a nested ChangeLedger project that owns its own `config.yml` and
+// has no `.git` — probes as activated. Two questions decide whose ledger the
+// discovered marker belongs to, and both routes (this read seam and `config
+// migrate`'s write) ask them here so they can never diverge.
+//
+// Location first: a `.changeledger` whose parent directory is the git top-level
+// is the repo's own ledger whatever the marker says. The worktree marker is
+// discovery only, and on an activated repo it is routinely stale — a stale
+// `project_id` must not make a repo disown its own state ref.
+//
+// Identity second, and only below the top-level, where a marker can genuinely
+// belong to somebody else: a marker naming a `project_id` different from the
+// snapshot's is a foreign ledger, read from (and migrated into) the worktree in
+// place, never through the host's state ref. A marker that is unreadable,
+// malformed or names no project cannot claim a distinct identity, so the host's
+// ref route stands. That last shape stays silent by design: it is
+// indistinguishable from an ordinary activated checkout with a partial marker,
+// so warning on it would fire on every normal repo.
+export function claimsAnotherLedger(configFile, markerText, authorityText) {
+  if (isGitTopLevelMarker(configFile)) return false;
+  const markerId = readProjectId(markerText);
+  const authorityId = readProjectId(authorityText);
+  if (markerId === undefined || authorityId === undefined) return false;
+  return markerId !== authorityId;
+}
+
+// Whether `<configFile>`'s `.changeledger` sits directly under a git top-level.
+// Checked on disk rather than through `git rev-parse --show-toplevel`: this runs
+// on every activated config read, and `.git` (a directory, or a file in a linked
+// worktree or submodule) marks the top-level exactly as `repoIsActivated`'s own
+// walk already assumes — so the hot path pays no subprocess.
+function isGitTopLevelMarker(configFile) {
+  const markerRoot = path.dirname(path.dirname(path.resolve(configFile)));
+  return fs.existsSync(path.join(markerRoot, '.git'));
+}
+
+function readProjectId(text) {
+  let config;
+  try {
+    const doc = parseDocument(text, { merge: false });
+    if (doc.errors.length) return undefined;
+    config = doc.toJS();
+  } catch {
+    return undefined;
+  }
+  if (config === null || typeof config !== 'object') return undefined;
+  return Object.hasOwn(config, 'project_id') ? String(config.project_id) : undefined;
+}
+
+export function readMarkerText(configFile) {
+  try {
+    return fs.readFileSync(configFile, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 // Resolves a configured directory (changes_dir/specs_dir) against the repo root,
