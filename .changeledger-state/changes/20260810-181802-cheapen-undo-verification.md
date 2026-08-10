@@ -7,7 +7,7 @@ created: 2026-08-10T18:18:02Z
 depends_on: []
 branch: refactor/20260810-181802
 related_to: ["20260809-194233", "20260809-131004"]
-owner: rarc88
+owner: claude
 ---
 
 ## Request
@@ -72,3 +72,4 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 - **2026-08-10T22:46:37Z** `[status]` draft → approved (human via conversation)
 - **2026-08-10T22:46:45Z** `[status]` approved → in-progress
 - **2026-08-10T22:46:45Z** `[branch]` set: refactor/20260810-181802 (auto)
+- **2026-08-10T22:46:46Z** `[owner]` set: claude
