@@ -5,7 +5,7 @@ type: quick
 status: draft
 created: 2026-08-10T18:18:03Z
 depends_on: []
-related_to: ["20260809-194235"]
+related_to: ["20260809-194235", "20260810-010554"]
 owner: rarc88
 ---
 
