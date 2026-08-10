@@ -16,7 +16,7 @@ import { show } from '../src/commands/agent.mjs';
 import { edit } from '../src/commands/edit.mjs';
 import { init as initializeRepo } from '../src/commands/init.mjs';
 import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
-import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { readSnapshot, STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
@@ -175,6 +175,24 @@ test('CR3: immutables and command-owned fields are refused by name', () => {
       ),
     /"branch" is owned by `changeledger branch`/,
   );
+  assert.throws(
+    () =>
+      edit(
+        id,
+        { from: source(root, filled(text).replace('---\n\n##', 'archived: true\n---\n\n##')) },
+        root,
+      ),
+    /"archived" is owned by `changeledger archive`/,
+  );
+  assert.throws(
+    () =>
+      edit(
+        id,
+        { from: source(root, filled(text).replace('---\n\n##', 'reviewed: true\n---\n\n##')) },
+        root,
+      ),
+    /"reviewed" is owned by `changeledger review`/,
+  );
   assert.equal(stateTip(root), before);
 });
 
@@ -287,6 +305,61 @@ test('CR6: --from refuses a document whose id is already published', () => {
     new RegExp(`id "${id}" is already taken`),
   );
   assert.equal(stateTip(root), before);
+});
+
+// CR8 mirrors CR2 (change-store.test.mjs)'s stale-revision fixture, but the
+// concurrent writer has to land for real: `newChangeFrom` re-reads the state
+// ref itself, so a revision captured beforehand can never go stale from the
+// outside. A `git` shim on PATH intercepts the one `commit-tree` this call
+// makes for its own candidate and, from inside that single subprocess, lands
+// an unrelated commit that advances STATE_REF past the revision `newChangeFrom`
+// already committed to — the same race a second concurrent `changeledger`
+// process would cause. The final CAS `update-ref` then finds the ref moved.
+test('CR8: a CAS conflict during `newChangeFrom` propagates undisguised, no retry, no partial write', () => {
+  const { root, revision } = activatedRepo();
+  const scaffold = scaffoldChange(
+    { type: 'quick', slug: 'z', title: 'Z', now: '2026-06-15T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const document = filled(scaffold.text, 'Cuerpo perdido por la carrera: 東京.');
+
+  const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+  const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-git-shim-'));
+  const flagFile = path.join(shimDir, '.raced');
+  fs.writeFileSync(
+    path.join(shimDir, 'git'),
+    `#!/bin/sh
+if [ "$1" = "commit-tree" ] && [ ! -f "${flagFile}" ]; then
+  touch "${flagFile}"
+  TREE=$("${realGit}" -C "${root}" rev-parse "${revision}^{tree}")
+  NEWC=$("${realGit}" -C "${root}" commit-tree -p "${revision}" -m "concurrent writer" "$TREE")
+  "${realGit}" -C "${root}" update-ref "${STATE_REF}" "$NEWC" "${revision}"
+fi
+exec "${realGit}" "$@"
+`,
+  );
+  fs.chmodSync(path.join(shimDir, 'git'), 0o755);
+
+  const before = stateTip(root);
+  const beforeCommits = stateCommits(root);
+  const savedPath = process.env.PATH;
+  process.env.PATH = `${shimDir}:${savedPath}`;
+  try {
+    assert.throws(
+      () =>
+        newChangeFrom({ type: 'quick', slug: 'z', title: 'Z', from: source(root, document) }, root),
+      /state ref moved: expected/,
+    );
+  } finally {
+    process.env.PATH = savedPath;
+  }
+  // The concurrent writer's commit is the one and only advance; `newChangeFrom`
+  // neither retried under the new tip nor left any trace of its own candidate.
+  assert.notEqual(stateTip(root), before);
+  assert.equal(stateCommits(root) - beforeCommits, 1);
+  const snapshot = readSnapshot(root, { revision: stateTip(root) });
+  assert.equal(snapshot.documents[`changes/${scaffold.name}`], undefined);
 });
 
 test('CR7: a spec is edited by slug with the same guarantees', () => {
