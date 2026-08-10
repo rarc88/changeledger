@@ -5,6 +5,7 @@ type: chore
 status: done
 created: 2026-08-08T14:22:00Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260627-205034"]
 owner: rarc88
@@ -129,3 +130,4 @@ Y debe enmendar el original con lo decidido el 2026-08-08:
 - **2026-08-08T14:58:56Z** `[status]` in-progress → in-validation
 - **2026-08-08T15:09:39Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-08T15:09:56Z** `[graduation]` spec: `global-state-scope.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

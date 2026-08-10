@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-09T14:01:58Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260809-140158
 related_to: ["20260809-113241"]
@@ -31,3 +32,4 @@ excluirlo por nombre, visible en review. Superficie: `test/cli-bin.test.mjs`
 - **2026-08-09T17:36:53Z** `[status]` in-progress → in-validation
 - **2026-08-09T19:37:00Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:45Z** `[graduation]` skipped: matriz de help derivada en tests: sin verdad persistente
+- **2026-08-10T17:39:45Z** `[archive]` archived

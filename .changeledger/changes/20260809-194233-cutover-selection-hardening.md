@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-09T19:42:33Z
 depends_on: ["20260809-131004"]
+archived: true
 reviewed: true
 branch: bug/20260809-194233
 related_to: ["20260809-113240"]
@@ -138,3 +139,4 @@ ejecutados en fixtures por los revisores:
 - **2026-08-10T13:50:25Z** `[note]` Follow-ups de la quinta confirmación (reportados, no bloqueantes, conforme al contrato): el bit de ejecución es inverificable por construcción (la publicación normaliza a 100644 — la ref no guarda esa verdad; admisibilidad no es garantía de modo); nit KISS en el flag-dance de assertRevertRestoresSnapshot; un ls-tree por documento en el bucle de verificación (O(N), colapsable a un ls-tree -r). Validación transmitida bajo la directriz del humano de hoy: aceptar lo de validación con confirmación limpia y seguir la recomendación de cierre.
 - **2026-08-10T13:50:26Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T13:50:52Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

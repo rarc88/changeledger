@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-09T19:42:36Z
 depends_on: ["20260808-171107"]
+archived: true
 reviewed: true
 branch: bug/20260809-194236
 related_to: []
@@ -90,3 +91,4 @@ Ambos hallazgos ejecutados por el post-review de `20260808-171107`:
 - **2026-08-10T01:29:48Z** `[note]` Follow-ups del confirmador (no bloqueantes): un filename con id no canónico (conteo de dígitos erróneo) cae a unknown-id sin diagnóstico — shape no especificado, check lo caza; y un comentario con backslashes literales innecesarios en context.mjs.
 - **2026-08-10T11:58:36Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T12:41:13Z** `[graduation]` skipped: diagnóstico del CLI y anclaje de test del store: sin verdad persistente nueva
+- **2026-08-10T17:39:45Z** `[archive]` archived

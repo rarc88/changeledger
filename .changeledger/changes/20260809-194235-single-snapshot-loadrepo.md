@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-08-09T19:42:35Z
 depends_on: ["20260809-113242"]
+archived: true
 reviewed: true
 branch: refactor/20260809-194235
 related_to: []
@@ -71,3 +72,4 @@ riesgo de servir un snapshot obsoleto tras una mutación en el mismo proceso
 - **2026-08-10T13:17:27Z** `[note]` Observaciones menores del review (no bloqueantes, anotadas): options.snapshot enruta por truthiness tras el check de undefined — un falsy-no-null tomaría worktree en silencio en vez de fallar rápido (solo loadRepo lo pasa hoy); y el test CR1 del subdir no asierta el presupuesto total, a diferencia de sus hermanos.
 - **2026-08-10T13:25:04Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T13:25:04Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

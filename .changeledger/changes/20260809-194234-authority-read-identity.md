@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-09T19:42:34Z
 depends_on: ["20260808-234920", "20260809-113242"]
+archived: true
 reviewed: true
 branch: bug/20260809-194234
 related_to: ["20260809-140157"]
@@ -122,3 +123,4 @@ del propio root con id distinto como ajeno.
 - **2026-08-10T12:10:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T12:37:18Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T12:39:21Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

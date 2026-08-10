@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-09T11:32:40Z
 depends_on: ["20260808-151640"]
+archived: true
 reviewed: true
 branch: feature/20260809-113240
 related_to: ["20260808-151643", "20260809-113242"]
@@ -206,3 +207,4 @@ undo bloqueado tras mutaciones; ref que resuelve a tag anotado.
 - **2026-08-09T13:05:49Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T13:07:12Z** `[note]` Nota de cierre sobre CR6: la frase 'apuntando a otro commit' se lee como el state_ref declarado en authority.yml, que es lo que la implementación compara y los tests fijan; el modelo de datos no tiene oid de commit que comparar (F3 del review, documentado aquí en vez de enmendar el criterio aprobado).
 - **2026-08-09T13:07:13Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

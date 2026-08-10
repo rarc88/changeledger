@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-08T23:49:20Z
 depends_on: ["20260808-151643"]
+archived: true
 reviewed: true
 branch: integration/in-validation
 related_to: ["20260628-113219", "20260628-113924", "20260809-113242"]
@@ -154,3 +155,4 @@ nueva copia mutable.
 - **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:44Z** `[graduation]` spec: `architecture.md`
 - **2026-08-09T19:40:10Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.
+- **2026-08-10T17:39:45Z** `[archive]` archived

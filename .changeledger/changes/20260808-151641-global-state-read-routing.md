@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-08T15:16:41Z
 depends_on: ["20260808-151640"]
+archived: true
 reviewed: true
 branch: feature/20260808-151641
 related_to: ["20260808-142200", "20260808-151643"]
@@ -263,3 +264,4 @@ caller cambia de firma.
 - **2026-08-08T18:22:17Z** `[note]` Confirmación (2ª ronda) en pass con byte-identidad probada contra ccbb1148. Bookkeeping post-veredicto del orquestador, disclosed: tarea de Plan añadida para la corrección R1 (el trabajo existía sin tarea), y la enumeración de mutadores de architecture.md completada con graduate.mjs (follow-up 1 del revisor). Follow-ups no bloqueantes que quedan registrados sin acción: diagnóstico menos útil para id desconocido cuando coexiste un doc malformado (ambos exit!=0), y registry.mjs carga config fuera de la familia loadRepo (preexistente, no introducido aquí).
 - **2026-08-08T22:12:17Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-08T22:12:17Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

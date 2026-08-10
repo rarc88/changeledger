@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-08T15:16:43Z
 depends_on: ["20260808-151641", "20260808-151640"]
+archived: true
 reviewed: true
 branch: feature/20260808-151643
 related_to: ["20260808-142200"]
@@ -290,3 +291,4 @@ Una costura de mutación única y la conversión mecánica de todos los sitios.
 - **2026-08-09T00:12:01Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T11:01:04Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T11:01:04Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

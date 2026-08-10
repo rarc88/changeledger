@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-08T15:16:40Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20260808-151640
 related_to: ["20260808-142200"]
@@ -308,3 +309,4 @@ este).
 - **2026-08-08T16:44:14Z** `[note]` Follow-ups reportados por la review de confirmación, fuera del alcance de este change: (1) el test CORRECTION 4 no ejercita la línea que dice guardar (pasa también sobre el código pre-fix; CR7 y el argumento by-construction cubren el contrato); (2) si la lectura de desambiguación de optionalRefOid dentro de los catch de update-ref falla, su error reemplaza a la causa original; (3) la detección de ausencia es sensible a stderr benigno de git en exit 1 (dirección fail-closed, riesgo bajo).
 - **2026-08-08T17:09:47Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-08T17:10:20Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

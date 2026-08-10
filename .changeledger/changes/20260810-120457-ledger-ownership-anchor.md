@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-10T12:04:57Z
 depends_on: ["20260809-194234"]
+archived: true
 reviewed: true
 branch: feature/20260810-120457
 related_to: ["20260808-234920", "20260809-113242"]
@@ -157,3 +158,4 @@ ancla (error explícito con remedio); re-activate repara; los tests de
 - **2026-08-10T14:47:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T17:27:05Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T17:29:40Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

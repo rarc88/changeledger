@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-09T11:32:41Z
 depends_on: ["20260808-151643"]
+archived: true
 reviewed: true
 branch: feature/20260809-113241
 related_to: ["20260809-113240"]
@@ -195,3 +196,4 @@ anotado; documento inválido en la fuente; repo sin activar.
 - **2026-08-09T13:54:54Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T14:00:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T14:00:51Z** `[graduation]` spec: `architecture.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

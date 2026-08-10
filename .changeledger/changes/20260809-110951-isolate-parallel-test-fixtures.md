@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-09T11:09:51Z
 depends_on: []
+archived: true
 reviewed: true
 branch: bug/20260809-110951
 related_to: ["20260729-203257", "20260808-151641"]
@@ -111,3 +112,4 @@ parámetro no está exportado por el paquete.
 - **2026-08-09T17:26:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:45Z** `[graduation]` skipped: aislamiento de fixtures de tests: sin verdad persistente
+- **2026-08-10T17:39:45Z** `[archive]` archived

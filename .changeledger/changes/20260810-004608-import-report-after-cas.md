@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-10T00:46:08Z
 depends_on: ["20260809-113241"]
+archived: true
 reviewed: true
 branch: bug/20260810-004608
 related_to: []
@@ -65,3 +66,4 @@ actualizaciones se mueve a después del CAS confirmado.
 - **2026-08-10T01:15:38Z** `[note]` Corrección de registro del review: sí existe mutante para CR2 (resumen izado sobre los bucles) y muere contra el deepEqual línea a línea — lo construyó y ejecutó el revisor; la nota previa del implementador ('no mutant') era pesimista, no un hueco.
 - **2026-08-10T11:58:35Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T12:40:56Z** `[graduation]` skipped: orden de emisión del reporte del import: corrección de UX sin verdad persistente nueva
+- **2026-08-10T17:39:45Z** `[archive]` archived

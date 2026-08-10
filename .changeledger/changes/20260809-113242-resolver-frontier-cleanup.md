@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-09T11:32:42Z
 depends_on: ["20260808-151641"]
+archived: true
 reviewed: true
 branch: integration/in-validation
 related_to: ["20260809-113240", "20260808-234920"]
@@ -250,3 +251,4 @@ En todos los criterios, "repo activado divergente" es un fixture activado cuyo
 - **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:45Z** `[graduation]` spec: `architecture.md`
 - **2026-08-09T19:40:09Z** `[note]` Cierre: commit combinado de graduación con 171107/234920/131004/140157 (architecture.md es superficie compartida de los cinco). Incluye la restauración autorizada por el humano del rationale que la implementación borró en src/commands/commit.mjs (bloques allowlist-no-clasificador y case-folding incondicional); el test renombrado de 151643 se deja como está: aserciones superconjunto, sin pérdida de cobertura.
+- **2026-08-10T17:39:45Z** `[archive]` archived

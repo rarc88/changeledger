@@ -5,6 +5,7 @@ type: bug
 status: done
 created: 2026-08-09T13:10:04Z
 depends_on: ["20260809-113240", "20260809-113241"]
+archived: true
 reviewed: true
 branch: integration/in-validation
 related_to: []
@@ -180,3 +181,4 @@ documenta el comportamiento vigente y se reconciliará al graduar.
 - **2026-08-09T19:36:59Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:45Z** `[graduation]` spec: `architecture.md`
 - **2026-08-09T19:40:10Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.
+- **2026-08-10T17:39:45Z** `[archive]` archived

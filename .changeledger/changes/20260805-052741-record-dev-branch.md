@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-05T05:27:41Z
 depends_on: []
+archived: true
 reviewed: true
 branch: claude/changeledger-global-state-077d7e
 related_to: ["20260726-124836"]
@@ -312,3 +313,4 @@ explícito para corregirlo — exactamente el modelo ya validado para `owner`.
 - **2026-08-06T12:11:12Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-06T12:19:45Z** `[graduation]` spec: `data-model.md`
 - **2026-08-06T12:19:45Z** `[graduation]` spec: `lifecycle.md`
+- **2026-08-10T17:39:45Z** `[archive]` archived

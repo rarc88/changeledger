@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T01:05:54Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-010554
 related_to: []
@@ -38,3 +39,4 @@ superficie pública ni verdad persistente.
 - **2026-08-10T15:10:04Z** `[status]` in-progress → in-validation
 - **2026-08-10T17:31:30Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T17:31:30Z** `[graduation]` skipped: test-only: saneo de entorno git en fixtures y guard estático; ninguna verdad persistente ni superficie pública cambia
+- **2026-08-10T17:39:45Z** `[archive]` archived

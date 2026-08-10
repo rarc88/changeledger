@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-08T14:19:44Z
 depends_on: []
+archived: true
 reviewed: true
 related_to: ["20260805-052741", "20260726-124836"]
 owner: rarc88
@@ -185,3 +186,4 @@ Detección de discrepancia como dato retornado, emisión por stderr en el bin.
 - **2026-08-08T15:09:39Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-08T15:09:56Z** `[graduation]` spec: `lifecycle.md`
 - **2026-08-08T15:34:12Z** `[note]` Corrección del registro: las transiciones de este change se ejecutaron con el binario global 0.15.0 (publicado antes del PR #3), así que la autoasignación de branch nunca corrió y el frontmatter no tiene campo branch. El dogfooding reportado en conversación fue un error de afirmación sin verificar. Operativa desde ahora en este repo: node bin/changeledger.mjs, nunca el binario global.
+- **2026-08-10T17:39:45Z** `[archive]` archived

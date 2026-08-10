@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-09T14:01:57Z
 depends_on: ["20260809-113241"]
+archived: true
 reviewed: true
 branch: quick/20260809-140157
 related_to: []
@@ -35,3 +36,4 @@ Superficie: `src/commands/import.mjs`, `bin/changeledger.mjs` (solo help) y
 - **2026-08-09T19:37:00Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-09T19:39:45Z** `[graduation]` spec: `architecture.md`
 - **2026-08-09T19:40:10Z** `[note]` Cierre: graduado a architecture.md en commit combinado con 113242/171107/234920/131004/140157 — la spec es superficie compartida de los cinco y separar la reconciliación era imposible sin cinco ediciones en conflicto.
+- **2026-08-10T17:39:45Z** `[archive]` archived

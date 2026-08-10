@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T00:46:09Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-004609
 related_to: ["20260808-171107", "20260808-234920"]
@@ -35,3 +36,4 @@ implícitamente; sin superficie pública ni verdad persistente.
 - **2026-08-10T12:55:19Z** `[status]` in-progress → in-validation
 - **2026-08-10T12:58:29Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T12:58:29Z** `[graduation]` skipped: guards de tests endurecidos: sin verdad persistente nueva
+- **2026-08-10T17:39:45Z** `[archive]` archived
