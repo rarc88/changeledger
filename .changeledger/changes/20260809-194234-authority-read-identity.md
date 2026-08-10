@@ -2,7 +2,7 @@
 id: "20260809-194234"
 title: Enrutar la lectura de autoridad por identidad
 type: bug
-status: in-review
+status: in-validation
 created: 2026-08-09T19:42:34Z
 depends_on: ["20260808-234920", "20260809-113242"]
 branch: bug/20260809-194234
@@ -55,10 +55,11 @@ del propio root con id distinto como ajeno.
 
 ## Specification
 
-### CR1 — La lectura anidada sirve su propio ledger
+### CR1 — La lectura anidada de config sirve su propio ledger
 - **Given** un repo activado y un proyecto anidado sin `.git` propio cuyo `.changeledger/config.yml` declara otro `project_id`
-- **When** cualquier superficie de lectura resuelve config desde el directorio anidado (al menos: `register`, la captura sin id de `context`, `loadRepo`)
+- **When** la autoridad de CONFIG se resuelve desde el directorio anidado vía `loadEffectiveConfig` (`register`, las capturas sin id de `context`/`agent-context`, las lecturas de config del visor y el registry)
 - **Then** la autoridad efectiva es el archivo del worktree anidado, no la ref del host, y el host no se ve afectado
+- **And** la costura de CONTENIDO (`loadRepo`/`resolveActivation`) queda explícitamente fuera de este change: hasta el follow-up del ancla de propiedad, `list`/`show`/`new` desde un anidado bajo host activado siguen resolviendo el snapshot del host (incoherencia conocida, documentada y acotada)
 
 ### CR2 — El repo activado no cambia
 - **Given** el mismo repo activado consultado desde su propio checkout, con marker divergente pero de `project_id` coincidente, y también con marker malformado
@@ -113,3 +114,8 @@ del propio root con id distinto como ajeno.
 - **2026-08-10T01:20:35Z** `[note]` Desbloqueado con la decisión humana registrada en Investigation: discriminador de ubicación (top-level git = ledger propio; identidad decide por debajo), CR4 añadido (enmienda estrictamente más fuerte) y tarea de Plan para aplicar el mismo tiebreak a config migrate manteniendo lectura/escritura consistentes.
 - **2026-08-10T01:27:21Z** `[status]` in-progress → in-review
 - **2026-08-10T01:27:21Z** `[note]` Mandato del review: superficie que gobierna (config.mjs, config-migration.mjs, registry.mjs y sus tres tests, diff cerrado del carril), con las decisiones del implementador como escrutinio: isGitTopLevelMarker por fs.existsSync(.git) sin subproceso (¿válido en worktrees linked donde .git es archivo? ¿y en el propio marker bajo submódulo?); keyed en configFile y no repoRoot; firma de claimsAnotherLedger cambiada (dos call sites); decisión sin aviso para el anidado sin project_id; y re-derivar los mutantes del tiebreak y de la degradación EACCES. Commit con --no-verify por la fuga GIT_DIR (gate manual completo antes).
+- **2026-08-10T01:41:36Z** `[review]` in-review → blocked: CR1 nombra loadRepo y su Then no se cumple ahí: el contenido del anidado se sirve de la ref del host (resolveActivation enruta por ascendencia) y new desde el anidado escribe en la ref del host — cerrar la costura de contenido exige src/repo.mjs, fuera de la superficie autorizada, y decide el camino de escritura anidado. Además, punto ciego del discriminador de ubicación: un repo activado con .changeledger por debajo del top-level (forma declarada soportada) y marker con id stale sirve el worktree stale, donde dev servía la ref. Decisión humana: extender el change a repo.mjs, o acotar CR1 a la costura de config con follow-up para la costura de contenido + ancla de propiedad.
+- **2026-08-10T12:04:11Z** `[status]` blocked → in-progress
+- **2026-08-10T12:04:12Z** `[status]` in-progress → in-review
+- **2026-08-10T12:04:12Z** `[note]` Mandato de confirmación: verificar la coherencia documento↔código tras la enmienda autorizada (CR1 acotado a la costura de config; el diff committeado da7ed19 no cambia) — el CR1 acotado se cumple con la evidencia ya ejecutada del review (loadEffectiveConfig, register, capturas sin id), CR2/CR3/CR4 quedaron en PASS con mutantes exactos, y la exclusión de la costura de contenido está declarada honestamente en el documento con su follow-up nombrado. Sin re-litigar lo confirmado.
+- **2026-08-10T12:10:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
