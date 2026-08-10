@@ -1,7 +1,20 @@
-project_id: 304c473ce5
+# ChangeLedger — repo configuration
+# Repo specifics: documentation language, change types and active stages per type.
+
+# Schema version — used to detect and migrate outdated configurations.
+# Run `changeledger config migrate --dry-run` to inspect available migrations.
 schema_version: 5
+# Language for generated documentation CONTENT. Structure (headings, keys, enums)
+# is always English. See `changeledger context spec`.
 language: es
+
+# Definition of Ready policy. When true (default), changes are documented
+# test-grade and implemented via TDD; `changeledger check` warns on criteria ↔ task
+# coverage gaps. Set false for exploratory repos. See `changeledger context spec`.
 tdd: true
+
+# Default SemVer impact for a completed change. A change may override its type
+# with `release_impact: none|patch|minor|major` in frontmatter.
 release:
   impacts:
     feature: minor
@@ -10,82 +23,63 @@ release:
     refactor: none
     chore: none
     quick: patch
+
+# Repo-specific Definition of Ready hints. A Plan task that references CRs should
+# name at least one target and one verification matching these patterns.
 readiness:
   target_patterns:
-    - src/**
-    - bin/**
-    - templates/**
-    - .changeledger/config.yml
-    - .changeledger/specs/**
-    - AGENTS.md
-    - hooks/**
-    - test/**
+    - "src/**"
+    - "bin/**"
+    - "templates/**"
+    - ".changeledger/config.yml"
+    - ".changeledger/specs/**"
+    - "AGENTS.md"
+    - "hooks/**"
+    - "test/**"
   verification_patterns:
-    - test/**
+    - "test/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-    - pnpm test
-    - node --test
-    - node bin/changeledger.mjs check
+    - "pnpm test"
+    - "node --test"
+    - "node bin/changeledger.mjs check"
     - "verify:"
+
 changes_dir: .changeledger/changes
 specs_dir: .changeledger/specs
-statuses:
-  - draft
-  - approved
-  - in-progress
-  - in-review
-  - in-validation
-  - blocked
-  - done
-  - discarded
-stages:
-  - request
-  - investigation
-  - proposal
-  - specification
-  - plan
-  - log
+
+# Valid lifecycle statuses (order = progress)
+statuses: [draft, approved, in-progress, in-review, in-validation, blocked, done, discarded]
+
+# Canonical stages (## headings in the change body)
+stages: [request, investigation, proposal, specification, plan, log]
+
+# Active stages per type. The viewer shows only these.
+# `review_required: true` makes the change pass through `in-review` (an
+# independent subagent review) before universal human validation. See
+# `changeledger context implement` and `changeledger context review`.
 types:
   feature:
-    stages:
-      - request
-      - investigation
-      - proposal
-      - specification
-      - plan
-      - log
+    stages: [request, investigation, proposal, specification, plan, log]
     review_required: true
   bug:
-    stages:
-      - request
-      - investigation
-      - specification
-      - plan
-      - log
+    stages: [request, investigation, specification, plan, log]
     review_required: true
   audit:
-    stages:
-      - request
-      - investigation
-      - log
+    stages: [request, investigation, log]
   refactor:
-    stages:
-      - request
-      - proposal
-      - specification
-      - plan
-      - log
+    stages: [request, proposal, specification, plan, log]
     review_required: true
   chore:
-    stages:
-      - request
-      - plan
+    stages: [request, plan]
   quick:
-    stages:
-      - request
-      - log
+    stages: [request, log]
+
+# Project identity (stable; the global registry maps it to a path)
+project_id: "304c473ce5"
 project_name: changeledger
+
+# Git integration: change branches start from and merge into this branch
 git:
   integration_branch: dev
   change_branch_format: "{type}/{id}"
