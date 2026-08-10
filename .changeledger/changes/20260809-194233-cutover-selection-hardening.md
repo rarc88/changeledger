@@ -2,7 +2,7 @@
 id: "20260809-194233"
 title: Blindar la selección y el resume del cutover
 type: bug
-status: draft
+status: approved
 created: 2026-08-09T19:42:33Z
 depends_on: ["20260809-131004"]
 related_to: []
@@ -80,3 +80,4 @@ ejecutados en fixtures por los revisores:
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T00:38:56Z** `[status]` draft → approved (human via conversation)

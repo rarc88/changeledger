@@ -2,7 +2,7 @@
 id: "20260809-194236"
 title: No descartar el diagnóstico del change malformado pedido por id
 type: bug
-status: draft
+status: approved
 created: 2026-08-09T19:42:36Z
 depends_on: ["20260808-171107"]
 related_to: []
@@ -73,3 +73,4 @@ Ambos hallazgos ejecutados por el post-review de `20260808-171107`:
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T00:38:57Z** `[status]` draft → approved (human via conversation)

@@ -2,7 +2,7 @@
 id: "20260809-194235"
 title: Un solo snapshot por loadRepo activado
 type: refactor
-status: draft
+status: approved
 created: 2026-08-09T19:42:35Z
 depends_on: ["20260809-113242"]
 related_to: []
@@ -58,3 +58,4 @@ riesgo de servir un snapshot obsoleto tras una mutación en el mismo proceso
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T00:38:57Z** `[status]` draft → approved (human via conversation)
