@@ -7,7 +7,7 @@ created: 2026-08-10T21:36:33Z
 depends_on: []
 branch: quick/20260810-213633
 related_to: ["20260810-181801"]
-owner: rarc88
+owner: claude
 ---
 
 ## Request
@@ -28,3 +28,4 @@ debería rechazarse igual — verificar y pinear ese borde de paso.
 - **2026-08-10T21:38:10Z** `[status]` draft → approved (human via conversation)
 - **2026-08-10T22:00:54Z** `[status]` approved → in-progress
 - **2026-08-10T22:00:54Z** `[branch]` set: quick/20260810-213633 (auto)
+- **2026-08-10T22:00:55Z** `[owner]` set: claude
