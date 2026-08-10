@@ -16,7 +16,7 @@ import {
   STATE_REF,
   writeActivation,
 } from '../src/state-store.mjs';
-import { buildTree, commitTree, initStateRepo, updateRef } from './helpers/state-repo.mjs';
+import { buildTree, commitTree, git, initStateRepo, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
 
@@ -883,6 +883,24 @@ test('234920 CR2: the activated repo keeps the ref route on a divergent or malfo
     assert.equal(stateConfigAt(fixture.root, tip), expected, name);
     assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), marker, name);
   }
+});
+
+// Location outranks identity on the write path exactly as it does on the read
+// path: a `.changeledger` directly under the git top-level is the repo's own
+// ledger, so a stale `project_id` in the marker cannot divert the migration
+// away from the state ref and into the worktree file.
+test('194234 CR4: a top-level marker with a mismatched project_id migrates the ref', () => {
+  const marker = 'schema_version: 5\nproject_id: "stale-id"\nproject_name: stale-name\n';
+  const fixture = activeMigrationFixture({ marker });
+
+  const summary = applyMigration(fixture.configFile, { repoRoot: fixture.root });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  const tip = stateRefAt(fixture.root);
+  assert.equal(git(fixture.root, ['rev-parse', `${tip}^`]), fixture.revision);
+  assert.equal(git(fixture.root, ['log', '-1', '--format=%s', tip]), 'config: migrate');
+  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG).yaml);
+  assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), marker);
 });
 
 // CR2 — custom quick type, its impact and its comment survive migration. Since
