@@ -158,6 +158,31 @@ test('20260809-113242 CR12 correction: a path replaced by a file below a Git wor
   assert.deepEqual(listProjects(), [{ id: 'replaced', name: 'replaced-cache', path: replaced }]);
 });
 
+// An unreadable ancestor makes every probe on the entry's path throw EACCES:
+// `statSync` first, and `repoIsActivated` right after it. Neither can tell us
+// anything about a path we are not allowed to look at, so the entry degrades to
+// its cached name instead of taking the whole listing down with it.
+test('194234 CR3: an unprobeable path keeps its cached name and the listing completes', () => {
+  isolatedHome();
+  const locked = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-registry-locked-'));
+  const entry = path.join(locked, 'project');
+  fs.mkdirSync(entry);
+  register({ id: 'locked', name: 'locked-cache', path: entry });
+  const readable = newRepo();
+  init(readable);
+  const readableId = loadConfig(path.join(readable, '.changeledger')).project_id;
+  fs.chmodSync(locked, 0o000);
+
+  try {
+    assert.deepEqual(listProjects(), [
+      { id: 'locked', name: 'locked-cache', path: entry },
+      { id: readableId, name: path.basename(readable), path: path.resolve(readable) },
+    ]);
+  } finally {
+    fs.chmodSync(locked, 0o700);
+  }
+});
+
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {
   isolatedHome();
   register({ id: 'aaa', name: 'alpha', path: '/old/alpha' });

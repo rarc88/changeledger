@@ -6,9 +6,12 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { readSnapshot, STATE_REF } from '../src/state-store.mjs';
+import { CAS_CONFLICT_MESSAGE, readSnapshot, STATE_REF } from '../src/state-store.mjs';
 import {
   defaultLedgerFiles,
   git,
@@ -35,14 +38,51 @@ for (const key of [
 }
 
 function cli(root, ...args) {
+  return cliWithEnv(root, {}, ...args);
+}
+
+// Same as `cli`, but with extra environment overlaid on top of `CLI_ENV` — the
+// CAS-race fixture below needs a `PATH` that puts its git shim first.
+function cliWithEnv(root, envOverrides, ...args) {
   const result = spawnSync(process.execPath, [BIN, ...args], {
     cwd: root,
-    env: CLI_ENV,
+    env: { ...CLI_ENV, ...envOverrides },
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (result.error) throw result.error;
   return { code: result.status ?? 1, out: result.stdout ?? '', err: result.stderr ?? '' };
+}
+
+// A real `git` shim on PATH that forces the CAS loss `test/config-migration.test.mjs`
+// forces via an injected `run` — the import path has no such hook since the CLI
+// runs as a real subprocess, so the race has to land inside the actual git
+// binary the subprocess resolves via PATH. On the FIRST `commit-tree` (the step
+// `mutateState` takes right before its CAS `update-ref`), the shim uses the
+// real git to land a genuine concurrent commit and advance `ref` out from
+// under the expected revision, then forwards the original invocation — and
+// every other one — to the real git untouched.
+function createCasRaceShim(root, ref) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-git-shim-'));
+  const realGit = execFileSync('command', ['-v', 'git'], { shell: true, encoding: 'utf8' }).trim();
+  const marker = path.join(dir, 'raced');
+  const shimPath = path.join(dir, 'git');
+  fs.writeFileSync(
+    shimPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [ "\${1:-}" = "commit-tree" ] && [ ! -f "${marker}" ]; then
+  touch "${marker}"
+  tip=$("${realGit}" -C "${root}" rev-parse "${ref}")
+  tree=$("${realGit}" -C "${root}" rev-parse "\${tip}^{tree}")
+  winner=$("${realGit}" -C "${root}" commit-tree "\${tree}" -p "\${tip}" -m "race: concurrent winner")
+  "${realGit}" -C "${root}" update-ref "${ref}" "\${winner}" "\${tip}"
+fi
+exec "${realGit}" "$@"
+`,
+    { mode: 0o755 },
+  );
+  return dir;
 }
 
 const SOURCE = 'feature-x';
@@ -484,4 +524,55 @@ test('20260809-113241 CR4: a renamed change updates in place, never as a second 
   assert.equal(snapshot.documents[DEMO_DOC], incoming);
   assert.equal(`changes/${DEMO_ID}-renombrado.md` in snapshot.documents, false);
   assert.deepEqual(Object.keys(snapshot.documents).sort(), [DEMO_DOC, RELEASE_DOC, SPEC_DOC]);
+});
+
+// --- 20260810-004608: the report follows the confirmed CAS, never precedes it -
+
+test('20260810-004608 CR1: a lost CAS race prints no applied-document lines', () => {
+  const root = activatedRepo({ sourceFiles: { [NEW_FILE]: changeText({ id: NEW_ID }) } });
+  const before = stateRevision(root);
+  const shimDir = createCasRaceShim(root, STATE_REF);
+
+  let result;
+  try {
+    result = cliWithEnv(
+      root,
+      { PATH: `${shimDir}${path.delimiter}${CLI_ENV.PATH}` },
+      'import',
+      '--from',
+      SOURCE,
+    );
+  } finally {
+    fs.rmSync(shimDir, { recursive: true, force: true });
+  }
+  const { code, out, err } = result;
+
+  assert.notEqual(code, 0);
+  assert.match(err, new RegExp(CAS_CONFLICT_MESSAGE));
+  // The race genuinely landed (the ref moved under the command), and yet
+  // nothing that reads as an applied add/update reached stdout.
+  assert.notEqual(stateRevision(root), before);
+  assert.doesNotMatch(out, /^ {2}[+~] /m);
+});
+
+test('20260810-004608 CR2: a winning import reports the same lines and order as before', () => {
+  const root = activatedRepo({
+    mainFiles: defaultLedgerFiles({ changeText: changeText({ logs: [E1] }) }),
+    sourceFiles: {
+      [DEMO_FILE]: changeText({ logs: [E1, E2] }),
+      [NEW_FILE]: changeText({ id: NEW_ID }),
+    },
+  });
+  const sourceRevision = git(root, ['rev-parse', SOURCE]);
+
+  const { code, out, err } = cli(root, 'import', '--from', SOURCE);
+
+  assert.equal(code, 0, err || out);
+  const tip = stateRevision(root);
+  const lines = out.replace(/\n$/, '').split('\n');
+  assert.deepEqual(lines, [
+    `  + ${NEW_DOC} (change ${NEW_ID})`,
+    `  ~ ${DEMO_DOC} (change ${DEMO_ID})`,
+    `Imported 2 document(s) from ${SOURCE} (${sourceRevision}) — ${STATE_REF} at ${tip}`,
+  ]);
 });
