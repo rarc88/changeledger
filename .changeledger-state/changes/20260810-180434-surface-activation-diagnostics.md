@@ -2,9 +2,10 @@
 id: "20260810-180434"
 title: Sacar a la superficie los diagnósticos de activación
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-10T18:04:34Z
 depends_on: []
+branch: quick/20260810-180434
 related_to: ["20260810-120457"]
 owner: rarc88
 ---
@@ -30,3 +31,5 @@ nueva ni verdad persistente.
 
 ## Log
 - **2026-08-10T21:36:16Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T22:35:36Z** `[status]` approved → in-progress
+- **2026-08-10T22:35:36Z** `[branch]` set: quick/20260810-180434 (auto)
