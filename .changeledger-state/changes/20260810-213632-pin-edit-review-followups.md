@@ -2,7 +2,7 @@
 id: "20260810-213632"
 title: Pinear los follow-ups de test del review de la costura de autoría
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T21:36:32Z
 depends_on: []
 related_to: ["20260810-182641"]
@@ -26,3 +26,4 @@ Test-only en `test/edit.test.mjs` (o `test/cli.test.mjs` si el fixture de
 conflicto vive mejor ahí); cada pin con su mutante aislado.
 
 ## Log
+- **2026-08-10T21:38:10Z** `[status]` draft → approved (human via conversation)
