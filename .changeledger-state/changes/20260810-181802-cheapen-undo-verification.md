@@ -2,7 +2,7 @@
 id: "20260810-181802"
 title: Abaratar y simplificar la verificación del undo
 type: refactor
-status: in-progress
+status: in-review
 created: 2026-08-10T18:18:02Z
 depends_on: []
 branch: refactor/20260810-181802
@@ -76,3 +76,4 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 - **2026-08-10T22:46:45Z** `[branch]` set: refactor/20260810-181802 (auto)
 - **2026-08-10T22:46:46Z** `[owner]` set: claude
 - **2026-08-10T22:53:57Z** `[note]` Unspecified decisions: the wrong-mode/dropped-mode mutant used instead was the wrong-revision variant (treeEntries against cutoverCommit instead of tip), killed by both CR2's existing 'cannot be read from the published snapshot' fixtures and the new CR1 spawn-count test; fixture doc counts for CR1 were 2 vs 5 as specified, built via a new ledgerFilesWithChangeCount helper rather than reusing defaultLedgerFiles.
+- **2026-08-10T22:55:39Z** `[status]` in-progress → in-review
