@@ -7,7 +7,7 @@ created: 2026-08-10T18:04:34Z
 depends_on: []
 branch: quick/20260810-180434
 related_to: ["20260810-120457"]
-owner: rarc88
+owner: claude
 ---
 
 ## Request
@@ -33,3 +33,4 @@ nueva ni verdad persistente.
 - **2026-08-10T21:36:16Z** `[status]` draft → approved (human via conversation)
 - **2026-08-10T22:35:36Z** `[status]` approved → in-progress
 - **2026-08-10T22:35:36Z** `[branch]` set: quick/20260810-180434 (auto)
+- **2026-08-10T22:35:37Z** `[owner]` set: claude
