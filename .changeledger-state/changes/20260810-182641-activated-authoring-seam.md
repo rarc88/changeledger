@@ -158,10 +158,11 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
   - **Resolved:** `2026-08-10T20:38:07Z`
-- [ ] Simetría del camino inactivo
+- [x] Simetría del camino inactivo
   - **Target:** `src/commands/edit.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR5
+  - **Resolved:** `2026-08-10T20:39:24Z`
 - [ ] `new` activado: `--from` obligatorio, `--print` en ambos modos
   - **Target:** `src/commands/new.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/edit.test.mjs test/cli.test.mjs`
