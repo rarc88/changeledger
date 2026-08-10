@@ -151,12 +151,13 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
 
 ## Plan
 
-- [ ] Núcleo de `edit` para changes: lectura de archivo/stdin, validación
+- [x] Núcleo de `edit` para changes: lectura de archivo/stdin, validación
   completa, guardas de inmutables y campos con dueño, aterrizaje por
   `mutateLedgerFile`
   - **Target:** `src/commands/edit.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR1, CR2, CR3, CR4
+  - **Resolved:** `2026-08-10T20:38:07Z`
 - [ ] Simetría del camino inactivo
   - **Target:** `src/commands/edit.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
