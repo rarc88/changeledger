@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-09T19:39:45Z
+updated: 2026-08-10T13:25:04Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -84,10 +84,17 @@ la ref — nunca del marcador del worktree, que queda byte a byte intacto — y
 se aplica como un único commit CAS (`config: migrate`); el preview del visor
 lee por la misma costura de autoridad. La ruta inactiva ejecuta exactamente
 una operación del store: el probe read-only de la activación, y ninguna otra.
-La autoridad se enruta por identidad, no solo por ascendencia git: un
-`.changeledger` anidado cuyo marker parseable declara otro `project_id` que
-el snapshot no es el ledger activado y migra su propio archivo del worktree,
-dejando la ref del host intacta.
+La autoridad se enruta por ubicación e identidad, no solo por ascendencia
+git (`20260809-194234`): un marker cuyo `.changeledger` vive en el top-level
+de git es siempre el ledger propio (ruta ref, incluso con `project_id`
+stale); por debajo del top-level decide la identidad — un marker parseable
+que declara otro `project_id` que el snapshot no es el ledger activado y
+migra su propio archivo del worktree, dejando la ref del host intacta. La
+decisión vive en una única definición (`claimsAnotherLedger`,
+`src/config.mjs`) que consumen por igual la lectura de config y
+`config migrate`; ambas heurísticas serán sustituidas por el ancla de
+propiedad de `authority.yml` (`20260810-120457`), que es también quien
+cerrará la costura de contenido.
 
 Toda frontera que escribe en el ledger valida el schema con una precondición
 compartida antes de adquirir locks, crear directorios o modificar archivos. Esto
@@ -141,7 +148,15 @@ comportamiento es el de siempre, byte a byte, con `state: null` — y en un
 directorio que no está dentro de ningún repo git, cero subprocesos. Con
 activación, `changes`, `specs`, `releases` y `config` salen de `readSnapshot`
 en lugar del working tree, y el resultado gana `state: { revision }` — la
-costura que el CAS de escritura usará como `expectedRevision`. Una activación
+costura que el CAS de escritura usará como `expectedRevision`. La carga
+resuelve la activación y enumera el snapshot exactamente UNA vez
+(`20260809-194235`): un bootstrap único sirve config y documentos de la misma
+lectura — misma revisión para ambos, 9 subprocesos por carga activada, cero
+fuera de un repo git — y `loadRepoWithConfig` acepta ese snapshot con un
+contrato tri-estado (ausente = resuélvelo tú; null = inactivo; objeto =
+sírvelo) que ningún caller externo puede usar para inyectar un snapshot
+obsoleto: la staleness la sigue cazando el CAS porque la revisión reportada
+es la del snapshot realmente servido. Una activación
 presente cuya ref de estado es ilegible o ausente propaga el error
 fail-closed del store; nunca degrada al worktree.
 
@@ -171,7 +186,15 @@ registry (que además conserva el nombre cacheado cuando la ruta registrada no
 es un directorio utilizable, sin propagar fallos del probe). `loadConfig`
 queda como primitiva interna del camino inactivo; `new.mjs` mantiene su gate
 propio y `resolveChange` sigue siendo por diseño el camino de mutación sobre
-worktree en modo inactivo.
+worktree en modo inactivo. La autoridad que este camino devuelve se decide
+por ubicación e identidad (`20260809-194234`, ver la sección de migración de
+config): un proyecto anidado sin `.git` propio bajo un repo activado lee SU
+config del worktree anidado en toda la superficie de `loadEffectiveConfig`.
+Incoherencia conocida y acotada hasta el ancla de propiedad
+(`20260810-120457`): la costura de CONTENIDO (`resolveActivation` en
+`src/repo.mjs`) sigue enrutando por ascendencia, así que `list`/`show`/`new`
+desde ese anidado resuelven el snapshot del host — documentado en el propio
+CR1 del change.
 
 ## Costura de escritura del estado global
 

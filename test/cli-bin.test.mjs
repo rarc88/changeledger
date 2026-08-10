@@ -632,16 +632,30 @@ test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors wi
   assert.match(checked.err, /broken\.md/);
 });
 
+// Recursively collect every source file under `dir` (no fixed file list —
+// a duplicate literal reintroduced anywhere under src/** or bin/** must be
+// caught, not only in the three files this guard used to name explicitly).
+function listSourceFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return listSourceFiles(full);
+    return entry.isFile() && entry.name.endsWith('.mjs') ? [full] : [];
+  });
+}
+
 test('20260808-171107 CR4: CLI and viewer conflict text use one shared literal base', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const files = [
-    new URL('../src/state-store.mjs', import.meta.url),
-    new URL('../bin/changeledger.mjs', import.meta.url),
-    new URL('../src/viewer/domain.mjs', import.meta.url),
+    ...listSourceFiles(path.join(root, 'src')),
+    ...listSourceFiles(path.join(root, 'bin')),
   ];
+  // Quote-shaped ('...'/"...") AND backtick template literals: either form
+  // can hold a reintroduced duplicate.
   const literals = files.flatMap((file) =>
-    [...fs.readFileSync(file, 'utf8').matchAll(/(['"])(state changed since load[^'"\n]*)\1/g)].map(
-      (match) => match[2],
-    ),
+    [
+      ...fs.readFileSync(file, 'utf8').matchAll(/(['"`])(state changed since load[^'"`\n]*)\1/g),
+    ].map((match) => match[2]),
   );
 
   assert.deepEqual(literals, ['state changed since load']);

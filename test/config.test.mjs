@@ -5,11 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   changeBranchFormat,
+  effectiveConfigFromSnapshot,
   integrationBranch,
   loadEffectiveConfig,
   renderChangeBranch,
 } from '../src/config.mjs';
-import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   buildTree,
   buildTreeEntries,
@@ -46,6 +47,118 @@ test('20260809-113242 config authority: loadEffectiveConfig reads the activated 
     loadEffectiveConfig(root, changeledgerDir, { raw: true }),
     '# retained\nproject_name: ref-name\n',
   );
+});
+
+// An activated host repo whose state ref owns `project_id: abc123`, plus a
+// nested ChangeLedger project with no `.git` of its own: the activation probe
+// walks up to the host, so only identity can tell the two ledgers apart.
+function activatedHost({ marker = 'project_name: host-marker\n' } = {}) {
+  const root = initStateRepo();
+  const changeledgerDir = path.join(root, '.changeledger');
+  fs.mkdirSync(changeledgerDir);
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), marker);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc123\n',
+    '.changeledger-state/config.yml': '# retained\nproject_id: "abc123"\nproject_name: ref-name\n',
+  });
+  const revision = commitTree(root, tree);
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, changeledgerDir, marker };
+}
+
+function nestedProject(
+  root,
+  { text = 'project_id: "nested99"\nproject_name: nested-name\n' } = {},
+) {
+  const repoRoot = path.join(root, 'nested');
+  const changeledgerDir = path.join(repoRoot, '.changeledger');
+  fs.mkdirSync(changeledgerDir, { recursive: true });
+  fs.writeFileSync(path.join(changeledgerDir, 'config.yml'), text);
+  return { repoRoot, changeledgerDir, text };
+}
+
+test('194234 CR1: a nested ledger reads its own config, not the host state ref', () => {
+  const host = activatedHost();
+  const nested = nestedProject(host.root);
+
+  assert.equal(
+    loadEffectiveConfig(nested.repoRoot, nested.changeledgerDir).project_name,
+    'nested-name',
+  );
+  assert.equal(
+    loadEffectiveConfig(nested.repoRoot, nested.changeledgerDir, { raw: true }),
+    nested.text,
+  );
+  assert.equal(loadEffectiveConfig(host.root, host.changeledgerDir).project_name, 'ref-name');
+});
+
+// Location outranks identity: a `.changeledger` sitting directly under the git
+// top-level is the repo's own ledger whatever its marker claims, so a stale
+// `project_id` left in the worktree cannot make the repo disown its own state
+// ref (the shape `20260809-113242` CR11 pins for the viewer's local mode).
+test('194234 CR4: a top-level marker with a mismatched project_id still serves the ref', () => {
+  const host = activatedHost({ marker: 'project_id: stale-id\nproject_name: stale-name\n' });
+
+  assert.equal(loadEffectiveConfig(host.root, host.changeledgerDir).project_id, 'abc123');
+  assert.equal(loadEffectiveConfig(host.root, host.changeledgerDir).project_name, 'ref-name');
+  assert.equal(
+    loadEffectiveConfig(host.root, host.changeledgerDir, { raw: true }),
+    '# retained\nproject_id: "abc123"\nproject_name: ref-name\n',
+  );
+});
+
+test('194234 CR2: the activated repo keeps the ref route on a divergent or malformed marker', () => {
+  const authority = '# retained\nproject_id: "abc123"\nproject_name: ref-name\n';
+  for (const [name, marker] of [
+    ['divergent', 'project_id: "abc123"\nproject_name: divergent\n'],
+    ['malformed', 'statuses: [\n'],
+    ['no project_id', 'project_name: anonymous\n'],
+  ]) {
+    const host = activatedHost({ marker });
+
+    assert.equal(
+      loadEffectiveConfig(host.root, host.changeledgerDir).project_name,
+      'ref-name',
+      name,
+    );
+    assert.equal(
+      loadEffectiveConfig(host.root, host.changeledgerDir, { raw: true }),
+      authority,
+      name,
+    );
+  }
+});
+
+// 20260809-194235 — `loadRepo`'s bootstrap derives the effective config from
+// the snapshot it has already read, instead of enumerating the state tree a
+// second time through `readStateConfigText`. That is only sound while both
+// routes answer the identity question identically, so the equivalence is
+// pinned here rather than argued: whatever the marker claims, and wherever it
+// sits relative to the git top-level, the two must agree.
+test('194235: the snapshot route resolves the config exactly as the text route', () => {
+  for (const marker of [
+    'project_id: "nested99"\nproject_name: nested-name\n', // claims another ledger
+    'project_id: "abc123"\nproject_name: same-id\n', // same identity
+    'project_name: anonymous\n', // claims no identity
+    'statuses: [\n', // unparseable
+    '- a\n- b\n', // not a mapping
+  ]) {
+    const host = activatedHost({ marker });
+    const nested = nestedProject(host.root, { text: marker });
+
+    for (const [where, repoRoot, changeledgerDir] of [
+      ['top-level', host.root, host.changeledgerDir],
+      ['nested', nested.repoRoot, nested.changeledgerDir],
+    ]) {
+      const label = `${where}: ${JSON.stringify(marker)}`;
+      assert.deepEqual(
+        effectiveConfigFromSnapshot(changeledgerDir, readSnapshot(repoRoot).config),
+        loadEffectiveConfig(repoRoot, changeledgerDir),
+        label,
+      );
+    }
+  }
 });
 
 function activatedConfigEntries(entries) {

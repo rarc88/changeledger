@@ -4,7 +4,7 @@ import { findChangeledgerDir, loadEffectiveConfig } from '../config.mjs';
 import { beginSentinel, endSentinel, VERSION } from '../framing.mjs';
 import { contractTemplatesDir } from '../paths.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
-import { transversalPolicy } from './context.mjs';
+import { changeParseFailureMessage, transversalPolicy } from './context.mjs';
 
 const ROLES = ['investigation', 'implementation', 'review', 'post-review'];
 const ALLOWED_STATUSES = {
@@ -39,7 +39,14 @@ function selectedChange(role, changeId, repo) {
   }
   if (!changeId) return undefined;
 
-  const resolved = resolveChangeInRepo(repo, changeId);
+  let resolved;
+  try {
+    resolved = resolveChangeInRepo(repo, changeId);
+  } catch (error) {
+    const parseFailure = changeParseFailureMessage(changeId, repo.changeErrors);
+    if (parseFailure) throw new Error(`Change "${changeId}" failed to parse: ${parseFailure}`);
+    throw error;
+  }
   const { id, status } = resolved.frontmatter;
   const allowed = ALLOWED_STATUSES[role];
   if (allowed && !allowed.includes(status)) {
