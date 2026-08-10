@@ -2,9 +2,10 @@
 id: "20260809-194234"
 title: Enrutar la lectura de autoridad por identidad
 type: bug
-status: in-validation
+status: done
 created: 2026-08-09T19:42:34Z
 depends_on: ["20260808-234920", "20260809-113242"]
+reviewed: true
 branch: bug/20260809-194234
 related_to: ["20260809-140157"]
 owner: rarc88
@@ -119,3 +120,5 @@ del propio root con id distinto como ajeno.
 - **2026-08-10T12:04:12Z** `[status]` in-progress → in-review
 - **2026-08-10T12:04:12Z** `[note]` Mandato de confirmación: verificar la coherencia documento↔código tras la enmienda autorizada (CR1 acotado a la costura de config; el diff committeado da7ed19 no cambia) — el CR1 acotado se cumple con la evidencia ya ejecutada del review (loadEffectiveConfig, register, capturas sin id), CR2/CR3/CR4 quedaron en PASS con mutantes exactos, y la exclusión de la costura de contenido está declarada honestamente en el documento con su follow-up nombrado. Sin re-litigar lo confirmado.
 - **2026-08-10T12:10:43Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-10T12:37:18Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T12:39:21Z** `[graduation]` spec: `architecture.md`
