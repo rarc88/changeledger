@@ -2,9 +2,10 @@
 id: "20260810-213632"
 title: Pinear los follow-ups de test del review de la costura de autoría
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-10T21:36:32Z
 depends_on: []
+branch: quick/20260810-213632
 related_to: ["20260810-182641"]
 owner: rarc88
 ---
@@ -27,3 +28,5 @@ conflicto vive mejor ahí); cada pin con su mutante aislado.
 
 ## Log
 - **2026-08-10T21:38:10Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T21:49:36Z** `[status]` approved → in-progress
+- **2026-08-10T21:49:36Z** `[branch]` set: quick/20260810-213632 (auto)
