@@ -2,7 +2,7 @@
 id: "20260810-180434"
 title: Sacar a la superficie los diagnósticos de activación
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T18:04:34Z
 depends_on: []
 related_to: ["20260810-120457"]
@@ -29,3 +29,4 @@ Test-only más un ajuste acotado de `registry.mjs`; sin superficie pública
 nueva ni verdad persistente.
 
 ## Log
+- **2026-08-10T21:36:16Z** `[status]` draft → approved (human via conversation)
