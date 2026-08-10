@@ -2,9 +2,10 @@
 id: "20260810-213635"
 title: "Regla de contrato: CR de primer uso end-to-end"
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-10T21:36:35Z
 depends_on: []
+branch: quick/20260810-213635
 related_to: ["20260810-182641"]
 owner: rarc88
 ---
@@ -26,3 +27,5 @@ con la misma disciplina: si no cabe, volver al humano.
 
 ## Log
 - **2026-08-10T21:38:11Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T21:45:12Z** `[status]` approved → in-progress
+- **2026-08-10T21:45:12Z** `[branch]` set: quick/20260810-213635 (auto)
