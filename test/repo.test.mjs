@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
-import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
+import { loadRepo, loadRepoAsync, loadRepoWithConfig } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
@@ -404,6 +404,22 @@ function assertSingleStateRead(spawns, label) {
     );
   }
 }
+
+// 20260810-181803 — the tri-state contract of `options.snapshot` (absent =
+// resolve it yourself; null = inactive; object = serve it) decides by strict
+// identity, never truthiness: a falsy non-null value is a caller bug and must
+// fail loudly instead of silently loading the repo as inactive.
+test('20260810-181803: a falsy non-null options.snapshot fails loudly instead of loading inactive', () => {
+  const { root } = activatedFixture();
+  const changeledgerDir = path.join(root, '.changeledger');
+  for (const bogus of [0, '', false]) {
+    assert.throws(
+      () => loadRepoWithConfig(root, changeledgerDir, { language: 'es' }, { snapshot: bogus }),
+      /options\.snapshot must be a snapshot object or null/,
+      `snapshot=${JSON.stringify(bogus)} must be refused`,
+    );
+  }
+});
 
 test('20260809-194235 CR1: an activated loadRepo reads the state tree exactly once', async () => {
   const { root, revision } = activatedFixture();

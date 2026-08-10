@@ -207,7 +207,12 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
         ? readSnapshot(repoRoot, {}, run)
         : null
       : options.snapshot;
-  if (snapshot) {
+  // Tri-state by strict identity: a falsy non-null snapshot is a caller bug,
+  // and serving the worktree for it would silently hide the activated ledger.
+  if (snapshot !== null && typeof snapshot !== 'object') {
+    throw new Error('options.snapshot must be a snapshot object or null');
+  }
+  if (snapshot !== null) {
     const active = loadActiveContent(snapshot, {
       isolateChangeErrors: options.isolateChangeErrors === true,
     });
