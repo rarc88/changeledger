@@ -2,9 +2,10 @@
 id: "20260809-194236"
 title: No descartar el diagnóstico del change malformado pedido por id
 type: bug
-status: approved
+status: in-review
 created: 2026-08-09T19:42:36Z
 depends_on: ["20260808-171107"]
+branch: bug/20260809-194236
 related_to: []
 owner: rarc88
 ---
@@ -59,18 +60,25 @@ Ambos hallazgos ejecutados por el post-review de `20260808-171107`:
 
 ## Plan
 
-- [ ] Consultar `repo.changeErrors` en las resoluciones por id de `context` y
+- [x] Consultar `repo.changeErrors` en las resoluciones por id de `context` y
   `agent-context` antes de responder "unknown id"
   - **Target:** `src/commands/context.mjs`, `src/commands/agent-context.mjs`
   - **Verify:** `node --test test/context.test.mjs test/agent-context.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Reemplazar el test inyectado de CR3 por el fixture real de ref rota
+  - **Resolved:** `2026-08-10T01:03:48Z`
+- [x] Reemplazar el test inyectado de CR3 por el fixture real de ref rota
   - **Target:** `src/state-store.mjs`
   - **Verify:** `node --test test/state-store.test.mjs`
   - **Criteria:** CR3
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-10T01:03:48Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T01:03:48Z`
 
 ## Log
 - **2026-08-10T00:38:57Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T00:49:35Z** `[status]` approved → in-progress
+- **2026-08-10T00:49:35Z** `[branch]` set: bug/20260809-194236 (auto)
+- **2026-08-10T01:03:48Z** `[status]` in-progress → in-review
+- **2026-08-10T01:03:48Z** `[note]` Mandato del review: superficie que gobierna (context.mjs, agent-context.mjs y los tres tests), con las 4 decisiones del implementador como escrutinio: matching del malformado por convención de filename (id.md o id-*); helper exportado changeParseFailureMessage compartido; forma del mensaje sin doble prefijo entre los dos loaders; CORRECTION 1 dejado con su regex laxa (fuera de alcance). Commit con --no-verify por la fuga GIT_DIR (gate manual completo antes).

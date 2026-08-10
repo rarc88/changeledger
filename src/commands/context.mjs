@@ -240,6 +240,28 @@ function requireRepo(cwd) {
   return dir;
 }
 
+// `loadRepoWithConfig` (via `loadRepo`) already isolates a per-document parse
+// failure into `repo.changeErrors`, with the exact diagnostic (e.g. "Change
+// is missing its frontmatter block"). When the id a caller asked to resolve
+// IS the malformed document — not an unrelated sibling (CR5 of 171107
+// already covers that case) — that diagnosis must win over a generic
+// "unknown id": matched by filename convention (`<id>.md` or `<id>-...md`),
+// since a document with no parseable frontmatter has no `frontmatter.id` to
+// match by (20260809-194236 CR1). Returns `undefined` when no change error
+// names this id, so the caller falls back to its own unknown-id message
+// unchanged (CR2).
+export function changeParseFailureMessage(id, changeErrors) {
+  const entry = (changeErrors ?? []).find(
+    (e) => e.name === `${id}.md` || e.name.startsWith(`${id}-`),
+  );
+  if (!entry) return undefined;
+  // The on-disk loader's `error.message` already carries the file path
+  // (`readChangeFile` prefixes it); the activated-repo loader's does not
+  // (`file` is `null` there) — naming the file ourselves in that case avoids
+  // losing it, without double-prefixing the other.
+  return entry.file ? entry.message : `${entry.name}: ${entry.message}`;
+}
+
 // A changeless capture (no input, or a mode keyword) never needs a change
 // document — only effective `config`. Loading the full `loadRepo(cwd)`
 // here regressed that: its sync loader throws on the first unparseable change
@@ -265,6 +287,8 @@ function composeInput(input, cwd, changeledgerDir) {
   try {
     resolved = resolveChangeInRepo(repo, input);
   } catch {
+    const parseFailure = changeParseFailureMessage(input, repo.changeErrors);
+    if (parseFailure) throw new Error(`Change "${input}" failed to parse: ${parseFailure}`);
     throw new Error(
       `Unknown context "${input}" — valid modes: ${MODES.join(', ')} (or pass a change id)`,
     );

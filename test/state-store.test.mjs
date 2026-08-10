@@ -507,17 +507,20 @@ test('20260808-171107 CR2: writeActivation preserves update-ref as the cause whe
   assert.equal(readActivation(root), null);
 });
 
-test('20260808-171107 CR3: stderr on an absent-ref exit fails closed', () => {
+// 20260809-194236 CR3 — post-review of 171107 found this test's coverage
+// injected: it fabricated `error.cause` by hand instead of exercising the
+// real `capturedRun` exit path, so it could never fail against a defect in
+// how that path's stderr is threaded through. Replaced with the cheap real
+// fixture (a loose state ref overwritten with corrupt content) already
+// proven in "CORRECTION 1" above, but pinned to the exact single-copy
+// diagnostic instead of that test's looser `/cannot read Git ref|broken
+// ref/`, which passed unchanged against the wrapper-message mutant re-derived
+// below.
+test('20260809-194236 CR3: a broken loose state ref fails with the exact real-git diagnostic', () => {
   const root = initStateRepo();
-  const run = () => {
-    const error = new Error(
-      `Command failed: git rev-parse --verify --quiet ${STATE_REF}\nwarning: benign advice`,
-    );
-    error.cause = { status: 1, stderr: 'warning: benign advice' };
-    throw error;
-  };
+  writeLooseRef(root, STATE_REF, 'not-a-valid-ref-target');
 
-  assert.throws(() => readStateRef(root, run), {
-    message: `cannot read Git ref ${STATE_REF}: warning: benign advice`,
+  assert.throws(() => readStateRef(root), {
+    message: `cannot read Git ref ${STATE_REF}: warning: ignoring broken ref ${STATE_REF}`,
   });
 });

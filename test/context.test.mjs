@@ -511,6 +511,52 @@ test('20260808-171107 CR5: activated context resolves an unknown id before an un
   assert.throws(() => loadRepo(root), /broken\.md/);
 });
 
+// 20260809-194236 CR1/CR2 — post-review of 171107's CR5: that fix covers an
+// unrelated malformed sibling, but never the case where the malformed
+// document IS the id the human asked for. `loadRepoWithConfig` already
+// collects the exact parse diagnostic in `repo.changeErrors`; before this
+// change neither `context` nor `agent-context` consulted it on that id's own
+// resolution failure, so the better diagnosis was discarded for a generic
+// "unknown id".
+test('20260809-194236 CR1: the malformed document requested by id is named, not reported as unknown', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext(id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /Unknown context/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+test('20260809-194236 CR2: a genuinely unknown id keeps the "Unknown context" message byte for byte', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext('20990101-999999', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'Unknown context "20990101-999999" — valid modes: implement, review, spec, release (or pass a change id)',
+      );
+      return true;
+    },
+  );
+});
+
 // 20260808-151641 R1 (correction round 2) — a regression the confirmation
 // review found: routing the change-id path through `loadRepo` made the
 // changeless paths (no input, or a mode keyword) call it too, and the sync
