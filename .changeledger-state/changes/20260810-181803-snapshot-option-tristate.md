@@ -2,9 +2,10 @@
 id: "20260810-181803"
 title: Endurecer el contrato tri-estado de options.snapshot
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-10T18:18:03Z
 depends_on: []
+branch: quick/20260810-181803
 related_to: ["20260809-194235", "20260810-010554"]
 owner: rarc88
 ---
@@ -26,3 +27,5 @@ este change con esa razón.
 
 ## Log
 - **2026-08-10T21:36:16Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T21:38:52Z** `[status]` approved → in-progress
+- **2026-08-10T21:38:52Z** `[branch]` set: quick/20260810-181803 (auto)
