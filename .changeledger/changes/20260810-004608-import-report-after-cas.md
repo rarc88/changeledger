@@ -2,9 +2,11 @@
 id: "20260810-004608"
 title: El reporte del import se emite tras el CAS
 type: bug
-status: approved
+status: done
 created: 2026-08-10T00:46:08Z
 depends_on: ["20260809-113241"]
+reviewed: true
+branch: bug/20260810-004608
 related_to: []
 owner: rarc88
 ---
@@ -42,14 +44,24 @@ actualizaciones se mueve a después del CAS confirmado.
 
 ## Plan
 
-- [ ] Mover el reporte de altas/actualizaciones a después del `mutateState`
+- [x] Mover el reporte de altas/actualizaciones a después del `mutateState`
   confirmado
   - **Target:** `src/commands/import.mjs`
   - **Verify:** `node --test test/import.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-10T01:04:55Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T01:04:55Z`
 
 ## Log
 - **2026-08-10T00:51:28Z** `[status]` draft → approved
+- **2026-08-10T00:54:48Z** `[status]` approved → in-progress
+- **2026-08-10T00:54:48Z** `[branch]` set: bug/20260810-004608 (auto)
+- **2026-08-10T01:04:55Z** `[status]` in-progress → in-review
+- **2026-08-10T01:04:55Z** `[note]` Mandato del review: spot check del diff cerrado (reordenación de la impresión tras mutateState + shim de PATH para la carrera), con las decisiones del implementador como escrutinio: shim bash real en vez de run inyectado (justificado: el test ejerce el bin real), CR1 asertando que la ref avanzó de verdad, y la ausencia de mutante CR2 (reordenación pura con deepEqual línea a línea). Commit con --no-verify por la fuga GIT_DIR (gate manual completo antes).
+- **2026-08-10T01:15:38Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-10T01:15:38Z** `[note]` Corrección de registro del review: sí existe mutante para CR2 (resumen izado sobre los bucles) y muere contra el deepEqual línea a línea — lo construyó y ejecutó el revisor; la nota previa del implementador ('no mutant') era pesimista, no un hueco.
+- **2026-08-10T11:58:35Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T12:40:56Z** `[graduation]` skipped: orden de emisión del reporte del import: corrección de UX sin verdad persistente nueva

@@ -299,10 +299,10 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
     return 0;
   }
 
-  for (const document of adds)
-    output.log(`  + ${document.path} (${document.kind} ${document.key})`);
-  for (const doc of updates) output.log(`  ~ ${doc.path} (${doc.kind} ${doc.key})`);
-
+  // The report of what was applied is only true once the CAS write it
+  // describes has actually landed: printed any earlier, a lost race (thrown by
+  // `mutateState` below) would leave these lines on stdout as an apparent
+  // success right before the process exits non-zero.
   const { revision: tip } = mutateState(
     repoRoot,
     { expectedRevision: snapshot.revision, message: `chore: import ${from} (${revision})` },
@@ -311,6 +311,10 @@ export function importFromRef({ from } = {}, cwd = process.cwd(), output = conso
     },
     run,
   );
+
+  for (const document of adds)
+    output.log(`  + ${document.path} (${document.kind} ${document.key})`);
+  for (const doc of updates) output.log(`  ~ ${doc.path} (${doc.kind} ${doc.key})`);
   output.log(
     `Imported ${applied.length} document(s) from ${from} (${revision}) — ${STATE_REF} at ${tip}`,
   );
