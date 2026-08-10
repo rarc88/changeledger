@@ -16,6 +16,7 @@ import {
   STATE_REF,
   writeActivation,
 } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, git, initStateRepo, updateRef } from './helpers/state-repo.mjs';
 
 process.env.CHANGELEDGER_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-migration-home-'));
@@ -242,12 +243,17 @@ function nestedProject(root, { config = SCHEMA1_CONFIG, projectId = 'nested99' }
 }
 
 function stateRefAt(root) {
-  return execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim();
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  }).trim();
 }
 
 function stateConfigAt(root, revision = STATE_REF) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
     cwd: root,
+    env: sanitizedEnv(),
     encoding: 'utf8',
   });
 }
@@ -758,7 +764,11 @@ test('234920 CR3: active no-op and invalid or future configs never fall back to 
     'Config is already at schema 5. No changes needed.',
   );
   assert.equal(
-    execFileSync('git', ['rev-parse', STATE_REF], { cwd: noOp.root, encoding: 'utf8' }).trim(),
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: noOp.root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
     noOp.revision,
   );
   assert.equal(fs.readFileSync(noOp.configFile, 'utf8'), 'statuses: [\n');
@@ -780,6 +790,7 @@ test('234920 CR3: active no-op and invalid or future configs never fall back to 
     assert.equal(
       execFileSync('git', ['rev-parse', STATE_REF], {
         cwd: fixture.root,
+        env: sanitizedEnv(),
         encoding: 'utf8',
       }).trim(),
       fixture.revision,
@@ -883,13 +894,18 @@ test('234920 CR2: the activated repo keeps the ref route on a divergent or malfo
     assert.match(summary, /^Config migration 1 → 5$/m, name);
     const tip = stateRefAt(fixture.root);
     assert.equal(
-      execFileSync('git', ['rev-parse', `${tip}^`], { cwd: fixture.root, encoding: 'utf8' }).trim(),
+      execFileSync('git', ['rev-parse', `${tip}^`], {
+        cwd: fixture.root,
+        env: sanitizedEnv(),
+        encoding: 'utf8',
+      }).trim(),
       fixture.revision,
       name,
     );
     assert.equal(
       execFileSync('git', ['log', '-1', '--format=%s', tip], {
         cwd: fixture.root,
+        env: sanitizedEnv(),
         encoding: 'utf8',
       }).trim(),
       'config: migrate',

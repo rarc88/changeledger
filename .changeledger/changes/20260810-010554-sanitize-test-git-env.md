@@ -2,11 +2,12 @@
 id: "20260810-010554"
 title: Sanear el entorno git en todos los fixtures de tests
 type: quick
-status: approved
+status: in-validation
 created: 2026-08-10T01:05:54Z
 depends_on: []
+branch: quick/20260810-010554
 related_to: []
-owner: rarc88
+owner: claude
 ---
 
 ## Request
@@ -28,3 +29,9 @@ superficie pública ni verdad persistente.
 
 ## Log
 - **2026-08-10T01:18:47Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T14:48:59Z** `[status]` approved → in-progress
+- **2026-08-10T14:48:59Z** `[branch]` set: quick/20260810-010554 (auto)
+- **2026-08-10T14:48:59Z** `[owner]` set: claude
+- **2026-08-10T14:48:59Z** `[note]` Rama apilada sobre feature/20260810-120457 (in-validation): superficie compartida en test/**; se integra a dev tras la aceptación de 120457
+- **2026-08-10T15:07:28Z** `[note]` Barrido completo: sanitizedEnv hoisted a test/helpers/git-env.mjs (nueva ubicación, decisión no especificada); ~20 ficheros con invocaciones git de fixture saneadas; guard estático nuevo en test/git-env.test.mjs (sweep de execFileSync/spawnSync sobre 'git' literal, exige env: resuelto a sanitizedEnv). Probado fallando (offender real en register.test.mjs) y pasando tras revertir. pnpm lint, pnpm test (1385/1385) y changeledger check en verde; también verde bajo GIT_DIR=/nonexistent/fake.git pnpm test.
+- **2026-08-10T15:10:04Z** `[status]` in-progress → in-validation

@@ -36,6 +36,7 @@ import { loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { readLedgerDocument } from '../src/viewer/domain.mjs';
 import { setBranch } from '../src/writer.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const TOKEN = 'test-token';
@@ -418,9 +419,12 @@ test('20260805-052741 CR7: /api/repo exposes a set branch', async () => {
 function activatedViewerFixture() {
   isolatedHome();
   const root = newRepo();
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 
   const changeDoc = (id, title) =>
     `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
@@ -1449,7 +1453,7 @@ test('20260809-113242 CR11: local mode and path repair use active ref identity',
       .replace(/^project_id:.*$/m, 'project_id: stale-id')
       .replace(/^project_name:.*$/m, 'project_name: stale-name'),
   );
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
     '.changeledger-state/config.yml': refConfig,
@@ -2465,7 +2469,7 @@ function activatedConfigFixture() {
   isolatedHome();
   const root = newRepo();
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
@@ -2478,7 +2482,11 @@ function activatedConfigFixture() {
 }
 
 function stateRefTip(root) {
-  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
 }
 
 // `readProjectConfig` still reads the worktree unconditionally (out of this
@@ -2494,6 +2502,7 @@ function stateConfigText(root, revision) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   });
 }
 
@@ -2617,7 +2626,7 @@ test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed sta
   const id = parseChange(text).frontmatter.id;
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   const projectId = resolveProjects(root, false).current;
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': `format_version: 1\nproject_id: ${projectId}\n`,
     '.changeledger-state/config.yml': configText,
@@ -2636,7 +2645,7 @@ test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed sta
   const updated = execFileSync(
     'git',
     ['cat-file', 'blob', `${STATE_REF}:.changeledger-state/changes/${path.basename(file)}`],
-    { cwd: root, encoding: 'utf8' },
+    { cwd: root, env: sanitizedEnv(), encoding: 'utf8' },
   );
   assert.equal(parseChange(updated).frontmatter.status, 'approved');
 });

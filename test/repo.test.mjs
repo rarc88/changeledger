@@ -8,6 +8,7 @@ import { commit } from '../src/commands/commit.mjs';
 import { findChangeledgerDir, resolveRepoPath } from '../src/config.mjs';
 import { loadRepo, loadRepoAsync } from '../src/repo.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
   commitTree,
@@ -185,18 +186,7 @@ test('183807 CR5: a collapsed changes_dir aborts naming the collapse, not the fr
   );
 });
 
-const GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete GIT_ENV[key];
-}
+const GIT_ENV = sanitizedEnv();
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, env: GIT_ENV, encoding: 'utf8' });
 }
@@ -364,7 +354,7 @@ test('20260809-113242 CR10: active repo loaders never parse a malformed stale ma
 // caller spawns without going through the injectable `run` seam — which an
 // injected counter would silently miss, and the double read this pins was
 // invisible for exactly that reason. `sanitizedEnv` strips the GIT_* location
-// vars but forwards PATH, so `capturedRun`'s `execFileSync('git', …)` reaches
+// vars but forwards PATH, so `capturedRun`'s call to the `git` binary reaches
 // the shim; the shim logs argv and `exec`s the absolute real git, so it never
 // recurses into itself.
 async function countGitSpawns(load) {

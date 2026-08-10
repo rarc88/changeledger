@@ -20,6 +20,7 @@ import {
   writeActivation,
 } from '../src/state-store.mjs';
 import { parseYaml } from '../src/yaml.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTree,
   buildTreeEntries,
@@ -38,18 +39,7 @@ import {
 
 const BIN = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
 
-const CLI_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete CLI_ENV[key];
-}
+const CLI_ENV = sanitizedEnv();
 
 function cliWithEnv(root, args, extraEnv = {}) {
   try {

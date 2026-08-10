@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { status, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const bin = path.resolve(
@@ -102,7 +103,7 @@ function doneRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   // Explicit owner: a spawned CLI takes no injected identity resolver, and since
   // 20260726-124836 `new` defaults to the host's git identity, which would make
@@ -130,12 +131,15 @@ function activatedCliRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
 
   const changeDoc = (id, title) =>
     `---\nid: "${id}"\ntitle: ${title}\ntype: feature\nstatus: draft\ncreated: 2026-08-08T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nHi.\n`;
@@ -161,16 +165,19 @@ function activatedMigrationCliRepo({ marker = 'statuses: [\n', stateConfig } = {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   const configFile = path.join(root, '.changeledger', 'config.yml');
   const initialized = fs.readFileSync(configFile, 'utf8');
   const authority =
     stateConfig ?? initialized.replace(/^schema_version: \d+$/m, 'schema_version: 1');
   fs.writeFileSync(configFile, marker);
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root, env: sanitizedEnv() });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: root,
+    env: sanitizedEnv(),
+  });
   const tree = buildTree(root, {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': authority,
@@ -185,6 +192,7 @@ function activatedMigrationCliRepo({ marker = 'statuses: [\n', stateConfig } = {
 function cliStateConfig(root, revision = STATE_REF) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:.changeledger-state/config.yml`], {
     cwd: root,
+    env: sanitizedEnv(),
     encoding: 'utf8',
   });
 }
@@ -224,7 +232,7 @@ test('111457 CR5/CR6: fix help exposes the scoped graduation-links migration', (
 test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserves agent rejection', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-agent-cli-'));
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
@@ -261,7 +269,7 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
 test('125139 CR4/CR6/CR8: decision commands fail closed and explain human authority', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-decision-cli-'));
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
   assert.equal(runIn(root, env, 'init').code, 0);
   // Explicit owner: a spawned CLI takes no injected identity resolver.
@@ -426,7 +434,7 @@ test('20260805-052741 CR4: changeledger branch <id> <name> sets the branch expli
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
@@ -441,7 +449,7 @@ test('20260805-052741 CR5: changeledger branch <id> - clears the branch', () => 
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
@@ -587,7 +595,7 @@ test('205033 CR1/CR3/CR4: context is wired through the CLI', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
   const core = runIn(root, env, 'context');
@@ -610,7 +618,7 @@ test('20260808-171107 CR5: unknown context ids outrank unrelated parse errors wi
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   fs.writeFileSync(
     path.join(root, '.changeledger', 'changes', 'broken.md'),
@@ -670,7 +678,7 @@ function contextRepo() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Test').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
@@ -738,7 +746,7 @@ test('162616 CR5: a type with specification keeps the tdd= line identical to tod
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Test').code, 0);
   const item = JSON.parse(runIn(root, env, 'list', '--json').out)[0];
@@ -755,7 +763,7 @@ test('124833 CR1: context rejects --have as an unknown option', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
   const rejected = runIn(root, env, 'context', '--have', 'deadbeefcafe');
@@ -772,7 +780,7 @@ test('235628 CR1/CR5/CR7: release CLI initializes, plans JSON and records', () =
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
 
   assert.equal(runIn(root, env, 'init').code, 0);
   assert.equal(runIn(root, env, 'release', 'init', '0.1.0').code, 0);
@@ -823,7 +831,7 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
 
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
@@ -892,7 +900,7 @@ test('113219 CLI CR3: config migrate --dry-run shows candidate and exits 0 witho
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
   // Downgrade to schema 0 by removing schema_version
@@ -913,7 +921,7 @@ test('113219 CLI CR7: config migrate is idempotent', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
   // Already at the current schema — should be no-op
@@ -926,7 +934,7 @@ test('113219 CLI CR8: config migrate on invalid YAML exits 1', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
 
   const configFile = path.join(root, '.changeledger', 'config.yml');
@@ -947,7 +955,11 @@ test('234920 CR1: active CLI dry-run previews the ref and leaves ref, snapshot, 
   assert.match(out, /^Config migration 1 → 5 \(dry run\)$/m);
   assert.ok(out.includes(expected.yaml));
   assert.equal(
-    execFileSync('git', ['rev-parse', STATE_REF], { cwd: root, encoding: 'utf8' }).trim(),
+    execFileSync('git', ['rev-parse', STATE_REF], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
     revision,
   );
   assert.equal(cliStateConfig(root), authority);
@@ -965,21 +977,31 @@ test('234920 CR2: active CLI apply publishes one config migration commit and pre
   assert.match(out, /^Config migration 1 → 5$/m);
   const tip = execFileSync('git', ['rev-parse', STATE_REF], {
     cwd: root,
+    env: sanitizedEnv(),
     encoding: 'utf8',
   }).trim();
   assert.notEqual(tip, revision);
   assert.equal(
-    execFileSync('git', ['rev-parse', `${tip}^`], { cwd: root, encoding: 'utf8' }).trim(),
+    execFileSync('git', ['rev-parse', `${tip}^`], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
     revision,
   );
   assert.equal(
-    execFileSync('git', ['log', '-1', '--format=%s', tip], { cwd: root, encoding: 'utf8' }).trim(),
+    execFileSync('git', ['log', '-1', '--format=%s', tip], {
+      cwd: root,
+      env: sanitizedEnv(),
+      encoding: 'utf8',
+    }).trim(),
     'config: migrate',
   );
   assert.equal(cliStateConfig(root, tip), expected);
   assert.equal(
     execFileSync('git', ['cat-file', 'blob', `${tip}:.changeledger-state/specs/keep.md`], {
       cwd: root,
+      env: sanitizedEnv(),
       encoding: 'utf8',
     }),
     '# Keep\n',
@@ -991,7 +1013,7 @@ test('234920 CR3: active CLI fails closed on an absent ref and an invalid state 
   const current = 'schema_version: 5\n';
 
   const absent = activatedMigrationCliRepo({ marker: current });
-  execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root });
+  execFileSync('git', ['update-ref', '-d', STATE_REF], { cwd: absent.root, env: sanitizedEnv() });
   const absentResult = runIn(absent.root, absent.env, 'config', 'migrate', '--dry-run');
   assert.equal(absentResult.code, 1);
   assert.match(absentResult.err, /state is not initialized/);
@@ -1014,6 +1036,7 @@ test('234920 CR3: active CLI fails closed on an absent ref and an invalid state 
   assert.equal(
     execFileSync('git', ['rev-parse', STATE_REF], {
       cwd: invalid.root,
+      env: sanitizedEnv(),
       encoding: 'utf8',
     }).trim(),
     badRevision,
@@ -1027,7 +1050,7 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-repo-'));
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
 
   assert.equal(runIn(root, env, 'init').code, 0);
   disableChangeBranchFormat(root);
@@ -1062,18 +1085,7 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
 // commit and `check --commits` must lint it. Strip the outer repo's
 // GIT_DIR/GIT_WORK_TREE/etc so a run inside this repo's own pre-commit hook
 // cannot redirect these git calls onto the outer repo.
-const NO_CHANGE_GIT_ENV = { ...process.env };
-for (const key of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-]) {
-  delete NO_CHANGE_GIT_ENV[key];
-}
+const NO_CHANGE_GIT_ENV = sanitizedEnv();
 function noChangeGit(root, args) {
   return execFileSync('git', args, { cwd: root, env: NO_CHANGE_GIT_ENV, encoding: 'utf8' });
 }
@@ -1088,7 +1100,7 @@ function noChangeRepo() {
   noChangeGit(root, ['config', 'user.name', 'Test']);
   noChangeGit(root, ['config', 'commit.gpgsign', 'false']);
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# rules\n');
-  const env = { ...process.env, CHANGELEDGER_HOME: home };
+  const env = sanitizedEnv({ CHANGELEDGER_HOME: home });
   assert.equal(runIn(root, env, 'init').code, 0);
   noChangeGit(root, ['add', '-A']);
   noChangeGit(root, ['commit', '-m', 'chore(init): seed']);

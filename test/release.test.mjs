@@ -11,6 +11,7 @@ import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/
 import { bumpVersion } from '../src/release.mjs';
 import { loadRepo } from '../src/repo.mjs';
 import { STATE_REF, STATE_ROOT, writeActivation } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,7 +80,7 @@ function activate(root) {
     }
     fs.rmSync(changesDir, { recursive: true, force: true });
   }
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
   const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
@@ -87,13 +88,18 @@ function activate(root) {
 }
 
 function stateRefTip(root) {
-  return execFileSync('git', ['rev-parse', STATE_REF], { encoding: 'utf8', cwd: root }).trim();
+  return execFileSync('git', ['rev-parse', STATE_REF], {
+    encoding: 'utf8',
+    cwd: root,
+    env: sanitizedEnv(),
+  }).trim();
 }
 
 function stateDocText(root, revision, relPath) {
   return execFileSync('git', ['cat-file', 'blob', `${revision}:${STATE_ROOT}/${relPath}`], {
     encoding: 'utf8',
     cwd: root,
+    env: sanitizedEnv(),
   });
 }
 
@@ -276,6 +282,7 @@ test('CR1: release init on an active repo writes the manifest to the ref, one co
     execFileSync('git', ['rev-list', '--count', `${before}..${tip}`], {
       encoding: 'utf8',
       cwd: root,
+      env: sanitizedEnv(),
     }).trim(),
     '1',
   );
@@ -315,6 +322,7 @@ test('CR7/CR8 (active): recordRelease on an active repo is exact and lands in on
     execFileSync('git', ['rev-list', '--count', `${beforeRecord}..${tip}`], {
       encoding: 'utf8',
       cwd: root,
+      env: sanitizedEnv(),
     }).trim(),
     '1',
   );

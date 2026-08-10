@@ -18,6 +18,7 @@ import {
   STATE_SCHEMA_VERSION,
   writeActivation,
 } from '../src/state-store.mjs';
+import { sanitizedEnv } from './helpers/git-env.mjs';
 import {
   buildTreeEntries,
   changeText,
@@ -33,7 +34,11 @@ import {
 } from './helpers/state-repo.mjs';
 
 function porcelainStatus(root) {
-  return execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+  return execFileSync('git', ['status', '--porcelain'], {
+    cwd: root,
+    env: sanitizedEnv(),
+    encoding: 'utf8',
+  });
 }
 
 // --- CR1: initState creates the ref with the full layout -------------------
