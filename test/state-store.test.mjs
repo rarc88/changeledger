@@ -275,6 +275,7 @@ test('CR10: activation survives a checkout change and touches no working-tree fi
   assert.deepEqual(readActivation(root), {
     format_version: STATE_SCHEMA_VERSION,
     state_ref: STATE_REF,
+    ledger_dir: '.changeledger',
   });
   assert.equal(fs.existsSync(path.join(root, 'authority.yml')), false);
   assert.equal(fs.existsSync(path.join(root, STATE_ROOT)), false);
@@ -296,6 +297,7 @@ test('20260809-113240 CR6: writeActivation creates the activation ref when absen
   assert.deepEqual(readActivation(root), {
     format_version: STATE_SCHEMA_VERSION,
     state_ref: STATE_REF,
+    ledger_dir: '.changeledger',
   });
 });
 
@@ -320,6 +322,84 @@ test('20260809-113240 CR6: writeActivation refuses a divergent activation instea
   );
   assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
   assert.equal(readActivation(root).state_ref, 'refs/heads/other/state');
+});
+
+// --- 20260810-120457: the activation anchors the ledger it owns -------------
+//
+// Ownership of a discovered `.changeledger` used to be inferred (its location
+// relative to the git top-level, plus the marker's `project_id`). The
+// activation now records the ledger it was taken for, so the question is an
+// exact path comparison and no inference survives.
+
+// An activation written in the pre-anchor format: valid `format_version` and
+// `state_ref`, no `ledger_dir`. Built with raw plumbing, never through
+// `writeActivation`, so a bug there cannot fabricate the very shape under test.
+function legacyActivation(root, { stateRef = STATE_REF } = {}) {
+  const tree = buildTreeEntries(root, [
+    { path: 'authority.yml', text: `format_version: 1\nstate_ref: ${stateRef}\n` },
+  ]);
+  const revision = commitTree(root, tree, { message: 'chore: activation' });
+  updateRef(root, ACTIVATION_REF, revision);
+  return revision;
+}
+
+test('20260810-120457 CR1: writeActivation anchors the ledger directory of the repo it activates', () => {
+  const root = initStateRepo();
+
+  writeActivation(root, { stateRef: STATE_REF });
+
+  assert.deepEqual(readActivation(root), {
+    format_version: STATE_SCHEMA_VERSION,
+    state_ref: STATE_REF,
+    ledger_dir: '.changeledger',
+  });
+});
+
+test('20260810-120457 CR1: the anchor is the ledger path relative to the git top-level', () => {
+  const root = initStateRepo();
+  const nested = path.join(root, 'packages', 'app');
+  fs.mkdirSync(path.join(nested, '.changeledger'), { recursive: true });
+
+  writeActivation(nested, { stateRef: STATE_REF });
+
+  assert.equal(readActivation(root).ledger_dir, 'packages/app/.changeledger');
+  assert.equal(readActivation(nested).ledger_dir, 'packages/app/.changeledger');
+});
+
+test('20260810-120457 CR5: readActivation refuses an activation that declares no ledger_dir', () => {
+  const root = initStateRepo();
+  legacyActivation(root);
+
+  assert.throws(
+    () => readActivation(root),
+    (e) => /ledger_dir/.test(e.message) && /changeledger activate/.test(e.message),
+  );
+});
+
+test('20260810-120457 CR5: re-activating repairs an activation written without the anchor', () => {
+  const root = initStateRepo();
+  const legacy = legacyActivation(root);
+
+  const { revision, created } = writeActivation(root, { stateRef: STATE_REF });
+
+  assert.equal(created, false);
+  assert.notEqual(revision, legacy);
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
+  assert.equal(readActivation(root).ledger_dir, '.changeledger');
+});
+
+test('20260810-120457 CR5: an activation anchored to another ledger is refused, never overwritten', () => {
+  const root = initStateRepo();
+  const nested = path.join(root, 'packages', 'app');
+  fs.mkdirSync(path.join(nested, '.changeledger'), { recursive: true });
+  const { revision } = writeActivation(nested, { stateRef: STATE_REF });
+
+  assert.throws(
+    () => writeActivation(root, { stateRef: STATE_REF }),
+    (e) => /packages\/app\/\.changeledger/.test(e.message) && /refus/i.test(e.message),
+  );
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), revision);
+  assert.equal(readActivation(root).ledger_dir, 'packages/app/.changeledger');
 });
 
 // --- CR11: the core works on SHA-256 repositories ---------------------------
@@ -427,6 +507,43 @@ test('CORRECTION 2b: a stale .lock during initState is NOT relabeled "already in
     );
   });
   assert.equal(readStateRef(root), null);
+});
+
+// Finding 2c (20260810-120457): the third CAS site. `writeActivation` has two
+// arms — creating the ref from absence, and rewriting an activation that
+// declares no `ledger_dir` over its current oid — and a stale `.lock` fails
+// both for a reason that has nothing to do with the ref's value. Relabeling
+// either as a concurrent write would send the caller retrying a race that never
+// happened, exactly as 2a/2b describe for the other two sites.
+test('CORRECTION 2c: a stale .lock creating the activation is NOT relabeled a concurrent write', () => {
+  const root = initStateRepo();
+
+  withStaleLock(root, ACTIVATION_REF, () => {
+    assert.throws(
+      () => writeActivation(root, { stateRef: STATE_REF }),
+      (e) =>
+        !(e instanceof LedgerConflictError) &&
+        !/written concurrently/.test(e.message) &&
+        /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(readActivation(root), null);
+});
+
+test('CORRECTION 2c: a stale .lock repairing the activation is NOT relabeled a concurrent write', () => {
+  const root = initStateRepo();
+  const legacy = legacyActivation(root);
+
+  withStaleLock(root, ACTIVATION_REF, () => {
+    assert.throws(
+      () => writeActivation(root, { stateRef: STATE_REF }),
+      (e) =>
+        !(e instanceof LedgerConflictError) &&
+        !/written concurrently/.test(e.message) &&
+        /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), legacy);
 });
 
 // Finding 3: the `fs.lstatSync(repoRoot/.git)` pre-check misclassifies a

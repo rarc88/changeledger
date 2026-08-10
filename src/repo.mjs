@@ -1,17 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
-import {
-  effectiveConfigFromSnapshot,
-  findChangeledgerDir,
-  loadConfig,
-  resolveRepoPath,
-  resolveSpecsDir,
-} from './config.mjs';
+import { findChangeledgerDir, loadConfig, resolveRepoPath, resolveSpecsDir } from './config.mjs';
 import { capturedRun } from './git.mjs';
 import { loadReleases, loadReleasesAsync } from './release.mjs';
 import { parseSpec } from './spec.mjs';
-import { readActivation, readSnapshot, STATE_ROOT } from './state-store.mjs';
+import { readSnapshot, resolveOwnedActivation, STATE_ROOT } from './state-store.mjs';
 import { parseYaml } from './yaml.mjs';
 
 // Single authority for resolving a change id to its file. Matches by EXACT
@@ -90,55 +84,24 @@ function readChangeFile(file) {
   }
 }
 
-// Whether `repoRoot` is inside a git repository at all, via the same upward
-// discovery git itself does (a `.git` entry — file or directory, so a linked
-// worktree's gitdir-pointer file counts too — at `repoRoot` or any ancestor),
-// but fs-only: never a subprocess. `.changeledger/` need not sit at the git
-// top-level (`src/git.mjs`'s `gitTopLevel`/`commit()` already document that
-// gap between `repoRoot` and git's own root), so checking only the exact
-// directory `loadRepo` was handed — the previous, since-corrected heuristic —
-// silently missed a live activation whenever the ledger lived in a
-// subdirectory of the repo, degrading it to the legacy worktree path with
-// exit 0. Gates every activation lookup below: a directory built by
-// `fs.mkdtempSync` with no `git init` anywhere above it — the shape
-// `loadRepo`'s own non-git fixtures use — must incur zero git subprocesses,
-// which a call to `readActivation` cannot guarantee on its own (it throws,
-// rather than returning `null`, when run outside any git repo).
-function isInsideGitRepo(repoRoot) {
-  let dir = path.resolve(repoRoot);
-  for (;;) {
-    if (fs.existsSync(path.join(dir, '.git'))) return true;
-    const parent = path.dirname(dir);
-    if (parent === dir) return false;
-    dir = parent;
-  }
-}
-
-// Activation is consulted only after discovery, and only for a directory that
-// is actually inside a git repo — `null` otherwise, without ever invoking
-// `run`. This is the single gate the read-routing spec (20260808-151641)
-// requires: no caller of the `loadRepo*` family changes shape, but every one
-// of them routes through here.
-function resolveActivation(repoRoot, run) {
-  return isInsideGitRepo(repoRoot) ? readActivation(repoRoot, run) : null;
-}
-
-// Resolves activation and, when active, the one state read the whole load is
-// built on: the snapshot that answers both "what is the config?" and "what are
+// Resolves ownership and, when this repo owns the activation, the one state
+// read the whole load is built on: the snapshot that answers both "what is the config?" and "what are
 // the documents?". Reading it here rather than in each branch is what keeps an
 // activated load at a single tree enumeration (20260809-194235) — the config
 // bootstrap used to enumerate the tree for `config.yml` and the activated
 // branch then enumerated it again for the documents. `null` snapshot means
-// inactive, and the `resolveActivation` gate keeps a directory outside any git
-// repo at zero subprocesses.
+// inactive, and `resolveOwnedActivation` keeps a directory outside any git repo
+// at zero subprocesses. Routing content by ownership rather than by git
+// ancestry is what keeps a nested project's `list`/`show` on its own documents
+// while the host above it is activated.
 function readBootstrap(repoRoot, changeledgerDir, run) {
-  if (!resolveActivation(repoRoot, run)) {
+  if (!resolveOwnedActivation(repoRoot, run)) {
     return { snapshot: null, config: loadConfig(changeledgerDir) };
   }
-  // The authority read stays first, so a broken store of an activated repo
-  // fails closed before the worktree marker's identity is even considered.
+  // Ownership was already decided above: an activation that resolves here is anchored to this very ledger, so its snapshot IS the
+  // config — no second, identity-shaped question about the worktree marker.
   const snapshot = readSnapshot(repoRoot, {}, run);
-  return { snapshot, config: effectiveConfigFromSnapshot(changeledgerDir, snapshot.config) };
+  return { snapshot, config: snapshot.config };
 }
 
 // Builds `{ config, changes, changeErrors, specs, releases, state }` from the
@@ -240,7 +203,7 @@ export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = 
   const run = options.run ?? capturedRun;
   const snapshot =
     options.snapshot === undefined
-      ? resolveActivation(repoRoot, run)
+      ? resolveOwnedActivation(repoRoot, run)
         ? readSnapshot(repoRoot, {}, run)
         : null
       : options.snapshot;

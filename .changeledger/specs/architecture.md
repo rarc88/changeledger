@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-10T13:50:52Z
+updated: 2026-08-10T17:29:40Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235", "20260809-194233"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235", "20260809-194233", "20260810-120457"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -84,17 +84,16 @@ la ref — nunca del marcador del worktree, que queda byte a byte intacto — y
 se aplica como un único commit CAS (`config: migrate`); el preview del visor
 lee por la misma costura de autoridad. La ruta inactiva ejecuta exactamente
 una operación del store: el probe read-only de la activación, y ninguna otra.
-La autoridad se enruta por ubicación e identidad, no solo por ascendencia
-git (`20260809-194234`): un marker cuyo `.changeledger` vive en el top-level
-de git es siempre el ledger propio (ruta ref, incluso con `project_id`
-stale); por debajo del top-level decide la identidad — un marker parseable
-que declara otro `project_id` que el snapshot no es el ledger activado y
-migra su propio archivo del worktree, dejando la ref del host intacta. La
-decisión vive en una única definición (`claimsAnotherLedger`,
-`src/config.mjs`) que consumen por igual la lectura de config y
-`config migrate`; ambas heurísticas serán sustituidas por el ancla de
-propiedad de `authority.yml` (`20260810-120457`), que es también quien
-cerrará la costura de contenido.
+La propiedad del ledger la decide el ancla de `authority.yml`
+(`20260810-120457`), nunca heurísticas de ubicación o identidad: el marker
+descubierto es propio si y solo si su ruta relativa al top-level de git
+coincide exactamente con el `ledger_dir` anclado. Un marker no anclado —
+anidado, o declarando cualquier `project_id`, incluso el del propio
+snapshot — migra su propio archivo del worktree dejando la ref del host
+intacta; el anclado con marker stale sirve la ref, byte a byte intacto el
+marker. La decisión vive en una única definición (`resolveOwnedActivation`,
+`src/state-store.mjs`) que consumen por igual la lectura de config,
+`config migrate` y la costura de contenido.
 
 Toda frontera que escribe en el ledger valida el schema con una precondición
 compartida antes de adquirir locks, crear directorios o modificar archivos. Esto
@@ -122,8 +121,14 @@ compare-and-swap (`mutateState`: árbol candidato en índice temporal,
 `update-ref` con old-value, `LedgerConflictError` en conflicto) e integridad
 padre-contra-candidato: ninguna identidad desaparece sin `remove` explícito.
 La activación es checkout-independiente — `refs/changeledger/activation`
-apunta a un commit cuya `authority.yml` nombra la ref de verdad
-(`readActivation`/`writeActivation`) — y toda lectura de refs es fail-closed:
+apunta a un commit cuya `authority.yml` nombra la ref de verdad y el ledger
+que la activación posee: `ledger_dir`, la ruta del `.changeledger` relativa
+al top-level de git, derivada dentro de `writeActivation` con un walk
+fs-only de ancestros (nunca `rev-parse --show-toplevel`, que respondería el
+realpath y rompería la comparación exacta). `readActivation` exige el campo:
+una activación pre-ancla falla explícito pidiendo re-ejecutar
+`changeledger activate`, que la repara — y toda lectura de refs es
+fail-closed:
 ausencia real devuelve `null`, cualquier fallo de lectura lanza con el stderr
 de git; los objetos se verifican por tipo (`assertCommitObject`), nunca por
 peel. Los diagnósticos de error son exactos (`20260808-171107`): una ref
@@ -136,14 +141,16 @@ wrapper duplicado; un fallo de `update-ref` reporta el fallo primario como
 El enrutado de lectura (`20260808-151641`) es un único resolver: la familia
 `loadRepo`/`loadRepoWithConfig`/`loadRepoAsync` de `src/repo.mjs`, compartida
 por el CLI y por el viewer (`router.mjs` no tiene camino de lectura propio).
-Tras descubrir el repo, consulta `readActivation` — solo si `repoRoot` está
+Tras descubrir el repo, consulta la activación vía `resolveOwnedActivation`
+— solo si `repoRoot` está
 dentro de un repo git, decidido subiendo por los ancestros en busca de un
 `.git` (archivo o directorio, el mismo descubrimiento que hace git; una
 comprobación de filesystem, nunca un subproceso), no solo el directorio exacto
 que recibió `loadRepo`: `.changeledger/` puede vivir por debajo del top-level
 de git (la misma brecha entre `repoRoot` y la raíz real que ya documentan
 `gitTopLevel`/`commit()` en `src/git.mjs`), y comprobar solo el directorio
-exacto ocultaba en silencio una activación viva ahí. Sin activación, el
+exacto ocultaba en silencio una activación viva ahí. Sin activación propia —
+ausente, o anclada a un `ledger_dir` que no es el descubierto —, el
 comportamiento es el de siempre, byte a byte, con `state: null` — y en un
 directorio que no está dentro de ningún repo git, cero subprocesos. Con
 activación, `changes`, `specs`, `releases` y `config` salen de `readSnapshot`
@@ -186,15 +193,14 @@ registry (que además conserva el nombre cacheado cuando la ruta registrada no
 es un directorio utilizable, sin propagar fallos del probe). `loadConfig`
 queda como primitiva interna del camino inactivo; `new.mjs` mantiene su gate
 propio y `resolveChange` sigue siendo por diseño el camino de mutación sobre
-worktree en modo inactivo. La autoridad que este camino devuelve se decide
-por ubicación e identidad (`20260809-194234`, ver la sección de migración de
-config): un proyecto anidado sin `.git` propio bajo un repo activado lee SU
-config del worktree anidado en toda la superficie de `loadEffectiveConfig`.
-Incoherencia conocida y acotada hasta el ancla de propiedad
-(`20260810-120457`): la costura de CONTENIDO (`resolveActivation` en
-`src/repo.mjs`) sigue enrutando por ascendencia, así que `list`/`show`/`new`
-desde ese anidado resuelven el snapshot del host — documentado en el propio
-CR1 del change.
+worktree en modo inactivo. La autoridad que este camino devuelve la decide el mismo ancla de propiedad
+(ver Componentes): un proyecto anidado sin `.git` propio bajo un repo
+activado lee SU config del worktree anidado en toda la superficie de
+`loadEffectiveConfig`. La costura de CONTENIDO comparte la decisión —
+`loadRepo*` y `change-store` consultan `resolveOwnedActivation` — así que un
+ledger no anclado se carga inactivo desde su worktree: `list`/`show`/`new`
+desde el anidado operan sobre su propio ledger y las escrituras nunca
+aterrizan en la ref del host.
 
 ## Costura de escritura del estado global
 
@@ -275,8 +281,14 @@ y la salida manual literal.
 `changeledger activate` (`src/commands/activate.mjs`) activa clones y
 worktrees que ya tienen la ref de estado, sin depender del checkout.
 `writeActivation` es CAS desde este change: create con old-value cero, no-op
-sobre un estado idéntico y rechazo explícito ante una activación divergente,
-nunca force-update; devuelve `{ revision, created }`. La identidad comparada
+sobre un estado idéntico, reparación CAS de una activación pre-ancla (mismo
+`state_ref` sin `ledger_dir`: se reescribe sobre su oid actual) y rechazo
+explícito ante una activación divergente — un `ledger_dir` distinto se
+rechaza igual que un `state_ref` divergente —, nunca force-update; devuelve
+`{ revision, created, repaired }`. Un `.lock` stale falla con el error real
+de git, nunca relabeled como escritura concurrente: la desambiguación del
+conflicto compara contra el old-value esperado, la misma disciplina que
+`mutateState` e `initState`. La identidad comparada
 es el `state_ref` declarado en `authority.yml`, no el oid del commit de
 activación — `commit-tree` sella timestamp, así que contenido idéntico
 re-deriva a oids distintos y compararlos convertiría cada re-activación en

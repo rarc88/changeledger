@@ -8,12 +8,13 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { ACTIVATION_REF, STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { ACTIVATION_REF, readActivation, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   buildTree,
   commitTree,
   defaultStateFiles,
   git,
+  ledgerSpecText,
   seedLedgerRepo,
   updateRef,
   writeLooseRef,
@@ -53,9 +54,9 @@ function cli(root, ...args) {
 
 // A clone-shaped fixture: the ledger repo plus a published state ref, with no
 // activation yet — exactly what a fresh clone of an already cut-over repo has.
-function clonedRepoWithState() {
+function clonedRepoWithState({ files = defaultStateFiles({ projectId: 'fixture01' }) } = {}) {
   const { root } = seedLedgerRepo();
-  const tree = buildTree(root, defaultStateFiles({ projectId: 'fixture01' }));
+  const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
   return { root, revision };
@@ -134,4 +135,39 @@ test('20260809-113240 CR6: activate outside a ChangeLedger repo fails without wr
     err,
     /Not a ChangeLedger repo \(no \.changeledger\/ found\)\. Run `changeledger init` first\./,
   );
+});
+
+// --- 20260810-120457 CR1/CR5: activate anchors, and repairs a missing anchor --
+
+test('20260810-120457 CR1: activate records the ledger directory it activates', () => {
+  const { root } = clonedRepoWithState();
+
+  assert.equal(cli(root, 'activate').code, 0);
+
+  assert.equal(readActivation(root).ledger_dir, '.changeledger');
+});
+
+test('20260810-120457 CR5: activate repairs an activation written without the anchor', () => {
+  // `defaultStateFiles`'s spec is plumbing-shaped (no frontmatter), which
+  // `list` refuses on its own terms; swap in the ledger fixture's valid one so
+  // the command's exit code reports the anchor and nothing else.
+  const { root } = clonedRepoWithState({
+    files: defaultStateFiles({
+      projectId: 'fixture01',
+      extra: { '.changeledger-state/specs/demo-spec.md': ledgerSpecText() },
+    }),
+  });
+  const legacyTree = buildTree(root, {
+    'authority.yml': `format_version: 1\nstate_ref: ${STATE_REF}\n`,
+  });
+  updateRef(root, ACTIVATION_REF, commitTree(root, legacyTree, { message: 'chore: activation' }));
+  assert.throws(() => readActivation(root), /ledger_dir/);
+  assert.notEqual(cli(root, 'list').code, 0);
+
+  const { code, out } = cli(root, 'activate');
+
+  assert.equal(code, 0, out);
+  assert.match(out, /repair/i);
+  assert.equal(readActivation(root).ledger_dir, '.changeledger');
+  assert.equal(cli(root, 'list').code, 0);
 });

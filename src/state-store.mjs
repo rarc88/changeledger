@@ -31,6 +31,7 @@ const STATE_COLLECTION_EXTENSIONS = new Map([
   ['releases', '.yml'],
 ]);
 const ACTIVATION_AUTHORITY_PATH = 'authority.yml';
+const LEDGER_DIR_NAME = '.changeledger';
 
 export class LedgerConflictError extends Error {
   constructor(message, options) {
@@ -391,7 +392,46 @@ export function mutateState(
 
 // --- activation: low-level, checkout-independent ------------------------
 
-export function readActivation(repoRoot, run = capturedRun) {
+// The nearest ancestor of `from` (inclusive) holding a `.git` entry — file or
+// directory, so a linked worktree's gitdir pointer counts — or `null` outside
+// any git repo. The same fs-only upward walk git itself does for discovery, and
+// deliberately not `rev-parse --show-toplevel`: the anchor is derived on both
+// the write and the read path, and git's answer is a realpath while the paths
+// callers hold are not (`/var` vs `/private/var` on macOS), so mixing the two
+// would compare a path against a differently spelled one. Being fs-only also
+// keeps a directory outside any git repo at zero subprocesses.
+function gitTopLevelDir(from) {
+  let dir = path.resolve(from);
+  for (;;) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+// The ledger a repo rooted at `repoRoot` owns, as a POSIX path relative to the
+// git top-level (`.changeledger` in the canonical layout, `packages/app/
+// .changeledger` when the ledger lives below it). `null` outside any git repo.
+// `repoRoot` is always the parent of the discovered `.changeledger` — every
+// producer of one is `findChangeledgerDir` or an explicit
+// `path.join(root, '.changeledger')`, and every `repoRoot` is that directory's
+// `dirname` — so the ledger path is derivable from the root alone.
+export function ledgerAnchor(repoRoot) {
+  const root = path.resolve(repoRoot);
+  const topLevel = gitTopLevelDir(root);
+  if (topLevel === null) return null;
+  return path
+    .relative(topLevel, path.join(root, LEDGER_DIR_NAME))
+    .split(path.sep)
+    .join(path.posix.sep);
+}
+
+// The activation record as stored, with `ledger_dir` still optional: the one
+// reader that must tolerate the pre-anchor format, because repairing it is
+// exactly `writeActivation`'s job. Every other caller goes through
+// `readActivation`, which requires the anchor.
+function readActivationRecord(repoRoot, run) {
   const oid = optionalRefOid(repoRoot, ACTIVATION_REF, run);
   if (oid === null) return null;
   assertCommitObject(repoRoot, ACTIVATION_REF, run);
@@ -412,7 +452,46 @@ export function readActivation(repoRoot, run = capturedRun) {
   if (typeof authority.state_ref !== 'string' || authority.state_ref === '') {
     throw new Error('activation authority is missing state_ref');
   }
-  return { format_version: authority.format_version, state_ref: authority.state_ref };
+  const ledgerDir = authority.ledger_dir;
+  if (ledgerDir !== undefined && (typeof ledgerDir !== 'string' || ledgerDir === '')) {
+    throw new Error('activation authority has a malformed ledger_dir');
+  }
+  return {
+    oid,
+    format_version: authority.format_version,
+    state_ref: authority.state_ref,
+    ledgerDir,
+  };
+}
+
+// An activation with no anchor cannot answer which ledger it owns, and there is
+// no second truth to fall back on: fail with the command that rewrites it.
+export function readActivation(repoRoot, run = capturedRun) {
+  const record = readActivationRecord(repoRoot, run);
+  if (record === null) return null;
+  if (record.ledgerDir === undefined) {
+    throw new Error(
+      `${ACTIVATION_REF} does not declare the ledger it activates (ledger_dir) — run \`changeledger activate\` to rewrite it`,
+    );
+  }
+  return {
+    format_version: record.format_version,
+    state_ref: record.state_ref,
+    ledger_dir: record.ledgerDir,
+  };
+}
+
+// The activation of the ledger `repoRoot` owns, or `null` — no activation, or
+// one anchored to a different ledger (a nested project under an activated host,
+// whose own `.changeledger` the host's activation never covered). The single
+// ownership decision: both the config seam and the content seam ask it here, so
+// they cannot diverge, and a directory outside any git repo costs no subprocess.
+export function resolveOwnedActivation(repoRoot, run) {
+  const anchor = ledgerAnchor(repoRoot);
+  if (anchor === null) return null;
+  const activation = readActivation(repoRoot, run);
+  if (activation === null) return null;
+  return activation.ledger_dir === anchor ? activation : null;
 }
 
 // Compare-and-swap activation write. Stage 1 shipped this as a bare
@@ -432,21 +511,38 @@ export function readActivation(repoRoot, run = capturedRun) {
 // A plain Error (not LedgerConflictError) for divergence on purpose: the bin
 // collapses LedgerConflictError to the actionable CAS message, which is exactly
 // the wrong advice for a divergence that a re-run cannot fix.
+//
+// The activation also records the ledger it is taken for (`ledger_dir`), so an
+// activation present but declaring a DIFFERENT ledger is refused on the same
+// grounds as a different state_ref, and one declaring NO ledger — the pre-anchor
+// format — is rewritten in place: that repair is what makes the read path's
+// refusal actionable rather than terminal.
 export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) {
   if (typeof stateRef !== 'string' || stateRef === '') {
     throw new Error('writeActivation requires a stateRef');
   }
-  const existing = optionalRefOid(repoRoot, ACTIVATION_REF, run);
-  if (existing !== null) {
-    const current = readActivation(repoRoot, run);
-    if (current.state_ref === stateRef) return { revision: existing, created: false };
-    throw new Error(
-      `${ACTIVATION_REF} already activates "${current.state_ref}", not "${stateRef}" — refusing to overwrite an existing activation`,
-    );
+  const ledgerDir = ledgerAnchor(repoRoot);
+  if (ledgerDir === null) {
+    throw new Error(`cannot activate ${repoRoot}: it is not inside a Git repository`);
+  }
+  const current = readActivationRecord(repoRoot, run);
+  if (current !== null) {
+    if (current.state_ref !== stateRef) {
+      throw new Error(
+        `${ACTIVATION_REF} already activates "${current.state_ref}", not "${stateRef}" — refusing to overwrite an existing activation`,
+      );
+    }
+    if (current.ledgerDir === ledgerDir) return { revision: current.oid, created: false };
+    if (current.ledgerDir !== undefined) {
+      throw new Error(
+        `${ACTIVATION_REF} already activates the ledger "${current.ledgerDir}", not "${ledgerDir}" — refusing to overwrite an existing activation`,
+      );
+    }
   }
   const authorityText = stringifyYaml({
     format_version: STATE_SCHEMA_VERSION,
     state_ref: stateRef,
+    ledger_dir: ledgerDir,
   });
   const tree = buildTree(repoRoot, {
     base: null,
@@ -454,17 +550,19 @@ export function writeActivation(repoRoot, { stateRef } = {}, run = capturedRun) 
     removals: new Set(),
   });
   const commit = commitTree(repoRoot, tree, { parents: [], message: 'chore: activation' }, run);
-  const zeroOid = '0'.repeat(commit.length);
+  const previous = current === null ? '0'.repeat(commit.length) : current.oid;
   try {
-    run(['update-ref', ACTIVATION_REF, commit, zeroOid], repoRoot);
+    run(['update-ref', ACTIVATION_REF, commit, previous], repoRoot);
   } catch (e) {
-    // Same discipline as `initState`: only a ref that now resolves proves a
-    // concurrent writer won. Any other failure (a stale `.lock`) never moved
-    // the ref and must not be relabeled as a race the caller could retry away.
-    if (refOidAfterUpdateFailure(repoRoot, ACTIVATION_REF, run, e) !== null) {
-      throw new LedgerConflictError(`${ACTIVATION_REF} was created concurrently`, { cause: e });
+    // Same discipline as `initState` and `mutateState`: only a ref that no
+    // longer holds the old value this write expected proves a concurrent writer
+    // won. Any other failure (a stale `.lock`) left the ref exactly where it
+    // was and must not be relabeled as a race the caller could retry away.
+    const now = refOidAfterUpdateFailure(repoRoot, ACTIVATION_REF, run, e);
+    if (current === null ? now !== null : now !== current.oid) {
+      throw new LedgerConflictError(`${ACTIVATION_REF} was written concurrently`, { cause: e });
     }
     throw e;
   }
-  return { revision: commit, created: true };
+  return { revision: commit, created: current === null, repaired: current !== null };
 }

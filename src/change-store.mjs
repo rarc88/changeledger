@@ -9,34 +9,15 @@
 // convention and the cross-file atomicity all live in one seam instead of
 // being reimplemented at each call site.
 
-import fs from 'node:fs';
-import path from 'node:path';
 import { mutateFileAtomic, writeFileAtomic } from './atomic-write.mjs';
-import { mutateState, readActivation } from './state-store.mjs';
+import { mutateState, resolveOwnedActivation } from './state-store.mjs';
 
-// Cheap, subprocess-free gate before ever consulting git for activation —
-// mirrors `repo.mjs`'s own (unexported) `isInsideGitRepo`: a directory built
-// by `fs.mkdtempSync` with no `git init` anywhere above it — the shape every
-// inactive fixture in this suite uses — must incur zero git subprocesses.
-// Duplicated here rather than exported from `repo.mjs` because this module
-// needs the same gate at a different call site: a mutator must decide its
-// target's shape (worktree file vs. tree relPath) before it can even locate
-// the document, whereas `loadRepo`'s gate only runs inside a read.
-function isInsideGitRepo(repoRoot) {
-  let dir = path.resolve(repoRoot);
-  for (;;) {
-    if (fs.existsSync(path.join(dir, '.git'))) return true;
-    const parent = path.dirname(dir);
-    if (parent === dir) return false;
-    dir = parent;
-  }
-}
-
-// Whether `repoRoot` is an activated ChangeLedger repo — `false` for a
-// directory outside any git repo (zero subprocesses) or one with no
-// activation record; never throws for either of those ordinary cases.
+// Whether `repoRoot`'s own ledger is the one the activation owns — `false` for
+// a directory outside any git repo (zero subprocesses), one with no activation
+// record, and one whose activation is anchored to a different ledger (a nested
+// project under an activated host). Never throws for those ordinary cases.
 export function repoIsActivated(repoRoot, run) {
-  return isInsideGitRepo(repoRoot) ? Boolean(readActivation(repoRoot, run)) : false;
+  return resolveOwnedActivation(repoRoot, run) !== null;
 }
 
 // Mutates one ledger document. `target` carries whichever address the

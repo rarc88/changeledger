@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { parseChange } from '../src/change.mjs';
-import { approve } from '../src/commands/agent.mjs';
+import { approve, list, show } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { init } from '../src/commands/init.mjs';
@@ -1404,4 +1404,59 @@ test('203257 correction: no raw control bytes in source files', () => {
   };
   for (const dir of ['src', 'bin', 'test', 'templates', 'hooks']) sweep(path.join(repoRoot, dir));
   assert.deepEqual(offenders, [], `raw control bytes found: ${offenders.join(', ')}`);
+});
+
+// --- 20260810-120457 CR2: the content seam routes by the anchor --------------
+//
+// A nested ChangeLedger project with no `.git` of its own probes as activated:
+// the host's activation ref is repo-wide. Before the anchor, `list` and `show`
+// served the host's snapshot from the nested directory (its own documents
+// invisible) and `new` wrote the document into the host's ref. The activation
+// names the ledger it owns, so the nested project falls back to its worktree.
+
+function nestedLedger(hostRoot) {
+  const repoRoot = path.join(hostRoot, 'nested');
+  const changesDir = path.join(repoRoot, '.changeledger', 'changes');
+  fs.mkdirSync(changesDir, { recursive: true });
+  const hostConfig = fs.readFileSync(path.join(hostRoot, '.changeledger', 'config.yml'), 'utf8');
+  fs.writeFileSync(
+    path.join(repoRoot, '.changeledger', 'config.yml'),
+    hostConfig.replace(/^project_name:.*$/m, 'project_name: nested'),
+  );
+  fs.writeFileSync(
+    path.join(changesDir, '20260810-000001-nested.md'),
+    '---\nid: "20260810-000001"\ntitle: Nested own change\ntype: feature\nstatus: draft\ncreated: 2026-08-10T00:00:00Z\ndepends_on: []\n---\n\n## Request\n\nMía.\n',
+  );
+  return { repoRoot, changesDir };
+}
+
+test('20260810-120457 CR2: list, show and new from a nested project use its own ledger', () => {
+  const host = tmp();
+  init(host);
+  const hostRevision = activate(host);
+  const nested = nestedLedger(host);
+
+  assert.deepEqual(
+    list({}, nested.repoRoot).map((c) => c.id),
+    ['20260810-000001'],
+  );
+  assert.equal(show('20260810-000001', nested.repoRoot).frontmatter.title, 'Nested own change');
+
+  const file = newChange(
+    {
+      type: 'feature',
+      slug: 'from-nested',
+      title: 'Desde el anidado',
+      owner: 'nested-owner',
+      now: '2026-08-10T12:00:00Z',
+    },
+    nested.repoRoot,
+  );
+
+  assert.equal(path.dirname(file), nested.changesDir);
+  assert.equal(fs.existsSync(file), true);
+  assert.equal(
+    execFileSync('git', ['rev-parse', STATE_REF], { cwd: host, encoding: 'utf8' }).trim(),
+    hostRevision,
+  );
 });

@@ -32,8 +32,13 @@ export function activate(cwd = process.cwd(), output = console, run = capturedRu
     );
   }
 
-  const { created } = writeActivation(repoRoot, { stateRef: STATE_REF }, run);
+  // `repaired` is an activation written before it recorded the ledger it owns:
+  // every read refuses it, and this command is the remedy those errors name, so
+  // saying "nothing to do" would contradict the write that just happened.
+  const { created, repaired } = writeActivation(repoRoot, { stateRef: STATE_REF }, run);
   if (created) output.log(`Activated ${ACTIVATION_REF} → ${STATE_REF} at ${revision}`);
-  else output.log(`Already activated against ${STATE_REF} at ${revision} — nothing to do`);
+  else if (repaired) {
+    output.log(`Repaired ${ACTIVATION_REF}: it now declares the ledger it activates`);
+  } else output.log(`Already activated against ${STATE_REF} at ${revision} — nothing to do`);
   return 0;
 }

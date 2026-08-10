@@ -13,6 +13,7 @@ import {
   ACTIVATION_REF,
   initState,
   mutateState,
+  readActivation,
   readSnapshot,
   STATE_REF,
   STATE_ROOT,
@@ -1349,4 +1350,33 @@ test('20260809-113240 CR1: cutover off the integration branch is refused', () =>
   assert.match(err, /integration branch "main"/);
   assert.equal(refExists(root, STATE_REF), false);
   assert.equal(head(root), before);
+});
+
+// --- 20260810-120457 CR1: the cutover anchors the ledger it published --------
+//
+// The activation is what a later read consults to decide whether a discovered
+// `.changeledger` is the one this repo owns, so the cut must record which
+// directory it just published — including the supported layout where the ledger
+// does not sit at the git top-level.
+
+test('20260810-120457 CR1: cutover anchors the canonical ledger directory', () => {
+  const { root } = seedLedgerRepo();
+
+  assert.equal(cli(root, 'cutover').code, 0);
+
+  assert.equal(readActivation(root).ledger_dir, '.changeledger');
+});
+
+test('20260810-120457 CR1: cutover anchors a ledger that lives below the git top-level', () => {
+  const files = {};
+  for (const [rel, text] of Object.entries(defaultLedgerFiles())) {
+    files[`packages/app/${rel}`] = text;
+  }
+  const { root } = seedLedgerRepo({ files });
+  const ledgerRoot = path.join(root, 'packages', 'app');
+
+  const { code, err } = cli(ledgerRoot, 'cutover');
+
+  assert.equal(code, 0, err);
+  assert.equal(readActivation(root).ledger_dir, 'packages/app/.changeledger');
 });
