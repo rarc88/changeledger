@@ -2,7 +2,7 @@
 id: "20260810-181802"
 title: Abaratar y simplificar la verificación del undo
 type: refactor
-status: draft
+status: approved
 created: 2026-08-10T18:18:02Z
 depends_on: []
 related_to: ["20260809-194233", "20260809-131004"]
@@ -68,3 +68,4 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T22:46:37Z** `[status]` draft → approved (human via conversation)
