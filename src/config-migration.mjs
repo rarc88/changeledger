@@ -4,6 +4,7 @@ import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
+import { claimsAnotherLedger, readMarkerText } from './config.mjs';
 import { templatesDir } from './paths.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
@@ -366,42 +367,6 @@ function setBlankGitSection(doc) {
     ' Git integration: change branches start from and merge into this branch';
 }
 
-// Activation lives on a git ref, so every directory under an activated repo —
-// including a nested ChangeLedger project that owns its own `config.yml` and
-// has no `.git` — probes as activated. Identity, not ancestry, decides whose
-// ledger the discovered marker belongs to: only a marker that names a
-// `project_id` different from the snapshot's is a foreign ledger, and it must
-// be migrated in place, never through the host's state ref. A marker that is
-// unreadable, malformed or names no project cannot claim a distinct identity,
-// so the activated repo's own ref route stands (the marker is discovery only).
-function claimsAnotherLedger(markerText, authorityText) {
-  const markerId = readProjectId(markerText);
-  const authorityId = readProjectId(authorityText);
-  if (markerId === undefined || authorityId === undefined) return false;
-  return markerId !== authorityId;
-}
-
-function readProjectId(text) {
-  let config;
-  try {
-    const doc = parseDocument(text, { merge: false });
-    if (doc.errors.length) return undefined;
-    config = doc.toJS();
-  } catch {
-    return undefined;
-  }
-  if (config === null || typeof config !== 'object') return undefined;
-  return Object.hasOwn(config, 'project_id') ? String(config.project_id) : undefined;
-}
-
-function readMarker(configFile) {
-  try {
-    return fs.readFileSync(configFile, 'utf8');
-  } catch {
-    return null;
-  }
-}
-
 // Apply migration to the effective config authority (or dry-run). Returns summary string.
 export function applyMigration(
   configFile,
@@ -415,8 +380,8 @@ export function applyMigration(
     stateRevision = readStateRef(repoRoot, run);
     if (stateRevision === null) throw new Error('state is not initialized');
     const authority = readStateConfigText(repoRoot, { revision: stateRevision }, run);
-    marker = readMarker(configFile);
-    if (marker !== null && claimsAnotherLedger(marker, authority)) {
+    marker = readMarkerText(configFile);
+    if (marker !== null && claimsAnotherLedger(configFile, marker, authority)) {
       active = false;
     } else {
       original = authority;
