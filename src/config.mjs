@@ -48,6 +48,25 @@ export function loadEffectiveConfig(repoRoot, changeledgerDir, { raw = false, ru
   return fs.readFileSync(file, 'utf8');
 }
 
+// The same authority decision as `loadEffectiveConfig`'s activated branch, for
+// a caller that already holds the snapshot (`loadRepo`'s bootstrap): the
+// activation probe and the tree enumeration are already paid, so re-deriving
+// the config through `repoIsActivated` + `readStateConfigText` would enumerate
+// the state tree a second time — the whole cost 20260809-194235 removes.
+// `snapshotConfig` is `readSnapshot`'s parsed `config`, i.e. `parseYaml` over
+// the very blob `readStateConfigText` returns as text, so routing on its
+// `project_id` asks the identical question `claimsAnotherLedger` asks of that
+// text: a snapshot that parsed at all is a mapping with no duplicate keys, the
+// only inputs on which the two readers could disagree.
+export function effectiveConfigFromSnapshot(changeledgerDir, snapshotConfig) {
+  const configFile = path.join(changeledgerDir, 'config.yml');
+  const marker = readMarkerText(configFile);
+  if (marker === null || !claimsLedgerId(configFile, marker, projectIdOf(snapshotConfig))) {
+    return snapshotConfig;
+  }
+  return loadConfig(changeledgerDir);
+}
+
 // Activation lives on a git ref, so every directory under an activated repo —
 // including a nested ChangeLedger project that owns its own `config.yml` and
 // has no `.git` — probes as activated. Two questions decide whose ledger the
@@ -68,9 +87,16 @@ export function loadEffectiveConfig(repoRoot, changeledgerDir, { raw = false, ru
 // indistinguishable from an ordinary activated checkout with a partial marker,
 // so warning on it would fire on every normal repo.
 export function claimsAnotherLedger(configFile, markerText, authorityText) {
+  return claimsLedgerId(configFile, markerText, readProjectId(authorityText));
+}
+
+// The decision body, over an authority identity the caller already resolved —
+// from the config text (`claimsAnotherLedger`) or from an already-parsed
+// snapshot config (`effectiveConfigFromSnapshot`). Both routes ask it here so
+// the read seam and `config migrate`'s write can never diverge.
+function claimsLedgerId(configFile, markerText, authorityId) {
   if (isGitTopLevelMarker(configFile)) return false;
   const markerId = readProjectId(markerText);
-  const authorityId = readProjectId(authorityText);
   if (markerId === undefined || authorityId === undefined) return false;
   return markerId !== authorityId;
 }
@@ -94,6 +120,13 @@ function readProjectId(text) {
   } catch {
     return undefined;
   }
+  return projectIdOf(config);
+}
+
+// The declared identity of an already-parsed config, or `undefined` when it
+// declares none — the single extraction both identity routes share, so a
+// parsed snapshot and a raw text can never be judged by different rules.
+function projectIdOf(config) {
   if (config === null || typeof config !== 'object') return undefined;
   return Object.hasOwn(config, 'project_id') ? String(config.project_id) : undefined;
 }

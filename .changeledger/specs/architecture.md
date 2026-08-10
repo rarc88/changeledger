@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-10T12:39:21Z
+updated: 2026-08-10T13:25:04Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -148,7 +148,15 @@ comportamiento es el de siempre, byte a byte, con `state: null` — y en un
 directorio que no está dentro de ningún repo git, cero subprocesos. Con
 activación, `changes`, `specs`, `releases` y `config` salen de `readSnapshot`
 en lugar del working tree, y el resultado gana `state: { revision }` — la
-costura que el CAS de escritura usará como `expectedRevision`. Una activación
+costura que el CAS de escritura usará como `expectedRevision`. La carga
+resuelve la activación y enumera el snapshot exactamente UNA vez
+(`20260809-194235`): un bootstrap único sirve config y documentos de la misma
+lectura — misma revisión para ambos, 9 subprocesos por carga activada, cero
+fuera de un repo git — y `loadRepoWithConfig` acepta ese snapshot con un
+contrato tri-estado (ausente = resuélvelo tú; null = inactivo; objeto =
+sírvelo) que ningún caller externo puede usar para inyectar un snapshot
+obsoleto: la staleness la sigue cazando el CAS porque la revisión reportada
+es la del snapshot realmente servido. Una activación
 presente cuya ref de estado es ilegible o ausente propaga el error
 fail-closed del store; nunca degrada al worktree.
 

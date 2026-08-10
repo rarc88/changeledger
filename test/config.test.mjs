@@ -5,11 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   changeBranchFormat,
+  effectiveConfigFromSnapshot,
   integrationBranch,
   loadEffectiveConfig,
   renderChangeBranch,
 } from '../src/config.mjs';
-import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import {
   buildTree,
   buildTreeEntries,
@@ -126,6 +127,37 @@ test('194234 CR2: the activated repo keeps the ref route on a divergent or malfo
       authority,
       name,
     );
+  }
+});
+
+// 20260809-194235 — `loadRepo`'s bootstrap derives the effective config from
+// the snapshot it has already read, instead of enumerating the state tree a
+// second time through `readStateConfigText`. That is only sound while both
+// routes answer the identity question identically, so the equivalence is
+// pinned here rather than argued: whatever the marker claims, and wherever it
+// sits relative to the git top-level, the two must agree.
+test('194235: the snapshot route resolves the config exactly as the text route', () => {
+  for (const marker of [
+    'project_id: "nested99"\nproject_name: nested-name\n', // claims another ledger
+    'project_id: "abc123"\nproject_name: same-id\n', // same identity
+    'project_name: anonymous\n', // claims no identity
+    'statuses: [\n', // unparseable
+    '- a\n- b\n', // not a mapping
+  ]) {
+    const host = activatedHost({ marker });
+    const nested = nestedProject(host.root, { text: marker });
+
+    for (const [where, repoRoot, changeledgerDir] of [
+      ['top-level', host.root, host.changeledgerDir],
+      ['nested', nested.repoRoot, nested.changeledgerDir],
+    ]) {
+      const label = `${where}: ${JSON.stringify(marker)}`;
+      assert.deepEqual(
+        effectiveConfigFromSnapshot(changeledgerDir, readSnapshot(repoRoot).config),
+        loadEffectiveConfig(repoRoot, changeledgerDir),
+        label,
+      );
+    }
   }
 });
 
