@@ -59,11 +59,12 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 
 ## Plan
 
-- [ ] Enumeración por lotes en `assertRevertRestoresSnapshot` y comparación
+- [x] Enumeración por lotes en `assertRevertRestoresSnapshot` y comparación
   contra el mapa, retirando el `ls-tree` por entrada y la bandera `regular`
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1, CR2
+  - **Resolved:** `2026-08-10T22:53:50Z`
 - [ ] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
