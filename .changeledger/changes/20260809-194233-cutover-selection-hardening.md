@@ -2,9 +2,10 @@
 id: "20260809-194233"
 title: Blindar la selección y el resume del cutover
 type: bug
-status: in-validation
+status: done
 created: 2026-08-09T19:42:33Z
 depends_on: ["20260809-131004"]
+reviewed: true
 branch: bug/20260809-194233
 related_to: ["20260809-113240"]
 owner: rarc88
@@ -135,3 +136,5 @@ ejecutados en fixtures por los revisores:
 - **2026-08-10T13:40:46Z** `[note]` Mandato de quinta y ÚLTIMA confirmación (regla nueva tras la alarma del humano): verificar EXCLUSIVAMENTE probe F cerrado (modo admisible + oid estricto; mutante oid-only muere solo por el test de modo; borde 100755 honesto verde) y regresiones de esta ronda. CUALQUIER forma nueva latente o adyacente se REPORTA COMO FOLLOW-UP y no tumba la ronda — es el contrato literal de las confirmaciones y esta vez se cumple.
 - **2026-08-10T13:50:25Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T13:50:25Z** `[note]` Follow-ups de la quinta confirmación (reportados, no bloqueantes, conforme al contrato): el bit de ejecución es inverificable por construcción (la publicación normaliza a 100644 — la ref no guarda esa verdad; admisibilidad no es garantía de modo); nit KISS en el flag-dance de assertRevertRestoresSnapshot; un ls-tree por documento en el bucle de verificación (O(N), colapsable a un ls-tree -r). Validación transmitida bajo la directriz del humano de hoy: aceptar lo de validación con confirmación limpia y seguir la recomendación de cierre.
+- **2026-08-10T13:50:26Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T13:50:52Z** `[graduation]` spec: `architecture.md`
