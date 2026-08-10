@@ -509,8 +509,9 @@ test('20260808-171107 CR2: writeActivation preserves update-ref as the cause whe
 
 // 20260809-194236 CR3 — post-review of 171107 found this test's coverage
 // injected: it fabricated `error.cause` by hand instead of exercising the
-// real `capturedRun` exit path, so it could never fail against a defect in
-// how that path's stderr is threaded through. Replaced with the cheap real
+// real `capturedRun` exit path, so it proved the message-building logic in
+// isolation but never that real git's stderr actually threads through that
+// path the way the fabricated shape assumed. Replaced with the cheap real
 // fixture (a loose state ref overwritten with corrupt content) already
 // proven in "CORRECTION 1" above, but pinned to the exact single-copy
 // diagnostic instead of that test's looser `/cannot read Git ref|broken
