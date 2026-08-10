@@ -30,3 +30,4 @@ este change con esa razón.
 - **2026-08-10T21:38:52Z** `[status]` approved → in-progress
 - **2026-08-10T21:38:52Z** `[branch]` set: quick/20260810-181803 (auto)
 - **2026-08-10T21:38:52Z** `[owner]` set: claude
+- **2026-08-10T21:41:06Z** `[note]` Verificado primero: la resolución ya usaba === undefined (repo.mjs); el punto por truthiness era la decisión de servir (if (snapshot)). Cerrado con guard explícito fail-fast (objeto o null) + pin con los tres bordes falsy (0, '', false), visto fallar antes del fix con 'snapshot=0 must be refused'. Gate 1396/1396
