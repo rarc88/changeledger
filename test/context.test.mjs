@@ -2880,10 +2880,16 @@ test('111349 CR1/CR2/CR3/CR5: no fragment fixes the number of implementation com
 // superseded formulations, plus the two-formulation miscount, must never come back. That
 // is the retired-phrase sweep the decision keeps, and it is also what still holds when
 // the surrounding prose is rewritten.
+// 20260810-175519: resolved through the product's own read authority (`loadRepo`),
+// not `readFileSync` — after a cutover this repo's specs live only in the state ref,
+// and a direct worktree read reports the spec as missing instead of sweeping it. The
+// existence assert keeps what the ENOENT used to guarantee: a deleted spec fails the
+// sweep rather than passing it vacuously.
 function graduatedGitSpec() {
-  return fs
-    .readFileSync(new URL('../.changeledger/specs/git-traceability.md', import.meta.url), 'utf8')
-    .replace(/\s+/g, ' ');
+  const repo = loadRepo(fileURLToPath(new URL('../', import.meta.url)));
+  const spec = repo.specs.find((s) => s.name === 'git-traceability.md');
+  assert.ok(spec, 'the graduated spec git-traceability.md is missing from the ledger');
+  return spec.body.replace(/\s+/g, ' ');
 }
 
 test('111349 CR6: the graduated spec regrows no superseded commit formulation', () => {
