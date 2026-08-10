@@ -25,11 +25,12 @@ import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
 import { cutover } from '../src/commands/cutover.mjs';
+import { edit } from '../src/commands/edit.mjs';
 import { fix } from '../src/commands/fix.mjs';
 import { graduate, scaffoldSpec, skipGraduation } from '../src/commands/graduate.mjs';
 import { importFromRef } from '../src/commands/import.mjs';
 import { init } from '../src/commands/init.mjs';
-import { newChange } from '../src/commands/new.mjs';
+import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
@@ -46,7 +47,7 @@ const USAGE = `ChangeLedger (changeledger)
 Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | view | check | fix | context | agent-context
+  changeledger init | register | new | edit | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
   changeledger cutover | activate | import
@@ -118,18 +119,38 @@ program
   .argument('<slug>', 'English filename slug, e.g. self-describing-cli-help')
   .argument('<title...>', 'content title, written in the repo language (config.yml: language)')
   .option('--owner <name>', 'set the initial owner (defaults to the local git identity)')
+  .option('--print', 'emit the scaffold to stdout and write nothing, in either mode')
+  .option('--from <file>', 'land this already composed document ("-" reads stdin)')
   .addHelpText(
     'after',
     [
       '',
-      'Example:',
+      'An activated repo publishes to a permanent journal, so it refuses to create an',
+      'empty scaffold there: compose the document with `--print`, fill it, and land it',
+      'whole with `--from`. An inactive repo still scaffolds into the worktree.',
+      '',
+      'Examples:',
       '  changeledger new feature self-describing-cli-help "Self-describing CLI help"',
+      '  changeledger new feature seam "Costura" --print > draft.md',
+      '  changeledger new feature seam "Costura" --from draft.md',
     ].join('\n'),
   )
   .action(
     action((type, slug, titleParts, options) => {
       const title = titleParts.join(' ').trim();
-      const file = newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
+      if (options.print && options.from) throw new Error('use --print or --from, not both');
+      if (options.owner && options.from) {
+        throw new Error('the document passed to --from declares its own owner; drop --owner');
+      }
+      if (options.print) {
+        process.stdout.write(
+          scaffoldChange({ type, slug, title, owner: options.owner, now: nowUtc() }).text,
+        );
+        return;
+      }
+      const file = options.from
+        ? newChangeFrom({ type, slug, title, from: options.from })
+        : newChange({ type, slug, title, owner: options.owner, now: nowUtc() });
       console.log(`Created ${file}`);
     }),
   );
@@ -209,6 +230,37 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command('edit')
+  .description('replace one document (change or spec) with a complete one, in a single write')
+  .argument('<target>', 'a change id, or `spec:<slug>` for a spec')
+  .requiredOption('--from <file>', 'the complete document to write ("-" reads stdin)')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'The unit is the whole document: `edit` writes CONTENT (body, title,',
+      'depends_on, related_to, release_impact) and never lifecycle — `id` and',
+      '`created` are immutable, and `status`, `owner`, `branch`, `archived` and',
+      '`reviewed` must match the current values, each named with the command that',
+      'owns it. The incoming document is validated whole before anything is',
+      'written, and a byte-identical document is a no-op.',
+      '',
+      'Activated repos land it as exactly one commit on the state ref; inactive',
+      'repos replace the worktree file atomically and commit nothing.',
+      '',
+      'Examples:',
+      '  changeledger edit 20260810-180434 --from draft.md',
+      '  changeledger edit spec:global-state-scope --from spec.md',
+    ].join('\n'),
+  )
+  .action(
+    action((target, options) => {
+      const { path: written, changed } = edit(target, { from: options.from });
+      console.log(changed ? `Edited ${written}` : `Unchanged ${written} (byte-identical)`);
+    }),
+  );
 
 program
   .command('commit')
