@@ -2,7 +2,7 @@
 id: "20260810-181801"
 title: Costura de autoría de documentos en modo activado
 type: feature
-status: draft
+status: approved
 created: 2026-08-10T18:18:01Z
 depends_on: []
 related_to: ["20260810-180434"]
@@ -49,3 +49,4 @@ Alcance esperado:
 ## Plan
 
 ## Log
+- **2026-08-10T18:24:41Z** `[status]` draft → approved (human via conversation)
