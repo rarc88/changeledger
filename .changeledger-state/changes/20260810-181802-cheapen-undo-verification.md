@@ -27,8 +27,44 @@ se debilita — los tests de `194233` (decoys, modo cambiado, round-trip
 
 ## Proposal
 
+Una sola enumeración por lotes del árbol publicado en
+`assertRevertRestoresSnapshot` (`src/commands/cutover.mjs`): construir una
+vez el mapa nombre→{modo, oid} con `treeEntries` (`src/git-batch.mjs`, la
+misma primitiva que ya usa `readSnapshot`) y comparar contra él dentro del
+bucle, en lugar del `run(['ls-tree', tip, '--', ...])` por entrada. La
+semántica de rechazo no cambia: mismas comparaciones de oid y modo, mismos
+mensajes de `refuse`. De paso, el nit KISS: la comprobación de modo regular
+rechaza directamente desde el catch, sin la bandera intermedia `regular`.
+
+Alternativas descartadas: reutilizar el `readSnapshot` ya leído para los
+modos (readSnapshot valida y normaliza contenido, no expone modos crudos por
+entrada — la verificación necesita el modo publicado literal); cachear entre
+undos (un undo es un evento único, no hay N invocaciones que amortizar).
+
+Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
+~319 subprocesos ls-tree; tras el cambio, una enumeración.
+
 ## Specification
 
+### CR1 — La enumeración publicada no crece con el número de documentos
+- **Given** dos repos de fixture con cutover válido, uno con 2 documentos y otro con 5
+- **When** se ejecuta `changeledger cutover --undo` en cada uno contando los procesos git de la verificación (shim de PATH como el de `countGitSpawns` en `test/repo.test.mjs`)
+- **Then** el número de invocaciones `ls-tree` de la verificación es el mismo en ambos (una enumeración del árbol publicado), y ambos undos restauran el ledger byte a byte
+
+### CR2 — Ninguna negativa se debilita
+- **Given** los fixtures adversariales existentes del undo (`20260809-194233`/`20260809-131004`: decoy forjado, mismo blob con modo cambiado, blob distinto, entrada publicada no restaurada y viceversa)
+- **When** se ejecuta la verificación tras el refactor
+- **Then** cada caso sigue rechazado con el mismo mensaje de `refuse` que hoy, sin debilitar ninguna aserción existente
+
 ## Plan
+
+- [ ] Enumeración por lotes en `assertRevertRestoresSnapshot` y comparación
+  contra el mapa, retirando el `ls-tree` por entrada y la bandera `regular`
+  - **Target:** `src/commands/cutover.mjs`
+  - **Verify:** `node --test test/cutover.test.mjs`
+  - **Criteria:** CR1, CR2
+- [ ] Suite completa y gate del repo
+  - **Support:**
+  - **Verify:** `pnpm verify`
 
 ## Log
