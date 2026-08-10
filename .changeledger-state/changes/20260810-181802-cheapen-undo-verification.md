@@ -65,9 +65,10 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1, CR2
   - **Resolved:** `2026-08-10T22:53:50Z`
-- [ ] Suite completa y gate del repo
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T22:53:51Z`
 
 ## Log
 - **2026-08-10T22:46:37Z** `[status]` draft → approved (human via conversation)
