@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from './change.mjs';
 import {
+  effectiveConfigFromSnapshot,
   findChangeledgerDir,
   loadConfig,
-  loadEffectiveConfig,
   resolveRepoPath,
   resolveSpecsDir,
 } from './config.mjs';
@@ -123,19 +123,37 @@ function resolveActivation(repoRoot, run) {
   return isInsideGitRepo(repoRoot) ? readActivation(repoRoot, run) : null;
 }
 
+// Resolves activation and, when active, the one state read the whole load is
+// built on: the snapshot that answers both "what is the config?" and "what are
+// the documents?". Reading it here rather than in each branch is what keeps an
+// activated load at a single tree enumeration (20260809-194235) — the config
+// bootstrap used to enumerate the tree for `config.yml` and the activated
+// branch then enumerated it again for the documents. `null` snapshot means
+// inactive, and the `resolveActivation` gate keeps a directory outside any git
+// repo at zero subprocesses.
+function readBootstrap(repoRoot, changeledgerDir, run) {
+  if (!resolveActivation(repoRoot, run)) {
+    return { snapshot: null, config: loadConfig(changeledgerDir) };
+  }
+  // The authority read stays first, so a broken store of an activated repo
+  // fails closed before the worktree marker's identity is even considered.
+  const snapshot = readSnapshot(repoRoot, {}, run);
+  return { snapshot, config: effectiveConfigFromSnapshot(changeledgerDir, snapshot.config) };
+}
+
 // Builds `{ config, changes, changeErrors, specs, releases, state }` from the
 // state ref's snapshot instead of the worktree — the activated half of the
-// read-routing spec. Fail-closed by construction: `readSnapshot` (and the
-// `readStateRef`/`assertCommitObject` it calls) throws on an absent or
-// non-commit ref, and nothing here catches that to fall back to disk.
-// `isolateChangeErrors` mirrors the worktree loaders' own split: the default
-// sync loader dies on the first bad change document (named with its virtual
-// snapshot path), while the async loader and the explicit sync opt-in collect
-// `changeErrors`. The sync opt-in exists for read-only id resolution in
-// context commands; normal `loadRepo` and `check` remain fail-fast. Specs and
-// releases are never isolated in either loader, so neither is here.
-function loadActiveContent(repoRoot, run, { isolateChangeErrors }) {
-  const snapshot = readSnapshot(repoRoot, {}, run);
+// read-routing spec. Fail-closed by construction: the `readSnapshot` that
+// produced `snapshot` (and the `readStateRef`/`assertCommitObject` it calls)
+// throws on an absent or non-commit ref, and nothing on this path catches that
+// to fall back to disk. `isolateChangeErrors` mirrors the worktree loaders' own
+// split: the default sync loader dies on the first bad change document (named
+// with its virtual snapshot path), while the async loader and the explicit sync
+// opt-in collect `changeErrors`. The sync opt-in exists for read-only id
+// resolution in context commands; normal `loadRepo` and `check` remain
+// fail-fast. Specs and releases are never isolated in either loader, so neither
+// is here.
+function loadActiveContent(snapshot, { isolateChangeErrors }) {
   const names = Object.keys(snapshot.documents).sort();
 
   const changes = [];
@@ -201,10 +219,9 @@ export function loadRepo(start = process.cwd(), options = {}) {
     );
   }
   const repoRoot = path.dirname(changeledgerDir);
-  const config = loadEffectiveConfig(repoRoot, changeledgerDir, {
-    run: options.run ?? capturedRun,
-  });
-  return loadRepoWithConfig(repoRoot, changeledgerDir, config, options);
+  const run = options.run ?? capturedRun;
+  const { snapshot, config } = readBootstrap(repoRoot, changeledgerDir, run);
+  return loadRepoWithConfig(repoRoot, changeledgerDir, config, { ...options, run, snapshot });
 }
 
 // Loads repository content using an already parsed candidate config. The viewer
@@ -214,10 +231,21 @@ export function loadRepo(start = process.cwd(), options = {}) {
 // (see the read-routing spec's declared config-authority frontier); the
 // candidate still governs the pre-load worktree callers that boundary leaves
 // untouched.
+// `options.snapshot` carries a state read the caller already paid for: a
+// snapshot to serve, or `null` for "resolved, and this repo is inactive".
+// Absent — every caller that enters here without a bootstrap, such as the
+// viewer validating a candidate config — it resolves activation and reads the
+// snapshot itself, exactly as before.
 export function loadRepoWithConfig(repoRoot, changeledgerDir, config, options = {}) {
   const run = options.run ?? capturedRun;
-  if (resolveActivation(repoRoot, run)) {
-    const active = loadActiveContent(repoRoot, run, {
+  const snapshot =
+    options.snapshot === undefined
+      ? resolveActivation(repoRoot, run)
+        ? readSnapshot(repoRoot, {}, run)
+        : null
+      : options.snapshot;
+  if (snapshot) {
+    const active = loadActiveContent(snapshot, {
       isolateChangeErrors: options.isolateChangeErrors === true,
     });
     if (options.isolateChangeErrors === true) {
@@ -293,9 +321,9 @@ export async function loadRepoAsync(start = process.cwd(), options = {}) {
   }
   const repoRoot = path.dirname(changeledgerDir);
   const run = options.run ?? capturedRun;
-  const config = loadEffectiveConfig(repoRoot, changeledgerDir, { run });
-  if (resolveActivation(repoRoot, run)) {
-    const active = loadActiveContent(repoRoot, run, { isolateChangeErrors: true });
+  const { snapshot, config } = readBootstrap(repoRoot, changeledgerDir, run);
+  if (snapshot) {
+    const active = loadActiveContent(snapshot, { isolateChangeErrors: true });
     return { changeledgerDir, repoRoot, ...active };
   }
 

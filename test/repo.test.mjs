@@ -351,6 +351,129 @@ test('20260809-113242 CR10: active repo loaders never parse a malformed stale ma
   );
 });
 
+// 20260809-194235 — one state read per activated load. 20260809-113242 gave
+// `loadRepo` a config bootstrap that enumerates the state tree, but the
+// activated branch then ignored it and enumerated everything again through
+// `readSnapshot`: measured with the shim below, an activated `loadRepo` cost
+// 18 git processes where the whole load needs 9.
+
+// Counts real `git` executions by prepending a shim directory to PATH. This is
+// the only instrument that sees every subprocess, including one a future
+// caller spawns without going through the injectable `run` seam — which an
+// injected counter would silently miss, and the double read this pins was
+// invisible for exactly that reason. `sanitizedEnv` strips the GIT_* location
+// vars but forwards PATH, so `capturedRun`'s `execFileSync('git', …)` reaches
+// the shim; the shim logs argv and `exec`s the absolute real git, so it never
+// recurses into itself.
+async function countGitSpawns(load) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-git-shim-'));
+  const log = path.join(dir, 'spawns.log');
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  fs.writeFileSync(log, '');
+  fs.writeFileSync(
+    path.join(dir, 'git'),
+    `#!/bin/sh\nprintf '%s ' "$@" >> ${JSON.stringify(log)}\nprintf '\\n' >> ${JSON.stringify(log)}\nexec ${realGit} "$@"\n`,
+    { mode: 0o755 },
+  );
+
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${previousPath}`;
+  try {
+    await load();
+  } finally {
+    process.env.PATH = previousPath;
+  }
+  return fs
+    .readFileSync(log, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.trim());
+}
+
+// The four stages of one full state read. CR1 is about how many times this
+// SEQUENCE runs, so each stage is counted on its own: a later change that adds
+// one more integrity probe to the load is legitimate drift and should not fail
+// here, while any re-entry into the enumeration — the defect — takes every one
+// of these counts to 2 at once.
+const STATE_READ_STAGES = [
+  ['activation probe', /^rev-parse --verify --quiet refs\/changeledger\/activation$/],
+  ['ls-tree', /^ls-tree -r -z --full-tree /],
+  ['cat-file --batch-check', /^cat-file --batch-check$/],
+  ['cat-file --batch', /^cat-file --batch$/],
+];
+
+function assertSingleStateRead(spawns, label) {
+  for (const [stage, pattern] of STATE_READ_STAGES) {
+    const times = spawns.filter((line) => pattern.test(line)).length;
+    assert.equal(
+      times,
+      1,
+      `${label}: ${stage} ran ${times}×, expected exactly 1\n${spawns.join('\n')}`,
+    );
+  }
+}
+
+test('20260809-194235 CR1: an activated loadRepo reads the state tree exactly once', async () => {
+  const { root, revision } = activatedFixture();
+  let repo;
+  const spawns = await countGitSpawns(() => {
+    repo = loadRepo(root);
+  });
+
+  assertSingleStateRead(spawns, 'loadRepo');
+  // A budget, not a goal: this load cost 18 processes while the bootstrap's
+  // read was thrown away. Raising the number is a deliberate decision here,
+  // never a silent regression in a caller.
+  assert.equal(
+    spawns.length,
+    9,
+    `loadRepo spawned ${spawns.length} git processes:\n${spawns.join('\n')}`,
+  );
+  assert.equal(repo.state.revision, revision);
+});
+
+test('20260809-194235 CR1: an activated loadRepoAsync reads the state tree exactly once', async () => {
+  const { root, revision } = activatedFixture();
+  let repo;
+  const spawns = await countGitSpawns(async () => {
+    repo = await loadRepoAsync(root);
+  });
+
+  assertSingleStateRead(spawns, 'loadRepoAsync');
+  assert.equal(
+    spawns.length,
+    9,
+    `loadRepoAsync spawned ${spawns.length} git processes:\n${spawns.join('\n')}`,
+  );
+  assert.equal(repo.state.revision, revision);
+});
+
+test('20260809-194235 CR1: the single read holds for a ledger below the git top-level', async () => {
+  const { root, revision } = activatedFixture({ subdir: 'apps/proj' });
+  let repo;
+  const spawns = await countGitSpawns(() => {
+    repo = loadRepo(root);
+  });
+
+  assertSingleStateRead(spawns, 'loadRepo (subdir)');
+  assert.equal(repo.state.revision, revision);
+});
+
+// CR2's second half, pinned against real processes rather than the injected
+// `run` seam: outside any git repository the load must execute no `git` at
+// all — not even a probe whose non-zero exit would be swallowed.
+test('20260809-194235 CR2: a load outside any git repo executes no git process', async () => {
+  const root = fixture();
+  let repo;
+  const spawns = await countGitSpawns(() => {
+    repo = loadRepo(root);
+  });
+
+  assert.deepEqual(spawns, []);
+  assert.equal(repo.state, null);
+  assert.equal(repo.changes.length, 1);
+});
+
 // Correction round (post-review) — CR8: a `.changeledger/` below the git
 // top-level must not hide a live activation. `fs.existsSync(repoRoot/.git)`
 // only checks the exact directory `loadRepo` was given, which is `root`

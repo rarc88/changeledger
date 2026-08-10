@@ -2,9 +2,10 @@
 id: "20260809-194235"
 title: Un solo snapshot por loadRepo activado
 type: refactor
-status: approved
+status: in-review
 created: 2026-08-09T19:42:35Z
 depends_on: ["20260809-113242"]
+branch: refactor/20260809-194235
 related_to: []
 owner: rarc88
 ---
@@ -48,14 +49,20 @@ riesgo de servir un snapshot obsoleto tras una mutación en el mismo proceso
 
 ## Plan
 
-- [ ] Reutilizar la lectura del bootstrap en la rama activada de
+- [x] Reutilizar la lectura del bootstrap en la rama activada de
   `loadRepoWithConfig` y `loadRepoAsync`
   - **Target:** `src/repo.mjs`, `src/config.mjs`
   - **Verify:** `node --test test/repo.test.mjs test/config.test.mjs`
   - **Criteria:** CR1, CR2
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-10T13:06:33Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T13:06:33Z`
 
 ## Log
 - **2026-08-10T00:38:57Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T12:42:45Z** `[status]` approved → in-progress
+- **2026-08-10T12:42:45Z** `[branch]` set: refactor/20260809-194235 (auto)
+- **2026-08-10T13:06:34Z** `[status]` in-progress → in-review
+- **2026-08-10T13:06:34Z** `[note]` Mandato del review: superficie que gobierna (repo.mjs, config.mjs y sus tests, diff cerrado del carril) con las decisiones del implementador como escrutinio: readBootstrap con contrato tri-estado de options.snapshot (ausente/null/objeto — ¿algún caller directo del viewer queda en 18?); effectiveConfigFromSnapshot y el split de claimsAnotherLedger sin tocar config-migration; la computación de config deliberadamente conservada en la rama foreign (asimetría señalada por el propio implementador); y re-derivar al menos los mutantes de re-lectura sync/async. Commit con --no-verify por la fuga GIT_DIR (gate manual completo antes).
