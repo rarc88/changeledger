@@ -185,3 +185,4 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
 - **2026-08-10T20:29:19Z** `[owner]` set: claude
 - **2026-08-10T20:54:27Z** `[note]` edit consume mutateLedgerFile: guardas y validacion completa antes de la escritura, byte-identico = no-op sin commit; misma ruta en activado (1 commit CAS) e inactivo (reemplazo atomico, 0 commits)
 - **2026-08-10T20:54:27Z** `[note]` Decision no fijada por el documento: archived y reviewed se anaden a status/owner/branch como campos con comando dueno (archive/review) — son lifecycle, y el principio 'edit escribe contenido, nunca lifecycle' los cubre
+- **2026-08-10T20:54:28Z** `[note]` Decision no fijada por el documento: en spec nada es inmutable; graduated_from es el unico campo con comando dueno (graduate). title, tags, updated y cuerpo son contenido editable
