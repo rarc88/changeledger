@@ -2,7 +2,7 @@
 id: "20260810-181803"
 title: Endurecer el contrato tri-estado de options.snapshot
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T18:18:03Z
 depends_on: []
 related_to: ["20260809-194235", "20260810-010554"]
@@ -25,3 +25,4 @@ resulta que la clase ya está cerrada, registrar la comprobación y descartar
 este change con esa razón.
 
 ## Log
+- **2026-08-10T21:36:16Z** `[status]` draft → approved (human via conversation)
