@@ -2,9 +2,10 @@
 id: "20260810-181802"
 title: Abaratar y simplificar la verificación del undo
 type: refactor
-status: approved
+status: in-progress
 created: 2026-08-10T18:18:02Z
 depends_on: []
+branch: refactor/20260810-181802
 related_to: ["20260809-194233", "20260809-131004"]
 owner: rarc88
 ---
@@ -69,3 +70,5 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 
 ## Log
 - **2026-08-10T22:46:37Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T22:46:45Z** `[status]` approved → in-progress
+- **2026-08-10T22:46:45Z** `[branch]` set: refactor/20260810-181802 (auto)
