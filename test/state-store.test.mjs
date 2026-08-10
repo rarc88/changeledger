@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { capturedRun } from '../src/git.mjs';
@@ -369,6 +370,21 @@ test('20260810-120457 CR1: the anchor is the ledger path relative to the git top
 
   assert.equal(readActivation(root).ledger_dir, 'packages/app/.changeledger');
   assert.equal(readActivation(nested).ledger_dir, 'packages/app/.changeledger');
+});
+
+// writeActivation's own precondition, exercised directly rather than through
+// a CLI caller: `activate` and `cutover` both already run a git subprocess
+// before reaching writeActivation, so a non-Git `repoRoot` never gets this far
+// through either of them — but writeActivation is exported and callable on its
+// own, and it must still refuse to write `ledger_dir: null` into the
+// activation authority for a repoRoot outside any Git repository.
+test('20260810-180434: writeActivation refuses a repoRoot outside any Git repository', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-no-git-'));
+
+  assert.throws(
+    () => writeActivation(root, { stateRef: STATE_REF }),
+    /^Error: cannot activate .+: it is not inside a Git repository$/,
+  );
 });
 
 test('20260810-120457 CR5: readActivation refuses an activation that declares no ledger_dir', () => {

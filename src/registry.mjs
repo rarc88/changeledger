@@ -55,7 +55,17 @@ export function listProjects() {
     try {
       const stats = fs.statSync(value.path, { throwIfNoEntry: false });
       if (!stats?.isDirectory()) return { id, name, path: value.path };
-      activated = repoIsActivated(value.path);
+      // Past this point the path itself is a usable directory: any error the
+      // activation probe raises now is about the activation, not the path, so
+      // it must not fold into the "unusable path" tolerance below. A legacy
+      // activation (no `ledger_dir`) is the case that motivates this — it is
+      // neither "not activated" nor an unreadable path, so it gets its own
+      // diagnostic instead of silently reading as inactive.
+      try {
+        activated = repoIsActivated(value.path);
+      } catch (error) {
+        return { id, name, path: value.path, activationError: error.message };
+      }
       const config = loadEffectiveConfig(value.path, path.join(value.path, '.changeledger'));
       if (String(config.project_id) === id && typeof config.project_name === 'string') {
         name = config.project_name;

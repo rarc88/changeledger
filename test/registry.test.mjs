@@ -17,9 +17,9 @@ import {
   remove,
   update,
 } from '../src/registry.mjs';
-import { STATE_REF, writeActivation } from '../src/state-store.mjs';
+import { ACTIVATION_REF, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
-import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
+import { buildTree, buildTreeEntries, commitTree, updateRef } from './helpers/state-repo.mjs';
 
 function isolatedHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'changeledger-home-'));
@@ -182,6 +182,29 @@ test('194234 CR3: an unprobeable path keeps its cached name and the listing comp
   } finally {
     fs.chmodSync(locked, 0o700);
   }
+});
+
+// A legacy (pre-anchor) activation is a real, readable Git ref — not an
+// unusable registered path — so it must not fall into the same tolerance as
+// a missing/locked/replaced path (CR12 and 194234 CR3 below): the entry
+// keeps its cached name (the path is still a project) but also reports why
+// activation could not be resolved, distinct from an ordinary inactive repo.
+test('20260810-180434: listProjects reports an unreadable legacy activation instead of silently listing inactive', () => {
+  isolatedHome();
+  const root = newRepo();
+  init(root);
+  const id = loadConfig(path.join(root, '.changeledger')).project_id;
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv() });
+  const tree = buildTreeEntries(root, [
+    { path: 'authority.yml', text: `format_version: 1\nstate_ref: ${STATE_REF}\n` },
+  ]);
+  const revision = commitTree(root, tree, { message: 'chore: activation' });
+  updateRef(root, ACTIVATION_REF, revision);
+
+  const entry = listProjects().find((project) => project.id === id);
+  assert.equal(entry.name, path.basename(root));
+  assert.match(entry.activationError, /ledger_dir/);
+  assert.match(entry.activationError, /changeledger activate/);
 });
 
 test('111218 CR6: update repairs one registered project without replacing siblings', () => {
