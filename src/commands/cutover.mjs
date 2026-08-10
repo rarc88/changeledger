@@ -29,6 +29,7 @@ import {
   resolveSpecsDir,
 } from '../config.mjs';
 import { capturedRun, defaultBaseBranch, gitTopLevel, isAncestor, mutatingRun } from '../git.mjs';
+import { assertRegularBlobEntry } from '../git-batch.mjs';
 import { resolveReleasesDir } from '../release.mjs';
 import { parseSpec } from '../spec.mjs';
 import {
@@ -199,14 +200,95 @@ function scanCutovers(repoRoot, output, run) {
 // agrees with the ref does the newest by descendancy stand in, so the
 // past-the-baseline and half-cut diagnostics below still name a commit.
 //
+// A baseline oid is not a unique identifier, so agreement with the ref can be
+// claimed by more than one record: committer dates are INPUTS, so a cut → undo
+// → re-cut of identical content under pinned dates reproduces the previous
+// baseline oid with nothing forged, and a trailer is plain text anyone can
+// write. Letting topology break that tie meant `--undo` reverting a commit that
+// published nothing and deleting the ref the real cut was standing on.
+//
+// The tie is broken by undo evidence, not by topology: a record with a
+// COMPLETED undo commit after it has been retired, whatever its trailer still
+// claims, so it does not compete. What remains is the live cut. Only when the
+// evidence singles out no record — the forged shape, where a decoy has no undo
+// behind it — does the ambiguity fail closed with the contenders named.
+//
+// "Completed" is the subject AND the diff, `isInverseCommit` — the same
+// definition `findCompletedUndo` uses. Taking the subject as sufficient made
+// retirement forgeable and handed an attacker the whole tie: an exact-subject
+// commit reverting nothing retires the real cut, a same-baseline decoy is then
+// the sole survivor, and `--undo` reverts the decoy — restoring content that
+// was never published and dropping both refs, on exit 0.
+//
+// "After this record" is the FIRST-PARENT lineage, the same invariant
+// `findCompletedUndo` states one level down: an undo counts only where it took
+// EFFECT, on the branch standing on its restored ledger. A merge that discarded
+// an undo (`-s ours`, or any merge that kept the cut's tree) restored nothing
+// here, so the branch is still standing on the cut and that cut is not retired.
+// Following every parent instead let a genuine revert parked on a discarded
+// side branch retire the live record, collapsing the tie onto a poisoned decoy
+// — the same exit-0 wrong restore as the forged shape, through another door.
+//
+// The accepted degradation: an honest undo reachable ONLY through a merge's
+// second parent no longer retires its record. Such a history keeps both records
+// competing and lands on the fail-closed tie below, naming the contenders —
+// loud and recoverable by hand, never a silent wrong selection.
+function retiredByUndo(repoRoot, oids, run) {
+  const out = run(
+    [
+      'log',
+      '--topo-order',
+      '--first-parent',
+      '--format=%H',
+      '-F',
+      `--grep=${UNDO_SUBJECT}`,
+      'HEAD',
+    ],
+    repoRoot,
+  );
+  const undos = out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(
+      (oid) =>
+        oid !== '' && run(['log', '-1', '--format=%s', oid], repoRoot).trim() === UNDO_SUBJECT,
+    );
+  return new Set(
+    oids.filter((oid) =>
+      undos.some(
+        (undo) => isAncestor(repoRoot, oid, undo, run) && isInverseCommit(repoRoot, oid, undo, run),
+      ),
+    ),
+  );
+}
+
+// This selection is trusted for DIAGNOSIS only. Before anything is written,
+// `undoCutover`'s `assertRevertRestoresSnapshot` re-decides on content — that
+// is the write-path gate, and every topology rule here is defense in depth.
+//
 // `state` is the repo's own cutover evidence — the state ref (`tip`) and the
 // activation. With evidence present and no record at all, exact-subject commits
 // that lost their trailer are the only explanation left, and the operator gets
 // them by oid instead of a false "nothing is reachable".
 function findCutover(repoRoot, { tip = null, activated = false }, output, run) {
   const { records, trailerless } = scanCutovers(repoRoot, output, run);
-  const live = tip === null ? undefined : records.find((record) => record.baseline === tip);
-  const found = live ?? records[0] ?? null;
+  let live = tip === null ? [] : records.filter((record) => record.baseline === tip);
+  if (live.length > 1) {
+    const retired = retiredByUndo(
+      repoRoot,
+      live.map((record) => record.oid),
+      run,
+    );
+    const standing = live.filter((record) => !retired.has(record.oid));
+    if (standing.length !== 1) {
+      const contenders = standing.length > 0 ? standing : live;
+      throw new Error(
+        `the live cutover commit is ambiguous — ${contenders.map((record) => record.oid).join(', ')} declare the baseline ${tip} that ${STATE_REF} holds and no later undo commit singles out one of them as still live, so which cut this repo stands on cannot be decided; resolve it by hand`,
+      );
+    }
+    live = standing;
+  }
+  const found = live[0] ?? records[0] ?? null;
   if (found === null && trailerless.length > 0 && (tip !== null || activated)) {
     throw new Error(
       `no verifiable cutover commit is reachable from HEAD — ${trailerless.join(', ')} has the cutover subject but carries no ${BASELINE_TRAILER} trailer, so its baseline cannot be verified; resolve it by hand`,
@@ -469,6 +551,73 @@ function rawDiff(repoRoot, revision, run) {
   return entries;
 }
 
+// The semantic ground truth, checked before anything is written: what undoing
+// this record would put back MUST be, byte for byte, the ledger the state ref
+// publishes. Selection is topological and every topological rule so far has
+// had a next decoy — a forged trailer, a discarded revert, a hand-reapplied cut
+// that retires the real record forever. This asks the question those rules only
+// approximate, and no history can lie about it: the genuine cut's cleanup
+// commit removed exactly the published snapshot, so it always passes, while a
+// decoy's cleanup commit removed something else and always fails.
+//
+// Blob oids are the comparison, not text: identical oid is identical bytes in
+// the same object store, with no decoding in between.
+//
+// Bytes alone are not the snapshot, so the entry KIND is checked too. The store
+// admits regular blobs only (`assertRegularBlobEntry`), and a decoy whose
+// parent tree carries the very published blob at mode 120000 is byte-faithful
+// yet materializes a dangling SYMLINK where the document belongs. The mode is
+// checked for admissibility rather than equality on purpose: publication
+// normalizes every document to 100644, so an executable document's honest undo
+// legitimately restores 100755. Both are regular files; a symlink is not.
+function assertRevertRestoresSnapshot(repoRoot, cutoverCommit, tip, layout, run) {
+  const refuse = (detail) => {
+    throw new Error(
+      `the cutover ${cutoverCommit} cannot be undone — reverting it would not restore the ledger ${STATE_REF} publishes at ${tip}: ${detail}; refusing to revert, resolve it by hand`,
+    );
+  };
+
+  const diff = rawDiff(repoRoot, cutoverCommit, run);
+  if (diff === null) refuse(`its diff cannot be read`);
+  const restored = new Map();
+  for (const [gitPath, entry] of diff) {
+    if (entry.status !== 'D') refuse(`${gitPath} is not a removal it could put back`);
+    const collection = layout.collections.find((candidate) => gitPath.startsWith(candidate.prefix));
+    if (!collection) refuse(`${gitPath} is outside the configured ledger collections`);
+    restored.set(`${collection.name}/${gitPath.slice(collection.prefix.length)}`, {
+      oid: entry.oldOid,
+      mode: entry.oldMode,
+    });
+  }
+
+  const snapshot = readSnapshot(repoRoot, { revision: tip }, run);
+  const names = [...new Set([...restored.keys(), ...Object.keys(snapshot.documents)])].sort();
+  for (const name of names) {
+    const candidate = restored.get(name);
+    if (candidate === undefined) refuse(`${name} is published but the revert would not restore it`);
+    if (!Object.hasOwn(snapshot.documents, name)) {
+      refuse(`${name} would be restored but is not published`);
+    }
+    const entry = run(['ls-tree', tip, '--', `${STATE_ROOT}/${name}`], repoRoot).trim();
+    const published = entry.match(/^(\d+) blob ([0-9a-f]+)\t/);
+    if (!published) refuse(`${name} cannot be read from the published snapshot`);
+    if (published[2] !== candidate.oid) {
+      refuse(`${name} would be restored as ${candidate.oid}, but ${published[2]} is published`);
+    }
+    let regular = true;
+    try {
+      assertRegularBlobEntry(candidate.mode, name);
+    } catch {
+      regular = false;
+    }
+    if (!regular) {
+      refuse(
+        `${name} would be restored at mode ${candidate.mode}, but ${STATE_REF} publishes regular files only (${published[1]})`,
+      );
+    }
+  }
+}
+
 function isInverseCommit(repoRoot, cutoverCommit, candidate, run) {
   const cut = rawDiff(repoRoot, cutoverCommit, run);
   const undo = rawDiff(repoRoot, candidate, run);
@@ -574,6 +723,12 @@ function undoCutover(ctx, output, run) {
   const activation = observedActivation(repoRoot, run);
   const completedUndo = findCompletedUndo(repoRoot, cutoverCommit, run);
   const layout = ledgerLayout(repoRoot, changeledgerDir, config, run);
+  // Before either direction, and before anything is written. The resume path
+  // below writes no content of its own, but it finishes an undo whose restored
+  // ledger `isInverseCommit` has already equated with THIS record's removals —
+  // so a record that fails here is one whose resume would deactivate the repo
+  // over content the ref never published. Same question, same answer, one call.
+  assertRevertRestoresSnapshot(repoRoot, cutoverCommit, tip, layout, run);
   if (activation?.authority.state_ref === STATE_REF && completedUndo !== null) {
     if (!cleanupPathsUnchanged(repoRoot, completedUndo, layout, run)) {
       throw new Error(

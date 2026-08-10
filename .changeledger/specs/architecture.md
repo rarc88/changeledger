@@ -1,8 +1,8 @@
 ---
 title: Arquitectura de ChangeLedger
-updated: 2026-08-10T13:25:04Z
+updated: 2026-08-10T13:50:52Z
 tags: [ architecture, cli, viewer ]
-graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235"]
+graduated_from: ["20260615-214816", "20260615-214817", "20260615-214819", "20260615-214828", "20260615-222616", "20260615-222619", "20260615-222620", "20260615-222617", "20260615-222618", "20260616-151226", "20260617-190005", "20260617-190008", "20260617-190007", "20260617-185958", "20260617-195016", "20260617-231423", "20260617-231428", "20260618-122611", "20260619-171002", "20260620-214902", "20260623-235628", "20260624-005437", "20260624-153236", "20260627-111218", "20260627-205033", "20260628-113218", "20260628-113219", "20260628-213942", "20260711-103758", "20260711-160445", "20260711-162556", "20260726-141119", "20260726-141122", "20260731-161652", "20260808-151640", "20260808-151641", "20260808-151643", "20260809-113240", "20260809-113241", "20260808-171107", "20260808-234920", "20260809-113242", "20260809-131004", "20260809-140157", "20260809-194234", "20260809-194235", "20260809-194233"]
 ---
 
 # Arquitectura de ChangeLedger
@@ -292,7 +292,23 @@ registrado en el trailer, no mientras HEAD sea el commit de corte:
 sigue siendo el corte de este repo; el `--grep -F` solo prefiltra y decide la
 línea de subject), y el corte vivo es el registro cuyo baseline aún sostiene
 la ref de estado, con el más reciente por descendencia solo como sustituto de
-diagnóstico cuando ninguno concuerda. Un commit con el subject pero sin
+diagnóstico cuando ninguno concuerda. Un empate entre varios registros con
+ese baseline (`20260809-194233` — un re-corte de contenido idéntico en el
+mismo segundo lo reproduce sin forjar nada) se desambigua por evidencia de
+undo: un registro con un undo COMPLETADO posterior — subject exacto, inverso
+real (`isInverseCommit`) y en el linaje first-parent, donde tomó efecto —
+está retirado y no compite; si dos o más registros sin esa evidencia empatan,
+ambos comandos fallan cerrado nombrándolos. La selección topológica se confía
+solo para diagnóstico: la puerta del camino de escritura es
+`assertRevertRestoresSnapshot`, que antes de revertir (también en el resume
+S1) exige que cada entrada que el revert restauraría exista en el snapshot de
+la ref con el MISMO blob y un modo admisible por la regla del propio store
+(`assertRegularBlobEntry`; la publicación normaliza a `100644`, así que se
+compara admisibilidad, no igualdad — un documento `100755` honesto hace
+round-trip) y que los conjuntos de rutas coincidan en ambas direcciones.
+Materializar el snapshot publicado de vuelta es la definición del undo:
+cualquier decoy — forjado, con undo negado después, o byte-fiel con modo
+cambiado — muere en esa comparación, sea cual sea su topología. Un commit con el subject pero sin
 trailer se salta con un aviso que nombra su oid (un señuelo escrito a mano no
 brickea nada, tampoco el primer corte de un repo nunca cortado); si la
 búsqueda se agota sin registro verificable y el repo muestra evidencia de

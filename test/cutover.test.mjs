@@ -21,6 +21,7 @@ import {
 import { parseYaml } from '../src/yaml.mjs';
 import {
   buildTree,
+  buildTreeEntries,
   commitTree,
   defaultLedgerFiles,
   defaultStateFiles,
@@ -414,6 +415,532 @@ test('20260809-131004 CR2: a cut reachable only through a merge second parent is
   }
 });
 
+// The other side of the mode question, and the reason the check cannot be a
+// flat equality against the snapshot's mode: the store publishes every document
+// at 100644 (`state-store.mjs`), so a genuine cut of an EXECUTABLE document
+// publishes it normalized, and its honest undo restores the 100755 the worktree
+// had. Both modes are regular files — which is the rule that matters.
+test('20260809-194233 CR5: an executable ledger document survives the cut and its undo', () => {
+  const { root } = seedLedgerRepo();
+  const changeDoc = '.changeledger/changes/20260808-000001-demo.md';
+  const stateDoc = `${STATE_ROOT}/changes/20260808-000001-demo.md`;
+  const mode = (revision, filePath) =>
+    git(root, ['ls-tree', revision, '--', filePath]).split(/\s+/)[0];
+  // The bit is set on disk as well as in the index, or the worktree stays
+  // dirty against HEAD and the cut refuses before it ever reads a mode.
+  fs.chmodSync(path.join(root, changeDoc), 0o755);
+  git(root, ['update-index', '--chmod=+x', '--', changeDoc]);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'chore: make the document executable']);
+  assert.equal(mode('HEAD', changeDoc), '100755');
+  assert.equal(git(root, ['status', '--porcelain']), '');
+
+  assert.equal(cli(root, 'cutover').code, 0);
+  // Publication normalizes the mode — the snapshot cannot carry the exec bit.
+  assert.equal(mode(STATE_REF, stateDoc), '100644');
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  assert.equal(fs.readFileSync(path.join(root, changeDoc), 'utf8'), ledgerChangeText());
+  assert.equal(mode('HEAD', changeDoc), '100755');
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+});
+
+// Bytes are not the whole snapshot. The state store admits regular blobs only
+// (`assertRegularBlobEntry`), so a decoy whose parent tree carries the very
+// published blob at symlink mode passes an oid-only comparison and materializes
+// a DANGLING SYMLINK where the change document belongs. Same bytes, different
+// object kind — not the snapshot.
+test('20260809-194233 CR5: a mode-swapped faithful decoy fails closed on the mode', () => {
+  const { root } = seedLedgerRepo();
+  const changeDoc = '.changeledger/changes/20260808-000001-demo.md';
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+
+  // Probe E's retirement shape: the real record is retired for good.
+  git(root, ['revert', '-n', real]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+  git(root, ['rm', '-r', '-q', '--', '.changeledger/changes']);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'chore: re-apply the cut by hand']);
+
+  // The decoy's parent tree is the real cut's parent tree with ONE entry
+  // re-hashed at symlink mode over the very same published blob.
+  const entries = git(root, ['ls-tree', '-r', seed])
+    .split('\n')
+    .map((line) => {
+      const [meta, filePath] = line.split('\t');
+      const [mode, , oid] = meta.split(/\s+/);
+      return { path: filePath, oid, mode: filePath === changeDoc ? '120000' : mode };
+    });
+  const swapped = commitTree(root, buildTreeEntries(root, entries), {
+    parents: [seed],
+    message: 'chore: re-hash the document as a symlink',
+  });
+  const decoy = commitTree(
+    root,
+    buildTreeEntries(
+      root,
+      // Faithful in every other respect: it removes exactly the collections
+      // the genuine cleanup removes, so only the MODE sets it apart.
+      entries.filter(
+        (entry) =>
+          !['changes', 'specs', 'releases'].some((collection) =>
+            entry.path.startsWith(`.changeledger/${collection}/`),
+          ),
+      ),
+    ),
+    {
+      parents: [swapped],
+      message: `chore(state): cut the ledger over to the state ref\n\nChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+    },
+  );
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', decoy, '-m', 'merge the mode-swapped cut']);
+  const before = head(root);
+  // The decoy is byte-faithful: the blob it would restore IS the published one.
+  assert.equal(
+    git(root, ['rev-parse', `${decoy}^:${changeDoc}`]),
+    git(root, ['rev-parse', `${STATE_REF}:${STATE_ROOT}/changes/20260808-000001-demo.md`]),
+  );
+  const materialized = () => {
+    const full = path.join(root, changeDoc);
+    if (!fs.existsSync(full) && !fs.lstatSync(full, { throwIfNoEntry: false })) return '<absent>';
+    const stat = fs.lstatSync(full);
+    return stat.isSymbolicLink()
+      ? `symlink -> ${fs.readlinkSync(full)} (dangling=${!fs.existsSync(full)})`
+      : 'regular file';
+  };
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(
+    undone.code,
+    0,
+    `undo exited 0 — worktree ${changeDoc} is a ${materialized()}, ${STATE_REF} exists=${refExists(root, STATE_REF)}`,
+  );
+  assert.match(undone.err, new RegExp(decoy));
+  assert.match(undone.err, /changes\/20260808-000001-demo\.md/);
+  assert.match(undone.err, /120000/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(fs.lstatSync(path.join(root, changeDoc), { throwIfNoEntry: false }), undefined);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(fs.existsSync(path.join(root, '.git', 'REVERT_HEAD')), false);
+});
+
+// Topology answers "did an undo happen after this cut", never "is that undo's
+// effect still standing". A genuine undo on the mainline retires the real cut
+// permanently, so a later hand-made re-application of the cut leaves a forged
+// same-baseline decoy as the only survivor. The selection cannot see this; the
+// undo has to check what it is about to write against what the ref publishes.
+test('20260809-194233 CR5: a revert restoring content the state ref never published fails closed', () => {
+  const { root } = seedLedgerRepo();
+  const poisoned = '# poisoned ledger the attacker never published\n';
+  const changeDoc = '.changeledger/changes/20260808-000001-demo.md';
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+
+  // A genuine undo on the mainline — first-parent, real inverse commit — which
+  // retires the real cut for good.
+  git(root, ['revert', '-n', real]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+  // …then the cut is re-applied by hand, with no trailer of its own.
+  git(root, ['rm', '-r', '-q', '--', '.changeledger/changes']);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'chore: re-apply the cut by hand']);
+
+  // The decoy: a same-baseline record over a doctored ledger, merged so its
+  // content stays out of the branch tree.
+  git(root, ['checkout', '-q', '-b', 'poison', seed]);
+  writeLedgerFiles(root, { [changeDoc]: poisoned });
+  git(root, ['add', '-A']);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'docs: doctor the ledger']);
+  git(root, ['rm', '-r', '-q', '--', '.changeledger/changes']);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+    '-m',
+    `ChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+  ]);
+  const decoy = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'poison', '-m', 'merge the poisoned cut']);
+  const before = head(root);
+  const restored = () =>
+    fs.existsSync(path.join(root, changeDoc))
+      ? JSON.stringify(fs.readFileSync(path.join(root, changeDoc), 'utf8'))
+      : '<absent>';
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(
+    undone.code,
+    0,
+    `undo exited 0 — worktree ${changeDoc} is now ${restored()}, ${STATE_REF} exists=${refExists(root, STATE_REF)}`,
+  );
+  // The first mismatching path is named, and it is the decoy that was selected.
+  assert.match(undone.err, new RegExp(decoy));
+  assert.match(undone.err, /changes\/20260808-000001-demo\.md/);
+  assert.match(undone.err, new RegExp(baseline));
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(fs.existsSync(path.join(root, changeDoc)), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(fs.existsSync(path.join(root, '.git', 'REVERT_HEAD')), false);
+});
+
+// Retirement is about EFFECT, not reachability. A genuine `git revert` of the
+// cut on a side branch is a real inverse commit, but a merge that discarded it
+// (`-s ours`) restored nothing here — the branch is still standing on the cut.
+// Letting it retire the live record collapsed the tie onto a same-baseline
+// decoy, and `--undo` reverted the decoy: never-published content written into
+// the worktree and both refs dropped, on exit 0.
+test('20260809-194233 CR1: an undo a merge discarded cannot retire the live cut', () => {
+  const { root } = seedLedgerRepo();
+  const poisoned = '# poisoned ledger the attacker never published\n';
+  const changeDoc = '.changeledger/changes/20260808-000001-demo.md';
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+
+  // A genuine undo — a real `git revert` of the cut, not a forgery — but on a
+  // side branch, so it never took effect on the integration branch.
+  git(root, ['checkout', '-q', '-b', 'poison']);
+  git(root, ['revert', '-n', real]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+  const discardedUndo = head(root);
+
+  // On that same side branch, a decoy re-cut over a doctored ledger, declaring
+  // the very baseline the state ref holds.
+  writeLedgerFiles(root, { [changeDoc]: poisoned });
+  git(root, ['add', '-A']);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'docs: doctor the ledger']);
+  git(root, ['rm', '-r', '-q', '--', '.changeledger/changes']);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+    '-m',
+    `ChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+  ]);
+  const decoy = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'poison', '-m', 'merge the discarded undo']);
+  const before = head(root);
+  // The discarded undo really is reachable from HEAD — the premise of the
+  // shape. `git()` throws on a non-zero exit, so this asserts by not throwing.
+  assert.equal(git(root, ['merge-base', '--is-ancestor', discardedUndo, 'HEAD']), '');
+  const restored = () =>
+    fs.existsSync(path.join(root, changeDoc))
+      ? JSON.stringify(fs.readFileSync(path.join(root, changeDoc), 'utf8'))
+      : '<absent>';
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(
+    undone.code,
+    0,
+    `undo exited 0 — worktree ${changeDoc} is now ${restored()}, ${STATE_REF} exists=${refExists(root, STATE_REF)}`,
+  );
+  assert.match(undone.err, new RegExp(real));
+  assert.match(undone.err, new RegExp(decoy));
+  assert.match(undone.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(fs.existsSync(path.join(root, changeDoc)), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+
+  const rerun = cli(root, 'cutover');
+
+  assert.notEqual(rerun.code, 0);
+  assert.match(rerun.err, new RegExp(real));
+  assert.match(rerun.err, new RegExp(decoy));
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(head(root), before);
+  assert.equal(fs.existsSync(path.join(root, changeDoc)), false);
+});
+
+// Retirement takes the undo SUBJECT as a claim and the diff as the proof. A
+// bare exact-subject commit that reverts nothing is not a completed undo, and
+// treating it as one hands an attacker the whole tie: retire the real cut with
+// a forged undo, leave a same-baseline decoy as the only survivor, and `--undo`
+// reverts the decoy — restoring content that was never published and dropping
+// the refs the real cut was standing on, on exit 0.
+test('20260809-194233 CR1: a forged undo cannot retire the real cut and elect a decoy', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  const poisoned = '# poisoned ledger the attacker never published\n';
+  const changeDoc = '.changeledger/changes/20260808-000001-demo.md';
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+
+  // Forged "undo": the exact subject, reverting nothing at all.
+  git(root, [
+    'commit',
+    '--no-verify',
+    '--allow-empty',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+
+  // The decoy cut, over a doctored ledger, merged so its content stays out of
+  // the branch tree — reverting it is what would inject the poison.
+  git(root, ['checkout', '-q', '-b', 'poison', seed]);
+  writeLedgerFiles(root, { [changeDoc]: poisoned });
+  git(root, ['add', '-A']);
+  git(root, ['commit', '--no-verify', '-q', '-m', 'docs: doctor the ledger']);
+  git(root, ['rm', '-r', '-q', '--', '.changeledger/changes']);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+    '-m',
+    `ChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+  ]);
+  const decoy = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'poison', '-m', 'merge the poisoned cut']);
+  const before = head(root);
+  const restored = () =>
+    fs.existsSync(path.join(root, changeDoc))
+      ? JSON.stringify(fs.readFileSync(path.join(root, changeDoc), 'utf8'))
+      : '<absent>';
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(
+    undone.code,
+    0,
+    `undo exited 0 — worktree ${changeDoc} is now ${restored()}, ${STATE_REF} exists=${refExists(root, STATE_REF)}`,
+  );
+  assert.match(undone.err, new RegExp(real));
+  assert.match(undone.err, new RegExp(decoy));
+  assert.match(undone.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(fs.existsSync(path.join(root, changeDoc)), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+
+  const rerun = cli(root, 'cutover');
+
+  assert.notEqual(rerun.code, 0);
+  assert.match(rerun.err, new RegExp(real));
+  assert.match(rerun.err, new RegExp(decoy));
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(head(root), before);
+  assert.equal(fs.existsSync(path.join(root, changeDoc)), false);
+  assert.equal(files[changeDoc] === poisoned, false);
+});
+
+// A baseline oid is not a unique identifier: a trailer is plain text anyone can
+// write. When two reachable records claim the baseline the state ref holds and
+// NEITHER is retired by a later undo, topology picked one and `--undo` restored
+// content that was never published — that tie has to fail closed instead. The
+// forged decoy below has no undo behind it, which is exactly the shape.
+test('20260809-194233 CR1: two records claiming the held baseline fail closed naming both', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+  git(root, ['checkout', '-q', '-b', 'forged', seed]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '--allow-empty',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+    '-m',
+    `ChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+  ]);
+  const forged = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'forged', '-m', 'merge the forged cut']);
+  const before = head(root);
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(undone.code, 0);
+  assert.match(undone.err, new RegExp(real));
+  assert.match(undone.err, new RegExp(forged));
+  assert.match(undone.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(exists(root, '.changeledger/changes'), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+
+  const rerun = cli(root, 'cutover');
+
+  assert.notEqual(rerun.code, 0);
+  assert.match(rerun.err, new RegExp(real));
+  assert.match(rerun.err, new RegExp(forged));
+  assert.match(rerun.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(head(root), before);
+  for (const rel of Object.keys(files)) {
+    if (rel.startsWith('.changeledger/changes/')) assert.equal(exists(root, rel), false);
+  }
+});
+
+// The honest shape of the same tie, and why the fail-closed cannot be flat:
+// with committer dates pinned — reproducible builds, CI — a re-cut of identical
+// content reproduces the previous baseline oid with nothing forged, so the
+// retired record and the live one tie against the ref. The undo commit sitting
+// after the retired cut is what tells them apart.
+test('20260809-194233 CR4: a re-cut reproducing the baseline under pinned dates stays usable', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  const pinned = {
+    GIT_AUTHOR_DATE: '2030-01-01T00:00:00Z',
+    GIT_COMMITTER_DATE: '2030-01-01T00:00:00Z',
+  };
+  assert.equal(cliWithEnv(root, ['cutover'], pinned).code, 0);
+  const retiredBaseline = git(root, ['rev-parse', STATE_REF]);
+  assert.equal(cliWithEnv(root, ['cutover', '--undo'], pinned).code, 0);
+
+  const recut = cliWithEnv(root, ['cutover'], pinned);
+
+  assert.equal(recut.code, 0, recut.err || recut.out);
+  // The collision is this test's premise, not a coincidence: assert it, or the
+  // tie it exists for would silently stop being exercised.
+  assert.equal(git(root, ['rev-parse', STATE_REF]), retiredBaseline);
+  assert.equal(
+    git(root, ['rev-list', '--count', '-F', '--grep=Changeledger-Cutover-Baseline', 'HEAD']),
+    '2',
+  );
+
+  const rerun = cliWithEnv(root, ['cutover'], pinned);
+
+  assert.equal(rerun.code, 0, rerun.err || rerun.out);
+  assert.match(rerun.out, /already cut over/i);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), retiredBaseline);
+
+  const undone = cliWithEnv(root, ['cutover', '--undo'], pinned);
+
+  assert.equal(undone.code, 0, undone.err || undone.out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).state, null);
+});
+
+// The falsifying edge of `findCompletedUndo`'s `--first-parent`, and the
+// asymmetry with the cutover search: an undo commit a merge reached but
+// discarded (`-s ours`) restored nothing here, so the repo still has no ledger
+// in the worktree and the real undo must still run.
+test('20260809-194233 CR2: an undo discarded by an `-s ours` merge still lets the real undo run', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  assert.equal(cli(root, 'cutover').code, 0);
+  const cut = head(root);
+  git(root, ['checkout', '-q', '-b', 'lateral']);
+  git(root, ['revert', '-n', cut]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+  const discarded = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'lateral', '-m', 'merge the discarded undo']);
+  assert.equal(git(root, ['log', '-1', '--format=%P', 'HEAD']).split(' ')[1], discarded);
+  assert.equal(exists(root, '.changeledger/changes'), false);
+
+  const { code, out, err } = cli(root, 'cutover', '--undo');
+
+  assert.equal(code, 0, err || out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).state, null);
+});
+
+// The activated-only arm of the trailerless gate: cutover evidence can be just
+// the activation, with no state ref at all. That is still evidence, so the
+// decoy has to be reported as an unverifiable baseline rather than swallowed
+// into the "already activated" diagnostic.
+test('20260809-194233 CR3: activation without a state ref reports the decoy as unverifiable', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  writeLedgerFiles(root, { 'README.md': '# decoy\n' });
+  git(root, ['add', 'README.md']);
+  git(root, ['commit', '-q', '-m', 'chore(state): cut the ledger over to the state ref']);
+  const decoy = head(root);
+  writeActivation(root, { stateRef: STATE_REF });
+  const activation = git(root, ['rev-parse', ACTIVATION_REF]);
+
+  const { code, err } = cliCaptured(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, new RegExp(decoy));
+  assert.match(err, /baseline cannot be verified/);
+  assert.doesNotMatch(err, /already activated/);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), activation);
+  assert.equal(head(root), decoy);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  assert.equal(git(root, ['status', '--porcelain']), '');
+});
+
 test('20260809-131004 CR3: an initialized-only state diagnoses half-publication and literal recovery', () => {
   const { root } = seedLedgerRepo();
   const config = parseYaml(ledgerConfigText);
@@ -741,18 +1268,29 @@ test('20260809-113240 CR7: a second undo fails, there is no cutover left to undo
 // cut leaves its commit behind as a decoy. Neither ref surviving is what tells
 // the two apart, so the repo stays cuttable — and the SECOND cut is the one the
 // next undo must find.
+//
+// Dates are pinned so the re-cut deterministically reproduces the first
+// baseline oid. Left to the wall clock this passed only when the two cuts
+// straddled a second boundary, which made the interesting case — the two
+// records tying against the ref — a coin flip rather than coverage.
 test('20260809-113240 CR7: a repo can be cut over again after an undo, and undone again', () => {
   const { root } = seedLedgerRepo();
   const files = defaultLedgerFiles();
-  assert.equal(cli(root, 'cutover').code, 0);
-  assert.equal(cli(root, 'cutover', '--undo').code, 0);
+  const pinned = {
+    GIT_AUTHOR_DATE: '2031-02-03T04:05:06Z',
+    GIT_COMMITTER_DATE: '2031-02-03T04:05:06Z',
+  };
+  assert.equal(cliWithEnv(root, ['cutover'], pinned).code, 0);
+  const firstBaseline = git(root, ['rev-parse', STATE_REF]);
+  assert.equal(cliWithEnv(root, ['cutover', '--undo'], pinned).code, 0);
 
-  const recut = cli(root, 'cutover');
+  const recut = cliWithEnv(root, ['cutover'], pinned);
   assert.equal(recut.code, 0, recut.err);
   assert.equal(refExists(root, STATE_REF), true);
   assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), firstBaseline);
 
-  const { code, err } = cli(root, 'cutover', '--undo');
+  const { code, err } = cliWithEnv(root, ['cutover', '--undo'], pinned);
   assert.equal(code, 0, err);
   assert.equal(refExists(root, STATE_REF), false);
   for (const [rel, text] of Object.entries(files)) {
