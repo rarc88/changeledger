@@ -2,7 +2,7 @@
 id: "20260810-182641"
 title: Costura de autoría de documentos en modo activado
 type: feature
-status: draft
+status: approved
 created: 2026-08-10T18:26:41Z
 depends_on: []
 related_to: ["20260810-181801", "20260810-180434", "20260810-181803", "20260808-151643"]
@@ -173,3 +173,4 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T20:29:18Z** `[status]` draft → approved (human via conversation)
