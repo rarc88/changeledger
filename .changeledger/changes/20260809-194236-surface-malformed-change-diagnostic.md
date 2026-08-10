@@ -2,9 +2,10 @@
 id: "20260809-194236"
 title: No descartar el diagnóstico del change malformado pedido por id
 type: bug
-status: in-validation
+status: done
 created: 2026-08-09T19:42:36Z
 depends_on: ["20260808-171107"]
+reviewed: true
 branch: bug/20260809-194236
 related_to: []
 owner: rarc88
@@ -87,3 +88,5 @@ Ambos hallazgos ejecutados por el post-review de `20260808-171107`:
 - **2026-08-10T01:24:09Z** `[note]` Mandato de confirmación: acotado al diff sin commitear de la corrección (context.mjs: idFromFilename con comparación exacta; tests de rama activada y de id parcial; comentario CR3 corregido) — verificar cerrados los dos defectos nombrados (mutante de la rama activada muere; id parcial recibe unknown-id byte a byte) sin regresión; lo latente es follow-up.
 - **2026-08-10T01:29:47Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T01:29:48Z** `[note]` Follow-ups del confirmador (no bloqueantes): un filename con id no canónico (conteo de dígitos erróneo) cae a unknown-id sin diagnóstico — shape no especificado, check lo caza; y un comentario con backslashes literales innecesarios en context.mjs.
+- **2026-08-10T11:58:36Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T12:41:13Z** `[graduation]` skipped: diagnóstico del CLI y anclaje de test del store: sin verdad persistente nueva
