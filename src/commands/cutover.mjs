@@ -199,14 +199,26 @@ function scanCutovers(repoRoot, output, run) {
 // agrees with the ref does the newest by descendancy stand in, so the
 // past-the-baseline and half-cut diagnostics below still name a commit.
 //
+// A baseline oid is not a unique identifier, so agreement with the ref can be
+// claimed by more than one record: committer dates are inputs, which makes a
+// re-cut of identical content reproduce the same oid, and a trailer is plain
+// text anyone can write. Letting topology break the tie meant `--undo`
+// reverting a commit that published nothing and deleting the ref the real cut
+// was standing on, so a tie fails closed with both oids named.
+//
 // `state` is the repo's own cutover evidence — the state ref (`tip`) and the
 // activation. With evidence present and no record at all, exact-subject commits
 // that lost their trailer are the only explanation left, and the operator gets
 // them by oid instead of a false "nothing is reachable".
 function findCutover(repoRoot, { tip = null, activated = false }, output, run) {
   const { records, trailerless } = scanCutovers(repoRoot, output, run);
-  const live = tip === null ? undefined : records.find((record) => record.baseline === tip);
-  const found = live ?? records[0] ?? null;
+  const live = tip === null ? [] : records.filter((record) => record.baseline === tip);
+  if (live.length > 1) {
+    throw new Error(
+      `the live cutover commit is ambiguous — ${live.map((record) => record.oid).join(', ')} all declare the baseline ${tip} that ${STATE_REF} holds, so which cut this repo stands on cannot be decided; resolve it by hand`,
+    );
+  }
+  const found = live[0] ?? records[0] ?? null;
   if (found === null && trailerless.length > 0 && (tip !== null || activated)) {
     throw new Error(
       `no verifiable cutover commit is reachable from HEAD — ${trailerless.join(', ')} has the cutover subject but carries no ${BASELINE_TRAILER} trailer, so its baseline cannot be verified; resolve it by hand`,

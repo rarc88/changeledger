@@ -2,9 +2,10 @@
 id: "20260809-194233"
 title: Blindar la selección y el resume del cutover
 type: bug
-status: approved
+status: in-review
 created: 2026-08-09T19:42:33Z
 depends_on: ["20260809-131004"]
+branch: bug/20260809-194233
 related_to: []
 owner: rarc88
 ---
@@ -62,22 +63,30 @@ ejecutados en fixtures por los revisores:
 
 ## Plan
 
-- [ ] Fallar cerrado ante empate de baseline en la selección del corte vivo
+- [x] Fallar cerrado ante empate de baseline en la selección del corte vivo
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR1
-- [ ] Test del escenario `-s ours` que fija el `--first-parent` de
+  - **Resolved:** `2026-08-10T00:58:27Z`
+- [x] Test del escenario `-s ours` que fija el `--first-parent` de
   `findCompletedUndo`
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR2
-- [ ] Escenario dedicado del brazo activated-only del gate del señuelo
+  - **Resolved:** `2026-08-10T00:58:27Z`
+- [x] Escenario dedicado del brazo activated-only del gate del señuelo
   - **Target:** `src/commands/cutover.mjs`
   - **Verify:** `node --test test/cutover.test.mjs`
   - **Criteria:** CR3
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-10T00:58:27Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T00:58:27Z`
 
 ## Log
 - **2026-08-10T00:38:56Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T00:49:35Z** `[status]` approved → in-progress
+- **2026-08-10T00:49:35Z** `[branch]` set: bug/20260809-194233 (auto)
+- **2026-08-10T00:58:28Z** `[status]` in-progress → in-review
+- **2026-08-10T00:58:28Z** `[note]` Mandato del review: superficie que gobierna (src/commands/cutover.mjs + test/cutover.test.mjs, diff cerrado de la rama del carril), con las 4 decisiones no especificadas del implementador como escrutinio: forma del error de ambigüedad; empate detectado solo entre registros que concuerdan con la ref (dos registros con baseline que la ref NO sostiene siguen cayendo al stand-in de diagnóstico); decoy CR1 con --allow-empty; y verificación de que los dos mutantes reportados (first-parent de findCompletedUndo, gate estrechado) matan exactamente su test.

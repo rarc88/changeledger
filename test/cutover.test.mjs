@@ -414,6 +414,126 @@ test('20260809-131004 CR2: a cut reachable only through a merge second parent is
   }
 });
 
+// A baseline oid is not a unique identifier: fixed committer dates make a
+// re-cut of identical content reproduce the same oid, and a trailer can be
+// forged by hand. When two reachable records claim the baseline the state ref
+// holds, topology picked one and `--undo` restored content that was never
+// published — the tie has to fail closed instead.
+test('20260809-194233 CR1: two records claiming the held baseline fail closed naming both', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  const seed = head(root);
+  assert.equal(cli(root, 'cutover').code, 0);
+  const baseline = git(root, ['rev-parse', STATE_REF]);
+  const real = head(root);
+  git(root, ['checkout', '-q', '-b', 'forged', seed]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '--allow-empty',
+    '-q',
+    '-m',
+    'chore(state): cut the ledger over to the state ref',
+    '-m',
+    `ChangeLedger: none\n\nChangeledger-Cutover-Baseline: ${baseline}`,
+  ]);
+  const forged = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'forged', '-m', 'merge the forged cut']);
+  const before = head(root);
+
+  const undone = cli(root, 'cutover', '--undo');
+
+  assert.notEqual(undone.code, 0);
+  assert.match(undone.err, new RegExp(real));
+  assert.match(undone.err, new RegExp(forged));
+  assert.match(undone.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(refExists(root, ACTIVATION_REF), true);
+  assert.equal(head(root), before);
+  assert.equal(exists(root, '.changeledger/changes'), false);
+  assert.equal(git(root, ['status', '--porcelain']), '');
+
+  const rerun = cli(root, 'cutover');
+
+  assert.notEqual(rerun.code, 0);
+  assert.match(rerun.err, new RegExp(real));
+  assert.match(rerun.err, new RegExp(forged));
+  assert.match(rerun.err, /by hand/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), baseline);
+  assert.equal(head(root), before);
+  for (const rel of Object.keys(files)) {
+    if (rel.startsWith('.changeledger/changes/')) assert.equal(exists(root, rel), false);
+  }
+});
+
+// The falsifying edge of `findCompletedUndo`'s `--first-parent`, and the
+// asymmetry with the cutover search: an undo commit a merge reached but
+// discarded (`-s ours`) restored nothing here, so the repo still has no ledger
+// in the worktree and the real undo must still run.
+test('20260809-194233 CR2: an undo discarded by an `-s ours` merge still lets the real undo run', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  assert.equal(cli(root, 'cutover').code, 0);
+  const cut = head(root);
+  git(root, ['checkout', '-q', '-b', 'lateral']);
+  git(root, ['revert', '-n', cut]);
+  git(root, [
+    'commit',
+    '--no-verify',
+    '-q',
+    '-m',
+    'chore(state): undo the ledger cutover',
+    '-m',
+    'ChangeLedger: none — restores the ledger to the worktree',
+  ]);
+  const discarded = head(root);
+  git(root, ['checkout', '-q', 'main']);
+  git(root, ['merge', '-q', '--no-ff', '-s', 'ours', 'lateral', '-m', 'merge the discarded undo']);
+  assert.equal(git(root, ['log', '-1', '--format=%P', 'HEAD']).split(' ')[1], discarded);
+  assert.equal(exists(root, '.changeledger/changes'), false);
+
+  const { code, out, err } = cli(root, 'cutover', '--undo');
+
+  assert.equal(code, 0, err || out);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(refExists(root, ACTIVATION_REF), false);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  assert.equal(git(root, ['status', '--porcelain']), '');
+  assert.equal(loadRepo(root).state, null);
+});
+
+// The activated-only arm of the trailerless gate: cutover evidence can be just
+// the activation, with no state ref at all. That is still evidence, so the
+// decoy has to be reported as an unverifiable baseline rather than swallowed
+// into the "already activated" diagnostic.
+test('20260809-194233 CR3: activation without a state ref reports the decoy as unverifiable', () => {
+  const { root } = seedLedgerRepo();
+  const files = defaultLedgerFiles();
+  writeLedgerFiles(root, { 'README.md': '# decoy\n' });
+  git(root, ['add', 'README.md']);
+  git(root, ['commit', '-q', '-m', 'chore(state): cut the ledger over to the state ref']);
+  const decoy = head(root);
+  writeActivation(root, { stateRef: STATE_REF });
+  const activation = git(root, ['rev-parse', ACTIVATION_REF]);
+
+  const { code, err } = cliCaptured(root, 'cutover');
+
+  assert.notEqual(code, 0);
+  assert.match(err, new RegExp(decoy));
+  assert.match(err, /baseline cannot be verified/);
+  assert.doesNotMatch(err, /already activated/);
+  assert.equal(refExists(root, STATE_REF), false);
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), activation);
+  assert.equal(head(root), decoy);
+  for (const [rel, text] of Object.entries(files)) {
+    assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), text, rel);
+  }
+  assert.equal(git(root, ['status', '--porcelain']), '');
+});
+
 test('20260809-131004 CR3: an initialized-only state diagnoses half-publication and literal recovery', () => {
   const { root } = seedLedgerRepo();
   const config = parseYaml(ledgerConfigText);
