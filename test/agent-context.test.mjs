@@ -146,6 +146,50 @@ test('20260808-171107 CR5: activated agent-context resolves an unknown id before
   );
 });
 
+// 20260809-194236 CR1/CR2 — post-review of 171107's CR5: that fix covers an
+// unrelated malformed sibling, but never the case where the malformed
+// document IS the id the human asked for. `loadRepo`'s `repo.changeErrors`
+// already carries the exact parse diagnostic; before this change
+// `agent-context` never consulted it on that id's own resolution failure.
+test('20260809-194236 CR1: the malformed document requested by id is named, not reported as unknown', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildAgentContext('implementation', id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /No change with id/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+test('20260809-194236 CR2: a genuinely unknown id keeps the "No change with id" message byte for byte', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildAgentContext('implementation', '20990101-999999', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'No change with id "20990101-999999" (use the exact id; run `changeledger check` if a filename\'s id looks wrong)',
+      );
+      return true;
+    },
+  );
+});
+
 // 20260808-151641 R1 (correction round 2) — same regression as
 // context.test.mjs's R1: `investigation` with no change id never needed
 // `repo.changes` before this change, so a broken change document elsewhere in

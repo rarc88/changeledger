@@ -442,7 +442,7 @@ test('CR2: change id infers implement and includes complete actionable stages', 
 // doc-only-in-ref-vs-only-in-worktree shape as repo.test.mjs's CR2, reusing
 // the worktree's own `config.yml` (byte-identical) as the snapshot config so
 // `types.feature` stays resolvable.
-function activatedContextFixture({ broken = false } = {}) {
+function activatedContextFixture({ broken = false, malformedId } = {}) {
   const root = repo();
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: root });
@@ -473,6 +473,14 @@ Need exact context.
 `,
   };
   if (broken) files['.changeledger-state/changes/broken.md'] = 'no frontmatter here\n';
+  // The activated loader (`loadActiveContent`) never has a real `file` path —
+  // its `changeErrors` entries carry only the snapshot-relative `name`
+  // (20260809-194236 defect 1: a mutant that drops the `entry.file ? ... :
+  // ...` branch and always returns the bare `entry.message` stays green
+  // against the on-disk fixtures, because on disk `readChangeFile` already
+  // bakes the file path into that same field).
+  if (malformedId)
+    files[`.changeledger-state/changes/${malformedId}-self.md`] = 'no frontmatter here\n';
   const tree = buildTree(root, files);
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
@@ -509,6 +517,99 @@ test('20260808-171107 CR5: activated context resolves an unknown id before an un
     /Unknown context "20990101-000000" — valid modes: implement, review, spec, release \(or pass a change id\)/,
   );
   assert.throws(() => loadRepo(root), /broken\.md/);
+});
+
+// 20260809-194236 CR1/CR2 — post-review of 171107's CR5: that fix covers an
+// unrelated malformed sibling, but never the case where the malformed
+// document IS the id the human asked for. `loadRepoWithConfig` already
+// collects the exact parse diagnostic in `repo.changeErrors`; before this
+// change neither `context` nor `agent-context` consulted it on that id's own
+// resolution failure, so the better diagnosis was discarded for a generic
+// "unknown id".
+test('20260809-194236 CR1: the malformed document requested by id is named, not reported as unknown', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext(id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /Unknown context/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+test('20260809-194236 CR2: a genuinely unknown id keeps the "Unknown context" message byte for byte', () => {
+  const root = repo();
+  const id = '20990101-000000';
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', `${id}-self.md`),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext('20990101-999999', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'Unknown context "20990101-999999" — valid modes: implement, review, spec, release (or pass a change id)',
+      );
+      return true;
+    },
+  );
+});
+
+// Post-review defect 1: on the activated-snapshot shape, a changeError's
+// `file` is always `null` — naming the file falls entirely to the
+// `entry.name` branch of `changeParseFailureMessage`. A mutant that collapses
+// that branch to always `return entry.message` stays green against every
+// on-disk fixture above (there, `readChangeFile` already bakes the path into
+// `message`), so only an activated fixture pins it.
+test('20260809-194236 CR1 (activated): the malformed snapshot document requested by id is named, not reported as unknown', () => {
+  const id = '20990101-000000';
+  const { root } = activatedContextFixture({ malformedId: id });
+
+  assert.throws(
+    () => buildContext(id, root),
+    (error) => {
+      assert.match(error.message, /Change is missing its frontmatter block/);
+      assert.doesNotMatch(error.message, /Unknown context/);
+      assert.match(error.message, new RegExp(`${id}-self\\.md`));
+      return true;
+    },
+  );
+});
+
+// Post-review defect 2: matching by `name.startsWith(\`${id}-\`)` treats any
+// id that is a dash-prefix of a real filename's id as a match, so a
+// genuinely nonexistent partial id (here "20990101", a strict prefix of the
+// malformed sibling's real id "20990101-000000") wrongly inherited that
+// sibling's parse diagnosis instead of CR2's unknown-id message. Fixed by
+// extracting the filename's own id with its canonical `\d{8}-\d{6}` shape and
+// comparing exactly, rather than substring-matching the raw name.
+test('20260809-194236 CR2 (defect 2): a dash-prefix partial id is not confused with the real id it prefixes', () => {
+  const root = repo();
+  fs.writeFileSync(
+    path.join(root, '.changeledger', 'changes', '20990101-000000-self.md'),
+    'no frontmatter here\n',
+  );
+
+  assert.throws(
+    () => buildContext('20990101', root),
+    (error) => {
+      assert.equal(
+        error.message,
+        'Unknown context "20990101" — valid modes: implement, review, spec, release (or pass a change id)',
+      );
+      return true;
+    },
+  );
 });
 
 // 20260808-151641 R1 (correction round 2) — a regression the confirmation
