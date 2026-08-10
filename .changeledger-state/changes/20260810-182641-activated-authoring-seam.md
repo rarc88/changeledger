@@ -2,7 +2,7 @@
 id: "20260810-182641"
 title: Costura de autoría de documentos en modo activado
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-10T18:26:41Z
 depends_on: []
 branch: feature/20260810-182641
@@ -190,3 +190,4 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
 - **2026-08-10T20:54:56Z** `[note]` Retargeteados 3 tests de test/cli.test.mjs que fijaban el scaffold vacio en activado y su reintento CAS (20260808-151643 CR4/CR10): uno reescrito sobre scaffoldChange+newChangeFrom, dos retirados — la propagacion del conflicto ya esta fijada en change-store.test.mjs CR2
 - **2026-08-10T20:57:48Z** `[status]` in-progress → in-review
 - **2026-08-10T20:57:48Z** `[note]` Mandato del review: auditoría completa del diff dev..HEAD — comando nuevo sobre la costura de escritura única; punto de escrutinio prioritario: la retirada de los pins CR4/CR10 de 20260808-151643 (newChangeActive y retry-once) como consecuencia autorizada de CR6
+- **2026-08-10T21:05:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
