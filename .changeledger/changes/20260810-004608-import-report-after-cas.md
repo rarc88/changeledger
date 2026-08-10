@@ -2,7 +2,7 @@
 id: "20260810-004608"
 title: El reporte del import se emite tras el CAS
 type: bug
-status: draft
+status: approved
 created: 2026-08-10T00:46:08Z
 depends_on: ["20260809-113241"]
 related_to: []
@@ -52,3 +52,4 @@ actualizaciones se mueve a después del CAS confirmado.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T00:51:28Z** `[status]` draft → approved
