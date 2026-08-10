@@ -173,9 +173,10 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR7
   - **Resolved:** `2026-08-10T20:43:30Z`
-- [ ] Suite completa y gate del repo
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T20:54:27Z`
 
 ## Log
 - **2026-08-10T20:29:18Z** `[status]` draft → approved (human via conversation)
