@@ -24,3 +24,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-10T21:42:17Z** `[status]` approved → in-progress
 - **2026-08-10T21:42:17Z** `[branch]` set: quick/20260810-213634 (auto)
 - **2026-08-10T21:42:18Z** `[owner]` set: claude
+- **2026-08-10T21:44:03Z** `[note]` Línea de edit añadida al catálogo de implement.md (forma completa + acotación: solo contenido, nunca lifecycle; única vía de cuerpo en activado). Budgets verificados por la suite (1396/1396): el fragmento sigue bajo techo
