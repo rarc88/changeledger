@@ -2,9 +2,10 @@
 id: "20260810-182641"
 title: Costura de autoría de documentos en modo activado
 type: feature
-status: approved
+status: in-progress
 created: 2026-08-10T18:26:41Z
 depends_on: []
+branch: feature/20260810-182641
 related_to: ["20260810-181801", "20260810-180434", "20260810-181803", "20260808-151643"]
 owner: rarc88
 ---
@@ -174,3 +175,5 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
 
 ## Log
 - **2026-08-10T20:29:18Z** `[status]` draft → approved (human via conversation)
+- **2026-08-10T20:29:19Z** `[status]` approved → in-progress
+- **2026-08-10T20:29:19Z** `[branch]` set: feature/20260810-182641 (auto)
