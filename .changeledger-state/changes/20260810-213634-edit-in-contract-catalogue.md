@@ -2,7 +2,7 @@
 id: "20260810-213634"
 title: Añadir edit al catálogo de comandos del contrato
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T21:36:34Z
 depends_on: []
 related_to: []
@@ -19,3 +19,4 @@ la línea del comando con su forma (`edit <change-id|spec:slug> --from
 devolver al humano, nunca vaciar otra norma para cuadrar.
 
 ## Log
+- **2026-08-10T21:38:10Z** `[status]` draft → approved (human via conversation)
