@@ -2,7 +2,7 @@
 id: "20260810-004609"
 title: Endurecer dos guards de tests que pueden dar falso verde
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T00:46:09Z
 depends_on: []
 related_to: ["20260808-171107", "20260808-234920"]
@@ -26,3 +26,4 @@ tests. Trabajo test-only más un recorte de API interna sin caller que lo use
 implícitamente; sin superficie pública ni verdad persistente.
 
 ## Log
+- **2026-08-10T00:51:30Z** `[status]` draft → approved
