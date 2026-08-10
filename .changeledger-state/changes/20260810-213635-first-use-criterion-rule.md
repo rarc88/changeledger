@@ -2,7 +2,7 @@
 id: "20260810-213635"
 title: "Regla de contrato: CR de primer uso end-to-end"
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-10T21:36:35Z
 depends_on: []
 branch: quick/20260810-213635
@@ -31,3 +31,4 @@ con la misma disciplina: si no cabe, volver al humano.
 - **2026-08-10T21:45:12Z** `[branch]` set: quick/20260810-213635 (auto)
 - **2026-08-10T21:45:13Z** `[owner]` set: claude
 - **2026-08-10T21:48:28Z** `[note]` Regla añadida al bloque de criterios de spec.md. Primera redacción excedió el techo por 6 tokens (2506/2500, cazado por 225213 CR6 y 6 cascadas); recortada la frase de rationale de la PROPIA adición — la normativa existente intacta. Gate 1396/1396. Sin concept guard nuevo: la obligación queda barrida por los budgets y su redacción es tolerante
+- **2026-08-10T21:48:28Z** `[status]` in-progress → in-validation
