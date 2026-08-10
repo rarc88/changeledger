@@ -72,9 +72,17 @@ function repoWithChange() {
   // Give it a task to operate on. `(support)` because that is what this task
   // honestly is — scaffolding for the lifecycle tests below, which declare no
   // criteria — and since 20260729-185200 an unmarked task with no CR blocks
-  // approval, which these tests cross on their way to later statuses.
+  // approval, which these tests cross on their way to later statuses. Since
+  // 20260810-213633 an approve also refuses any active stage left blank
+  // (Request/Investigation/Proposal/Specification), so each gets one minimal
+  // line here too — a single seat for the whole file's approve()/status(…,
+  // 'approved') fixtures rather than patching every call site.
   const text = fs
     .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
+    .replace('## Specification\n', '## Specification\n\nS\n')
     .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
   fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
@@ -435,6 +443,89 @@ test('185200 CR2: a ready draft approves exactly as before', () => {
     after.stages.find((stage) => stage.key === 'log').body,
     /`\[status\]` draft → approved \(human via conversation\)/,
   );
+});
+
+// 20260810-213633 — the empty-stage gate on the draft→approved transition
+// itself (real incident: 20260810-181801 approved with every narrative stage
+// blank). `checkCoverage`'s referential checks pass vacuously on an empty
+// Specification/Plan — no criteria declared, so nothing is uncovered — so this
+// is a distinct assertion from the 185200 CR1 gate above, not a duplicate.
+function emptySpecAndPlanDraft(id) {
+  return `---
+id: "${id}"
+title: Empty spec and plan
+type: feature
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+R
+
+## Investigation
+
+I
+
+## Proposal
+
+P
+
+## Specification
+
+## Plan
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+function emptyRequestQuickDraft(id) {
+  return `---
+id: "${id}"
+title: Empty request
+type: quick
+status: draft
+created: 2026-06-13T12:00:00Z
+depends_on: []
+---
+
+## Request
+
+## Log
+
+- **2026-06-13T12:00:00Z** \`[note]\` Draft.
+`;
+}
+
+test('213633 CR1: approve refuses a feature draft with empty Specification and Plan, naming both', () => {
+  const root = emptyRepo();
+  const id = '20260810-213700';
+  const file = writeDraft(root, id, emptySpecAndPlanDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "## Specification", "## Plan" are empty',
+  });
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
+});
+
+test('213633 CR2: approve refuses a quick draft with an empty Request', () => {
+  const root = emptyRepo();
+  const id = '20260810-213701';
+  const file = writeDraft(root, id, emptyRequestQuickDraft(id));
+  const before = fs.readFileSync(file, 'utf8');
+
+  assert.throws(() => approve(id, root), {
+    message: 'cannot approve: "## Request" is empty',
+  });
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before, 'a rejected approve must not write');
+  assert.equal(parseChange(before).frontmatter.status, 'draft');
 });
 
 test('status rejects an invalid value without writing', () => {
@@ -869,7 +960,14 @@ function repoWithChore() {
     root,
     { ownerHandle: () => '' },
   );
-  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  // 20260810-213633: approve refuses a chore whose active stages (request,
+  // plan) are blank, so this shared fixture back-fills both minimally.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
   return { root, file, id };
 }
 
@@ -908,7 +1006,14 @@ function repoWithAudit() {
     root,
     { ownerHandle: () => '' },
   );
-  const id = parseChange(fs.readFileSync(file, 'utf8')).frontmatter.id;
+  // 20260810-213633: approve refuses an audit whose active stages (request,
+  // investigation) are blank, so this shared fixture back-fills both minimally.
+  const text = fs
+    .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n');
+  fs.writeFileSync(file, text);
+  const id = parseChange(text).frontmatter.id;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   return { root, file, id };
@@ -962,6 +1067,9 @@ function repoWithUnreadyChange() {
   // is the in-review gate, not approval.
   const ready = fs
     .readFileSync(file, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
     .replace(
       '## Specification\n',
       '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
@@ -1396,6 +1504,18 @@ function repoWithTwoSamePrefix() {
     root,
     { ownerHandle: () => '' },
   );
+  // 20260810-213633: fileB reaches approved in CR1 below, so its active stages
+  // need minimal content; fileA is filled the same way to keep both siblings
+  // uniform (it never itself moves past draft in these tests).
+  const fillStages = (text) =>
+    text
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace('## Specification\n', '## Specification\n\nS\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n');
+  fs.writeFileSync(fileA, fillStages(fs.readFileSync(fileA, 'utf8')));
+  fs.writeFileSync(fileB, fillStages(fs.readFileSync(fileB, 'utf8')));
   const idA = parseChange(fs.readFileSync(fileA, 'utf8')).frontmatter.id;
   const idB = parseChange(fs.readFileSync(fileB, 'utf8')).frontmatter.id;
   return { root, fileA, fileB, idA, idB };

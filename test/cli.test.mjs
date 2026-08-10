@@ -1137,6 +1137,9 @@ test('124656 CR3: `status <id> in-review` exits non-zero and names every readine
     file,
     fs
       .readFileSync(file, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
       .replace(
         '## Specification\n',
         '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
