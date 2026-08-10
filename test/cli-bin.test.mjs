@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { status, validation } from '../src/commands/agent.mjs';
+import { status, task, validation } from '../src/commands/agent.mjs';
 import { buildMigration } from '../src/config-migration.mjs';
 import { STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
@@ -239,10 +239,26 @@ test('125139 CR1/CR3/CR5/CR6: CLI transmits explicit human decisions and preserv
   // Explicit owner: a spawned CLI takes no injected identity resolver.
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  // 20260810-213633: approve refuses a chore whose active stages (request, plan)
+  // are blank — back-fill both minimally before the approval walk below.
+  const chFile = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+  );
+  fs.writeFileSync(
+    chFile,
+    fs
+      .readFileSync(chFile, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
+  );
   assert.equal(runIn(root, env, 'status', id, 'approved').code, 1);
   assert.equal(runIn(root, env, 'approve', id).code, 0);
   for (const next of ['in-progress', 'in-validation'])
     assert.equal(runIn(root, env, 'status', id, next).code, 0);
+  assert.equal(runIn(root, env, 'task', id, 'done', '1').code, 0);
   assert.equal(runIn(root, env, 'validation', id, 'pass').code, 0);
   assert.match(
     fs.readFileSync(
@@ -839,6 +855,32 @@ test('review wiring: fail --block parses the reason and blocks the change', () =
   assert.equal(runIn(root, env, 'new', 'feature', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
 
+  // 20260810-213633: approve refuses a feature whose active stages are blank;
+  // in-review also needs a test-grade CR and a Plan task naming target and
+  // verification (same shape as 124656 CR3's repaired fixture).
+  const reviewFile = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+  );
+  fs.writeFileSync(
+    reviewFile,
+    fs
+      .readFileSync(reviewFile, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Investigation\n', '## Investigation\n\nI\n')
+      .replace('## Proposal\n', '## Proposal\n\nP\n')
+      .replace(
+        '## Specification\n',
+        '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',
+      )
+      .replace(
+        '## Plan\n',
+        '## Plan\n\n- [ ] do it in `src/x.mjs`\n  - **Target:** `src/x.mjs`\n  - **Verify:** `test/x.test.mjs`\n  - **Criteria:** CR1\n',
+      ),
+  );
+
   status(id, 'approved', root);
   for (const s of ['in-progress', 'in-review']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
@@ -1057,11 +1099,27 @@ test('CR6: graduate --into wires through and links an existing spec', () => {
   // Explicit owner: a spawned CLI takes no injected identity resolver.
   assert.equal(runIn(root, env, 'new', 'chore', 'x', 'X', '--owner', 'Roberto Ruiz').code, 0);
   const id = JSON.parse(runIn(root, env, 'list', '--json').out)[0].id;
+  // 20260810-213633: approve refuses a chore whose active stages (request,
+  // plan) are blank — back-fill both minimally.
+  const graduateFile = path.join(
+    root,
+    '.changeledger',
+    'changes',
+    fs.readdirSync(path.join(root, '.changeledger', 'changes'))[0],
+  );
+  fs.writeFileSync(
+    graduateFile,
+    fs
+      .readFileSync(graduateFile, 'utf8')
+      .replace('## Request\n', '## Request\n\nR\n')
+      .replace('## Plan\n', '## Plan\n\n- [ ] do it\n  - **Support:**\n'),
+  );
   // chore: no review gate, but human validation is still required.
   status(id, 'approved', root);
   for (const s of ['in-progress', 'in-validation']) {
     assert.equal(runIn(root, env, 'status', id, s).code, 0);
   }
+  task(id, 'done', 1, '', root);
   validation(id, 'pass', {}, root);
 
   const specFile = path.join(root, '.changeledger', 'specs', 'architecture.md');
@@ -1196,6 +1254,9 @@ test('20260808-141944 CR6: status warns on stderr when the checkout differs from
   // names both target and verification.
   const ready = fs
     .readFileSync(changeFile, 'utf8')
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
     .replace(
       '## Specification\n',
       '## Specification\n\n### CR1 — Something\n- **Given** a thing\n- **When** it runs\n- **Then** it holds\n',

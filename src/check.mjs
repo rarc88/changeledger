@@ -314,6 +314,36 @@ export function assertChangeTextValid(config, name, text, opts = {}) {
   );
 }
 
+// Transition-scoped gate for draft → approved only (20260810-213633, real
+// incident: 20260810-181801 approved with every narrative stage blank).
+// Deliberately NOT part of checkRepo/checkCoverage: those judge a draft's
+// coverage gaps as warnings because a draft is still being written, and
+// widening that shared severity path to also flag blank stages would make
+// every skeleton draft fail `check` — never the intent. This is the single
+// extra assertion the `approved` transition itself adds, called from the same
+// seat as `assertChangeTextValid(..., { asStatus: 'approved' })` (`approve` in
+// commands/agent.mjs and the viewer's changeStatus, which route through the
+// same `status()`). Presence of each active stage's heading is already a hard
+// error via that sibling call — this only adds emptiness of the body inside a
+// present heading. `log` is excluded: it is the lifecycle ledger, legitimately
+// empty until the transition itself appends the first entry.
+export function assertStagesNotEmpty(config, text) {
+  const { frontmatter: fm, stages } = parseChange(text);
+  const typeDefinition = isMapping(config?.types?.[fm.type]) ? config.types[fm.type] : null;
+  const active = Array.isArray(typeDefinition?.stages) ? typeDefinition.stages : [];
+  const empty = active
+    .filter((key) => SEMANTIC_STAGES.has(key))
+    .filter((key) => {
+      const stage = stages.find((s) => s.key === key);
+      return stage && !stage.body.trim();
+    })
+    .map((key) => `"## ${canonicalHeading(key)}"`);
+  if (empty.length) {
+    const verb = empty.length > 1 ? 'are' : 'is';
+    throw new Error(`cannot approve: ${empty.join(', ')} ${verb} empty`);
+  }
+}
+
 function checkReleases(releases, changesById, err) {
   const seenVersions = new Set();
   const releasedChanges = new Map();

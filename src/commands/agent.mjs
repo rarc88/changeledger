@@ -7,7 +7,7 @@ import path from 'node:path';
 import { mutateFileAtomic, withFileLock } from '../atomic-write.mjs';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile, repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { assertChangeTextValid } from '../check.mjs';
+import { assertChangeTextValid, assertStagesNotEmpty } from '../check.mjs';
 import { findChangeledgerDir, integrationBranch, renderChangeBranch } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import {
@@ -168,6 +168,11 @@ export function status(
       // reachable only from `draft`, so this is the single seat for the gate.
       if (newStatus === 'approved') {
         assertChangeTextValid(config, name, text, { asStatus: 'approved' });
+        // Emptiness of an active stage's body is a defect coverage checks alone
+        // cannot see — an empty Specification declares no criteria, so nothing
+        // references an unknown one and nothing goes uncovered (real incident:
+        // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
+        assertStagesNotEmpty(config, text);
       }
       text = setStatus(text, newStatus);
       const detail =

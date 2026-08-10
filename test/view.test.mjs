@@ -9,7 +9,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { parseChange } from '../src/change.mjs';
 import { writeLedgerFiles } from '../src/change-store.mjs';
-import { review, status, validation } from '../src/commands/agent.mjs';
+import { review, status, task, validation } from '../src/commands/agent.mjs';
 import { init } from '../src/commands/init.mjs';
 import { newChange } from '../src/commands/new.mjs';
 import {
@@ -95,13 +95,33 @@ function lowerHeaders(headers) {
   return Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
 }
 
+// 20260810-213633: approve refuses a feature whose active stages are blank
+// (real incident: 20260810-181801). One shared fill for every fixture in this
+// file that walks a scaffolded feature change to `approved` or beyond.
+function fillNarrativeStages(text) {
+  return text
+    .replace('## Request\n', '## Request\n\nR\n')
+    .replace('## Investigation\n', '## Investigation\n\nI\n')
+    .replace('## Proposal\n', '## Proposal\n\nP\n')
+    .replace('## Specification\n', '## Specification\n\nS\n');
+}
+
+function fillFeatureStages(text) {
+  return fillNarrativeStages(text).replace(
+    '## Plan\n',
+    '## Plan\n\n- [ ] do it\n  - **Support:**\n',
+  );
+}
+
 function draftChange(root) {
   const file = newChange(
     { type: 'feature', slug: 'x', title: 'X', now: '2026-06-13T12:00:00Z' },
     root,
     { ownerHandle: () => '' },
   );
-  const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
+  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(file, text);
+  const { id } = parseChange(text).frontmatter;
   const { current } = resolveProjects(root, true);
   return { file, id, project: current };
 }
@@ -1215,6 +1235,7 @@ test('CR1: changeStatus moves the lifecycle and logs it', () => {
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
   const res = changeStatus(projects, { project: current, id, status: 'approved' });
@@ -1236,6 +1257,8 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(acceptedFile, fillFeatureStages(fs.readFileSync(acceptedFile, 'utf8')));
+  fs.writeFileSync(rejectedFile, fillFeatureStages(fs.readFileSync(rejectedFile, 'utf8')));
   const acceptedId = parseChange(fs.readFileSync(acceptedFile, 'utf8')).frontmatter.id;
   const rejectedId = parseChange(fs.readFileSync(rejectedFile, 'utf8')).frontmatter.id;
   for (const id of [acceptedId, rejectedId]) {
@@ -1244,6 +1267,7 @@ test('171002 CR2/CR3: viewer accepts or rejects only a change in validation', ()
     status(id, 'in-review', root);
     review(id, 'pass', {}, root);
   }
+  task(acceptedId, 'done', 1, '', root);
   const { projects, current } = resolveProjects(root, false);
 
   const accepted = changeStatus(projects, { project: current, id: acceptedId, status: 'done' });
@@ -1279,9 +1303,10 @@ test('150231 CR2: viewer reports an incomplete acceptance and preserves validati
   );
   fs.writeFileSync(
     file,
-    fs
-      .readFileSync(file, 'utf8')
-      .replace('## Plan\n', '## Plan\n\n- [ ] pending\n  - **Support:**\n'),
+    fillNarrativeStages(fs.readFileSync(file, 'utf8')).replace(
+      '## Plan\n',
+      '## Plan\n\n- [ ] pending\n  - **Support:**\n',
+    ),
   );
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
@@ -1307,11 +1332,13 @@ test('150231 CR6: viewer acceptance ignores an unrelated unparseable change', ()
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  task(id, 'done', 1, '', root);
   fs.writeFileSync(path.join(root, '.changeledger', 'changes', 'broken.md'), 'broken\n');
   const { projects, current } = resolveProjects(root, false);
 
@@ -1330,11 +1357,13 @@ test('150232 CR1/CR2: viewer reopens provisional done only with a reason', () =>
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   status(id, 'approved', root);
   status(id, 'in-progress', root, { ownerHandle: () => '' });
   status(id, 'in-review', root);
   review(id, 'pass', {}, root);
+  task(id, 'done', 1, '', root);
   validation(id, 'pass', {}, root);
   const { projects, current } = resolveProjects(root, false);
   const before = fs.readFileSync(file, 'utf8');
@@ -1358,6 +1387,7 @@ test('171002 CR2: changeStatus rejects agent-owned or premature moves without wr
     root,
     { ownerHandle: () => '' },
   );
+  fs.writeFileSync(file, fillFeatureStages(fs.readFileSync(file, 'utf8')));
   const { id } = parseChange(fs.readFileSync(file, 'utf8')).frontmatter;
   const { projects, current } = resolveProjects(root, false);
 
@@ -2622,7 +2652,8 @@ test('20260809-113242 CR6/CR10: viewer status transition ignores a malformed sta
     root,
     { ownerHandle: () => '' },
   );
-  const text = fs.readFileSync(file, 'utf8');
+  const text = fillFeatureStages(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(file, text);
   const id = parseChange(text).frontmatter.id;
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
   const projectId = resolveProjects(root, false).current;
