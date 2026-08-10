@@ -1300,3 +1300,51 @@ test('161655 CR2: an earlier supported schema reaches the default through the fu
   assert.doesNotMatch(result.yaml, /^(?:global_state|state_store|store):/m);
   assert.equal(buildMigration(result.yaml), null, 'full-chain output must be terminal');
 });
+
+// --- 20260810-120457 CR3/CR6: migrate routes by the anchor -------------------
+//
+// `config migrate` writes, so it asks the ownership question the read seam
+// asks, through the same anchor. The two shapes identity and location could
+// never judge: an owned ledger below the git top-level whose marker is stale,
+// and a nested foreign ledger that claims the host's own `project_id`.
+
+function activatedBelowTopLevel({ marker = 'schema_version: 5\nproject_id: "stale-id"\n' } = {}) {
+  const root = initStateRepo();
+  const repoRoot = path.join(root, 'packages', 'app');
+  const configFile = path.join(repoRoot, '.changeledger', 'config.yml');
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, marker);
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: abc123\n',
+    '.changeledger-state/config.yml': SCHEMA1_CONFIG,
+    '.changeledger-state/specs/keep.md': '# Keep\n',
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state fixture' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(repoRoot, { stateRef: STATE_REF });
+  return { root, repoRoot, configFile, marker, revision };
+}
+
+test('20260810-120457 CR3: a stale marker below the top-level still migrates the ref', () => {
+  const fixture = activatedBelowTopLevel();
+
+  const summary = applyMigration(fixture.configFile, { repoRoot: fixture.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  const tip = stateRefAt(fixture.root);
+  assert.equal(git(fixture.root, ['rev-parse', `${tip}^`]), fixture.revision);
+  assert.equal(stateConfigAt(fixture.root, tip), buildMigration(SCHEMA1_CONFIG).yaml);
+  assert.equal(fs.readFileSync(fixture.configFile, 'utf8'), fixture.marker);
+});
+
+test('20260810-120457 CR6: a nested project claiming the host project_id migrates its own config', () => {
+  const host = activeMigrationFixture();
+  const nested = nestedProject(host.root, { projectId: 'abc123' });
+
+  const summary = applyMigration(nested.configFile, { repoRoot: nested.repoRoot });
+
+  assert.match(summary, /^Config migration 1 → 5$/m);
+  assert.equal(fs.readFileSync(nested.configFile, 'utf8'), buildMigration(nested.text).yaml);
+  assert.equal(stateRefAt(host.root), host.revision);
+  assert.equal(stateConfigAt(host.root), SCHEMA1_CONFIG);
+});

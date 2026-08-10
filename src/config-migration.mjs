@@ -4,7 +4,6 @@ import { isMap, isPair, isScalar, isSeq, parseDocument } from 'yaml';
 import { writeFileAtomic } from './atomic-write.mjs';
 import { repoIsActivated } from './change-store.mjs';
 import { REVIEWABLE_STAGES } from './check.mjs';
-import { claimsAnotherLedger, readMarkerText } from './config.mjs';
 import { templatesDir } from './paths.mjs';
 import { mutateState, readStateConfigText, readStateRef } from './state-store.mjs';
 
@@ -374,28 +373,17 @@ export function applyMigration(configFile, { dryRun = false, repoRoot, run } = {
   }
   let original;
   let stateRevision;
-  let marker;
-  let active = repoIsActivated(repoRoot, run);
+  const active = repoIsActivated(repoRoot, run);
   if (active) {
     stateRevision = readStateRef(repoRoot, run);
     if (stateRevision === null) throw new Error('state is not initialized');
-    const authority = readStateConfigText(repoRoot, { revision: stateRevision }, run);
-    marker = readMarkerText(configFile);
-    if (marker !== null && claimsAnotherLedger(configFile, marker, authority)) {
-      active = false;
-    } else {
-      original = authority;
+    original = readStateConfigText(repoRoot, { revision: stateRevision }, run);
+  } else {
+    try {
+      original = fs.readFileSync(configFile, 'utf8');
+    } catch (e) {
+      throw new Error(`Cannot read config: ${e.message}`);
     }
-  }
-  if (!active) {
-    if (marker == null) {
-      try {
-        marker = fs.readFileSync(configFile, 'utf8');
-      } catch (e) {
-        throw new Error(`Cannot read config: ${e.message}`);
-      }
-    }
-    original = marker;
   }
 
   const result = buildMigration(original);
