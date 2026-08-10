@@ -270,7 +270,9 @@ function activatedFixture({
     updateRef(gitRoot, STATE_REF, revision);
   }
 
-  writeActivation(gitRoot, { stateRef: STATE_REF });
+  // Taken for the ledger at `root`, which is what the activation records: the
+  // ref is repo-wide, but it names the one ledger it activates.
+  writeActivation(root, { stateRef: STATE_REF });
   return { root, gitRoot, revision };
 }
 

@@ -2,9 +2,10 @@
 id: "20260810-120457"
 title: Anclar la propiedad del ledger en authority.yml
 type: feature
-status: approved
+status: in-review
 created: 2026-08-10T12:04:57Z
 depends_on: ["20260809-194234"]
+branch: feature/20260810-120457
 related_to: ["20260808-234920", "20260809-113242"]
 owner: rarc88
 ---
@@ -116,23 +117,34 @@ ancla (error explícito con remedio); re-activate repara; los tests de
 
 ## Plan
 
-- [ ] `ledger_dir` en `authority.yml`: escritura en `initState`/`writeActivation`
+- [x] `ledger_dir` en `authority.yml`: escritura en `initState`/`writeActivation`
   y exigencia en `readActivation` con el error accionable
   - **Target:** `src/state-store.mjs`, `src/commands/cutover.mjs`, `src/commands/activate.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/cutover.test.mjs test/activate.test.mjs`
   - **Criteria:** CR1, CR5
-- [ ] Propiedad por comparación exacta en la costura de config, retirando
+  - **Resolved:** `2026-08-10T14:10:29Z`
+- [x] Propiedad por comparación exacta en la costura de config, retirando
   `isGitTopLevelMarker` y la comparación de `project_id`
   - **Target:** `src/config.mjs`, `src/config-migration.mjs`
   - **Verify:** `node --test test/config.test.mjs test/config-migration.test.mjs`
   - **Criteria:** CR3, CR4, CR6
-- [ ] Enrutado de la costura de contenido por el ancla en `resolveActivation`
+  - **Resolved:** `2026-08-10T14:14:58Z`
+- [x] Enrutado de la costura de contenido por el ancla en `resolveActivation`
   - **Target:** `src/repo.mjs`, `src/change-store.mjs`
   - **Verify:** `node --test test/repo.test.mjs test/change-store.test.mjs test/cli.test.mjs`
   - **Criteria:** CR2, CR4
-- [ ] Suite completa y gate del repo
+  - **Resolved:** `2026-08-10T14:17:45Z`
+- [x] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
+  - **Resolved:** `2026-08-10T14:22:52Z`
 
 ## Log
 - **2026-08-10T12:13:10Z** `[status]` draft → approved
+- **2026-08-10T13:57:43Z** `[status]` approved → in-progress
+- **2026-08-10T13:57:43Z** `[branch]` set: feature/20260810-120457 (auto)
+- **2026-08-10T14:10:29Z** `[note]` Ancla derivada en writeActivation desde repoRoot (invariante: repoRoot = dirname del .changeledger descubierto) con un walk fs-only del top-level, no con rev-parse --show-toplevel: git responde el realpath y las rutas que sostienen los callers no lo son (/var vs /private/var), así escritura y lectura derivan el ancla igual. initState no cambia: el ancla vive solo en authority.yml
+- **2026-08-10T14:22:53Z** `[note]` La costura de contenido y la de config comparten resolveOwnedActivation (state-store): repoIsActivated y readBootstrap/loadRepoWithConfig preguntan lo mismo. Retirados isGitTopLevelMarker, claimsAnotherLedger/claimsLedgerId, readProjectId/projectIdOf, readMarkerText y effectiveConfigFromSnapshot, más los dos walks isInsideGitRepo duplicados en repo.mjs y change-store.mjs
+- **2026-08-10T14:22:53Z** `[note]` El test 194235 de equivalencia entre las dos rutas de identidad se retarget a CR4/CR6: al quedar una sola decisión de propiedad no hay segunda implementación contra la que sostener la equivalencia; sus mismas formas de marker se afirman ahora contra la respuesta (host sirve la ref, anidado su worktree). architecture.md sigue describiendo las heurísticas retiradas y nombra este change como su sucesor: pendiente de graduación
+- **2026-08-10T14:28:53Z** `[status]` in-progress → in-review
+- **2026-08-10T14:28:54Z** `[note]` Mandato del review: auditoría completa del diff baseline..HEAD (3 commits, 13 archivos) — pieza de diseño de la etapa 2, semántica de propiedad nueva en 3 costuras
