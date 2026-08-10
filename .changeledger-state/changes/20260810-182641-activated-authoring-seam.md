@@ -168,10 +168,11 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
   - **Verify:** `node --test test/edit.test.mjs test/cli.test.mjs`
   - **Criteria:** CR6
   - **Resolved:** `2026-08-10T20:42:22Z`
-- [ ] Specs por `spec:<slug>`
+- [x] Specs por `spec:<slug>`
   - **Target:** `src/commands/edit.mjs`
   - **Verify:** `node --test test/edit.test.mjs`
   - **Criteria:** CR7
+  - **Resolved:** `2026-08-10T20:43:30Z`
 - [ ] Suite completa y gate del repo
   - **Support:**
   - **Verify:** `pnpm verify`
