@@ -2,7 +2,7 @@
 id: "20260810-120457"
 title: Anclar la propiedad del ledger en authority.yml
 type: feature
-status: in-review
+status: in-validation
 created: 2026-08-10T12:04:57Z
 depends_on: ["20260809-194234"]
 branch: feature/20260810-120457
@@ -117,9 +117,9 @@ ancla (error explícito con remedio); re-activate repara; los tests de
 
 ## Plan
 
-- [x] `ledger_dir` en `authority.yml`: escritura en `initState`/`writeActivation`
+- [x] `ledger_dir` en `authority.yml`: escritura en `writeActivation`
   y exigencia en `readActivation` con el error accionable
-  - **Target:** `src/state-store.mjs`, `src/commands/cutover.mjs`, `src/commands/activate.mjs`
+  - **Target:** `src/state-store.mjs`, `src/commands/activate.mjs`
   - **Verify:** `node --test test/state-store.test.mjs test/cutover.test.mjs test/activate.test.mjs`
   - **Criteria:** CR1, CR5
   - **Resolved:** `2026-08-10T14:10:29Z`
@@ -148,3 +148,9 @@ ancla (error explícito con remedio); re-activate repara; los tests de
 - **2026-08-10T14:22:53Z** `[note]` El test 194235 de equivalencia entre las dos rutas de identidad se retarget a CR4/CR6: al quedar una sola decisión de propiedad no hay segunda implementación contra la que sostener la equivalencia; sus mismas formas de marker se afirman ahora contra la respuesta (host sirve la ref, anidado su worktree). architecture.md sigue describiendo las heurísticas retiradas y nombra este change como su sucesor: pendiente de graduación
 - **2026-08-10T14:28:53Z** `[status]` in-progress → in-review
 - **2026-08-10T14:28:54Z** `[note]` Mandato del review: auditoría completa del diff baseline..HEAD (3 commits, 13 archivos) — pieza de diseño de la etapa 2, semántica de propiedad nueva en 3 costuras
+- **2026-08-10T14:37:51Z** `[review]` in-review → in-progress (retry): F1: la desambiguación CAS endurecida de writeActivation (current===null ? now!==null : now!==current.oid) no tiene test; mutarla a now!==null reintroduce el bug de relabel por .lock stale y la suite queda verde. Falta el pin gemelo de CORRECTION 2a/2b cubriendo ambos brazos (creación fresca y repair sobre oid existente)
+- **2026-08-10T14:41:22Z** `[note]` Corrección F1: la desambiguación CAS de writeActivation queda fijada con el gemelo de CORRECTION 2a/2b, un pin por brazo (creación y reparación). Un .lock stale no se relabela como escritura concurrente en ninguno de los dos, y el mensaje 'was written concurrently' queda pinneado como lo que NO debe aparecer
+- **2026-08-10T14:42:22Z** `[note]` F3 del review plegado en la corrección: el Target de la tarea 1 nombraba initState y src/commands/cutover.mjs, que no necesitaron edición (el ancla se deriva dentro de writeActivation y cutover ya lo invoca con el repoRoot correcto) — Plan corregido a lo realmente tocado. Edición del orquestador
+- **2026-08-10T14:43:23Z** `[status]` in-progress → in-review
+- **2026-08-10T14:43:23Z** `[note]` Mandato de la confirmación: mínimo — F1 cerrado (pin CORRECTION 2c en ambos brazos, mutantes muertos) + ausencia de regresión en el diff sin commitear; la edición F3 del orquestador al Plan bajo el mismo escrutinio
+- **2026-08-10T14:47:17Z** `[review]` in-review → in-validation (delegated subagent, clean context)

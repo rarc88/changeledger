@@ -509,6 +509,43 @@ test('CORRECTION 2b: a stale .lock during initState is NOT relabeled "already in
   assert.equal(readStateRef(root), null);
 });
 
+// Finding 2c (20260810-120457): the third CAS site. `writeActivation` has two
+// arms — creating the ref from absence, and rewriting an activation that
+// declares no `ledger_dir` over its current oid — and a stale `.lock` fails
+// both for a reason that has nothing to do with the ref's value. Relabeling
+// either as a concurrent write would send the caller retrying a race that never
+// happened, exactly as 2a/2b describe for the other two sites.
+test('CORRECTION 2c: a stale .lock creating the activation is NOT relabeled a concurrent write', () => {
+  const root = initStateRepo();
+
+  withStaleLock(root, ACTIVATION_REF, () => {
+    assert.throws(
+      () => writeActivation(root, { stateRef: STATE_REF }),
+      (e) =>
+        !(e instanceof LedgerConflictError) &&
+        !/written concurrently/.test(e.message) &&
+        /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(readActivation(root), null);
+});
+
+test('CORRECTION 2c: a stale .lock repairing the activation is NOT relabeled a concurrent write', () => {
+  const root = initStateRepo();
+  const legacy = legacyActivation(root);
+
+  withStaleLock(root, ACTIVATION_REF, () => {
+    assert.throws(
+      () => writeActivation(root, { stateRef: STATE_REF }),
+      (e) =>
+        !(e instanceof LedgerConflictError) &&
+        !/written concurrently/.test(e.message) &&
+        /cannot lock ref|Unable to create/.test(e.message),
+    );
+  });
+  assert.equal(git(root, ['rev-parse', ACTIVATION_REF]), legacy);
+});
+
 // Finding 3: the `fs.lstatSync(repoRoot/.git)` pre-check misclassifies a
 // SUBDIRECTORY of a repo (`.git` is not a direct child, but git still
 // discovers the repo upward) as "not a repo". Dropped entirely — git's own
