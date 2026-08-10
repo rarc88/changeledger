@@ -54,6 +54,9 @@ Useful mutation commands:
 - `changeledger task <id> done|block <n> [reason]`
 - `changeledger log <id> "<message>"`
 - `changeledger owner <id> <name|->`
+- `changeledger edit <change-id|spec:slug> --from <file|->` — replaces the whole
+  document (content only, never lifecycle fields); the sole body-write path in
+  an activated repo
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
