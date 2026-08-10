@@ -2,9 +2,10 @@
 id: "20260809-194235"
 title: Un solo snapshot por loadRepo activado
 type: refactor
-status: in-review
+status: done
 created: 2026-08-09T19:42:35Z
 depends_on: ["20260809-113242"]
+reviewed: true
 branch: refactor/20260809-194235
 related_to: []
 owner: rarc88
@@ -66,3 +67,7 @@ riesgo de servir un snapshot obsoleto tras una mutación en el mismo proceso
 - **2026-08-10T12:42:45Z** `[branch]` set: refactor/20260809-194235 (auto)
 - **2026-08-10T13:06:34Z** `[status]` in-progress → in-review
 - **2026-08-10T13:06:34Z** `[note]` Mandato del review: superficie que gobierna (repo.mjs, config.mjs y sus tests, diff cerrado del carril) con las decisiones del implementador como escrutinio: readBootstrap con contrato tri-estado de options.snapshot (ausente/null/objeto — ¿algún caller directo del viewer queda en 18?); effectiveConfigFromSnapshot y el split de claimsAnotherLedger sin tocar config-migration; la computación de config deliberadamente conservada en la rama foreign (asimetría señalada por el propio implementador); y re-derivar al menos los mutantes de re-lectura sync/async. Commit con --no-verify por la fuga GIT_DIR (gate manual completo antes).
+- **2026-08-10T13:17:27Z** `[review]` in-review → in-validation (delegated subagent, clean context)
+- **2026-08-10T13:17:27Z** `[note]` Observaciones menores del review (no bloqueantes, anotadas): options.snapshot enruta por truthiness tras el check de undefined — un falsy-no-null tomaría worktree en silencio en vez de fallar rápido (solo loadRepo lo pasa hoy); y el test CR1 del subdir no asierta el presupuesto total, a diferencia de sus hermanos.
+- **2026-08-10T13:25:04Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-10T13:25:04Z** `[graduation]` spec: `architecture.md`
