@@ -99,6 +99,9 @@ A criterion is a falsifiable claim, so its wording is part of the contract:
   member cannot leave the criterion silently partial.
 - For code the change will edit, cite symbols, paths and test names, never line
   numbers: the change's own work invalidates them.
+- A change that delivers or alters a workflow includes one criterion walking
+  its first real end-to-end use — the full happy path of the day after, never
+  only its edges and failure modes.
 
 ## Plan task grammar
 
