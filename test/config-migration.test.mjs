@@ -697,10 +697,25 @@ test('162556 CR1: schema 1 without quick gains quick type and impact on migratio
   );
 });
 
+// 20260810-004609 — applyMigration used to default repoRoot to
+// path.dirname(path.dirname(configFile)), correct only for the canonical
+// .changeledger/config.yml layout; production always passes it explicitly,
+// so a missing repoRoot must fail fast instead of silently probing the
+// wrong directory for repo activation.
+test('20260810-004609: applyMigration without repoRoot fails fast', () => {
+  const configFile = `${os.tmpdir()}/cl-20260810-004609-${process.pid}.yml`;
+  fs.writeFileSync(configFile, SCHEMA1_CONFIG);
+  try {
+    assert.throws(() => applyMigration(configFile), /applyMigration requires an explicit repoRoot/);
+  } finally {
+    fs.rmSync(configFile, { force: true });
+  }
+});
+
 test('162556 CR1: applyMigration summary reports 1 → current for schema 1 configs', () => {
   const configFile = `${os.tmpdir()}/cl-162556-summary-${process.pid}.yml`;
   fs.writeFileSync(configFile, SCHEMA1_CONFIG);
-  const summary = applyMigration(configFile, { dryRun: true });
+  const summary = applyMigration(configFile, { dryRun: true, repoRoot: path.dirname(configFile) });
   assert.match(summary, /Config migration 1 → 5/);
   assert.equal(fs.readFileSync(configFile, 'utf8'), SCHEMA1_CONFIG, 'dry run must not write');
   fs.rmSync(configFile, { force: true });
@@ -970,7 +985,7 @@ test('162556 CR3: current config needs no migration and file is untouched', () =
   const configFile = `${os.tmpdir()}/cl-162556-idem-${process.pid}.yml`;
   fs.writeFileSync(configFile, result.yaml);
   const before = fs.statSync(configFile).mtimeMs;
-  const summary = applyMigration(configFile);
+  const summary = applyMigration(configFile, { repoRoot: path.dirname(configFile) });
   assert.match(summary, /already at schema 5/);
   assert.equal(fs.statSync(configFile).mtimeMs, before, 'no rewrite when already current');
   fs.rmSync(configFile, { force: true });
@@ -1031,10 +1046,11 @@ project_name: myrepo
 `;
 
 test('141119 CR6: migration 3 → 4 inserts the stages a review_required type lacks', () => {
-  const configFile = path.join(tmp(), 'config.yml');
+  const root = tmp();
+  const configFile = path.join(root, 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_REVIEW_WITHOUT_SPEC);
 
-  const summary = applyMigration(configFile);
+  const summary = applyMigration(configFile, { repoRoot: root });
   assert.match(summary, /Config migration 3 → 5/);
   assert.ok(summary.includes('added stage specification to types.refactor.stages'), summary);
 
@@ -1061,7 +1077,7 @@ test('141119 CR6: the migrated config no longer trips the review/stage coupling'
     `expected the coupling error before migrating, got: ${JSON.stringify(before.messages.error)}`,
   );
 
-  applyMigration(configFile);
+  applyMigration(configFile, { repoRoot: root });
 
   const after = silentOutput();
   check([], root, after);
@@ -1115,10 +1131,11 @@ project_name: myrepo
 `;
 
 test('141122 CR4: migration adds the readiness defaults to a config that lacks them', () => {
-  const configFile = path.join(tmp(), 'config.yml');
+  const root = tmp();
+  const configFile = path.join(root, 'config.yml');
   fs.writeFileSync(configFile, SCHEMA3_WITH_COMMENTS);
 
-  const summary = applyMigration(configFile);
+  const summary = applyMigration(configFile, { repoRoot: root });
   assert.ok(
     summary.split('\n').some((line) => line.includes('readiness')),
     `the summary must report the readiness addition, got:\n${summary}`,

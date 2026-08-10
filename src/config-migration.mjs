@@ -368,10 +368,10 @@ function setBlankGitSection(doc) {
 }
 
 // Apply migration to the effective config authority (or dry-run). Returns summary string.
-export function applyMigration(
-  configFile,
-  { dryRun = false, repoRoot = path.dirname(path.dirname(configFile)), run } = {},
-) {
+export function applyMigration(configFile, { dryRun = false, repoRoot, run } = {}) {
+  if (!repoRoot) {
+    throw new Error('applyMigration requires an explicit repoRoot');
+  }
   let original;
   let stateRevision;
   let marker;
