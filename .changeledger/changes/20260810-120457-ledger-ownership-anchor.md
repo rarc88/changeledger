@@ -2,7 +2,7 @@
 id: "20260810-120457"
 title: Anclar la propiedad del ledger en authority.yml
 type: feature
-status: draft
+status: approved
 created: 2026-08-10T12:04:57Z
 depends_on: ["20260809-194234"]
 related_to: ["20260808-234920", "20260809-113242"]
@@ -135,3 +135,4 @@ ancla (error explícito con remedio); re-activate repara; los tests de
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T12:13:10Z** `[status]` draft → approved
