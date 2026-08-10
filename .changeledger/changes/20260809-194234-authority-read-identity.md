@@ -2,7 +2,7 @@
 id: "20260809-194234"
 title: Enrutar la lectura de autoridad por identidad
 type: bug
-status: draft
+status: approved
 created: 2026-08-09T19:42:34Z
 depends_on: ["20260808-234920", "20260809-113242"]
 related_to: ["20260809-140157"]
@@ -76,3 +76,4 @@ detectadas por los post-reviews.
   - **Verify:** `pnpm verify`
 
 ## Log
+- **2026-08-10T00:38:57Z** `[status]` draft → approved (human via conversation)
