@@ -221,28 +221,43 @@ permite a `graduate` en modo activo retirar el rollback manual de dos
 escrituras que el modo inactivo todavía conserva.
 
 Cada mutador decide su rama sin depender de un `loadRepo` completo cuando
-está inactivo: `repoIsActivated(repoRoot)` es la puerta barata (el mismo
-descubrimiento fs-only de `.git` que usa `resolveActivation` en
-`src/repo.mjs`, duplicado aquí porque este otro punto de llamada necesita la
-respuesta *antes* de decidir cómo localizar el documento — vía
+está inactivo: `repoIsActivated(repoRoot)` es la puerta barata (delega en
+`resolveOwnedActivation`, la única definición de propiedad del store),
+consultada *antes* de decidir cómo localizar el documento — vía
 `resolveChange` tolerante a hermanos rotos si está inactivo, vía
 `resolveChangeInRepo` sobre el repo ya cargado si está activo, ya que el
-documento puede no existir en disco en absoluto). Los once mutadores de
+documento puede no existir en disco en absoluto). Los mutadores de
 `src/commands/agent.mjs`, `graduate`/`skipGraduation`
 (`src/commands/graduate.mjs`, spec+change en un solo commit en modo activo),
-`fix` (`src/commands/fix.mjs`, una invocación = un commit), `release.mjs` y
-las tres escrituras de config del visor (`src/viewer/domain.mjs`) enrutan por
-esta costura; `new.mjs` es la única excepción de mecánica propia — en modo
-activo la unicidad del id la garantiza el propio CAS, con un reintento
-acotado a uno ante conflicto (el documento es nuevo por construcción, así
-que no hay una decisión previa que un reintento silencioso pueda invalidar;
-todo otro caller de la costura propaga el conflicto sin reintentar). El
+`fix` (`src/commands/fix.mjs`, una invocación = un commit), `release.mjs`,
+las tres escrituras de config del visor (`src/viewer/domain.mjs`) y la
+costura de autoría (`src/commands/edit.mjs` y el `new --from` activado)
+enrutan por esta costura sin excepción, y todos propagan el conflicto CAS
+sin reintentar. El
 conflicto CAS se presenta en `bin/changeledger.mjs` como
 `state changed since load — re-run the command`, exit distinto de cero, sin
 relabeling del mensaje interno del store (`state ref moved: ...`) — el bin
 solo presenta, el store ya garantiza que no hay escritura parcial. Con esto
 cierra el gate de la etapa 1: un repo activado opera enteramente contra la
 ref en local, tanto en lectura como en escritura.
+
+La autoría de documentos (`20260810-182641`) es la misma costura con
+contrato de documento completo: `changeledger edit <change-id|spec:slug>
+--from <archivo|->` reemplaza frontmatter y cuerpo de una vez. El documento
+entrante se valida íntegro a la severidad del status vigente antes de
+escribir — nada inválido aterriza —, `id` y `created` son inmutables, los
+campos con comando propio (`status`, `owner`, `branch`, `archived`,
+`reviewed`; `graduated_from` en specs) deben coincidir con el vigente y el
+rechazo nombra al comando dueño, y un contenido byte-idéntico es no-op sin
+commit. En modo activo cada edición es un commit `edit: <id>` /
+`edit: spec <name>`; en inactivo, un reemplazo atómico del archivo del
+worktree sin ningún commit. `new` en activo nunca publica un scaffold
+vacío: exige el documento ya compuesto (`--from`, con el id derivado del
+propio documento — por eso el reintento por bump de id no existe) y
+`--print` emite el scaffold sin escribir nada. El principio que gobierna la
+costura lo fijó el humano: el journal es permanente, así que una entrada es
+un evento con significado y un documento aterriza completo — nunca estados
+intermedios.
 
 ## Adopción del estado global
 
