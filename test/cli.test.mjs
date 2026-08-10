@@ -12,17 +12,12 @@ import { approve, list, show } from '../src/commands/agent.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { init } from '../src/commands/init.mjs';
-import { idFromTimestamp, newChange } from '../src/commands/new.mjs';
+import { idFromTimestamp, newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mjs';
 import { registerRepo } from '../src/commands/register.mjs';
 import { findChangeledgerDir, loadConfig } from '../src/config.mjs';
 import { checkContract } from '../src/contract.mjs';
 import { contractTemplatesDir, templatesDir } from '../src/paths.mjs';
-import {
-  LedgerConflictError,
-  readSnapshot,
-  STATE_REF,
-  writeActivation,
-} from '../src/state-store.mjs';
+import { readSnapshot, STATE_REF, writeActivation } from '../src/state-store.mjs';
 import { contractFragmentNames } from './contract-support.mjs';
 import { sanitizedEnv } from './helpers/git-env.mjs';
 import { buildTree, commitTree, updateRef } from './helpers/state-repo.mjs';
@@ -922,7 +917,14 @@ test('new reserves ids atomically across concurrent processes', async () => {
   assert.equal(check([], root, silentOutput()), 0);
 });
 
-test('CR4: new on an activated repo writes the document to the state ref, not the worktree', () => {
+// 20260810-182641 CR6 supersedes 20260808-151643 CR4/CR10 here: an activated
+// repo no longer publishes an empty scaffold at all, so creation is composed
+// first (`scaffoldChange`, which writes nothing) and landed whole by
+// `newChangeFrom`. With the id now coming from the document rather than from
+// the allocator, the bumped-id retry that CR4/CR10 pinned cannot exist — a CAS
+// conflict propagates, which `change-store.test.mjs` CR2 already pins at the
+// seam `newChangeFrom` writes through.
+test('CR4: creation on an activated repo lands the composed document in the state ref, not the worktree', () => {
   const root = tmp();
   init(root);
   const revision = activate(root);
@@ -931,10 +933,26 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
     ? fs.readdirSync(changesDirWorktree)
     : [];
 
-  const relPath = newChange(
+  assert.throws(
+    () =>
+      newChange(
+        { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
+        root,
+        { ownerHandle: () => '' },
+      ),
+    /--from/,
+    'an activated repo refuses to publish an empty scaffold',
+  );
+
+  const scaffold = scaffoldChange(
     { type: 'chore', slug: 'active-new', title: 'Active new', now: '2026-08-08T15:00:00Z' },
     root,
     { ownerHandle: () => '' },
+  );
+  const document = scaffold.text.replace('## Request\n', '## Request\n\nCuerpo completo.\n');
+  const relPath = newChangeFrom(
+    { type: 'chore', slug: 'active-new', title: 'Active new', from: sourceFile(root, document) },
+    root,
   );
 
   assert.equal(relPath, 'changes/20260808-150000-active-new.md');
@@ -945,7 +963,7 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
   }).trim();
   assert.notEqual(tip, revision, 'the state ref advanced a commit');
   const snapshot = readSnapshot(root, { revision: tip });
-  assert.match(snapshot.documents[relPath], /id: "20260808-150000"/);
+  assert.equal(snapshot.documents[relPath], document);
   assert.match(snapshot.documents[relPath], /## Plan/);
   // The working tree never sees the new document.
   assert.equal(fs.existsSync(path.join(root, '.changeledger', relPath)), false);
@@ -956,109 +974,13 @@ test('CR4: new on an activated repo writes the document to the state ref, not th
   );
 });
 
-// Deterministic CR4 proof for the stale-revision retry: no subprocess, no
-// timing. `ownerHandle` is called by `newChangeActive` strictly after
-// `loadRepo` has already captured `repo.state.revision` and strictly before
-// this call's own write — exactly like `agent.test.mjs`'s CR2 test uses the
-// same hook to fire a real, unrelated write in that window. Here the
-// "unrelated write" is itself a `newChange` (through the same seam), so the
-// ref genuinely advances out from under the primary call's captured
-// revision, forcing a real `LedgerConflictError` on its first write attempt.
-// `onceRacer` fires exactly once so the retry's own reload (which also
-// re-invokes `ownerHandle`) cannot cascade into a second conflict.
-function onceRacer(action) {
-  let fired = false;
-  return () => {
-    if (!fired) {
-      fired = true;
-      action();
-    }
-    return '';
-  };
+// Writes the `--from` source outside the ledger layout, so it is never mistaken
+// for a document of the repo under test.
+function sourceFile(root, text) {
+  const file = path.join(root, 'incoming.md');
+  fs.writeFileSync(file, text);
+  return file;
 }
-
-test('CR4: new on an activated repo retries once with a fresh id after a genuine stale-revision conflict', () => {
-  const root = tmp();
-  init(root);
-  activate(root);
-
-  const racer = onceRacer(() => {
-    newChange({ type: 'chore', slug: 'racer', title: 'Racer', now: '2026-08-08T15:00:00Z' }, root, {
-      ownerHandle: () => '',
-    });
-  });
-
-  const relPath = newChange(
-    { type: 'chore', slug: 'primary', title: 'Primary', now: '2026-08-08T15:00:00Z' },
-    root,
-    { ownerHandle: racer },
-  );
-
-  // The racer took 20260808-150000; the primary call's first write attempt
-  // was rejected as stale against it and retried once with a bumped id.
-  assert.equal(relPath, 'changes/20260808-150001-primary.md');
-
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
-    cwd: root,
-    env: sanitizedEnv(),
-    encoding: 'utf8',
-  }).trim();
-  const snapshot = readSnapshot(root, { revision: tip });
-  assert.ok(snapshot.documents['changes/20260808-150000-racer.md'], 'the racer document landed');
-  assert.ok(snapshot.documents[relPath], 'the retried primary document landed');
-});
-
-// CR10 (post-validation fold-in): a SECOND consecutive stale-revision
-// conflict propagates instead of looping. Unlike `onceRacer` above, this
-// racer fires on every `ownerHandle` invocation — the primary's initial
-// attempt AND its one retry — so both of the primary's own write attempts
-// land against an already-stale `repo.state.revision`. `attempt < 1` bounds
-// the retry to exactly one, so the second conflict must propagate.
-test('CR10: a second consecutive stale-revision conflict in new propagates after exactly one retry, no partial document', () => {
-  const root = tmp();
-  init(root);
-  activate(root);
-
-  let racerCount = 0;
-  const alwaysRacer = () => {
-    racerCount += 1;
-    newChange(
-      { type: 'chore', slug: `racer-${racerCount}`, title: 'Racer', now: '2026-08-08T15:00:00Z' },
-      root,
-      { ownerHandle: () => '' },
-    );
-    return '';
-  };
-
-  assert.throws(
-    () =>
-      newChange(
-        { type: 'chore', slug: 'primary', title: 'Primary', now: '2026-08-08T15:00:00Z' },
-        root,
-        { ownerHandle: alwaysRacer },
-      ),
-    (err) => err instanceof LedgerConflictError && /state ref moved/.test(err.message),
-  );
-  assert.equal(racerCount, 2, 'ownerHandle ran for the initial attempt and the one retry, no more');
-
-  const tip = execFileSync('git', ['rev-parse', STATE_REF], {
-    cwd: root,
-    env: sanitizedEnv(),
-    encoding: 'utf8',
-  }).trim();
-  const snapshot = readSnapshot(root, { revision: tip });
-  for (const relPath of Object.keys(snapshot.documents)) {
-    assert.doesNotMatch(relPath, /-primary\.md$/, 'no partial primary document in the snapshot');
-  }
-  assert.ok(
-    snapshot.documents['changes/20260808-150000-racer-1.md'],
-    'first racer document landed',
-  );
-  assert.ok(
-    snapshot.documents['changes/20260808-150001-racer-2.md'],
-    'second racer document landed',
-  );
-});
 
 test('new rejects an unknown type', () => {
   const root = tmp();
