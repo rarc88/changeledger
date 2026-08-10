@@ -31,3 +31,4 @@ conflicto vive mejor ahí); cada pin con su mutante aislado.
 - **2026-08-10T21:49:36Z** `[status]` approved → in-progress
 - **2026-08-10T21:49:36Z** `[branch]` set: quick/20260810-213632 (auto)
 - **2026-08-10T21:49:36Z** `[owner]` set: claude
+- **2026-08-10T21:58:09Z** `[note]` Pins añadidos en test/edit.test.mjs: CR3 ahora cubre archived/reviewed como owned fields; CR8 conduce un conflicto CAS real (git shim en PATH) a través de newChangeFrom, sin retry ni escritura parcial. Producción sin cambios (git diff -- src/ vacío en ambos mutantes).
