@@ -2,7 +2,7 @@
 id: "20260810-010554"
 title: Sanear el entorno git en todos los fixtures de tests
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T01:05:54Z
 depends_on: []
 related_to: []
@@ -27,3 +27,4 @@ que la clase no reaparezca con el siguiente fixture nuevo. Test-only; sin
 superficie pública ni verdad persistente.
 
 ## Log
+- **2026-08-10T01:18:47Z** `[status]` draft → approved (human via conversation)
