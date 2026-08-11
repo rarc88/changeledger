@@ -2,7 +2,7 @@
 id: "20260810-175519"
 title: Retarget del sweep de la spec graduada a la autoridad de lectura
 type: quick
-status: in-validation
+status: done
 created: 2026-08-10T17:55:19Z
 depends_on: []
 branch: quick/20260810-175519
@@ -36,3 +36,4 @@ persistente.
 - **2026-08-10T17:56:51Z** `[owner]` set: claude
 - **2026-08-10T17:59:48Z** `[note]` Retarget inline: graduatedGitSpec resuelve por loadRepo(raíz real) y barre spec.body; aserción de existencia sustituye al guard implícito del ENOENT. Borde ejecutado: con la spec ausente el test falla con 'missing from the ledger' (no pasa vacuo); restaurada, pasa. Gate 1385/1385. La rama activada del enrutado la prueba el propio experimento
 - **2026-08-10T17:59:49Z** `[status]` in-progress → in-validation
+- **2026-08-11T00:35:19Z** `[validation]` in-validation → done (human accepted via conversation)
