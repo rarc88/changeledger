@@ -163,10 +163,11 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR6, CR7
   - **Resolved:** `2026-08-11T11:29:18Z`
-- [ ] Dogfood del primer uso real y suite completa
+- [x] Dogfood del primer uso real y suite completa
   - **Target:** `src/commands/apply.mjs`
   - **Verify:** `pnpm test`
   - **Criteria:** CR8
+  - **Resolved:** `2026-08-11T14:16:16Z`
 
 ## Log
 - **2026-08-11T11:12:37Z** `[status]` draft → approved (human via conversation)
