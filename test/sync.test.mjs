@@ -431,7 +431,29 @@ test('20260811-151426 CR6: --status before any fetch says so instead of guessing
   const { code, out, err } = cli(root, 'sync', '--status');
 
   assert.equal(code, 0, err);
-  assert.match(out, /never fetched/);
+  // 20260811-163204 rephrased the no-copy report (it no longer names a single
+  // tracking ref); the obligation — say so instead of guessing — is unchanged.
+  assert.match(out, /no remote-tracking copy/);
+});
+
+// 20260811-163204 — `--status` answers from the existing remote-tracking
+// copies without resolving any remote: a repo with several remotes and no
+// `origin` gets its freshness report anyway, while a mutating `sync` on the
+// same repo still refuses the ambiguity before touching anything.
+test('20260811-163204: --status answers in an ambiguous multi-remote repo', () => {
+  const { root, revision } = activatedRepo();
+  git(root, ['remote', 'add', 'alpha', path.join(os.tmpdir(), 'changeledger-absent-a.git')]);
+  git(root, ['remote', 'add', 'beta', path.join(os.tmpdir(), 'changeledger-absent-b.git')]);
+  git(root, ['update-ref', 'refs/remotes/alpha/changeledger/state', revision]);
+
+  const status = cli(root, 'sync', '--status');
+  assert.equal(status.code, 0, status.err);
+  assert.match(status.out, /refs\/remotes\/alpha\/changeledger\/state/);
+  assert.match(status.out, /identical/);
+
+  const mutating = cli(root, 'sync');
+  assert.notEqual(mutating.code, 0);
+  assert.match(mutating.err, /cannot decide which remote/);
 });
 
 test('20260811-151426 CR3: a reconciliation whose merged tree is invalid leaves the local ref where it was', () => {
