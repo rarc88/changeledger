@@ -215,25 +215,40 @@ function reconcile(repoRoot, { local, remote, base }, run) {
 // The offline half: the relation against whatever the last fetch left behind.
 // Every command here is a local object/ref read, so any point of the flow can
 // measure freshness without paying for, or waiting on, the network.
-function reportStatus(repoRoot, { local, trackingRef, remote }, output, run) {
-  const tracked = optionalRefOid(repoRoot, trackingRef, run);
+// `--status` is free at any point of the flow (20260811-163204): it answers
+// from whatever remote-tracking copies of the state ref already exist, without
+// resolving any remote — resolution can legitimately be ambiguous (several
+// remotes, none called origin) and a freshness report must not fail for it.
+function reportStatus(repoRoot, { local }, output, run) {
+  const copies = run(
+    ['for-each-ref', '--format=%(refname) %(objectname)', `refs/remotes/*/${STATE_BRANCH}`],
+    repoRoot,
+  )
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [refname, oid] = line.split(' ');
+      return { refname, oid };
+    });
   output.log(`Local  ${STATE_REF} ${local}`);
-  if (tracked === null) {
-    output.log(`Remote ${trackingRef} — never fetched`);
+  if (copies.length === 0) {
     output.log(
-      `Relation: unknown — no remote-tracking copy of the state ref yet; run \`changeledger sync\` to fetch ${remote}`,
+      `Relation: unknown — no remote-tracking copy of the state ref yet; run \`changeledger sync\` to fetch one`,
     );
     return 0;
   }
-  output.log(`Remote ${trackingRef} ${tracked} (as of the last fetch)`);
-  const relation = classify(repoRoot, local, tracked, run);
-  const explanation = {
-    identical: 'identical — the last fetch and the local journal agree',
-    behind: 'behind — the fetched copy carries documents this journal lacks',
-    ahead: 'ahead — this journal carries documents the fetched copy lacks',
-    diverged: 'diverged — both sides moved since they last agreed',
-  }[relation];
-  output.log(`Relation: ${explanation}`);
+  for (const { refname, oid } of copies) {
+    output.log(`Remote ${refname} ${oid} (as of the last fetch)`);
+    const relation = classify(repoRoot, local, oid, run);
+    const explanation = {
+      identical: 'identical — the last fetch and the local journal agree',
+      behind: 'behind — the fetched copy carries documents this journal lacks',
+      ahead: 'ahead — this journal carries documents the fetched copy lacks',
+      diverged: 'diverged — both sides moved since they last agreed',
+    }[relation];
+    output.log(`Relation: ${explanation}`);
+  }
   return 0;
 }
 
@@ -269,14 +284,14 @@ export function sync(
     );
   }
 
+  if (status) return reportStatus(repoRoot, { local }, output, run);
+
   const remote = resolveRemote(repoRoot, run);
   if (remote === null) {
     output.log(`No Git remote is configured — ${STATE_REF} stays local. Nothing to sync.`);
     return 0;
   }
   const trackingRef = `refs/remotes/${remote}/${STATE_BRANCH}`;
-
-  if (status) return reportStatus(repoRoot, { local, trackingRef, remote }, output, run);
 
   const fetched = fetchState(repoRoot, remote, run);
   if (fetched === 'unreachable') {
