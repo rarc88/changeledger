@@ -2,7 +2,7 @@
 id: "20260811-110629"
 title: Aterrizar lotes de documentos y eventos en una entrada
 type: feature
-status: in-review
+status: in-progress
 created: 2026-08-11T11:06:29Z
 depends_on: []
 branch: feature/20260811-110629
@@ -175,3 +175,4 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 - **2026-08-11T11:31:58Z** `[note]` Implementación cerrada (CR1–CR7; CR8 queda para el primer uso real). Decisiones que el documento no fijaba: (1) el manifiesto es un array JSON de entradas, sin envelope ni resumen del autor — el subject `apply: <resumen>` se genera de las entradas y se trunca a 96 caracteres con `+N more`; (2) una entrada `new` admite `slug` opcional para nombrar el archivo y, si falta, se deriva del título del propio documento; (3) las entradas de evento nombran su change con `id` y llevan los argumentos de su comando individual: status `to`, log `message`, task `action`/`n`/`reason`, owner `name` (`-` limpia); (4) una op fuera de las cuatro del agente se rechaza nombrando su comando dueño cuando lo tiene, y como `unknown op` si no; (5) los warnings de `check` sobre el candidato se reportan en los dos modos, no solo en `--dry-run`; (6) el error de una entrada se etiqueta con su posición más su `target` (documento) u `op` (evento); (7) `writeLedgerFiles` no necesitó extensión — ya aterriza N entradas en un commit CAS; `apply` solo crea los directorios que falten antes de la llamada en modo inactivo; (8) un manifiesto vacío es no-op válido, no error de forma; (9) si dos entradas tocan el mismo documento, la idempotencia se juzga contra lo que sostiene el ledger, no contra la entrada anterior. Las guardas por entrada se reutilizan como costuras extraídas (prepareChangeEdit/prepareSpecEdit en edit.mjs, prepareNewChange en new.mjs, statusMutation/ownerMutation/logMutation/taskMutation y assertStatusDestinationAllowed en agent.mjs), sin copiar política.
 - **2026-08-11T11:34:11Z** `[status]` in-progress → in-review
 - **2026-08-11T11:34:12Z** `[note]` Mandato del review: auditoría completa del diff dev..HEAD — comando de escritura por lotes nuevo MÁS la extracción de asientos compartidos de edit/new/agent (riesgo prioritario: deriva de comportamiento en los comandos individuales refactorizados); CR8 queda para el dogfood del orquestador tras el cierre
+- **2026-08-11T11:42:38Z** `[review]` in-review → in-progress (retry): F1: apply --dry-run imprime los errores de checkRepo(candidate) pero sale con exit 0 (apply.mjs ~86 computa errors sin gatearlos), así que componer→dry-run→aterrizar no es puerta programática: un script aterriza un lote que pnpm verify rechaza después. Corregir: exit distinto de cero en dry-run cuando el candidato lleva errores, con test que lo pinee
