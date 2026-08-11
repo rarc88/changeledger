@@ -87,9 +87,18 @@ Alternativas descartadas:
 - Permitir transiciones humanas en el lote: abarataría exactamente la
   auditabilidad que la tabla de dueños existe para proteger.
 
+El comando acepta `--dry-run`: valida el manifiesto completo — errores y
+warnings de `check` sobre el candidato resultante — sin escribir nada, para
+que el ciclo componer→corregir itere en local y el journal reciba UNA
+entrada ya limpia. Evidencia del 2026-08-11: crear el draft de este mismo
+change costó 3 entradas (`new` + 2 `edit`) porque los warnings solo
+aparecían tras aterrizar.
+
 Escenarios: arranque de change (status+owner+log en una entrada); creación
 de varios drafts de una tanda (N `new` en una entrada, sustituyendo al
-vehículo+import de la etapa 2); corrección de frontmatter en lote;
+vehículo+import de la etapa 2); corrección de frontmatter en lote (el caso
+real del 2026-08-11: restaurar el owner de ~9 changes archivados debe costar
+una entrada, no nueve); componer→dry-run→corregir→aterrizar una vez;
 manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 
 ## Specification
@@ -124,7 +133,12 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 - **When** se ejecuta `changeledger apply`
 - **Then** el efecto sobre el worktree es el mismo que los comandos individuales y no se crea ningún commit en ninguna ref
 
-### CR7 — Primer uso end-to-end
+### CR7 — dry-run valida todo sin escribir
+- **Given** un manifiesto cuyo candidato produciría un warning de `check` (p. ej. una mención sin declarar) y otro manifiesto limpio
+- **When** se ejecuta `changeledger apply --dry-run` con cada uno
+- **Then** el primero reporta el warning exacto que `check` daría tras aterrizar y el segundo reporta limpio, la ref queda inmóvil en ambos y ningún archivo del worktree cambia
+
+### CR8 — Primer uso end-to-end
 - **Given** este propio repo activado y la próxima tanda real de trabajo
 - **When** se arranca un change con un solo `apply` (status+owner+log) y se draftean dos documentos de una tanda con otro
 - **Then** el journal gana exactamente dos entradas para lo que hoy costaba cinco o más, con `list`/`show`/viewer sirviendo el resultado idéntico al de los comandos individuales
@@ -141,13 +155,13 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Target:** `src/commands/apply.mjs`, `src/change-store.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR1, CR3, CR5
-- [ ] Camino inactivo
+- [ ] Camino inactivo y `--dry-run`
   - **Target:** `src/commands/apply.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
-  - **Criteria:** CR6
+  - **Criteria:** CR6, CR7
 - [ ] Dogfood del primer uso real y suite completa
   - **Target:** `src/commands/apply.mjs`
   - **Verify:** `pnpm test`
-  - **Criteria:** CR7
+  - **Criteria:** CR8
 
 ## Log
