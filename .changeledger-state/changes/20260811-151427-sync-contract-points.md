@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T15:14:27Z
 depends_on: []
+reviewed: true
 branch: quick/20260811-151427
 related_to: []
 owner: rarc88
@@ -34,3 +35,4 @@ disciplina vigente; si no cabe, parar y devolver al humano.
 - **2026-08-11T16:15:57Z** `[status]` in-progress → in-validation
 - **2026-08-11T16:42:40Z** `[note]` CR7 en curso: nota escrita desde el clon como lado B de la divergencia del experimento
 - **2026-08-11T17:51:21Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T17:51:55Z** `[graduation]` skipped: la verdad duradera vive en templates/contract/core.md (bloque de sync) y el concept guard 15 versionados
