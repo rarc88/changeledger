@@ -85,6 +85,7 @@ Ninguna propuesta se convierte en un change por cuenta propia. Solo si el humano
 - **Un change con cierre durable es terminal.** Antes de graduación/skip, archive o release, `done` puede reabrirse con razón sólo para su alcance original; lo posterior o más amplio requiere un change nuevo.
 - **El humano decide en los momentos clave**: qué alcance se autoriza, si un borrador se aprueba, si una ampliación material se incorpora y si el resultado final es aceptable.
 - **El agente decide en la ejecución dentro del alcance autorizado**: cómo dividir el trabajo, cuándo commitear y qué tamaño de subagente usar para la revisión.
+- **Commit es confianza.** ChangeLedger no defiende contra quien ya puede escribir en el repositorio: esa defensa pertenece a la plataforma git y a sus protecciones de rama. Todo endurecimiento adversarial se mide contra este modelo de confianza antes de incorporarse.
 
 ---
 
