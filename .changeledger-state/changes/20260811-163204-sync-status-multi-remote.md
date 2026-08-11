@@ -2,9 +2,10 @@
 id: "20260811-163204"
 title: sync --status no exige resolver el remoto
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-11T16:32:04Z
 depends_on: []
+branch: quick/20260811-163204
 related_to: ["20260811-151426"]
 owner: rarc88
 ---
@@ -21,3 +22,5 @@ decirlo), sin resolver ningún remoto ni ejecutar red.
 
 ## Log
 - **2026-08-11T16:32:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T16:49:56Z** `[status]` approved → in-progress
+- **2026-08-11T16:49:56Z** `[branch]` set: quick/20260811-163204 (auto)
