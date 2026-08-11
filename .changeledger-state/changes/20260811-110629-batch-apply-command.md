@@ -5,7 +5,7 @@ type: feature
 status: draft
 created: 2026-08-11T11:06:29Z
 depends_on: []
-related_to: []
+related_to: ["20260810-182641"]
 owner: rarc88
 ---
 
@@ -146,7 +146,7 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR6
 - [ ] Dogfood del primer uso real y suite completa
-  - **Support:**
+  - **Target:** `src/commands/apply.mjs`
   - **Verify:** `pnpm verify`
   - **Criteria:** CR7
 
