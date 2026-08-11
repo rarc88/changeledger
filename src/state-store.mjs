@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertCommitObject, capturedRun, sanitizedEnv } from './git.mjs';
+import { assertCommitObject, capturedRun, isAncestor, sanitizedEnv } from './git.mjs';
 import { assertRegularBlobEntry, batchBlobReader, treeEntries } from './git-batch.mjs';
 import { parseYaml, stringifyYaml } from './yaml.mjs';
 
@@ -118,6 +118,23 @@ function buildTree(repoRoot, { base, writes, removals }) {
   });
 }
 
+// Builds a tree from an EXACT set of already-hashed entries (`{ path, mode, oid
+// }`), with no base to inherit from: what a reconciliation needs, where every
+// entry was chosen from one of three existing trees and no content is
+// rehashed, so a document that crosses a merge keeps its bytes and its oid.
+function buildTreeFromEntries(repoRoot, entries) {
+  return withTempIndex((indexFile) => {
+    for (const { path: full, mode, oid } of entries) {
+      indexedRun(
+        ['update-index', '--add', '--cacheinfo', `${mode},${oid},${full}`],
+        repoRoot,
+        indexFile,
+      );
+    }
+    return indexedRun(['write-tree'], repoRoot, indexFile).trim();
+  });
+}
+
 function commitTree(repoRoot, tree, { parents = [], message }, run) {
   const args = ['commit-tree', tree];
   for (const parent of parents) args.push('-p', parent);
@@ -140,7 +157,7 @@ function commitTree(repoRoot, tree, { parents = [], message }, run) {
 // including advice that may be benign, deliberately fails closed: filtering
 // warning classes could hide the corrupt-ref diagnostic this distinction
 // exists to preserve.
-function optionalRefOid(repoRoot, ref, run) {
+export function optionalRefOid(repoRoot, ref, run = capturedRun) {
   try {
     const out = run(['rev-parse', '--verify', '--quiet', ref], repoRoot);
     return out.trim() || null;
@@ -167,6 +184,26 @@ function toFullPath(relPath) {
     throw new Error(`invalid state path: ${relPath}`);
   }
   return path.posix.join(STATE_ROOT, relPath);
+}
+
+// Every move of the state ref, from every writer, goes through this one
+// compare-and-swap. Only a ref that no longer holds `expectedRevision` is a CAS
+// conflict: re-reading the tip tells that apart from a failure that left the ref
+// exactly where it was (a stale `.lock`, a permissions error), which relabeling
+// as "state ref moved" would both self-contradict (expected X, found X) and hide.
+function casUpdateStateRef(repoRoot, revision, expectedRevision, run) {
+  try {
+    run(['update-ref', STATE_REF, revision, expectedRevision], repoRoot);
+  } catch (e) {
+    const current = refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e);
+    if (current !== expectedRevision) {
+      throw new LedgerConflictError(
+        `state ref moved: expected ${expectedRevision}, found ${current ?? 'no ref'} — reload and retry`,
+        { cause: e },
+      );
+    }
+    throw e;
+  }
 }
 
 // --- state ref: init, read, snapshot, mutate ----------------------------
@@ -344,26 +381,8 @@ export function mutateState(
   };
   mutator({ write, remove });
 
-  const advanceOrConflict = (newRevision) => {
-    try {
-      run(['update-ref', STATE_REF, newRevision, expectedRevision], repoRoot);
-    } catch (e) {
-      // Only a genuine old-value mismatch is a CAS conflict. Re-reading the
-      // tip tells the two apart: if it still equals `expectedRevision`, the
-      // ref never moved — the failure is something else entirely (a stale
-      // `.lock`, a permissions error) and relabeling it "state ref moved"
-      // would be self-contradicting (expected X, found X) and would hide the
-      // real cause from the caller.
-      const current = refOidAfterUpdateFailure(repoRoot, STATE_REF, run, e);
-      if (current !== expectedRevision) {
-        throw new LedgerConflictError(
-          `state ref moved: expected ${expectedRevision}, found ${current ?? 'no ref'} — reload and retry`,
-          { cause: e },
-        );
-      }
-      throw e;
-    }
-  };
+  const advanceOrConflict = (newRevision) =>
+    casUpdateStateRef(repoRoot, newRevision, expectedRevision, run);
 
   if (writes.size === 0 && removals.size === 0) {
     advanceOrConflict(expectedRevision);
@@ -387,6 +406,90 @@ export function mutateState(
 
   const commit = commitTree(repoRoot, candidateTree, { parents: [expectedRevision], message }, run);
   advanceOrConflict(commit);
+  return readSnapshot(repoRoot, { revision: commit }, run);
+}
+
+// Fast-forwards the state ref from `expectedRevision` onto `revision` — the
+// move `sync` needs when another clone's journal already contains this one's.
+// No commit is created: the local journal adopts a history it is fully
+// contained in. Three guards, all before any ref moves, keep that claim true
+// instead of trusting the caller's classification:
+//
+// - `revision` must be a commit OBJECT (never an annotated tag peeled to one);
+// - `expectedRevision` must be an ancestor of it, so a "fast-forward" that
+//   would actually drop local journal entries is refused rather than performed;
+// - its tree must be a valid state layout, read in full — a ref fetched from a
+//   remote is untrusted input, and adopting a foreign or non-UTF-8 tree would
+//   only fail later, on the next read, with the ledger already moved.
+export function advanceStateRef(repoRoot, { expectedRevision, revision } = {}, run = capturedRun) {
+  if (typeof expectedRevision !== 'string' || expectedRevision === '') {
+    throw new Error('advanceStateRef requires expectedRevision');
+  }
+  if (typeof revision !== 'string' || revision === '') {
+    throw new Error('advanceStateRef requires a revision');
+  }
+  assertCommitObject(repoRoot, revision, run);
+  if (!isAncestor(repoRoot, expectedRevision, revision, run)) {
+    throw new Error(
+      `cannot fast-forward ${STATE_REF} to ${revision}: it does not contain ${expectedRevision}`,
+    );
+  }
+  const snapshot = readSnapshot(repoRoot, { revision }, run);
+  casUpdateStateRef(repoRoot, revision, expectedRevision, run);
+  return snapshot;
+}
+
+// Lands a reconciled state tree as ONE commit with BOTH parents: the local tip
+// this CAS is taken against, and the other side's tip, whose history is
+// preserved whole rather than replayed. A rebase would rewrite commits every
+// other clone has already CAS'd against, so it is not an option here — the
+// merge commit is.
+//
+// `entries` is the COMPLETE final tree as `{ path, mode, oid }` (the shape
+// `treeEntries` yields), never a delta: the caller decided per document which
+// side wins, and this primitive refuses to guess. It validates that decision
+// before anything is written — every entry a regular blob at a layout-valid
+// path, and the manifest and config both present — because a tree assembled
+// from a remote's objects is untrusted input.
+export function commitMergedState(
+  repoRoot,
+  { expectedRevision, otherRevision, entries, message } = {},
+  run = capturedRun,
+) {
+  if (typeof expectedRevision !== 'string' || expectedRevision === '') {
+    throw new Error('commitMergedState requires expectedRevision');
+  }
+  if (typeof otherRevision !== 'string' || otherRevision === '') {
+    throw new Error('commitMergedState requires otherRevision');
+  }
+  if (typeof message !== 'string' || message === '') {
+    throw new Error('commitMergedState requires a commit message');
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error('commitMergedState requires the complete merged tree entries');
+  }
+  assertCommitObject(repoRoot, expectedRevision, run);
+  assertCommitObject(repoRoot, otherRevision, run);
+
+  const names = new Set();
+  for (const entry of entries) {
+    assertRegularBlobEntry(entry.mode, entry.path, entry.type);
+    if (!statePathIsValid(entry.path)) throw new Error(`invalid state path: ${entry.path}`);
+    if (names.has(entry.path)) throw new Error(`duplicate state path: ${entry.path}`);
+    names.add(entry.path);
+  }
+  for (const required of [MANIFEST, CONFIG]) {
+    if (!names.has(required)) throw new Error(`merged state is missing ${required}`);
+  }
+
+  const tree = buildTreeFromEntries(repoRoot, entries);
+  const commit = commitTree(
+    repoRoot,
+    tree,
+    { parents: [expectedRevision, otherRevision], message },
+    run,
+  );
+  casUpdateStateRef(repoRoot, commit, expectedRevision, run);
   return readSnapshot(repoRoot, { revision: commit }, run);
 }
 
