@@ -406,6 +406,50 @@ tocar el exit 0 ni la ref; un source sin config o con config inparseable no
 produce aviso falso, y el help del comando declara que la validación cubre lo
 visible bajo el layout del snapshot, no "el source entero".
 
+## Sincronización del estado global
+
+`changeledger sync` (`src/commands/sync.mjs`, `20260811-151426`) transporta
+la ref de estado por git puro sobre el remoto configurado (`origin`, o el
+único; varios sin `origin` es error explícito del camino mutador), sin
+adaptadores por proveedor. Siempre compara antes de mover: fetch de la copia
+remote-tracking y clasificación en cuatro estados — idéntico (no-op), remoto
+delante (fast-forward local por CAS), local delante (push, nunca forzado: el
+chequeo fast-forward del remoto es su CAS), o divergencia. Una divergencia
+cuyos lados tocan documentos disjuntos respecto del merge-base se reconcilia
+sola: árbol unido aterrizado como UN commit con ambos padres (los dos
+journals se preservan íntegros; un rebase reescribiría commits que otros
+clones ya CAS-aron) y publicado. El mismo documento cambiado distinto en
+ambos lados — change, spec, config o manifest; el caso probable son dos
+graduaciones concurrentes de la misma spec — es conflicto fail-closed: nada
+se escribe, el reporte nombra cada documento con ambos tips y su clase, y la
+resolución la coordina el humano (el fragmento de contrato de `20260811-151427`
+posee los puntos estratégicos y el protocolo). Byte-idéntico en ambos lados
+no es colisión.
+
+Nunca bloqueante y desacoplado: sin remoto es no-op informativo; un fallo de
+red es aviso con exit 0 (el push rechazado por carrera sí es exit distinto de
+cero: el remoto está vivo y la orden es re-ejecutar, sin pérdida local);
+ningún otro comando consulta ni espera a sync. `sync --status` es offline
+puro: enumera las copias remote-tracking existentes de la ref
+(`for-each-ref`, sin resolver ningún remoto — `20260811-163204`) y reporta la
+relación por cada una desde el último fetch, que el push exitoso avanza para
+no quedar stale.
+
+La activación nunca viaja con la ref: es la decisión local de cada checkout.
+Un clon fresco trae la ref solo como copia remote-tracking, y
+`changeledger activate` la siembra (`seedStateRef`, `20260811-163203`): CAS
+de creación contra ausencia con el árbol leído y validado ANTES de que la
+ref exista. `sync` en un repo con la ref presente y sin activar es no-op que
+nombra `activate` — el paso manual único por clon nunca es invisible y un
+fetch jamás cambia el modo de operación de un repo.
+
+El invariante del store es uno y ahora es uniforme (`20260811-163205`): la
+ref nunca apunta a una revisión que ningún lector pueda cargar — todo camino
+que la mueve (`mutateState`, `advanceStateRef`, `commitMergedState`,
+`seedStateRef`) valida el snapshot resultante ANTES del CAS; un commit que
+queda sin referenciar es basura recolectable, una ref movida a un árbol
+ilegible sería un ledger roto.
+
 ## API documental del visor
 
 `GET /api/ledger-tree?project=<id>` entrega las categorías documentales como
