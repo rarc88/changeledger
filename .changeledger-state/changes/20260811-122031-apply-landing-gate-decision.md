@@ -2,7 +2,7 @@
 id: "20260811-122031"
 title: Decidir si el aterrizaje de apply gatea errores del candidato
 type: quick
-status: draft
+status: approved
 created: 2026-08-11T12:20:31Z
 depends_on: []
 related_to: ["20260811-110629"]
@@ -25,3 +25,4 @@ dirección recomendada; si el humano prefiere mantener la paridad laxa, se
 descarta este change con esa razón.
 
 ## Log
+- **2026-08-11T14:16:18Z** `[status]` draft → approved (human via conversation)
