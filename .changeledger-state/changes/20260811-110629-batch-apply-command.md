@@ -2,7 +2,7 @@
 id: "20260811-110629"
 title: Aterrizar lotes de documentos y eventos en una entrada
 type: feature
-status: in-progress
+status: in-review
 created: 2026-08-11T11:06:29Z
 depends_on: []
 branch: feature/20260811-110629
@@ -176,3 +176,4 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 - **2026-08-11T11:34:11Z** `[status]` in-progress → in-review
 - **2026-08-11T11:34:12Z** `[note]` Mandato del review: auditoría completa del diff dev..HEAD — comando de escritura por lotes nuevo MÁS la extracción de asientos compartidos de edit/new/agent (riesgo prioritario: deriva de comportamiento en los comandos individuales refactorizados); CR8 queda para el dogfood del orquestador tras el cierre
 - **2026-08-11T11:42:38Z** `[review]` in-review → in-progress (retry): F1: apply --dry-run imprime los errores de checkRepo(candidate) pero sale con exit 0 (apply.mjs ~86 computa errors sin gatearlos), así que componer→dry-run→aterrizar no es puerta programática: un script aterriza un lote que pnpm verify rechaza después. Corregir: exit distinto de cero en dry-run cuando el candidato lleva errores, con test que lo pinee
+- **2026-08-11T11:49:32Z** `[status]` in-progress → in-review
