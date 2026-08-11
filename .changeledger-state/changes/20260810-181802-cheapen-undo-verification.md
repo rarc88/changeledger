@@ -5,6 +5,7 @@ type: refactor
 status: done
 created: 2026-08-10T18:18:02Z
 depends_on: []
+archived: true
 reviewed: true
 branch: refactor/20260810-181802
 related_to: ["20260809-194233", "20260809-131004"]
@@ -83,3 +84,4 @@ Escenario: undo del cutover real de este repo (319 documentos) — hoy paga
 - **2026-08-10T23:02:14Z** `[note]` Corrección del review (F3): el mutante de revisión-equivocada lo matan CR1 y todos los tests de undo del camino feliz, no los fixtures de 'cannot be read' — ningún fixture asevera ese mensaje. La nota anterior lo atribuía mal
 - **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:10Z** `[graduation]` skipped: refactor sin cambio de comportamiento: la puerta del undo que architecture.md describe queda idéntica, solo su coste
+- **2026-08-11T00:36:12Z** `[archive]` archived

@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:32Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-213632
 related_to: ["20260810-182641"]
@@ -36,3 +37,4 @@ conflicto vive mejor ahí); cada pin con su mutante aislado.
 - **2026-08-10T21:59:53Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:10Z** `[graduation]` skipped: test-only: pins de guardas ya documentadas por la graduación de 182641
+- **2026-08-11T00:36:12Z** `[archive]` archived

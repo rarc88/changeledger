@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:34Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-213634
 related_to: []
@@ -29,3 +30,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-10T21:44:03Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:11Z** `[graduation]` skipped: la verdad duradera es el propio fragmento versionado templates/contract/implement.md
+- **2026-08-11T00:36:12Z** `[archive]` archived

@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T18:04:34Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-180434
 related_to: ["20260810-120457"]
@@ -39,3 +40,4 @@ nueva ni verdad persistente.
 - **2026-08-10T22:44:38Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:19Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:35:55Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T00:36:12Z** `[archive]` archived

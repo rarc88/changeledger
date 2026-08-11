@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:35Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-213635
 related_to: ["20260810-182641"]
@@ -35,3 +36,4 @@ con la misma disciplina: si no cabe, volver al humano.
 - **2026-08-10T21:48:28Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:22Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:11Z** `[graduation]` skipped: la verdad duradera es el propio fragmento versionado templates/contract/spec.md
+- **2026-08-11T00:36:12Z** `[archive]` archived

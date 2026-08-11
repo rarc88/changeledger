@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T17:55:19Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-175519
 related_to: []
@@ -39,3 +40,4 @@ persistente.
 - **2026-08-10T17:59:49Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:19Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:09Z** `[graduation]` skipped: test-only: retarget de un test a la autoridad de lectura, sin verdad persistente
+- **2026-08-11T00:36:12Z** `[archive]` archived

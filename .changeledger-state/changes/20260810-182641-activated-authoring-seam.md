@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-10T18:26:41Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20260810-182641
 related_to: ["20260810-181801", "20260810-180434", "20260810-181803", "20260808-151643"]
@@ -194,3 +195,4 @@ reconciliación de spec en activado; el mismo flujo en un repo inactivo.
 - **2026-08-10T21:05:03Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-10T21:19:07Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-10T21:20:05Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T00:36:12Z** `[archive]` archived
