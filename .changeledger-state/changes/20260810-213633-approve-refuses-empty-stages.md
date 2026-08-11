@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:33Z
 depends_on: []
+reviewed: true
 branch: quick/20260810-213633
 related_to: ["20260810-181801"]
 owner: claude
@@ -34,3 +35,4 @@ debería rechazarse igual — verificar y pinear ese borde de paso.
 - **2026-08-10T22:32:24Z** `[note]` Migrated the shared fixture helpers per authorization (centralized root cause confirmed). Helper seats touched: repoWithChore(), repoWithAudit(), repoWithUnreadyChange(), repoWithTwoSamePrefix() in test/agent.test.mjs plus repoWithChange() (already patched earlier); draftChange()'s new fillNarrativeStages/fillFeatureStages helpers in test/view.test.mjs, reused at 6 individual call sites that build their own inline scaffold instead of going through draftChange(); one inline fixture edit each in test/cli-bin.test.mjs (125139 CR1 chore, 141944 CR6 feature, CR6 graduate --into chore, review wiring fail --block feature) and test/cli.test.mjs (124656 CR3). Residual individually-edited tests: 12 (7 in view.test.mjs's inline scaffolds, 4 in cli-bin.test.mjs, 1 in cli.test.mjs) — within the <=15 bound, no STOP needed. Judgment calls: (1) tests that reach 'done' via validation pass needed an explicit  before the pass — this is a pre-existing 'done'-severity check (assertChangeTextValid at validation()) surfaced only because the newly non-empty Plan stage now carries a real task; not part of the emptiness gate itself, called out so it isn't mistaken for scope creep. (2) 150231 CR2's fixture (deliberately incomplete task, asserts the rejection) got only fillNarrativeStages (Request/Investigation/Proposal/Specification), not the Plan default-fill, to preserve its single-incomplete-task semantics — a new fillNarrativeStages helper was split out for this. No defectiveDraft-style negative-empty-draft test needed touching; those assert on the emptiness itself. Gate unchanged from the transition-scoped assertStagesNotEmpty design. Final gate: pnpm lint exit 0, pnpm test exit 0 (1399 pass), node bin/changeledger.mjs check exit 0 (11 valid), GIT_DIR=/nonexistent/fake.git pnpm test exit 0 (1399 pass) — confirms no hidden git-dependent env leakage in the new code.
 - **2026-08-10T22:34:29Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T00:36:10Z** `[graduation]` skipped: la verdad normativa del gate vive en el flujo de aprobación de INTENT.md y el asiento status() ya documentado; sin spec afectada
