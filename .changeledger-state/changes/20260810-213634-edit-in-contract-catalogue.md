@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:34Z
 depends_on: []
+reviewed: true
 branch: quick/20260810-213634
 related_to: []
 owner: claude
@@ -27,3 +28,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-10T21:44:03Z** `[note]` Línea de edit añadida al catálogo de implement.md (forma completa + acotación: solo contenido, nunca lifecycle; única vía de cuerpo en activado). Budgets verificados por la suite (1396/1396): el fragmento sigue bajo techo
 - **2026-08-10T21:44:03Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T00:36:11Z** `[graduation]` skipped: la verdad duradera es el propio fragmento versionado templates/contract/implement.md
