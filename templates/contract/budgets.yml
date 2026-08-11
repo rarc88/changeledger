@@ -1,8 +1,8 @@
 {
   "base": {
     "core": { "tokens": 4000, "lines": 400 },
-    "spec": { "tokens": 2500, "lines": 250 },
-    "implement": { "tokens": 2500, "lines": 250 },
+    "spec": { "tokens": 3000, "lines": 300 },
+    "implement": { "tokens": 3000, "lines": 300 },
     "review": { "tokens": 2500, "lines": 250 },
     "release": { "tokens": 2500, "lines": 250 }
   },

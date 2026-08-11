@@ -1925,8 +1925,8 @@ function declaredCeilings() {
 // not in a second copy.
 const PINNED_CEILINGS = {
   'base.core': { tokens: 4000, lines: 400 },
-  'base.spec': { tokens: 2500, lines: 250 },
-  'base.implement': { tokens: 2500, lines: 250 },
+  'base.spec': { tokens: 3000, lines: 300 },
+  'base.implement': { tokens: 3000, lines: 300 },
   'base.review': { tokens: 2500, lines: 250 },
   'base.release': { tokens: 2500, lines: 250 },
   agent: { tokens: 1250, lines: 125 },
@@ -1983,18 +1983,23 @@ test('20260728-212043 CR1: every lines ceiling is exactly its tokens ceiling div
   assert.equal(contextBudgets.base.core.lines, 400, 'base.core.lines must derive to 400');
 });
 
-// 20260728-212043 CR7: the token ceilings themselves are three decided values —
+// 20260728-212043 CR7: the token ceilings themselves are a few decided values —
 // core, contexts, everything else — not eleven independent numbers.
 //
 // 20260730-002908 removed the last exception: `base.spec` sat on a 3450 scaffold
-// whose exit condition was the authoring pack's refactor, and that refactor landed,
-// so spec now takes the same 2500 contexts share as the others. There is no scaffold
-// key left in the file and no entry outside the three values — the loop below sweeps
-// every context including spec, so a future widening cannot reintroduce a private
-// number without failing here.
-test('20260728-212043 CR7: token ceilings are the three decided values, with no scaffolded exception', () => {
+// whose exit condition was the authoring pack's refactor, and that refactor landed.
+// 20260811-122030 (human decision, 2026-08-11): the authoring and execution packs
+// — spec and implement — sat at 11 tokens of headroom, so both moved to a decided
+// 3000 while review/release keep 2500; headroom is still never licence to spend.
+// There is no scaffold key left in the file and no entry outside the decided
+// values — the loop below sweeps every context including spec, so a future
+// widening cannot reintroduce a private number without failing here.
+test('20260728-212043 CR7: token ceilings are the decided values, with no scaffolded exception', () => {
   assert.equal(contextBudgets.base.core.tokens, 4000, 'core token ceiling moved');
-  for (const context of ['spec', 'implement', 'review', 'release']) {
+  for (const context of ['spec', 'implement']) {
+    assert.equal(contextBudgets.base[context].tokens, 3000, `${context} token ceiling moved`);
+  }
+  for (const context of ['review', 'release']) {
     assert.equal(contextBudgets.base[context].tokens, 2500, `${context} token ceiling moved`);
   }
   assert.equal(contextBudgets.agent.tokens, 1250, 'agent token ceiling moved');
