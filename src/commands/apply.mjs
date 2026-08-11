@@ -88,10 +88,20 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
   const changed = writes.map((w) => w.relPath ?? w.file);
   const message = `apply: ${summarize(descriptors)}`;
 
+  if (dryRun) {
+    // The dry run exists so `compose → correct → land once` can be SCRIPTED, so
+    // its verdict has to be programmatic, not printed: a composer running
+    // `apply --dry-run && apply` must stop here on exactly what `check` would
+    // refuse after landing, or the batch lands and the next gate rejects it.
+    // Warnings stay informative — `check` reports them and still exits 0.
+    assertCandidateClean(errors);
+    return { changed, warnings, errors, message, dryRun, statusWarnings };
+  }
+
   // Net-empty is a no-op by contract (CR5): a manifest whose entries all
   // reproduce what the ledger already holds spends no journal entry, exactly as
   // a byte-identical `edit` spends none.
-  if (dryRun || writes.length === 0) {
+  if (writes.length === 0) {
     return { changed, warnings, errors, message, dryRun, statusWarnings };
   }
 
@@ -104,6 +114,19 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
     { message },
   );
   return { changed, warnings, errors, message, dryRun, statusWarnings };
+}
+
+// The dry run's refusal, shaped like `edit`'s own: every error named with its
+// file, and nothing written anywhere. Landing does NOT run this — a landing
+// batch stays at parity with the individual `edit`, whose gate is the
+// per-document scoped check each entry already passed.
+function assertCandidateClean(errors) {
+  if (!errors.length) return;
+  throw new Error(
+    `apply dry run refused, nothing was written — the resulting candidate carries ${errors.length} validation error(s):\n${errors
+      .map((e) => `  ${e.file}: ${e.message}`)
+      .join('\n')}`,
+  );
 }
 
 function applyEntry(entry, context) {

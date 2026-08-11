@@ -4,7 +4,7 @@
 // every per-entry guard is the same one its individual command applies.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -65,7 +65,7 @@ function inactiveRepo() {
 // The worktree copies are removed before activation, so any read or write that
 // fell back to disk fails outright instead of silently succeeding on a stale
 // document.
-function activatedRepo({ status = 'draft' } = {}) {
+function activatedRepo({ status = 'draft', spec = specText() } = {}) {
   const { root, file, name, text: draft, id } = baseRepo();
   const text = draft.replace('status: draft', `status: ${status}`);
   const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
@@ -77,7 +77,7 @@ function activatedRepo({ status = 'draft' } = {}) {
     '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
     '.changeledger-state/config.yml': configText,
     [`.changeledger-state/changes/${name}`]: text,
-    [`.changeledger-state/specs/${SPEC_NAME}`]: specText(),
+    [`.changeledger-state/specs/${SPEC_NAME}`]: spec,
   });
   const revision = commitTree(root, tree, { message: 'chore: state' });
   updateRef(root, STATE_REF, revision);
@@ -366,6 +366,69 @@ test('CR7: dry-run in an inactive repo leaves every worktree file untouched', ()
     false,
   );
   assert.equal(git(root, ['status', '--porcelain', '.changeledger']), '');
+});
+
+// A spec carrying a change-local criterion heading: a repo-wide `check` ERROR
+// that the per-entry guards of a change-only manifest are not scoped to see,
+// so it reaches the candidate exactly as it would reach `check` after landing.
+const erroringSpec = specText('## CR1 — criterio local\n\nTexto.');
+
+test('CR7: dry-run refuses a candidate that carries check errors', () => {
+  const { root, text, id } = activatedRepo({ spec: erroringSpec });
+  const tip = stateTip(root);
+
+  assert.throws(
+    () =>
+      apply(
+        {
+          dryRun: true,
+          from: manifest(root, [{ target: `change:${id}`, content: filled(text, 'Otro cuerpo.') }]),
+        },
+        root,
+      ),
+    (e) => {
+      assert.match(e.message, /dry run/);
+      assert.match(e.message, /demo-spec\.md: spec contains change-local criterion heading "CR1"/);
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+});
+
+test('CR7: dry-run stays clean when the candidate carries only warnings', () => {
+  const { root, id, text } = activatedRepo();
+
+  const result = apply(
+    {
+      dryRun: true,
+      from: manifest(root, [{ target: `change:${id}`, content: filled(text, 'Otro cuerpo.') }]),
+    },
+    root,
+  );
+
+  assert.deepEqual(result.errors, []);
+  assert.ok(result.warnings.length > 0);
+  assert.equal(result.changed.length, 1);
+});
+
+test('CR7: the CLI exits non-zero on a dry run whose candidate carries check errors', () => {
+  const { root, text, id } = activatedRepo({ spec: erroringSpec });
+  const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));
+  const batch = JSON.stringify([{ target: `change:${id}`, content: filled(text, 'Otro cuerpo.') }]);
+  const run = (args) =>
+    spawnSync(process.execPath, [bin, ...args], {
+      cwd: root,
+      env: sanitizedEnv(),
+      input: batch,
+      encoding: 'utf8',
+    });
+
+  const dry = run(['apply', '--from', '-', '--dry-run']);
+  assert.equal(dry.status, 1);
+  assert.match(dry.stderr, /spec contains change-local criterion heading "CR1"/);
+  // Parity with the gate a composer would hit next: `check` refuses the same
+  // candidate, so `apply --dry-run && apply` can no longer walk past it.
+  assert.equal(run(['check']).status, 1);
 });
 
 test('CR1/CR7: the CLI reads the manifest from stdin and refuses to land a dry run', () => {
