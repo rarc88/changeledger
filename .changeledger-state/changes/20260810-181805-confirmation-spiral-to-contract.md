@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T18:18:05Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260810-181805
 related_to: ["20260809-194233"]
@@ -43,3 +44,4 @@ los budgets de `templates/contract/budgets.yml`.
 - **2026-08-11T14:34:32Z** `[status]` in-progress → in-validation
 - **2026-08-11T15:04:45Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T15:04:48Z** `[graduation]` skipped: la verdad duradera vive en templates/contract/review.md, INTENT.md y el concept guard 14 versionados
+- **2026-08-11T15:04:49Z** `[archive]` archived

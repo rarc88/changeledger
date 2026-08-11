@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T12:20:31Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260811-122031
 related_to: ["20260811-110629"]
@@ -35,3 +36,4 @@ descarta este change con esa razón.
 - **2026-08-11T14:30:18Z** `[status]` in-progress → in-validation
 - **2026-08-11T15:04:46Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T15:04:47Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T15:04:49Z** `[archive]` archived
