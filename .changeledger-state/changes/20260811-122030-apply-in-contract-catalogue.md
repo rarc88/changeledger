@@ -2,7 +2,7 @@
 id: "20260811-122030"
 title: Añadir apply al catálogo de comandos del contrato
 type: quick
-status: in-validation
+status: done
 created: 2026-08-11T12:20:30Z
 depends_on: []
 branch: quick/20260811-122030
@@ -30,3 +30,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-11T12:24:29Z** `[status]` in-validation → in-progress
 - **2026-08-11T13:01:10Z** `[note]` Decisión humana (2026-08-11): el pack implement estaba a 2489/2500 con 11 tokens de margen y spec igual de al límite — techos de spec e implement subidos a 3000 tokens en budgets.yml (lines intactos), manteniendo la disciplina: el margen no es licencia para gastarlo, cada entrada sigue optimizada. La entrada de apply se conserva completa (57 tokens)
 - **2026-08-11T13:04:38Z** `[status]` in-progress → in-validation
+- **2026-08-11T14:16:18Z** `[validation]` in-validation → done (human accepted via conversation)
