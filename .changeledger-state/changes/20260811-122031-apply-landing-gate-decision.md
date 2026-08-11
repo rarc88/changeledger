@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T12:20:31Z
 depends_on: []
+reviewed: true
 branch: quick/20260811-122031
 related_to: ["20260811-110629"]
 owner: rarc88
@@ -33,3 +34,4 @@ descarta este change con esa razón.
 - **2026-08-11T14:28:19Z** `[note]` Correccion a la nota anterior: apply NO aplica la exencion de preexistentes en ningun modo (ni dry-run ni landing) -- ambos gatean sobre TODOS los errores del candidato, sin diff contra el estado actual, preservando el contrato ya fijado por el test CR7 existente ('dry-run refuses a candidate that carries check errors' sobre un spec ya roto antes del batch). Solo edit y new --from usan newErrors() para exceptuar errores preexistentes no tocados por la operacion. Motivo: el draft solo pidio la exencion explicitamente para el gate de edit (item 2 y su bloque TDD); apply mantiene el gate tal como ya estaba especificado/testeado, solo extendido a landing con el mismo criterio (todos los errores, sin filtrar).
 - **2026-08-11T14:30:18Z** `[status]` in-progress → in-validation
 - **2026-08-11T15:04:46Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T15:04:47Z** `[graduation]` spec: `architecture.md`
