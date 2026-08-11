@@ -147,7 +147,7 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Criteria:** CR6
 - [ ] Dogfood del primer uso real y suite completa
   - **Target:** `src/commands/apply.mjs`
-  - **Verify:** `pnpm verify`
+  - **Verify:** `pnpm test`
   - **Criteria:** CR7
 
 ## Log
