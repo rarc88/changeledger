@@ -5,6 +5,7 @@ type: feature
 status: done
 created: 2026-08-11T11:06:29Z
 depends_on: []
+archived: true
 reviewed: true
 branch: feature/20260811-110629
 related_to: ["20260810-182641"]
@@ -184,3 +185,4 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 - **2026-08-11T14:16:17Z** `[note]` CR8 ejecutado con trabajo real: tanda de 2 drafts (122030+122031) en UNA entrada de journal + arranque de 122030 (status+log) en UNA — 2 entradas donde el flujo por comandos costaba 5+. Antes, primer uso productivo: restauración del owner de 10 changes archivados en una entrada (112→113). El dry-run cazó un warning de mención antes de aterrizar en su primer uso
 - **2026-08-11T14:16:17Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T14:16:48Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T14:16:49Z** `[archive]` archived

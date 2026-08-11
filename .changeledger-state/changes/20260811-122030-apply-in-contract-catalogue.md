@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T12:20:30Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260811-122030
 related_to: ["20260811-110629", "20260810-213634"]
@@ -33,3 +34,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-11T13:04:38Z** `[status]` in-progress → in-validation
 - **2026-08-11T14:16:18Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T14:16:49Z** `[graduation]` skipped: la verdad duradera vive en templates/contract/implement.md y budgets.yml versionados; el porqué de los techos, en el pin CR7 retargeteado y el Log
+- **2026-08-11T14:16:49Z** `[archive]` archived
