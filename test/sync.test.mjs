@@ -433,3 +433,34 @@ test('20260811-151426 CR6: --status before any fetch says so instead of guessing
   assert.equal(code, 0, err);
   assert.match(out, /never fetched/);
 });
+
+test('20260811-151426 CR3: a reconciliation whose merged tree is invalid leaves the local ref where it was', () => {
+  const { a, b } = syncFixture();
+  const localTip = addChange(a, '20260811-000030');
+  // The other side's manifest is fabricated with raw fixture plumbing: the
+  // store's own mutator refuses to produce an unsupported format_version, and
+  // this scenario needs a remote that carries one anyway.
+  const broken = commitTree(
+    b,
+    buildTree(b, {
+      ...listableStateFiles(),
+      '.changeledger-state/manifest.yml': 'format_version: 99\nproject_id: fixture01\n',
+    }),
+    { parents: [refOid(b, STATE_REF)], message: 'chore: unsupported manifest' },
+  );
+  updateRef(b, STATE_REF, broken);
+  assert.equal(cli(b, 'sync').code, 0, 'the other side publishes it');
+  // `check`'s own verdict on this fixture is not the subject — that it is
+  // UNCHANGED by a failed sync is. (The fixture's state config is minimal, so
+  // check legitimately reports errors before sync ever runs.)
+  const checkBefore = cli(a, 'check').code;
+
+  const { code, err } = cli(a, 'sync');
+
+  assert.notEqual(code, 0, err);
+  assert.equal(refOid(a, STATE_REF), localTip, 'the local ref must not move on an invalid merge');
+  assert.equal(cli(a, 'list').code, 0, 'the ledger must still be readable');
+  assert.equal(cli(a, 'check').code, checkBefore, 'the ledger must still validate as it did');
+  assert.notEqual(cli(a, 'sync').code, 0, 'the failure is idempotent — no half-written state');
+  assert.equal(refOid(a, STATE_REF), localTip);
+});

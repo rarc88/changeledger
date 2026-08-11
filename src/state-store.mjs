@@ -489,8 +489,16 @@ export function commitMergedState(
     { parents: [expectedRevision, otherRevision], message },
     run,
   );
+  // Read BEFORE the CAS, exactly like `advanceStateRef`: the per-entry checks
+  // above judge the tree's shape, but only a full read judges its CONTENT — an
+  // unsupported manifest format_version, a non-UTF-8 blob — and one side of
+  // this merge came from a remote. Validating after the ref moved would leave
+  // the ledger pointing at a revision no reader can load, recoverable only with
+  // a manual `git update-ref`. The commit object may survive unreferenced; an
+  // unreachable object is garbage, while a moved ref is a broken ledger.
+  const snapshot = readSnapshot(repoRoot, { revision: commit }, run);
   casUpdateStateRef(repoRoot, commit, expectedRevision, run);
-  return readSnapshot(repoRoot, { revision: commit }, run);
+  return snapshot;
 }
 
 // --- activation: low-level, checkout-independent ------------------------
