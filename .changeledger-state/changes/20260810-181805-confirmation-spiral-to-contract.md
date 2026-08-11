@@ -38,3 +38,4 @@ los budgets de `templates/contract/budgets.yml`.
 - **2026-08-11T14:16:19Z** `[status]` draft → approved (human via conversation)
 - **2026-08-11T14:31:37Z** `[status]` approved → in-progress
 - **2026-08-11T14:31:37Z** `[branch]` set: quick/20260810-181805 (auto)
+- **2026-08-11T14:34:32Z** `[note]` Cortacircuitos de tercera ronda y clasificación de probes contra el modelo de confianza en review.md (pack a 1052/2500 antes de la edición); modelo 'commit es confianza' explícito en INTENT.md (Reglas generales); obligaciones guardadas como entrada 14 del concept guard curado (visto fallar antes de la prosa), tolerante a redacción
