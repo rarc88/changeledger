@@ -2,9 +2,10 @@
 id: "20260811-110629"
 title: Aterrizar lotes de documentos y eventos en una entrada
 type: feature
-status: approved
+status: in-progress
 created: 2026-08-11T11:06:29Z
 depends_on: []
+branch: feature/20260811-110629
 related_to: ["20260810-182641"]
 owner: rarc88
 ---
@@ -166,3 +167,5 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 
 ## Log
 - **2026-08-11T11:12:37Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T11:12:37Z** `[status]` approved → in-progress
+- **2026-08-11T11:12:37Z** `[branch]` set: feature/20260811-110629 (auto)
