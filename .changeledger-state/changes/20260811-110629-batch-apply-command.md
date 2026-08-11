@@ -152,11 +152,12 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR2, CR4
   - **Resolved:** `2026-08-11T11:29:17Z`
-- [ ] Aterrizaje atómico: candidato acumulado en orden, `writeLedgerFiles`,
+- [x] Aterrizaje atómico: candidato acumulado en orden, `writeLedgerFiles`,
   idempotencia
   - **Target:** `src/commands/apply.mjs`, `src/change-store.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR1, CR3, CR5
+  - **Resolved:** `2026-08-11T11:29:17Z`
 - [ ] Camino inactivo y `--dry-run`
   - **Target:** `src/commands/apply.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
