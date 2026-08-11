@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T18:18:05Z
 depends_on: []
+reviewed: true
 branch: quick/20260810-181805
 related_to: ["20260809-194233"]
 owner: rarc88
@@ -41,3 +42,4 @@ los budgets de `templates/contract/budgets.yml`.
 - **2026-08-11T14:34:32Z** `[note]` Cortacircuitos de tercera ronda y clasificación de probes contra el modelo de confianza en review.md (pack a 1052/2500 antes de la edición); modelo 'commit es confianza' explícito en INTENT.md (Reglas generales); obligaciones guardadas como entrada 14 del concept guard curado (visto fallar antes de la prosa), tolerante a redacción
 - **2026-08-11T14:34:32Z** `[status]` in-progress → in-validation
 - **2026-08-11T15:04:45Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T15:04:48Z** `[graduation]` skipped: la verdad duradera vive en templates/contract/review.md, INTENT.md y el concept guard 14 versionados
