@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T16:32:04Z
 depends_on: []
+reviewed: true
 branch: quick/20260811-163204
 related_to: ["20260811-151426"]
 owner: rarc88
@@ -27,3 +28,4 @@ decirlo), sin resolver ningún remoto ni ejecutar red.
 - **2026-08-11T16:55:13Z** `[note]` reportStatus enumera las copias remote-tracking existentes con for-each-ref (una relación por copia) y corre ANTES de resolveRemote: el multi-remoto ambiguo recibe su reporte y el sync mutador conserva su rechazo explícito (ambos pineados en el mismo test, mutante de orden matado). El pin 'never fetched' de 151426 retargeteado a la frase nueva con la obligación intacta
 - **2026-08-11T16:55:14Z** `[status]` in-progress → in-validation
 - **2026-08-11T17:51:22Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T17:51:54Z** `[graduation]` spec: `architecture.md`
