@@ -2,9 +2,10 @@
 id: "20260810-181805"
 title: Graduar las lecciones de la espiral de confirmación al contrato
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-10T18:18:05Z
 depends_on: []
+branch: quick/20260810-181805
 related_to: ["20260809-194233"]
 owner: rarc88
 ---
@@ -35,3 +36,5 @@ los budgets de `templates/contract/budgets.yml`.
 
 ## Log
 - **2026-08-11T14:16:19Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T14:31:37Z** `[status]` approved → in-progress
+- **2026-08-11T14:31:37Z** `[branch]` set: quick/20260810-181805 (auto)
