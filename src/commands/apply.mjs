@@ -88,13 +88,15 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
   const changed = writes.map((w) => w.relPath ?? w.file);
   const message = `apply: ${summarize(descriptors)}`;
 
+  // The write gate: a candidate carrying `check` errors never lands, whether
+  // by dry run (so `compose → correct → land once` can be SCRIPTED — its
+  // verdict has to be programmatic, not printed) or for real (20260811-122031
+  // closed the gap where only `--dry-run` refused and landing printed the
+  // same errors and still exited 0). Warnings stay informative — `check`
+  // reports them and still exits 0 in both modes.
+  assertCandidateClean(errors, dryRun);
+
   if (dryRun) {
-    // The dry run exists so `compose → correct → land once` can be SCRIPTED, so
-    // its verdict has to be programmatic, not printed: a composer running
-    // `apply --dry-run && apply` must stop here on exactly what `check` would
-    // refuse after landing, or the batch lands and the next gate rejects it.
-    // Warnings stay informative — `check` reports them and still exits 0.
-    assertCandidateClean(errors);
     return { changed, warnings, errors, message, dryRun, statusWarnings };
   }
 
@@ -116,14 +118,15 @@ export function apply({ from, dryRun = false } = {}, cwd = process.cwd()) {
   return { changed, warnings, errors, message, dryRun, statusWarnings };
 }
 
-// The dry run's refusal, shaped like `edit`'s own: every error named with its
-// file, and nothing written anywhere. Landing does NOT run this — a landing
-// batch stays at parity with the individual `edit`, whose gate is the
-// per-document scoped check each entry already passed.
-function assertCandidateClean(errors) {
+// Shaped like `edit`'s own refusal: every error named with its file, and
+// nothing written anywhere. Runs identically in both modes (20260811-122031)
+// — only the wording names which mode refused, since a landing refusal never
+// claims to be a dry run.
+function assertCandidateClean(errors, dryRun) {
   if (!errors.length) return;
+  const mode = dryRun ? 'apply dry run' : 'apply';
   throw new Error(
-    `apply dry run refused, nothing was written — the resulting candidate carries ${errors.length} validation error(s):\n${errors
+    `${mode} refused, nothing was written — the resulting candidate carries ${errors.length} validation error(s):\n${errors
       .map((e) => `  ${e.file}: ${e.message}`)
       .join('\n')}`,
   );

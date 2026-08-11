@@ -411,6 +411,33 @@ test('CR7: dry-run stays clean when the candidate carries only warnings', () => 
   assert.equal(result.changed.length, 1);
 });
 
+// 20260811-122031: landing used to print `check`'s errors and still exit 0 —
+// only `--dry-run` was a gate. This pins the decision to close that gap: a
+// candidate carrying errors refuses at LANDING too, before any write, with
+// wording that no longer claims "dry run".
+test('landing refuses a candidate that carries check errors, same as dry-run', () => {
+  const { root, name, text, id } = activatedRepo({ spec: erroringSpec });
+  const tip = stateTip(root);
+
+  assert.throws(
+    () =>
+      apply(
+        {
+          from: manifest(root, [{ target: `change:${id}`, content: filled(text, 'Otro cuerpo.') }]),
+        },
+        root,
+      ),
+    (e) => {
+      assert.doesNotMatch(e.message, /dry run/);
+      assert.match(e.message, /apply refused, nothing was written/);
+      assert.match(e.message, /demo-spec\.md: spec contains change-local criterion heading "CR1"/);
+      return true;
+    },
+  );
+  assert.equal(stateTip(root), tip);
+  assert.equal(stateDoc(root, `changes/${name}`), text);
+});
+
 test('CR7: the CLI exits non-zero on a dry run whose candidate carries check errors', () => {
   const { root, text, id } = activatedRepo({ spec: erroringSpec });
   const bin = fileURLToPath(new URL('../bin/changeledger.mjs', import.meta.url));

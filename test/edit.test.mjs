@@ -410,6 +410,120 @@ test('CR7: the same spec edit is a plain atomic file replace when inactive', () 
   assert.equal(fs.readFileSync(file, 'utf8'), reconciled);
 });
 
+// 20260811-122031: `edit`'s candidate gate widens from the single document
+// (`checkSelectedChange`, which stops before every aggregate check) to the
+// whole repo (`checkRepo`), so a graph break the edit introduces — one only
+// visible once every sibling is checked together — refuses before any write,
+// same as `apply`'s and `new --from`'s candidate gate. A pre-existing,
+// unrelated repo-wide error must never brick a later edit (including the edit
+// that would fix it), so the gate diffs candidate errors against the CURRENT
+// repo's own errors and refuses only the ones this edit itself adds.
+function activatedRepoWithSibling({ siblingDependsOn = [] } = {}) {
+  const { root, file, name, text, id } = inactiveRepo();
+  const configText = fs.readFileSync(path.join(root, '.changeledger', 'config.yml'), 'utf8');
+  const sibling = scaffoldChange(
+    { type: 'quick', slug: 'sibling', title: 'Sibling', now: '2026-06-13T13:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const dependsOn = siblingDependsOn.map((d) => `"${d}"`).join(', ');
+  const siblingText = filled(sibling.text, 'Cuerpo del hermano.').replace(
+    'depends_on: []',
+    `depends_on: [${dependsOn}]`,
+  );
+  fs.rmSync(file);
+  fs.rmSync(path.join(root, '.changeledger', 'specs'), { recursive: true, force: true });
+
+  execFileSync('git', ['init', '-q'], { cwd: root, env: sanitizedEnv(), stdio: 'ignore' });
+  const tree = buildTree(root, {
+    '.changeledger-state/manifest.yml': 'format_version: 1\nproject_id: demo\n',
+    '.changeledger-state/config.yml': configText,
+    [`.changeledger-state/changes/${name}`]: text,
+    [`.changeledger-state/changes/${sibling.name}`]: siblingText,
+    [`.changeledger-state/specs/${SPEC_NAME}`]: specText(),
+  });
+  const revision = commitTree(root, tree, { message: 'chore: state' });
+  updateRef(root, STATE_REF, revision);
+  writeActivation(root, { stateRef: STATE_REF });
+  return { root, name, text, id, siblingId: sibling.id, siblingName: sibling.name };
+}
+
+test('the candidate gate is repo-wide: a graph break the edit introduces outside its own document is refused', () => {
+  const { root, text, id } = activatedRepoWithSibling();
+  const before = stateTip(root);
+  const broken = filled(text).replace('depends_on: []', 'depends_on: ["20200101-000000"]');
+
+  assert.throws(
+    () => edit(id, { from: source(root, broken) }, root),
+    /nothing was written[\s\S]*depends_on references missing change "20200101-000000"/,
+  );
+  assert.equal(stateTip(root), before);
+});
+
+test('a pre-existing repo-wide error elsewhere does not brick an unrelated clean edit', () => {
+  const { root, text, id } = activatedRepoWithSibling({ siblingDependsOn: ['20200101-000000'] });
+
+  const result = edit(
+    id,
+    { from: source(root, filled(text, 'Cuerpo limpio, ajeno al hermano.')) },
+    root,
+  );
+
+  assert.equal(result.changed, true);
+});
+
+test('a pre-existing repo-wide error elsewhere still lets this same edit be refused when it ADDS a new one', () => {
+  const { root, text, id } = activatedRepoWithSibling({ siblingDependsOn: ['20200101-000000'] });
+  const before = stateTip(root);
+  const broken = filled(text).replace('depends_on: []', 'depends_on: ["20200101-000001"]');
+
+  assert.throws(
+    () => edit(id, { from: source(root, broken) }, root),
+    /depends_on references missing change "20200101-000001"/,
+  );
+  assert.equal(stateTip(root), before);
+});
+
+// Same asymmetry, `new --from` seat (`prepareNewChange` in new.mjs): it also
+// used `checkSelectedChange(..., id)`, scoped to the new document alone.
+test('CR6: --from is a repo-wide gate too — a graph break the new document introduces is refused', () => {
+  const { root } = activatedRepo();
+  const before = stateTip(root);
+  const scaffold = scaffoldChange(
+    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T12:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const document = filled(scaffold.text, 'Cuerpo con dependencia rota.').replace(
+    'depends_on: []',
+    'depends_on: ["20200101-000000"]',
+  );
+
+  assert.throws(
+    () =>
+      newChangeFrom({ type: 'quick', slug: 'y', title: 'Y', from: source(root, document) }, root),
+    /depends_on references missing change "20200101-000000"/,
+  );
+  assert.equal(stateTip(root), before);
+});
+
+test('CR6: --from still lands when a pre-existing repo-wide error is unrelated to the new document', () => {
+  const { root } = activatedRepoWithSibling({ siblingDependsOn: ['20200101-000000'] });
+  const scaffold = scaffoldChange(
+    { type: 'quick', slug: 'y', title: 'Y', now: '2026-06-14T13:00:00Z' },
+    root,
+    { ownerHandle: () => '' },
+  );
+  const document = filled(scaffold.text, 'Cuerpo limpio.');
+
+  const written = newChangeFrom(
+    { type: 'quick', slug: 'y', title: 'Y', from: source(root, document) },
+    root,
+  );
+
+  assert.equal(written, `changes/${scaffold.name}`);
+});
+
 const bin = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',

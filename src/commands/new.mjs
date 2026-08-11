@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { repoIsActivated, writeLedgerFiles } from '../change-store.mjs';
-import { checkSelectedChange } from '../check.mjs';
+import { checkRepo, newErrors } from '../check.mjs';
 import { findChangeledgerDir, loadConfig, resolveRepoPath } from '../config.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { ownerHandle as defaultOwnerHandle } from '../git.mjs';
@@ -202,10 +202,20 @@ export function prepareNewChange(repo, text, { slug, parsed } = {}) {
     ? null
     : path.join(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'), name);
   const candidate = { file, name, text, ...document };
-  const { errors } = checkSelectedChange({ ...repo, changes: [...repo.changes, candidate] }, id);
-  if (errors.length) {
+  // Repo-wide, not just the new document's own scope — same seat and same
+  // reasoning as `edit`'s candidate gate (20260811-122031): scoped to one id,
+  // the old check stopped before every aggregate check (duplicate ids, the
+  // dependency graph, spec graduations), so a repo-wide break the new document
+  // introduces used to land silently. Diffed against the repo's OWN current
+  // errors so a pre-existing, unrelated break elsewhere never blocks creating
+  // an unrelated, clean document.
+  const introduced = newErrors(
+    checkRepo(repo).errors,
+    checkRepo({ ...repo, changes: [...repo.changes, candidate] }).errors,
+  );
+  if (introduced.length) {
     throw new Error(
-      `the incoming document is invalid, nothing was written:\n${errors
+      `the incoming document is invalid, nothing was written:\n${introduced
         .map((e) => `  ${e.file}: ${e.message}`)
         .join('\n')}`,
     );
