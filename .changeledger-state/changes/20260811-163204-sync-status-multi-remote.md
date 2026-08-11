@@ -2,7 +2,7 @@
 id: "20260811-163204"
 title: sync --status no exige resolver el remoto
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-11T16:32:04Z
 depends_on: []
 branch: quick/20260811-163204
@@ -25,3 +25,4 @@ decirlo), sin resolver ningún remoto ni ejecutar red.
 - **2026-08-11T16:49:56Z** `[status]` approved → in-progress
 - **2026-08-11T16:49:56Z** `[branch]` set: quick/20260811-163204 (auto)
 - **2026-08-11T16:55:13Z** `[note]` reportStatus enumera las copias remote-tracking existentes con for-each-ref (una relación por copia) y corre ANTES de resolveRemote: el multi-remoto ambiguo recibe su reporte y el sync mutador conserva su rechazo explícito (ambos pineados en el mismo test, mutante de orden matado). El pin 'never fetched' de 151426 retargeteado a la frase nueva con la obligación intacta
+- **2026-08-11T16:55:14Z** `[status]` in-progress → in-validation
