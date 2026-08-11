@@ -2,7 +2,7 @@
 id: "20260811-163203"
 title: activate siembra la ref local desde la copia remote-tracking
 type: quick
-status: draft
+status: approved
 created: 2026-08-11T16:32:03Z
 depends_on: []
 related_to: ["20260811-151426"]
@@ -25,3 +25,4 @@ ref jamás (un repo sin activar se queda como está): el flujo del clon es
 `clone → activate → sync`, un paso manual, nunca invisible.
 
 ## Log
+- **2026-08-11T16:32:32Z** `[status]` draft → approved (human via conversation)
