@@ -1,0 +1,27 @@
+---
+id: "20260811-163203"
+title: activate siembra la ref local desde la copia remote-tracking
+type: quick
+status: draft
+created: 2026-08-11T16:32:03Z
+depends_on: []
+related_to: ["20260811-151426"]
+owner: rarc88
+---
+
+## Request
+
+Hueco de adopción hallado implementando `20260811-151426`: `git clone`
+trae la ref de estado solo como remote-tracking
+(`refs/remotes/<remote>/changeledger/state`) y `changeledger activate`
+exige la local — hoy un clon necesita un `git update-ref` a mano.
+
+`activate`, cuando la ref local falta y existe la copia remote-tracking
+(remoto resuelto con la misma regla que `sync`: origin, o el único
+configurado), la siembra por CAS de creación apuntando a esa copia,
+reporta la siembra, y continúa la activación normal. Sin copia
+remote-tracking, el error actual se conserva. `sync` sigue sin crear la
+ref jamás (un repo sin activar se queda como está): el flujo del clon es
+`clone → activate → sync`, un paso manual, nunca invisible.
+
+## Log
