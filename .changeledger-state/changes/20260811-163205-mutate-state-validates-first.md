@@ -2,9 +2,10 @@
 id: "20260811-163205"
 title: mutateState valida el candidato antes del CAS
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-11T16:32:05Z
 depends_on: []
+branch: quick/20260811-163205
 related_to: ["20260811-151426"]
 owner: rarc88
 ---
@@ -22,3 +23,5 @@ que hoy falta.
 
 ## Log
 - **2026-08-11T16:32:33Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T16:44:12Z** `[status]` approved → in-progress
+- **2026-08-11T16:44:12Z** `[branch]` set: quick/20260811-163205 (auto)
