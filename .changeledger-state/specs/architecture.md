@@ -249,7 +249,10 @@ La autoría de documentos (`20260810-182641`) es la misma costura con
 contrato de documento completo: `changeledger edit <change-id|spec:slug>
 --from <archivo|->` reemplaza frontmatter y cuerpo de una vez. El documento
 entrante se valida íntegro a la severidad del status vigente antes de
-escribir — nada inválido aterriza —, `id` y `created` son inmutables, los
+escribir — nada inválido aterriza, y el candidato completo del repo se
+compara contra el estado actual: solo los errores NUEVOS que la escritura
+introduce la rechazan (`newErrors`, diff multiset en `src/check.mjs`), así
+que un error pre-existente ajeno nunca impide escribir el arreglo —, `id` y `created` son inmutables, los
 campos con comando propio (`status`, `owner`, `branch`, `archived`,
 `reviewed`; `graduated_from` en specs) deben coincidir con el vigente y el
 rechazo nombra al comando dueño, y un contenido byte-idéntico es no-op sin
@@ -273,9 +276,11 @@ journal, todo-o-nada, aplicando por entrada exactamente las guardas de
 viajan en un lote. Las entradas se aplican en orden sobre un candidato
 acumulado; un efecto neto vacío es no-op sin commit. `--dry-run` valida el
 manifiesto completo — errores y warnings de `check` sobre el candidato — sin
-escribir nada y falla con exit distinto de cero si el candidato lleva
-errores, de modo que componer→dry-run→corregir itera en local y el journal
-recibe una entrada ya limpia.
+escribir nada, de modo que componer→dry-run→corregir itera en local y el
+journal recibe una entrada ya limpia. Ambos modos gatean: un manifiesto cuyo
+candidato lleva errores de `check` no aterriza (y el dry-run lo reporta con
+exit distinto de cero) — en `apply` contra el set completo de errores,
+deliberadamente sin exención de lo pre-existente.
 
 ## Adopción del estado global
 
