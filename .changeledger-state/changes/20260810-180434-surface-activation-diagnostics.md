@@ -2,7 +2,7 @@
 id: "20260810-180434"
 title: Sacar a la superficie los diagnósticos de activación
 type: quick
-status: in-validation
+status: done
 created: 2026-08-10T18:04:34Z
 depends_on: []
 branch: quick/20260810-180434
@@ -36,3 +36,4 @@ nueva ni verdad persistente.
 - **2026-08-10T22:35:37Z** `[owner]` set: claude
 - **2026-08-10T22:42:52Z** `[note]` Implemented both review findings from #20260810-120457. (1) registry.listProjects: split the repoIsActivated probe into its own try/catch after the statSync directory check, so an activation error (e.g. a legacy authority.yml with no ledger_dir) surfaces as an `activationError` field on the entry instead of being swallowed by the pre-existing catch-all (which never saw it — `activated` is only assigned on a successful, non-throwing return, so `if (activated) throw error` never fired for this case). The prior tolerance for unusable registered paths (missing, replaced-by-file, unreadable-ancestor) is untouched and still green: test/registry.test.mjs '194234 CR3' and both '20260809-113242 CR12' tests pass unchanged. New test: '20260810-180434: listProjects reports an unreadable legacy activation instead of silently listing inactive'. (2) writeActivation's "not inside a Git repository" throw (src/state-store.mjs): confirmed unreachable from both CLI callers (activate.mjs's readStateRef, cutover.mjs's resolveContext rev-parse both already fail first on a non-Git repoRoot — verified by hand against a scratch non-Git directory) but reachable and meaningful as writeActivation's own exported precondition (it guards against writing `ledger_dir: null` into the activation authority). Chose to pin rather than retire: added test/state-store.test.mjs '20260810-180434: writeActivation refuses a repoRoot outside any Git repository', calling writeActivation directly on a non-Git temp dir. Both new tests were shown failing with their literal output before the fix/pin, and one isolated mutant per pin was killed then reverted by hand (file diff confirmed clean between mutants). Gate: pnpm lint exit 0, pnpm test 1401/1401 pass exit 0, changeledger check exit 0. Unspecified decisions: (a) field name activationError on the registry entry — smallest addition the viewer (resolveProjects/router.mjs) already ignores gracefully via object spread/JSON.stringify, no renderer references it; (b) for finding 2, pinned the guard via a direct unit test of the exported function rather than retiring it, since removal would let a future direct caller silently write a malformed ledger_dir: null instead of failing fast.
 - **2026-08-10T22:44:38Z** `[status]` in-progress → in-validation
+- **2026-08-11T00:35:19Z** `[validation]` in-validation → done (human accepted via conversation)
