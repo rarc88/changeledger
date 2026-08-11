@@ -2,7 +2,7 @@
 id: "20260811-110629"
 title: Aterrizar lotes de documentos y eventos en una entrada
 type: feature
-status: in-validation
+status: done
 created: 2026-08-11T11:06:29Z
 depends_on: []
 branch: feature/20260811-110629
@@ -181,3 +181,4 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 - **2026-08-11T11:49:32Z** `[note]` Mandato de la confirmación: mínimo — F1 cerrado (dry-run gatea errores del candidato con exit real) + ausencia de regresión en el diff sin commitear
 - **2026-08-11T11:55:32Z** `[review]` in-review → in-validation (delegated subagent, clean context)
 - **2026-08-11T14:16:17Z** `[note]` CR8 ejecutado con trabajo real: tanda de 2 drafts (122030+122031) en UNA entrada de journal + arranque de 122030 (status+log) en UNA — 2 entradas donde el flujo por comandos costaba 5+. Antes, primer uso productivo: restauración del owner de 10 changes archivados en una entrada (112→113). El dry-run cazó un warning de mención antes de aterrizar en su primer uso
+- **2026-08-11T14:16:17Z** `[validation]` in-validation → done (human accepted via conversation)
