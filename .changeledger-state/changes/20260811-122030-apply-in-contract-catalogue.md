@@ -2,7 +2,7 @@
 id: "20260811-122030"
 title: Añadir apply al catálogo de comandos del contrato
 type: quick
-status: in-validation
+status: in-progress
 created: 2026-08-11T12:20:30Z
 depends_on: []
 branch: quick/20260811-122030
@@ -27,3 +27,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-11T12:21:30Z** `[branch]` set: quick/20260811-122030 (auto)
 - **2026-08-11T12:21:30Z** `[note]` Arrancado con un solo apply (status+log): la entrada de journal del arranque es una, no tres — walk de CR8 de 20260811-110629
 - **2026-08-11T12:23:00Z** `[status]` in-progress → in-validation
+- **2026-08-11T12:24:29Z** `[status]` in-validation → in-progress
