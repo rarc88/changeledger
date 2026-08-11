@@ -2,7 +2,7 @@
 id: "20260810-181805"
 title: Graduar las lecciones de la espiral de confirmación al contrato
 type: quick
-status: draft
+status: approved
 created: 2026-08-10T18:18:05Z
 depends_on: []
 related_to: ["20260809-194233"]
@@ -34,3 +34,4 @@ obligación (concept guard tolerante a redacción), nunca su fraseo; respetar
 los budgets de `templates/contract/budgets.yml`.
 
 ## Log
+- **2026-08-11T14:16:19Z** `[status]` draft → approved (human via conversation)
