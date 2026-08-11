@@ -171,3 +171,50 @@ test('20260810-120457 CR5: activate repairs an activation written without the an
   assert.equal(readActivation(root).ledger_dir, '.changeledger');
   assert.equal(cli(root, 'list').code, 0);
 });
+
+// 20260811-163203 — a fresh clone has the state ref only as a remote-tracking
+// copy; `activate` seeds the local ref from it (CAS create, tree validated
+// first) instead of demanding a manual `git update-ref`.
+test('20260811-163203: activate seeds the local state ref from the remote-tracking copy', () => {
+  const { root, revision } = clonedRepoWithState();
+  git(root, ['update-ref', '-d', STATE_REF]);
+  git(root, ['remote', 'add', 'origin', root]);
+  git(root, ['update-ref', 'refs/remotes/origin/changeledger/state', revision]);
+
+  const result = cli(root, 'activate');
+  assert.equal(result.code, 0, result.err);
+  assert.match(result.out, /[Ss]eeded/);
+  assert.equal(git(root, ['rev-parse', STATE_REF]), revision);
+  assert.notEqual(readActivation(root), null);
+});
+
+test('20260811-163203: a clone with neither ref keeps the actionable error', () => {
+  const { root } = clonedRepoWithState();
+  git(root, ['update-ref', '-d', STATE_REF]);
+  git(root, ['remote', 'add', 'origin', root]);
+
+  const result = cli(root, 'activate');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /no state to activate/);
+  assert.match(result.err, /does not exist/);
+});
+
+test('20260811-163203: an invalid remote-tracking tree refuses the seed and creates nothing', () => {
+  const { root } = clonedRepoWithState();
+  git(root, ['update-ref', '-d', STATE_REF]);
+  const files = defaultStateFiles({ projectId: 'fixture01' });
+  const manifestPath = Object.keys(files).find((k) => k.endsWith('manifest.yml'));
+  const bad = buildTree(root, {
+    ...files,
+    [manifestPath]: 'format_version: 99\nproject_id: "fixture01"\n',
+  });
+  const badCommit = commitTree(root, bad, { message: 'chore: bad state' });
+  git(root, ['remote', 'add', 'origin', root]);
+  git(root, ['update-ref', 'refs/remotes/origin/changeledger/state', badCommit]);
+
+  const result = cli(root, 'activate');
+  assert.notEqual(result.code, 0);
+  assert.match(result.err, /format_version/);
+  assert.throws(() => git(root, ['rev-parse', '--verify', STATE_REF]));
+  assert.throws(() => git(root, ['rev-parse', '--verify', ACTIVATION_REF]));
+});

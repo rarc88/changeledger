@@ -40,7 +40,7 @@ const STATE_BRANCH = STATE_REF.slice('refs/heads/'.length);
 // every clone gets by default — otherwise the single configured remote. Several
 // remotes and no `origin` is a genuine ambiguity: picking one for the human
 // would publish the journal somewhere they never named.
-function resolveRemote(repoRoot, run) {
+export function resolveRemote(repoRoot, run) {
   const remotes = run(['remote'], repoRoot)
     .split('\n')
     .map((name) => name.trim())
