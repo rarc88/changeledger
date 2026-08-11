@@ -190,6 +190,21 @@ it never repeats it.
 - `changeledger context release`: plan portable delivery metadata.
 - `changeledger context <change-id>`: infer the correct context from lifecycle.
 
+## Synchronizing the global state
+
+In an activated repo with a remote, `changeledger sync` compares before it
+moves: fast-forward or publish when the histories are linear, automatic
+reconciliation when the divergent journals touch disjoint documents, and a
+fail-closed report when the same document changed on both sides — the human
+coordinates that resolution, and once resolved `sync` publishes. Run `sync` at the
+strategic points: when a session opens, before delegating a review, at durable
+closure (graduation or archive) and at every handoff. Sync never blocks the
+local flow: without a remote every point is a no-op, a network failure is a
+warning, and no other command waits for it. `sync --status` reports freshness
+offline at any time. The activation never travels — each clone runs
+`changeledger activate` once; `sync` reminds when the ref is present but the
+repo inactive.
+
 ## Operational discovery
 
 Prefer structured CLI queries before scanning files:

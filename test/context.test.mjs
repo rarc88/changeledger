@@ -2170,7 +2170,7 @@ function composedCore() {
   return buildContext(undefined, repo()).replace(/\s+/g, ' ');
 }
 
-test('124835 CR1: core exposes the eleven blocks in the decided order', () => {
+test('124835 CR1: core exposes the twelve blocks in the decided order', () => {
   const core = buildContext(undefined, repo());
   const blocks = [
     '# ChangeLedger — Core Contract',
@@ -2183,6 +2183,8 @@ test('124835 CR1: core exposes the eleven blocks in the decided order', () => {
     '## Commits',
     '## Lifecycle',
     '## Context modes',
+    // 20260811-151427: the sync obligation joined core as its own decided block.
+    '## Synchronizing the global state',
     '## Operational discovery',
   ];
   const positions = blocks.map((block) => {
@@ -3028,7 +3030,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Fourteen carrier obligations
+// sentence, and that cost is what the decision removes. Fifteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3319,6 +3321,28 @@ const CONCEPT_GUARDS = [
         pack('review'),
         /\b(probes?|adversar\w+)\b[^.;]{0,140}\b(trust model|INTENT)\b/i,
         'review no longer measures adversarial probes against the trust model',
+      );
+    },
+  },
+  {
+    entry: 15,
+    obligation:
+      'sync runs at the strategic points and a same-document conflict goes to the human, never blocking the local flow',
+    verify: (pack) => {
+      assert.match(
+        pack('core'),
+        /`?sync`?[^.;]{0,200}\b(session|review|closure|handoff)\b/i,
+        'core no longer obliges running sync at the strategic points',
+      );
+      assert.match(
+        pack('core'),
+        /\bsame document\b[^.;]{0,160}\bhuman\b|\bhuman\b[^.;]{0,160}\bsame document\b/i,
+        'core no longer routes same-document sync conflicts to the human',
+      );
+      assert.match(
+        pack('core'),
+        /\bsync\b[^.;]{0,160}\b(never|not)\b[^.;]{0,30}\bblock\w*/i,
+        'core no longer declares sync non-blocking',
       );
     },
   },
