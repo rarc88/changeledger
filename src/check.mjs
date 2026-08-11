@@ -291,6 +291,33 @@ export function checkSelectedChange(repo, id, candidateText, { asStatus } = {}) 
   return checkRepo({ ...repo, changes }, { id, asStatus });
 }
 
+// Multiset diff of two `check` error lists by (file, message) identity: an
+// error already present in `baseline` is not "introduced" by `candidate`, no
+// matter how many times the candidate repeats it. This is what lets a write
+// gate on repo-wide `check` errors without bricking every future write in an
+// already-broken repo — an edit that fixes or simply does not touch a
+// pre-existing error still proceeds (20260811-122031).
+export function newErrors(baseline, candidate) {
+  const remaining = new Map();
+  for (const e of baseline) {
+    const key = errorKey(e);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
+  }
+  return candidate.filter((e) => {
+    const key = errorKey(e);
+    const count = remaining.get(key) ?? 0;
+    if (count > 0) {
+      remaining.set(key, count - 1);
+      return false;
+    }
+    return true;
+  });
+}
+
+function errorKey(e) {
+  return `${e.file}\u0000${e.message}`;
+}
+
 export function assertSelectedChangeValid(repo, id, candidateText, opts = {}) {
   const { errors } = checkSelectedChange(repo, id, candidateText, opts);
   if (!errors.length) return;

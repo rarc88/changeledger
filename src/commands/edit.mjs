@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseChange } from '../change.mjs';
 import { mutateLedgerFile } from '../change-store.mjs';
-import { checkRepo, checkSelectedChange } from '../check.mjs';
+import { checkRepo, newErrors } from '../check.mjs';
 import { assertSupportedSchema } from '../config-migration.mjs';
 import { loadRepo, resolveChangeInRepo } from '../repo.mjs';
 import { parseSpec } from '../spec.mjs';
@@ -87,11 +87,21 @@ export function prepareChangeEdit(repo, id, incoming) {
     immutable: IMMUTABLE_CHANGE_FIELDS,
     owned: OWNED_CHANGE_FIELDS,
   });
-  // Judged at the severity `check` applies to the status the document is at —
-  // which the guard above has already pinned to the current one — and against
-  // the rest of the repo, so a related-change or graduation link that only the
-  // siblings can falsify is caught before the write, not after it.
-  assertClean(id, checkSelectedChange(repo, id, incoming).errors);
+  // Repo-wide, not just this document's own scope: a related-change or
+  // graduation link, or a depends_on/related_to graph edge, that only the
+  // siblings can falsify is caught before the write, not after it. Widened
+  // from the single-document `checkSelectedChange` (20260811-122031) — scoped
+  // to one id, it stops before every aggregate check (duplicate ids, the
+  // dependency graph, spec graduations), so a repo-wide break the edit
+  // introduces used to land silently. Diffed against the repo's OWN current
+  // errors (`newErrors`) so a pre-existing, unrelated break elsewhere never
+  // bricks an edit that does not touch it — including the edit that would fix
+  // it.
+  const changes = repo.changes.map((c) =>
+    String(c.frontmatter?.id) === String(id) ? { ...c, text: incoming, ...parsed } : c,
+  );
+  const introduced = newErrors(checkRepo(repo).errors, checkRepo({ ...repo, changes }).errors);
+  assertClean(id, introduced);
 
   return {
     name: current.name,
