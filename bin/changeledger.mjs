@@ -35,6 +35,7 @@ import { newChange, newChangeFrom, scaffoldChange } from '../src/commands/new.mj
 import { registerRepo } from '../src/commands/register.mjs';
 import { initReleaseHistory, recordRelease, releasePlan } from '../src/commands/release.mjs';
 import { runSearch } from '../src/commands/search.mjs';
+import { sync } from '../src/commands/sync.mjs';
 import { view } from '../src/commands/view.mjs';
 import { findChangeledgerDir } from '../src/config.mjs';
 import { applyMigration } from '../src/config-migration.mjs';
@@ -51,7 +52,7 @@ prompt identifies your role and tells you to run \`agent-context\` instead.
   changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
-  changeledger cutover | activate | import
+  changeledger cutover | activate | import | sync
 
 Run \`changeledger <command> --help\` for that command's syntax, values and examples.`;
 
@@ -403,6 +404,32 @@ program
     ].join('\n'),
   )
   .action(action(() => activate()));
+
+program
+  .command('sync')
+  .description("compare this repo's state ref with the remote, advance it safely, then publish")
+  .option('--status', 'report the local↔remote-tracking relation offline, with no network call')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'Pure git over the remote the repo already configures (origin, or the single',
+      'configured one). It always compares first: identical is a no-op, a remote ahead',
+      'fast-forwards the local ref, a local ahead is published, and a divergence whose',
+      'two sides touched different documents is reconciled as one commit preserving',
+      'both journals. When both sides changed the SAME document differently, nothing is',
+      'written and every colliding document is reported for the human to resolve.',
+      '',
+      'It never blocks the local flow: no remote, no remote ref, an unreachable remote',
+      'or a checkout that is not activated are informative no-ops. Activation never',
+      'travels — each clone takes it locally with `changeledger activate`.',
+      '',
+      'Examples:',
+      '  changeledger sync',
+      '  changeledger sync --status',
+    ].join('\n'),
+  )
+  .action(action((options) => sync({ status: Boolean(options.status) })));
 
 program
   .command('import')

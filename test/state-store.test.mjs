@@ -5,8 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { capturedRun } from '../src/git.mjs';
+import { treeEntries } from '../src/git-batch.mjs';
 import {
   ACTIVATION_REF,
+  advanceStateRef,
+  commitMergedState,
   initState,
   LedgerConflictError,
   mutateState,
@@ -662,4 +665,134 @@ test('20260809-194236 CR3: a broken loose state ref fails with the exact real-gi
   assert.throws(() => readStateRef(root), {
     message: `cannot read Git ref ${STATE_REF}: warning: ignoring broken ref ${STATE_REF}`,
   });
+});
+
+// --- 20260811-151426: the two primitives `sync` writes the state ref with ----
+
+test('20260811-151426 CR1: advanceStateRef refuses a target that does not contain the current tip', () => {
+  const { root, revision } = seedStateRepo();
+  // A second root commit over a valid layout: a perfectly good state tree that
+  // simply does not descend from the current tip.
+  const unrelated = commitTree(
+    root,
+    buildTreeEntries(
+      root,
+      Object.entries(defaultStateFiles()).map(([file, text]) => ({ path: file, text })),
+    ),
+    { message: 'chore: unrelated' },
+  );
+
+  assert.throws(
+    () => advanceStateRef(root, { expectedRevision: revision, revision: unrelated }),
+    /does not contain/,
+  );
+  assert.equal(readStateRef(root), revision, 'the ref must not move');
+});
+
+test('20260811-151426 CR1: advanceStateRef refuses a fast-forward onto an invalid state layout', () => {
+  const { root, revision } = seedStateRepo();
+  const foreign = commitTree(
+    root,
+    buildTreeEntries(root, [{ path: 'README.md', text: '# not a ledger\n' }]),
+    { parents: [revision], message: 'chore: foreign tree' },
+  );
+
+  assert.throws(() => advanceStateRef(root, { expectedRevision: revision, revision: foreign }));
+  assert.equal(readStateRef(root), revision, 'the ref must not move');
+});
+
+test('20260811-151426 CR3: commitMergedState lands both parents and CASes on the local tip', () => {
+  const { root, revision } = seedStateRepo();
+  const other = commitTree(root, git(root, ['rev-parse', `${revision}^{tree}`]), {
+    parents: [revision],
+    message: 'chore: other side',
+  });
+  const entries = treeEntries(root, revision, capturedRun);
+
+  const merged = commitMergedState(root, {
+    expectedRevision: revision,
+    otherRevision: other,
+    entries,
+    message: 'chore: reconcile',
+  });
+
+  assert.equal(readStateRef(root), merged.revision);
+  assert.deepEqual(
+    git(root, ['rev-list', '--parents', '-n', '1', merged.revision]).split(' ').slice(1),
+    [revision, other],
+  );
+});
+
+test('20260811-151426 CR3: commitMergedState refuses entries that are not a valid state tree', () => {
+  const { root, revision } = seedStateRepo();
+  const other = commitTree(root, git(root, ['rev-parse', `${revision}^{tree}`]), {
+    parents: [revision],
+    message: 'chore: other side',
+  });
+  const entries = treeEntries(root, revision, capturedRun).filter(
+    (entry) => entry.path !== `${STATE_ROOT}/manifest.yml`,
+  );
+
+  assert.throws(
+    () =>
+      commitMergedState(root, {
+        expectedRevision: revision,
+        otherRevision: other,
+        entries,
+        message: 'chore: reconcile',
+      }),
+    /manifest\.yml/,
+  );
+  assert.equal(readStateRef(root), revision, 'the ref must not move');
+});
+
+test('20260811-151426 CR3: commitMergedState refuses a foreign path before any ref moves', () => {
+  const { root, revision } = seedStateRepo();
+  const other = commitTree(root, git(root, ['rev-parse', `${revision}^{tree}`]), {
+    parents: [revision],
+    message: 'chore: other side',
+  });
+  const foreignBlob = git(root, ['hash-object', '-w', '--stdin'], { input: '# not a ledger\n' });
+  const entries = [
+    ...treeEntries(root, revision, capturedRun),
+    { path: 'README.md', mode: '100644', type: 'blob', oid: foreignBlob },
+  ];
+
+  assert.throws(
+    () =>
+      commitMergedState(root, {
+        expectedRevision: revision,
+        otherRevision: other,
+        entries,
+        message: 'chore: reconcile',
+      }),
+    /invalid state path: README\.md/,
+  );
+  assert.equal(readStateRef(root), revision, 'the ref must not move');
+});
+
+test('20260811-151426 CR3: commitMergedState refuses a stale expectedRevision', () => {
+  const { root, revision } = seedStateRepo();
+  const other = commitTree(root, git(root, ['rev-parse', `${revision}^{tree}`]), {
+    parents: [revision],
+    message: 'chore: other side',
+  });
+  const entries = treeEntries(root, revision, capturedRun);
+  const moved = mutateState(
+    root,
+    { expectedRevision: revision, message: 'chore: local move' },
+    (s) => s.write('changes/20260811-000099-demo.md', changeText({ id: '20260811-000099' })),
+  );
+
+  assert.throws(
+    () =>
+      commitMergedState(root, {
+        expectedRevision: revision,
+        otherRevision: other,
+        entries,
+        message: 'chore: reconcile',
+      }),
+    LedgerConflictError,
+  );
+  assert.equal(readStateRef(root), moved.revision, 'the ref must stay where the winner left it');
 });
