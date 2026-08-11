@@ -89,20 +89,11 @@ function assertImplementationBranch(config, change, repoRoot, gitRun) {
   }
 }
 
-export function status(
-  id,
-  newStatus,
-  cwd = process.cwd(),
-  {
-    ownerHandle = defaultOwnerHandle,
-    checkoutBranch = defaultCheckoutBranch,
-    gitRun = defaultGitRun,
-    actor = 'human',
-    channel = 'viewer',
-  } = {},
-) {
-  const { config, repo, target, repoRoot, gitCwd, name } = locate(cwd, id);
-  const warnings = [];
+// The pre-text guards of `status`: which destinations this actor may ask for at
+// all, before any document is read. Each terminal or human-owned destination
+// names the command that owns it, so a caller that is not a human — `apply`'s
+// batch included — is told where the move actually belongs.
+export function assertStatusDestinationAllowed(config, newStatus, actor) {
   if (newStatus === 'discarded') {
     throw new Error(
       'to discard a change use `changeledger discard <id> "<reason>"` (a reason is required)',
@@ -119,111 +110,148 @@ export function status(
   if (!(config.statuses ?? []).includes(newStatus)) {
     throw new Error(`Invalid status "${newStatus}". Valid: ${(config.statuses ?? []).join(', ')}`);
   }
+}
+
+// The whole text transform of `status`, lifted out of its `mutateLedgerFile`
+// call so `apply` can run it against an accumulated candidate instead of a
+// stored document. `warnings` is the caller's array — the branch-drift warning
+// is collected, never thrown.
+export function statusMutation(
+  newStatus,
+  { config, repoRoot, gitCwd, name, warnings, actor = 'human', channel = 'viewer' },
+  {
+    ownerHandle = defaultOwnerHandle,
+    checkoutBranch = defaultCheckoutBranch,
+    gitRun = defaultGitRun,
+  } = {},
+) {
+  return (text) => {
+    const fm = parseChange(text).frontmatter;
+    if (fm.status === 'done' && newStatus === 'in-progress') {
+      throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
+    }
+    // Validate the move before any in-memory mutation, so an illegal transition
+    // leaves the file byte-for-byte unchanged. The review gate reads review_required
+    // from the change's type.
+    assertTransition(fm.status, newStatus, {
+      type: fm.type,
+      reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
+    });
+
+    // Enforceability guard (20260808-141944): the `branch` field is set once
+    // and never rewritten (20260805-052741), so a later move to another branch
+    // leaves it silently stale. Compare it against the real checkout on every
+    // transition and surface a non-blocking warning — never rewrite, never
+    // block: the move is legitimate, the invisibility is the defect. Only
+    // meaningful when both values are known; checkoutBranch() returns '' for
+    // detached HEAD, unborn branch or a failed subprocess, and there is
+    // nothing to compare against an unset field.
+    if (fm.branch) {
+      const actualBranch = checkoutBranch(gitCwd);
+      if (actualBranch && actualBranch !== fm.branch) {
+        warnings.push(
+          `change #${fm.id} records branch "${fm.branch}" but this checkout is on "${actualBranch}" — if the work moved, run: changeledger branch ${fm.id} ${actualBranch}`,
+        );
+      }
+    }
+
+    if (fm.status === 'approved' && newStatus === 'in-progress') {
+      assertImplementationBranch(config, fm, repoRoot, gitRun);
+    }
+    // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
+    // Validate the document as it still stands, before the status flip: readiness
+    // defects are errors only while the change is pre-review, so checking the
+    // post-flip text would silently exempt the very candidate under judgment.
+    if (newStatus === 'in-review') assertChangeTextValid(config, name, text);
+    // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
+    // shape as the in-review gate — validate the pre-flip text — but the severity
+    // has to be projected: a draft's readiness and coverage diagnostics are
+    // warnings precisely because it is a draft, so judging the text as it stands
+    // would exempt every defect the approval is supposed to catch. `approved` is
+    // reachable only from `draft`, so this is the single seat for the gate.
+    if (newStatus === 'approved') {
+      assertChangeTextValid(config, name, text, { asStatus: 'approved' });
+      // Emptiness of an active stage's body is a defect coverage checks alone
+      // cannot see — an empty Specification declares no criteria, so nothing
+      // references an unknown one and nothing goes uncovered (real incident:
+      // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
+      assertStagesNotEmpty(config, text);
+    }
+    text = setStatus(text, newStatus);
+    const detail =
+      actor === 'human' &&
+      channel === 'conversation' &&
+      fm.status === 'draft' &&
+      newStatus === 'approved'
+        ? 'human via conversation'
+        : undefined;
+    text = appendLogEvent(text, {
+      at: nowUtc(),
+      type: 'status',
+      from: fm.status,
+      to: newStatus,
+      detail,
+    });
+
+    // Work begins here: assign the owner from the local git identity unless one was
+    // set explicitly (see change 20260614-124047). Resolution runs only when it is
+    // actually needed — an assigned owner must never trigger the resolver's network
+    // call just to discard the result (20260729-144812).
+    if (newStatus === 'in-progress' && !fm.owner) {
+      const autoOwner = ownerHandle(gitCwd);
+      if (autoOwner) {
+        text = setOwner(text, autoOwner);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'owner',
+          owner: autoOwner,
+          automatic: true,
+        });
+      }
+    }
+
+    // Same pattern as owner above (20260805-052741): record the real branch of
+    // the checkout that starts the work, unless one is already set — manually
+    // or from a previous in-progress entry. Resolution runs only when needed.
+    if (newStatus === 'in-progress' && !fm.branch) {
+      const autoBranch = checkoutBranch(gitCwd);
+      if (autoBranch) {
+        text = setBranch(text, autoBranch);
+        text = appendLogEvent(text, {
+          at: nowUtc(),
+          type: 'branch',
+          branch: autoBranch,
+          automatic: true,
+        });
+      }
+    }
+    return text;
+  };
+}
+
+export function status(
+  id,
+  newStatus,
+  cwd = process.cwd(),
+  {
+    ownerHandle = defaultOwnerHandle,
+    checkoutBranch = defaultCheckoutBranch,
+    gitRun = defaultGitRun,
+    actor = 'human',
+    channel = 'viewer',
+  } = {},
+) {
+  const { config, repo, target, repoRoot, gitCwd, name } = locate(cwd, id);
+  const warnings = [];
+  assertStatusDestinationAllowed(config, newStatus, actor);
   mutateLedgerFile(
     repo,
     target,
-    (text) => {
-      const fm = parseChange(text).frontmatter;
-      if (fm.status === 'done' && newStatus === 'in-progress') {
-        throw new Error('to reopen a done change use `changeledger reopen <id> "<reason>"`');
-      }
-      // Validate the move before any in-memory mutation, so an illegal transition
-      // leaves the file byte-for-byte unchanged. The review gate reads review_required
-      // from the change's type.
-      assertTransition(fm.status, newStatus, {
-        type: fm.type,
-        reviewRequired: Boolean(config.types?.[fm.type]?.review_required),
-      });
-
-      // Enforceability guard (20260808-141944): the `branch` field is set once
-      // and never rewritten (20260805-052741), so a later move to another branch
-      // leaves it silently stale. Compare it against the real checkout on every
-      // transition and surface a non-blocking warning — never rewrite, never
-      // block: the move is legitimate, the invisibility is the defect. Only
-      // meaningful when both values are known; checkoutBranch() returns '' for
-      // detached HEAD, unborn branch or a failed subprocess, and there is
-      // nothing to compare against an unset field.
-      if (fm.branch) {
-        const actualBranch = checkoutBranch(gitCwd);
-        if (actualBranch && actualBranch !== fm.branch) {
-          warnings.push(
-            `change #${fm.id} records branch "${fm.branch}" but this checkout is on "${actualBranch}" — if the work moved, run: changeledger branch ${fm.id} ${actualBranch}`,
-          );
-        }
-      }
-
-      if (fm.status === 'approved' && newStatus === 'in-progress') {
-        assertImplementationBranch(config, fm, repoRoot, gitRun);
-      }
-      // Entering review asserts a reviewable candidate exists (20260722-124656 CR3).
-      // Validate the document as it still stands, before the status flip: readiness
-      // defects are errors only while the change is pre-review, so checking the
-      // post-flip text would silently exempt the very candidate under judgment.
-      if (newStatus === 'in-review') assertChangeTextValid(config, name, text);
-      // Leaving draft asserts a ready candidate exists (20260729-185200 CR1). Same
-      // shape as the in-review gate — validate the pre-flip text — but the severity
-      // has to be projected: a draft's readiness and coverage diagnostics are
-      // warnings precisely because it is a draft, so judging the text as it stands
-      // would exempt every defect the approval is supposed to catch. `approved` is
-      // reachable only from `draft`, so this is the single seat for the gate.
-      if (newStatus === 'approved') {
-        assertChangeTextValid(config, name, text, { asStatus: 'approved' });
-        // Emptiness of an active stage's body is a defect coverage checks alone
-        // cannot see — an empty Specification declares no criteria, so nothing
-        // references an unknown one and nothing goes uncovered (real incident:
-        // 20260810-181801). Transition-scoped on purpose; see assertStagesNotEmpty.
-        assertStagesNotEmpty(config, text);
-      }
-      text = setStatus(text, newStatus);
-      const detail =
-        actor === 'human' &&
-        channel === 'conversation' &&
-        fm.status === 'draft' &&
-        newStatus === 'approved'
-          ? 'human via conversation'
-          : undefined;
-      text = appendLogEvent(text, {
-        at: nowUtc(),
-        type: 'status',
-        from: fm.status,
-        to: newStatus,
-        detail,
-      });
-
-      // Work begins here: assign the owner from the local git identity unless one was
-      // set explicitly (see change 20260614-124047). Resolution runs only when it is
-      // actually needed — an assigned owner must never trigger the resolver's network
-      // call just to discard the result (20260729-144812).
-      if (newStatus === 'in-progress' && !fm.owner) {
-        const autoOwner = ownerHandle(gitCwd);
-        if (autoOwner) {
-          text = setOwner(text, autoOwner);
-          text = appendLogEvent(text, {
-            at: nowUtc(),
-            type: 'owner',
-            owner: autoOwner,
-            automatic: true,
-          });
-        }
-      }
-
-      // Same pattern as owner above (20260805-052741): record the real branch of
-      // the checkout that starts the work, unless one is already set — manually
-      // or from a previous in-progress entry. Resolution runs only when needed.
-      if (newStatus === 'in-progress' && !fm.branch) {
-        const autoBranch = checkoutBranch(gitCwd);
-        if (autoBranch) {
-          text = setBranch(text, autoBranch);
-          text = appendLogEvent(text, {
-            at: nowUtc(),
-            type: 'branch',
-            branch: autoBranch,
-            automatic: true,
-          });
-        }
-      }
-      return text;
-    },
+    statusMutation(
+      newStatus,
+      { config, repoRoot, gitCwd, name, warnings, actor, channel },
+      { ownerHandle, checkoutBranch, gitRun },
+    ),
     { message: `status: ${id} → ${newStatus}` },
   );
   return { file: target.file, warnings };
@@ -428,19 +456,22 @@ export function reopen(id, reason, cwd = process.cwd(), { actor = 'human' } = {}
   });
 }
 
+// Text transform of `owner`, lifted out for the same reason as
+// `statusMutation`: `apply` runs it against an accumulated candidate.
+export function ownerMutation(next) {
+  return (text) => {
+    text = setOwner(text, next);
+    return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
+  };
+}
+
 // name '-' clears the owner.
 export function owner(id, name, cwd = process.cwd()) {
   const { repo, target } = locate(cwd, id);
   const next = name === '-' ? null : name;
-  mutateLedgerFile(
-    repo,
-    target,
-    (text) => {
-      text = setOwner(text, next);
-      return appendLogEvent(text, { at: nowUtc(), type: 'owner', owner: next });
-    },
-    { message: `owner: ${id} ${next ?? '-'}` },
-  );
+  mutateLedgerFile(repo, target, ownerMutation(next), {
+    message: `owner: ${id} ${next ?? '-'}`,
+  });
   return target.file;
 }
 
@@ -590,29 +621,31 @@ function hasGraduationResolution(c) {
   return logBody.split('\n').some((line) => parseLogEvent(line)?.type === 'graduation');
 }
 
+// Text transform of `log` — see `statusMutation` for why it is a seat.
+export function logMutation(message) {
+  return (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message });
+}
+
 export function log(id, message, cwd = process.cwd()) {
   const { repo, target } = locate(cwd, id);
-  mutateLedgerFile(
-    repo,
-    target,
-    (text) => appendLogEvent(text, { at: nowUtc(), type: 'note', message }),
-    { message: `log: ${id}` },
-  );
+  mutateLedgerFile(repo, target, logMutation(message), { message: `log: ${id}` });
   return target.file;
+}
+
+// Text transform of `task` — see `statusMutation` for why it is a seat.
+export function taskMutation(action, n, reason) {
+  return (text) => {
+    if (action === 'done') return setTask(text, n, 'done', { iso: nowUtc() });
+    if (action === 'block') return setTask(text, n, 'blocked', { reason });
+    throw new Error(`Unknown task action "${action}" (use done|block)`);
+  };
 }
 
 export function task(id, action, n, reason, cwd = process.cwd()) {
   const { repo, target } = locate(cwd, id);
-  mutateLedgerFile(
-    repo,
-    target,
-    (text) => {
-      if (action === 'done') return setTask(text, n, 'done', { iso: nowUtc() });
-      if (action === 'block') return setTask(text, n, 'blocked', { reason });
-      throw new Error(`Unknown task action "${action}" (use done|block)`);
-    },
-    { message: `task: ${id} ${n} ${action}` },
-  );
+  mutateLedgerFile(repo, target, taskMutation(action, n, reason), {
+    message: `task: ${id} ${n} ${action}`,
+  });
   return target.file;
 }
 

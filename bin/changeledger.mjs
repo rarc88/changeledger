@@ -21,6 +21,7 @@ import {
 } from '../src/commands/agent.mjs';
 import { agentContext } from '../src/commands/agent-context.mjs';
 import { agentPrompt } from '../src/commands/agent-prompt.mjs';
+import { apply } from '../src/commands/apply.mjs';
 import { check } from '../src/commands/check.mjs';
 import { commit } from '../src/commands/commit.mjs';
 import { context } from '../src/commands/context.mjs';
@@ -47,7 +48,7 @@ const USAGE = `ChangeLedger (changeledger)
 Run \`changeledger context\` first in any repo unless a ChangeLedger delegation
 prompt identifies your role and tells you to run \`agent-context\` instead.
 
-  changeledger init | register | new | edit | view | check | fix | context | agent-context
+  changeledger init | register | new | edit | apply | view | check | fix | context | agent-context
   changeledger commit | status | approve | validation | discard | review | owner
   changeledger archive | log | task | list | show | search | graduate | config | release
   changeledger cutover | activate | import
@@ -259,6 +260,51 @@ program
     action((target, options) => {
       const { path: written, changed } = edit(target, { from: options.from });
       console.log(changed ? `Edited ${written}` : `Unchanged ${written} (byte-identical)`);
+    }),
+  );
+
+program
+  .command('apply')
+  .description('land a JSON manifest of documents and agent events as one journal entry')
+  .requiredOption('--from <file>', 'the manifest to apply ("-" reads stdin)')
+  .option('--dry-run', 'validate the whole manifest and write nothing, in either mode')
+  .addHelpText(
+    'after',
+    [
+      '',
+      'The manifest is a JSON array of entries applied IN ORDER against one',
+      'accumulated candidate, landing as exactly one commit — or, if any entry is',
+      'invalid, as nothing at all. A document entry is',
+      '{"target": "new"|"change:<id>"|"spec:<slug>", "content": "<full markdown>"}',
+      'and runs every guard `new --from`/`edit` run, byte-identical included; a',
+      '`new` entry may add "slug" to name the file (derived from the title if absent).',
+      'An event entry is {"op": "status"|"log"|"task"|"owner", "id": "<id>", ...} and',
+      "runs its own command's validations. `approve`, `validation`, `review` and",
+      '`discard` stay individual commands and are refused here by name.',
+      '',
+      'Examples:',
+      '  changeledger apply --from batch.json --dry-run',
+      '  changeledger apply --from batch.json',
+      '  changeledger apply --from -',
+    ].join('\n'),
+  )
+  .action(
+    action((options) => {
+      const result = apply({ from: options.from, dryRun: Boolean(options.dryRun) });
+      for (const w of result.warnings) console.warn(`  warn   ${w.file}: ${w.message}`);
+      for (const e of result.errors) console.error(`  error  ${e.file}: ${e.message}`);
+      for (const w of result.statusWarnings) console.warn(`  warn   ${w}`);
+      if (result.dryRun) {
+        console.log(
+          `Dry run: ${result.changed.length} document(s) would change — ${result.message}`,
+        );
+        return;
+      }
+      console.log(
+        result.changed.length
+          ? `Applied ${result.changed.length} document(s): ${result.changed.join(', ')}`
+          : 'Unchanged (the manifest lands nothing new)',
+      );
     }),
   );
 

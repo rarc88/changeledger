@@ -157,14 +157,33 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
     throw new Error(`the incoming document does not parse — ${e.message}`);
   }
   const fm = parsed.frontmatter ?? {};
-  const id = String(fm.id ?? '');
-  const created = String(fm.created ?? '');
   if (fm.type !== type) {
     throw new Error(`the incoming document declares type "${fm.type}", not "${type}"`);
   }
   if (fm.title !== title) {
     throw new Error(`the incoming document declares title "${fm.title}", not "${title}"`);
   }
+
+  const prepared = prepareNewChange(repo, text, { slug, parsed });
+  if (prepared.file) fs.mkdirSync(path.dirname(prepared.file), { recursive: true });
+  writeLedgerFiles(repo, [{ relPath: prepared.relPath, file: prepared.file, text }], {
+    message: prepared.message,
+  });
+  return repo.state ? prepared.relPath : prepared.file;
+}
+
+// Every guard creation runs on an already composed document, plus the address
+// the write needs, and no write at all. `newChangeFrom` is this seat followed
+// by the one write; `apply` runs the same seat against its accumulated
+// candidate repo, so a batch inherits creation policy instead of copying it.
+// The document is the authority for its own frontmatter, so `slug` is the only
+// thing the caller still supplies — it names the file, not the content.
+export function prepareNewChange(repo, text, { slug, parsed } = {}) {
+  const document = parsed ?? parseChange(text);
+  const fm = document.frontmatter ?? {};
+  const id = String(fm.id ?? '');
+  const created = String(fm.created ?? '');
+  requireType(repo.config, fm.type);
   if (fm.status !== 'draft') {
     throw new Error(
       `a new change starts in "draft"; the incoming document declares "${fm.status}" — move it with \`changeledger status\` after it lands`,
@@ -182,7 +201,7 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
   const file = repo.state
     ? null
     : path.join(resolveRepoPath(repo.repoRoot, repo.config.changes_dir, 'changes_dir'), name);
-  const candidate = { file, name, text, ...parsed };
+  const candidate = { file, name, text, ...document };
   const { errors } = checkSelectedChange({ ...repo, changes: [...repo.changes, candidate] }, id);
   if (errors.length) {
     throw new Error(
@@ -192,9 +211,7 @@ export function newChangeFrom({ type, slug, title, from }, cwd = process.cwd()) 
     );
   }
 
-  if (file) fs.mkdirSync(path.dirname(file), { recursive: true });
-  writeLedgerFiles(repo, [{ relPath, file, text }], { message: `new: ${id}` });
-  return repo.state ? relPath : file;
+  return { id, name, relPath, file, text, message: `new: ${id}` };
 }
 
 function idTakenInRepo(repo, id) {

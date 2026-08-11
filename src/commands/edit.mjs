@@ -73,6 +73,14 @@ export function edit(target, { from } = {}, cwd = process.cwd()) {
 }
 
 function editChange(repo, id, incoming) {
+  return land(repo, prepareChangeEdit(repo, id, incoming));
+}
+
+// Every guard `edit` runs on a change, plus the address the write needs, and no
+// write at all. Split out so `apply` can run the SAME guards against its
+// accumulated candidate repo instead of growing a second copy of this policy;
+// `editChange` above is now exactly this seat followed by the one write.
+export function prepareChangeEdit(repo, id, incoming) {
   const current = resolveChangeInRepo(repo, id);
   const parsed = parseIncoming(id, incoming, parseChange);
   assertFields(id, current.frontmatter ?? {}, parsed.frontmatter ?? {}, {
@@ -85,16 +93,23 @@ function editChange(repo, id, incoming) {
   // siblings can falsify is caught before the write, not after it.
   assertClean(id, checkSelectedChange(repo, id, incoming).errors);
 
-  return land(repo, {
+  return {
+    name: current.name,
     relPath: `changes/${current.name}`,
     file: current.file,
     currentText: current.text,
     incoming,
     message: `edit: ${id}`,
-  });
+  };
 }
 
 function editSpec(repo, slug, incoming) {
+  return land(repo, prepareSpecEdit(repo, slug, incoming));
+}
+
+// Spec-shaped sibling of `prepareChangeEdit`, same contract: all the guards,
+// none of the write.
+export function prepareSpecEdit(repo, slug, incoming) {
   const subject = `${SPEC_PREFIX}${slug}`;
   const name = slug.endsWith('.md') ? slug : `${slug}.md`;
   const index = repo.specs.findIndex((s) => s.name === name);
@@ -117,7 +132,9 @@ function editSpec(repo, slug, incoming) {
   const errors = checkRepo({ ...repo, specs }).errors.filter((e) => e.file === name);
   assertClean(subject, errors);
 
-  return land(repo, {
+  return {
+    name,
+    parsed,
     relPath: `specs/${name}`,
     file: current.file,
     // `repo.specs` carries only the parsed frontmatter/body, so the raw text an
@@ -129,7 +146,7 @@ function editSpec(repo, slug, incoming) {
       : undefined,
     incoming,
     message: `edit: spec ${name}`,
-  });
+  };
 }
 
 // The one write. Byte-identical input returns `undefined` from the mutator,
