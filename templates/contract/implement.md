@@ -57,6 +57,9 @@ Useful mutation commands:
 - `changeledger edit <change-id|spec:slug> --from <file|->` — replaces the whole
   document (content only, never lifecycle fields); the sole body-write path in
   an activated repo
+- `changeledger apply --from <file|-> [--dry-run]` — lands one JSON manifest of
+  whole documents and agent-owned events as a single journal entry, all or
+  nothing; compose against `--dry-run` until clean, then land once
 - `changeledger review <id> pass|fail`
 - `changeledger check [id]`
 - `changeledger commit -m "<type>(<scope>): <desc>" [--id <id>]...`
