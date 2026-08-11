@@ -146,11 +146,12 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
 
 ## Plan
 
-- [ ] Parser y validación del manifiesto: envelope, targets, ops permitidas
+- [x] Parser y validación del manifiesto: envelope, targets, ops permitidas
   y rechazo de ops del humano
   - **Target:** `src/commands/apply.mjs`, `bin/changeledger.mjs`
   - **Verify:** `node --test test/apply.test.mjs`
   - **Criteria:** CR2, CR4
+  - **Resolved:** `2026-08-11T11:29:17Z`
 - [ ] Aterrizaje atómico: candidato acumulado en orden, `writeLedgerFiles`,
   idempotencia
   - **Target:** `src/commands/apply.mjs`, `src/change-store.mjs`
