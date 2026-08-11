@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T16:32:04Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260811-163204
 related_to: ["20260811-151426"]
@@ -29,3 +30,4 @@ decirlo), sin resolver ningún remoto ni ejecutar red.
 - **2026-08-11T16:55:14Z** `[status]` in-progress → in-validation
 - **2026-08-11T17:51:22Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T17:51:54Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T17:51:56Z** `[archive]` archived

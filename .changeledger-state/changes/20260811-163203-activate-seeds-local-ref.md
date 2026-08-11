@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-11T16:32:03Z
 depends_on: []
+archived: true
 reviewed: true
 branch: quick/20260811-163203
 related_to: ["20260811-151426"]
@@ -34,3 +35,4 @@ ref jamás (un repo sin activar se queda como está): el flujo del clon es
 - **2026-08-11T16:36:18Z** `[status]` in-progress → in-validation
 - **2026-08-11T17:51:21Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T17:51:54Z** `[graduation]` spec: `architecture.md`
+- **2026-08-11T17:51:56Z** `[archive]` archived
