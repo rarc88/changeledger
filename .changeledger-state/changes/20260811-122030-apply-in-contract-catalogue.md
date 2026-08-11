@@ -28,3 +28,4 @@ devolver al humano, nunca vaciar otra norma para cuadrar.
 - **2026-08-11T12:21:30Z** `[note]` Arrancado con un solo apply (status+log): la entrada de journal del arranque es una, no tres — walk de CR8 de 20260811-110629
 - **2026-08-11T12:23:00Z** `[status]` in-progress → in-validation
 - **2026-08-11T12:24:29Z** `[status]` in-validation → in-progress
+- **2026-08-11T13:01:10Z** `[note]` Decisión humana (2026-08-11): el pack implement estaba a 2489/2500 con 11 tokens de margen y spec igual de al límite — techos de spec e implement subidos a 3000 tokens en budgets.yml (lines intactos), manteniendo la disciplina: el margen no es licencia para gastarlo, cada entrada sigue optimizada. La entrada de apply se conserva completa (57 tokens)
