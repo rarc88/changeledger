@@ -2,7 +2,7 @@
 id: "20260811-151427"
 title: Puntos estratégicos y protocolo de conflicto del sync en el contrato
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-11T15:14:27Z
 depends_on: []
 branch: quick/20260811-151427
@@ -31,3 +31,4 @@ disciplina vigente; si no cabe, parar y devolver al humano.
 - **2026-08-11T16:11:18Z** `[status]` approved → in-progress
 - **2026-08-11T16:11:18Z** `[branch]` set: quick/20260811-151427 (auto)
 - **2026-08-11T16:15:57Z** `[note]` Obligación completa en un bloque propio de core (## Synchronizing the global state, core a 3000/4000 tras la edición): puntos estratégicos, protocolo de conflicto, nunca-bloqueante y activación manual por clon; catálogo de implement gana la línea de sync; obligaciones guardadas como entrada 15 del concept guard (vista fallar antes de la prosa — dos veces: la segunda porque mi gap no cruza oraciones, corregido poniendo sync en la frase de los puntos); pin estructural de core retargeteado a doce bloques
+- **2026-08-11T16:15:57Z** `[status]` in-progress → in-validation
