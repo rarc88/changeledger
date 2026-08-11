@@ -2,9 +2,10 @@
 id: "20260811-151427"
 title: Puntos estratégicos y protocolo de conflicto del sync en el contrato
 type: quick
-status: approved
+status: in-progress
 created: 2026-08-11T15:14:27Z
 depends_on: []
+branch: quick/20260811-151427
 related_to: []
 owner: rarc88
 ---
@@ -27,3 +28,5 @@ disciplina vigente; si no cabe, parar y devolver al humano.
 
 ## Log
 - **2026-08-11T15:20:10Z** `[status]` draft → approved (human via conversation)
+- **2026-08-11T16:11:18Z** `[status]` approved → in-progress
+- **2026-08-11T16:11:18Z** `[branch]` set: quick/20260811-151427 (auto)
