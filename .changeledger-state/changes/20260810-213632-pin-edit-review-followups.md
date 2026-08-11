@@ -2,7 +2,7 @@
 id: "20260810-213632"
 title: Pinear los follow-ups de test del review de la costura de autoría
 type: quick
-status: in-validation
+status: done
 created: 2026-08-10T21:36:32Z
 depends_on: []
 branch: quick/20260810-213632
@@ -33,3 +33,4 @@ conflicto vive mejor ahí); cada pin con su mutante aislado.
 - **2026-08-10T21:49:36Z** `[owner]` set: claude
 - **2026-08-10T21:58:09Z** `[note]` Pins añadidos en test/edit.test.mjs: CR3 ahora cubre archived/reviewed como owned fields; CR8 conduce un conflicto CAS real (git shim en PATH) a través de newChangeFrom, sin retry ni escritura parcial. Producción sin cambios (git diff -- src/ vacío en ambos mutantes).
 - **2026-08-10T21:59:53Z** `[status]` in-progress → in-validation
+- **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
