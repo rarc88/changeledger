@@ -2,7 +2,7 @@
 id: "20260811-151427"
 title: Puntos estratégicos y protocolo de conflicto del sync en el contrato
 type: quick
-status: draft
+status: approved
 created: 2026-08-11T15:14:27Z
 depends_on: []
 related_to: []
@@ -26,3 +26,4 @@ no-op y el contrato lo dice. Respetar los techos de `budgets.yml` con la
 disciplina vigente; si no cabe, parar y devolver al humano.
 
 ## Log
+- **2026-08-11T15:20:10Z** `[status]` draft → approved (human via conversation)
