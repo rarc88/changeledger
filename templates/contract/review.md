@@ -50,6 +50,12 @@ correction; then correction, tests and ledger form a commit. Retry keeps the dif
 isolated. A confirmation review fails only for the named defect left open or a
 regression the correction introduced; anything latent or adjacent it finds is
 reported as a follow-up for the orchestrator to judge, not grounds to fail it.
+The correction cycle is bounded: at the third round on the same change, stop
+and return the choice between re-scoping and follow-up work to the human — the
+change's Log already counts the rounds. An adversarial probe that presupposes
+an actor the tool trusts by design — whoever can already commit to the
+repository, INTENT.md's trust model — is reported as an observation measured
+against that model, never recorded as a defect.
 
 After `fail --retry`, the correction remains uncommitted until another fresh
 reviewer passes it. After the transition, run `changeledger context <id>` before

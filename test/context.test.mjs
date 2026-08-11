@@ -3028,7 +3028,7 @@ test('162015 CR3/CR4: delegation.md points at the unit instead of redefining it'
 //
 // The phrase-level pins over `templates/contract/` prose are retired: every one of
 // them charged a retarget, a mutant and review scrutiny to each rewrite of a
-// sentence, and that cost is what the decision removes. Thirteen carrier obligations
+// sentence, and that cost is what the decision removes. Fourteen carrier obligations
 // keep a guard anyway, because losing one in silence is a different failure class
 // from rewording one (finding 38: normative prose lost with nothing noticing, three
 // times, exploit proven live).
@@ -3302,6 +3302,23 @@ const CONCEPT_GUARDS = [
         close,
         /\bCR\b.{0,50}\b(headings?|identifiers?)\b.{0,120}\b(never|not|must not|do not)\b.{0,50}\bspecs?\b|\b(never|not|must not|do not)\b.{0,50}\bCR\b.{0,50}\b(headings?|identifiers?)\b/i,
         'the close fragment no longer excludes change-local CR structure from specs',
+      );
+    },
+  },
+  {
+    entry: 14,
+    obligation:
+      'the correction cycle returns to the human at the third round, and adversarial probes are measured against the trust model',
+    verify: (pack) => {
+      assert.match(
+        pack('review'),
+        /\bthird\b[^.;]{0,40}\bround\b[^.;]{0,110}\bhuman\b|\bhuman\b[^.;]{0,110}\bthird\b[^.;]{0,40}\bround\b/i,
+        'review no longer bounds the correction cycle at the third round',
+      );
+      assert.match(
+        pack('review'),
+        /\b(probes?|adversar\w+)\b[^.;]{0,140}\b(trust model|INTENT)\b/i,
+        'review no longer measures adversarial probes against the trust model',
       );
     },
   },
