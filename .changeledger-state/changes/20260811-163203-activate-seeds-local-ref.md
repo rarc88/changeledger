@@ -2,7 +2,7 @@
 id: "20260811-163203"
 title: activate siembra la ref local desde la copia remote-tracking
 type: quick
-status: in-progress
+status: in-validation
 created: 2026-08-11T16:32:03Z
 depends_on: []
 branch: quick/20260811-163203
@@ -30,3 +30,4 @@ ref jamás (un repo sin activar se queda como está): el flujo del clon es
 - **2026-08-11T16:32:52Z** `[status]` approved → in-progress
 - **2026-08-11T16:32:52Z** `[branch]` set: quick/20260811-163203 (auto)
 - **2026-08-11T16:36:17Z** `[note]` seedStateRef en el store (CAS create contra ausencia, readSnapshot ANTES de crear la ref — mutante del orden matado por el test del árbol inválido); activate siembra desde refs/remotes/<remote>/changeledger/state con resolveRemote exportado de sync; sin copia tracking, el error accionable original intacto. 3 tests, vistos fallar primero
+- **2026-08-11T16:36:18Z** `[status]` in-progress → in-validation
