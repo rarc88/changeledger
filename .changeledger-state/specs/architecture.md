@@ -263,6 +263,20 @@ costura lo fijó el humano: el journal es permanente, así que una entrada es
 un evento con significado y un documento aterriza completo — nunca estados
 intermedios.
 
+El mismo principio a escala de lote (`20260811-110629`):
+`changeledger apply --from <file|-> [--dry-run]` aterriza un manifiesto
+JSON — documentos enteros (`new`/`change:<id>`/`spec:<slug>`) y eventos
+propiedad del agente (`status`/`log`/`task`/`owner`) — como UNA entrada de
+journal, todo-o-nada, aplicando por entrada exactamente las guardas de
+`edit`/`new` y de cada comando individual. Las transiciones del humano
+(`approve`, `validation`, `discard`) se rechazan en el manifiesto: nunca
+viajan en un lote. Las entradas se aplican en orden sobre un candidato
+acumulado; un efecto neto vacío es no-op sin commit. `--dry-run` valida el
+manifiesto completo — errores y warnings de `check` sobre el candidato — sin
+escribir nada y falla con exit distinto de cero si el candidato lleva
+errores, de modo que componer→dry-run→corregir itera en local y el journal
+recibe una entrada ya limpia.
+
 ## Adopción del estado global
 
 La adopción (`20260809-113240`) entra por dos comandos sobre las primitivas del
