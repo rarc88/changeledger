@@ -405,8 +405,13 @@ export function mutateState(
   }
 
   const commit = commitTree(repoRoot, candidateTree, { parents: [expectedRevision], message }, run);
+  // The store's one invariant, same order as advanceStateRef/commitMergedState/
+  // seedStateRef: the result is read in full BEFORE the ref moves, so a
+  // mutation that produced an unreadable snapshot never becomes the ledger —
+  // the unreferenced commit is garbage, a moved ref would be a broken repo.
+  const snapshot = readSnapshot(repoRoot, { revision: commit }, run);
   advanceOrConflict(commit);
-  return readSnapshot(repoRoot, { revision: commit }, run);
+  return snapshot;
 }
 
 // Fast-forwards the state ref from `expectedRevision` onto `revision` — the

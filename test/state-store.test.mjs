@@ -796,3 +796,24 @@ test('20260811-151426 CR3: commitMergedState refuses a stale expectedRevision', 
   );
   assert.equal(readStateRef(root), moved.revision, 'the ref must stay where the winner left it');
 });
+
+// 20260811-163205 — the store's one invariant, applied to its last seat: the
+// ref never points at a revision no reader can load. `mutateState` validated
+// the resulting snapshot AFTER the CAS; locally authored content made that
+// low-risk, but a mutator that writes an unreadable manifest still bricked
+// the ref before this pin.
+test('20260811-163205: a mutation whose result is unreadable leaves the ref where it was', () => {
+  const root = initStateRepo();
+  const { revision: before } = initState(root, { projectId: 'demo' });
+
+  assert.throws(
+    () =>
+      mutateState(
+        root,
+        { expectedRevision: before, message: 'chore: poison the manifest' },
+        (stage) => stage.write('manifest.yml', 'format_version: 99\nproject_id: "demo"\n'),
+      ),
+    /format_version/,
+  );
+  assert.equal(git(root, ['rev-parse', STATE_REF]), before, 'the ref must not move');
+});
