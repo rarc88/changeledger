@@ -2,7 +2,7 @@
 id: "20260811-110629"
 title: Aterrizar lotes de documentos y eventos en una entrada
 type: feature
-status: draft
+status: approved
 created: 2026-08-11T11:06:29Z
 depends_on: []
 related_to: ["20260810-182641"]
@@ -165,3 +165,4 @@ manifiesto con una entrada corrupta (nada aterriza); lote en repo inactivo.
   - **Criteria:** CR8
 
 ## Log
+- **2026-08-11T11:12:37Z** `[status]` draft → approved (human via conversation)
