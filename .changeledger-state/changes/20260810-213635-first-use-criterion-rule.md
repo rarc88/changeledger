@@ -5,6 +5,7 @@ type: quick
 status: done
 created: 2026-08-10T21:36:35Z
 depends_on: []
+reviewed: true
 branch: quick/20260810-213635
 related_to: ["20260810-182641"]
 owner: claude
@@ -33,3 +34,4 @@ con la misma disciplina: si no cabe, volver al humano.
 - **2026-08-10T21:48:28Z** `[note]` Regla añadida al bloque de criterios de spec.md. Primera redacción excedió el techo por 6 tokens (2506/2500, cazado por 225213 CR6 y 6 cascadas); recortada la frase de rationale de la PROPIA adición — la normativa existente intacta. Gate 1396/1396. Sin concept guard nuevo: la obligación queda barrida por los budgets y su redacción es tolerante
 - **2026-08-10T21:48:28Z** `[status]` in-progress → in-validation
 - **2026-08-11T00:35:22Z** `[validation]` in-validation → done (human accepted via conversation)
+- **2026-08-11T00:36:11Z** `[graduation]` skipped: la verdad duradera es el propio fragmento versionado templates/contract/spec.md
