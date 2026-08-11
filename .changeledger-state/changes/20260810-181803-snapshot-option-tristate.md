@@ -9,7 +9,7 @@ archived: true
 reviewed: true
 branch: quick/20260810-181803
 related_to: ["20260809-194235", "20260810-010554"]
-owner: claude
+owner: rarc88
 ---
 
 ## Request
@@ -37,3 +37,4 @@ este change con esa razón.
 - **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:35:54Z** `[graduation]` spec: `architecture.md`
 - **2026-08-11T00:36:12Z** `[archive]` archived
+- **2026-08-11T11:57:28Z** `[owner]` set: rarc88

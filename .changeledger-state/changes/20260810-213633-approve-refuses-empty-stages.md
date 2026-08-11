@@ -9,7 +9,7 @@ archived: true
 reviewed: true
 branch: quick/20260810-213633
 related_to: ["20260810-181801"]
-owner: claude
+owner: rarc88
 ---
 
 ## Request
@@ -38,3 +38,4 @@ debería rechazarse igual — verificar y pinear ese borde de paso.
 - **2026-08-11T00:35:21Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:10Z** `[graduation]` skipped: la verdad normativa del gate vive en el flujo de aprobación de INTENT.md y el asiento status() ya documentado; sin spec afectada
 - **2026-08-11T00:36:12Z** `[archive]` archived
+- **2026-08-11T11:57:28Z** `[owner]` set: rarc88

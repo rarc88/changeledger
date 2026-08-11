@@ -9,7 +9,7 @@ archived: true
 reviewed: true
 branch: quick/20260810-213632
 related_to: ["20260810-182641"]
-owner: claude
+owner: rarc88
 ---
 
 ## Request
@@ -38,3 +38,4 @@ conflicto vive mejor ahí); cada pin con su mutante aislado.
 - **2026-08-11T00:35:20Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:36:10Z** `[graduation]` skipped: test-only: pins de guardas ya documentadas por la graduación de 182641
 - **2026-08-11T00:36:12Z** `[archive]` archived
+- **2026-08-11T11:57:28Z** `[owner]` set: rarc88

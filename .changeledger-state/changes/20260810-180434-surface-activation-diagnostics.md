@@ -9,7 +9,7 @@ archived: true
 reviewed: true
 branch: quick/20260810-180434
 related_to: ["20260810-120457"]
-owner: claude
+owner: rarc88
 ---
 
 ## Request
@@ -41,3 +41,4 @@ nueva ni verdad persistente.
 - **2026-08-11T00:35:19Z** `[validation]` in-validation → done (human accepted via conversation)
 - **2026-08-11T00:35:55Z** `[graduation]` spec: `architecture.md`
 - **2026-08-11T00:36:12Z** `[archive]` archived
+- **2026-08-11T11:57:28Z** `[owner]` set: rarc88
